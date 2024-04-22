@@ -1,0 +1,38 @@
+#navbar {
+  height: 100%;
+  width: 50px;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: #111;
+  overflow-x: hidden;
+  transition: 0.5s;
+  padding-top: 60px;
+}
+
+  #navbar div {
+    width: 45px;
+    height: 45px;
+    text-align: center;
+  }
+
+.navLink {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: black;
+  border: 1px solid red;
+  border-radius: 3px;
+  font-size: 45px;
+  line-height: 45px;
+  transition: 0.3s;
+}
+
+  .navLink:hover {
+    color: red;
+  }
+
+.isOpen {
+  width: 150px !important;
+}

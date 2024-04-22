@@ -1,0 +1,21 @@
+@maxhanna.Server_HostAddress = https://localhost:7299
+
+GET {{maxhanna.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+GET {{maxhanna.Server_HostAddress}}/calendar/
+Accept: application/json
+
+###
+
+POST {{maxhanna.Server_HostAddress}}/calendar/
+Accept: application/json
+
+###
+
+DELETE {{maxhanna.Server_HostAddress}}/calendar/
+Accept: application/json
+
+###

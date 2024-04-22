@@ -1,0 +1,8 @@
+<div #navbar
+     id="navbar"
+     (click)="toggleMenu();"
+     class="isClosed">
+  <div *ngFor="let title of titles | keyvalue">
+    <a class="navLink" (click)="goTo($event)" title={{title.value}}>{{title.key}}</a>
+  </div>
+</div>

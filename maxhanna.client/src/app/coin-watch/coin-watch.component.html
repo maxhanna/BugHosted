@@ -1,0 +1,6 @@
+<div class=componentMain>
+  <div class="closeButton" (click)="remove_me();"></div>
+  <div *ngFor="let item of data">
+    <p>{{ item["name"] }}{{item["symbol"] != undefined && item["symbol"].trim() != "" ? "(" + item["symbol"] + ")" : ""}} = {{ item["rate"]?.toFixed(2) }}$</p>
+  </div>
+</div>
