@@ -1,4 +1,41 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
-  <p>mining works!</p>
+  <table class="table" id="deviceRigTable">
+    <thead>
+      <tr>
+        <th (click)="sortTable(0, 'deviceRigTable')">Rig Name</th>
+        <th (click)="sortTable(1, 'deviceRigTable')">Device Name</th>
+        <th (click)="sortTable(2, 'deviceRigTable')">Temperature</th>
+        <th (click)="sortTable(3, 'deviceRigTable')">State</th>
+        <th (click)="sortTable(4, 'deviceRigTable')">Speed</th>
+        <th (click)="sortTable(5, 'deviceRigTable')">Fan Speed</th>
+        <th (click)="sortTable(6, 'deviceRigTable')">Power</th>
+        <th (click)="sortTable(7, 'deviceRigTable')">Core Clock</th>
+        <th (click)="sortTable(8, 'deviceRigTable')">Memory Clock</th>
+        <th (click)="sortTable(9, 'deviceRigTable')">Core Voltage</th>
+        <th (click)="sortTable(10, 'deviceRigTable')">Power Limit (%)</th>
+        <th (click)="sortTable(11, 'deviceRigTable')">Power Limit (W)</th>
+        <th (click)="sortTable(12, 'deviceRigTable')">Miner</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let device of miningRigDevices">
+        <td>{{ device.rigName }}</td>
+        <td>{{ device.deviceName }}</td>
+        <td>{{ device.temperature }}</td>
+        <td>{{ device.state }}</td>
+        <td>{{ device.speed }}</td>
+        <td>{{ device.fanSpeed }}</td>
+        <td>{{ device.power }}</td>
+        <td>{{ device.coreClock }}</td>
+        <td>{{ device.memoryClock }}</td>
+        <td>{{ device.coreVoltage }}</td>
+        <td>{{ device.powerLimitPercentage }}</td>
+        <td>{{ device.powerLimitWatts }}</td>
+        <td>{{ device.miner }}</td>
+        <td><div class="start"></div></td>
+      </tr>
+    </tbody>
+  </table>
 </div>

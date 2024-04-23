@@ -9,11 +9,12 @@ import { AppComponent } from '../app.component';
 export class NavigationComponent {
   @ViewChild('navbar') navbar!: ElementRef<HTMLElement>;
   titles = new Map([
-    ["✮", "Task"],
-    ["$", "Coin-Watch"],
+    ["📅", "Calendar"],
+    ["📈", "Coin-Watch"],
     ["F", "Favourites"],
-    ["W", "Weather"],
-    ["M", "Mining"]
+    ["☀️", "Weather"],
+    ["⛏️", "Mining"],
+    ["📁", "Files"]
   ]);
 
   constructor(private _parent: AppComponent) {

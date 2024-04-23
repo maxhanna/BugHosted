@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { HttpClient } from '@angular/common/http';
+import { lastValueFrom } from 'rxjs';
 
 interface WeatherForecast {
   date: string;
@@ -23,13 +24,6 @@ export class WeatherComponent extends ChildComponent implements OnInit {
   }
 
   getForecasts() {
-    this.http.get<WeatherForecast[]>('/weatherforecast').subscribe(
-      (result) => {
-        this.forecasts = result;
-      },
-      (error) => {
-        console.error(error);
-      }
-    );
+    var res = lastValueFrom(this.http.get<WeatherForecast[]>('/weatherforecast')).then(res => this.forecasts = res);
   } 
 }

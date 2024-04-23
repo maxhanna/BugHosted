@@ -1,0 +1,96 @@
+
+.deviceTable {
+  display: inline-block;
+  vertical-align: top;
+  margin-left: 12px;
+  margin-right: 12px;
+  margin-bottom: 12px;
+  color: var(--secondary-font-color);
+  font-family: Arial, Helvetica, sans-serif;
+  border-collapse: collapse;
+  max-height: 700px !important;
+  overflow-y: auto;
+  border: var(--main-border);
+  border-radius: 5px;
+}
+
+  .deviceTable td,
+  .deviceTable th {
+    border: 0.2px solid var(--main-bg-color);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+
+    .deviceTable td::before,
+    .deviceTable th::before {
+      display: block;
+      content: attr(title);
+      font-weight: bold;
+      height: 0;
+      overflow: hidden;
+      visibility: hidden;
+    }
+
+    .deviceTable td:nth-child(n+6),
+    .deviceTable th:nth-child(n+6) {
+      max-width: 45px;
+    }
+
+  .deviceTable tr:nth-child(even) {
+    background-color: var(--main-bg-color);
+  }
+
+  .deviceTable td:first-child {
+    color: var(--main-font-color);
+  }
+
+  .deviceTable td:nth-child(2) {
+    color: var(--main-font-color);
+  }
+
+  .deviceTable tr:hover {
+    background-color: var(--secondary-font-color);
+    color: black;
+    text-shadow: 0 0 5px royalblue;
+    font-weight: bolder;
+  }
+
+  .deviceTable th {
+    border-collapse: collapse;
+    text-align: left;
+    background-color: var(--table-thead-color);
+    color: var(--main-font-color);
+    position: sticky;
+    top: -3px;
+    font-weight: bold;
+    text-shadow: 0 0 3px #7bac10, 0 0 5px black;
+  }
+
+.stop, .start {
+  height: 27px;
+  width: 27px;
+  border-radius: 50%;
+  border: 3px ridge var(--main-font-color);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.deviceTable .start {
+  background-color: red;
+  cursor: pointer;
+}
+
+.deviceTable .stop {
+  background-color: var(--main-bg-color);
+  cursor: pointer;
+}
+
+.start:hover {
+  background-color: var(--main-font-color);
+}
+
+.stop:hover {
+  background-color: red;
+}

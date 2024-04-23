@@ -6,11 +6,11 @@ import { CalendarEntry } from '../calendar-entry';
 import { lastValueFrom } from 'rxjs';
 
 @Component({
-  selector: 'app-task',
-  templateUrl: './task.component.html',
-  styleUrl: './task.component.css'
+  selector: 'app-calendar',
+  templateUrl: './calendar.component.html',
+  styleUrl: './calendar.component.css'
 })
-export class TaskComponent extends ChildComponent {
+export class CalendarComponent extends ChildComponent {
   @ViewChild('monthBack') monthBack!: ElementRef<HTMLElement>;
   @ViewChild('monthForward') monthForward!: ElementRef<HTMLElement>;
   @ViewChild('yearBack') yearBack!: ElementRef<HTMLElement>;
@@ -66,6 +66,7 @@ export class TaskComponent extends ChildComponent {
     if (!(this.month && this.year && this.yearBack && this.monthBack && this.monthForward && this.yearForward))
     {
       await this.getCalendar();
+      return;
     }
     this.month.nativeElement.innerText = this.getMonthName(now);
     this.year.nativeElement.innerText = now.getFullYear() + "";
@@ -94,7 +95,8 @@ export class TaskComponent extends ChildComponent {
     var tmpNow = new Date(now);
 
     const numberOfDaysInMonth = this.daysInMonth(tmpNow.getMonth() + 1, tmpNow.getFullYear());
-    let dayCount = 0; 
+    let dayCount = 0;
+    console.log("calendar entries: " + this.calendarEntries.length);
     for (let x = 0; x < this.dayCells.length; x++) {
       if (now.getDay() <= x && ++dayCount <= numberOfDaysInMonth) {
         var symbols = new Array<string>();
@@ -126,11 +128,7 @@ export class TaskComponent extends ChildComponent {
       .set('endDate', endOfMonth.toISOString());
 
     try {
-      const result = await this.http.get<CalendarEntry[]>('/calendar', { params }).toPromise();
-      if (result) {
-        this.calendarEntries = result;
-        console.log(this.calendarEntries);
-      }
+      await lastValueFrom(this.http.get<CalendarEntry[]>('/calendar', { params })).then(res => this.calendarEntries = res);
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }

@@ -1,10 +1,10 @@
-import { HttpClient } from '@angular/common/http';
 import { Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
-import { TaskComponent } from './task/task.component';
+import { CalendarComponent } from './calendar/calendar.component';
 import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
 import { MiningComponent } from './mining/mining.component';
+import { FilesComponent } from './files/files.component';
 
 
 @Component({
@@ -30,14 +30,17 @@ export class AppComponent {
       else if (componentType == "Coin-Watch") {
         componentClass = CoinWatchComponent;
       }
-      else if (componentType == "Task") {
-        componentClass = TaskComponent;
+      else if (componentType == "Calendar") {
+        componentClass = CalendarComponent;
       }
       else if (componentType == "Weather") {
         componentClass = WeatherComponent;
       }
       else if (componentType == "Mining") {
         componentClass = MiningComponent;
+      }
+      else if (componentType == "Files") {
+        componentClass = FilesComponent;
       }
 
       if (componentClass != null) {
