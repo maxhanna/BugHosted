@@ -1,0 +1,18 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me();"></div>
+  <div #notificationArea></div>
+  <table class="table" id="deviceRigTable">
+    <thead>
+      <tr>
+        <th (click)="sortTable(0, 'deviceRigTable')">Rig Name</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let rig of miningRigs">
+        <td>{{rig.rigId}}</td>
+        <td (click)="requestDeviceStateChange(rig.rigId!, rig.state!)"><div class="{{ isOffline(rig.state!) ? 'stopped' : isDisabled(rig.state!) ? 'disabled' : 'started' }}"></div></td>
+      </tr>
+    </tbody>
+  </table>
+</div>

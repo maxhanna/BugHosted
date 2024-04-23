@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { AppComponent } from './app.component';
+import { Observable, first, firstValueFrom, lastValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-child-component',
@@ -13,6 +14,18 @@ export class ChildComponent {
   remove_me() {
     if (this.parentRef && this.unique_key) {
       this.parentRef.removeComponent(this.unique_key);
+    }
+  }
+  startLoading() {
+    console.log("start loading");
+    if (document && document.getElementById("loadingDiv")) {
+      console.log("found element");
+      document.getElementById("loadingDiv")!.style.display = "block";
+    }
+  }
+  stopLoading() {
+    if (document && document.getElementById("loadingDiv")) {
+      document.getElementById("loadingDiv")!.style.display = "none";
     }
   }
   sortTable(columnIndex: number, tableId: string): void {
@@ -48,6 +61,15 @@ export class ChildComponent {
       this.asc = this.asc.filter(([table, column]) => !(table === tableId && column === id));
     } else {
       this.asc.push([tableId, id]);
+    }
+  }
+  async promiseWrapper(apromise: any) {
+    try {
+      this.startLoading();
+      let response = await apromise;
+      return response;
+    } finally {
+      this.stopLoading();
     }
   }
 }

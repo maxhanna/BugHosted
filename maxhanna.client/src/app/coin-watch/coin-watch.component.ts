@@ -13,7 +13,8 @@ export class CoinWatchComponent extends ChildComponent implements OnInit {
   data?: CoinWatchResponse[];
 
   async ngOnInit() {
-    this.data =
+    this.startLoading();
+    this.data = await this.promiseWrapper(
       await fetch(
         new Request("https://api.livecoinwatch.com/coins/list"),
         {
@@ -33,6 +34,8 @@ export class CoinWatchComponent extends ChildComponent implements OnInit {
             }
           ),
         }
-      ).then(response => response.json()) as CoinWatchResponse[];
+      ).then(response => response.json()) as CoinWatchResponse[]
+    ); 
+    this.stopLoading();
   }
 }

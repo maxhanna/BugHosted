@@ -70,3 +70,30 @@ body {
   color: black;
   text-align: center;
 }
+
+#loadingDiv {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background-color: #f0f0f0;
+  z-index: 9999;
+  display: none;
+}
+
+#loadingBar {
+  height: 100%;
+  background: linear-gradient(to right, #ff7e5f, #feb47b, #ffdb99, #fffeaa, #dbf6e9, #a7f4e8, #77e0e8, #96d0e1, #a2bcc8, #a0a7b2, #958d9f, #6f7474);
+  animation: loadingAnimation 2s linear infinite;
+}
+
+@keyframes loadingAnimation {
+  0% {
+    width: 0%;
+  }
+
+  100% {
+    width: 100%;
+  }
+}

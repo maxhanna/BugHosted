@@ -1,9 +1,9 @@
-import { Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { Component, ComponentRef, ElementRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
 import { CalendarComponent } from './calendar/calendar.component';
 import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
-import { MiningComponent } from './mining/mining.component';
+import { MiningDevicesComponent } from './mining-devices/mining-devices.component';
 import { FilesComponent } from './files/files.component';
 
 
@@ -37,7 +37,7 @@ export class AppComponent {
         componentClass = WeatherComponent;
       }
       else if (componentType == "Mining") {
-        componentClass = MiningComponent;
+        componentClass = MiningDevicesComponent;
       }
       else if (componentType == "Files") {
         componentClass = FilesComponent;
@@ -73,4 +73,5 @@ export class AppComponent {
       x => x.instance.unique_key !== key
     );
   }
+  
 }

@@ -59,13 +59,13 @@ export class CalendarComponent extends ChildComponent {
     });
   }
   async validateNoteEntry() {
-    await this.createCalendarEntry();
+    this.promiseWrapper(await this.createCalendarEntry());
     this.setCalendarDates(this.now);
   }
   private async setDateHeaders(now: Date) {
     if (!(this.month && this.year && this.yearBack && this.monthBack && this.monthForward && this.yearForward))
     {
-      await this.getCalendar();
+      this.promiseWrapper(await this.getCalendar());
       return;
     }
     this.month.nativeElement.innerText = this.getMonthName(now);
@@ -90,13 +90,12 @@ export class CalendarComponent extends ChildComponent {
   }
   private async setCalendarDates(now: Date)
   {
-    await this.getCalendar();
+    this.promiseWrapper(await this.getCalendar());
     this.calendarDays = [];
     var tmpNow = new Date(now);
 
     const numberOfDaysInMonth = this.daysInMonth(tmpNow.getMonth() + 1, tmpNow.getFullYear());
     let dayCount = 0;
-    console.log("calendar entries: " + this.calendarEntries.length);
     for (let x = 0; x < this.dayCells.length; x++) {
       if (now.getDay() <= x && ++dayCount <= numberOfDaysInMonth) {
         var symbols = new Array<string>();
@@ -128,7 +127,7 @@ export class CalendarComponent extends ChildComponent {
       .set('endDate', endOfMonth.toISOString());
 
     try {
-      await lastValueFrom(this.http.get<CalendarEntry[]>('/calendar', { params })).then(res => this.calendarEntries = res);
+      this.promiseWrapper(await lastValueFrom(this.http.get<CalendarEntry[]>('/calendar', { params })).then(res => this.calendarEntries = res));
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -136,12 +135,9 @@ export class CalendarComponent extends ChildComponent {
   async deleteCalendarEntry(cal: CalendarEntry) {
     try {
       this.selectedCalendarEntries = this.selectedCalendarEntries!.filter((x) => x != cal);
-      const id = cal!.id
-      console.log("Deleting calendar entry with ID:", id);
-      const response = lastValueFrom(await this.http.delete(`/calendar/${id}`));
-      console.log("Calendar entry deleted successfully:", response);
+      const id = cal!.id;
+      this.promiseWrapper(lastValueFrom(await this.http.delete(`/calendar/${id}`)));
       this.setCalendarDates(this.now);
-      return response;
     } catch (error) {
       console.error("Error deleting calendar entry:", error);
       throw error; // Re-throw the error to handle it in the component
@@ -150,7 +146,7 @@ export class CalendarComponent extends ChildComponent {
   async createCalendarEntry() {
     if (!this.selectedDate || !this.selectedDate.date) {
       console.error("Selected date is undefined or null.");
-      return null;
+      return;
     }
 
     const tmpCalendarEntry = {
@@ -171,13 +167,12 @@ export class CalendarComponent extends ChildComponent {
 
 
     try {
-      const response = await lastValueFrom(this.http.post("/calendar", body, { headers }));
+      this.promiseWrapper(await lastValueFrom(this.http.post("/calendar", body, { headers })));
       this.clearInputValues();
       this.selectedCalendarEntries!.push(tmpCalendarEntry);
-      return response;
     }
     catch (error) {
-      return null;
+      console.error(error);
     }
   }
   private clearInputValues() {

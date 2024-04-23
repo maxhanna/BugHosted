@@ -88,6 +88,12 @@ namespace maxhanna.Server.Controllers.Helpers
             result = string.Join("", baHashedText.ToList().Select(b => b.ToString("x2")).ToArray());
             return result;
         }
+        private string getTime()
+        {
+            string timeResponse = get("/api/v2/time");
+            ServerTime serverTimeObject = Newtonsoft.Json.JsonConvert.DeserializeObject<ServerTime>(timeResponse);
+            return serverTimeObject.serverTime;
+        }
         public string get(string url)
         {
             return this.get(url, false);
@@ -100,10 +106,7 @@ namespace maxhanna.Server.Controllers.Helpers
 
             if (auth)
             {
-                string timeResponse = get("/api/v2/time");
-                ServerTime serverTimeObject = Newtonsoft.Json.JsonConvert.DeserializeObject<ServerTime>(timeResponse);
-                string time = serverTimeObject.serverTime;
-
+                string time = getTime();
                 string nonce = Guid.NewGuid().ToString();
                 string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "GET", getPath(url), getQuery(url), null);
 
@@ -115,10 +118,10 @@ namespace maxhanna.Server.Controllers.Helpers
 
             var response = client.Execute(request, RestSharp.Method.Get);
             var content = response.Content;
-            return content;
+            return content!;
         }
 
-        public string post(string url, string payload, string time, bool requestId)
+        public string post(string url, string payload, bool requestId)
         {
             var client = new RestSharp.RestClient(this.urlRoot);
             var request = new RestSharp.RestRequest(url);
@@ -126,6 +129,7 @@ namespace maxhanna.Server.Controllers.Helpers
             request.AddHeader("Content-type", "application/json");
 
             string nonce = Guid.NewGuid().ToString();
+            string time = getTime();
             string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "POST", getPath(url), getQuery(url), payload);
 
             if (payload != null)
@@ -145,7 +149,7 @@ namespace maxhanna.Server.Controllers.Helpers
 
             var response = client.Execute(request, RestSharp.Method.Post);
             var content = response.Content;
-            return content;
+            return content!;
         }
 
         public string delete(string url, string time, bool requestId)
@@ -168,11 +172,11 @@ namespace maxhanna.Server.Controllers.Helpers
 
             var response = client.Execute(request, RestSharp.Method.Delete);
             var content = response.Content;
-            return content;
+            return content!;
         }
         public class ServerTime
         {
-            public string serverTime { get; set; }
+            public string? serverTime { get; set; }
         }
     }
 }

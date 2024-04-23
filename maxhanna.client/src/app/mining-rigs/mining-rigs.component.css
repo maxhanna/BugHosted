@@ -68,7 +68,7 @@
     text-shadow: 0 0 3px #7bac10, 0 0 5px black;
   }
 
-.stop, .start {
+.stopped, .started, .disabled {
   height: 27px;
   width: 27px;
   border-radius: 50%;
@@ -77,20 +77,25 @@
   margin-right: auto;
 }
 
-.deviceTable .start {
+.stopped {
   background-color: red;
   cursor: pointer;
 }
 
-.deviceTable .stop {
+.started {
   background-color: var(--main-bg-color);
   cursor: pointer;
 }
 
-.start:hover {
-  background-color: var(--main-font-color);
+.disabled {
+  background-color: grey;
+  cursor: pointer;
 }
 
-.stop:hover {
+  .stopped:hover, .disabled:hover {
+    background-color: var(--main-font-color);
+  }
+
+.started:hover {
   background-color: red;
 }

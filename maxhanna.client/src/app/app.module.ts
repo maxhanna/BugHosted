@@ -9,8 +9,9 @@ import { NavigationComponent } from './navigation/navigation.component';
 import { FavouritesComponent } from './favourites/favourites.component';
 import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { WeatherComponent } from './weather/weather.component';
-import { MiningComponent } from './mining/mining.component';
+import { MiningDevicesComponent } from './mining-devices/mining-devices.component';
 import { FilesComponent } from './files/files.component';
+import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
 
 @NgModule({
   declarations: [
@@ -20,8 +21,9 @@ import { FilesComponent } from './files/files.component';
     FavouritesComponent,
     CoinWatchComponent,
     WeatherComponent,
-    MiningComponent,
-    FilesComponent
+    MiningDevicesComponent,
+    FilesComponent,
+    MiningRigsComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

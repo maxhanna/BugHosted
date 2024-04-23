@@ -11,6 +11,8 @@ using System.Text;
 using maxhanna.Server.Controllers.Helpers;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using static maxhanna.Server.Controllers.Helpers.MiningApi;
+using static System.Collections.Specialized.BitVector32;
 
 namespace maxhanna.Server.Controllers
 {
@@ -154,6 +156,19 @@ namespace maxhanna.Server.Controllers
                 // Return an error response
                 return devices;
             }
+        }
+
+        [HttpPost("/Mining/{rigId}/{deviceId}", Name = "PostStatusUpdate")]
+        public IActionResult PostStatusUpdate(string rigId, string deviceId, [FromBody] string status)
+        {
+            _logger.LogInformation($"POST /Mining/{rigId}/{deviceId}");
+            JObject payload = new JObject(
+                new JProperty("rigId", rigId),
+                new JProperty("deviceId", deviceId),
+                new JProperty("action", status)
+            );
+            var res = new MiningApi().post("/main/api/v2/mining/rigs/status2", JsonConvert.SerializeObject(payload), true);
+            return Ok(res);
         }
     }
 }

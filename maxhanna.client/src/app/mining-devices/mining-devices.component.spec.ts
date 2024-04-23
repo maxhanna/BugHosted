@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { MiningComponent } from './mining.component';
+import { MiningDevicesComponent } from './mining-devices.component';
 
-describe('MiningComponent', () => {
-  let component: MiningComponent;
-  let fixture: ComponentFixture<MiningComponent>;
+describe('MiningDevicesComponent', () => {
+  let component: MiningDevicesComponent;
+  let fixture: ComponentFixture<MiningDevicesComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [MiningComponent]
+      declarations: [MiningDevicesComponent]
     })
     .compileComponents();
     
-    fixture = TestBed.createComponent(MiningComponent);
+    fixture = TestBed.createComponent(MiningDevicesComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

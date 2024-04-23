@@ -24,6 +24,6 @@ export class WeatherComponent extends ChildComponent implements OnInit {
   }
 
   getForecasts() {
-    var res = lastValueFrom(this.http.get<WeatherForecast[]>('/weatherforecast')).then(res => this.forecasts = res);
+    this.promiseWrapper(lastValueFrom(this.http.get<WeatherForecast[]>('/weatherforecast'))).then(res => this.forecasts = res);
   } 
 }
