@@ -11,10 +11,16 @@ export class NavigationComponent {
   titles = new Map([
     ["📅", "Calendar"],
     ["📈", "Coin-Watch"],
-    ["F", "Favourites"],
+    ["🔍", "Favourites"],
     ["☀️", "Weather"],
-    ["⛏️", "Mining"],
-    ["📁", "Files"]
+    ["⛏️", "MiningDevices"],
+    ["🖥️", "MiningRigs"],
+    ["📁", "Files"],
+    ["✔️", "Todo"],
+    ["🎶", "Music"],
+    ["🗒️", "Notepad"],
+    ["📇", "Contacts"],
+    ["🎮", "Game"],
   ]);
 
   constructor(private _parent: AppComponent) {

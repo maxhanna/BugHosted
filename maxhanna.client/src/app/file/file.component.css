@@ -1,0 +1,9 @@
+.folder {
+  background-color: var(--secondary-font-color);
+  color: black;
+  cursor: pointer;
+}
+
+  .folder::before {
+    content: '📁'; 
+  }

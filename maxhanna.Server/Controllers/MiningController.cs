@@ -34,20 +34,51 @@ namespace maxhanna.Server.Controllers
             _client = new HttpClient();
         }
 
-        [HttpGet("", Name = "GetMiningRigInfo")]
-        public async Task<string> Get()
+        [HttpGet("/Mining/", Name = "GetMiningRigInfo")]
+        public async Task<Collection<MiningRig>> GetRigs()
         {
             _logger.LogInformation("GET /Mining/");
+            Collection<MiningRig> rigs = new Collection<MiningRig>();
+
             try
             {
-                return new MiningApi().get("/main/api/v2/mining/rigs2", true);
+                var res = new MiningApi().get("/main/api/v2/mining/rigs2", true);
+                JsonDocument jsonDoc = JsonDocument.Parse(res);
+                JsonElement miningRigs;
+                _logger.LogInformation("Connected to Nicehash :");
+                if (jsonDoc.RootElement.TryGetProperty("miningRigs", out miningRigs) && miningRigs.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement rigElement in miningRigs.EnumerateArray())
+                    {
+                        MiningRig tmpRig = new MiningRig();
+                        tmpRig.rigId = rigElement.GetProperty("rigId").GetString()!;
+                        tmpRig.minerStatus = rigElement.GetProperty("minerStatus").GetString()!;
+                        tmpRig.unpaidAmount = float.Parse(rigElement.GetProperty("unpaidAmount").GetString()!);
+
+
+                        if (rigElement.TryGetProperty("v4", out JsonElement v4Element) && v4Element.ValueKind == JsonValueKind.Object)
+                        {
+                            tmpRig.rigName = v4Element.GetProperty("mmv").GetProperty("workerName").GetString()!;
+                        }
+                        if (rigElement.TryGetProperty("stats", out JsonElement statsElement) && statsElement.ValueKind == JsonValueKind.Object)
+                        {
+                            if (float.Parse(statsElement.GetProperty("speedRejectedTotal").GetString()!) > 0)
+                            {
+                                tmpRig.speedRejected = float.Parse(statsElement.GetProperty("speedRejectedTotal").GetString()!);
+                            }
+                        }
+                        rigs.Add(tmpRig);
+                    }
+                    _logger.LogInformation("Found mining rig data");
+                }
+                return rigs;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred");
 
                 // Return an error response
-                return "Internal server error";
+                return rigs;
             }
         }
 
@@ -158,17 +189,27 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        [HttpPost("/Mining/{rigId}/{deviceId}", Name = "PostStatusUpdate")]
-        public IActionResult PostStatusUpdate(string rigId, string deviceId, [FromBody] string status)
+        [HttpPost("/Mining/{rigId}/{deviceId?}", Name = "PostStatusUpdate")]
+        public IActionResult PostStatusUpdate(string rigId, string? deviceId, [FromBody] string status)
         {
             _logger.LogInformation($"POST /Mining/{rigId}/{deviceId}");
-            JObject payload = new JObject(
-                new JProperty("rigId", rigId),
-                new JProperty("deviceId", deviceId),
-                new JProperty("action", status)
-            );
-            var res = new MiningApi().post("/main/api/v2/mining/rigs/status2", JsonConvert.SerializeObject(payload), true);
-            return Ok(res);
+            try
+            {
+                JObject payload = new JObject();
+                payload.Add(new JProperty("rigId", rigId));
+                if (!string.IsNullOrEmpty(deviceId))
+                {
+                    payload.Add(new JProperty("deviceId", deviceId));
+                }
+                payload.Add(new JProperty("action", status));
+
+                var res = new MiningApi().post("/main/api/v2/mining/rigs/status2", JsonConvert.SerializeObject(payload), true);
+                return Ok(res);
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e);
+            }
         }
     }
 }

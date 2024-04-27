@@ -54,21 +54,28 @@ body {
   max-height: 300px;
 }
 
-.closeButton::before {
-  content: 'X';
+.refreshButton::before {
+  content: '🔄';
 }
 
-.closeButton {
+.closeButton::before {
+  content: '❌';
+}
+.closeButton, .refreshButton {
   width: 15px;
   height: 15px;
+  font-size: 15px;
   position: relative;
+  line-height: 25px;
+}
+.closeButton {
+  left: calc(100% - 20px);
   top: 0px;
-  left: calc(100% - 15px);
-  border: 1px solid var(--secondary-font-color);
-  border-radius: 2px;
-  background-color: var(--secondary-font-color);
-  color: black;
-  text-align: center;
+}
+
+.refreshButton {
+  left: calc(100% - 40px);
+  top: -15px;
 }
 
 #loadingDiv {

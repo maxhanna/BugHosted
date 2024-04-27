@@ -19,7 +19,7 @@ export class CalendarComponent extends ChildComponent {
   @ViewChild('year') year!: ElementRef<HTMLElement>;
 
   @ViewChild('calendarNoteEntry') calendarNoteEntry!: ElementRef<HTMLInputElement>;
-  @ViewChild('calendarTypeEntry') calendarTypeEntry!: ElementRef<HTMLInputElement>;
+  @ViewChild('calendarTypeEntry') calendarTypeEntry!: ElementRef<HTMLSelectElement>;
   @ViewChild('calendarTimeEntry') calendarTimeEntry!: ElementRef<HTMLInputElement>;
 
   getMonthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format;
@@ -58,14 +58,20 @@ export class CalendarComponent extends ChildComponent {
       }
     });
   }
-  async validateNoteEntry() {
-    this.promiseWrapper(await this.createCalendarEntry());
-    this.setCalendarDates(this.now);
+  async validateNoteEntry()
+  {
+    if (!this.selectedDate || !this.selectedDate.date) {
+      alert("validation failed");
+      console.log("Selected date is undefined or null.");
+      return;
+    }
+
+    await this.promiseWrapper(await this.createCalendarEntry());
   }
   private async setDateHeaders(now: Date) {
     if (!(this.month && this.year && this.yearBack && this.monthBack && this.monthForward && this.yearForward))
     {
-      this.promiseWrapper(await this.getCalendar());
+      await this.getCalendarEntries();
       return;
     }
     this.month.nativeElement.innerText = this.getMonthName(now);
@@ -90,7 +96,7 @@ export class CalendarComponent extends ChildComponent {
   }
   private async setCalendarDates(now: Date)
   {
-    this.promiseWrapper(await this.getCalendar());
+    await this.getCalendarEntries();
     this.calendarDays = [];
     var tmpNow = new Date(now);
 
@@ -118,7 +124,7 @@ export class CalendarComponent extends ChildComponent {
   private daysInMonth(month: number, year: number) {
     return new Date(year, month, 0).getDate();
   }
-  async getCalendar() {
+  async getCalendarEntries() {
     const startOfMonth = new Date(this.now.getFullYear(), this.now.getMonth(), 1);
     const endOfMonth = new Date(this.now.getFullYear(), this.now.getMonth() + 1, 0);
 
@@ -127,16 +133,19 @@ export class CalendarComponent extends ChildComponent {
       .set('endDate', endOfMonth.toISOString());
 
     try {
-      this.promiseWrapper(await lastValueFrom(this.http.get<CalendarEntry[]>('/calendar', { params })).then(res => this.calendarEntries = res));
+      await this.promiseWrapper(await lastValueFrom(await this.http.get<CalendarEntry[]>('/calendar', { params })).then(res => this.calendarEntries = res));
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
   }
   async deleteCalendarEntry(cal: CalendarEntry) {
     try {
+      if (!cal.id) {
+        console.error("No calendar id! : " + JSON.stringify(cal));
+      }
       this.selectedCalendarEntries = this.selectedCalendarEntries!.filter((x) => x != cal);
       const id = cal!.id;
-      this.promiseWrapper(lastValueFrom(await this.http.delete(`/calendar/${id}`)));
+      await this.promiseWrapper(await lastValueFrom(await this.http.delete(`/calendar/${id}`)));
       this.setCalendarDates(this.now);
     } catch (error) {
       console.error("Error deleting calendar entry:", error);
@@ -144,13 +153,8 @@ export class CalendarComponent extends ChildComponent {
     }
   }
   async createCalendarEntry() {
-    if (!this.selectedDate || !this.selectedDate.date) {
-      console.error("Selected date is undefined or null.");
-      return;
-    }
-
     const tmpCalendarEntry = {
-      date: new Date(this.selectedDate.date),
+      date: new Date(this.selectedDate!.date!),
       type: this.calendarTypeEntry.nativeElement.value,
       note: this.calendarNoteEntry.nativeElement.value
     };
@@ -167,9 +171,13 @@ export class CalendarComponent extends ChildComponent {
 
 
     try {
-      this.promiseWrapper(await lastValueFrom(this.http.post("/calendar", body, { headers })));
+      this.startLoading();
+      await lastValueFrom(await this.http.post("/calendar", body, { headers }));
+      this.stopLoading();
       this.clearInputValues();
-      this.selectedCalendarEntries!.push(tmpCalendarEntry);
+      //this.selectedCalendarEntries!.push(tmpCalendarEntry);
+      await this.setCalendarDates(this.now);
+      await this.getCalendarDetails(this.selectedDate!);
     }
     catch (error) {
       console.error(error);
@@ -178,6 +186,6 @@ export class CalendarComponent extends ChildComponent {
   private clearInputValues() {
     this.calendarTimeEntry.nativeElement.value = "";
     this.calendarNoteEntry.nativeElement.value = "";
-    this.calendarTypeEntry.nativeElement.value = "";
+    this.calendarTypeEntry.nativeElement.value  = this.calendarTypeEntry.nativeElement.options[0].value;
   }
 }

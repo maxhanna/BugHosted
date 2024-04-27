@@ -5,9 +5,9 @@ import { MiningRigDevice } from '../mining-rig-device';
 import { lastValueFrom } from 'rxjs';
 
 @Component({
-  selector: 'app-mining',
-  templateUrl: './mining.component.html',
-  styleUrl: './mining.component.css'
+  selector: 'app-mining-devices',
+  templateUrl: './mining-devices.component.html',
+  styleUrl: './mining-devices.component.css'
 })
 export class MiningDevicesComponent extends ChildComponent implements OnInit {
   miningRigDevices = new Array<MiningRigDevice>();
@@ -24,19 +24,21 @@ export class MiningDevicesComponent extends ChildComponent implements OnInit {
     await lastValueFrom(this.http.get<Array<MiningRigDevice>>('/mining/devices')).then(res => this.miningRigDevices = res);
     this.stopLoading();
   }
-  public async requestDeviceStateChange(rigId: string, deviceId: string, state: number) {
-    var action = (this.isOffline(state) || this.isDisabled(state)) ? "START" : "STOP";
-    const headers = { 'Content-Type': 'application/json' };
-    try {
-      this.startLoading();
-      const response = await lastValueFrom(this.http.post(`/mining/${rigId}/${deviceId}`, '"' + action + '"', { headers }));
-      this.stopLoading();
-      this.notificationArea.nativeElement.innerHTML += JSON.stringify(response);
-      this.getMiningInfo();
-    }
-    catch (error) {
-      this.notificationArea.nativeElement.innerHTML += JSON.stringify(error);
-    }
+  public async requestDeviceStateChange(device: MiningRigDevice) {
+    var requestedAction = this.isOffline(device.state!) || this.isDisabled(device.state!) ? "START" : "STOP";
+    if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`)) {
+      const headers = { 'Content-Type': 'application/json' };
+      try {
+        this.startLoading();
+        const response = await lastValueFrom(this.http.post(`/mining/${device.rigId}/${device.deviceId}`, '"' + requestedAction + '"', { headers }));
+        this.stopLoading();
+        this.notificationArea.nativeElement.innerHTML += JSON.stringify(response);
+        this.getMiningInfo();
+      }
+      catch (error) {
+        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error);
+      }
+    }    
   }
   public isOffline(state: number): boolean {
     if (state == 1)

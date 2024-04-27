@@ -6,28 +6,28 @@ namespace maxhanna.Server.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class CalendarController : ControllerBase
+    public class TodoController : ControllerBase
     {
-        private readonly ILogger<CalendarController> _logger;
+        private readonly ILogger<TodoController> _logger;
         private readonly IConfiguration _config;
 
-        public CalendarController(ILogger<CalendarController> logger, IConfiguration config)
+        public TodoController(ILogger<TodoController> logger, IConfiguration config)
         {
             _logger = logger;
             _config = config;
         }
 
-
-        [HttpGet(Name = "GetCalendar")]
-        public async Task<IActionResult> Get([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
+        [HttpGet(Name = "GetTodo")]
+        public async Task<IActionResult> Get([FromQuery] string type)
         {
-            _logger.LogInformation("GET /Calendar");
-            if (startDate > endDate)
+            string sql = "SELECT id, todo, type, url, date, done FROM maxhanna.todo";
+
+            if (!string.IsNullOrEmpty(type))
             {
-                _logger.LogError("An error occurred while fetching calendar entries. StartDate > EndDate");
-                return StatusCode(500, "An error occurred while fetching calendar entries. StartDate > EndDate");
+                sql += " WHERE type = @Todo";
             }
-            var entries = new List<CalendarEntry>();
+
+            _logger.LogInformation($"GET /Todo{(type != null ? "/" + type : "")}");
 
             try
             {
@@ -35,47 +35,56 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql = "SELECT Id, Type, Note, Date FROM maxhanna.calendar WHERE Date BETWEEN @StartDate AND @EndDate";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
-                        cmd.Parameters.AddWithValue("@StartDate", startDate);
-                        cmd.Parameters.AddWithValue("@EndDate", endDate);
+                        if (!string.IsNullOrEmpty(type))
+                        {
+                            cmd.Parameters.AddWithValue("@Todo", type);
+                        }
 
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
+                            var entries = new List<Todo>();
+
                             while (await rdr.ReadAsync())
                             {
-                                entries.Add(new CalendarEntry(rdr.GetInt32(0), rdr.GetString(1), rdr.GetString(2), rdr.GetDateTime(3)));
+                                entries.Add(new Todo(
+                                    id: rdr.GetInt32(0),
+                                    todo: rdr.GetString(1),
+                                    type: rdr.GetString(2),
+                                    url: rdr.IsDBNull(3) ? null : rdr.GetString(3),
+                                    date: rdr.GetDateTime(4),
+                                    done: rdr.GetBoolean(5)
+                                ));
                             }
+
+                            return Ok(entries);
                         }
                     }
                 }
-
-                return Ok(entries); // Return list of entries if successful
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching calendar entries.");
-                return StatusCode(500, "An error occurred while fetching calendar entries."); // Return 500 Internal Server Error with error message
+                _logger.LogError(ex, "An error occurred while fetching todos.");
+                return StatusCode(500, "An error occurred while fetching todos.");
             }
         }
 
-        [HttpPost(Name = "CreateCalendarEntry")]
-        public async Task<IActionResult> Post([FromBody] CalendarEntry model)
+        [HttpPost(Name = "CreateTodo")]
+        public async Task<IActionResult> Post([FromBody] Todo model)
         {
-            _logger.LogInformation("POST /Calendar");
+            _logger.LogInformation("POST /Todo"); 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
                 conn.Open();
-
                 // Assuming CalendarEntryModel has properties for Type, Note, and Date
-                string sql = "INSERT INTO maxhanna.calendar (Type, Note, Date) VALUES (@Type, @Note, @Date)";
+                string sql = "INSERT INTO maxhanna.todo (todo, type, url, date, done) VALUES (@Todo, @Type, @Url, @Date, 0)";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@Type", model.Type);
-                cmd.Parameters.AddWithValue("@Note", model.Note);
-                cmd.Parameters.AddWithValue("@Date", model.Date);
-                _logger.LogInformation("note : " + model.Note);
+                cmd.Parameters.AddWithValue("@Todo", model.todo);
+                cmd.Parameters.AddWithValue("@Type", model.type);
+                cmd.Parameters.AddWithValue("@Url", model.url);
+                cmd.Parameters.AddWithValue("@Date", model.date); 
                 if (await cmd.ExecuteNonQueryAsync() > 0)
                 {
                     _logger.LogInformation("Returned OK");
@@ -92,22 +101,17 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "An error occurred while processing the POST request.");
                 return StatusCode(500, "An error occurred while processing the request.");
             }
-            finally
-            {
-                conn.Close();
-            }
         }
 
-        [HttpDelete("{id}", Name = "DeleteCalendarEntry")]
+        [HttpDelete("/Todo/{id}", Name = "DeleteTodo")]
         public async Task<IActionResult> Delete(int id)
         {
-            _logger.LogInformation($"Inside DELETE() of CalendarController for ID: {id}");
+            _logger.LogInformation($"DELETE /Todo/{id}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
                 conn.Open();
-
-                string sql = "DELETE FROM maxhanna.calendar WHERE ID = @Id";
+                string sql = "DELETE FROM maxhanna.todo WHERE ID = @Id";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Id", id);
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
@@ -124,7 +128,7 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while processing the DELETE request.");
-                return StatusCode(500, "An error occurred while processing the request."); // 500 Internal Server Error if an exception occurred
+                return StatusCode(500, "An error occurred while processing the request.");
             }
             finally
             {

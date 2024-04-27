@@ -1,6 +1,5 @@
 import { Component } from '@angular/core';
 import { AppComponent } from './app.component';
-import { Observable, first, firstValueFrom, lastValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-child-component',
@@ -17,9 +16,7 @@ export class ChildComponent {
     }
   }
   startLoading() {
-    console.log("start loading");
     if (document && document.getElementById("loadingDiv")) {
-      console.log("found element");
       document.getElementById("loadingDiv")!.style.display = "block";
     }
   }

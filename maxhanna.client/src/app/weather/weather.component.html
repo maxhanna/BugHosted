@@ -1,28 +1,67 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
-  <h1 id="tableLabel">Weather forecast</h1>
+  <h1 id="tableLabel">Weather Forecast</h1>
 
-  <p>This component demonstrates fetching data from the server.</p>
 
-  <p *ngIf="!forecasts"><em>Loading... Please refresh once the ASP.NET backend has started. See <a href="https://aka.ms/jspsintegrationangular">https://aka.ms/jspsintegrationangular</a> for more details.</em></p>
+  <h2>Weather Report</h2>
 
-  <table *ngIf="forecasts">
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Temp. (C)</th>
-        <th>Temp. (F)</th>
-        <th>Summary</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let forecast of forecasts">
-        <td>{{ forecast.date }}</td>
-        <td>{{ forecast.temperatureC }}</td>
-        <td>{{ forecast.temperatureF }}</td>
-        <td>{{ forecast.summary }}</td>
-      </tr>
-    </tbody>
-  </table>
+  <div>
+    <h3>Current Weather</h3>
+    <table class="sortable">
+      <thead>
+        <tr>
+          <th>Last Updated</th>
+          <th>Temperature (°C)</th>
+          <th>Temperature (°F)</th>
+          <th>Condition</th>
+          <th>Wind (mph)</th>
+          <th>Wind (kph)</th>
+          <th>Humidity</th>
+          <th>Cloud</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>{{ weather.current.last_updated }}</td>
+          <td>{{ weather.current.temp_c }}</td>
+          <td>{{ weather.current.temp_f }}</td>
+          <td>{{ weather.current.condition.text }}</td>
+          <td>{{ weather.current.wind_mph }}</td>
+          <td>{{ weather.current.wind_kph }}</td>
+          <td>{{ weather.current.humidity }}</td>
+          <td>{{ weather.current.cloud }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
+  <div>
+    <h3>Forecast</h3>
+    <table class="sortable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Temperature (°C)</th>
+          <th>Temperature (°F)</th>
+          <th>Condition</th>
+          <th>Wind (mph)</th>
+          <th>Wind (kph)</th>
+          <th>Humidity</th>
+          <th>Cloud</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let day of weather.forecast.forecastday">
+          <td>{{ day.date }}</td>
+          <td>{{ day.day.avgtemp_c }}</td>
+          <td>{{ day.day.avgtemp_f }}</td>
+          <td>{{ day.day.condition.text }}</td>
+          <td>{{ day.day.maxwind_mph }}</td>
+          <td>{{ day.day.maxwind_kph }}</td>
+          <td>{{ day.day.avghumidity }}</td>
+          <td>{{ day.day.maxtemp_c }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>

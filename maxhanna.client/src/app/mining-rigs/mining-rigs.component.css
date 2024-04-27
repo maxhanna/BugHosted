@@ -68,7 +68,7 @@
     text-shadow: 0 0 3px #7bac10, 0 0 5px black;
   }
 
-.stopped, .started, .disabled {
+.stopped, .started, .offline {
   height: 27px;
   width: 27px;
   border-radius: 50%;
@@ -87,12 +87,12 @@
   cursor: pointer;
 }
 
-.disabled {
+.offline {
   background-color: grey;
   cursor: pointer;
 }
 
-  .stopped:hover, .disabled:hover {
+  .stopped:hover, .offline:hover {
     background-color: var(--main-font-color);
   }
 

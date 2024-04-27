@@ -1,17 +1,26 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
   <div #notificationArea></div>
   <table class="table" id="deviceRigTable">
     <thead>
       <tr>
         <th (click)="sortTable(0, 'deviceRigTable')">Rig Name</th>
+        <th (click)="sortTable(1, 'deviceRigTable')">State</th>
+        <th (click)="sortTable(2, 'deviceRigTable')">Unpaid Amount</th>
+        <th (click)="sortTable(3, 'deviceRigTable')">Speed Rejected</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       <tr *ngFor="let rig of miningRigs">
-        <td>{{rig.rigId}}</td>
-        <td (click)="requestDeviceStateChange(rig.rigId!, rig.state!)"><div class="{{ isOffline(rig.state!) ? 'stopped' : isDisabled(rig.state!) ? 'disabled' : 'started' }}"></div></td>
+        <td>{{ rig.rigName }}</td>
+        <td>{{ rig.minerStatus }}</td>
+        <td>{{ rig.unpaidAmount }}</td>
+        <td>{{ rig.speedRejected }}</td>
+        <td (click)="requestRigStateChange(rig)">
+          <div class="{{ isStopped(rig.minerStatus!) ? 'stopped' : isOffline(rig.minerStatus!) ? 'offline' : 'started' }}"></div>
+        </td>
       </tr>
     </tbody>
   </table>

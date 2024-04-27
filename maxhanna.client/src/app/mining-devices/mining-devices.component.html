@@ -1,5 +1,6 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
   <div #notificationArea></div>
   <table class="table" id="deviceRigTable">
     <thead>
@@ -35,7 +36,7 @@
         <td>{{ device.powerLimitPercentage }}</td>
         <td>{{ device.powerLimitWatts }}</td>
         <td>{{ device.miner }}</td>
-        <td (click)="requestDeviceStateChange(device.rigId!, device.deviceId!, device.state!)"><div class="{{ isOffline(device.state!) ? 'stopped' : isDisabled(device.state!) ? 'disabled' : 'started' }}"></div></td>
+        <td (click)="requestDeviceStateChange(device)"><div class="{{ isOffline(device.state!) ? 'stopped' : isDisabled(device.state!) ? 'disabled' : 'started' }}"></div></td>
       </tr>
     </tbody>
   </table>

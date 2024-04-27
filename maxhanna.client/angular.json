@@ -80,7 +80,11 @@
             "host": "0.0.0.0",
             "ssl": true,
             "sslCert": "ssl/maxhanna_selfip_com.crt",
-            "sslKey": "ssl/maxhanna_selfip_com.key"
+            "sslKey": "ssl/maxhanna_selfip_com.key",
+            "headers": {
+              "Cross-Origin-Opener-Policy": "same-origin",
+              "Cross-Origin-Embedder-Policy": "require-corp"
+            }
           }
         },
         "extract-i18n": {

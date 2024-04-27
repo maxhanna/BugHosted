@@ -1,0 +1,13 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me();"></div>
+  <canvas></canvas>
+  <div>
+    Games:
+    <label *ngFor="let game of this.gamesList" (click)="this.loadRom(game)" style="cursor:pointer;margin-left:5px;">{{game}}</label>
+  </div>
+  <div>
+    Upload a rom:
+    <input type="submit" value="⏫" (click)="this.onFileChange(null)" style="display:inline-block" />
+    <input type="file" class="file-input" style="display:inline-block;" #fileInput />
+  </div>
+</div>

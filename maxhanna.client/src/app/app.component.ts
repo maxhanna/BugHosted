@@ -4,7 +4,13 @@ import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
 import { MiningDevicesComponent } from './mining-devices/mining-devices.component';
-import { FilesComponent } from './files/files.component';
+import { FileComponent } from './file/file.component';
+import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
+import { TodoComponent } from './todo/todo.component';
+import { ContactsComponent } from './contacts/contacts.component';
+import { NotepadComponent } from './notepad/notepad.component';
+import { MusicComponent } from './music/music.component';
+import { GameComponent } from './game/game.component';
 
 
 @Component({
@@ -13,7 +19,6 @@ import { FilesComponent } from './files/files.component';
   styleUrl: './app.component.css'
 })
 export class AppComponent {
-  title = 'Task';
 
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   child_unique_key: number = 0;
@@ -36,11 +41,29 @@ export class AppComponent {
       else if (componentType == "Weather") {
         componentClass = WeatherComponent;
       }
-      else if (componentType == "Mining") {
+      else if (componentType == "MiningDevices") {
         componentClass = MiningDevicesComponent;
       }
+      else if (componentType == "MiningRigs") {
+        componentClass = MiningRigsComponent;
+      }
       else if (componentType == "Files") {
-        componentClass = FilesComponent;
+        componentClass = FileComponent;
+      }
+      else if (componentType == "Todo") {
+        componentClass = TodoComponent;
+      }
+      else if (componentType == "Music") {
+        componentClass = MusicComponent;
+      }
+      else if (componentType == "Notepad") {
+        componentClass = NotepadComponent;
+      }
+      else if (componentType == "Contacts") {
+        componentClass = ContactsComponent;
+      }
+      else if (componentType == "Game") {
+        componentClass = GameComponent;
       }
 
       if (componentClass != null) {

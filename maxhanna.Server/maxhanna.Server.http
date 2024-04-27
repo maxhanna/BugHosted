@@ -18,3 +18,24 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/mining/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/todo/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/todo/
+Accept: application/json
+###
+DELETE {{maxhanna.Server_HostAddress}}/todo/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/file/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/file/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/file/
+Accept: multipart/form-data
+###
+DELETE {{maxhanna.Server_HostAddress}}/file/
+Accept: application/json
+###

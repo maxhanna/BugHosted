@@ -9,6 +9,8 @@ const PROXY_CONFIG = [
       "/weatherforecast",
       "/calendar",
       "/mining",
+      "/todo",
+      "/file",
     ],
     target,
     secure: false

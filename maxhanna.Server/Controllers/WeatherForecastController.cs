@@ -1,4 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
+using RestSharp;
+using System;
+using static System.Net.WebRequestMethods;
 
 namespace maxhanna.Server.Controllers
 {
@@ -6,10 +10,8 @@ namespace maxhanna.Server.Controllers
     [Route("[controller]")]
     public class WeatherForecastController : ControllerBase
     {
-        private static readonly string[] Summaries = new[]
-        {
-            "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-        };
+        private static string apiKey = "ed8780abdcd9416eaa6220743242504";
+        private static string urlRoot = "https://api.weatherapi.com/v1/forecast.json";
 
         private readonly ILogger<WeatherForecastController> _logger;
 
@@ -18,16 +20,23 @@ namespace maxhanna.Server.Controllers
             _logger = logger;
         }
 
-        [HttpGet(Name = "GetWeatherForecast")]
-        public IEnumerable<WeatherForecast> Get()
+        
+        [HttpGet("", Name = "GetWeatherForecast")]
+        public WeatherForecast Get()
         {
-            return Enumerable.Range(1, 5).Select(index => new WeatherForecast
-            {
-                Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                TemperatureC = Random.Shared.Next(-20, 55),
-                Summary = Summaries[Random.Shared.Next(Summaries.Length)]
-            })
-            .ToArray();
+            _logger.LogInformation("GET /WeatherForecast");
+
+            var client = new RestClient(urlRoot);
+            var request = new RestRequest($"?key={apiKey}&q=Montreal&days=3");
+
+
+            var response = client.Execute(request, Method.Get);
+            var content = response.Content;
+
+            var weatherForecast = JsonConvert.DeserializeObject<WeatherForecast>(content);
+            return weatherForecast!;
+             
+
         }
     }
 }
