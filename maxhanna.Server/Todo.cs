@@ -2,7 +2,7 @@ namespace maxhanna.Server
 {
     public class Todo
     {
-        public Todo(int id, string todo, string type, string? url, DateTime date, bool done)
+        public Todo(int id, string todo, string type, string? url, DateTime? date, bool done)
         {
             this.id = id;
             this.todo = todo;
@@ -15,7 +15,7 @@ namespace maxhanna.Server
         public string todo { get; set; }
         public string type { get; set; }
         public string? url { get; set; }
-        public DateTime date { get; set; }
+        public DateTime? date { get; set; }
         public bool done { get; set; }
     }
 }

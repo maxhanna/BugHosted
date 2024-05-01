@@ -133,13 +133,9 @@ export class WeatherResponse {
 }
 
 export class WeatherReport {
-  location: Location;
-  current: CurrentWeather;
-  forecast: Forecast;
-
-  constructor(data: WeatherResponse) {
-    this.location = data.location;
-    this.current = data.current;
-    this.forecast = data.forecast;
-  }
+  constructor(
+    public location: Location,
+    public current: CurrentWeather,
+    public forecast: Forecast
+  ) { }
 }

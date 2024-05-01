@@ -1,5 +1,31 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
-  <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
-   
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <fieldset>
+    <legend title="Add to the music list">Add to the music list</legend>
+    <input type="text" #titleInput placeholder="Artist - Song Title" />
+    <input type="text" #urlInput placeholder="URL" />
+    <input type="submit" value="💾" (click)="addSong()" />
+  </fieldset>
+  <div>
+    <iframe frameborder=0 id=musicVideo #musicVideo></iframe>
+    <div>
+      <span id="stopMusicButton" (click)="stopMusic()">◼</span>
+      <span id="followLinkButton" (click)="followLink()">🕸</span>
+      <span (click)="randomSong()">⚡</span>
+    </div>
+
+    <div id=songlist>
+      Total : {{songs.length}} Songs<br />
+      Order : <select id="orderSelect" (change)="reorderTable($event)"><option *ngFor="let order of orders" value="{{order}}">{{order}}</option></select><br />
+      Search: <input placeholder="Keyword" #searchInput /><input type="submit" value="🔍" (click)="searchForSong()" />
+
+      <table id="songListTable">
+        <tr *ngFor="let song of songs" id="songId{{song.id!}}">
+          <td (click)="play(song.url!)">{{song.todo}}</td>
+          <td><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
+        </tr>
+      </table>
+    </div> 
+  </div>
 </div>

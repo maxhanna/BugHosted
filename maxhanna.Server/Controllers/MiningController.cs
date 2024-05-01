@@ -35,10 +35,10 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpGet("/Mining/", Name = "GetMiningRigInfo")]
-        public async Task<Collection<MiningRig>> GetRigs()
+        public List<MiningRig> GetRigs()
         {
             _logger.LogInformation("GET /Mining/");
-            Collection<MiningRig> rigs = new Collection<MiningRig>();
+            List<MiningRig> rigs = new List<MiningRig>();
 
             try
             {
@@ -54,7 +54,8 @@ namespace maxhanna.Server.Controllers
                         tmpRig.rigId = rigElement.GetProperty("rigId").GetString()!;
                         tmpRig.minerStatus = rigElement.GetProperty("minerStatus").GetString()!;
                         tmpRig.unpaidAmount = float.Parse(rigElement.GetProperty("unpaidAmount").GetString()!);
-
+                        tmpRig.localProfitability = float.Parse(rigElement.GetProperty("localProfitability").GetRawText()!);
+                        tmpRig.actualProfitability = float.Parse(rigElement.GetProperty("profitability").GetRawText()!);
 
                         if (rigElement.TryGetProperty("v4", out JsonElement v4Element) && v4Element.ValueKind == JsonValueKind.Object)
                         {
@@ -83,10 +84,10 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpGet("/Mining/Devices", Name = "GetMiningDeviceInfo")]
-        public async Task<Collection<MiningRigDevice>> GetDevices()
+        public List<MiningRigDevice> GetDevices()
         {
             _logger.LogInformation("GET /Mining/devices");
-            Collection<MiningRigDevice> devices = new Collection<MiningRigDevice>();
+            List<MiningRigDevice> devices = new List<MiningRigDevice>();
 
             try
             {
@@ -177,7 +178,8 @@ namespace maxhanna.Server.Controllers
                     }
                     _logger.LogInformation("Found mining rig device data");
                 }
-                return devices;
+
+                return devices.OrderBy(d => d, new MiningRigDeviceComparer()).ToList();
 
             }
             catch (Exception ex)
@@ -186,6 +188,39 @@ namespace maxhanna.Server.Controllers
 
                 // Return an error response
                 return devices;
+            }
+        }
+
+        [HttpGet("/Mining/Wallet", Name = "GetMiningWalletInfo")]
+        public IActionResult GetWallet()
+        {
+            _logger.LogInformation("GET /Mining/Wallet/");
+
+            try
+            {
+                var res = new MiningApi().get("/main/api/v2/accounting/accounts2?fiat=CAD", true);
+
+                if (string.IsNullOrEmpty(res))
+                {
+                    _logger.LogError("Mining API response is null or empty");
+                    return NotFound("Mining API response is null or empty");
+                }
+
+                MiningWallet wallet = JsonConvert.DeserializeObject<MiningWallet>(res)!;
+                
+                if (wallet == null)
+                {
+                    _logger.LogError("Deserialized MiningWallet object is null");
+                    return NotFound("Deserialized MiningWallet object is null");
+                }
+
+                _logger.LogInformation("Found mining rig data");
+                return Ok(wallet);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching mining wallet info");
+                return StatusCode(500, "An unexpected error occurred while fetching mining wallet info");
             }
         }
 
@@ -209,6 +244,42 @@ namespace maxhanna.Server.Controllers
             catch (Exception e)
             {
                 return BadRequest(e);
+            }
+        }
+        private class MiningRigDeviceComparer : IComparer<MiningRigDevice?>
+        {
+            public int Compare(MiningRigDevice? x, MiningRigDevice? y)
+            {
+                if (x is null && y is null)
+                    return 0;
+                if (x is null)
+                    return 1;
+                if (y is null)
+                    return -1;
+
+                // Check for 'Glitch' entries and move them to the top
+                if (x.state == 1 && (y.state != 1 || !ContainsCpuOrAmd(x)))
+                    return -1;
+                if (y.state == 1 && (x.state != 1 || !ContainsCpuOrAmd(y)))
+                    return 1;
+
+                // Handle other cases
+                if (x.state == -1 && y.state != -1)
+                    return -1;
+                if (x.state != -1 && y.state == -1)
+                    return 1;
+
+                // If states are the same, compare temperatures
+                return -x.temperature.CompareTo(y.temperature);
+            }
+
+            // Helper method to check if the device name contains 'CPU' or 'AMD'
+            private bool ContainsCpuOrAmd(MiningRigDevice? device)
+            {
+                if (device == null || string.IsNullOrEmpty(device.deviceName))
+                    return false;
+
+                return device.deviceName.Contains("CPU") || device.deviceName.Contains("AMD");
             }
         }
     }

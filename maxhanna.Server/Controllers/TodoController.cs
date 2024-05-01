@@ -17,17 +17,12 @@ namespace maxhanna.Server.Controllers
             _config = config;
         }
 
-        [HttpGet(Name = "GetTodo")]
-        public async Task<IActionResult> Get([FromQuery] string type)
+        [HttpGet("/Todo", Name = "GetTodo")]
+        public async Task<IActionResult> Get([FromQuery] string? type, [FromQuery] string? search)
         {
-            string sql = "SELECT id, todo, type, url, date, done FROM maxhanna.todo";
-
-            if (!string.IsNullOrEmpty(type))
-            {
-                sql += " WHERE type = @Todo";
-            }
-
-            _logger.LogInformation($"GET /Todo{(type != null ? "/" + type : "")}");
+            string sql = string.IsNullOrEmpty(search)
+                ? "SELECT id, todo, type, url, date, done FROM maxhanna.todo" + (!string.IsNullOrEmpty(type) ? " WHERE type = @Todo" : "")
+                : "SELECT id, todo, type, url, date, done FROM maxhanna.todo WHERE type = 'music' AND todo LIKE CONCAT('%', @Todo, '%')";
 
             try
             {
@@ -37,9 +32,9 @@ namespace maxhanna.Server.Controllers
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
-                        if (!string.IsNullOrEmpty(type))
+                        if (!string.IsNullOrEmpty(type ?? search))
                         {
-                            cmd.Parameters.AddWithValue("@Todo", type);
+                            cmd.Parameters.AddWithValue("@Todo", type ?? search);
                         }
 
                         using (var rdr = await cmd.ExecuteReaderAsync())
@@ -69,7 +64,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while fetching todos.");
             }
         }
-
+         
         [HttpPost(Name = "CreateTodo")]
         public async Task<IActionResult> Post([FromBody] Todo model)
         {
@@ -78,13 +73,11 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-                // Assuming CalendarEntryModel has properties for Type, Note, and Date
-                string sql = "INSERT INTO maxhanna.todo (todo, type, url, date, done) VALUES (@Todo, @Type, @Url, @Date, 0)";
+                string sql = "INSERT INTO maxhanna.todo (todo, type, url, done) VALUES (@Todo, @Type, @Url, 0)";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Todo", model.todo);
                 cmd.Parameters.AddWithValue("@Type", model.type);
                 cmd.Parameters.AddWithValue("@Url", model.url);
-                cmd.Parameters.AddWithValue("@Date", model.date); 
                 if (await cmd.ExecuteNonQueryAsync() > 0)
                 {
                     _logger.LogInformation("Returned OK");

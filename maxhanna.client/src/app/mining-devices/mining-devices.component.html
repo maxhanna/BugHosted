@@ -25,8 +25,8 @@
       <tr *ngFor="let device of miningRigDevices">
         <td>{{ device.rigName }}</td>
         <td>{{ device.deviceName }}</td>
-        <td>{{ device.temperature }}</td>
-        <td>{{ device.state }}</td>
+        <td [style]="device.temperature! >= 70 ? 'color:red;' : device.temperature! >= 68 ? 'color:yellow;' : ''">{{ device.temperature }}</td>
+        <td>{{ device.state == 1 ? 'Offline' : device.state == 2 ? "Mining" : device.state == 4 ? 'Disabled' : device.state}}</td>
         <td>{{ device.speed }}</td>
         <td>{{ device.fanSpeed }}</td>
         <td>{{ device.power }}</td>
@@ -36,7 +36,9 @@
         <td>{{ device.powerLimitPercentage }}</td>
         <td>{{ device.powerLimitWatts }}</td>
         <td>{{ device.miner }}</td>
-        <td (click)="requestDeviceStateChange(device)"><div class="{{ isOffline(device.state!) ? 'stopped' : isDisabled(device.state!) ? 'disabled' : 'started' }}"></div></td>
+        <td (click)="requestDeviceStateChange(device)">
+          <div class="{{ isOffline(device.state!) ? 'stopped' : isDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
+        </td>
       </tr>
     </tbody>
   </table>

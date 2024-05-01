@@ -33,7 +33,7 @@ namespace maxhanna.Server.Controllers
             var response = client.Execute(request, Method.Get);
             var content = response.Content;
 
-            var weatherForecast = JsonConvert.DeserializeObject<WeatherForecast>(content);
+            var weatherForecast = JsonConvert.DeserializeObject<WeatherForecast>(content!);
             return weatherForecast!;
              
 

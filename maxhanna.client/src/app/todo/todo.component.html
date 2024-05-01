@@ -1,30 +1,31 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
+  <fieldset>
+    <legend>Add</legend>
+    <input type="text" id="todoInput" placeholder="todo" #todoInput required />
+    <input type="url" id="urlInput" placeholder="url?" #urlInput />
+    <input type="submit" value="💾" (click)="addTodo()" />
+  </fieldset>
   <select #selectedType (change)="typeOnChange()">
     <option *ngFor="let type of todoTypes" [value]="type">{{ type }}</option>
   </select>
   <table class="table" id="todoTable">
     <thead>
       <tr>
-        <th (click)="sortTable(0, 'todoTable')">ID</th>
-        <th (click)="sortTable(1, 'todoTable')">Todo</th>
-        <th (click)="sortTable(3, 'todoTable')">URL</th>
-        <th (click)="sortTable(4, 'todoTable')">Date</th>
+        <th (click)="sortTable(0, 'todoTable')">{{ selectedType.value }}</th>
+        <th (click)="sortTable(1, 'todoTable')">🔗</th>
+        <th (click)="sortTable(2, 'todoTable')">Date</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       <tr *ngFor="let item of todos" id="todoNo{{item.id!}}">
-        <td>{{ item.id }}</td>
         <td>{{ item.todo }}</td>
-        <td>{{ item.url }}</td>
+        <td><a [href]="item.url" target="_blank" *ngIf="item.url">🔗</a></td>
         <td>{{ item.date | date }}</td>
-        <td><input type="button" value="X" (click)="deleteTodo(item.id!);" /></td>
+        <td><input type="button" value="❌" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id!}}" /></td>
       </tr>
     </tbody>
   </table>
-  <input type="text" id="todoInput" placeholder="todo" #todoInput required />
-  <input type="url" id="urlInput" placeholder="url?" #urlInput />
-  <input type="submit" value="Add" (click)="addTodo()" />
 </div>

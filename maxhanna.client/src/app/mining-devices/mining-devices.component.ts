@@ -41,7 +41,7 @@ export class MiningDevicesComponent extends ChildComponent implements OnInit {
     }    
   }
   public isOffline(state: number): boolean {
-    if (state == 1)
+    if (state == -1 || state == 1)
       return true;
     else return false;
   }

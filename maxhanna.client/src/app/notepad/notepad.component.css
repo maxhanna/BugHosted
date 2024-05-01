@@ -1,0 +1,22 @@
+.notesCarousel {
+    width:100%;
+}
+  .notesCarousel label {
+    box-shadow: inset 0px 10px 0px 0px rgba(248,255,148,1);
+    padding-top: 6px;
+    overflow: hidden;
+    resize: none;
+    display: inline-block;
+    width: 80px;
+    height: 65px;
+    border-size: 0px;
+    border-radius: 4px;
+    background-color: #ffff4f;
+    color: navy;
+    border-size: 1px;
+    border-style: inset;
+    margin-left: 5px;
+    margin-top: 5px;
+    font-size: 16px;
+    text-align: center;
+  }

@@ -10,17 +10,18 @@ export class NavigationComponent {
   @ViewChild('navbar') navbar!: ElementRef<HTMLElement>;
   titles = new Map([
     ["📅", "Calendar"],
-    ["📈", "Coin-Watch"],
+    ["₿", "Coin-Watch"],
     ["🔍", "Favourites"],
     ["☀️", "Weather"],
     ["⛏️", "MiningDevices"],
     ["🖥️", "MiningRigs"],
     ["📁", "Files"],
     ["✔️", "Todo"],
-    ["🎶", "Music"],
+    ["▶️", "Music"],
     ["🗒️", "Notepad"],
     ["📇", "Contacts"],
     ["🎮", "Game"],
+    ["💵", "Coin-Wallet"],
   ]);
 
   constructor(private _parent: AppComponent) {

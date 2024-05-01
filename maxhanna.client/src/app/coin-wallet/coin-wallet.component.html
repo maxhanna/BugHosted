@@ -1,0 +1,48 @@
+<div class=componentMain>
+  <div class="closeButton" (click)="remove_me();"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <table *ngIf="wallet">
+    <thead>
+      <tr>
+        <th>Currency</th>
+        <th>Total Balance</th>
+        <th>Available</th>
+        <th>Debt</th>
+        <th>Pending</th>
+        <th>Active</th>
+        <th>BTC Rate</th>
+        <th>Fiat Rate</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <ng-container *ngIf="wallet.total">
+        <tr>
+          <td>Total {{ wallet.total.currency }}</td>
+          <td>{{ wallet.total.totalBalance }}</td>
+          <td>{{ wallet.total.available }}</td>
+          <td>{{ wallet.total.debt }}</td>
+          <td>{{ wallet.total.pending }}</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </ng-container>
+      <ng-container *ngFor="let currency of wallet.currencies">
+        <tr *ngIf="currency.status === 'ACTIVE'">
+          <td>{{ currency.currency }}</td>
+          <td>{{ currency.totalBalance }}</td>
+          <td>{{ currency.available }}</td>
+          <td>{{ currency.debt }}</td>
+          <td>{{ currency.pending }}</td>
+          <td>{{ currency.active }}</td>
+          <td>{{ currency.btcRate }}</td>
+          <td>{{ currency.fiatRate }}</td>
+          <td>{{ currency.status }}</td>
+        </tr>
+      </ng-container>
+    </tbody>
+  </table>
+
+</div>

@@ -4,4 +4,6 @@ export class MiningRig {
   minerStatus: string | undefined;
   unpaidAmount: number | undefined;
   speedRejected: number | undefined;
+  localProfitability: number | undefined;
+  actualProfitability: number | undefined;
 }

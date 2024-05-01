@@ -11,6 +11,7 @@ const PROXY_CONFIG = [
       "/mining",
       "/todo",
       "/file",
+      "/notepad",
     ],
     target,
     secure: false

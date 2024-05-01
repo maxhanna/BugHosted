@@ -17,6 +17,7 @@ import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { GameComponent } from './game/game.component';
+import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 
 @NgModule({
   declarations: [
@@ -33,7 +34,8 @@ import { GameComponent } from './game/game.component';
     NotepadComponent,
     MusicComponent,
     ContactsComponent,
-    GameComponent
+    GameComponent,
+    CoinWalletComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

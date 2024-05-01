@@ -1,5 +1,6 @@
 <div class=componentMain>
   <div class="closeButton" (click)="remove_me();"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
 
   <table width=100%>
     <tr width=100%>
@@ -13,7 +14,7 @@
         <a href=#><div #monthForward>{{ this.getMonthName(monthForwardFromNow) }}</div><div #yearForward>{{ monthForwardFromNow.getFullYear() }}</div></a>
       </td>
     </tr>
-  </table> 
+  </table>
   <table align=center border=1 width=90% height=95% class=table>
     <tr width=100% height=50>
       <td width=14% height=50>Sunday</td>
@@ -25,22 +26,46 @@
       <td width=14% height=50>Saturday</td>
     </tr>
     <tr>
-      <td *ngFor="let cal of calendarDays.slice(0,7)" (click)="getCalendarDetails(cal);">{{cal.date?.getDate()}}{{cal.symbols?.join('')}}</td>
+      <td *ngFor="let cal of calendarDays.slice(0,7)"
+          (click)="getCalendarDetails(cal);"
+          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+      </td>
     </tr>
     <tr>
-      <td *ngFor="let cal of calendarDays.slice(7,14)" (click)="getCalendarDetails(cal);">{{cal.date?.getDate()}}{{cal.symbols?.join('')}}</td>
+      <td *ngFor="let cal of calendarDays.slice(7,14)"
+          (click)="getCalendarDetails(cal);"
+          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+      </td>
     </tr>
     <tr>
-      <td *ngFor="let cal of calendarDays.slice(14,21)" (click)="getCalendarDetails(cal);">{{cal.date?.getDate()}}{{cal.symbols?.join('')}}</td>
+      <td *ngFor="let cal of calendarDays.slice(14,21)"
+          (click)="getCalendarDetails(cal);"
+          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+      </td>
     </tr>
     <tr>
-      <td *ngFor="let cal of calendarDays.slice(21,28)" (click)="getCalendarDetails(cal);">{{cal.date?.getDate()}}{{cal.symbols?.join('')}}</td>
+      <td *ngFor="let cal of calendarDays.slice(21,28)"
+          (click)="getCalendarDetails(cal);"
+          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+      </td>
     </tr>
     <tr>
-      <td *ngFor="let cal of calendarDays.slice(28,35)" (click)="getCalendarDetails(cal);">{{cal.date?.getDate()}}{{cal.symbols?.join('')}}</td>
+      <td *ngFor="let cal of calendarDays.slice(28,35)"
+          (click)="getCalendarDetails(cal);"
+          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+      </td>
     </tr>
     <tr>
-      <td *ngFor="let cal of calendarDays.slice(35,42)" (click)="getCalendarDetails(cal);">{{cal.date?.getDate()}}{{cal.symbols?.join('')}}</td>
+      <td *ngFor="let cal of calendarDays.slice(35,42)"
+          (click)="getCalendarDetails(cal);"
+          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+      </td>
     </tr>
   </table>
   <div *ngIf="!!selectedDate" class="calendarDetail">
@@ -50,7 +75,7 @@
         <td>{{cal.date | date:'shortTime'}}</td>
         <td>{{cal.type}}</td>
         <td>{{cal.note}}</td>
-        <td><input type="button" value="X" (click)="deleteCalendarEntry(cal!);" /></td>
+        <td><input type="button" value="❌" (click)="deleteCalendarEntry(cal!);" /></td>
       </tr>
     </table>
     <input #calendarNoteEntry type="text" placeholder="Description" />
@@ -67,6 +92,6 @@
       <option>Milestone</option>
     </select>
     <input #calendarTimeEntry type="time" />
-    <input type="button" (click)="validateNoteEntry()" value="Add" />
+    <input type="button" (click)="validateNoteEntry()" value="💾" />
   </div>
 </div>

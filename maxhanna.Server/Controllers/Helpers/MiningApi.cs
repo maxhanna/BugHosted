@@ -14,31 +14,33 @@ namespace maxhanna.Server.Controllers.Helpers
         private string apiKey = "a955353f-8de2-480d-bd9d-c735fd6e9937";
         private string apiSecret = "d2669f80-fe34-4d4a-bcef-051ad90c4b4417053a06-38b8-48b1-a855-c02abd599603";
 
-        private static string HashBySegments(string key, string apiKey, string time, string nonce, string orgId, string method, string encodedPath, string query, string bodyStr)
+        private static string HashBySegments(string key, string apiKey, string time, string nonce, string orgId, string method, string encodedPath, string query, string? bodyStr)
         {
-            List<string> segments = new List<string>();
-            segments.Add(apiKey);
-            segments.Add(time);
-            segments.Add(nonce);
-            segments.Add(null);
-            segments.Add(orgId);
-            segments.Add(null);
-            segments.Add(method);
-            segments.Add(encodedPath == null ? null : encodedPath);
-            segments.Add(query == null ? null : query);
+            List<string?> segments = new List<string?>
+            {
+                apiKey,
+                time,
+                nonce,
+                null, 
+                orgId,
+                null,
+                method,
+                encodedPath ?? null,
+                query ?? null
+            };
 
             if (bodyStr != null && bodyStr.Length > 0)
             {
                 segments.Add(bodyStr);
             }
-            return CalcHMACSHA256Hash(JoinSegments(segments), key);
+            return CalcHMACSHA256Hash(JoinSegments(segments!), key);
         }
         private static string getPath(string url)
         {
             var arrSplit = url.Split('?');
             return arrSplit[0];
         }
-        private static string getQuery(string url)
+        private static string? getQuery(string url)
         {
             var arrSplit = url.Split('?');
 
@@ -72,7 +74,6 @@ namespace maxhanna.Server.Controllers.Helpers
                     sb.Append(segment);
                 }
             }
-            //Console.WriteLine("["+sb.ToString()+"]");
             return sb.ToString();
         }
 
@@ -88,11 +89,19 @@ namespace maxhanna.Server.Controllers.Helpers
             result = string.Join("", baHashedText.ToList().Select(b => b.ToString("x2")).ToArray());
             return result;
         }
-        private string getTime()
+        private string? getTime()
         {
-            string timeResponse = get("/api/v2/time");
-            ServerTime serverTimeObject = Newtonsoft.Json.JsonConvert.DeserializeObject<ServerTime>(timeResponse);
-            return serverTimeObject.serverTime;
+            string? timeResponse = get("/api/v2/time");
+
+            if (!string.IsNullOrEmpty(timeResponse))
+            {
+                ServerTime? serverTimeObject = Newtonsoft.Json.JsonConvert.DeserializeObject<ServerTime>(timeResponse);
+                return serverTimeObject?.serverTime;
+            }
+            else
+            {
+                return null;
+            }
         }
         public string get(string url)
         {
@@ -106,9 +115,9 @@ namespace maxhanna.Server.Controllers.Helpers
 
             if (auth)
             {
-                string time = getTime();
+                string time = getTime()!;
                 string nonce = Guid.NewGuid().ToString();
-                string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "GET", getPath(url), getQuery(url), null);
+                string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "GET", getPath(url), getQuery(url)!, null);
 
                 request.AddHeader("X-Time", time);
                 request.AddHeader("X-Nonce", nonce);
@@ -116,7 +125,7 @@ namespace maxhanna.Server.Controllers.Helpers
                 request.AddHeader("X-Organization-Id", this.orgId);
             }
 
-            var response = client.Execute(request, RestSharp.Method.Get);
+            var response = client.Execute(request, Method.Get);
             var content = response.Content;
             return content!;
         }
@@ -129,8 +138,8 @@ namespace maxhanna.Server.Controllers.Helpers
             request.AddHeader("Content-type", "application/json");
 
             string nonce = Guid.NewGuid().ToString();
-            string time = getTime();
-            string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "POST", getPath(url), getQuery(url), payload);
+            string time = getTime()!;
+            string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "POST", getPath(url), getQuery(url)!, payload);
 
             if (payload != null)
             {
@@ -147,18 +156,18 @@ namespace maxhanna.Server.Controllers.Helpers
                 request.AddHeader("X-Request-Id", Guid.NewGuid().ToString());
             }
 
-            var response = client.Execute(request, RestSharp.Method.Post);
+            var response = client.Execute(request, Method.Post);
             var content = response.Content;
             return content!;
         }
 
         public string delete(string url, string time, bool requestId)
         {
-            var client = new RestSharp.RestClient(this.urlRoot);
-            var request = new RestSharp.RestRequest(url);
+            var client = new RestClient(this.urlRoot);
+            var request = new RestRequest(url);
 
             string nonce = Guid.NewGuid().ToString();
-            string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "DELETE", getPath(url), getQuery(url), null);
+            string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "DELETE", getPath(url), getQuery(url)!, null);
 
             request.AddHeader("X-Time", time);
             request.AddHeader("X-Nonce", nonce);
@@ -170,7 +179,7 @@ namespace maxhanna.Server.Controllers.Helpers
                 request.AddHeader("X-Request-Id", Guid.NewGuid().ToString());
             }
 
-            var response = client.Execute(request, RestSharp.Method.Delete);
+            var response = client.Execute(request, Method.Delete);
             var content = response.Content;
             return content!;
         }

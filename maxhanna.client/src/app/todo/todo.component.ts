@@ -11,7 +11,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 })
 export class TodoComponent extends ChildComponent implements OnInit {
   todos: Array<Todo> = [];
-  todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket List', 'Recipe'];
+  todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe'];
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -36,7 +36,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
     try {
       const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
       const params = new HttpParams().set('type', type);
-      await this.promiseWrapper(await lastValueFrom(await this.http.get<Array<Todo>>('/todo', { params })).then(res => this.todos = res));
+      await this.promiseWrapper(lastValueFrom(this.http.get<Array<Todo>>("/todo", {params}))).then(res => this.todos = res);
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -52,13 +52,14 @@ export class TodoComponent extends ChildComponent implements OnInit {
     const utcDate = new Date(tmpTodo.date.getTime() - (tmpTodo.date.getTimezoneOffset() * 60000));
     const body = JSON.stringify({ ...tmpTodo, date: utcDate });
 
-    await this.promiseWrapper(await lastValueFrom(this.http.post(`/todo/`, body, { headers })));
+    await this.promiseWrapper(lastValueFrom(this.http.post(`/todo/`, body, { headers })));
     this.ngOnInit();
   }
   async deleteTodo(id: number) {
-    const response = await this.promiseWrapper(await lastValueFrom(this.http.delete(`/todo/${id}`)));
+    await this.promiseWrapper(lastValueFrom(this.http.delete(`/todo/${id}`)));
     if (document.getElementById("todoNo" + id)) {
       document.getElementById("todoNo" + id)!.style.textDecoration = "line-through";
+      document.getElementById("todoDeleteNo" + id)?.setAttribute("disabled", "true");
     }
     this.clearInputs();
   }

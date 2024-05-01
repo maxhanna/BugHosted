@@ -22,7 +22,7 @@ namespace maxhanna.Server.Controllers
         public IActionResult GetDirectory([FromQuery] string? directory)
         {
             directory = Path.Combine(baseTarget, WebUtility.UrlDecode(directory) ?? "");
-            _logger.LogInformation($"GET /File/GetDirectory/{directory}");
+            _logger.LogInformation($"GET /File/GetDirectory?directory={directory}");
             if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {baseTarget}"); }
 
             try
@@ -156,7 +156,7 @@ namespace maxhanna.Server.Controllers
             }
         }
         [HttpPost("/File/Upload", Name = "Upload")]
-        public async Task<IActionResult> UploadFiles(string? folderPath)
+        public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
         {
             _logger.LogInformation($"POST /File/Upload (folderPath = {folderPath})");
             try

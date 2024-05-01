@@ -3,11 +3,11 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   Current Directory :
   <input type="text" #directoryInput placeholder="path/to/directory" />
-  <input type="submit" value="➡️" (click)="changeDirectory()" />
-  <input type="submit" value="⬅️" (click)="previousDirectory()" />
-  <input type="submit" value="📂" (click)="makeDirectory()" />
+  <input type="submit" value="➡️" (click)="changeDirectory()" title="Change Directory" />
+  <input type="submit" value="⬅️" (click)="previousDirectory()" title="Previous Directory" />
+  <input type="submit" value="📂" (click)="makeDirectory()" title="New Folder" />
 
-  <input type="file" #fileInput placeholder="Upload" /><button type="submit" (click)="upload()">⏫</button>
+  <input type="file" #fileInput placeholder="Upload" multiple /><button type="submit" (click)="upload()" title="Upload">⏫</button>
 
 
   <table class="table" id="fileTable">

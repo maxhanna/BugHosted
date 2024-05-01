@@ -25,12 +25,10 @@ export class FileComponent extends ChildComponent {
 
   async changeDirectory(folder?: string) {
     try {
-      console.log(folder);
       if (folder && this.isFile(folder)) {
         return;
       }
       const ogDirectoryInput = this.directoryInput?.nativeElement?.value;
-      console.log("ogDirectoryInput:" + ogDirectoryInput);
       let target = "";
       if (ogDirectoryInput && ogDirectoryInput != "") {
         target = ogDirectoryInput;
@@ -51,26 +49,31 @@ export class FileComponent extends ChildComponent {
     }
   }
   async upload() {
-    if (!this.fileInput.nativeElement.files) { alert("No file to upload!"); }
+    if (!this.fileInput.nativeElement.files || this.fileInput.nativeElement.files.length === 0) {
+      return alert("No file to upload!");
+    }
+    const directoryInput = this.directoryInput?.nativeElement?.value;
     const files = this.fileInput.nativeElement.files;
     var fileNames = [];
     for (let x = 0; x < files!.length; x++) {
       fileNames.push(files![x].name);
     }
-    if (confirm(`Upload : ${fileNames.join(',')} ?`)) {
-      this.startLoading();
+    if (confirm(`Upload : ${directoryInput}/${fileNames.join(',')} ?`))
+    {
       try {
-
         const formData = new FormData();
-
         for (let i = 0; i < files!.length; i++) {
           formData.append('files', files!.item(i)!);
         }
-
-        await this.http.post('/file/upload', formData).subscribe();
+        if (directoryInput && directoryInput != '') {
+          await this.promiseWrapper(this.http.post(`/file/upload?folderPath=${directoryInput}`, formData).toPromise());
+        } else {
+          await this.promiseWrapper(this.http.post('/file/upload', formData).toPromise()).then(res => alert(res));
+        }
       } catch (ex) {
         console.log(ex);
       }
+      this.ngOnInit();
     }
   }
   async download(fileName: string) {
@@ -82,7 +85,6 @@ export class FileComponent extends ChildComponent {
     let target = directoryValue.replace(/\\/g, "/");
     target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? fileName : directoryValue.length > 0 ? this.fS + fileName : fileName;
     
-    console.log("target : " + target);
     try {
       this.startLoading();
       const response = await this.http.get(`/file/getfile/${encodeURIComponent(target)}`, { responseType: 'blob' }).toPromise();
@@ -104,8 +106,9 @@ export class FileComponent extends ChildComponent {
   }
   async makeDirectory() {
     const choice = prompt("Folder name:");
-    if (!choice) return;
-
+    if (!choice || choice == "") {
+      return alert("Folder name cannot be empty!");
+    }
     const directoryValue = this.directoryInput?.nativeElement?.value ?? "";
     let target = directoryValue.replace(/\\/g, "/");
     target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? choice : directoryValue.length > 0 ? this.fS + choice : choice;
@@ -128,16 +131,13 @@ export class FileComponent extends ChildComponent {
       // Extract the substring up to the first occurrence of ogTargetFolder
       this.directoryInput.nativeElement.value = index !== -1 ? this.directoryInput.nativeElement.value.substring(0, index) : '';
 
-
       this.stopLoading();
     }
   }
   private findTargetOriginalFolder(choice: string) {
-    const folders = choice.split('/'); // Split the sequence of folders
+    const folders = choice.split('/');
 
-    // Iterate over the directoryContents array
     for (const folder of this.directoryContents) {
-      // Check if any part of the choice matches the current folder
       if (folders.some(part => folder.includes(part))) {
         return folder;
       }
@@ -156,7 +156,7 @@ export class FileComponent extends ChildComponent {
       const requestBody = '"' + target + '"';
       this.startLoading();
       try {
-        await this.http.request('delete', '/file/delete', { body: requestBody, headers }).subscribe();
+        this.promiseWrapper(await this.http.request('delete', '/file/delete', { body: requestBody, headers }).toPromise());
       } catch (ex) {
         console.log(ex);
       }
@@ -181,8 +181,7 @@ export class FileComponent extends ChildComponent {
   }
   handleFileClick(fileName: string) {
     if (!fileName || fileName == "") {
-      alert("no file? try again");
-      return;
+      return alert("No file? Try again");
     }
     if (this.isFile(fileName)) {
       console.log("downloading: " + fileName);

@@ -9,15 +9,19 @@
         <th (click)="sortTable(1, 'deviceRigTable')">State</th>
         <th (click)="sortTable(2, 'deviceRigTable')">Unpaid Amount</th>
         <th (click)="sortTable(3, 'deviceRigTable')">Speed Rejected</th>
+        <th (click)="sortTable(3, 'deviceRigTable')">Local Profitability({{rate != 1 ? "CAD" : "BTC"}})</th>
+        <th (click)="sortTable(3, 'deviceRigTable')">Actual Profitability({{rate != 1 ? "CAD" : "BTC"}})</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       <tr *ngFor="let rig of miningRigs">
         <td>{{ rig.rigName }}</td>
-        <td>{{ rig.minerStatus }}</td>
+        <td [style]="rig.minerStatus != 'MINING' ? 'color:red;' : ''">{{ rig.minerStatus }}</td>
         <td>{{ rig.unpaidAmount }}</td>
         <td>{{ rig.speedRejected }}</td>
+        <td>{{ rate != 1 ? (rig.localProfitability! * rate!).toFixed(2) : rig.localProfitability! }}</td>
+        <td>{{ rate != 1 ? (rig.actualProfitability! * rate!).toFixed(2) : rig.actualProfitability! }}</td>
         <td (click)="requestRigStateChange(rig)">
           <div class="{{ isStopped(rig.minerStatus!) ? 'stopped' : isOffline(rig.minerStatus!) ? 'offline' : 'started' }}"></div>
         </td>

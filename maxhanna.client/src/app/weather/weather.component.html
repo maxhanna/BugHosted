@@ -1,67 +1,71 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
-  <h1 id="tableLabel">Weather Forecast</h1>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
 
+  <h3>Current Weather</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Last Updated</th>
+        <th>Temperature (°C)</th>
+        <th>Temperature (°F)</th>
+        <th>Condition</th>
+        <th>Wind (mph)</th>
+        <th>Wind (kph)</th>
+        <th>Humidity</th>
+        <th>Cloud</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngIf="weather.current">
+        <td>{{ weather.current.last_updated }}</td>
+        <td>{{ weather.current.temp_c }}</td>
+        <td>{{ weather.current.temp_f }}</td>
+        <td>{{ weather.current.condition.text }}</td>
+        <td>{{ weather.current.wind_mph }}</td>
+        <td>{{ weather.current.wind_kph }}</td>
+        <td>{{ weather.current.humidity }}</td>
+        <td>{{ weather.current.cloud }}</td>
+      </tr>
+    </tbody>
+  </table>
 
-  <h2>Weather Report</h2>
-
-  <div>
-    <h3>Current Weather</h3>
-    <table class="sortable">
-      <thead>
+  <h3>Forecast</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Temperature (°C)</th>
+        <th>Temperature (°F)</th>
+        <th>Condition</th>
+        <th>Wind (mph)</th>
+        <th>Wind (kph)</th>
+        <th>Humidity</th>
+        <th>Cloud</th>
+      </tr>
+    </thead>
+    <tbody *ngIf="weather.forecast">
+      <ng-container *ngFor="let day of weather.forecast.forecastday">
         <tr>
-          <th>Last Updated</th>
-          <th>Temperature (°C)</th>
-          <th>Temperature (°F)</th>
-          <th>Condition</th>
-          <th>Wind (mph)</th>
-          <th>Wind (kph)</th>
-          <th>Humidity</th>
-          <th>Cloud</th>
+          <td (click)="toggleDay(day.date)" style="cursor: pointer;" colspan=8>
+            <span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">
+              {{ day.date }}
+            </span>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>{{ weather.current.last_updated }}</td>
-          <td>{{ weather.current.temp_c }}</td>
-          <td>{{ weather.current.temp_f }}</td>
-          <td>{{ weather.current.condition.text }}</td>
-          <td>{{ weather.current.wind_mph }}</td>
-          <td>{{ weather.current.wind_kph }}</td>
-          <td>{{ weather.current.humidity }}</td>
-          <td>{{ weather.current.cloud }}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div>
-    <h3>Forecast</h3>
-    <table class="sortable">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Temperature (°C)</th>
-          <th>Temperature (°F)</th>
-          <th>Condition</th>
-          <th>Wind (mph)</th>
-          <th>Wind (kph)</th>
-          <th>Humidity</th>
-          <th>Cloud</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let day of weather.forecast.forecastday">
-          <td>{{ day.date }}</td>
-          <td>{{ day.day.avgtemp_c }}</td>
-          <td>{{ day.day.avgtemp_f }}</td>
-          <td>{{ day.day.condition.text }}</td>
-          <td>{{ day.day.maxwind_mph }}</td>
-          <td>{{ day.day.maxwind_kph }}</td>
-          <td>{{ day.day.avghumidity }}</td>
-          <td>{{ day.day.maxtemp_c }}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+        <ng-container *ngIf="!isCollapsed(day.date)">
+          <tr *ngFor="let hour of day.hour">
+            <td>{{ hour.time }}</td>
+            <td>{{ hour.temp_c }}</td>
+            <td>{{ hour.temp_f }}</td>
+            <td>{{ hour.condition.text }}</td>
+            <td>{{ hour.wind_mph }}</td>
+            <td>{{ hour.wind_kph }}</td>
+            <td>{{ hour.humidity }}</td>
+            <td>{{ hour.cloud }}</td>
+          </tr>
+        </ng-container>
+      </ng-container>
+    </tbody>
+  </table>
 </div>

@@ -11,6 +11,7 @@ import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { GameComponent } from './game/game.component';
+import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 
 
 @Component({
@@ -64,6 +65,9 @@ export class AppComponent {
       }
       else if (componentType == "Game") {
         componentClass = GameComponent;
+      }
+      else if (componentType == "Coin-Wallet") {
+        componentClass = CoinWalletComponent;
       }
 
       if (componentClass != null) {

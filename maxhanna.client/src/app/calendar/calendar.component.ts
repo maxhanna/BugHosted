@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { CalendarDate } from '../calendar-date';
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -10,7 +10,7 @@ import { lastValueFrom } from 'rxjs';
   templateUrl: './calendar.component.html',
   styleUrl: './calendar.component.css'
 })
-export class CalendarComponent extends ChildComponent {
+export class CalendarComponent extends ChildComponent implements OnInit {
   @ViewChild('monthBack') monthBack!: ElementRef<HTMLElement>;
   @ViewChild('monthForward') monthForward!: ElementRef<HTMLElement>;
   @ViewChild('yearBack') yearBack!: ElementRef<HTMLElement>;
@@ -29,12 +29,30 @@ export class CalendarComponent extends ChildComponent {
   monthBackFromNow = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
   monthForwardFromNow = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
   calendarEntries: CalendarEntry[] = [];
-  selectedDate?: CalendarDate = undefined;
   selectedCalendarEntries?: CalendarEntry[] = undefined;
+  currentDate: Date = new Date();
+  selectedDate?: CalendarDate = undefined;
+
 
   constructor(private http: HttpClient) {
     super();
-    this.setCalendarDates(this.now);
+  }
+
+  async ngOnInit() {
+    this.selectedDate = undefined;
+    await this.setCalendarDates(this.now);
+    this.currentDate = new Date();
+    this.currentDate.setHours(0, 0, 0, 0);
+
+    const tmpSelectedDate = this.calendarDays.find(x => {
+      if (x.date)
+        return x.date!.getTime() === this.currentDate.getTime();
+      return false;
+    });
+    if (tmpSelectedDate?.symbols?.length! > 0) {
+      this.selectedDate = tmpSelectedDate;
+      this.getCalendarDetails(this.selectedDate!);
+    }
   }
 
   monthForwardClick() {
@@ -50,6 +68,9 @@ export class CalendarComponent extends ChildComponent {
     this.setCalendarDates(this.now);
   }
   getCalendarDetails(selectedDate: CalendarDate) {
+    if (!(selectedDate && selectedDate.date)) {
+      return;
+    }
     this.selectedCalendarEntries = [];
     this.selectedDate = selectedDate;
     this.calendarEntries.forEach(ce => {
@@ -57,6 +78,7 @@ export class CalendarComponent extends ChildComponent {
         this.selectedCalendarEntries?.push(ce);
       }
     });
+    this.currentDate = new Date(selectedDate.date!);
   }
   async validateNoteEntry()
   {
@@ -119,7 +141,6 @@ export class CalendarComponent extends ChildComponent {
       }
     }
     this.setDateHeaders(now);
-    this.calendarDays
   }
   private daysInMonth(month: number, year: number) {
     return new Date(year, month, 0).getDate();

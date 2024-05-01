@@ -39,3 +39,12 @@ Accept: multipart/form-data
 DELETE {{maxhanna.Server_HostAddress}}/file/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/notepad/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/notepad/
+Accept: application/json
+###
+DELETE {{maxhanna.Server_HostAddress}}/notepad/
+Accept: application/json
+###
