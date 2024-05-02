@@ -29,42 +29,42 @@
       <td *ngFor="let cal of calendarDays.slice(0,7)"
           (click)="getCalendarDetails(cal);"
           [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
       </td>
     </tr>
     <tr>
       <td *ngFor="let cal of calendarDays.slice(7,14)"
           (click)="getCalendarDetails(cal);"
           [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
       </td>
     </tr>
     <tr>
       <td *ngFor="let cal of calendarDays.slice(14,21)"
           (click)="getCalendarDetails(cal);"
           [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
       </td>
     </tr>
     <tr>
       <td *ngFor="let cal of calendarDays.slice(21,28)"
           (click)="getCalendarDetails(cal);"
           [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
       </td>
     </tr>
     <tr>
       <td *ngFor="let cal of calendarDays.slice(28,35)"
           (click)="getCalendarDetails(cal);"
           [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
       </td>
     </tr>
     <tr>
       <td *ngFor="let cal of calendarDays.slice(35,42)"
           (click)="getCalendarDetails(cal);"
           [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{cal.date?.getDate()}}{{cal.symbols?.join('')}}
+        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
       </td>
     </tr>
   </table>
@@ -74,24 +74,25 @@
       <tr *ngFor="let cal of selectedCalendarEntries">
         <td>{{cal.date | date:'shortTime'}}</td>
         <td>{{cal.type}}</td>
-        <td>{{cal.note}}</td>
+        <td>
+          {{ cal.type !== "Milestone" ? cal.note : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note) }}
+        </td>
+
+
+
+
         <td><input type="button" value="❌" (click)="deleteCalendarEntry(cal!);" /></td>
       </tr>
     </table>
-    <input #calendarNoteEntry type="text" placeholder="Description" />
-    <select #calendarTypeEntry>
-      <option>Event</option>
-      <option>Birthday</option>
-      <option>Holiday</option>
-      <option>Newyears</option>
-      <option>Christmas</option>
-      <option>Weekly</option>
-      <option>Monthly</option>
-      <option>Annually</option>
-      <option>Daily</option>
-      <option>Milestone</option>
-    </select>
-    <input #calendarTimeEntry type="time" />
-    <input type="button" (click)="validateNoteEntry()" value="💾" />
+    <fieldset>
+      <input #calendarNoteEntry type="text" placeholder="Description" required />
+      <select #calendarTypeEntry>
+        <ng-container *ngFor="let eventType of getEventTypes()">
+          <option>{{ eventType }}</option>
+        </ng-container>
+      </select>
+      <input #calendarTimeEntry type="time" value="00:00" />
+      <input type="button" (click)="validateNoteEntry()" value="💾" />
+    </fieldset>
   </div>
 </div>

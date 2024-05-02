@@ -21,7 +21,7 @@ namespace maxhanna.Server.Controllers
         [HttpGet(Name = "GetCalendar")]
         public async Task<IActionResult> Get([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
         {
-            _logger.LogInformation("GET /Calendar");
+            _logger.LogInformation($"GET /Calendar (startDate : {startDate}) (endDate : {endDate})");
             if (startDate > endDate)
             {
                 _logger.LogError("An error occurred while fetching calendar entries. StartDate > EndDate");
@@ -35,7 +35,16 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql = "SELECT Id, Type, Note, Date FROM maxhanna.calendar WHERE Date BETWEEN @StartDate AND @EndDate";
+                    string sql = 
+                        "SELECT Id, Type, Note, Date FROM maxhanna.calendar " +
+                        "WHERE " +
+                            "(" +
+                                "(Date BETWEEN (@StartDate - interval 1 day) AND @EndDate) " +
+                                "OR " +
+                                "(Type = 'weekly' OR Type = 'monthly') " +
+                                "OR " +
+                                "((Type = 'annually' OR Type = 'birthday' OR Type = 'milestone') AND MONTH(Date) = MONTH(@StartDate))" +
+                            ") ";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@StartDate", startDate);
@@ -64,6 +73,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> Post([FromBody] CalendarEntry model)
         {
             _logger.LogInformation("POST /Calendar");
+            _logger.LogInformation($"Type : {model.Type} Note: {model.Note} Date: {model.Date}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {

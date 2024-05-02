@@ -17,7 +17,6 @@ body {
 
 .componentMain {
   background-color: var(--main-bg-color);
-  max-width: 500px;
   min-width: 200px;
 }
 

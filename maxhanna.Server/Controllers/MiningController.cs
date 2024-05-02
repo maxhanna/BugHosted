@@ -207,7 +207,7 @@ namespace maxhanna.Server.Controllers
                 }
 
                 MiningWallet wallet = JsonConvert.DeserializeObject<MiningWallet>(res)!;
-                
+
                 if (wallet == null)
                 {
                     _logger.LogError("Deserialized MiningWallet object is null");
@@ -221,6 +221,38 @@ namespace maxhanna.Server.Controllers
             {
                 _logger.LogError(ex, "Error occurred while fetching mining wallet info");
                 return StatusCode(500, "An unexpected error occurred while fetching mining wallet info");
+            }
+        }
+        [HttpGet("/Mining/DailyEarnings", Name = "GetDailyMiningEarnings")]
+        public IActionResult GetDailyMiningEarnings()
+        {
+            _logger.LogInformation("GET /Mining/DailyEarnings/");
+
+            try
+            {
+                var res = new MiningApi().get("/main/api/v2/mining/rigs/stats/data", true);
+
+                if (string.IsNullOrEmpty(res))
+                {
+                    _logger.LogError("Mining API response is null or empty");
+                    return NotFound("Mining API response is null or empty");
+                }
+
+                Collection<DailyMiningEarnings> wallet = JsonConvert.DeserializeObject<Collection<DailyMiningEarnings>>(res)!;
+
+                if (wallet == null)
+                {
+                    _logger.LogError("Deserialized DailyMiningEarnings object is null");
+                    return NotFound("Deserialized DailyMiningEarnings object is null");
+                }
+
+                _logger.LogInformation("Found daily mining earnings data");
+                return Ok(wallet);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while fetching daily mining earnings info");
+                return StatusCode(500, "An unexpected error occurred while fetching daily mining earnings info");
             }
         }
 

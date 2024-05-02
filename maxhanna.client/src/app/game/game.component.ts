@@ -12,14 +12,22 @@ import { lastValueFrom } from 'rxjs';
 export class GameComponent extends ChildComponent implements OnInit {
   gameboy = new Gameboy();
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
   gamesList: Array<string> = [];
+  savedGameFile = "";
   constructor(private http: HttpClient) {
     super();
-    this.getGames();
   }
-  ngOnInit() {
+  async ngOnInit() {
     this.fileInput?.nativeElement?.addEventListener('change', this.onFileChange);
     this.getGames();
+
+    if (crossOriginIsolated || window.crossOriginIsolated) {
+      alert("isolated!");
+    } else { alert("not iso0lated!"); }
+  }
+  setButtonState(button: string, value: boolean) { 
+    this.gameboy.input[button] = value;
   }
   async getGames() {
     const params = new HttpParams().set('directory', "roms/");
@@ -33,6 +41,8 @@ export class GameComponent extends ChildComponent implements OnInit {
       const response = await this.http.get(`/file/getRomfile/${target}`, { responseType: 'blob' }).toPromise();
       const arrayBuffer = await this.toArrayBuffer(new Blob([response!], { type: 'application/octet-stream' }));
       this.loadGame(arrayBuffer); // Run the game
+      console.log(Object.keys(this.gameboy.input));
+
     } catch (ex) {
       console.log("about to throw error!");
       console.error(ex);
@@ -54,7 +64,6 @@ export class GameComponent extends ChildComponent implements OnInit {
       fileNames.push(files![x].name);
     }
     if (confirm(`Upload : ${fileNames.join(',')} ?`)) {
-      this.startLoading();
       try {
 
         const formData = new FormData();
@@ -63,26 +72,27 @@ export class GameComponent extends ChildComponent implements OnInit {
           formData.append('files', files!.item(i)!);
         }
 
-        await this.http.post('/file/uploadrom', formData).toPromise();
+        this.promiseWrapper(await this.http.post('/file/uploadrom', formData).toPromise());
       } catch (ex) {
         console.log(ex);
       }
     }
   }
+  async saveGameState() {
+
+  }
   private loadGame(rom: unknown) {
     try {
       this.gameboy.loadGame(rom as ArrayBuffer);
     } catch (ex) {
-      console.log("failed to loadGame : " + ex);
+      console.error("failed to loadGame : " + ex);
     }
-    
     this.gameboy.apu.enableSound();
     this.setGameColors(this.gameboy.cartridge!.title);
     const context = document.querySelector('canvas')?.getContext('2d');
     this.gameboy.onFrameFinished((imageData: ImageData) => {
       context!.putImageData(imageData, 0, 0);
-    });
-    console.log("running game");
+    }); 
     this.gameboy.run();
   }
 

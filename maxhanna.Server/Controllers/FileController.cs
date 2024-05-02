@@ -36,6 +36,8 @@ namespace maxhanna.Server.Controllers
                 // Get the list of file names in the directory
                 string[] fileNames = Directory.GetFileSystemEntries(directory).Select(path => Path.GetFileName(path)).ToArray();
 
+                Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin"); // You can specify specific origins instead of "*"
+                Response.Headers.Append("Cross-Origin-Embedder-Policy", "require-corp"); // Specify allowed methods
                 return Ok(fileNames);
             }
             catch (Exception ex)
@@ -111,6 +113,8 @@ namespace maxhanna.Server.Controllers
 
                 // Determine the content type based on the file extension (you can adjust it accordingly)
                 string contentType = "application/octet-stream";
+                Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin"); // You can specify specific origins instead of "*"
+                Response.Headers.Append("Cross-Origin-Embedder-Policy", "require-corp"); // Specify allowed methods
 
                 return File(fileStream, contentType, Path.GetFileName(filePath));
             }

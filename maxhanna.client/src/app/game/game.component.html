@@ -1,6 +1,6 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
-  <canvas></canvas>
+
   <div>
     Games:
     <label *ngFor="let game of this.gamesList" (click)="this.loadRom(game)" style="cursor:pointer;margin-left:5px;">{{game}}</label>
@@ -8,6 +8,82 @@
   <div>
     Upload a rom:
     <input type="submit" value="⏫" (click)="this.onFileChange(null)" style="display:inline-block" />
-    <input type="file" class="file-input" style="display:inline-block;" #fileInput />
+    <input type="file" class="file-input" style="display:inline-block;" #fileInput multiple />
   </div>
-</div>
+  <div *ngIf="savedGameFile != ''">Loaded save game : {{savedGameFile}}</div>
+  <div>
+    Save game <input type="submit" value="💾" (click)="saveGameState()"/>
+  </div>
+
+  <div class="gameboy" id="GameBoy">
+
+    <div class="screen-area">
+      <canvas id="mainCanvas" class="mainCanvas" #canvas></canvas>
+    </div>
+
+    <div class="nintendo">Hackboy</div>
+
+    <div class="controls">
+      <div class="dpad">
+        <div class="up"
+             (mousedown)="gameboy.input.isPressingUp = true;"
+             (touchstart)="gameboy.input.isPressingUp = true;"
+             (mouseup)="gameboy.input.isPressingUp = false;"
+             (touchend)="gameboy.input.isPressingUp = false;">
+          <div class="up-triangle"></div>
+        </div>
+        <div class="right"
+             (mousedown)="gameboy.input.isPressingRight = true;"
+             (touchstart)="gameboy.input.isPressingRight = true;"
+             (mouseup)="gameboy.input.isPressingRight = false;"
+             (touchend)="gameboy.input.isPressingRight = false;">
+          <div class="right-triangle"></div>
+        </div>
+        <div class="down"
+             (mousedown)="gameboy.input.isPressingDown = true;"
+             (touchstart)="gameboy.input.isPressingDown = true;"
+             (mouseup)="gameboy.input.isPressingDown = false;"
+             (touchend)="gameboy.input.isPressingDown = false;">
+          <div class="down-triangle"></div>
+        </div>
+        <div class="left"
+             (mousedown)="gameboy.input.isPressingLeft = true;"
+             (touchstart)="gameboy.input.isPressingLeft = true;"
+             (mouseup)="gameboy.input.isPressingLeft = false;"
+             (touchend)="gameboy.input.isPressingLeft = false;">
+          <div class="left-triangle"></div>
+        </div>
+        <div class="middle"
+             (mousedown)="gameboy.input.isPollingDirections = true;"
+             (touchstart)="gameboy.input.isPollingDirections = true;"
+             (mouseup)="gameboy.input.isPollingDirections = false;"
+             (touchend)="gameboy.input.isPollingDirections = false;">
+        </div>
+      </div>
+      <div class="a-b">
+        <div class="b"
+             (mousedown)="gameboy.input.isPressingB = true;"
+             (touchstart)="gameboy.input.isPressingB = true;"
+             (mouseup)="gameboy.input.isPressingB = false;"
+             (touchend)="gameboy.input.isPressingB = false;">B</div>
+        <div class="a"
+             (mousedown)="gameboy.input.isPressingA = true;"
+             (touchstart)="gameboy.input.isPressingA = true;"
+             (mouseup)="gameboy.input.isPressingA = false;"
+             (touchend)="gameboy.input.isPressingA = false;">A</div>
+      </div>
+    </div>
+
+    <div class="start-select">
+      <div class="select"
+           (mousedown)="gameboy.input.isPressingSelect = true;"
+           (touchstart)="gameboy.input.isPressingSelect = true;"
+           (mouseup)="gameboy.input.isPressingSelect = false;"
+           (touchend)="gameboy.input.isPressingSelect = false;">SELECT</div>
+      <div class="start"
+           (mousedown)="gameboy.input.isPressingStart = true;"
+           (touchstart)="gameboy.input.isPressingStart = true;"
+           (mouseup)="gameboy.input.isPressingStart = false;"
+           (touchend)="gameboy.input.isPressingStart = false;">START</div> 
+    </div> 
+  </div>

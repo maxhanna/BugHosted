@@ -4,6 +4,7 @@ import { lastValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { MiningRig } from '../mining-rig';
 import { CoinWatchResponse } from '../coin-watch-response';
+import { DailyMiningEarnings } from '../daily-mining-earnings';
 
 @Component({
   selector: 'app-mining-rigs',
@@ -13,17 +14,24 @@ import { CoinWatchResponse } from '../coin-watch-response';
 export class MiningRigsComponent extends ChildComponent {
   @ViewChild('notificationArea') notificationArea!: ElementRef<HTMLElement>;
   miningRigs: Array<MiningRig> = [];
+  dailyEarnings: Array<DailyMiningEarnings> = [];
+  showAllData: boolean = false;
   rate: number = 1;
+  localProfitability: number = 0;
   constructor(private http: HttpClient) {
     super();
   }
   ngOnInit() {
+    this.rate = 1;
+    this.localProfitability = 0;
     this.getMiningInfo();
     this.getBTCRate();
+    this.getDailyEarnings();
   }
   async getMiningInfo() {
     this.startLoading();
     await lastValueFrom(this.http.get<Array<MiningRig>>('/mining/')).then(res => this.miningRigs = res);
+    this.miningRigs.forEach(x => this.localProfitability += Number(x.localProfitability!));
     this.stopLoading();
   }
   async requestRigStateChange(rig: MiningRig) {
@@ -41,6 +49,11 @@ export class MiningRigsComponent extends ChildComponent {
         this.notificationArea.nativeElement.innerHTML += JSON.stringify(error);
       }
     }
+  }
+  async getDailyEarnings() {
+    this.startLoading();
+    await lastValueFrom(this.http.get<Array<DailyMiningEarnings>>('/mining/dailyearnings')).then(res => this.dailyEarnings = res);
+    this.stopLoading();
   }
   async getBTCRate() {
     this.startLoading();
@@ -68,7 +81,6 @@ export class MiningRigsComponent extends ChildComponent {
     );
     this.stopLoading();
     this.rate = data.filter((x: CoinWatchResponse) => x.name == "Bitcoin")[0].rate;
-    console.log(data);
   }
   isOffline(state: string): boolean {
     if (state == "OFFLINE")
@@ -79,5 +91,8 @@ export class MiningRigsComponent extends ChildComponent {
     if (state == "STOPPED")
       return true;
     else return false;
+  }
+  toggleShowAllData() {
+    this.showAllData = !this.showAllData;
   }
 }

@@ -5,6 +5,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { CalendarEntry } from '../calendar-entry';
 import { lastValueFrom } from 'rxjs';
 
+
 @Component({
   selector: 'app-calendar',
   templateUrl: './calendar.component.html',
@@ -32,7 +33,18 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   selectedCalendarEntries?: CalendarEntry[] = undefined;
   currentDate: Date = new Date();
   selectedDate?: CalendarDate = undefined;
-
+  eventSymbolMap: { [key: string]: string } = {
+    'Event': '💥',
+    'Birthday': '🎁',
+    'Holiday': '🏖️',
+    'Newyears': '🎉',
+    'Christmas': '🎄',
+    'Weekly': '📅',
+    'Monthly': '📆',
+    'Annually': '🎇',
+    'Daily': '⏰',
+    'Milestone': '🏆',
+  };
 
   constructor(private http: HttpClient) {
     super();
@@ -58,13 +70,13 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   monthForwardClick() {
     let tmpNow = new Date(1 + " " + this.month.nativeElement.innerText + " " + this.year.nativeElement.innerText);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() + 1));
-     
+
     this.setCalendarDates(this.now);
   }
   monthBackClick() {
     let tmpNow = new Date(1 + " " + this.month.nativeElement.innerText + " " + this.year.nativeElement.innerText);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
-     
+
     this.setCalendarDates(this.now);
   }
   getCalendarDetails(selectedDate: CalendarDate) {
@@ -74,25 +86,22 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.selectedCalendarEntries = [];
     this.selectedDate = selectedDate;
     this.calendarEntries.forEach(ce => {
-      if (ce.date && selectedDate.date && this.isSameDate(new Date(ce.date), selectedDate.date)) {
+      if (selectedDate.date && this.calendarEntriesContainsDate(ce, selectedDate.date)) {
         this.selectedCalendarEntries?.push(ce);
       }
     });
     this.currentDate = new Date(selectedDate.date!);
   }
-  async validateNoteEntry()
-  {
+  async validateNoteEntry() {
     if (!this.selectedDate || !this.selectedDate.date) {
       alert("validation failed");
-      console.log("Selected date is undefined or null.");
       return;
     }
 
     await this.promiseWrapper(await this.createCalendarEntry());
   }
   private async setDateHeaders(now: Date) {
-    if (!(this.month && this.year && this.yearBack && this.monthBack && this.monthForward && this.yearForward))
-    {
+    if (!(this.month && this.year && this.yearBack && this.monthBack && this.monthForward && this.yearForward)) {
       await this.getCalendarEntries();
       return;
     }
@@ -112,12 +121,25 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.monthBack.nativeElement.innerText = this.getMonthName(lastMonth);
   }
   private isSameDate = (date1: Date, date2: Date): boolean => {
-    return date1.getFullYear() === date2.getFullYear() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getDate() === date2.getDate();
+    return (date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate() &&
+      date1.getFullYear() === date2.getFullYear());
   }
-  private async setCalendarDates(now: Date)
-  {
+  private isWeeklyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
+    if (type.toLowerCase() !== "weekly") {
+      return false;
+    }
+    const sameDayOfWeek = date1.getDay() === date2.getDay();
+    return sameDayOfWeek;
+  }
+  private isMonthlyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
+    return type.toLowerCase() == "monthly" && date1.getDate() === date2.getDate();
+  }
+  private isAnnualEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
+    return (type.toLowerCase() == "milestone" || type.toLowerCase() == "annually" || type.toLowerCase() == "birthday")
+      && (date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate());
+  }
+  private async setCalendarDates(now: Date) {
     await this.getCalendarEntries();
     this.calendarDays = [];
     var tmpNow = new Date(now);
@@ -128,11 +150,10 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       if (now.getDay() <= x && ++dayCount <= numberOfDaysInMonth) {
         var symbols = new Array<string>();
         this.calendarEntries.forEach(ce => {
-          if (ce && ce.date) {
-            if (this.isSameDate(new Date(ce.date), tmpNow) && ce.type) {
-              symbols.push(ce.type);
-            }
-          } 
+          if (this.calendarEntriesContainsDate(ce, tmpNow)
+          ) {
+            symbols.push(ce.type!);
+          }
         });
         this.calendarDays.push(new CalendarDate(x, new Date(tmpNow), symbols));
         tmpNow.setDate(tmpNow.getDate() + 1);
@@ -142,19 +163,25 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     }
     this.setDateHeaders(now);
   }
+  private calendarEntriesContainsDate(ce: CalendarEntry, tmpNow: Date) {
+    return ce && ce.date && ce.type && (
+      this.isSameDate(new Date(ce.date), tmpNow)
+      || this.isWeeklyEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
+      || this.isMonthlyEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
+      || this.isAnnualEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
+    );
+  }
+
   private daysInMonth(month: number, year: number) {
     return new Date(year, month, 0).getDate();
   }
   async getCalendarEntries() {
-    const startOfMonth = new Date(this.now.getFullYear(), this.now.getMonth(), 1);
-    const endOfMonth = new Date(this.now.getFullYear(), this.now.getMonth() + 1, 0);
-
     const params = new HttpParams()
-      .set('startDate', startOfMonth.toISOString())
-      .set('endDate', endOfMonth.toISOString());
+      .set('startDate', new Date(this.now.getFullYear(), this.now.getMonth(), 1).toISOString())
+      .set('endDate', new Date(this.now.getFullYear(), this.now.getMonth() + 1, 0).toISOString());
 
     try {
-      await this.promiseWrapper(await lastValueFrom(await this.http.get<CalendarEntry[]>('/calendar', { params })).then(res => this.calendarEntries = res));
+      this.calendarEntries = await this.promiseWrapper(lastValueFrom(await this.http.get<CalendarEntry[]>('/calendar', { params })));
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -190,7 +217,6 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     const utcDate = new Date(tmpCalendarEntry.date.getTime() - (tmpCalendarEntry.date.getTimezoneOffset() * 60000));
     const body = JSON.stringify({ ...tmpCalendarEntry, date: utcDate });
 
-
     try {
       this.startLoading();
       await lastValueFrom(await this.http.post("/calendar", body, { headers }));
@@ -204,9 +230,15 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       console.error(error);
     }
   }
+  convertSymbols(symbols: string[] | undefined): string {
+    return symbols ? symbols.map(symbol => this.eventSymbolMap[symbol] || symbol).join('') : '';
+  }
+  getEventTypes(): string[] {
+    return Object.keys(this.eventSymbolMap);
+  }
   private clearInputValues() {
-    this.calendarTimeEntry.nativeElement.value = "";
+    this.calendarTimeEntry.nativeElement.value = "00:00";
     this.calendarNoteEntry.nativeElement.value = "";
-    this.calendarTypeEntry.nativeElement.value  = this.calendarTypeEntry.nativeElement.options[0].value;
+    this.calendarTypeEntry.nativeElement.value = this.calendarTypeEntry.nativeElement.options[0].value;
   }
 }
