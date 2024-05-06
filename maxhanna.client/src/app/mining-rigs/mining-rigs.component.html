@@ -1,13 +1,14 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">Mining Rigs</div>
 
   Current Local Profitability: {{ rate != 1 ? (rate * localProfitability).toFixed(2) + " CAD" : localProfitability + " BTC"}}
   <div (click)="toggleShowAllData()" class="totalDailyEarningsDiv">
     {{ dailyEarnings[0].date | date }} Total Earnings: {{ rate != 1 ? (rate * dailyEarnings[0].totalEarnings!).toFixed(2) + " CAD" : dailyEarnings[0].totalEarnings + " BTC" }}
 
     <div *ngIf="showAllData">
-      <table>
+      <table class="mainTable">
         <thead>
           <tr>
             <th>Date</th>
@@ -26,15 +27,15 @@
 
 
   <div #notificationArea></div>
-  <table class="table" id="miningRigTable">
+  <table class="mainTable" id="miningRigTable">
     <thead>
       <tr>
-        <th (click)="sortTable(0, 'miningRigTable')">Rig Name</th>
+        <th (click)="sortTable(0, 'miningRigTable')">Rig</th>
         <th (click)="sortTable(1, 'miningRigTable')">State</th>
-        <th (click)="sortTable(2, 'miningRigTable')">Unpaid Amount</th>
-        <th (click)="sortTable(3, 'miningRigTable')">Speed Rejected</th>
-        <th (click)="sortTable(3, 'miningRigTable')">Local Profitability({{rate != 1 ? "CAD" : "BTC"}})</th>
-        <th (click)="sortTable(3, 'miningRigTable')">Actual Profitability({{rate != 1 ? "CAD" : "BTC"}})</th>
+        <th (click)="sortTable(2, 'miningRigTable')" title="Unpaid Amount">Unpaid</th>
+        <th (click)="sortTable(3, 'miningRigTable')" title="Speed Rejected">Rejected</th>
+        <th (click)="sortTable(3, 'miningRigTable')" title="Local Profitability">L({{rate != 1 ? "CAD" : "BTC"}})</th>
+        <th (click)="sortTable(3, 'miningRigTable')" title="Actual Profitability">A({{rate != 1 ? "CAD" : "BTC"}})</th>
         <th></th>
       </tr>
     </thead>

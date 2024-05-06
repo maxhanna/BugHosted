@@ -2,6 +2,7 @@
 :root {
   --main-border: 2px ridge rgba(245, 23, 23, 0.5);
   --main-bg-color: rgba(54, 25, 25, .5);
+  --secondary-bg-color: rgba(54, 25, 25, .2);
   --table-thead-color: rgba(54, 25, 25);
   --main-font-color: #00FF00;
   --secondary-font-color: cornflowerblue;
@@ -12,70 +13,95 @@ body {
   color: var(--main-font-color);
   margin: 0;
   padding: 0;
-  padding-left: 50px;
+  padding-top: 50px;
 }
 
 .componentMain {
   background-color: var(--main-bg-color);
-  min-width: 200px;
-}
-
-#mainTable,
-.hiddenTable {
-  background-color: var(--main-bg-color);
-}
-
-#mainTable {
-  background-color: red;
-  float: left;
+  min-width: 300px;
+  position: relative;
+  padding-top: 35px;
   border: var(--main-border);
   border-radius: 5px;
 }
 
-  #mainTable a:link,
-  #mainTable a:visited {
-    color: var(--main-font-color);
-    text-decoration: none;
-  }
-
-  #mainTable a:hover {
-    color: #FF00FF;
-    text-decoration: underline;
-  }
-
-  #mainTable a:active {
-    color: #0000FF;
-  }
-
-.hiddenTable {
-  display: none;
-  overflow-y: auto;
-  max-height: 300px;
+.refreshButton::before, .closeButton::before {
+  position: absolute;
+  top: 0px;
+  width: 25px;
+  height: 25px;
+  font-size: 18px;
+  line-height: 25px;
+  z-index:2;
+  border: 2px outset black;
+  text-align:center;
+  padding-left: 0px;
+}
+.refreshButton:active::before,
+.closeButton:active::before {
+  border: 2px inset black; /* Border style on hover */
 }
 
 .refreshButton::before {
   content: '🔄';
+  left:0px;
 }
 
 .closeButton::before {
   content: '❌';
-}
-.closeButton, .refreshButton {
-  width: 15px;
-  height: 15px;
-  font-size: 15px;
-  position: relative;
-  line-height: 25px;
-}
-.closeButton {
-  left: calc(100% - 20px);
-  top: 0px;
+  right: 0px;
 }
 
-.refreshButton {
-  left: calc(100% - 40px);
-  top: -15px;
+.componentTitle {
+  position: absolute;
+  width: 100%;
+  text-align:center;
+  font-weight: bold;
+  font-size: 25px;
+  top: 0px;
+  display: block;
+  border-bottom: 2px solid black;
+  z-index: 1;
 }
+
+.mainTable {
+  font-size: 1.45vmin;
+  width: 100%;
+  background-color: var(--secondary-bg-color);
+  border-collapse: collapse;
+}
+  .mainTable thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--main-bg-color);
+    z-index: 10;
+  }
+  .mainTable tr:hover {
+    background-color: var(--main-bg-color);
+  }
+  .mainTable td {
+    font-size: 1.45vmin;
+  }
+  .mainTable tbody {
+    height: 30px !important; 
+    width: 100%;
+    overflow-y: hidden;
+  }
+
+  .mainTable a:link,
+  .mainTable a:visited {
+    color: var(--main-font-color);
+    text-decoration: none;
+  }
+
+  .mainTable a:hover {
+    color: #FF00FF;
+    text-decoration: underline;
+  }
+
+  .mainTable a:active {
+    color: #0000FF;
+  }
 
 #loadingDiv {
   position: fixed;

@@ -210,16 +210,25 @@ namespace maxhanna.Server.Controllers
                 var files = Request.Form.Files; // Get all uploaded files
 
                 if (files == null || files.Count == 0)
+                {
+                    _logger.LogError($"No File Uploaded!");
+
                     return BadRequest("No files uploaded.");
+                }
+                _logger.LogInformation($"before forloop {files.Count}");
 
 
                 foreach (var file in files)
                 {
                     if (file.Length == 0)
+                    {
+                        _logger.LogInformation($"file length is empty!");
                         continue; // Skip empty files
+                    }
 
                     var uploadDirectory = Path.Combine(baseTarget, "roms/"); // Combine base path with folder path
                     var filePath = Path.Combine(uploadDirectory, file.FileName); // Combine upload directory with file name
+                    _logger.LogInformation($"filePath : {filePath}");
 
                     // Create directory if it doesn't exist
                     if (!Directory.Exists(uploadDirectory))

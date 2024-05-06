@@ -1,9 +1,13 @@
+.componentMain {
+    width: 400px;
+}
+
 .gameboy {
   overflow: hidden;
-  width: 400px;
-  height: 575px;
+  width: 390px;
+  height: 565px;
   border-radius: 20px;
-  padding: 20px;
+  padding: 13px;
   background-color: darkgrey;
   box-shadow: 0px -5px 0px var(--main-bg-color), 0px 5px 0px var(--main-bg-color);
   font-family: sans-serif;
@@ -11,22 +15,10 @@
   cursor: default;
 }
 
-i {
-  position: relative;
-  display: block;
-  margin: 0 auto;
-  text-align: center;
-  height: 100%;
-  font-size: 28px;
-  color: #333a4a;
-  text-shadow: 0px -0.5px 0px #aaa;
-}
-
 .screen-area {
   height: 325px;
-  image-rendering: pixelated;
-  padding-left: 0;
-  padding-right: 10px;
+  width: 360px;
+  image-rendering: pixelated; 
   display: block;
   border: 4px inset black;
   background-color: #80b141;

@@ -1,6 +1,8 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">Filesystem</div>
+
   Current Directory :
   <input type="text" #directoryInput placeholder="path/to/directory" />
   <input type="submit" value="➡️" (click)="changeDirectory()" title="Change Directory" />

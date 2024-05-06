@@ -1,14 +1,24 @@
 #navbar {
-  height: 100%;
-  width: 50px;
+  height: 50px;
+  width: 100%;
   position: fixed;
   z-index: 1;
   top: 0;
   left: 0;
   background-color: #111;
-  overflow-x: hidden;
-  transition: 0.5s;
-  padding-top: 60px;
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction:row;
+  justify-content: center;
+  align-items: flex-start;
+  align-content: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+}
+@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
+  #navbar {
+    justify-content: flex-start; 
+  }
 }
 
   #navbar div {
@@ -24,9 +34,9 @@
   background-color: black;
   border: 1px solid red;
   border-radius: 3px;
-  font-size: 45px;
+  font-size: 35px;
   line-height: 45px;
-  transition: 0.3s;
+  transition: 0.3s; 
 }
 
   .navLink:hover {

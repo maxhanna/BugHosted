@@ -3,6 +3,18 @@ using MySqlConnector;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure CORS globally
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAllOrigins",
+        builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+});
+
 builder.Services.AddMySqlDataSource(builder.Configuration.GetConnectionString("ConnectionStrings:maxhanna")!);
 builder.Services.AddControllers();
 builder.Services.Configure<FormOptions>(options =>
@@ -15,6 +27,19 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Set custom headers for all responses
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin");
+        context.Response.Headers.Append("Cross-Origin-Embedder-Policy", "require-corp");
+        return Task.CompletedTask;
+    });
+
+    await next();
+});
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -26,6 +51,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseRouting();
+
+// Enable CORS
+app.UseCors("AllowAllOrigins");
 
 app.UseAuthorization();
 

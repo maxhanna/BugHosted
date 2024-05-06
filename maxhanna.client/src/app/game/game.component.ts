@@ -10,41 +10,52 @@ import { lastValueFrom } from 'rxjs';
   styleUrl: './game.component.css'
 })
 export class GameComponent extends ChildComponent implements OnInit {
-  gameboy = new Gameboy();
+  gameboy: any;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
   gamesList: Array<string> = [];
-  savedGameFile = "";
+  currentGameFile = "";
+  autosave: boolean = true;
   constructor(private http: HttpClient) {
     super();
   }
   async ngOnInit() {
     this.fileInput?.nativeElement?.addEventListener('change', this.onFileChange);
     this.getGames();
-
-    if (crossOriginIsolated || window.crossOriginIsolated) {
-      alert("isolated!");
-    } else { alert("not iso0lated!"); }
+    this.gameboy = new Gameboy();
+    //if (crossOriginIsolated || window.crossOriginIsolated) {
+    //  alert("isolated!");
+    //} else { alert("not iso0lated!"); }
   }
-  setButtonState(button: string, value: boolean) { 
+  setButtonState(button: string, value: boolean) {
     this.gameboy.input[button] = value;
   }
   async getGames() {
     const params = new HttpParams().set('directory', "roms/");
-    this.promiseWrapper(lastValueFrom(await this.http.get<Array<string>>('/file/getdirectory', { params })).then(res => this.gamesList = res));
+    this.promiseWrapper(lastValueFrom(await this.http.get<Array<string>>('/file/getdirectory', { params })).then(res => this.gamesList = res.filter(game => !game.includes(".gbs"))));
   }
   async loadRom(rom: string) {
     if (!confirm(`Load ${rom}?`)) { return; }
+    this.currentGameFile = rom;
     const target = encodeURIComponent(rom);
     this.startLoading();
     try {
+
       const response = await this.http.get(`/file/getRomfile/${target}`, { responseType: 'blob' }).toPromise();
       const arrayBuffer = await this.toArrayBuffer(new Blob([response!], { type: 'application/octet-stream' }));
-      this.loadGame(arrayBuffer); // Run the game
-      console.log(Object.keys(this.gameboy.input));
-
+      const romSaveFile = rom.split('.')[0] + ".gbs";
+      try {
+        const saveStateResponse = await this.http.get(`/file/getRomfile/${romSaveFile}`, { responseType: 'blob' }).toPromise();
+        const saveStateArrayBuffer = await this.toArrayBuffer(new Blob([saveStateResponse!], { type: 'application/octet-stream' }));
+        if (saveStateArrayBuffer.byteLength > 0) {
+          this.loadGame(arrayBuffer, saveStateArrayBuffer);
+        } else {
+          this.loadGame(arrayBuffer, undefined);
+        }
+      } catch (e) {
+        this.loadGame(arrayBuffer, undefined);
+      }
     } catch (ex) {
-      console.log("about to throw error!");
       console.error(ex);
     }
     this.stopLoading();
@@ -53,7 +64,7 @@ export class GameComponent extends ChildComponent implements OnInit {
     if (this.fileInput?.nativeElement?.files && this.fileInput?.nativeElement?.files[0]) {
       this.uploadRomToServer();
       const rom = await this.toArrayBuffer(this.fileInput.nativeElement.files[0]);
-      this.loadGame(rom); // Run the game
+      this.loadGame(rom, undefined);
     } else { alert("nothing to load!"); }
   }
   async uploadRomToServer() {
@@ -65,23 +76,46 @@ export class GameComponent extends ChildComponent implements OnInit {
     }
     if (confirm(`Upload : ${fileNames.join(',')} ?`)) {
       try {
-
         const formData = new FormData();
-
         for (let i = 0; i < files!.length; i++) {
           formData.append('files', files!.item(i)!);
         }
-
-        this.promiseWrapper(await this.http.post('/file/uploadrom', formData).toPromise());
+        await this.http.post('/file/uploadrom', formData).toPromise();
       } catch (ex) {
         console.log(ex);
       }
     }
   }
-  async saveGameState() {
-
+  async saveGameState(blob: any) {
+    if (this.autosave) {
+      const formData = new FormData();
+      const ab = blob;
+      const newTitle = this.currentGameFile.split('.')[0] + '.gbs';
+      // Check if save RAM data exists
+      if (ab) {
+        const blob = new Blob([ab]);
+        formData.append('files', blob, newTitle);
+      }
+      await this.http.post('/file/uploadrom', formData, { responseType: 'text' }).toPromise().then(res => console.log("game saved successfully!"));
+    } 
   }
-  private loadGame(rom: unknown) {
+  toggleAutosave(): void {
+    this.autosave = !this.autosave;
+  }
+  toggleGameList() {
+    var gameList = document.getElementById("gameList");
+    var drawerButton = document.getElementById("drawerButton");
+    if (gameList && drawerButton) {
+      if (gameList.style.display === "none") {
+        gameList.style.display = "block";
+        drawerButton.textContent = "Close Drawer";
+      } else {
+        gameList.style.display = "none";
+        drawerButton.textContent = "Open Drawer";
+      }
+    }
+  }
+  private loadGame(rom: any, saveState: any) {
     try {
       this.gameboy.loadGame(rom as ArrayBuffer);
     } catch (ex) {
@@ -92,12 +126,19 @@ export class GameComponent extends ChildComponent implements OnInit {
     const context = document.querySelector('canvas')?.getContext('2d');
     this.gameboy.onFrameFinished((imageData: ImageData) => {
       context!.putImageData(imageData, 0, 0);
-    }); 
+    });
+    this.gameboy.setOnWriteToCartridgeRam(() => {
+      this.saveGameState(this.gameboy.getCartridgeSaveRam()); //replace this with a save method that takes the games name and makes a gbs out of it.
+    })
+    if (saveState != undefined && saveState != null) {
+      this.gameboy.setCartridgeSaveRam(saveState);
+    }
+
     this.gameboy.run();
   }
 
   private setGameColors(title: string) {
-    let colors = [ //Default colors
+    let colors = [
       { red: 255, green: 255, blue: 255 },
       { red: 192, green: 192, blue: 192 },
       { red: 96, green: 96, blue: 96 },
