@@ -51,6 +51,7 @@ namespace maxhanna.Server.Controllers
                     foreach (JsonElement rigElement in miningRigs.EnumerateArray())
                     {
                         MiningRig tmpRig = new MiningRig();
+                        tmpRig.devices = new List<MiningRigDevice>();
                         tmpRig.rigId = rigElement.GetProperty("rigId").GetString()!;
                         tmpRig.minerStatus = rigElement.GetProperty("minerStatus").GetString()!;
                         tmpRig.unpaidAmount = float.Parse(rigElement.GetProperty("unpaidAmount").GetString()!);
@@ -60,17 +61,21 @@ namespace maxhanna.Server.Controllers
                         if (rigElement.TryGetProperty("v4", out JsonElement v4Element) && v4Element.ValueKind == JsonValueKind.Object)
                         {
                             tmpRig.rigName = v4Element.GetProperty("mmv").GetProperty("workerName").GetString()!;
-                        }
-                        if (rigElement.TryGetProperty("stats", out JsonElement statsElement) && statsElement.ValueKind == JsonValueKind.Object)
-                        {
-                            if (float.Parse(statsElement.GetProperty("speedRejectedTotal").GetString()!) > 0)
+                            if (v4Element.TryGetProperty("devices", out JsonElement devicesElement) && devicesElement.ValueKind == JsonValueKind.Array)
                             {
-                                tmpRig.speedRejected = float.Parse(statsElement.GetProperty("speedRejectedTotal").GetString()!);
+                                ExtractDeviceData(tmpRig.devices, tmpRig.rigId, v4Element, tmpRig.rigName);
                             }
+                            if (rigElement.TryGetProperty("stats", out JsonElement statsElement) && statsElement.ValueKind == JsonValueKind.Object)
+                            {
+                                if (float.Parse(statsElement.GetProperty("speedRejectedTotal").GetString()!) > 0)
+                                {
+                                    tmpRig.speedRejected = float.Parse(statsElement.GetProperty("speedRejectedTotal").GetString()!);
+                                }
+                            }
+                            rigs.Add(tmpRig);
                         }
-                        rigs.Add(tmpRig);
+                        _logger.LogInformation("Found mining rig data");
                     }
-                    _logger.LogInformation("Found mining rig data");
                 }
                 return rigs;
             }
@@ -104,76 +109,7 @@ namespace maxhanna.Server.Controllers
                         if (rigElement.TryGetProperty("v4", out JsonElement v4Element) && v4Element.ValueKind == JsonValueKind.Object)
                         {
                             string rigName = v4Element.GetProperty("mmv").GetProperty("workerName").GetString()!;
-                            if (v4Element.TryGetProperty("devices", out JsonElement devicesElement) && devicesElement.ValueKind == JsonValueKind.Array)
-                            {
-                                foreach (JsonElement deviceElement in devicesElement.EnumerateArray())
-                                {
-                                    MiningRigDevice tmpDevice = new MiningRigDevice();
-                                    tmpDevice.rigId = rigId;
-                                    tmpDevice.rigName = rigName;
-                                    tmpDevice.deviceName = deviceElement.GetProperty("dsv").GetProperty("name").GetString()!;
-                                    tmpDevice.deviceId = deviceElement.GetProperty("dsv").GetProperty("id").GetString()!;
-                                    JsonElement mdvElement = deviceElement.GetProperty("mdv");
-                                    tmpDevice.state = mdvElement.GetProperty("state").GetInt32();
-                                    JsonElement tmpAlgorithmSpeedElements = mdvElement.GetProperty("algorithmsSpeed");
-                                    foreach (JsonElement tmpAlgorithmSpeedElement in tmpAlgorithmSpeedElements.EnumerateArray())
-                                    {
-                                        tmpDevice.speed = tmpAlgorithmSpeedElement.GetProperty("speed").GetSingle();
-                                        break;
-                                    }
-                                    JsonElement odvElement = deviceElement.GetProperty("odv");
-                                    foreach (JsonElement odvItem in odvElement.EnumerateArray())
-                                    {
-                                        string key = odvItem.GetProperty("key").GetString()!;
-                                        switch (key)
-                                        {
-                                            case "Temperature":
-                                                tmpDevice.temperature = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                break;
-                                            case "Fan speed":
-                                                if (odvItem.GetProperty("unit").GetString() == "%")
-                                                {
-                                                    tmpDevice.fanSpeed = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                }
-                                                else if (odvItem.GetProperty("unit").GetString() == "RPM")
-                                                {
-                                                    tmpDevice.fanSpeedRPM = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                }
-                                                break;
-                                            case "Power usage":
-                                                tmpDevice.power = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                break;
-                                            case "Core clock":
-                                                tmpDevice.coreClock = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                break;
-                                            case "Memory clock":
-                                                tmpDevice.memoryClock = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                break;
-                                            case "Core voltage":
-                                                tmpDevice.coreVoltage = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                break;
-                                            case "Power Limit":
-                                                if (odvItem.GetProperty("unit").GetString() == "%")
-                                                {
-                                                    tmpDevice.powerLimitPercentage = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                }
-                                                else if (odvItem.GetProperty("unit").GetString() == "W")
-                                                {
-                                                    tmpDevice.powerLimitWatts = float.Parse(odvItem.GetProperty("value").GetString()!);
-                                                }
-                                                break;
-                                            case "Miner":
-                                                tmpDevice.miner = odvItem.GetProperty("value").GetString();
-                                                break;
-                                            default:
-                                                // Handle other keys if necessary
-                                                break;
-                                        }
-                                    }
-
-                                    devices.Add(tmpDevice);
-                                }
-                            }
+                            ExtractDeviceData(devices, rigId, v4Element, rigName);
                         }
                     }
                     _logger.LogInformation("Found mining rig device data");
@@ -188,6 +124,80 @@ namespace maxhanna.Server.Controllers
 
                 // Return an error response
                 return devices;
+            }
+        }
+
+        private static void ExtractDeviceData(List<MiningRigDevice> devices, string rigId, JsonElement v4Element, string rigName)
+        {
+            if (v4Element.TryGetProperty("devices", out JsonElement devicesElement) && devicesElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (JsonElement deviceElement in devicesElement.EnumerateArray())
+                {
+                    MiningRigDevice tmpDevice = new MiningRigDevice();
+                    tmpDevice.rigId = rigId;
+                    tmpDevice.rigName = rigName;
+                    tmpDevice.deviceName = deviceElement.GetProperty("dsv").GetProperty("name").GetString()!;
+                    tmpDevice.deviceId = deviceElement.GetProperty("dsv").GetProperty("id").GetString()!;
+                    JsonElement mdvElement = deviceElement.GetProperty("mdv");
+                    tmpDevice.state = mdvElement.GetProperty("state").GetInt32();
+                    JsonElement tmpAlgorithmSpeedElements = mdvElement.GetProperty("algorithmsSpeed");
+                    foreach (JsonElement tmpAlgorithmSpeedElement in tmpAlgorithmSpeedElements.EnumerateArray())
+                    {
+                        tmpDevice.speed = tmpAlgorithmSpeedElement.GetProperty("speed").GetSingle();
+                        break;
+                    }
+                    JsonElement odvElement = deviceElement.GetProperty("odv");
+                    foreach (JsonElement odvItem in odvElement.EnumerateArray())
+                    {
+                        string key = odvItem.GetProperty("key").GetString()!;
+                        switch (key)
+                        {
+                            case "Temperature":
+                                tmpDevice.temperature = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                break;
+                            case "Fan speed":
+                                if (odvItem.GetProperty("unit").GetString() == "%")
+                                {
+                                    tmpDevice.fanSpeed = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                }
+                                else if (odvItem.GetProperty("unit").GetString() == "RPM")
+                                {
+                                    tmpDevice.fanSpeedRPM = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                }
+                                break;
+                            case "Power usage":
+                                tmpDevice.power = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                break;
+                            case "Core clock":
+                                tmpDevice.coreClock = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                break;
+                            case "Memory clock":
+                                tmpDevice.memoryClock = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                break;
+                            case "Core voltage":
+                                tmpDevice.coreVoltage = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                break;
+                            case "Power Limit":
+                                if (odvItem.GetProperty("unit").GetString() == "%")
+                                {
+                                    tmpDevice.powerLimitPercentage = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                }
+                                else if (odvItem.GetProperty("unit").GetString() == "W")
+                                {
+                                    tmpDevice.powerLimitWatts = float.Parse(odvItem.GetProperty("value").GetString()!);
+                                }
+                                break;
+                            case "Miner":
+                                tmpDevice.miner = odvItem.GetProperty("value").GetString();
+                                break;
+                            default:
+                                // Handle other keys if necessary
+                                break;
+                        }
+                    }
+
+                    devices.Add(tmpDevice);
+                }
             }
         }
 

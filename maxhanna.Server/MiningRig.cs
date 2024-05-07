@@ -9,5 +9,6 @@ namespace maxhanna.Server
         public float speedRejected { get; set; }
         public float localProfitability { get; set; }
         public float actualProfitability { get; set; }
+        public List<MiningRigDevice>? devices { get; set; }
     }
 }

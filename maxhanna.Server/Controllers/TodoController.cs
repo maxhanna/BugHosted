@@ -21,8 +21,8 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> Get([FromQuery] string? type, [FromQuery] string? search)
         {
             string sql = string.IsNullOrEmpty(search)
-                ? "SELECT id, todo, type, url, date, done FROM maxhanna.todo" + (!string.IsNullOrEmpty(type) ? " WHERE type = @Todo" : "")
-                : "SELECT id, todo, type, url, date, done FROM maxhanna.todo WHERE type = 'music' AND todo LIKE CONCAT('%', @Todo, '%')";
+                ? "SELECT id, todo, type, url, date FROM maxhanna.todo" + (!string.IsNullOrEmpty(type) ? " WHERE type = @Todo" : "")
+                : "SELECT id, todo, type, url, date FROM maxhanna.todo WHERE type = 'music' AND todo LIKE CONCAT('%', @Todo, '%')";
 
             try
             {
@@ -48,8 +48,7 @@ namespace maxhanna.Server.Controllers
                                     todo: rdr.GetString(1),
                                     type: rdr.GetString(2),
                                     url: rdr.IsDBNull(3) ? null : rdr.GetString(3),
-                                    date: rdr.GetDateTime(4),
-                                    done: rdr.GetBoolean(5)
+                                    date: rdr.GetDateTime(4)
                                 ));
                             }
 
@@ -73,7 +72,7 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-                string sql = "INSERT INTO maxhanna.todo (todo, type, url, done) VALUES (@Todo, @Type, @Url, 0)";
+                string sql = "INSERT INTO maxhanna.todo (todo, type, url) VALUES (@Todo, @Type, @Url)";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Todo", model.todo);
                 cmd.Parameters.AddWithValue("@Type", model.type);
