@@ -44,6 +44,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     'Annually': '🎇',
     'Daily': '⏰',
     'Milestone': '🏆',
+    'Anniversary': '🌹',
   };
 
   constructor(private http: HttpClient) {
@@ -68,15 +69,17 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
 
   monthForwardClick() {
-    let tmpNow = new Date(1 + " " + this.month.nativeElement.innerText + " " + this.year.nativeElement.innerText);
+    const tmpNow = new Date(this.now);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() + 1));
-
+    this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
+    this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2)); 
     this.setCalendarDates(this.now);
   }
   monthBackClick() {
-    let tmpNow = new Date(1 + " " + this.month.nativeElement.innerText + " " + this.year.nativeElement.innerText);
+    const tmpNow = new Date(this.now);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
-
+    this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
+    this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
     this.setCalendarDates(this.now);
   }
   getCalendarDetails(selectedDate: CalendarDate) {
@@ -104,21 +107,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (!(this.month && this.year && this.yearBack && this.monthBack && this.monthForward && this.yearForward)) {
       await this.getCalendarEntries();
       return;
-    }
-    this.month.nativeElement.innerText = this.getMonthName(now);
-    this.year.nativeElement.innerText = now.getFullYear() + "";
-
-    var tmpMonth = new Date(now);
-    var nextMonth = new Date(tmpMonth.setMonth(tmpMonth.getMonth() + 1));
-    var monthNameNextMonth = this.getMonthName(nextMonth);
-    var yearNextMonth = nextMonth.getFullYear();
-    this.yearForward.nativeElement.innerText = yearNextMonth + "";
-    this.monthForward.nativeElement.innerText = monthNameNextMonth;
-
-    tmpMonth = new Date(now);
-    var lastMonth = new Date(tmpMonth.setMonth(tmpMonth.getMonth() - 2));
-    this.yearBack.nativeElement.innerText = lastMonth.getFullYear() + "";
-    this.monthBack.nativeElement.innerText = this.getMonthName(lastMonth);
+    } 
   }
   private isSameDate = (date1: Date, date2: Date): boolean => {
     return (date1.getMonth() === date2.getMonth() &&

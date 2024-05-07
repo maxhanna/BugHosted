@@ -1,11 +1,22 @@
+.calendarTable {
+    border-collapse: collapse;
+}
 
+  .calendarTable td {
+    border: 1px solid black;
+  }
+
+.calendarDay {
+  width: 50px;
+  height: 50px;
+}
 .emptyDay {
   width: 50px;
   height: 50px;
   border: dotted 1px black;
-  background-color: #FCF4E3;
+  background-color: var(--secondary-bg-color) !important;
   color: #A29EAD;
-  padding: 10px 10px 10px 10x;
+  padding: 10px 10px 10px 10px;
 }
 
 .scheduleFrame {
@@ -25,6 +36,28 @@
   background-color: white;
 }
 
-.currentDay {
-    background-color: red;
+.currentDay, thead {
+  background-color: var(--table-thead-color);
 }
+.currentDay {
+  border: var(--main-border) !important;
+}
+.calendarTable thead, .currentDay {
+    font-weight:bold;
+}
+.calendarMonthTable {
+    width:100%;
+}
+.calendarMonthTable td{
+    width:33%; 
+    text-align:center;
+}
+  .calendarMonthTable td a {
+    text-decoration: none;
+  }
+  .calendarMonthTable td:not(:nth-child(2)) {
+    border: var(--main-border) !important;
+  }
+    .calendarMonthTable td:not(:nth-child(2)) a {
+      color: var(--secondary-font-color);
+    }

@@ -3,89 +3,98 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Calendar</div>
 
-  <table width=100%>
-    <tr width=100%>
-      <td width=33% style="border: 1px royalblue dotted;" (click)="monthBackClick();">
-        <a href=#><div #monthBack>{{ this.getMonthName(monthBackFromNow) }}</div><div #yearBack>{{ monthBackFromNow.getFullYear() }}</div></a>
+  <table class="calendarMonthTable">
+    <tr>
+      <td (click)="monthBackClick();">
+        <a href=#><div #monthBack>{{ getMonthName(monthBackFromNow) }}</div><div #yearBack>{{ monthBackFromNow.getFullYear() }}</div></a>
       </td>
-      <td width=33%>
-        <div #month>{{ this.getMonthName(now) }}</div><div #year>{{ now.getFullYear() }}</div>
+      <td>
+        <div #month>{{ getMonthName(now) }}</div><div #year>{{ now.getFullYear() }}</div>
       </td>
-      <td width=33% style="border: 1px royalblue dotted;" (click)="monthForwardClick();">
-        <a href=#><div #monthForward>{{ this.getMonthName(monthForwardFromNow) }}</div><div #yearForward>{{ monthForwardFromNow.getFullYear() }}</div></a>
+      <td (click)="monthForwardClick();">
+        <a href=#><div #monthForward>{{ getMonthName(monthForwardFromNow) }}</div><div #yearForward>{{ monthForwardFromNow.getFullYear() }}</div></a>
       </td>
     </tr>
   </table>
-  <table align=center border=1 width=90% height=95% class=table>
-    <tr width=100% height=50>
-      <td width=14% height=50>Sunday</td>
-      <td width=14% height=50>Monday</td>
-      <td width=14% height=50>Tuesday</td>
-      <td width=14% height=50>Wednesday</td>
-      <td width=14% height=50>Thursday</td>
-      <td width=14% height=50>Friday</td>
-      <td width=14% height=50>Saturday</td>
-    </tr>
-    <tr>
-      <td *ngFor="let cal of calendarDays.slice(0,7)"
-          (click)="getCalendarDetails(cal);"
-          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
-      </td>
-    </tr>
-    <tr>
-      <td *ngFor="let cal of calendarDays.slice(7,14)"
-          (click)="getCalendarDetails(cal);"
-          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
-      </td>
-    </tr>
-    <tr>
-      <td *ngFor="let cal of calendarDays.slice(14,21)"
-          (click)="getCalendarDetails(cal);"
-          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
-      </td>
-    </tr>
-    <tr>
-      <td *ngFor="let cal of calendarDays.slice(21,28)"
-          (click)="getCalendarDetails(cal);"
-          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
-      </td>
-    </tr>
-    <tr>
-      <td *ngFor="let cal of calendarDays.slice(28,35)"
-          (click)="getCalendarDetails(cal);"
-          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
-      </td>
-    </tr>
-    <tr>
-      <td *ngFor="let cal of calendarDays.slice(35,42)"
-          (click)="getCalendarDetails(cal);"
-          [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
-        {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
-      </td>
-    </tr>
+  <table class=calendarTable>
+    <thead>
+      <tr>
+        <td>Sunday</td>
+        <td>Monday</td>
+        <td>Tuesday</td>
+        <td>Wednesday</td>
+        <td>Thursday</td>
+        <td>Friday</td>
+        <td>Saturday</td>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td *ngFor="let cal of calendarDays.slice(0,7)"
+            (click)="getCalendarDetails(cal);"
+            class="calendarDay"
+            [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+          {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
+        </td>
+      </tr>
+      <tr>
+        <td *ngFor="let cal of calendarDays.slice(7,14)"
+            (click)="getCalendarDetails(cal);"
+            class="calendarDay"
+            [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+          {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
+        </td>
+      </tr>
+      <tr>
+        <td *ngFor="let cal of calendarDays.slice(14,21)"
+            (click)="getCalendarDetails(cal);"
+            class="calendarDay"
+            [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+          {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
+        </td>
+      </tr>
+      <tr>
+        <td *ngFor="let cal of calendarDays.slice(21,28)"
+            (click)="getCalendarDetails(cal);"
+            class="calendarDay"
+            [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+          {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
+        </td>
+      </tr>
+      <tr>
+        <td *ngFor="let cal of calendarDays.slice(28,35)"
+            (click)="getCalendarDetails(cal);"
+            class="calendarDay"
+            [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+          {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
+        </td>
+      </tr>
+      <tr>
+        <td *ngFor="let cal of calendarDays.slice(35,42)"
+            (click)="getCalendarDetails(cal);"
+            class="calendarDay"
+            [ngClass]="{'currentDay': cal.date?.getDate() === currentDate.getDate() && cal.date?.getMonth() === currentDate.getMonth() && cal.date?.getFullYear() === currentDate.getFullYear()}">
+          {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
+        </td>
+      </tr>
+    </tbody>
   </table>
   <div *ngIf="!!selectedDate" class="calendarDetail">
-    <div>{{selectedDate!.date}}</div>
-    <table>
+    <div style="width:100%; text-align:center;font-weight:bolder;">
+      {{selectedDate!.date!.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) }}
+    </div>
+    <table style="width:100%;" *ngIf="selectedCalendarEntries!.length > 0">
       <tr *ngFor="let cal of selectedCalendarEntries">
         <td>{{cal.date | date:'shortTime'}}</td>
-        <td>{{cal.type}}</td>
         <td>
           {{ cal.type !== "Milestone" ? cal.note : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note) }}
         </td>
-
-
-
-
-        <td><input type="button" value="❌" (click)="deleteCalendarEntry(cal!);" /></td>
+        <td style="width:35px;"><input type="button" value="❌" (click)="deleteCalendarEntry(cal!);" /></td>
       </tr>
     </table>
+    <div *ngIf="selectedCalendarEntries!.length == 0">No entries</div>
     <fieldset>
+      <legend>New calendar entry</legend>
       <input #calendarNoteEntry type="text" placeholder="Description" required />
       <select #calendarTypeEntry>
         <ng-container *ngFor="let eventType of getEventTypes()">
