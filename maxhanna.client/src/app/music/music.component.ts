@@ -48,7 +48,7 @@ export class MusicComponent extends ChildComponent implements OnInit {
     this.ngOnInit();
   }
   async getSongList() {
-    const params = new HttpParams().set('type', "music");
+    const params = new HttpParams().set('type', "Music");
     await this.promiseWrapper(lastValueFrom(this.http.get<Array<Todo>>('/todo', { params })).then(res => this.songs = res));
   }
   async searchForSong() {
@@ -96,7 +96,6 @@ export class MusicComponent extends ChildComponent implements OnInit {
       default:
         this.songs.sort((a, b) => a.todo!.localeCompare(b.todo!));
     }
-    this.songs.forEach(s => console.log(s.date));
   }
   getPlaylistForYoutubeUrl(url: string): string[] {
     var playlist = [];

@@ -32,11 +32,16 @@ export class MiningDevicesComponent extends ChildComponent implements OnInit {
         this.startLoading();
         const response = await lastValueFrom(this.http.post(`/mining/${device.rigId}/${device.deviceId}`, '"' + requestedAction + '"', { headers }));
         this.stopLoading();
-        this.notificationArea.nativeElement.innerHTML += JSON.stringify(response);
+
+        var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
+        requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
+        const isSuccess = JSON.stringify(response).includes("true");
+        this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
+
         this.getMiningInfo();
       }
       catch (error) {
-        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error);
+        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";;
       }
     }    
   }

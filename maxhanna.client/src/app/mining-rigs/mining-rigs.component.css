@@ -100,7 +100,23 @@
   background-color: red;
 }
 .totalDailyEarningsDiv {
-    border:1px solid red;
-    width:100%;
+    border: var(--main-border); 
     text-align: center;
+    font-size: small;
+    margin-top:3px;
+    margin-bottom:3px;
+    padding:3px;
+}
+.deviceListDiv{
+    border: var(--main-border);
+}
+.currentProfitabilitySpan {
+  /*text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);*/
+  font-weight:bolder;
+}
+.currentProfitabilityDiv{
+    width:100%;
+    text-align:center;
+    margin-top:3px;
+    margin-bottom:3px; 
 }

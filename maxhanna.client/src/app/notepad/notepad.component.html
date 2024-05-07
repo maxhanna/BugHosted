@@ -4,11 +4,12 @@
   <div class="componentTitle">Notepad</div>
 
   <textarea #noteInput (input)="handleNoteInputChange()" required></textarea>
-  <input type="submit" value="💾" (click)="addNote()" #noteAddButton />
-  <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton />
-  <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton />
-  <input type="hidden" value="" #noteId />
-
+  <fieldset class="buttonFields">
+    <input type="submit" value="💾" (click)="addNote()" #noteAddButton title="Save Note" />
+    <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
+    <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
+    <input type="hidden" value="" #noteId />
+  </fieldset>
   <div class="notesCarousel">
     <label *ngFor="let note of notes" (click)="getNote(note.id!)">{{ note.note }}</label>
   </div>

@@ -2,18 +2,19 @@
   height: 50px;
   width: 100%;
   position: fixed;
-  z-index: 1;
+  z-index: 100;
   top: 0;
   left: 0;
   background-color: #111;
   display: flex;
   flex-wrap: nowrap;
-  flex-direction:row;
+  flex-direction: row;
   justify-content: center;
   align-items: flex-start;
   align-content: flex-start;
   gap: 12px;
   overflow-x: auto;
+  transition: transform 0.3s ease; /* Animation for sliding */
 }
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   #navbar {
@@ -26,6 +27,7 @@
     height: 45px;
     text-align: center;
   }
+
 
 .navLink {
   display: block;
@@ -42,7 +44,16 @@
   .navLink:hover {
     color: red;
   }
+   
 
-.isOpen {
-  width: 150px !important;
+.toggleNavButton {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 1001; /* Ensure it's above navDiv */
 }

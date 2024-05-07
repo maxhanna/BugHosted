@@ -1,13 +1,39 @@
-.notesCarousel {
-    width:100%;
+textarea {
+  margin-left: auto;
+  margin-right: auto;
+  width: 95%;
+  min-height:200px;
+  min-width:400px;
+  display: block;
 }
+.buttonFields{
+    text-align:right;
+    border:0;
+}
+.notesCarousel {
+  text-align: center;
+  min-width: 300px;
+  max-width: 500px;
+  height: 100px;
+  overflow-y: hidden;
+  overflow-x: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: center;
+  gap: 5px;
+}
+
   .notesCarousel label {
+    flex-shrink: 0;
     box-shadow: inset 0px 10px 0px 0px rgba(248,255,148,1);
     padding-top: 6px;
     overflow: hidden;
     resize: none;
     display: inline-block;
-    width: 80px;
+    width: 80px !important;
     height: 65px;
     border-size: 0px;
     border-radius: 4px;
@@ -15,8 +41,6 @@
     color: navy;
     border-size: 1px;
     border-style: inset;
-    margin-left: 5px;
-    margin-top: 5px;
     font-size: 16px;
     text-align: center;
   }

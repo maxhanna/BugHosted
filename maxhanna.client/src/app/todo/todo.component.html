@@ -10,13 +10,16 @@
     <input type="url" id="urlInput" placeholder="url?" #urlInput />
     <input type="submit" value="💾" (click)="addTodo()" />
   </fieldset>
-  <select #selectedType (change)="typeOnChange()">
-    <option *ngFor="let type of todoTypes" [value]="type">{{ type }}</option>
-  </select>
-  <table class="table" id="todoTable">
+  <table class="mainTable" id="todoTable">
     <thead>
       <tr>
-        <th (click)="sortTable(0, 'todoTable')">{{ selectedType.value }}</th>
+        <th>
+
+          <select #selectedType class=selectType (change)="typeOnChange()">
+            <option *ngFor="let type of todoTypes" [value]="type">{{ type }}</option>
+          </select>
+
+        </th>
         <th (click)="sortTable(1, 'todoTable')">🔗</th>
         <th (click)="sortTable(2, 'todoTable')">Date</th>
         <th></th>

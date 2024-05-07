@@ -1,4 +1,6 @@
+<button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>
 <div #navbar id="navbar">
+
   <div *ngFor="let title of titles | keyvalue">
     <a class="navLink" (click)="goTo($event)" title={{title.value}}>{{title.key}}</a>
   </div>
