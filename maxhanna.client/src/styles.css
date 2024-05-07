@@ -1,11 +1,11 @@
 /* You can add global styles to this file, and also import other style files */
 :root {
-  --main-border: 2px ridge rgba(245, 23, 23, 0.5);
   --main-bg-color: rgba(54, 25, 25, .5);
   --secondary-bg-color: rgba(54, 25, 25, .2);
   --table-thead-color: rgba(54, 25, 25);
   --main-font-color: #00FF00;
   --secondary-font-color: cornflowerblue;
+  --main-border: 2px ridge rgba(245, 23, 23, 0.5);
 }
 
 body {
@@ -14,6 +14,19 @@ body {
   margin: 0;
   padding: 0;
   padding-top: 50px;
+  overscroll-behavior-y: contain;
+}
+html, body {
+  overscroll-behavior-x: none;
+}
+legend {
+  border: var(--main-border);
+  text-align: center;
+}
+
+fieldset {
+  text-align: center;
+  border: var(--main-border);
 }
 
 .componentMain {
@@ -23,6 +36,15 @@ body {
   padding-top: 35px;
   border: var(--main-border);
   border-radius: 5px;
+  transition: transform 0.8s ease; /* Animation for sliding */
+}
+
+.collapsed {
+  transform: translateY(-100%);
+}
+
+.collapsedComponent {
+  transform: translateY(-50px);
 }
 
 .refreshButton::before, .closeButton::before {
@@ -32,19 +54,20 @@ body {
   height: 25px;
   font-size: 18px;
   line-height: 25px;
-  z-index:2;
+  z-index: 2;
   border: 2px outset black;
-  text-align:center;
+  text-align: center;
   padding-left: 0px;
 }
+
 .refreshButton:active::before,
 .closeButton:active::before {
-  border: 2px inset black; /* Border style on hover */
+  border: 2px inset black;
 }
 
 .refreshButton::before {
   content: '🔄';
-  left:0px;
+  left: 0px;
 }
 
 .closeButton::before {
@@ -55,13 +78,14 @@ body {
 .componentTitle {
   position: absolute;
   width: 100%;
-  text-align:center;
+  text-align: center;
   font-weight: bold;
   font-size: 25px;
   top: 0px;
   display: block;
   border-bottom: 2px solid black;
   z-index: 1;
+  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
 }
 
 .mainTable {
@@ -69,21 +93,30 @@ body {
   width: 100%;
   background-color: var(--secondary-bg-color);
   border-collapse: collapse;
+  color: var(--secondary-font-color);
 }
+
   .mainTable thead th {
     position: sticky;
     top: 0;
     background-color: var(--main-bg-color);
     z-index: 10;
   }
-  .mainTable tr:hover {
+
+  .mainTable tr:not(thead tr):hover {
+    outline: var(--main-border);
+  }
+
+  .mainTable tr:nth-child(even) {
     background-color: var(--main-bg-color);
   }
+
   .mainTable td {
     font-size: 1.45vmin;
   }
+
   .mainTable tbody {
-    height: 30px !important; 
+    height: 30px !important;
     width: 100%;
     overflow-y: hidden;
   }
@@ -101,6 +134,27 @@ body {
 
   .mainTable a:active {
     color: #0000FF;
+  }
+   
+
+  .mainTable td:first-child {
+    color: var(--main-font-color);
+  }
+
+.mainTable td:nth-child(2) {
+  color: var(--main-font-color);
+}
+ 
+
+  .mainTable th {
+    border-collapse: collapse;
+    text-align: left;
+    background-color: var(--table-thead-color);
+    color: var(--main-font-color);
+    position: sticky;
+    top: -3px;
+    font-weight: bold;
+    text-shadow: 0 0 3px #7bac10, 0 0 5px black;
   }
 
 #loadingDiv {
