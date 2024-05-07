@@ -1,0 +1,14 @@
+canvas {
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+}
+
+body {
+  overflow: hidden;
+}
+
+html, body, #emulator-container, #emulator {
+  height: 100%;
+}

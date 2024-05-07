@@ -18,6 +18,7 @@ import { MusicComponent } from './music/music.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { GameComponent } from './game/game.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
+import { GbcComponent } from './gbc/gbc.component';
 
 @NgModule({
   declarations: [
@@ -35,7 +36,8 @@ import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
     MusicComponent,
     ContactsComponent,
     GameComponent,
-    CoinWalletComponent
+    CoinWalletComponent,
+    GbcComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

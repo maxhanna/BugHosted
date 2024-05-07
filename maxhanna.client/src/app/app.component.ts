@@ -12,6 +12,7 @@ import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { GameComponent } from './game/game.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
+import { GbcComponent } from './gbc/gbc.component';
 
 
 @Component({
@@ -65,6 +66,9 @@ export class AppComponent {
       }
       else if (componentType == "Game") {
         componentClass = GameComponent;
+      }
+      else if (componentType == "Gbc") {
+        componentClass = GbcComponent;
       }
       else if (componentType == "Coin-Wallet") {
         componentClass = CoinWalletComponent;

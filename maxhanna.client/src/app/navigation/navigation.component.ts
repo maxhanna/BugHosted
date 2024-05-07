@@ -22,6 +22,7 @@ export class NavigationComponent {
     ["🗒️", "Notepad"],
     ["📇", "Contacts"],
     ["🎮", "Game"],
+    ["🕹️", "Gbc"],
     ["💵", "Coin-Wallet"],
   ]);
 
