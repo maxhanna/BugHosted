@@ -1,7 +1,14 @@
 .componentMain {
     width: 400px;
 }
-
+.gamesContainer{
+    width:100%;
+    text-align:center;
+}
+.gamesContainer select {
+    width:100%;
+    text-align:center;
+}
 .gameboy {
   overflow: hidden;
   width: 390px;

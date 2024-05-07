@@ -34,10 +34,13 @@ export class GameComponent extends ChildComponent implements OnInit {
     const params = new HttpParams().set('directory', "roms/");
     this.promiseWrapper(lastValueFrom(await this.http.get<Array<string>>('/file/getdirectory', { params })).then(res => this.gamesList = res.filter(game => !game.includes(".gbs"))));
   }
-  async loadRom(rom: string) {
+  async loadRom(romEvent: Event) {
+    const romSelectElement = romEvent.target as HTMLSelectElement;
+    const rom = romSelectElement.value;
     if (!confirm(`Load ${rom}?`)) { return; }
+
     this.currentGameFile = rom;
-    const target = encodeURIComponent(rom);
+    const target = encodeURIComponent(this.currentGameFile);
     this.startLoading();
     try {
 
@@ -102,19 +105,6 @@ export class GameComponent extends ChildComponent implements OnInit {
   toggleAutosave(): void {
     this.autosave = !this.autosave;
   }
-  toggleGameList() {
-    var gameList = document.getElementById("gameList");
-    var drawerButton = document.getElementById("drawerButton");
-    if (gameList && drawerButton) {
-      if (gameList.style.display === "none") {
-        gameList.style.display = "block";
-        drawerButton.textContent = "Close Drawer";
-      } else {
-        gameList.style.display = "none";
-        drawerButton.textContent = "Open Drawer";
-      }
-    }
-  }
   private loadGame(rom: any, saveState: any) {
     try {
       this.gameboy.loadGame(rom as ArrayBuffer);
@@ -139,10 +129,10 @@ export class GameComponent extends ChildComponent implements OnInit {
 
   private setGameColors(title: string) {
     let colors = [
-      { red: 255, green: 255, blue: 255 },
-      { red: 192, green: 192, blue: 192 },
-      { red: 96, green: 96, blue: 96 },
-      { red: 0, green: 0, blue: 0 },
+      { red: 235, green: 235, blue: 235 },    // Almost White with a hint of Green
+      { red: 192, green: 192, blue: 192 },    // Light Gray
+      { red: 96, green: 96, blue: 96 },       // Medium Gray
+      { red: 20, green: 45, blue: 20 },       // Almost Black with a hint of Green
     ];
     if (title.toLowerCase().includes("blue")) {
       colors = [

@@ -3,23 +3,18 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Hackboy</div>
 
-  <div id="gamesContainer">
+  <div class="gamesContainer">
+    <select (change)="loadRom($event)">
+      <option value="" disabled selected>Select a game</option>
+      <option *ngFor="let game of gamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
+    </select>
 
-    Games:
-    <button (click)="toggleGameList()" style="cursor:pointer;margin-left:5px;" id="drawerButton">Open Drawer</button>
-    <!-- Autosave Radio Button -->
-    Persistance:<label for="autosaveOn">On</label>
+    Server Persistance:
+    <label for="autosaveOn">On</label>
     <input type="radio" id="autosaveOn" name="autosave" [checked]="autosave" (change)="toggleAutosave()">
 
     <label for="autosaveOff">Off</label>
     <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="toggleAutosave()">
-
-
-    <table class="mainTable" id="gameList" style="display:none;">
-      <tr><td>Title</td></tr>
-      <tr *ngFor="let game of gamesList" (click)="loadRom(game)" style="cursor:pointer;margin-left:5px;"><td>{{game}}<td></tr>
-    </table>
-
   </div>
 
   <div>
