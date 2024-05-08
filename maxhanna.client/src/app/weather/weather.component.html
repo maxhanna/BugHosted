@@ -3,69 +3,71 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Weather</div>
 
-  <table>
+  <table class="mainTable">
     <thead>
+      <tr>
+        <th colspan="7" style="text-align:center;">Current weather:</th>
+      </tr>
       <tr>
         <th>Last Updated</th>
         <th>°C</th>
         <th>°F</th>
         <th>Condition</th>
-        <th>Wind (mph)</th>
-        <th>Wind (kph)</th>
-        <th>Humidity</th>
-        <th>Cloud</th>
+        <th title="Wind speed in Kilometers per Hour">Wind</th>
+        <th title="Humidity %">Humidity</th>
+        <th title="Cloud to sky %">Cloud</th>
       </tr>
     </thead>
     <tbody>
       <tr *ngIf="weather.current">
         <td>{{ weather.current.last_updated }}</td>
-        <td>{{ weather.current.temp_c }}</td>
-        <td>{{ weather.current.temp_f }}</td>
-        <td>{{ weather.current.condition.text }}</td>
-        <td>{{ weather.current.wind_mph }}</td>
-        <td>{{ weather.current.wind_kph }}</td>
-        <td>{{ weather.current.humidity }}</td>
-        <td>{{ weather.current.cloud }}</td>
+        <td title="Temperature in Celsius">{{ weather.current.temp_c }}</td>
+        <td title="Temperature in Fahrenheit">{{ weather.current.temp_f }}</td>
+        <td [title]="weather.current.condition.text"><img [src]="weather.current.condition.icon" /></td>
+        <td title="Wind speed in Kilometers per Hour">{{ weather.current.wind_kph }}</td>
+        <td title="Humidity %">{{ weather.current.humidity }}</td>
+        <td title="Cloud to sky %">{{ weather.current.cloud }}</td>
       </tr>
     </tbody>
-  </table>
-
-  <h3>Forecast</h3>
-  <table>
-    <thead>
+    <tbody *ngIf="weather.forecast">
       <tr>
-        <th>Date</th>
+        <th colspan="7" style="text-align:center;">Weather forecast details:</th>
+      </tr>
+      <tr>
+        <th>Date/Time</th>
         <th>°C</th>
         <th>°F</th>
         <th>Condition</th>
-        <th>Wind (mph)</th>
-        <th>Wind (kph)</th>
-        <th>Humidity</th>
-        <th>Cloud</th>
+        <th title="Wind speed in Kilometers per Hour">Wind</th>
+        <th title="Humidity %">Humidity</th>
+        <th title="Cloud to sky %">Cloud</th>
       </tr>
-    </thead>
-    <tbody *ngIf="weather.forecast">
       <ng-container *ngFor="let day of weather.forecast.forecastday">
-        <tr>
-          <td (click)="toggleDay(day.date)" style="cursor: pointer;" colspan=8>
+        <tr (click)="toggleDay(day.date)" style="cursor: pointer;">
+          <td>
             <span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">
               {{ day.date }}
             </span>
           </td>
+          <td title="Temperature in Celsius"><span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">{{ calculateAverage(day.hour, 'temp_c') }}</span></td>
+          <td title="Temperature in Fahrenheit"><span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">{{ calculateAverage(day.hour, 'temp_f') }}</span></td>
+          <td [title]="calculateAverage(day.hour, 'conditionText')"><span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)"><img [src]="calculateAverage(day.hour, 'conditionIcon')" /></span></td>
+          <td title="Wind speed in Kilometers per Hour"><span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">{{ calculateAverage(day.hour, 'wind_kph') }}</span></td>
+          <td title="Humidity %"><span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">{{ calculateAverage(day.hour, 'humidity') }}</span></td>
+          <td title="Cloud to sky %"><span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">{{ calculateAverage(day.hour, 'cloud') }}</span></td>
         </tr>
         <ng-container *ngIf="!isCollapsed(day.date)">
           <tr *ngFor="let hour of day.hour">
             <td>{{ hour.time }}</td>
-            <td>{{ hour.temp_c }}</td>
-            <td>{{ hour.temp_f }}</td>
-            <td>{{ hour.condition.text }}</td>
-            <td>{{ hour.wind_mph }}</td>
-            <td>{{ hour.wind_kph }}</td>
-            <td>{{ hour.humidity }}</td>
-            <td>{{ hour.cloud }}</td>
+            <td title="Temperature in Celsius">{{ hour.temp_c }}</td>
+            <td title="Temperature in Fahrenheit">{{ hour.temp_f }}</td>
+            <td [title]="hour.condition.text"><img class=smallConditionIcon [src]="hour.condition.icon" /></td>
+            <td title="Wind speed in Kilometers per Hour">{{ hour.wind_kph }}</td>
+            <td title="Humidity %">{{ hour.humidity }}</td>
+            <td title="Cloud to sky %">{{ hour.cloud }}</td>
           </tr>
         </ng-container>
       </ng-container>
-    </tbody>
-  </table>
+    </tbody> 
+  </table> 
 </div>

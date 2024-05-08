@@ -1,5 +1,7 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
+import { HttpClient } from '@angular/common/http';
+import { WeatherResponse } from '../weather-response';
 
 @Component({
   selector: 'app-navigation',
@@ -13,7 +15,6 @@ export class NavigationComponent {
     ["📅", "Calendar"],
     ["₿", "Coin-Watch"],
     ["🔍", "Favourites"],
-    ["☀️", "Weather"],
     ["⛏️", "MiningDevices"],
     ["🖥️", "MiningRigs"],
     ["📁", "Files"],
@@ -26,9 +27,13 @@ export class NavigationComponent {
     ["💵", "Coin-Wallet"],
   ]);
 
-  constructor(private _parent: AppComponent) {
+  constructor(private _parent: AppComponent, private http: HttpClient) {
+    this.getCurrentWeatherIcon();
   }
-
+  async getCurrentWeatherIcon() {
+    const res = await this.http.get<WeatherResponse>('/weatherforecast').toPromise();
+    this.titles.set(res?.current.condition.icon!, "Weather");
+  }
   toggleMenu() {
     this.navbar.nativeElement.classList.toggle('collapsed');
 

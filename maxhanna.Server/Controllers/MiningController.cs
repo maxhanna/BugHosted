@@ -54,7 +54,11 @@ namespace maxhanna.Server.Controllers
                         tmpRig.devices = new List<MiningRigDevice>();
                         tmpRig.rigId = rigElement.GetProperty("rigId").GetString()!;
                         tmpRig.minerStatus = rigElement.GetProperty("minerStatus").GetString()!;
-                        tmpRig.unpaidAmount = float.Parse(rigElement.GetProperty("unpaidAmount").GetString()!);
+                        JsonElement unpaid;
+                        if (rigElement.TryGetProperty("unpaidAmount", out unpaid))
+                        {
+                            tmpRig.unpaidAmount = float.Parse(unpaid.GetString()!);
+                        }
                         tmpRig.localProfitability = float.Parse(rigElement.GetProperty("localProfitability").GetRawText()!);
                         tmpRig.actualProfitability = float.Parse(rigElement.GetProperty("profitability").GetRawText()!);
 

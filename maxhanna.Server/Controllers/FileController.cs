@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using System.Collections.ObjectModel;
-using System.IO;
+using System.Drawing;
 using System.Net;
+using static System.Net.Mime.MediaTypeNames; 
 
 namespace maxhanna.Server.Controllers
 {
@@ -85,9 +84,11 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while streaming the file.");
             }
         }
+
+
         [HttpGet("/File/GetRomFile/{filePath}", Name = "GetRomFile")]
         public IActionResult GetRomFile(string filePath)
-        { 
+        {
             filePath = Path.Combine(baseTarget + "roms/", WebUtility.UrlDecode(filePath) ?? "");
             _logger.LogInformation($"GET /File/GetRomFile/{filePath}");
             if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {baseTarget}"); }
@@ -253,7 +254,7 @@ namespace maxhanna.Server.Controllers
             }
         }
         [HttpDelete("/File/Delete/", Name = "DeleteFileOrDirectory")]
-        public IActionResult DeleteFileOrDirectory([FromBody]string filePath)
+        public IActionResult DeleteFileOrDirectory([FromBody] string filePath)
         {
             filePath = this.baseTarget + filePath ?? "";
             _logger.LogInformation($"DELETE /File/Delete - Path: {filePath}");

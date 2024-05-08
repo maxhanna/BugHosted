@@ -8,7 +8,10 @@
     <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? (rate * actualProfitability).toFixed(2) + " CAD" : actualProfitability + " BTC"}}</span></label>
   </div>
   <div (click)="toggleShowAllData()" class="totalDailyEarningsDiv">
-    {{ dailyEarnings[0]?.date | date }} Total Earnings: {{ rate != 1 ? (rate * dailyEarnings[0]?.totalEarnings!).toFixed(2) + " CAD" : dailyEarnings[0]?.totalEarnings + " BTC" }}
+    {{ dailyEarnings[0] ? dailyEarnings[0].date : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? (rate * dailyEarnings[0].totalEarnings!).toFixed(2) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
+    <div>
+      Total Weekly Earnings: {{ calculateWeeklyEarnings() }}
+    </div>
 
     <div *ngIf="showAllData">
       <table class="mainTable">
@@ -85,7 +88,7 @@
           <td>{{ device.rigName }}</td>
           <td>{{ device.deviceName }}</td>
           <td [style]="device.temperature! >= 70 ? 'color:red;' : device.temperature! >= 68 ? 'color:yellow;' : ''">{{ device.temperature }}</td>
-          <td [style]="device.state == 1 || device.state == -1 ? 'color:red;' : device.state == 4 ? 'color:gray;' : ''">{{ device.state == 1 || device.state == -1 ? 'Offline' : device.state == 2 ? "Mining" : device.state == 4 ? 'Disabled' : device.state}}</td>
+          <td [style]="device.state == 1 || device.state == -1 ? 'color:red;' : device.state == 4 ? 'color:gray;' : ''">{{ device.state == 1 || device.state == -1 ? 'Offline' : device.state == 2 ? "Mining" : device.state == 3 ? "Benchmarking" : device.state == 4 ? 'Disabled' : device.state}}</td>
           <td>{{ device.speed }}</td>
           <td>{{ device.fanSpeed }}</td>
           <td>{{ device.power }}</td>

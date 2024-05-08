@@ -10,11 +10,13 @@
     <input type="submit" value="💾" (click)="addSong()" />
   </fieldset>
   <div>
-    <iframe frameborder=0 id=musicVideo #musicVideo></iframe>
-    <div>
-      <span id="stopMusicButton" (click)="stopMusic()">◼</span>
-      <span id="followLinkButton" (click)="followLink()">🕸</span>
-      <span (click)="randomSong()">⚡</span>
+    <div class="iframeDiv">
+      <iframe frameborder=0 id=musicVideo #musicVideo></iframe>
+    </div>
+    <div class="musicControls">
+      <label id="stopMusicButton" (click)="stopMusic()">◼</label>
+      <label id="followLinkButton" (click)="followLink()">🕸</label>
+      <label (click)="randomSong()">⚡</label>
     </div>
 
     <div id=songlist>

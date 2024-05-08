@@ -1,0 +1,26 @@
+.iframeDiv {
+  width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+iframeDiv iframe {
+  width: 100%;
+}
+
+.musicControls {
+  width: 100%;
+  text-align: center;
+}
+
+  .musicControls label {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    font-size: 20px;
+    cursor: pointer;
+    border: var(--main-border);
+    line-height: 30px;
+    text-align: center;
+    vertical-align: center;
+  }

@@ -25,7 +25,7 @@ export class MusicComponent extends ChildComponent implements OnInit {
     this.isMusicControlsDisplayed(false);
   }
   play(url: string) {
-    const playlist = this.getPlaylistForYoutubeUrl(url).join(',');
+    const playlist = this.getPlaylistForYoutubeUrl(url).slice(0, 150).join(',')
     const trimmedUrl = this.trimYoutubeUrl(url);
     const target = `https://www.youtube.com/embed/${trimmedUrl}?playlist=${playlist}&autoplay=1&vq=tiny`;
     this.musicVideo.nativeElement.src = target;
@@ -54,7 +54,7 @@ export class MusicComponent extends ChildComponent implements OnInit {
   async searchForSong() {
     const search = this.searchInput.nativeElement.value!;
     if (!search) {
-      this.getSongList();
+      return this.getSongList();
     }
     const params = new HttpParams().set('search', search);
     await this.promiseWrapper(lastValueFrom(this.http.get<Array<Todo>>('/todo', { params })).then(res => this.songs = res));
@@ -99,10 +99,12 @@ export class MusicComponent extends ChildComponent implements OnInit {
   }
   getPlaylistForYoutubeUrl(url: string): string[] {
     var playlist = [];
-    var offset = this.songs.indexOf(this.songs.filter(x => x.url == url)[0]);
-    for (var i = 0; i < this.songs.length; i++) {
-      var pointer = (i + offset) % this.songs.length;
-      playlist.push(this.trimYoutubeUrl(this.songs[pointer].url!));
+    const offset = this.songs.indexOf(this.songs.filter(x => x.url == url)[0]);
+    for (var i = offset; i < this.songs.length; i++) {
+      playlist.push(this.trimYoutubeUrl(this.songs[i].url!));
+    }
+    for (var i = 0; i < offset; i++) {
+      playlist.push(this.trimYoutubeUrl(this.songs[i].url!));
     }
     return playlist;
   }

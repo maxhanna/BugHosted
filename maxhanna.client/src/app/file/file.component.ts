@@ -6,15 +6,22 @@ import { lastValueFrom } from 'rxjs';
 @Component({
   selector: 'app-file',
   templateUrl: './file.component.html',
-  styleUrl: './file.component.css'
+  styleUrls: ['./file.component.css']
 })
-export class FileComponent extends ChildComponent {
+export class FileComponent extends ChildComponent { 
+  notifications: Array<string> = [];
+
   constructor(private http: HttpClient) {
     super();
   }
   fS = "/";
   directoryContents: Array<string> = [];
   errorMessage: string | null = null;
+  thumbnailSrc: string | null = null;
+  thumbnailFileName: string | null = null;
+  showThumbnail: boolean = false;
+  showUpFolderRow: boolean = true;
+
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -38,8 +45,7 @@ export class FileComponent extends ChildComponent {
         target += ogDirectoryInput.length > 0 ? "/" + folder : folder;
         this.directoryInput.nativeElement.value = target;
       }
-
-      console.log("Changing directory to : " + target);
+      this.showUpFolderRow = target ? true : false;
       const params = new HttpParams().set('directory', target);
       this.startLoading();
       await lastValueFrom(await this.http.get<Array<string>>('/file/getdirectory', { params })).then(res => this.directoryContents = res);
@@ -60,23 +66,57 @@ export class FileComponent extends ChildComponent {
     }
     if (confirm(`Upload : ${directoryInput}/${fileNames.join(',')} ?`))
     {
+      this.startLoading(); 
       try {
         const formData = new FormData();
         for (let i = 0; i < files!.length; i++) {
           formData.append('files', files!.item(i)!);
         }
         if (directoryInput && directoryInput != '') {
-          await this.promiseWrapper(this.http.post(`/file/upload?folderPath=${directoryInput}`, formData).toPromise());
+          await this.http.post(`/file/upload?folderPath=${directoryInput}`, formData, {responseType: 'text' }).toPromise();
         } else {
-          await this.promiseWrapper(this.http.post('/file/upload', formData).toPromise()).then(res => alert(res));
+          await this.http.post('/file/upload', formData, { responseType: 'text' } ).toPromise();
         }
+        this.notifications.push(`${directoryInput}/${fileNames.join(',')} uploaded successfully`);
       } catch (ex) {
         console.log(ex);
+        this.notifications.push(`${directoryInput}/${fileNames.join(',')} failed to upload!`);
       }
+      this.stopLoading();
+
       this.ngOnInit();
     }
   }
-  async download(fileName: string) {
+  async displayPictureThumbnail(fileName: string) {
+    const fileExt = fileName.lastIndexOf('.') !== -1 ? fileName.substring(fileName.lastIndexOf('.') + 1) : '';
+    const directoryValue = this.directoryInput?.nativeElement?.value ?? "";
+    let target = directoryValue.replace(/\\/g, "/");
+    target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? fileName : directoryValue.length > 0 ? this.fS + fileName : fileName;
+
+    this.startLoading();
+    try {
+      const response = await this.http.get(`/file/getfile/${encodeURIComponent(target)}`, { responseType: 'blob' }).toPromise();
+      const blob = new Blob([response!], { type: ('image/' + fileExt) });
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        this.thumbnailSrc = reader.result as string;
+        this.thumbnailFileName = fileName;
+        this.showThumbnail = true;
+      };
+    } catch (ex) {
+      console.error(ex);
+    }
+    this.stopLoading();
+  } 
+  async downloadThumbnail() {
+    if (!this.thumbnailFileName) { return alert("No thumbnail specified!"); }
+    await this.download(this.thumbnailFileName!, true);
+  }
+  async download(fileName: string, force: boolean) {
+    if (this.isPictureFile(fileName) && !force) {
+      return this.displayPictureThumbnail(fileName);
+    } 
     if (!confirm(`Download ${fileName}?`)) {
       return;
     }
@@ -101,7 +141,7 @@ export class FileComponent extends ChildComponent {
       document.getElementById(a.id)?.remove();
       this.stopLoading();
     } catch (ex) {
-      console.log(ex);
+      console.error(ex);
     }
   }
   async makeDirectory() {
@@ -120,9 +160,9 @@ export class FileComponent extends ChildComponent {
       const headers = { "Content-Type": "application/json" };
       this.startLoading();
       try {
-        await this.http.request('post', '/file/makedirectory', { body: target, headers }).subscribe();
+        await this.http.request('post', '/file/makedirectory', { body: target, headers, responseType: 'text' }).toPromise();
       } catch (ex) {
-        console.log(ex);
+        console.error(ex);
       }
       this.directoryContents.push(originalTargetFolder);
 
@@ -147,18 +187,18 @@ export class FileComponent extends ChildComponent {
 
   async delete(name: string) {
     const directoryValue = this.directoryInput?.nativeElement?.value;
-    console.log("delete with directoryValue :" + directoryValue);
     const target = directoryValue + ((directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? name : this.fS + name);
-    console.log("targete :" + target);
-
+ 
     if (confirm(`Delete : ${target} ?`)) {
       const headers = { "Content-Type": "application/json" };
       const requestBody = '"' + target + '"';
       this.startLoading();
       try {
-        this.promiseWrapper(await this.http.request('delete', '/file/delete', { body: requestBody, headers }).toPromise());
+        const response = await this.http.request('delete', '/file/delete', { body: requestBody, headers, responseType: 'text' }).toPromise();
+        this.notifications.push(`Deleted ${target} successfully`); 
       } catch (ex) {
-        console.log(ex);
+        console.error(ex);
+        this.notifications.push(`Failed to delete ${target}!`);
       }
       this.stopLoading();
       this.directoryContents = this.directoryContents.filter(res => res != name);
@@ -179,15 +219,19 @@ export class FileComponent extends ChildComponent {
       return true;
     }
   }
+  isPictureFile(fileName: string) {
+    const pictureFileTypes = ['jpg', 'png', 'gif', 'webp', 'tiff', 'psd', 'raw', 'bmp', 'heif', 'indd', 'jpeg 2000'];
+    const lowerCaseFileName = fileName.toLowerCase();
+    return pictureFileTypes.some(extension => lowerCaseFileName.includes(extension));
+  }
   handleFileClick(fileName: string) {
     if (!fileName || fileName == "") {
       return alert("No file? Try again");
     }
+
     if (this.isFile(fileName)) {
-      console.log("downloading: " + fileName);
-      this.download(fileName);
-    }
-    else {
+      this.download(fileName, false);
+    } else {
       this.changeDirectory(fileName);
     }
   }

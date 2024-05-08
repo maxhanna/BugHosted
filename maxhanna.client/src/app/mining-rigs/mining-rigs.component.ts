@@ -65,7 +65,7 @@ export class MiningRigsComponent extends ChildComponent {
       this.stopLoading();
     }
   }
-  public async requestDeviceStateChange(device: MiningRigDevice) {
+  async requestDeviceStateChange(device: MiningRigDevice) {
     var requestedAction = this.isDeviceOffline(device.state!) || this.isDeviceDisabled(device.state!) ? "START" : "STOP";
     if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`)) {
       const headers = { 'Content-Type': 'application/json' };
@@ -129,12 +129,12 @@ export class MiningRigsComponent extends ChildComponent {
       return true;
     else return false;
   }
-  public isDeviceOffline(state: number): boolean {
+  isDeviceOffline(state: number): boolean {
     if (state == -1 || state == 1)
       return true;
     else return false;
   }
-  public isDeviceDisabled(state: number): boolean {
+  isDeviceDisabled(state: number): boolean {
     if (state == 4)
       return true;
     else return false;
@@ -157,6 +157,17 @@ export class MiningRigsComponent extends ChildComponent {
     const maxTemperature = Math.max(...rig.devices.map(device => device.temperature ?? 0));
     return maxTemperature;
   }
+  calculateWeeklyEarnings(): string {
+    let totalWeeklyEarnings = 0;
+    let count = 0;
+    for (let earnings of this.dailyEarnings) {
+      totalWeeklyEarnings += earnings.totalEarnings;
+      if (count++ == 6) {
+        break;
+      }
+    }
+    return this.rate != 1 ? (this.rate * totalWeeklyEarnings).toFixed(2) + ' CAD' : totalWeeklyEarnings + ' BTC';
+  } 
   toggleDeviceDataVisibility(rig: MiningRig): void {
     if (this.miningRigDevices && this.miningRigDevices == rig.devices) {
       this.miningRigDevices = undefined;

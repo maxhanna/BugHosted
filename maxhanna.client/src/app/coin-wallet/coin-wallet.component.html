@@ -11,9 +11,7 @@
         <th>Available</th>
         <th>Debt</th>
         <th>Pending</th>
-        <th>Active</th>
-        <th>BTC Rate</th>
-        <th>Fiat Rate</th>
+        <th title="Fiat rate">CAD</th>
         <th>Status</th>
       </tr>
     </thead>
@@ -23,11 +21,9 @@
           <td>Total {{ wallet.total.currency }}</td>
           <td>{{ wallet.total.totalBalance }}</td>
           <td>{{ wallet.total.available }}</td>
-          <td>{{ wallet.total.debt }}</td>
-          <td>{{ wallet.total.pending }}</td>
-          <td></td>
-          <td></td>
-          <td></td>
+          <td>{{ roundToEightDecimalPlaces(wallet.total.debt!) }}</td>
+          <td>{{ roundToEightDecimalPlaces(wallet.total.pending!) }}</td>
+          <td>{{ multiplyValues(wallet.total.available, btcFiatConversion) }}$</td>
           <td></td>
         </tr>
       </ng-container>
@@ -36,11 +32,9 @@
           <td>{{ currency.currency }}</td>
           <td>{{ currency.totalBalance }}</td>
           <td>{{ currency.available }}</td>
-          <td>{{ currency.debt }}</td>
-          <td>{{ currency.pending }}</td>
-          <td>{{ currency.active }}</td>
-          <td>{{ currency.btcRate }}</td>
-          <td>{{ currency.fiatRate }}</td>
+          <td>{{ roundToEightDecimalPlaces(currency.debt!) }}</td>
+          <td>{{ roundToEightDecimalPlaces(currency.pending!) }}</td>
+          <td>{{ calculateTotalValue(currency).toFixed(2) }}$</td>
           <td>{{ currency.status }}</td>
         </tr>
       </ng-container>

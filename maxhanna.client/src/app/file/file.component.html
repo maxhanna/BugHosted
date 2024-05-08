@@ -2,27 +2,44 @@
   <div class="closeButton" (click)="remove_me();"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Filesystem</div>
-
+  <div (click)="notifications = [];" title="Click to clear notifications" class="notificationArea">
+    <div *ngFor="let notif of notifications" [innerHTML]="notif"></div>
+  </div>
   Current Directory :
   <input type="text" #directoryInput placeholder="path/to/directory" />
   <input type="submit" value="➡️" (click)="changeDirectory()" title="Change Directory" />
   <input type="submit" value="⬅️" (click)="previousDirectory()" title="Previous Directory" />
   <input type="submit" value="📂" (click)="makeDirectory()" title="New Folder" />
 
-  <input type="file" #fileInput placeholder="Upload" multiple /><button type="submit" (click)="upload()" title="Upload">⏫</button>
+  <button type="submit" (click)="fileInput.click()" title="Upload">⏫</button>
+  <input type="file" #fileInput (change)="upload()" style="display: none;" multiple />
 
+  <div class="thumbnailArea" *ngIf="showThumbnail">
+    <div style="width:100%;text-align:right;">
+      <div class="closeImageButton" (click)="showThumbnail = false;" title="Close"></div>
+    </div>
 
-  <table class="table" id="fileTable">
+    <img [src]="thumbnailSrc" alt="Thumbnail">
+    <div style="width:100%;text-align:center;">
+      <div class="downloadImageButton" (click)="downloadThumbnail()" title="Download"></div>
+    </div>
+  </div>
+  <div style="margin-top:25px;"></div>
+  <table class="mainTable" id="fileTable">
     <thead>
+      <tr *ngIf="showUpFolderRow">
+        <td (click)="previousDirectory()" style="cursor: pointer;" title="Up one folder">⬆️📁...</td>
+        <td></td>
+      </tr>
       <tr>
         <th (click)="sortTable(0, 'fileTable')">File Name</th>
+        <th></th>
       </tr>
-      <tr></tr>
     </thead>
     <tbody>
       <tr *ngFor="let fileName of directoryContents">
-        <td class="{{ !isFile(fileName) ? 'folder' : '' }}" (click)="this.handleFileClick(fileName);">{{ fileName }}</td>
-        <td><input value="X" type="submit" (click)="this.delete(fileName);" /></td>
+        <td style="width:100%;" class="{{ !isFile(fileName) ? 'folder' : '' }}" (click)="this.handleFileClick(fileName);">{{ fileName }}</td>
+        <td><input value="❌" type="submit" (click)="this.delete(fileName);" /></td>
       </tr>
     </tbody>
   </table>
