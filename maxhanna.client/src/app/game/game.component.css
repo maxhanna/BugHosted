@@ -1,3 +1,7 @@
+.componentMain > * {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .componentMain {
     width: 400px;
 }
@@ -334,4 +338,15 @@
 .dot.closed {
   background: linear-gradient(to bottom, black 0%, var(--gameboyBgColor) 100%);
   box-shadow: 0px 0px 2px var(--secondary-font-color) inset;
+}
+.persistanceSpan, .uploadRomSpan {
+    padding:5px;
+    padding-left:10px;
+    padding-right:10px;
+}
+.persistanceSpan {
+  float: left;
+}
+.uploadRomSpan{
+    float:right;
 }

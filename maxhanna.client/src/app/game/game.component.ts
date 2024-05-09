@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Gameboy } from "gameboy-emulator";
 import { HttpClient, HttpParams } from '@angular/common/http';
@@ -18,7 +18,8 @@ export class GameComponent extends ChildComponent implements OnInit {
   autosave: boolean = true;
   constructor(private http: HttpClient) {
     super();
-  }
+  } 
+
   async ngOnInit() {
     this.fileInput?.nativeElement?.addEventListener('change', this.onFileChange);
     this.getGames();
@@ -166,4 +167,38 @@ export class GameComponent extends ChildComponent implements OnInit {
       reader.readAsArrayBuffer(blob);
     });
   }
+  ngAfterViewInit() {
+    const addButtonListener = (buttonClass: string, inputProperty: string) => {
+      const button = document.querySelector('.' + buttonClass) as HTMLElement | null;
+      if (button) {
+        button.addEventListener('mousedown', () => {
+          this.gameboy.input[inputProperty] = true;
+        });
+
+        button.addEventListener('mouseup', () => {
+          this.gameboy.input[inputProperty] = false;
+        });
+
+        button.addEventListener('touchstart', (event) => {
+          event.preventDefault();
+          this.gameboy.input[inputProperty] = true;
+        }, { passive: true });
+
+        button.addEventListener('touchend', () => {
+          this.gameboy.input[inputProperty] = false;
+        }, { passive: true });
+      }
+    }
+
+    addButtonListener('a', 'isPressingA');
+    addButtonListener('b', 'isPressingB');
+    addButtonListener('start', 'isPressingStart');
+    addButtonListener('select', 'isPressingSelect');
+    addButtonListener('up', 'isPressingUp');
+    addButtonListener('right', 'isPressingRight');
+    addButtonListener('down', 'isPressingDown');
+    addButtonListener('left', 'isPressingLeft');
+    addButtonListener('middle', 'isPollingDirections');
+  }
+
 }

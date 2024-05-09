@@ -6,13 +6,13 @@
   <table class="calendarMonthTable">
     <tr>
       <td (click)="monthBackClick();">
-        <a href=#><div #monthBack>{{ getMonthName(monthBackFromNow) }}</div><div #yearBack>{{ monthBackFromNow.getFullYear() }}</div></a>
+        <div #monthBack>{{ getMonthName(monthBackFromNow) }}</div><div #yearBack>{{ monthBackFromNow.getFullYear() }}</div>
       </td>
       <td>
         <div #month>{{ getMonthName(now) }}</div><div #year>{{ now.getFullYear() }}</div>
       </td>
       <td (click)="monthForwardClick();">
-        <a href=#><div #monthForward>{{ getMonthName(monthForwardFromNow) }}</div><div #yearForward>{{ monthForwardFromNow.getFullYear() }}</div></a>
+        <div #monthForward>{{ getMonthName(monthForwardFromNow) }}</div><div #yearForward>{{ monthForwardFromNow.getFullYear() }}</div>
       </td>
     </tr>
   </table>

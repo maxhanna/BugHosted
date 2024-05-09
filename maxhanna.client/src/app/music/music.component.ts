@@ -98,14 +98,17 @@ export class MusicComponent extends ChildComponent implements OnInit {
     }
   }
   getPlaylistForYoutubeUrl(url: string): string[] {
+    console.log("searching for url : " + url);
     var playlist = [];
     const offset = this.songs.indexOf(this.songs.filter(x => x.url == url)[0]);
+    console.log("offset : " + offset);
     for (var i = offset; i < this.songs.length; i++) {
       playlist.push(this.trimYoutubeUrl(this.songs[i].url!));
     }
     for (var i = 0; i < offset; i++) {
       playlist.push(this.trimYoutubeUrl(this.songs[i].url!));
     }
+    console.log(playlist);
     return playlist;
   }
   clearInputs() {

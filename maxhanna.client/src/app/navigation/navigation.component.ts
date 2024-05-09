@@ -20,7 +20,7 @@ export class NavigationComponent extends ChildComponent {
     { icon: "🖥️", title: "MiningRigs" },
     { icon: "📁", title: "Files" },
     { icon: "✔️", title: "Todo" },
-    { icon: "▶️", title: "Music" },
+    { icon: "🎼", title: "Music" },
     { icon: "🗒️", title: "Notepad" },
     { icon: "📇", title: "Contacts" },
     { icon: "🎮", title: "Game" },

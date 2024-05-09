@@ -8,22 +8,21 @@
       <option value="" disabled selected>Select a game</option>
       <option *ngFor="let game of gamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
     </select>
+    <span class="persistanceSpan">
+      Server Save:
+      <label for="autosaveOn">On</label>
+      <input type="radio" id="autosaveOn" name="autosave" [checked]="autosave" (change)="toggleAutosave()">
 
-    Server Persistance:
-    <label for="autosaveOn">On</label>
-    <input type="radio" id="autosaveOn" name="autosave" [checked]="autosave" (change)="toggleAutosave()">
-
-    <label for="autosaveOff">Off</label>
-    <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="toggleAutosave()">
+      <label for="autosaveOff">Off</label>
+      <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="toggleAutosave()">
+    </span>
+    <span class="uploadRomSpan">
+      Load Rom:
+      <button type="submit" (click)="fileInput.click()" title="Upload a Rom" style="display:inline-block;">⏫</button>
+      <input type="file" #fileInput (change)="onFileChange(null)" style="display: none;" multiple accept=".gb" />
+    </span>
   </div>
-
-  <div>
-    <fieldset>
-      <legend>Upload rom</legend>
-      <input type="file" class="file-input" style="display:inline-block;" #fileInput multiple />
-      <input type="submit" value="⏫" (click)="onFileChange(null)" style="display:inline-block" />
-    </fieldset>
-  </div>
+   
 
 
   <div class="gameboy" id="GameBoy">
@@ -36,66 +35,30 @@
 
     <div class="controls">
       <div class="dpad">
-        <div class="up"
-             (mousedown)="gameboy.input.isPressingUp = true;"
-             (touchstart)="gameboy.input.isPressingUp = true;"
-             (mouseup)="gameboy.input.isPressingUp = false;"
-             (touchend)="gameboy.input.isPressingUp = false;">
+        <div class="up">
           <div class="up-triangle"></div>
         </div>
-        <div class="right"
-             (mousedown)="gameboy.input.isPressingRight = true;"
-             (touchstart)="gameboy.input.isPressingRight = true;"
-             (mouseup)="gameboy.input.isPressingRight = false;"
-             (touchend)="gameboy.input.isPressingRight = false;">
+        <div class="right">
           <div class="right-triangle"></div>
         </div>
-        <div class="down"
-             (mousedown)="gameboy.input.isPressingDown = true;"
-             (touchstart)="gameboy.input.isPressingDown = true;"
-             (mouseup)="gameboy.input.isPressingDown = false;"
-             (touchend)="gameboy.input.isPressingDown = false;">
+        <div class="down">
           <div class="down-triangle"></div>
         </div>
-        <div class="left"
-             (mousedown)="gameboy.input.isPressingLeft = true;"
-             (touchstart)="gameboy.input.isPressingLeft = true;"
-             (mouseup)="gameboy.input.isPressingLeft = false;"
-             (touchend)="gameboy.input.isPressingLeft = false;">
+        <div class="left">
           <div class="left-triangle"></div>
         </div>
-        <div class="middle"
-             (mousedown)="gameboy.input.isPollingDirections = true;"
-             (touchstart)="gameboy.input.isPollingDirections = true;"
-             (mouseup)="gameboy.input.isPollingDirections = false;"
-             (touchend)="gameboy.input.isPollingDirections = false;">
+        <div class="middle">
         </div>
       </div>
       <div class="a-b">
-        <div class="b"
-             (mousedown)="gameboy.input.isPressingB = true;"
-             (touchstart)="gameboy.input.isPressingB = true;"
-             (mouseup)="gameboy.input.isPressingB = false;"
-             (touchend)="gameboy.input.isPressingB = false;">B</div>
-        <div class="a"
-             (mousedown)="gameboy.input.isPressingA = true;"
-             (touchstart)="gameboy.input.isPressingA = true;"
-             (mouseup)="gameboy.input.isPressingA = false;"
-             (touchend)="gameboy.input.isPressingA = false;">A</div>
+        <div class="b">B</div>
+        <div class="a">A</div>
       </div>
     </div>
 
     <div class="start-select">
-      <div class="select"
-           (mousedown)="gameboy.input.isPressingSelect = true;"
-           (touchstart)="gameboy.input.isPressingSelect = true;"
-           (mouseup)="gameboy.input.isPressingSelect = false;"
-           (touchend)="gameboy.input.isPressingSelect = false;">SELECT</div>
-      <div class="start"
-           (mousedown)="gameboy.input.isPressingStart = true;"
-           (touchstart)="gameboy.input.isPressingStart = true;"
-           (mouseup)="gameboy.input.isPressingStart = false;"
-           (touchend)="gameboy.input.isPressingStart = false;">START</div>
+      <div class="select">SELECT</div>
+      <div class="start">START</div>
     </div>
 
     <div class="speaker">

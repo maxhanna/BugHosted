@@ -152,10 +152,8 @@ export class FileComponent extends ChildComponent {
     const directoryValue = this.directoryInput?.nativeElement?.value ?? "";
     let target = directoryValue.replace(/\\/g, "/");
     target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? choice : directoryValue.length > 0 ? this.fS + choice : choice;
-    const ogTarget = target;
-    const originalTargetFolder = this.findTargetOriginalFolder(ogTarget);
-
     target = '"' + target + '"';
+
     if (confirm(`Create directory : ${target} ?`)) {
       const headers = { "Content-Type": "application/json" };
       this.startLoading();
@@ -164,27 +162,10 @@ export class FileComponent extends ChildComponent {
       } catch (ex) {
         console.error(ex);
       }
-      this.directoryContents.push(originalTargetFolder);
-
-      const index = this.directoryInput.nativeElement.value.indexOf(originalTargetFolder);
-
-      // Extract the substring up to the first occurrence of ogTargetFolder
-      this.directoryInput.nativeElement.value = index !== -1 ? this.directoryInput.nativeElement.value.substring(0, index) : '';
-
+      this.directoryContents.push(choice);
       this.stopLoading();
     }
-  }
-  private findTargetOriginalFolder(choice: string) {
-    const folders = choice.split('/');
-
-    for (const folder of this.directoryContents) {
-      if (folders.some(part => folder.includes(part))) {
-        return folder;
-      }
-    }
-    return folders[0];
-  }
-
+  } 
   async delete(name: string) {
     const directoryValue = this.directoryInput?.nativeElement?.value;
     const target = directoryValue + ((directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? name : this.fS + name);
