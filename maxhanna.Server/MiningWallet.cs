@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace maxhanna.Server
 {
     public class Total

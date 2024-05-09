@@ -1,7 +1,100 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me();"></div>
-  <!--<div class="refreshButton" (click)="ngOnInit();"></div>-->
+  <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Contacts</div>
 
+  <button class="newContactButton" (click)="showNewContactForm = !showNewContactForm;" title="New Contact">🆕🧑</button>
+  <div class="newContactForm" *ngIf="showNewContactForm">
+    <label class="editContactLabel">Add New Contact</label>
+    <table class="editContactTable">
+      <tr>
+        <td><label for="newContactName">Name:</label></td>
+        <td><input type="text" #newContactName id="newContactName" class="longInput" required></td>
+      </tr>
+      <tr>
+        <td><label for="newContactPhone">Phone:</label></td>
+        <td><input type="text" #newContactPhone id="newContactPhone"></td>
+      </tr>
+      <tr>
+        <td><label for="newContactBirthday">Birthday:</label></td>
+        <td><input type="date" #newContactBirthday id="newContactBirthday"></td>
+      </tr>
+      <tr>
+        <td><label for="newContactNotes">Notes:</label></td>
+        <td><textarea #newContactNotes id="newContactNotes" class="longInput"></textarea></td>
+      </tr>
+      <tr>
+        <td><label for="newContactEmail">Email:</label></td>
+        <td><input type="email" #newContactEmail id="newContactEmail" class="longInput"></td>
+      </tr>
+      <tr>
+        <td colspan="2" class="saveCancelButtonTd">
+          <button type="button" (click)="addNewContact()">💾</button>
+          <button type="button" (click)="showNewContactForm = false">❌</button>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <div *ngIf="contacts && contacts.length > 0">
+    <table class="mainTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phone</th>
+          <th>Birthday</th>
+          <th>Notes</th>
+          <th>Email</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let contact of contacts" (click)="selectedContact && selectedContact == contact ? selectedContact = undefined : selectedContact = contact">
+          <td>{{ contact.name }}</td>
+          <td>{{ contact.phone }}</td>
+          <td>{{ contact.birthday ? (contact.birthday | date: 'MMM dd, yyyy') : '' }}</td>
+          <td>{{ contact.notes }}</td>
+          <td>{{ contact.email }} <a *ngIf="contact.email" [href]="'mailto:' + contact.email" (click)="$event.stopPropagation();"><label>📧</label></a></td>
+          <td style="width:0%;"><button (click)="deleteContact(contact.id!);$event.stopPropagation();" style="z-index:2" title="Delete Contact">❌</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="!contacts || contacts.length === 0">
+    No contacts found.
+  </div>
+
+  <div class="editContactForm" *ngIf="selectedContact">
+    <label class="editContactLabel">Edit Contact</label>
+    <table class="editContactTable">
+      <tr>
+        <td><label for="name">Name:</label></td>
+        <td><input type="text" #name [value]="selectedContact.name" class="longInput" required></td>
+      </tr>
+      <tr>
+        <td><label for="phone">Phone:</label></td>
+        <td><input type="text" #phone [value]="selectedContact.phone"></td>
+      </tr>
+      <tr>
+        <td><label for="birthday">Birthday:</label></td>
+        <td><input type="date" #birthday [value]="selectedContact.birthday ? formatDate(selectedContact.birthday) : null"></td>
+      </tr>
+      <tr>
+        <td><label for="notes">Notes:</label></td>
+        <td><textarea #notes [value]="selectedContact.notes" class="longInput"></textarea></td>
+      </tr>
+      <tr>
+        <td><label for="email">Email:</label></td>
+        <td><input type="email" #email [value]="selectedContact.email" class="longInput"></td>
+      </tr>
+      <tr>
+        <td colspan="2" class="saveCancelButtonTd">
+          <button type="button" (click)="saveContact()" title="Save">💾</button>
+          <button type="button" (click)="selectedContact = undefined" title="Cancel">❌</button>
+        </td>
+      </tr>
+    </table>
+  </div>
 
 </div>

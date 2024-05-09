@@ -12,6 +12,7 @@ const PROXY_CONFIG = [
       "/todo",
       "/file",
       "/notepad",
+      "/contact",
     ],
     target,
     secure: false

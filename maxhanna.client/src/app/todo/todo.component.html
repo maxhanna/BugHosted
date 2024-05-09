@@ -13,7 +13,7 @@
   <table class="mainTable" id="todoTable">
     <thead>
       <tr>
-        <th>
+        <th style="width:80%">
 
           <select #selectedType class=selectType (change)="typeOnChange()">
             <option *ngFor="let type of todoTypes" [value]="type">{{ type }}</option>
@@ -21,7 +21,7 @@
 
         </th>
         <th (click)="sortTable(1, 'todoTable')">🔗</th>
-        <th (click)="sortTable(2, 'todoTable')">Date</th>
+        <th (click)="sortTable(2, 'todoTable')" style="width:20%">Date</th>
         <th></th>
       </tr>
     </thead>

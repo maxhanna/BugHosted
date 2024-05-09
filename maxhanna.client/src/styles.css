@@ -6,6 +6,7 @@
   --main-font-color: #00FF00;
   --secondary-font-color: cornflowerblue;
   --main-border: 2px ridge rgba(245, 23, 23, 0.5);
+  --gameboyBgColor: darkgrey;
 }
 
 body {
@@ -13,8 +14,8 @@ body {
   color: var(--main-font-color);
   margin: 0;
   padding: 0;
-  padding-top: 50px;
   overscroll-behavior-y: contain;
+  padding-bottom:50px;
 }
 html, body {
   overscroll-behavior-x: none;
@@ -40,12 +41,8 @@ fieldset {
 }
 
 .collapsed {
-  transform: translateY(-100%);
-}
-
-.collapsedComponent {
-  transform: translateY(-50px);
-}
+  transform: translateY(100%);
+} 
 
 .refreshButton::before, .closeButton::before {
   position: absolute;

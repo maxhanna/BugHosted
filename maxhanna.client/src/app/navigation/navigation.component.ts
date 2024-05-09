@@ -35,14 +35,13 @@ export class NavigationComponent {
     this.titles.set(res?.current.condition.icon!, "Weather");
   }
   toggleMenu() {
+    console.log(window.document.body.style.paddingBottom);
     this.navbar.nativeElement.classList.toggle('collapsed');
-
-    const elements = document.getElementsByClassName("componentMain");
-    Array.from(elements).forEach(x => x.classList.toggle('collapsedComponent'));
-
+    
     const currText = this.toggleNavButton.nativeElement.innerText;
     this.toggleNavButton.nativeElement.innerText = currText != "📖" ? "📖" : "📕";
     this.toggleNavButton.nativeElement.title = currText != "📖" ? "Open Navigation" : "Close Navigation";
+    window.document.body.style.paddingBottom = currText != "📖" ? "0px" : "50px";
   }
   goTo(event: any) {
     this._parent.createComponent(event.target.getAttribute('title'));

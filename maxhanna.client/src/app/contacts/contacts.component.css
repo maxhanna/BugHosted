@@ -1,0 +1,22 @@
+.editContactLabel {
+  margin-top: 5px;
+  margin-bottom: 5px;
+  width: 100%;
+  text-align: center;
+  display: block;
+}
+
+.editContactForm {
+  width: 100%; 
+  align-content: center;
+}
+.editContactTable {
+    margin-left:auto;
+    margin-right:auto;
+}
+.saveCancelButtonTd {
+  text-align: center;
+}
+.longInput {
+    min-width:300px;
+}

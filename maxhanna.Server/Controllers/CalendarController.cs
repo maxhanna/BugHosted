@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Collections.ObjectModel;
 
 namespace maxhanna.Server.Controllers
 {

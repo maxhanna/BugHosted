@@ -11,7 +11,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 })
 export class TodoComponent extends ChildComponent implements OnInit {
   todos: Array<Todo> = [];
-  todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe'];
+  todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe', "Wife"];
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;

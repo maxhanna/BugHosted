@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using RestSharp;
-using System;
-using static System.Net.WebRequestMethods;
 
 namespace maxhanna.Server.Controllers
 {

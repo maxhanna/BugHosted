@@ -3,7 +3,7 @@
   width: 100%;
   position: fixed;
   z-index: 100;
-  top: 0;
+  bottom: 0;
   left: 0;
   background-color: #111;
   display: flex;
@@ -19,7 +19,8 @@
 }
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   #navbar {
-    justify-content: flex-start; 
+    justify-content: flex-start;
+    padding-left: 50px;
   }
 }
 
@@ -28,18 +29,17 @@
     height: 45px;
     text-align: center;
   }
-
-
+   
 .navLink {
   display: block;
-  width: 100%;
+  width: 50px;
   height: 100%;
   background-color: black;
   border: 1px solid red;
   border-radius: 3px;
   font-size: 35px;
   line-height: 45px;
-  transition: 0.3s; 
+  transition: 0.3s;
 }
 
   .navLink:hover {

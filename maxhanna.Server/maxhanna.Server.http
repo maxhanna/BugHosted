@@ -48,3 +48,15 @@ Accept: application/json
 DELETE {{maxhanna.Server_HostAddress}}/notepad/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/contact/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/contact/
+Accept: application/json
+###
+PUT {{maxhanna.Server_HostAddress}}/contact/
+Accept: application/json
+###
+DELETE {{maxhanna.Server_HostAddress}}/contact/
+Accept: application/json
+###

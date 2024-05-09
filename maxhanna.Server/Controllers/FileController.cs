@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Drawing;
 using System.Net;
-using static System.Net.Mime.MediaTypeNames; 
 
 namespace maxhanna.Server.Controllers
 {

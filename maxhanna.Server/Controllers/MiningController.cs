@@ -1,18 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
 using System.Collections.ObjectModel;
-using System;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
 using System.Net;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Net.Mime;
-using System.Text;
 using maxhanna.Server.Controllers.Helpers;
-using Microsoft.Extensions.Logging;
 using System.Text.Json;
-using static maxhanna.Server.Controllers.Helpers.MiningApi;
-using static System.Collections.Specialized.BitVector32;
 
 namespace maxhanna.Server.Controllers
 {
