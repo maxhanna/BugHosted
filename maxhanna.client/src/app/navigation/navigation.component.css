@@ -20,7 +20,6 @@
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   #navbar {
     justify-content: flex-start;
-    padding-left: 50px;
   }
 }
 
@@ -45,7 +44,11 @@
   .navLink:hover {
     color: red;
   }
-   
+
+
+.collapsed {
+  transform: translateY(100%);
+}
 
 .toggleNavButton {
   position: fixed;
@@ -56,5 +59,11 @@
   border: none;
   font-size: 16px;
   cursor: pointer;
-  z-index: 1001; /* Ensure it's above navDiv */
+  z-index: 11;
+  opacity: 0;
+  transition: opacity 3s ease;
 }
+
+  .toggleNavButton.visible {
+    opacity: 1; 
+  }

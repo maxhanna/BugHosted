@@ -40,10 +40,6 @@ fieldset {
   transition: transform 0.8s ease; /* Animation for sliding */
 }
 
-.collapsed {
-  transform: translateY(100%);
-} 
-
 .refreshButton::before, .closeButton::before {
   position: absolute;
   top: 0px;

@@ -1,12 +1,12 @@
 <button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>
 <div #navbar id="navbar">
 
-  <div *ngFor="let title of titles | keyvalue" id="title.value" class="navLinkDiv">
-    <ng-container *ngIf="title.value == 'Weather' && title.key.includes('weatherapi')" >
-     <img [src]="title.key" title={{title.value}} class="navLink" (click)="goTo($event)"  />
+  <div *ngFor="let item of navigationItems" class="navLinkDiv">
+    <ng-container *ngIf="item.title === 'Weather'">
+      <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo($event)" />
     </ng-container>
-    <ng-container *ngIf="title.value != 'Weather'">
-      <a class="navLink" (click)="goTo($event)" title="{{ title.value }}">{{ title.key.substring(0, 3) }}</a>
+    <ng-container *ngIf="item.title !== 'Weather'">
+      <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon.substring(0, 3) }}</a>
     </ng-container>
   </div>
-</div>
+

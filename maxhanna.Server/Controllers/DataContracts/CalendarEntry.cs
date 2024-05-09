@@ -1,13 +1,13 @@
-namespace maxhanna.Server
+namespace maxhanna.Server.Controllers.DataContracts
 {
     public class CalendarEntry
     {
         public CalendarEntry(int? id, string? type, string? note, DateTime? date)
         {
-            this.Id = id;
-            this.Type = type;
-            this.Note = note;
-            this.Date = date;
+            Id = id;
+            Type = type;
+            Note = note;
+            Date = date;
         }
         public int? Id { get; set; }
         public string? Type { get; set; }

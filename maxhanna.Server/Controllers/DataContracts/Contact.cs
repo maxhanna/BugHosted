@@ -1,4 +1,4 @@
-namespace maxhanna.Server
+namespace maxhanna.Server.Controllers.DataContracts
 {
     public class Contact
     {

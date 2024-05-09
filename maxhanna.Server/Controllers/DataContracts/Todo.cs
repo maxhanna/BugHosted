@@ -1,4 +1,4 @@
-namespace maxhanna.Server
+namespace maxhanna.Server.Controllers.DataContracts
 {
     public class Todo
     {
@@ -8,7 +8,7 @@ namespace maxhanna.Server
             this.todo = todo;
             this.type = type;
             this.url = url;
-            this.date = date; 
+            this.date = date;
         }
         public int id { get; set; }
         public string todo { get; set; }

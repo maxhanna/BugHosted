@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System.Net;
 using maxhanna.Server.Controllers.Helpers;
 using System.Text.Json;
+using maxhanna.Server.Controllers.DataContracts;
 
 namespace maxhanna.Server.Controllers
 {

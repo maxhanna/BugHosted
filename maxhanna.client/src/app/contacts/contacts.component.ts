@@ -40,8 +40,11 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   }
 
   async addNewContact() {
+    const name = this.newContactName.nativeElement.value;
+    if (!name) { return alert("Contact must have a name!"); }
+
     var tmpContact = new Contact();
-    tmpContact.name = this.newContactName.nativeElement.value;
+    tmpContact.name = name;
     tmpContact.phone = this.newContactPhone.nativeElement.value;
 
     var jsDate = this.GetJsDate(this.newContactBirthday.nativeElement.value);
@@ -69,8 +72,11 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   }
 
   async saveContact() {
+    const name = this.name.nativeElement.value;
+    if (!name) { return alert("Name cannot be empty!"); }
+
     if (this.selectedContact) {
-      this.selectedContact.name = this.name.nativeElement.value;
+      this.selectedContact.name = name;
       this.selectedContact.email = this.email.nativeElement.value;
       this.selectedContact.notes = this.notes.nativeElement.value;
       this.selectedContact.phone = this.phone.nativeElement.value;
