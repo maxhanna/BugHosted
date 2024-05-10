@@ -14,6 +14,7 @@ export class MusicComponent extends ChildComponent implements OnInit {
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('musicVideo') musicVideo!: ElementRef<HTMLIFrameElement>;
+  @ViewChild('orderSelect') orderSelect!: ElementRef<HTMLSelectElement>;
   songs: Array<Todo> = [];
   orders: Array<string> = ["Newest", "Oldest", "Alphanumeric ASC", "Alphanumeric DESC", "Random"];
 
@@ -21,11 +22,11 @@ export class MusicComponent extends ChildComponent implements OnInit {
   async ngOnInit() {
     await this.getSongList();
     this.clearInputs();
-    this.reorderTable(undefined, this.orders[0]);
+    this.reorderTable(undefined, this.orderSelect.nativeElement.value);
     this.isMusicControlsDisplayed(false);
   }
   play(url: string) {
-    const playlist = this.getPlaylistForYoutubeUrl(url).slice(0, 150).join(',')
+    const playlist = this.getPlaylistForYoutubeUrl(url).join(',')
     const trimmedUrl = this.trimYoutubeUrl(url);
     const target = `https://www.youtube.com/embed/${trimmedUrl}?playlist=${playlist}&autoplay=1&vq=tiny`;
     this.musicVideo.nativeElement.src = target;
@@ -54,10 +55,12 @@ export class MusicComponent extends ChildComponent implements OnInit {
   async searchForSong() {
     const search = this.searchInput.nativeElement.value!;
     if (!search) {
-      return this.getSongList();
+      await this.getSongList();
+      return this.reorderTable(undefined, this.orderSelect.nativeElement.value);
     }
     const params = new HttpParams().set('search', search);
-    await this.promiseWrapper(lastValueFrom(this.http.get<Array<Todo>>('/todo', { params })).then(res => this.songs = res));
+    this.songs = await this.promiseWrapper(lastValueFrom(this.http.get<Array<Todo>>('/todo', { params }))); 
+    this.reorderTable(undefined, this.orderSelect.nativeElement.value);
   }
   async deleteSong(id: number) {
     const response = await this.promiseWrapper(await lastValueFrom(this.http.delete(`/todo/${id}`)));
@@ -70,7 +73,11 @@ export class MusicComponent extends ChildComponent implements OnInit {
     this.play(this.songs[Math.floor(Math.random() * this.songs.length)].url!);
   }
   followLink() {
-    window.open(this.musicVideo.nativeElement.src);
+    const currUrl = this.musicVideo.nativeElement.src;
+    const regex = /\/embed[^?]+\?playlist=/;
+    const newUrl = currUrl.replace(regex, "/watch_videos?video_ids=");
+
+    window.open(newUrl);
     this.stopMusic();
   }
   reorderTable(event?: Event, targetOrder?: string) {
@@ -98,17 +105,14 @@ export class MusicComponent extends ChildComponent implements OnInit {
     }
   }
   getPlaylistForYoutubeUrl(url: string): string[] {
-    console.log("searching for url : " + url);
     var playlist = [];
     const offset = this.songs.indexOf(this.songs.filter(x => x.url == url)[0]);
-    console.log("offset : " + offset);
     for (var i = offset; i < this.songs.length; i++) {
       playlist.push(this.trimYoutubeUrl(this.songs[i].url!));
     }
     for (var i = 0; i < offset; i++) {
       playlist.push(this.trimYoutubeUrl(this.songs[i].url!));
     }
-    console.log(playlist);
     return playlist;
   }
   clearInputs() {
@@ -134,7 +138,14 @@ export class MusicComponent extends ChildComponent implements OnInit {
     if (url.includes("youtu.be")) {
       return url.substring(url.indexOf("youtu.be/") + 9, url.length);
     }
-    return url.substring(url.indexOf("?v=") + 3, url.length);
+    if (url.includes("?v=") || url.includes("&v=")) {
+      const regex = /[?&]v=([^&,$]+)/;
+      const match = url.match(regex);
+      return match && match[1] ? match[1] : '';
+    } else {
+      console.error("URL doesn't contain v parameter : " + url);
+      return '';
+    }
   }
   isMusicControlsDisplayed(setter: boolean) {
     if (document.getElementById("stopMusicButton")) {
@@ -158,6 +169,11 @@ export class MusicComponent extends ChildComponent implements OnInit {
       return "https://www.youtube.com/watch?v=" + match[1];
     } else {
       return url;
+    }
+  }
+  onSearchEnter(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      this.searchForSong();
     }
   }
 }

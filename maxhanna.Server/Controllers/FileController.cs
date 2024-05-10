@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
 using System.Net;
 
 namespace maxhanna.Server.Controllers
@@ -285,6 +286,84 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while deleting file or directory.");
             }
         }
+        [HttpPost("/File/Move/", Name = "MoveFile")]
+        public IActionResult MoveFile([FromQuery] string inputFile, [FromQuery] string? destinationFolder)
+        {
+            _logger.LogInformation($"POST /File/Move (inputFile = {inputFile}, destinationFolder = {destinationFolder})");
+
+            try
+            {
+                inputFile = Path.Combine(baseTarget, this.baseTarget + WebUtility.UrlDecode(inputFile) ?? "");
+                destinationFolder = Path.Combine(baseTarget, this.baseTarget + WebUtility.UrlDecode(destinationFolder) ?? "");
+
+                if (!ValidatePath(inputFile) || !ValidatePath(destinationFolder))
+                {
+                    _logger.LogError($"Invalid path: inputFile = {inputFile}, destinationFolder = {destinationFolder}");
+                    return NotFound("Invalid path.");
+                }
+
+                if (System.IO.File.Exists(inputFile))
+                {
+                    string fileName = Path.GetFileName(inputFile);
+                    string newFilePath = Path.Combine(destinationFolder, fileName);
+                    System.IO.File.Move(inputFile, newFilePath);
+
+                    _logger.LogInformation($"File moved from {inputFile} to {newFilePath}");
+                    return Ok("File moved successfully.");
+                }
+                else if (Directory.Exists(inputFile))
+                {
+                    MoveDirectory(inputFile, destinationFolder);
+                    _logger.LogInformation($"Directory moved from {inputFile} to {destinationFolder}");
+                    return Ok("Directory moved successfully.");
+                }
+                else
+                {
+                    _logger.LogError($"Input file or directory not found at {inputFile}");
+                    return NotFound("Input file or directory not found.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while moving the file or directory.");
+                return StatusCode(500, "An error occurred while moving the file or directory.");
+            }
+        }
+        [HttpPost("/File/Batch/", Name = "ExecuteBatch")]
+        public IActionResult ExecuteBatch([FromQuery] string? inputFile)
+        {
+            _logger.LogInformation($"POST /File/Batch (inputFile = {inputFile})");
+            string result = "";
+            try
+            {
+                // Start the child process.
+                Process p = new Process();
+                // Redirect the output stream of the child process.
+                p.StartInfo.UseShellExecute = false;
+                p.StartInfo.RedirectStandardOutput = true;
+                p.StartInfo.FileName = "E:/Uploads/hello_world.bat";
+                p.Start();
+                // Do not wait for the child process to exit before
+                // reading to the end of its redirected stream.
+                // p.WaitForExit();
+                // Read the output stream first and then wait.
+                result = p.StandardOutput.ReadToEnd();
+                p.WaitForExit();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while executing BAT file.");
+                return StatusCode(500, "An error occurred while executing BAT file.");
+            }
+            return Ok(result);
+        }
+        private void MoveDirectory(string sourceDirectory, string destinationDirectory)
+        {
+            string directoryName = new DirectoryInfo(sourceDirectory).Name;
+            string newDirectoryPath = Path.Combine(destinationDirectory, directoryName);
+            Directory.Move(sourceDirectory, newDirectoryPath);
+        }
+
         private bool ValidatePath(string directory)
         {
             if (!directory.Contains(baseTarget))

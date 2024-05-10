@@ -8,6 +8,13 @@
   --secondary-font-color: cornflowerblue;
   --main-border: 2px ridge var(--main-highlight-color);
   --gameboyBgColor: darkgrey;
+  --main-font-size: 0.9vw;
+  --component-max-width: 300px;
+}
+@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
+  :root {
+    --main-font-size: 2.45vw;
+  }
 }
 
 body {
@@ -34,12 +41,12 @@ fieldset {
 
 .componentMain {
   background-color: var(--main-bg-color);
-  min-width: 300px;
+  min-width: var(--component-max-width);
   position: relative;
   padding-top: 35px;
   border: var(--main-border);
   border-radius: 5px;
-  transition: transform 0.8s ease; /* Animation for sliding */
+  transition: transform 0.8s ease;
 }
 
 .refreshButton::before, .closeButton::before {
@@ -71,21 +78,46 @@ fieldset {
 }
 
 .componentTitle {
-  font-family: Garamond;
+  font-family: Tahoma, Geneva, Verdana;
   position: absolute;
   width: 100%;
   text-align: center;
   font-weight: bold;
   font-size: 25px;
+  line-height:29px;
   top: 0px;
   display: block;
   border-bottom: 2px solid black;
   z-index: 1;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
 }
+.mainTableDiv {
+  max-height: 400px; 
+  overflow-y: auto; 
+}
+@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
+  .mainTableDiv { 
+    width: var(--component-max-width); 
+    overflow-x: auto;
+  }
+}
+
+/* Make the table scrollable horizontally on mobile */
+@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
+  .mainTable {
+    overflow-x: scroll;
+    white-space: nowrap;
+  }
+}
+
+.mainTable tr > :last-child {
+  position: sticky;
+  right: 0; 
+  z-index: 2;
+}
 
 .mainTable {
-  font-size: 1.45vmin;
+  font-size: var(--main-font-size); 
   width: 100%;
   background-color: var(--secondary-bg-color);
   border-collapse: collapse;
@@ -99,17 +131,13 @@ fieldset {
     z-index: 10;
   }
 
-  .mainTable tr:not(thead tr):hover {
+  .mainTable tr:not(thead,tr):hover {
     outline: var(--main-border);
   }
 
   .mainTable tr:nth-child(even) {
     background-color: var(--main-bg-color);
-  }
-
-  .mainTable td {
-    font-size: 1.45vmin;
-  }
+  } 
 
   .mainTable tbody {
     height: 30px !important;
@@ -131,16 +159,14 @@ fieldset {
   .mainTable a:active {
     color: #0000FF;
   }
-   
 
   .mainTable td:first-child {
     color: var(--main-font-color);
   }
 
-.mainTable td:nth-child(2) {
-  color: var(--main-font-color);
-}
- 
+  .mainTable td:nth-child(2) {
+    color: var(--main-font-color);
+  }
 
   .mainTable th {
     border-collapse: collapse;
@@ -179,3 +205,26 @@ fieldset {
     width: 100%;
   }
 }
+
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  box-shadow: var(--main-border);
+  border: var(--main-border);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: var(--secondary-font-color);
+  box-shadow: var(--main-border);
+}
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--main-font-color);
+  }
+ 

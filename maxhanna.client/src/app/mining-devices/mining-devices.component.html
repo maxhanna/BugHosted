@@ -4,44 +4,46 @@
   <div class="componentTitle">Mining Rig Devices</div>
 
   <div #notificationArea></div>
-  <table class="mainTable" id="deviceRigTable">
-    <thead>
-      <tr>
-        <th (click)="sortTable(0, 'deviceRigTable')" title="Sort by Rig Name">Rig Name</th>
-        <th (click)="sortTable(1, 'deviceRigTable')" title="Sort by Device Name">Device Name</th>
-        <th (click)="sortTable(2, 'deviceRigTable')" title="Sort by Temperature">°C</th>
-        <th (click)="sortTable(3, 'deviceRigTable')" title="Sort by State">State</th>
-        <th (click)="sortTable(4, 'deviceRigTable')" title="Sort by Speed">Speed</th>
-        <th (click)="sortTable(5, 'deviceRigTable')" title="Sort by Fan Speed">Fan</th>
-        <th (click)="sortTable(6, 'deviceRigTable')" title="Sort by Power">Power</th>
-        <th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Core Clock">Core-C</th>
-        <th (click)="sortTable(8, 'deviceRigTable')" title="Sort by Memory Clock">Mem-C</th>
-        <th (click)="sortTable(9, 'deviceRigTable')" title="Sort by Core Voltage">C-Volt</th>
-        <th (click)="sortTable(10, 'deviceRigTable')" title="Sort by Power Limit %">P%</th>
-        <th (click)="sortTable(11, 'deviceRigTable')" title="Sort by Power Limit W">PW</th>
-        <th (click)="sortTable(12, 'deviceRigTable')" title="Sort by Miner">Miner</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let device of miningRigDevices">
-        <td>{{ device.rigName }}</td>
-        <td>{{ device.deviceName }}</td>
-        <td [style]="device.temperature! >= 70 ? 'color:red;' : device.temperature! >= 68 ? 'color:yellow;' : ''">{{ device.temperature }}</td>
-        <td [style]="device.state == 1 || device.state == -1 ? 'color:red;' : device.state == 4 ? 'color:gray;' : ''">{{ device.state == 1 || device.state == -1 ? 'Offline' : device.state == 2 ? "Mining" : device.state == 3 ? "Benchmarking" : device.state == 4 ? 'Disabled' : device.state}}</td>
-        <td>{{ device.speed }}</td>
-        <td>{{ device.fanSpeed }}</td>
-        <td>{{ device.power }}</td>
-        <td>{{ device.coreClock }}</td>
-        <td>{{ device.memoryClock }}</td>
-        <td>{{ device.coreVoltage }}</td>
-        <td>{{ device.powerLimitPercentage }}</td>
-        <td>{{ device.powerLimitWatts }}</td>
-        <td>{{ device.miner }}</td>
-        <td (click)="requestDeviceStateChange(device)">
-          <div class="{{ isOffline(device.state!) ? 'stopped' : isDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="mainTableDiv">
+    <table class="mainTable" id="deviceRigTable">
+      <thead>
+        <tr>
+          <th (click)="sortTable(0, 'deviceRigTable')" title="Sort by Rig Name">Rig Name</th>
+          <th (click)="sortTable(1, 'deviceRigTable')" title="Sort by Device Name">Device Name</th>
+          <th (click)="sortTable(2, 'deviceRigTable')" title="Sort by Temperature">°C</th>
+          <th (click)="sortTable(3, 'deviceRigTable')" title="Sort by State">State</th>
+          <th (click)="sortTable(4, 'deviceRigTable')" title="Sort by Speed">Speed</th>
+          <th (click)="sortTable(5, 'deviceRigTable')" title="Sort by Fan Speed">Fan</th>
+          <th (click)="sortTable(6, 'deviceRigTable')" title="Sort by Power">Power</th>
+          <th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Core Clock">Core-C</th>
+          <th (click)="sortTable(8, 'deviceRigTable')" title="Sort by Memory Clock">Mem-C</th>
+          <th (click)="sortTable(9, 'deviceRigTable')" title="Sort by Core Voltage">C-Volt</th>
+          <th (click)="sortTable(10, 'deviceRigTable')" title="Sort by Power Limit %">P%</th>
+          <th (click)="sortTable(11, 'deviceRigTable')" title="Sort by Power Limit W">PW</th>
+          <th (click)="sortTable(12, 'deviceRigTable')" title="Sort by Miner">Miner</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let device of miningRigDevices">
+          <td>{{ device.rigName }}</td>
+          <td>{{ device.deviceName }}</td>
+          <td [style]="device.temperature! >= 70 ? 'color:red;' : device.temperature! >= 68 ? 'color:yellow;' : ''">{{ device.temperature }}</td>
+          <td [style]="device.state == 1 || device.state == -1 ? 'color:red;' : device.state == 4 ? 'color:gray;' : ''">{{ device.state == 1 || device.state == -1 ? 'Offline' : device.state == 2 ? "Mining" : device.state == 3 ? "Benchmarking" : device.state == 4 ? 'Disabled' : device.state}}</td>
+          <td>{{ device.speed }}</td>
+          <td>{{ device.fanSpeed }}</td>
+          <td>{{ device.power }}</td>
+          <td>{{ device.coreClock }}</td>
+          <td>{{ device.memoryClock }}</td>
+          <td>{{ device.coreVoltage }}</td>
+          <td>{{ device.powerLimitPercentage }}</td>
+          <td>{{ device.powerLimitWatts }}</td>
+          <td>{{ device.miner }}</td>
+          <td (click)="requestDeviceStateChange(device)">
+            <div class="{{ isOffline(device.state!) ? 'stopped' : isDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>

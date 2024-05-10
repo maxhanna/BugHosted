@@ -18,17 +18,26 @@
     <div style="width:100%;text-align:right;">
       <div class="closeImageButton" (click)="showThumbnail = false;" title="Close"></div>
     </div>
-
-    <img [src]="thumbnailSrc" alt="Thumbnail">
+     
     <div style="width:100%;text-align:center;">
-      <div class="downloadImageButton" (click)="downloadThumbnail()" title="Download"></div>
+
+      <img [src]="thumbnailSrc" alt="Thumbnail">
+      <small>{{thumbnailFileName}}</small>
+
+      <span class="downloadImageButton" (click)="downloadThumbnail()" title="Download"></span>
     </div>
   </div>
   <div style="margin-top:25px;"></div>
   <table class="mainTable" id="fileTable">
     <thead>
       <tr *ngIf="showUpFolderRow">
-        <td (click)="previousDirectory()" style="cursor: pointer;" title="Up one folder">⬆️📁...</td>
+        <td (click)="previousDirectory()"
+            style="cursor: pointer;"
+            title="Up one folder"
+            (drop)="onDrop($event)"
+            (dragover)="onDragOver($event)">
+          ⬆️📁...
+        </td>
         <td></td>
       </tr>
       <tr>
@@ -36,10 +45,24 @@
         <th></th>
       </tr>
     </thead>
-    <tbody>
-      <tr *ngFor="let fileName of directoryContents">
-        <td style="width:100%;" class="{{ !isFile(fileName) ? 'folder' : '' }}" (click)="this.handleFileClick(fileName);">{{ fileName }}</td>
+    <tbody *ngIf="directoryContents">
+      <tr *ngFor="let fileName of directoryContents"
+          draggable="true"
+          (dragstart)="onDragStart($event, fileName)">
+        <td style="width:100%;"
+            class="{{ !isFile(fileName) ? 'folder' : '' }}"
+            (click)="this.handleFileClick(fileName);"
+            (dragover)="onDragOver($event)"
+            (drop)="onDrop($event)">
+          {{ fileName }}
+        </td>
         <td><input value="❌" type="submit" (click)="this.delete(fileName);" /></td>
+      </tr>
+    </tbody>
+    <tbody *ngIf="directoryContents.length == 0">
+      <tr>
+        <td>Directory is empty</td>
+        <td></td>
       </tr>
     </tbody>
   </table>

@@ -23,4 +23,8 @@ iframeDiv iframe {
     line-height: 30px;
     text-align: center;
     vertical-align: center;
+    margin: 4px;
   }
+.mainTableDiv {
+    width:100%;
+}

@@ -78,3 +78,11 @@
     content: '⏬';
     right: 0px;
   }
+
+tr[draggable] {
+  cursor: move;
+}
+
+  tr[draggable]:hover {
+    background-color: #f0f0f0;
+  }

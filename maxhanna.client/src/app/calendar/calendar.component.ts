@@ -170,7 +170,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       .set('endDate', new Date(this.now.getFullYear(), this.now.getMonth() + 1, 0).toISOString());
 
     try {
-      this.calendarEntries = await this.promiseWrapper(lastValueFrom(await this.http.get<CalendarEntry[]>('/calendar', { params })));
+      this.calendarEntries = await this.promiseWrapper(lastValueFrom(this.http.get<CalendarEntry[]>('/calendar', { params })));
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }

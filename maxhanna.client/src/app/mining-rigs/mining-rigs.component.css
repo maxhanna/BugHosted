@@ -69,12 +69,13 @@
   }
 
 .stopped, .started, .offline {
-  height: 27px;
-  width: 27px;
+  height: var(--main-font-size);
+  width: var(--main-font-size);
   border-radius: 50%;
-  border: 3px ridge var(--main-font-color);
+  border: 2px ridge var(--main-font-color);
   margin-left: auto;
   margin-right: auto;
+  background-color: var(--main-bg-color);
 }
 
 .stopped {

@@ -20,16 +20,19 @@
     </div>
 
     <div id=songlist>
-      Total : {{songs.length}} Songs<br />
-      Order : <select id="orderSelect" (change)="reorderTable($event)"><option *ngFor="let order of orders" value="{{order}}">{{order}}</option></select><br />
-      Search: <input placeholder="Keyword" #searchInput /><input type="submit" value="🔍" (click)="searchForSong()" />
-
-      <table id="songListTable" class="">
-        <tr *ngFor="let song of songs" id="songId{{song.id!}}">
-          <td (click)="play(song.url!)">{{song.todo}}</td>
-          <td><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
-        </tr>
-      </table>
+      <div style="width:100%; text-align:center;">
+        Total : {{songs.length}} Songs <br />
+        Order : <select id="orderSelect" (change)="reorderTable($event)" #orderSelect><option *ngFor="let order of orders" value="{{order}}">{{order}}</option></select><br />
+        Search: <input placeholder="Keyword" #searchInput (keypress)="onSearchEnter($event)" /><input type="submit" value="🔍" (click)="searchForSong()" />
+      </div>
+      <div class="mainTableDiv">
+        <table id="songListTable" class="mainTable">
+          <tr *ngFor="let song of songs" id="songId{{song.id!}}">
+            <td (click)="play(song.url!)">{{song.todo}}</td>
+            <td style="width:0%;"><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
+          </tr>
+        </table>
+      </div>
     </div>
   </div>
 </div>
