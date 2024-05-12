@@ -5,13 +5,13 @@
 
   <table class="calendarMonthTable">
     <tr>
-      <td (click)="monthBackClick();">
+      <td (click)="monthBackClick();" class="currentDay">
         <div #monthBack>{{ getMonthName(monthBackFromNow) }}</div><div #yearBack>{{ monthBackFromNow.getFullYear() }}</div>
       </td>
       <td>
         <div #month>{{ getMonthName(now) }}</div><div #year>{{ now.getFullYear() }}</div>
       </td>
-      <td (click)="monthForwardClick();">
+      <td (click)="monthForwardClick();" class="currentDay">
         <div #monthForward>{{ getMonthName(monthForwardFromNow) }}</div><div #yearForward>{{ monthForwardFromNow.getFullYear() }}</div>
       </td>
     </tr>
@@ -19,13 +19,13 @@
   <table class=calendarTable>
     <thead>
       <tr>
-        <td>Sunday</td>
-        <td>Monday</td>
-        <td>Tuesday</td>
-        <td>Wednesday</td>
-        <td>Thursday</td>
-        <td>Friday</td>
-        <td>Saturday</td>
+        <td>Sun</td>
+        <td>Mon</td>
+        <td>Tue</td>
+        <td>Wed</td>
+        <td>Thu</td>
+        <td>Fri</td>
+        <td>Sat</td>
       </tr>
     </thead>
     <tbody>
@@ -93,7 +93,7 @@
       </tr>
     </table>
     <div *ngIf="selectedCalendarEntries!.length == 0">No entries</div>
-    <fieldset>
+    <fieldset class="saveEntryFieldset">
       <legend>New calendar entry</legend>
       <input #calendarNoteEntry type="text" placeholder="Description" required />
       <select #calendarTypeEntry>
