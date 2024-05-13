@@ -27,10 +27,12 @@
       </div>
       <div class="mainTableDiv">
         <table id="songListTable" class="mainTable">
-          <tr *ngFor="let song of songs" id="songId{{song.id!}}">
-            <td (click)="play(song.url!)">{{song.todo}}</td>
-            <td style="width:0%;"><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
-          </tr>
+          <tbody>
+            <tr *ngFor="let song of songs" id="songId{{song.id!}}">
+              <td (click)="play(song.url!)">{{song.todo}}</td>
+              <td style="width:0%;"><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
+            </tr>
+          </tbody>
         </table>
       </div>
     </div>

@@ -2,7 +2,9 @@
 <div #navbar id="navbar">
 
   <div *ngFor="let item of navigationItems" class="navLinkDiv">
-    <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">{{item.content ? item.content : ''}}</span>
+    <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
+      <label (click)="goTo($event)" [title]="item.title">{{item.content ? item.content : ''}}</label>
+    </span>
     <ng-container *ngIf="item.title === 'Weather'">
       <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo($event)" />
     </ng-container>

@@ -7,16 +7,35 @@
 }
 
 .editContactForm {
-  width: 100%; 
+  width: 100%;
   align-content: center;
 }
+
 .editContactTable {
-    margin-left:auto;
-    margin-right:auto;
+  margin-left: auto;
+  margin-right: auto;
 }
+
 .saveCancelButtonTd {
   text-align: center;
 }
+
 .longInput {
-    min-width:300px;
+  min-width: 300px;
 }
+
+.noTMI {
+  display: inline-block;
+  max-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mainTable {
+  border-collapse: separate;
+}
+
+  .mainTable td:nth-child(3) {
+    text-align: center;
+  }

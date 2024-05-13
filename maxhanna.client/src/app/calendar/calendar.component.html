@@ -85,7 +85,7 @@
     </div>
     <table style="width:100%;" *ngIf="selectedCalendarEntries!.length > 0">
       <tr *ngFor="let cal of selectedCalendarEntries">
-        <td>{{cal.date | date:'shortTime'}}</td>
+        <td style="width:70px;">{{cal.date | date:'shortTime'}}</td>
         <td>
           {{ cal.type !== "Milestone" ? cal.note : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note) }}
         </td>

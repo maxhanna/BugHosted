@@ -51,10 +51,10 @@
       <tbody>
         <tr *ngFor="let contact of contacts" (click)="selectedContact && selectedContact == contact ? selectedContact = undefined : selectedContact = contact">
           <td>{{ contact.name }}</td>
-          <td>{{ contact.phone }}</td>
-          <td>{{ contact.birthday ? (contact.birthday | date: 'MMM dd, yyyy') : '' }}</td>
-          <td>{{ contact.notes }}</td>
-          <td>{{ contact.email }} <a *ngIf="contact.email" [href]="'mailto:' + contact.email" (click)="$event.stopPropagation();"><label>📧</label></a></td>
+          <td class="noTMI">{{ contact.phone }}</td>
+          <td>{{ contact.birthday ? (contact.birthday | date: 'MMM dd, yyyy') : '---' }}</td>
+          <td class="noTMI">{{ contact.notes }}</td>
+          <td><span class="noTMI">{{ contact.email }}</span> <a *ngIf="contact.email" [href]="'mailto:' + contact.email" (click)="$event.stopPropagation();"><label>📧</label></a></td>
           <td style="width:0%;"><button (click)="deleteContact(contact.id!);$event.stopPropagation();" style="z-index:2" title="Delete Contact">❌</button></td>
         </tr>
       </tbody>

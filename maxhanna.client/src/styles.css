@@ -143,7 +143,13 @@ fieldset {
     height: 30px !important;
     width: 100%;
     overflow-y: hidden;
+    cursor: default;
   }
+
+    .mainTable tbody tr:hover {
+      background-color: var(--main-bg-color);
+      box-shadow: inset 0 0 0 2px var(--secondary-font-color);
+    }
 
   .mainTable a:link,
   .mainTable a:visited {

@@ -29,23 +29,25 @@
     width: 45px;
     height: 45px;
     text-align: center;
+    margin-top: -30px;
   }
 
 .navbarNotificationSpan {
   position: relative;
-  top: 0px;
-  left: 0px;
+  top: 25px;
+  left: 1px;
   color: var(--primary-font-color);
   text-shadow: 1px 1px 2px var(--secondary-font-color);
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 50px;
+  height: 50px;
   font-size: 12px;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: var(--main-bg-color);
 }
+  .navbarNotificationSpan label {
+    background-color: var(--secondary-bg-color);
+  }
 
   .navbarNotificationSpan:empty {
     background-color: transparent;
