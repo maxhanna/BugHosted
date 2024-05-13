@@ -74,7 +74,7 @@ export class AppComponent {
         componentClass = CoinWalletComponent;
       }
 
-      if (componentClass != null) {
+      if (componentClass) {
         const childComponentRef = this.VCR.createComponent(componentClass);
 
         let childComponent = childComponentRef.instance;
