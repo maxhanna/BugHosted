@@ -1,4 +1,6 @@
+using maxhanna.Server.Controllers.DataContracts;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Net;
 
@@ -16,8 +18,8 @@ namespace maxhanna.Server.Controllers
             _logger = logger;
         }
 
-        [HttpGet("/File/GetDirectory/", Name = "GetDirectory")]
-        public IActionResult GetDirectory([FromQuery] string? directory)
+        [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
+        public IActionResult GetDirectory([FromBody] User user, [FromQuery] string? directory)
         {
             directory = Path.Combine(baseTarget, WebUtility.UrlDecode(directory) ?? "");
             _logger.LogInformation($"GET /File/GetDirectory?directory={directory}");
@@ -45,8 +47,8 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        [HttpGet("/File/GetFile/{filePath}", Name = "GetFile")]
-        public IActionResult GetFile(string filePath)
+        [HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
+        public IActionResult GetFile([FromBody] User user, string filePath)
         {
             filePath = Path.Combine(baseTarget, WebUtility.UrlDecode(filePath) ?? "");
 
@@ -85,8 +87,8 @@ namespace maxhanna.Server.Controllers
         }
 
 
-        [HttpGet("/File/GetRomFile/{filePath}", Name = "GetRomFile")]
-        public IActionResult GetRomFile(string filePath)
+        [HttpPost("/File/GetRomFile/{filePath}", Name = "GetRomFile")]
+        public IActionResult GetRomFile([FromBody] User user, string filePath)
         {
             filePath = Path.Combine(baseTarget + "roms/", WebUtility.UrlDecode(filePath) ?? "");
             _logger.LogInformation($"GET /File/GetRomFile/{filePath}");
@@ -126,30 +128,30 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/File/MakeDirectory", Name = "MakeDirectory")]
-        public IActionResult MakeDirectory([FromBody] string? directoryPath)
+        public IActionResult MakeDirectory([FromBody] CreateDirectory request)
         {
-            if (directoryPath == null)
+            if (request.directory == null)
             {
                 _logger.LogError("POST /File/MakeDirectory ERROR: directoryPath cannot be empty!");
                 return StatusCode(500, "POST /File/MakeDirectory ERROR: directoryPath cannot be empty!");
             }
-            directoryPath = Path.Combine(baseTarget, WebUtility.UrlDecode(directoryPath) ?? "");
-            _logger.LogInformation($"POST /File/MakeDirectory/ (directoryPath: {directoryPath})");
-            if (!ValidatePath(directoryPath)) { return StatusCode(500, $"Must be within {baseTarget}"); }
+            request.directory = Path.Combine(baseTarget, WebUtility.UrlDecode(request.directory) ?? "");
+            _logger.LogInformation($"POST /File/MakeDirectory/ (directoryPath: {request.directory})");
+            if (!ValidatePath(request.directory)) { return StatusCode(500, $"Must be within {baseTarget}"); }
 
             try
             {
                 // Check if the directory already exists
-                if (Directory.Exists(directoryPath))
+                if (Directory.Exists(request.directory))
                 {
-                    _logger.LogError($"Directory already exists at {directoryPath}");
+                    _logger.LogError($"Directory already exists at {request.directory}");
                     return Conflict("Directory already exists.");
                 }
 
                 // Create the directory
-                Directory.CreateDirectory(directoryPath);
+                Directory.CreateDirectory(request.directory);
 
-                _logger.LogInformation($"Directory created at {directoryPath}");
+                _logger.LogInformation($"Directory created at {request.directory}");
 
                 return Ok("Directory created successfully.");
             }
@@ -165,6 +167,12 @@ namespace maxhanna.Server.Controllers
             _logger.LogInformation($"POST /File/Upload (folderPath = {folderPath})");
             try
             {
+                if (Request.Form["user"].Count <= 0)
+                {
+                    _logger.LogWarning($"Invalid user! Returning null.");
+                    return BadRequest("No user logged in.");
+                }
+                var user = JsonConvert.DeserializeObject<User>(Request.Form["user"]!);
                 var files = Request.Form.Files; // Get all uploaded files
 
                 if (files == null || files.Count == 0)
@@ -207,6 +215,12 @@ namespace maxhanna.Server.Controllers
             _logger.LogInformation($"POST /File/Uploadrom");
             try
             {
+                if (Request.Form["user"].Count <= 0)
+                {
+                    _logger.LogWarning($"Invalid user! Returning null.");
+                    return BadRequest("No user logged in.");
+                }
+                var user = JsonConvert.DeserializeObject<User>(Request.Form["user"]!);
                 var files = Request.Form.Files; // Get all uploaded files
 
                 if (files == null || files.Count == 0)
@@ -222,7 +236,7 @@ namespace maxhanna.Server.Controllers
                 {
                     if (file.Length == 0)
                     {
-                        _logger.LogInformation($"file length is empty!");
+                        _logger.LogInformation($"File length is empty!");
                         continue; // Skip empty files
                     }
 
@@ -253,30 +267,30 @@ namespace maxhanna.Server.Controllers
             }
         }
         [HttpDelete("/File/Delete/", Name = "DeleteFileOrDirectory")]
-        public IActionResult DeleteFileOrDirectory([FromBody] string filePath)
+        public IActionResult DeleteFileOrDirectory([FromBody] DeleteFileOrDirectory request)
         {
-            filePath = this.baseTarget + filePath ?? "";
-            _logger.LogInformation($"DELETE /File/Delete - Path: {filePath}");
-            if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {baseTarget}"); }
+            request.file = this.baseTarget + request.file ?? "";
+            _logger.LogInformation($"DELETE /File/Delete - Path: {request.file}");
+            if (!ValidatePath(request.file)) { return StatusCode(500, $"Must be within {baseTarget}"); }
 
             try
             {
-                if (!Directory.Exists(filePath) && !System.IO.File.Exists(filePath))
+                if (!Directory.Exists(request.file) && !System.IO.File.Exists(request.file))
                 {
-                    _logger.LogError($"File or directory not found at {filePath}");
+                    _logger.LogError($"File or directory not found at {request.file}");
                     return NotFound("File or directory not found.");
                 }
 
-                if (Directory.Exists(filePath))
+                if (Directory.Exists(request.file))
                 {
-                    Directory.Delete(filePath, true); // Recursively delete directory and its contents
+                    Directory.Delete(request.file, true); // Recursively delete directory and its contents
                 }
                 else
                 {
-                    System.IO.File.Delete(filePath);
+                    System.IO.File.Delete(request.file);
                 }
 
-                _logger.LogInformation($"File or directory deleted at {filePath}");
+                _logger.LogInformation($"File or directory deleted at {request.file}");
 
                 return Ok("File or directory deleted successfully.");
             }
@@ -287,7 +301,7 @@ namespace maxhanna.Server.Controllers
             }
         }
         [HttpPost("/File/Move/", Name = "MoveFile")]
-        public IActionResult MoveFile([FromQuery] string inputFile, [FromQuery] string? destinationFolder)
+        public IActionResult MoveFile([FromBody] User user, [FromQuery] string inputFile, [FromQuery] string? destinationFolder)
         {
             _logger.LogInformation($"POST /File/Move (inputFile = {inputFile}, destinationFolder = {destinationFolder})");
 
@@ -330,7 +344,7 @@ namespace maxhanna.Server.Controllers
             }
         }
         [HttpPost("/File/Batch/", Name = "ExecuteBatch")]
-        public IActionResult ExecuteBatch([FromQuery] string? inputFile)
+        public IActionResult ExecuteBatch([FromBody] User user, [FromQuery] string? inputFile)
         {
             _logger.LogInformation($"POST /File/Batch (inputFile = {inputFile})");
             string result = "";

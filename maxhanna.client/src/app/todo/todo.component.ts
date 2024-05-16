@@ -1,8 +1,9 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { Todo } from '../todo';
+import { ChildComponent } from '../child.component'; 
 import { lastValueFrom } from 'rxjs';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { Todo } from '../../services/datacontracts/todo';
+import { TodoService } from '../../services/todo.service';
 
 @Component({
   selector: 'app-todo',
@@ -17,7 +18,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedType') selectedType!: ElementRef<HTMLSelectElement>;
 
-  constructor(private http: HttpClient) {
+  constructor(private todoService: TodoService) {
     super();
   }
   async ngOnInit() {
@@ -35,8 +36,8 @@ export class TodoComponent extends ChildComponent implements OnInit {
   async getTodoInfo() {
     try {
       const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
-      const params = new HttpParams().set('type', type);
-      await this.promiseWrapper(lastValueFrom(this.http.get<Array<Todo>>("/todo", {params}))).then(res => this.todos = res);
+      const res = await this.todoService.getTodo(this.parentRef?.user!, type);
+      this.todos = res;
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -47,16 +48,15 @@ export class TodoComponent extends ChildComponent implements OnInit {
     tmpTodo.type = this.selectedType.nativeElement.value;
     tmpTodo.url = this.urlInput.nativeElement.value;
     tmpTodo.todo = this.todoInput.nativeElement.value;
+     
+    //const utcDate = new Date(tmpTodo.date.getTime() - (tmpTodo.date.getTimezoneOffset() * 60000));
+    //const body = JSON.stringify({ ...tmpTodo, date: utcDate });
 
-    const headers = { 'Content-Type': 'application/json' };
-    const utcDate = new Date(tmpTodo.date.getTime() - (tmpTodo.date.getTimezoneOffset() * 60000));
-    const body = JSON.stringify({ ...tmpTodo, date: utcDate });
-
-    await this.promiseWrapper(lastValueFrom(this.http.post(`/todo/`, body, { headers })));
+    await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
     this.ngOnInit();
   }
   async deleteTodo(id: number) {
-    await this.promiseWrapper(lastValueFrom(this.http.delete(`/todo/${id}`)));
+    await this.todoService.deleteTodo(this.parentRef?.user!, id);
     if (document.getElementById("todoNo" + id)) {
       document.getElementById("todoNo" + id)!.style.textDecoration = "line-through";
       document.getElementById("todoDeleteNo" + id)?.setAttribute("disabled", "true");

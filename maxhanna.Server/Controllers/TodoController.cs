@@ -17,12 +17,14 @@ namespace maxhanna.Server.Controllers
             _config = config;
         }
 
-        [HttpGet("/Todo", Name = "GetTodo")]
-        public async Task<IActionResult> Get([FromQuery] string? type, [FromQuery] string? search)
+        [HttpPost("/Todo", Name = "GetTodo")]
+        public async Task<IActionResult> Get([FromBody] User user, [FromQuery] string type, [FromQuery] string? search)
         {
+            _logger.LogInformation($"POST /Todo/ (type: {type}, search: {search})");
+
             string sql = string.IsNullOrEmpty(search)
-                ? "SELECT id, todo, type, url, date FROM maxhanna.todo" + (!string.IsNullOrEmpty(type) ? " WHERE type = @Todo" : "")
-                : "SELECT id, todo, type, url, date FROM maxhanna.todo WHERE type = 'music' AND todo LIKE CONCAT('%', @Todo, '%')";
+                ? "SELECT id, todo, type, url, date, ownership FROM maxhanna.todo WHERE type = @Todo AND ownership = @Owner"
+                : "SELECT id, todo, type, url, date, ownership FROM maxhanna.todo WHERE type = @Todo AND todo LIKE CONCAT('%', @Search, '%') AND ownership = @Owner";
 
             try
             {
@@ -32,9 +34,11 @@ namespace maxhanna.Server.Controllers
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
-                        if (!string.IsNullOrEmpty(type ?? search))
+                        cmd.Parameters.AddWithValue("@Todo", type);
+                        cmd.Parameters.AddWithValue("@Owner", user.Id);
+                        if (!string.IsNullOrEmpty(search))
                         {
-                            cmd.Parameters.AddWithValue("@Todo", type ?? search);
+                            cmd.Parameters.AddWithValue("@Search", search);
                         }
 
                         using (var rdr = await cmd.ExecuteReaderAsync())
@@ -48,7 +52,8 @@ namespace maxhanna.Server.Controllers
                                     todo: rdr.GetString(1),
                                     type: rdr.GetString(2),
                                     url: rdr.IsDBNull(3) ? null : rdr.GetString(3),
-                                    date: rdr.GetDateTime(4)
+                                    date: rdr.GetDateTime(4),
+                                    ownership: rdr.IsDBNull(5) ? null : rdr.GetString(5)
                                 ));
                             }
 
@@ -64,19 +69,20 @@ namespace maxhanna.Server.Controllers
             }
         }
          
-        [HttpPost(Name = "CreateTodo")]
-        public async Task<IActionResult> Post([FromBody] Todo model)
+        [HttpPost("/Todo/Create", Name = "CreateTodo")]
+        public async Task<IActionResult> Post([FromBody] CreateTodo model)
         {
-            _logger.LogInformation("POST /Todo"); 
+            _logger.LogInformation("POST /Todo/Create"); 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
                 conn.Open();
-                string sql = "INSERT INTO maxhanna.todo (todo, type, url) VALUES (@Todo, @Type, @Url)";
+                string sql = "INSERT INTO maxhanna.todo (todo, type, url, ownership) VALUES (@Todo, @Type, @Url, @Owner)";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@Todo", model.todo);
-                cmd.Parameters.AddWithValue("@Type", model.type);
-                cmd.Parameters.AddWithValue("@Url", model.url);
+                cmd.Parameters.AddWithValue("@Todo", model.todo.todo);
+                cmd.Parameters.AddWithValue("@Type", model.todo.type);
+                cmd.Parameters.AddWithValue("@Url", model.todo.url);
+                cmd.Parameters.AddWithValue("@Owner", model.user.Id);
                 if (await cmd.ExecuteNonQueryAsync() > 0)
                 {
                     _logger.LogInformation("Returned OK");
@@ -96,16 +102,17 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpDelete("/Todo/{id}", Name = "DeleteTodo")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete([FromBody] User user, int id)
         {
             _logger.LogInformation($"DELETE /Todo/{id}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
                 conn.Open();
-                string sql = "DELETE FROM maxhanna.todo WHERE ID = @Id";
+                string sql = "DELETE FROM maxhanna.todo WHERE ID = @Id AND ownership = @Owner";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Id", id);
+                cmd.Parameters.AddWithValue("@Owner", user.Id);
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
                 if (rowsAffected > 0)

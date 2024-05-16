@@ -1,9 +1,10 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { CalendarDate } from '../calendar-date';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { CalendarEntry } from '../calendar-entry';
 import { lastValueFrom } from 'rxjs';
+import { CalendarEntry } from '../../services/datacontracts/calendar-entry';
+import { CalendarDate } from '../../services/datacontracts/calendar-date';
+import { CalendarService } from '../../services/calendar.service';
 
 
 @Component({
@@ -47,7 +48,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     'Anniversary': '🌹',
   };
 
-  constructor(private http: HttpClient) {
+  constructor(private calendarService: CalendarService) {
     super();
   }
 
@@ -72,7 +73,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     const tmpNow = new Date(this.now);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() + 1));
     this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
-    this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2)); 
+    this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
     this.setCalendarDates(this.now);
   }
   monthBackClick() {
@@ -107,7 +108,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (!(this.month && this.year && this.yearBack && this.monthBack && this.monthForward && this.yearForward)) {
       await this.getCalendarEntries();
       return;
-    } 
+    }
   }
   private isSameDate = (date1: Date, date2: Date): boolean => {
     return (date1.getMonth() === date2.getMonth() &&
@@ -165,12 +166,13 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     return new Date(year, month, 0).getDate();
   }
   async getCalendarEntries() {
-    const params = new HttpParams()
-      .set('startDate', new Date(this.now.getFullYear(), this.now.getMonth(), 1).toISOString())
-      .set('endDate', new Date(this.now.getFullYear(), this.now.getMonth() + 1, 0).toISOString());
-
     try {
-      this.calendarEntries = await this.promiseWrapper(lastValueFrom(this.http.get<CalendarEntry[]>('/calendar', { params })));
+      this.calendarEntries =
+        await this.calendarService.getCalendarEntries(
+          this.parentRef?.user!,
+          new Date(this.now.getFullYear(), this.now.getMonth(), 1),
+          new Date(this.now.getFullYear(), this.now.getMonth() + 1, 0)
+        );
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -181,20 +183,18 @@ export class CalendarComponent extends ChildComponent implements OnInit {
         console.error("No calendar id! : " + JSON.stringify(cal));
       }
       this.selectedCalendarEntries = this.selectedCalendarEntries!.filter((x) => x != cal);
-      const id = cal!.id;
-      await this.promiseWrapper(await lastValueFrom(await this.http.delete(`/calendar/${id}`)));
+      await this.calendarService.deleteCalendarEntry(this.parentRef?.user!, cal);
       this.setCalendarDates(this.now);
     } catch (error) {
       console.error("Error deleting calendar entry:", error);
-      throw error; // Re-throw the error to handle it in the component
+      throw error;
     }
   }
   async createCalendarEntry() {
-    const tmpCalendarEntry = {
-      date: new Date(this.selectedDate!.date!),
-      type: this.calendarTypeEntry.nativeElement.value,
-      note: this.calendarNoteEntry.nativeElement.value
-    };
+    let tmpCalendarEntry = new CalendarEntry();
+    tmpCalendarEntry.date = new Date(this.selectedDate!.date!);
+    tmpCalendarEntry.type = this.calendarTypeEntry.nativeElement.value;
+    tmpCalendarEntry.note = this.calendarNoteEntry.nativeElement.value;
 
     const timeValue = this.calendarTimeEntry.nativeElement.value;
     const [hours, minutes] = timeValue.split(':');
@@ -202,13 +202,14 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     tmpCalendarEntry.date.setHours(parseInt(hours, 10));
     tmpCalendarEntry.date.setMinutes(parseInt(minutes, 10));
 
-    const headers = { 'Content-Type': 'application/json' };
-    const utcDate = new Date(tmpCalendarEntry.date.getTime() - (tmpCalendarEntry.date.getTimezoneOffset() * 60000));
-    const body = JSON.stringify({ ...tmpCalendarEntry, date: utcDate });
+    //const headers = { 'Content-Type': 'application/json' };
+    //const utcDate = new Date(tmpCalendarEntry.date.getTime() - (tmpCalendarEntry.date.getTimezoneOffset() * 60000));
+    //const body = JSON.stringify({ ...tmpCalendarEntry, date: utcDate });
 
     try {
       this.startLoading();
-      await lastValueFrom(await this.http.post("/calendar", body, { headers }));
+      this.calendarService.createCalendarEntries(this.parentRef?.user!, tmpCalendarEntry);
+      //await lastValueFrom(await this.http.post("/calendar", body, { headers }));
       this.stopLoading();
       this.clearInputValues();
       //this.selectedCalendarEntries!.push(tmpCalendarEntry);

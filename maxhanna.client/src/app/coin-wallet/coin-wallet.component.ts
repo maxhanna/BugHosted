@@ -1,8 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { Currency, MiningWalletResponse } from '../mining-wallet-response';
 import { lastValueFrom } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
+import { Currency, MiningWalletResponse } from '../../services/datacontracts/mining-wallet-response';
+import { MiningService } from '../../services/mining.service';
 
 @Component({
   selector: 'app-coin-wallet',
@@ -11,15 +12,14 @@ import { HttpClient } from '@angular/common/http';
 })
 export class CoinWalletComponent extends ChildComponent implements OnInit {
   wallet = new MiningWalletResponse();
-  btcFiatConversion? : number = 0;
-  constructor(private http: HttpClient) {
+  btcFiatConversion?: number = 0;
+  constructor(private miningService: MiningService) {
     super();
   }
-  ngOnInit() {
-    this.promiseWrapper(lastValueFrom(this.http.get<MiningWalletResponse>('/mining/wallet'))).then(res => {
-      this.wallet = res;
-      this.btcFiatConversion = this.wallet!.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate!;
-    });
+  async ngOnInit() {
+    const res = await this.miningService.getMiningWallet(this.parentRef?.user!);
+    this.wallet = res;
+    this.btcFiatConversion = this.wallet!.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate!;
   }
   calculateTotalValue(currency: Currency): number {
     if (currency && currency.fiatRate && currency.totalBalance) {

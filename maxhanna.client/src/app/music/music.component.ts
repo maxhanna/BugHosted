@@ -1,8 +1,8 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { Todo } from '../todo';
 import { lastValueFrom } from 'rxjs';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { Todo } from '../../services/datacontracts/todo';
+import { TodoService } from '../../services/todo.service';
 
 @Component({
   selector: 'app-music',
@@ -18,7 +18,7 @@ export class MusicComponent extends ChildComponent implements OnInit {
   songs: Array<Todo> = [];
   orders: Array<string> = ["Newest", "Oldest", "Alphanumeric ASC", "Alphanumeric DESC", "Random"];
 
-  constructor(private http: HttpClient) { super(); }
+  constructor(private todoService: TodoService) { super(); }
   async ngOnInit() {
     await this.getSongList();
     this.clearInputs();
@@ -41,16 +41,13 @@ export class MusicComponent extends ChildComponent implements OnInit {
     let tmpTodo = new Todo();
     tmpTodo.type = "music";
     tmpTodo.url = url.trim();
-    tmpTodo.todo = title.trim();
+    tmpTodo.todo = title.trim(); 
 
-    const headers = { 'Content-Type': 'application/json' };
-    const body = JSON.stringify(tmpTodo);
-    await this.promiseWrapper(lastValueFrom(this.http.post(`/todo/`, body, { headers })));
+    await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
     this.ngOnInit();
   }
   async getSongList() {
-    const params = new HttpParams().set('type', "Music");
-    await this.promiseWrapper(lastValueFrom(this.http.get<Array<Todo>>('/todo', { params })).then(res => this.songs = res));
+    this.songs = await this.todoService.getTodo(this.parentRef?.user!, "Music");
   }
   async searchForSong() {
     const search = this.searchInput.nativeElement.value!;
@@ -58,12 +55,11 @@ export class MusicComponent extends ChildComponent implements OnInit {
       await this.getSongList();
       return this.reorderTable(undefined, this.orderSelect.nativeElement.value);
     }
-    const params = new HttpParams().set('search', search);
-    this.songs = await this.promiseWrapper(lastValueFrom(this.http.get<Array<Todo>>('/todo', { params }))); 
+    this.songs = await this.todoService.getTodo(this.parentRef?.user!, "Music", search);
     this.reorderTable(undefined, this.orderSelect.nativeElement.value);
   }
   async deleteSong(id: number) {
-    const response = await this.promiseWrapper(await lastValueFrom(this.http.delete(`/todo/${id}`)));
+    await this.todoService.deleteTodo(this.parentRef?.user!, id);
     if (document.getElementById("songId" + id)) {
       document.getElementById("songId" + id)!.style.textDecoration = "line-through";
     }

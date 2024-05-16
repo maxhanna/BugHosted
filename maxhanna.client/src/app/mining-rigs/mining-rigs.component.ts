@@ -2,10 +2,12 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { lastValueFrom } from 'rxjs';
 import { HttpClient, HttpResponse } from '@angular/common/http';
-import { MiningRig } from '../mining-rig';
-import { CoinWatchResponse } from '../coin-watch-response';
-import { DailyMiningEarnings } from '../daily-mining-earnings';
-import { MiningRigDevice } from '../mining-rig-device';
+import { MiningRig } from '../../services/datacontracts/mining-rig';
+import { MiningRigDevice } from '../../services/datacontracts/mining-rig-device';
+import { DailyMiningEarnings } from '../../services/datacontracts/daily-mining-earnings';
+import { CoinWatchResponse } from '../../services/datacontracts/coin-watch-response';
+import { MiningService } from '../../services/mining.service';
+import { CoinWatchService } from '../../services/coin-watch.service';
 
 @Component({
   selector: 'app-mining-rigs',
@@ -23,7 +25,7 @@ export class MiningRigsComponent extends ChildComponent {
   miningRigDevices?: MiningRigDevice[] = undefined;
   showLocal = true;
 
-  constructor(private http: HttpClient) {
+  constructor(private miningService: MiningService, private coinwatchService: CoinWatchService) {
     super();
   }
   ngOnInit() {
@@ -36,7 +38,7 @@ export class MiningRigsComponent extends ChildComponent {
   } 
   async getMiningInfo() {
     this.startLoading();
-    await lastValueFrom(this.http.get<Array<MiningRig>>('/mining/')).then(res => this.miningRigs = res);
+    this.miningRigs = await this.miningService.getMiningRigInfo(this.parentRef?.user!);
     this.miningRigs.forEach(x => {
       this.localProfitability += Number(x.localProfitability!);
       this.actualProfitability += Number(x.actualProfitability!);
@@ -44,17 +46,16 @@ export class MiningRigsComponent extends ChildComponent {
     this.stopLoading();
   }
   async requestRigStateChange(rig: MiningRig) {
-    var requestedAction = (this.isOffline(rig.minerStatus!) || this.isStopped(rig.minerStatus!)) ? "START" : "STOP";
+    var requestedAction = (this.miningService.isOffline(rig.minerStatus!) || this.miningService.isStopped(rig.minerStatus!)) ? "START" : "STOP";
     if (window.confirm(`Are sure you want to ${requestedAction} ${rig.rigName}?`)) {
-      const headers = { 'Content-Type': 'application/json' };
       this.startLoading();
 
       try {
-        const response = await lastValueFrom(this.http.post(`/mining/${rig.rigId}`, '"' + requestedAction + '"', { headers }));
+        const response = await this.miningService.requestRigStateChange(this.parentRef?.user!, rig);
 
         var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
-        const isSuccess = JSON.stringify(response).includes("true");
+        const isSuccess = response.success;
         this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${rig.rigName} ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
 
         this.getMiningInfo();
@@ -66,17 +67,17 @@ export class MiningRigsComponent extends ChildComponent {
     }
   }
   async requestDeviceStateChange(device: MiningRigDevice) {
-    var requestedAction = this.isDeviceOffline(device.state!) || this.isDeviceDisabled(device.state!) ? "START" : "STOP";
+    var requestedAction = this.miningService.isDeviceOffline(device.state!) || this.miningService.isDeviceDisabled(device.state!) ? "START" : "STOP";
     if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`)) {
       const headers = { 'Content-Type': 'application/json' };
       try {
         this.startLoading();
-        const response = await lastValueFrom(this.http.post(`/mining/${device.rigId}/${device.deviceId}`, '"' + requestedAction + '"', { headers }));
+        const response = await this.miningService.requestRigDeviceStateChange(this.parentRef?.user!, device);
         this.stopLoading();
 
         var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
-        const isSuccess = JSON.stringify(response).includes("true");
+        const isSuccess = response.success;
         this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
 
         this.getMiningInfo();
@@ -89,56 +90,16 @@ export class MiningRigsComponent extends ChildComponent {
   }
   async getDailyEarnings() {
     this.startLoading();
-    await lastValueFrom(this.http.get<Array<DailyMiningEarnings>>('/mining/dailyearnings')).then(res => this.dailyEarnings = res);
+    this.dailyEarnings = await this.miningService.getDailyEarnings(this.parentRef?.user!);
     this.stopLoading();
   }
   async getBTCRate() {
     this.startLoading();
-    const data = await this.promiseWrapper(
-      await fetch(
-        new Request("https://api.livecoinwatch.com/coins/list"),
-        {
-          method: "POST",
-          headers: new Headers({
-            "content-type": "application/json",
-            "x-api-key": "49965ff1-ebed-48b2-8ee3-796c390fcde1",
-          }),
-          body: JSON.stringify(
-            {
-              currency: "CAD",
-              sort: "rank",
-              order: "ascending",
-              offset: 0,
-              limit: 8,
-              meta: true,
-            }
-          ),
-        }
-      ).then(response => response.json()) as CoinWatchResponse[]
-    );
+    const data = await this.coinwatchService.getCoinwatchResponse(this.parentRef?.user!);
     this.stopLoading();
     this.rate = data.filter((x: CoinWatchResponse) => x.name == "Bitcoin")[0].rate;
   }
-  isOffline(state: string): boolean {
-    if (state == "OFFLINE")
-      return true;
-    else return false;
-  }
-  isStopped(state: string): boolean {
-    if (state == "STOPPED")
-      return true;
-    else return false;
-  }
-  isDeviceOffline(state: number): boolean {
-    if (state == -1 || state == 1)
-      return true;
-    else return false;
-  }
-  isDeviceDisabled(state: number): boolean {
-    if (state == 4)
-      return true;
-    else return false;
-  }
+  
   toggleShowAllData() {
     this.showAllData = !this.showAllData;
   }
@@ -176,5 +137,17 @@ export class MiningRigsComponent extends ChildComponent {
     } else {
       this.miningRigDevices = undefined;
     }
+  }
+  isDeviceOffline(state: number) {
+    return this.miningService.isDeviceOffline(state);
+  }
+  isDeviceDisabled(state: number) {
+    return this.miningService.isDeviceDisabled(state);
+  }
+  isStopped(state: string) {
+    return this.miningService.isStopped(state);
+  }
+  isOffline(state: string) {
+    return this.miningService.isOffline(state);
   }
 }

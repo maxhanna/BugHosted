@@ -60,3 +60,15 @@ Accept: application/json
 DELETE {{maxhanna.Server_HostAddress}}/contact/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/User/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/User/
+Accept: application/json
+###
+PATCH {{maxhanna.Server_HostAddress}}/User/
+Accept: application/json
+###
+DELETE {{maxhanna.Server_HostAddress}}/User/
+Accept: application/json
+###

@@ -64,5 +64,10 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapFallbackToFile("/index.html");
-
-app.Run();
+try
+{ 
+    app.Run();
+} catch (Exception ex)
+{
+    Console.WriteLine(ex.ToString());
+}

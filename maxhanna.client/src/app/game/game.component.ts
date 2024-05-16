@@ -3,6 +3,7 @@ import { ChildComponent } from '../child.component';
 import { Gameboy } from "gameboy-emulator";
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
+import { FileService } from '../../services/file.service';
 
 @Component({
   selector: 'app-game',
@@ -16,7 +17,7 @@ export class GameComponent extends ChildComponent implements OnInit {
   gamesList: Array<string> = [];
   currentGameFile = "";
   autosave: boolean = true;
-  constructor(private http: HttpClient) {
+  constructor(private fileService: FileService) {
     super();
   } 
 
@@ -32,8 +33,13 @@ export class GameComponent extends ChildComponent implements OnInit {
     this.gameboy.input[button] = value;
   }
   async getGames() {
-    const params = new HttpParams().set('directory', "roms/");
-    this.promiseWrapper(lastValueFrom(await this.http.get<Array<string>>('/file/getdirectory', { params })).then(res => this.gamesList = res.filter(game => !game.includes(".gbs"))));
+    const res = await this.fileService.getDirectory(this.parentRef?.user!, "roms/") as Array<string>;
+    this.gamesList = [];
+    res.forEach(x => {
+      if (this.fileService.getFileExtension(x) == "gb") {
+        this.gamesList.push(x);
+      }
+    });
   }
   async loadRom(romEvent: Event) {
     const romSelectElement = romEvent.target as HTMLSelectElement;
@@ -41,15 +47,13 @@ export class GameComponent extends ChildComponent implements OnInit {
     if (!confirm(`Load ${rom}?`)) { return; }
 
     this.currentGameFile = rom;
-    const target = encodeURIComponent(this.currentGameFile);
     this.startLoading();
     try {
-
-      const response = await this.http.get(`/file/getRomfile/${target}`, { responseType: 'blob' }).toPromise();
+      const response = await this.fileService.getRomFile(this.parentRef?.user!, rom);
       const arrayBuffer = await this.toArrayBuffer(new Blob([response!], { type: 'application/octet-stream' }));
       const romSaveFile = rom.split('.')[0] + ".gbs";
       try {
-        const saveStateResponse = await this.http.get(`/file/getRomfile/${romSaveFile}`, { responseType: 'blob' }).toPromise();
+        const saveStateResponse = await this.fileService.getRomFile(this.parentRef?.user!, romSaveFile);
         const saveStateArrayBuffer = await this.toArrayBuffer(new Blob([saveStateResponse!], { type: 'application/octet-stream' }));
         if (saveStateArrayBuffer.byteLength > 0) {
           this.loadGame(arrayBuffer, saveStateArrayBuffer);
@@ -84,7 +88,7 @@ export class GameComponent extends ChildComponent implements OnInit {
         for (let i = 0; i < files!.length; i++) {
           formData.append('files', files!.item(i)!);
         }
-        await this.http.post('/file/uploadrom', formData).toPromise();
+        await this.fileService.uploadRomFile(this.parentRef?.user!, formData);
       } catch (ex) {
         console.log(ex);
       }
@@ -100,7 +104,8 @@ export class GameComponent extends ChildComponent implements OnInit {
         const blob = new Blob([ab]);
         formData.append('files', blob, newTitle);
       }
-      await this.http.post('/file/uploadrom', formData, { responseType: 'text' }).toPromise().then(res => console.log("game saved successfully!"));
+      await this.fileService.uploadRomFile(this.parentRef?.user!, formData);
+      console.log("Game saved successfully");
     } 
   }
   toggleAutosave(): void {

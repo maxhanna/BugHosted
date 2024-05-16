@@ -1,0 +1,65 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me();" *ngIf="parentRef?.user!"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">Login</div>
+  <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
+  <div *ngIf="notifications" (click)="notifications = []">
+    <div *ngFor="let notif of notifications">{{notif}}</div>
+  </div>
+
+  <div>
+    <div *ngIf="!parentRef!.user">
+      <div>
+        <input type="text" placeholder="Username" #loginUsername />
+        <input type="password" placeholder="Password" #loginPassword />
+      </div>
+      <div style="width:100%;text-align:center">
+        <input type="submit" value="Login" (click)="login()" />
+        <input type="submit" value="Create User" (click)="createUser()" />
+      </div>
+    </div>
+    <div *ngIf="parentRef!.user">
+      <div style="width:100%;text-align:center">Logged in as: {{ parentRef!.user.username }}</div>
+      <input type="submit" value="Logout" (click)="logout()" />
+      <input type="submit" value="Delete Account" (click)="deleteUser()" />
+      <input type="submit" value="Update Account Details" (click)="updateUserDivVisible = !updateUserDivVisible" />
+    </div>
+  </div>
+
+  <div *ngIf="parentRef!.user && updateUserDivVisible" style="margin-top:15px">
+    <fieldset>
+      <legend>Update User</legend>
+      <table class="mainTable">
+        <thead (click)="isGeneralToggled = !isGeneralToggled"><tr><th colspan="2">General</th></tr></thead>
+        <tbody *ngIf="isGeneralToggled">
+          <tr>
+            <td>Name:</td>
+            <td><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user.username" /></td>
+          </tr>
+          <tr>
+            <td>Password:</td>
+            <td><input type="password" placeholder="New Password" #updatedPassword [value]="parentRef!.user.pass" /></td>
+          </tr>
+        </tbody>
+
+        <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()"><tr><th colspan="2">Nicehash API Keys</th></tr></thead>
+        <tbody *ngIf="isNicehashApiKeysToggled">
+          <tr>
+            <td>OrgId:</td>
+            <td><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId!" /></td>
+          </tr>
+          <tr>
+            <td>ApiKey:</td>
+            <td><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey!" /></td>
+          </tr>
+          <tr>
+            <td>ApiSecret:</td>
+            <td><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret!" /></td>
+          </tr>
+        </tbody>
+      </table> 
+      <button (click)="updateUser()">Update User</button>
+      <button (click)="updateUserDivVisible = !updateUserDivVisible">Cancel</button>
+    </fieldset>
+  </div>
+</div>

@@ -2,6 +2,7 @@ import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
+import { FileService } from '../../services/file.service';
 
 @Component({
   selector: 'app-file',
@@ -9,7 +10,7 @@ import { lastValueFrom } from 'rxjs';
   styleUrls: ['./file.component.css']
 })
 export class FileComponent extends ChildComponent {
-  constructor(private http: HttpClient) {
+  constructor(private fileService: FileService) {
     super();
   }
   fS = "/";
@@ -49,9 +50,8 @@ export class FileComponent extends ChildComponent {
         this.directoryInput.nativeElement.value = target;
       }
       this.showUpFolderRow = target ? true : false;
-      const params = new HttpParams().set('directory', target);
       this.startLoading();
-      await lastValueFrom(await this.http.get<Array<string>>('/file/getdirectory', { params })).then(res => this.directoryContents = res);
+      this.directoryContents = await this.fileService.getDirectory(this.parentRef?.user!, target);
       this.stopLoading();
     } catch (error) {
       console.error("Error fetching directory entries:", error);
@@ -75,9 +75,9 @@ export class FileComponent extends ChildComponent {
           formData.append('files', files!.item(i)!);
         }
         if (directoryInput && directoryInput != '') {
-          await this.http.post(`/file/upload?folderPath=${directoryInput}`, formData, { responseType: 'text' }).toPromise();
+          await this.fileService.uploadFile(this.parentRef?.user!, formData, directoryInput);
         } else {
-          await this.http.post('/file/upload', formData, { responseType: 'text' }).toPromise();
+          await this.fileService.uploadFile(this.parentRef?.user!, formData, undefined);
         }
         this.notifications.push(`${directoryInput}/${fileNames.join(',')} uploaded successfully`);
       } catch (ex) {
@@ -96,7 +96,7 @@ export class FileComponent extends ChildComponent {
 
     this.startLoading();
     try {
-      const response = await this.http.get(`/file/getfile/${encodeURIComponent(target)}`, { responseType: 'blob' }).toPromise();
+      const response = await this.fileService.getFile(this.parentRef?.user!, target);
       const blob = new Blob([response!], { type: ('image/' + fileExt) });
       const reader = new FileReader();
       reader.readAsDataURL(blob);
@@ -128,7 +128,7 @@ export class FileComponent extends ChildComponent {
 
     try {
       this.startLoading();
-      const response = await this.http.get(`/file/getfile/${encodeURIComponent(target)}`, { responseType: 'blob' }).toPromise();
+      const response = await this.fileService.getFile(this.parentRef?.user!, target);
       const blob = new Blob([response!], { type: 'application/octet-stream' });
 
       const a = document.createElement('a');
@@ -153,13 +153,13 @@ export class FileComponent extends ChildComponent {
     const directoryValue = this.directoryInput?.nativeElement?.value ?? "";
     let target = directoryValue.replace(/\\/g, "/");
     target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? choice : directoryValue.length > 0 ? this.fS + choice : choice;
-    target = '"' + target + '"';
 
     if (confirm(`Create directory : ${target} ?`)) {
       const headers = { "Content-Type": "application/json" };
       this.startLoading();
       try {
-        await this.http.request('post', '/file/makedirectory', { body: target, headers, responseType: 'text' }).toPromise();
+        const res = await this.fileService.createDirectory(this.parentRef?.user!, target);
+        this.notifications.push(res!);
       } catch (ex) {
         console.error(ex);
       }
@@ -175,7 +175,8 @@ export class FileComponent extends ChildComponent {
       const requestBody = '"' + target + '"';
       this.startLoading();
       try {
-        const response = await this.http.request('delete', '/file/delete', { body: requestBody, headers, responseType: 'text' }).toPromise();
+        const response = this.fileService.deleteFile(this.parentRef?.user!, target);
+        //const response = await this.http.request('delete', '/file/delete', { body: requestBody, headers, responseType: 'text' }).toPromise();
         this.notifications.push(`Deleted ${target} successfully`);
       } catch (ex) {
         console.error(ex);
@@ -225,16 +226,17 @@ export class FileComponent extends ChildComponent {
   onDragStart(event: DragEvent, fileName: string) {
     this.draggedFilename = (event.target as HTMLTableRowElement).innerText.trim();
     this.destinationFilename = undefined;
-  } 
+  }
   onDragOver(event: DragEvent) {
     event.preventDefault();
   }
   async onDrop(event: DragEvent) {
     const fileName = (event.target as HTMLTableRowElement).innerText.trim();
     if (fileName && fileName.includes("...")) {
-      const newDirectory = this.moveUpOneLevel(); 
+      console.log("moving one directory up!");
+      const newDirectory = this.moveUpOneLevel();
       this.destinationFilename = newDirectory;
-      this.moveFile(newDirectory); 
+      this.moveFile(newDirectory);
     } else if (fileName && !this.isFile(fileName)) {
       this.destinationFilename = fileName;
       this.moveFile(undefined);
@@ -246,7 +248,7 @@ export class FileComponent extends ChildComponent {
 
   moveUpOneLevel(): string {
     const currDir = this.getCurrentDirectory();
-    const lastSlashIndex = currDir.lastIndexOf('/'); 
+    const lastSlashIndex = currDir.lastIndexOf('/');
     if (lastSlashIndex !== -1) {
       const directoryWithoutTrailingSlash = currDir.endsWith('/') ? currDir.slice(0, -1) : currDir;
 
@@ -260,22 +262,19 @@ export class FileComponent extends ChildComponent {
 
   private async moveFile(specDir: string | undefined) {
     const currDir = this.getCurrentDirectory();
-    if (this.draggedFilename
-      && ((!this.destinationFilename && !this.isFile(this.draggedFilename)) || this.destinationFilename)
+    console.log("destination: " + this.destinationFilename);
+    console.log("draggedFilename: " + this.draggedFilename)
+    if (this.draggedFilename 
       && this.draggedFilename != this.destinationFilename
       && confirm(`Move ${this.draggedFilename.trim()} to ${specDir ?? (currDir + this.destinationFilename)}?`)) {
       const inputFile = currDir + this.draggedFilename;
       const destinationFolder = specDir ?? (currDir + this.destinationFilename);
-
-      const headers = { "Content-Type": "text/plain" };
       this.startLoading();
       try {
-        const response = await this.http.post(`/file/move?inputFile=${encodeURI(inputFile)}&destinationFolder=${encodeURI(destinationFolder)}`, null, { headers, responseType: 'text' }).toPromise();
-        if (response && response.toLowerCase().includes("successfully")) {
-          this.notifications.push(`Moved ${this.draggedFilename} to ${currDir + this.destinationFilename} successfully`);
+        const res = await this.fileService.moveFile(this.parentRef?.user!, inputFile, destinationFolder);
+        this.notifications.push(res!);
+        if (!res!.includes("error")) {
           this.directoryContents = this.directoryContents.filter(x => x != this.draggedFilename);
-        } else {
-          this.notifications.push(`Failed to move ${this.draggedFilename} to ${currDir + this.destinationFilename}! Unexpected response: ${response}`);
         }
       } catch (ex) {
         console.error(ex);
@@ -285,7 +284,6 @@ export class FileComponent extends ChildComponent {
     } else {
       let message = "";
       if (!this.draggedFilename) message += "You must select an item to be moved!";
-      if (!this.destinationFilename) message += "You must select a destination!";
       if (message) alert(message);
     }
   }

@@ -13,6 +13,7 @@ const PROXY_CONFIG = [
       "/file",
       "/notepad",
       "/contact",
+      "/user",
     ],
     target,
     secure: false

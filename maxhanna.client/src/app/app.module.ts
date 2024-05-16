@@ -19,6 +19,7 @@ import { ContactsComponent } from './contacts/contacts.component';
 import { GameComponent } from './game/game.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
+import { UserComponent } from './user/user.component';
 
 @NgModule({
   declarations: [
@@ -37,7 +38,8 @@ import { GbcComponent } from './gbc/gbc.component';
     ContactsComponent,
     GameComponent,
     CoinWalletComponent,
-    GbcComponent
+    GbcComponent,
+    UserComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

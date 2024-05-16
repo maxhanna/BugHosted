@@ -52,11 +52,12 @@
 
 .currentDay {
   border: var(--main-border) !important;
+  cursor: pointer;
 }
-
-.calendarTable thead, .currentDay {
-  font-weight: bold;
-}
+ 
+  .calendarTable thead, .currentDay {
+    font-weight: bold;
+  }
 
 .calendarMonthTable {
   width: 100%;

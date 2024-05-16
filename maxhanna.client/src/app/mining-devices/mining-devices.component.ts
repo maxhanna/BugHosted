@@ -1,8 +1,9 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { HttpClient } from '@angular/common/http';
-import { MiningRigDevice } from '../mining-rig-device';
+import { HttpClient } from '@angular/common/http'; 
 import { lastValueFrom } from 'rxjs';
+import { MiningRigDevice } from '../../services/datacontracts/mining-rig-device';
+import { MiningService } from '../../services/mining.service';
 
 @Component({
   selector: 'app-mining-devices',
@@ -13,7 +14,7 @@ export class MiningDevicesComponent extends ChildComponent implements OnInit {
   miningRigDevices = new Array<MiningRigDevice>();
   @ViewChild('notificationArea') notificationArea!: ElementRef<HTMLElement>;
 
-  constructor(private http: HttpClient) {
+  constructor(private miningService: MiningService) {
     super();
   }
   ngOnInit() {
@@ -21,38 +22,33 @@ export class MiningDevicesComponent extends ChildComponent implements OnInit {
   }
   async getMiningInfo() {
     this.startLoading();
-    await lastValueFrom(this.http.get<Array<MiningRigDevice>>('/mining/devices')).then(res => this.miningRigDevices = res);
+    this.miningRigDevices = await this.miningService.getMiningRigDeviceInfo(this.parentRef?.user!);
     this.stopLoading();
   }
   public async requestDeviceStateChange(device: MiningRigDevice) {
     var requestedAction = this.isOffline(device.state!) || this.isDisabled(device.state!) ? "START" : "STOP";
     if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`)) {
-      const headers = { 'Content-Type': 'application/json' };
       try {
         this.startLoading();
-        const response = await lastValueFrom(this.http.post(`/mining/${device.rigId}/${device.deviceId}`, '"' + requestedAction + '"', { headers }));
-        this.stopLoading();
-
+        const response = await this.miningService.requestRigDeviceStateChange(this.parentRef?.user!, device);
+        this.stopLoading(); 
         var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
-        const isSuccess = JSON.stringify(response).includes("true");
+        const isSuccess = response.success;
         this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
 
         this.getMiningInfo();
       }
       catch (error) {
+        console.error(error);
         this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";;
       }
     }    
   }
   public isOffline(state: number): boolean {
-    if (state == -1 || state == 1)
-      return true;
-    else return false;
+    return this.miningService.isDeviceOffline(state);
   }
   public isDisabled(state: number): boolean {
-    if (state == 4)
-      return true;
-    else return false;
+    return this.miningService.isDeviceDisabled(state);
   }
 }

@@ -8,5 +8,6 @@ namespace maxhanna.Server.Controllers.DataContracts
         public DateTime? Birthday { get; set; }
         public string Notes { get; set; }
         public string Email { get; set; }
+        public string Ownership { get; set; }
     }
 }

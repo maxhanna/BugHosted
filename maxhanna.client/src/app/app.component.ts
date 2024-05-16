@@ -1,4 +1,4 @@
-import { Component, ComponentRef, ElementRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
 import { CalendarComponent } from './calendar/calendar.component';
 import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { FavouritesComponent } from './favourites/favourites.component';
@@ -13,6 +13,8 @@ import { MusicComponent } from './music/music.component';
 import { GameComponent } from './game/game.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
+import { UserComponent } from './user/user.component';
+import { User } from '../services/datacontracts/user';
 
 
 @Component({
@@ -20,14 +22,22 @@ import { GbcComponent } from './gbc/gbc.component';
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent {
-
+export class AppComponent implements OnInit {
+  user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>()
 
-  constructor() { }
-
+  constructor() {
+    if (this.getCookie("userid") && this.getCookie("username")) {
+      this.user = new User(parseInt(this.getCookie("userid")), this.getCookie("username"), this.getCookie("password"));
+    } else {
+      setTimeout(() => this.createComponent("User"), 0); //setTimeout required to avoid ChangeDetectorRef error
+    }
+  }
+  ngOnInit() {
+   
+  } 
   createComponent(componentType: string) {
     if (componentType && componentType.trim() != "") {
       let componentClass = null;
@@ -73,20 +83,21 @@ export class AppComponent {
       else if (componentType == "Coin-Wallet") {
         componentClass = CoinWalletComponent;
       }
+      else if (componentType == "User") {
+        componentClass = UserComponent;
+      }
 
       if (componentClass) {
         const childComponentRef = this.VCR.createComponent(componentClass);
 
         let childComponent = childComponentRef.instance;
         childComponent.unique_key = ++this.child_unique_key;
-        childComponent.parentRef = this;
-
+        childComponent.parentRef = this; 
         // add reference for newly created component
         this.componentsReferences.push(childComponentRef);
       }
     }
-  }
-
+  } 
   removeComponent(key: number) {
     if (this.VCR.length < 1) return;
 
@@ -104,5 +115,28 @@ export class AppComponent {
       x => x.instance.unique_key !== key
     );
   }
-  
+  getCookie(name: string) {
+    let ca: Array<string> = document.cookie.split(';');
+    let caLen: number = ca.length;
+    let cookieName = `${name}=`;
+    let c: string;
+
+    for (let i: number = 0; i < caLen; i += 1) {
+      c = ca[i].replace(/^\s+/g, '');
+      if (c.indexOf(cookieName) == 0) {
+        return c.substring(cookieName.length, c.length);
+      }
+    }
+    return '';
+  } 
+  deleteCookie(name: string) {
+    this.setCookie(name, '', -1);
+  } 
+  setCookie(name: string, value: string, expireDays: number, path: string = '') {
+    let d: Date = new Date();
+    d.setTime(d.getTime() + expireDays * 24 * 60 * 60 * 1000);
+    let expires: string = `expires=${d.toUTCString()}`;
+    let cpath: string = path ? `; path=${path}` : '';
+    document.cookie = `${name}=${value}; ${expires}${cpath}`;
+  }
 }

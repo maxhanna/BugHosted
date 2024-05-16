@@ -20,10 +20,10 @@ namespace maxhanna.Server.Controllers
         }
 
         
-        [HttpGet("", Name = "GetWeatherForecast")]
-        public WeatherForecast Get()
+        [HttpPost("", Name = "GetWeatherForecast")]
+        public WeatherForecast Get([FromBody] User user)
         {
-            _logger.LogInformation("GET /WeatherForecast");
+            _logger.LogInformation("POST /WeatherForecast");
 
             var client = new RestClient(urlRoot);
             var request = new RestRequest($"?key={apiKey}&q=Montreal&days=3");

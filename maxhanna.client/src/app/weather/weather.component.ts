@@ -1,9 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { HttpClient } from '@angular/common/http';
-import { lastValueFrom } from 'rxjs';
-import { WeatherResponse } from '../weather-response';
-
+import { WeatherResponse } from '../../services/datacontracts/weather-response';
+import { WeatherService } from '../../services/weather.service';
 interface WeatherForecast {
   date: string;
   temperatureC: number;
@@ -20,16 +18,21 @@ export class WeatherComponent extends ChildComponent implements OnInit {
   weather: WeatherResponse = new WeatherResponse();
   collapsedDays: string[] = [];
 
-  constructor(private http: HttpClient) { super(); }
+  constructor(private weatherService: WeatherService) { super(); }
 
   ngOnInit() {
     this.getForecasts();
   }
-  getForecasts() {
-    this.promiseWrapper(lastValueFrom(this.http.get<WeatherResponse>('/weatherforecast'))).then(res => {
+  async getForecasts() {
+    this.startLoading();
+
+    const res = await this.weatherService.getWeather(this.parentRef?.user!);
+    if (res) {
       this.weather = res;
       this.collapsedDays = res.forecast.forecastday.map((day: { date: any; }) => day.date);
-    });
+    }
+    
+    this.stopLoading();
   }
   calculateAverage(hours: any[], property: string): string | number {
     if (hours.length === 0) return 0;
@@ -58,12 +61,8 @@ export class WeatherComponent extends ChildComponent implements OnInit {
         }
         countText++;
       }
-    }
-
-    // Calculate the average for numerical values
-    let numericAverage: number | string = countNumeric > 0 ? sum / countNumeric : 0;
-
-    // Calculate the most frequent text value
+    } 
+    let numericAverage: number | string = countNumeric > 0 ? sum / countNumeric : 0; 
     let maxTextCount = 0;
     let mostFrequentText: string | undefined = '';
     for (let text in textMap) {
@@ -71,20 +70,15 @@ export class WeatherComponent extends ChildComponent implements OnInit {
         maxTextCount = textMap[text];
         mostFrequentText = text;
       }
-    }
-
-    // If there's a tie, return 'Mixed' for text values
+    } 
     if (countText > 0 && maxTextCount === countText) {
       return 'Mixed';
-    }
-
-    // Return the most frequent text value if it exists
+    } 
     if (mostFrequentText) {
       return mostFrequentText;
     }
 
-    // Return the numeric average if no text value is dominant
-    return numericAverage.toFixed(2);
+    return numericAverage.toFixed(0);
   }
 
   toggleDay(date: string) {

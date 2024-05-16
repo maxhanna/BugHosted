@@ -1,8 +1,8 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { HttpClient } from '@angular/common/http';
-import { Note } from '../note';
 import { lastValueFrom } from 'rxjs';
+import { Note } from '../../services/datacontracts/note';
+import { NotepadService } from '../../services/notepad.service';
 
 @Component({
   selector: 'app-notepad',
@@ -18,7 +18,7 @@ export class NotepadComponent extends ChildComponent {
   @ViewChild('deleteNoteButton') deleteNoteButton!: ElementRef<HTMLInputElement>;
   noteInputValue: string = ''; // Initialize with an empty string
 
-  constructor(private http: HttpClient) {
+  constructor(private notepadService: NotepadService) {
     super();
   }
   async ngOnInit() {
@@ -41,24 +41,22 @@ export class NotepadComponent extends ChildComponent {
   async getNote(id: number) {
     if (!id) { return; }
     try {
-      await this.promiseWrapper(await lastValueFrom(await this.http.get<Note>(`/notepad/${id}`, {}))
-        .then(res => {
-          console.log(res);
-          if (this.noteInput)
-            this.noteInput.nativeElement.value = res.note!;
-          if (this.noteId)
-            this.noteId.nativeElement.value = id + "";
+      const res = await this.notepadService.getNote(this.parentRef?.user!, id);
+      if (this.noteInput)
+        this.noteInput.nativeElement.value = res.note!;
+      if (this.noteId)
+        this.noteId.nativeElement.value = id + "";
 
-          this.newNoteButton.nativeElement.style.display = "inline-block";
-          this.deleteNoteButton.nativeElement.style.display = "inline-block";
-        }));
+      this.newNoteButton.nativeElement.style.display = "inline-block";
+      this.deleteNoteButton.nativeElement.style.display = "inline-block";
+       
     } catch (error) {
       console.error(`Error fetching notepad entry (${id}): ${error}`);
     }
   }
   async getNotepad() {
     try {
-      await this.promiseWrapper(await lastValueFrom(await this.http.get<Array<Note>>('/notepad', {})).then(res => this.notes = res));
+      this.notes = await this.notepadService.getNotes(this.parentRef?.user!);
     } catch (error) {
       console.error("Error fetching notepad entries:", error);
     }
@@ -69,13 +67,11 @@ export class NotepadComponent extends ChildComponent {
       return alert("Note cannot be empty!");
     }
 
-    const headers = { 'Content-Type': 'application/json' };
-    const body = JSON.stringify(text);
     try {
       if (this.noteId.nativeElement.value != "") {
-        await this.promiseWrapper(await lastValueFrom(this.http.post(`/notepad/update/${this.noteId.nativeElement.value}`, body, { headers })));
+        await this.notepadService.updateNote(this.parentRef?.user!, text, parseInt(this.noteId.nativeElement.value));
       } else {
-        await this.promiseWrapper(await lastValueFrom(this.http.post(`/notepad/`, body, { headers })));
+        await this.notepadService.addNote(this.parentRef?.user!, text);
       }
     } catch (e) {
       console.error(e);
@@ -86,7 +82,7 @@ export class NotepadComponent extends ChildComponent {
     if (!confirm("Confirm note deletion.")) { return; }
     try {
       const id = this.noteId.nativeElement.value;
-      await this.promiseWrapper(await lastValueFrom(this.http.delete(`/notepad/${id}`)));
+      await this.notepadService.deleteNote(this.parentRef?.user!, parseInt(id));
       this.notes = this.notes.filter(e => e.id+"" != id);
       this.clearInputs();
     } catch (error) {

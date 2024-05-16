@@ -1,8 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { Contact } from '../contact';
-import { HttpClient } from '@angular/common/http';
-import { lastValueFrom } from 'rxjs';
+import { Contact } from '../../services/datacontracts/contact';
+import { ContactService } from '../../services/contact.service';
 
 @Component({
   selector: 'app-contacts',
@@ -24,7 +23,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   @ViewChild('newContactNotes') newContactNotes!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('newContactEmail') newContactEmail!: ElementRef<HTMLInputElement>;
 
-  constructor(private http: HttpClient) { super(); }
+  constructor(private contactService: ContactService) { super(); }
 
   ngOnInit() {
     this.fetchContacts();
@@ -32,7 +31,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
 
   async fetchContacts() {
     try {
-      var res = await this.promiseWrapper(lastValueFrom(this.http.get<Contact[]>('/contact')));
+      var res = await this.contactService.getContacts(this.parentRef?.user!);
       this.contacts = res!;
     } catch (error: any) {
       console.error('Error fetching contacts:', error);
@@ -41,29 +40,20 @@ export class ContactsComponent extends ChildComponent implements OnInit {
 
   async addNewContact() {
     const name = this.newContactName.nativeElement.value;
-    if (!name) { return alert("Contact must have a name!"); }
+    if (!name) { return alert("Contact must have a name."); }
 
     var tmpContact = new Contact();
     tmpContact.name = name;
     tmpContact.phone = this.newContactPhone.nativeElement.value;
-
     var jsDate = this.GetJsDate(this.newContactBirthday.nativeElement.value);
     tmpContact.birthday = jsDate;
-
     tmpContact.notes = this.newContactNotes.nativeElement.value;
     tmpContact.email = this.newContactEmail.nativeElement.value;
 
-    const body = {
-      name: tmpContact.name,
-      phone: tmpContact.phone,
-      birthday: tmpContact.birthday,
-      notes: tmpContact.notes,
-      email: tmpContact.email
-    };
-
-    const headers = { 'Content-Type': 'application/json' };
+    //const headers = { 'Content-Type': 'application/json' };
     try {
-      await this.promiseWrapper(lastValueFrom(this.http.post(`/contact/`, body, { headers })));
+      await this.contactService.createContact(this.parentRef?.user!, tmpContact);
+      //await this.promiseWrapper(lastValueFrom(this.http.post(`/contact/`, body, { headers })));
       this.contacts.push(tmpContact);
       this.showNewContactForm = false;
     } catch (error) {
@@ -87,16 +77,17 @@ export class ContactsComponent extends ChildComponent implements OnInit {
         this.selectedContact.birthday = null;
       }
 
-      const headers = { 'Content-Type': 'application/json' };
-      const body = JSON.stringify(this.selectedContact);
-
-      await this.promiseWrapper(lastValueFrom(this.http.put(`/contact/${this.selectedContact.id}`, body, { headers })));
+      //const headers = { 'Content-Type': 'application/json' };
+      //const body = JSON.stringify(this.selectedContact);
+      await this.contactService.updateContact(this.parentRef?.user!, this.selectedContact);
+      //await this.promiseWrapper(lastValueFrom(this.http.put(`/contact/${this.selectedContact.id}`, body, { headers })));
 
       this.selectedContact = undefined;
     }
   }
   async deleteContact(id: number) {
-    await this.promiseWrapper(lastValueFrom(this.http.delete(`/contact/${id}`)));
+    await this.contactService.deleteContact(this.parentRef?.user!, id);
+    //await this.promiseWrapper(lastValueFrom(this.http.delete(`/contact/${id}`)));
     this.contacts = this.contacts.filter(x => x.id != id);
   }
   formatDate(date: Date | undefined | null): string | undefined {

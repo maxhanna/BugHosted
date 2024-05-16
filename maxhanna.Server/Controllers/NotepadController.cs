@@ -17,12 +17,12 @@ namespace maxhanna.Server.Controllers
             _config = config;
         }
 
-        [HttpGet("/Notepad", Name = "GetNotes")]
-        public async Task<IActionResult> Get()
+        [HttpPost("/Notepad", Name = "GetNotes")]
+        public async Task<IActionResult> Get([FromBody] User user)
         {
-            _logger.LogInformation($"GET /Notepad");
+            _logger.LogInformation($"GET /Notepad (for user: {user.Id})");
 
-            string sql = "SELECT id, LEFT(note, 25) AS note, date FROM maxhanna.notepad";
+            string sql = "SELECT (id, LEFT(note, 25) AS note, date, ownership) FROM maxhanna.notepad WHERE ownership = @Owner";
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -31,6 +31,8 @@ namespace maxhanna.Server.Controllers
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
+                        cmd.Parameters.AddWithValue("@Owner", user.Id);
+
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
                             var entries = new List<NotepadEntry>();
@@ -40,7 +42,8 @@ namespace maxhanna.Server.Controllers
                                 entries.Add(new NotepadEntry(
                                     id: rdr.GetInt32(0),
                                     note: rdr.GetString(1),
-                                    date: rdr.GetDateTime(2)
+                                    date: rdr.GetDateTime(2),
+                                    ownership: rdr.IsDBNull(3) ? null : rdr.GetString(3)
                                 ));
                             }
                             return Ok(entries);
@@ -54,12 +57,12 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while fetching Notepad.");
             }
         }
-        [HttpGet("/Notepad/{id}", Name = "GetNoteById")]
-        public async Task<IActionResult> Get(int id)
+        [HttpPost("/Notepad/{id}", Name = "GetNoteById")]
+        public async Task<IActionResult> Get([FromBody] User user, int id)
         {
             _logger.LogInformation($"GET /Notepad/" + id);
 
-            string sql = "SELECT id, note, date FROM maxhanna.notepad WHERE id = @ID";
+            string sql = "SELECT id, note, date, ownership FROM maxhanna.notepad WHERE id = @ID AND ownership = @Owner";
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -69,6 +72,8 @@ namespace maxhanna.Server.Controllers
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@ID", id);
+                        cmd.Parameters.AddWithValue("@Owner", user.Id);
+
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
                             while (await rdr.ReadAsync())
@@ -76,7 +81,8 @@ namespace maxhanna.Server.Controllers
                                 return Ok(new NotepadEntry(
                                     id: rdr.GetInt32(0),
                                     note: rdr.GetString(1),
-                                    date: rdr.GetDateTime(2)
+                                    date: rdr.GetDateTime(2), 
+                                    ownership: rdr.IsDBNull(3) ? null : rdr.GetString(3)
                                 ));
                             }
                         }
@@ -91,8 +97,8 @@ namespace maxhanna.Server.Controllers
             return StatusCode(404, "Note/Server problem?.");
         }
 
-        [HttpPost(Name = "CreateNote")]
-        public async Task<IActionResult> Post([FromBody] string note)
+        [HttpPost("/Notepad/Create", Name = "CreateNote")]
+        public async Task<IActionResult> Post([FromBody] CreateNote note)
         {
             _logger.LogInformation("POST /Notepad");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -100,9 +106,10 @@ namespace maxhanna.Server.Controllers
             {
                 conn.Open();
                 // Assuming CalendarEntryModel has properties for Type, Note, and Date
-                string sql = "INSERT INTO maxhanna.notepad (note) VALUES (@Note)";
+                string sql = "INSERT INTO maxhanna.notepad (note, ownership) VALUES (@Note, @Owner)";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@Note", note);
+                cmd.Parameters.AddWithValue("@Note", note.note);
+                cmd.Parameters.AddWithValue("@Owner", note.user.Id);
                 if (await cmd.ExecuteNonQueryAsync() > 0)
                 {
                     _logger.LogInformation("Returned OK");
@@ -121,7 +128,7 @@ namespace maxhanna.Server.Controllers
             }
         }
         [HttpPost("/Notepad/Update/{id}", Name = "UpdateNote")]
-        public async Task<IActionResult> Post(string id, [FromBody] string note)
+        public async Task<IActionResult> Post(string id, [FromBody] CreateNote note)
         {
             _logger.LogInformation("POST /Notepad");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -129,10 +136,11 @@ namespace maxhanna.Server.Controllers
             {
                 conn.Open();
                 // Assuming CalendarEntryModel has properties for Type, Note, and Date
-                string sql = "UPDATE maxhanna.notepad SET note = @Note WHERE id = @ID";
+                string sql = "UPDATE maxhanna.notepad SET note = @Note WHERE id = @ID AND ownership = @Owner";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@Note", note);
+                cmd.Parameters.AddWithValue("@Note", note.note);
                 cmd.Parameters.AddWithValue("@ID", id);
+                cmd.Parameters.AddWithValue("@Owner", note.user.Id);
                 if (await cmd.ExecuteNonQueryAsync() > 0)
                 {
                     _logger.LogInformation("Returned OK");
@@ -152,16 +160,17 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpDelete("/Notepad/{id}", Name = "DeleteNote")]
-        public async Task<IActionResult> Delete(int id)
+        public async Task<IActionResult> Delete([FromBody] User user, int id)
         {
             _logger.LogInformation($"DELETE /Notepad/{id}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
                 conn.Open();
-                string sql = "DELETE FROM maxhanna.notepad WHERE ID = @Id";
+                string sql = "DELETE FROM maxhanna.notepad WHERE ID = @Id AND ownership = @Owner";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Id", id);
+                cmd.Parameters.AddWithValue("@Owner", user.Id);
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
                 if (rowsAffected > 0)

@@ -1,6 +1,5 @@
 <div id="loadingDiv"><div id="loadingBar"></div></div>
-<app-navigation></app-navigation>
+<app-navigation *ngIf="user" [user]="user"></app-navigation>
 <div class="componentContainer">
   <ng-template #viewContainerRef></ng-template>
 </div>
-

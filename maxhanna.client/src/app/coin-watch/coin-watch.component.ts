@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { CoinWatchResponse } from '../coin-watch-response';
+import { CoinWatchResponse } from '../../services/datacontracts/coin-watch-response';
+import { CoinWatchService } from '../../services/coin-watch.service';
 
 @Component({
   selector: 'app-coin-watch',
@@ -11,31 +12,10 @@ import { CoinWatchResponse } from '../coin-watch-response';
 
 export class CoinWatchComponent extends ChildComponent implements OnInit {
   data?: CoinWatchResponse[];
-
+  constructor(private coinwatchService: CoinWatchService) { super(); }
   async ngOnInit() {
     this.startLoading();
-    this.data = await this.promiseWrapper(
-      await fetch(
-        new Request("https://api.livecoinwatch.com/coins/list"),
-        {
-          method: "POST",
-          headers: new Headers({
-            "content-type": "application/json",
-            "x-api-key": "49965ff1-ebed-48b2-8ee3-796c390fcde1",
-          }),
-          body: JSON.stringify(
-            {
-              currency: "CAD",
-              sort: "rank",
-              order: "ascending",
-              offset: 0,
-              limit: 8,
-              meta: true,
-            }
-          ),
-        }
-      ).then(response => response.json()) as CoinWatchResponse[]
-    ); 
+    this.data = await this.coinwatchService.getCoinwatchResponse(this.parentRef?.user!);
     this.stopLoading();
   }
 }

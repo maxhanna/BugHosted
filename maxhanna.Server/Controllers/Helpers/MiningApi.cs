@@ -6,9 +6,6 @@ namespace maxhanna.Server.Controllers.Helpers
     class MiningApi
     {
         private string urlRoot = "https://api2.nicehash.com";
-        private string orgId = "debe791e-635c-43ab-9330-6cac7b5086fb";
-        private string apiKey = "a955353f-8de2-480d-bd9d-c735fd6e9937";
-        private string apiSecret = "d2669f80-fe34-4d4a-bcef-051ad90c4b4417053a06-38b8-48b1-a855-c02abd599603";
 
         private static string HashBySegments(string key, string apiKey, string time, string nonce, string orgId, string method, string encodedPath, string query, string? bodyStr)
         {
@@ -85,9 +82,9 @@ namespace maxhanna.Server.Controllers.Helpers
             result = string.Join("", baHashedText.ToList().Select(b => b.ToString("x2")).ToArray());
             return result;
         }
-        private string? getTime()
+        private string? getTime(Dictionary<string,string> apiKeys)
         {
-            string? timeResponse = get("/api/v2/time");
+            string? timeResponse = get(apiKeys, "/api/v2/time");
 
             if (!string.IsNullOrEmpty(timeResponse))
             {
@@ -99,26 +96,28 @@ namespace maxhanna.Server.Controllers.Helpers
                 return null;
             }
         }
-        public string get(string url)
+        public string get(Dictionary<string, string> apiKeys, string url)
         {
-            return this.get(url, false);
+            return this.get(apiKeys, url, false);
         }
 
-        public string get(string url, bool auth)
+        public string get(Dictionary<string,string> apiKeys, string url, bool auth)
         {
             var client = new RestSharp.RestClient(this.urlRoot);
             var request = new RestSharp.RestRequest(url);
-
+            string orgId = apiKeys["orgId"];
+            string apiKey = apiKeys["apiKey"];
+            string apiSecret = apiKeys["apiSecret"];
             if (auth)
             {
-                string time = getTime()!;
+                string time = getTime(apiKeys)!;
                 string nonce = Guid.NewGuid().ToString();
-                string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "GET", getPath(url), getQuery(url)!, null);
+                string digest = HashBySegments(apiSecret, apiKey, time, nonce, orgId, "GET", getPath(url), getQuery(url)!, null);
 
                 request.AddHeader("X-Time", time);
                 request.AddHeader("X-Nonce", nonce);
-                request.AddHeader("X-Auth", this.apiKey + ":" + digest);
-                request.AddHeader("X-Organization-Id", this.orgId);
+                request.AddHeader("X-Auth", apiKey + ":" + digest);
+                request.AddHeader("X-Organization-Id", orgId);
             }
 
             var response = client.Execute(request, Method.Get);
@@ -126,16 +125,19 @@ namespace maxhanna.Server.Controllers.Helpers
             return content!;
         }
 
-        public string post(string url, string payload, bool requestId)
+        public string post(Dictionary<string, string> apiKeys, string url, string payload, bool requestId)
         {
             var client = new RestSharp.RestClient(this.urlRoot);
             var request = new RestSharp.RestRequest(url);
+            string orgId = apiKeys["orgId"];
+            string apiKey = apiKeys["apiKey"];
+            string apiSecret = apiKeys["apiSecret"];
             request.AddHeader("Accept", "application/json");
             request.AddHeader("Content-type", "application/json");
 
             string nonce = Guid.NewGuid().ToString();
-            string time = getTime()!;
-            string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "POST", getPath(url), getQuery(url)!, payload);
+            string time = getTime(apiKeys)!;
+            string digest = HashBySegments(apiSecret, apiKey, time, nonce, orgId, "POST", getPath(url), getQuery(url)!, payload);
 
             if (payload != null)
             {
@@ -144,8 +146,8 @@ namespace maxhanna.Server.Controllers.Helpers
 
             request.AddHeader("X-Time", time);
             request.AddHeader("X-Nonce", nonce);
-            request.AddHeader("X-Auth", this.apiKey + ":" + digest);
-            request.AddHeader("X-Organization-Id", this.orgId);
+            request.AddHeader("X-Auth", apiKey + ":" + digest);
+            request.AddHeader("X-Organization-Id", orgId);
 
             if (requestId)
             {
@@ -157,18 +159,21 @@ namespace maxhanna.Server.Controllers.Helpers
             return content!;
         }
 
-        public string delete(string url, string time, bool requestId)
+        public string delete(Dictionary<string, string> apiKeys, string url, string time, bool requestId)
         {
             var client = new RestClient(this.urlRoot);
             var request = new RestRequest(url);
+            string orgId = apiKeys["orgId"];
+            string apiKey = apiKeys["apiKey"];
+            string apiSecret = apiKeys["apiSecret"];
 
             string nonce = Guid.NewGuid().ToString();
-            string digest = HashBySegments(this.apiSecret, this.apiKey, time, nonce, this.orgId, "DELETE", getPath(url), getQuery(url)!, null);
+            string digest = HashBySegments(apiSecret, apiKey, time, nonce, orgId, "DELETE", getPath(url), getQuery(url)!, null);
 
             request.AddHeader("X-Time", time);
             request.AddHeader("X-Nonce", nonce);
-            request.AddHeader("X-Auth", this.apiKey + ":" + digest);
-            request.AddHeader("X-Organization-Id", this.orgId);
+            request.AddHeader("X-Auth", apiKey + ":" + digest);
+            request.AddHeader("X-Organization-Id", orgId);
 
             if (requestId)
             {

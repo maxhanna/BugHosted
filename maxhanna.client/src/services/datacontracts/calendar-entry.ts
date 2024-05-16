@@ -3,4 +3,5 @@ export class CalendarEntry {
   date?: Date;
   type?: string;
   note?: string;
+  ownership?: string;
 }
