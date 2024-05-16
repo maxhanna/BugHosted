@@ -1,7 +1,5 @@
 // user.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
 import { User } from './datacontracts/user';
 import { MiningRig } from './datacontracts/mining-rig';
 import { MiningRigDevice } from './datacontracts/mining-rig-device';
