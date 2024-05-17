@@ -123,7 +123,7 @@ namespace maxhanna.Server.Controllers
                     // User doesn't exist, proceed with insertion
                     string insertSql = @"
                         INSERT INTO maxhanna.users (username, pass) VALUES (@Username, @Password);
-                        SELECT 'Successfully added user' AS Result;";
+                        SELECT id where username = @Username AND pass = @Password AS Result;";
                     MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
                     insertCmd.Parameters.AddWithValue("@Username", user.Username);
                     insertCmd.Parameters.AddWithValue("@Password", user.Pass);

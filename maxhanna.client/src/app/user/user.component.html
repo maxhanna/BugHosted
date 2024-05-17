@@ -46,15 +46,23 @@
         <tbody *ngIf="isNicehashApiKeysToggled">
           <tr>
             <td>OrgId:</td>
-            <td><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId!" /></td>
+            <td><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></td>
           </tr>
           <tr>
             <td>ApiKey:</td>
-            <td><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey!" /></td>
+            <td><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></td>
           </tr>
           <tr>
             <td>ApiSecret:</td>
-            <td><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret!" /></td>
+            <td><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></td>
+          </tr>
+        </tbody>
+
+        <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()"><tr><th colspan="2">Weather Location</th></tr></thead>
+        <tbody *ngIf="isWeatherLocationToggled">
+          <tr>
+            <td>Location:</td>
+            <td><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput [value]="weatherLocation?.location ?? ''" /></td>
           </tr>
         </tbody>
       </table> 

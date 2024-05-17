@@ -126,8 +126,7 @@ export class MusicComponent extends ChildComponent implements OnInit {
     }
   }
   stopMusic() {
-    this.musicVideo.nativeElement.src = "";
-    document.getElementById("musicControls")!.style.display = "none";
+    this.musicVideo.nativeElement.src = ""; 
     this.isMusicControlsDisplayed(false);
   }
   trimYoutubeUrl(url: string) {

@@ -102,7 +102,6 @@ export class MiningService {
     }
   }
   async getNicehashApiInfo(user: User) {
-    //
     try {
       const response = await fetch(`/mining/getnicehashapicredentials`, {
         method: 'POST',
@@ -117,27 +116,10 @@ export class MiningService {
       return null;
     }
   }
-  async createNicehashApiInfo(user: User, keys: NicehashApiKeys) {
-    //
-    try {
-      const response = await fetch(`/mining/createnicehashapicredentials`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user, keys }),
-      });
-
-      return await response.json();
-    } catch (error) {
-      return null;
-    }
-  }
   async updateNicehashApiInfo(user: User, keys: NicehashApiKeys) {
-    //
     try {
       const response = await fetch(`/mining/updatenicehashapicredentials`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },

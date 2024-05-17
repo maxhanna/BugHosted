@@ -29,8 +29,8 @@ export class AppComponent implements OnInit {
   componentsReferences = Array<ComponentRef<any>>()
 
   constructor() {
-    if (this.getCookie("userid") && this.getCookie("username")) {
-      this.user = new User(parseInt(this.getCookie("userid")), this.getCookie("username"), this.getCookie("password"));
+    if (this.getCookie("user")) {
+      this.user = JSON.parse(this.getCookie("user"));
     } else {
       setTimeout(() => this.createComponent("User"), 0); //setTimeout required to avoid ChangeDetectorRef error
     }
@@ -131,7 +131,7 @@ export class AppComponent implements OnInit {
   } 
   deleteCookie(name: string) {
     this.setCookie(name, '', -1);
-  } 
+  }
   setCookie(name: string, value: string, expireDays: number, path: string = '') {
     let d: Date = new Date();
     d.setTime(d.getTime() + expireDays * 24 * 60 * 60 * 1000);

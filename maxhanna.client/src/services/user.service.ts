@@ -16,7 +16,7 @@ export class UserService {
         body: JSON.stringify(user), // Convert the user object to JSON string
       });
 
-      const responseData = await response.json(); // Extract the response as text
+      const responseData = await response.text(); // Extract the response as text
       return responseData; // Return the response text
     } catch (error) {
       console.error('Error creating user:', error);
@@ -79,5 +79,13 @@ export class UserService {
     } catch (error) {
       return null; // Return null in case of error
     }
+  }
+  async getUserIp() {
+    const apiKey = '1872fa51e6924c37a1d2f30cb13f1b83';
+
+    const response = await fetch('https://ipgeolocation.abstractapi.com/v1/?api_key=' + apiKey, {
+      method: 'GET'
+    }); 
+    return await response.json();
   }
 }

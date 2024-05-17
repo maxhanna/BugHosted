@@ -65,10 +65,11 @@ namespace maxhanna.Server.Controllers
 
             return credentials;
         }
-        [HttpPost("/Mining/CreateNicehashApiCredentials", Name = "CreateNicehashApiCredentials")]
-        public async Task<IActionResult> CreateNicehashCredentials([FromBody] CreateNicehashApiCredentials credentials)
+
+        [HttpPut("/Mining/UpdateNicehashApiCredentials", Name = "UpdateNicehashApiCredentials")]
+        public async Task<IActionResult> UpdateOrCreateNicehashCredentials([FromBody] CreateNicehashApiCredentials credentials)
         {
-            _logger.LogInformation($"Setting Nicehash credentials for user ID: {credentials.user.Id}");
+            _logger.LogInformation($"Updating or creating Nicehash credentials for user ID: {credentials.user.Id}");
 
             try
             {
@@ -77,14 +78,15 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
 
                     string sql =
-                        "INSERT INTO maxhanna.nicehash_api_keys (ownership, orgId, apiKey, apiSecret) VALUES (@Owner, @OrgId, @ApiKey, @ApiSecret);";
+                        "INSERT INTO maxhanna.nicehash_api_keys (ownership, orgId, apiKey, apiSecret) VALUES (@Owner, @OrgId, @ApiKey, @ApiSecret) " +
+                        "ON DUPLICATE KEY UPDATE orgId = @OrgId, apiKey = @ApiKey, apiSecret = @ApiSecret;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", credentials.user.Id);
                         cmd.Parameters.AddWithValue("@OrgId", credentials.keys.OrgId);
                         cmd.Parameters.AddWithValue("@ApiKey", credentials.keys.ApiKey);
                         cmd.Parameters.AddWithValue("@ApiSecret", credentials.keys.ApiSecret);
-                        if (await cmd.ExecuteNonQueryAsync() > 0)
+                        if (await cmd.ExecuteNonQueryAsync() >= 0)
                         {
                             _logger.LogInformation("Returned OK");
                             return Ok();
@@ -92,57 +94,17 @@ namespace maxhanna.Server.Controllers
                         else
                         {
                             _logger.LogInformation("Returned 500");
-                            return StatusCode(500, "Failed to insert data");
+                            return StatusCode(500, "Failed to update or create data");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while retrieving Nicehash credentials.");
+                _logger.LogError(ex, "Error occurred while updating or creating Nicehash credentials.");
                 throw;
             }
         }
-
-        [HttpPost("/Mining/UpdateNicehashApiCredentials", Name = "UpdateNicehashApiCredentials")]
-        public async Task<IActionResult> UpdateNicehashCredentials([FromBody] CreateNicehashApiCredentials credentials)
-        {
-            _logger.LogInformation($"Updating Nicehash credentials for user ID: {credentials.user.Id}");
-
-            try
-            {
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await conn.OpenAsync();
-
-                    string sql =
-                        "UPDATE maxhanna.nicehash_api_keys SET orgId = @OrgId, apiKey = @ApiKey, apiSecret = @ApiSecret WHERE ownership = @Owner;";
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@Owner", credentials.user.Id);
-                        cmd.Parameters.AddWithValue("@OrgId", credentials.keys.OrgId);
-                        cmd.Parameters.AddWithValue("@ApiKey", credentials.keys.ApiKey);
-                        cmd.Parameters.AddWithValue("@ApiSecret", credentials.keys.ApiSecret);
-                        if (await cmd.ExecuteNonQueryAsync() > 0)
-                        {
-                            _logger.LogInformation("Returned OK");
-                            return Ok();
-                        }
-                        else
-                        {
-                            _logger.LogInformation("Returned 500");
-                            return StatusCode(500, "Failed to update data");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while updating Nicehash credentials.");
-                throw;
-            }
-        }
-
 
         [HttpPost("/Mining/", Name = "GetMiningRigInfo")]
         public async Task<List<MiningRig>> GetRigsAsync([FromBody] User user)

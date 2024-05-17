@@ -1,8 +1,6 @@
 import { Component, ElementRef, HostListener, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Gameboy } from "gameboy-emulator";
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { lastValueFrom } from 'rxjs';
 import { FileService } from '../../services/file.service';
 
 @Component({

@@ -1,7 +1,7 @@
-.componentMain > * {
+* {
+  box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
-
 .componentMain {
     width: 400px;
 }
@@ -252,11 +252,7 @@
   .start:active::before, .select:active::before {
     background: linear-gradient(to bottom, #0b0a1c 0%, #0b0a1c 50%, var(--secondary-font-color) 100%);
   }
-
-* {
-  box-sizing: border-box;
-}
-
+   
 .up-triangle {
   position: absolute;
   bottom: 16px;
