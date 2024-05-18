@@ -21,7 +21,6 @@
     "@angular/platform-browser": "^17.3.0",
     "@angular/platform-browser-dynamic": "^17.3.0",
     "@angular/router": "^17.3.0",
-    "gameboy-emulator": "^1.1.2",
     "jest-editor-support": "*",
     "run-script-os": "*",
     "rxjs": "~7.8.0",

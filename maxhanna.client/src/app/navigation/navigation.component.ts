@@ -1,5 +1,4 @@
 import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
 import { MiningWalletResponse } from '../../services/datacontracts/mining-wallet-response';
 import { CalendarEntry } from '../../services/datacontracts/calendar-entry';
 import { MiningRig } from '../../services/datacontracts/mining-rig';
@@ -31,8 +30,8 @@ export class NavigationComponent implements OnInit {
     { icon: "📁", title: "Files", content: undefined },
     { icon: "🗒️", title: "Notepad", content: undefined },
     { icon: "📇", title: "Contacts", content: undefined },
-    { icon: "🎮", title: "Game", content: undefined },
-    { icon: "🕹️", title: "Gbc", content: undefined },
+    //{ icon: "🎮", title: "Game", content: undefined },
+    { icon: "🎮", title: "Gbc", content: undefined },
     { icon: "💵", title: "Coin-Wallet", content: undefined },
     { icon: "₿", title: "Coin-Watch", content: undefined },
     { icon: "👤", title: "User", content: undefined },

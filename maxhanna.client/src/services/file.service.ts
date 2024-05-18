@@ -131,7 +131,6 @@ export class FileService
     }
   }
   getFileExtension(file: string) {
-    console.log("in getFileExtension: " + file);
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() : null;
   }
 }

@@ -108,6 +108,7 @@ export class AppComponent implements OnInit {
     for (let x = 0; x < this.VCR.length; x++) {
       if ((this.VCR.get(x)) == componentRef.hostView) {
         this.VCR.remove(x);
+        componentRef.destroy();
       }
     }
 
