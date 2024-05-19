@@ -339,36 +339,28 @@
     width: 0;
     height: 0;
     border-style: solid;
-  }
-
-  /* Arrow pointing bottom-left */
+  } 
   .down-left::after {
     border-width: 0 20px 20px 0;
     border-color: transparent var(--secondary-font-color) transparent transparent;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(180deg);
-  }
-
-  /* Arrow pointing top-left */
+  } 
   .up-left::after {
     border-width: 20px 20px 0 0;
     border-color: var(--main-font-color) transparent transparent transparent;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(360deg);
-  }
-
-  /* Arrow pointing bottom-right */
+  } 
   .down-right::after {
     border-width: 0 0 20px 20px;
     border-color: transparent transparent var(--secondary-font-color) transparent;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-  }
-
-  /* Arrow pointing top-right */
+  } 
   .up-right::after {
     border-width: 20px 0 0 20px;
     border-color: var(--secondary-font-color) transparent transparent transparent;

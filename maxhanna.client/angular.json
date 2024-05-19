@@ -73,7 +73,7 @@
               "buildTarget": "maxhanna.client:build:development"
             }
           },
-          "defaultConfiguration": "development",
+          "defaultConfiguration": "production",
           "options": {
             "proxyConfig": "src/proxy.conf.js",
             "port": 8000,

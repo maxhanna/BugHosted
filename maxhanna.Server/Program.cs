@@ -3,17 +3,6 @@ using MySqlConnector;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure CORS globally
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAllOrigins",
-        builder =>
-        {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
-        });
-});
 
 builder.Services.AddMySqlDataSource(builder.Configuration.GetConnectionString("ConnectionStrings:maxhanna")!);
 builder.Services.AddControllers();
@@ -29,19 +18,6 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 
 var app = builder.Build();
 
-// Set custom headers for all responses
-app.Use(async (context, next) =>
-{
-    context.Response.OnStarting(() =>
-    {
-        context.Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin");
-        context.Response.Headers.Append("Cross-Origin-Embedder-Policy", "require-corp");
-        return Task.CompletedTask;
-    });
-
-    await next();
-});
-
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -56,18 +32,16 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
-// Enable CORS
-app.UseCors("AllowAllOrigins");
-
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.MapFallbackToFile("/index.html");
 try
-{ 
+{
     app.Run();
-} catch (Exception ex)
+}
+catch (Exception ex)
 {
     Console.WriteLine(ex.ToString());
 }
