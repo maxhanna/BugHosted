@@ -37,7 +37,10 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": [ ]
+            "scripts": [
+              "src/assets/gba/gba_bundle.js",
+              "src/assets/gba/video/worker.js"
+            ]
           },
           "configurations": {
             "production": {
@@ -49,8 +52,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "6kb",
-                  "maximumError": "7kb"
+                  "maximumWarning": "7kb",
+                  "maximumError": "10kb"
                 }
               ],
               "outputHashing": "all"
@@ -76,7 +79,7 @@
           "defaultConfiguration": "production",
           "options": {
             "proxyConfig": "src/proxy.conf.js",
-            "port": 8000,
+            "port": 443,
             "host": "0.0.0.0",
             "ssl": true,
             "sslCert": "ssl/maxhanna_selfip_com.crt",

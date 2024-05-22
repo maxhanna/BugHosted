@@ -20,6 +20,7 @@ import { GameComponent } from './game/game.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
+import { ChatComponent } from './chat/chat.component';
 
 @NgModule({
   declarations: [
@@ -39,7 +40,8 @@ import { UserComponent } from './user/user.component';
     GameComponent,
     CoinWalletComponent,
     GbcComponent,
-    UserComponent
+    UserComponent,
+    ChatComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

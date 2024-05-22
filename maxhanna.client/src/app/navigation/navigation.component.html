@@ -6,7 +6,8 @@
       <label (click)="goTo($event)" [title]="item.title">{{item.content ? item.content : ''}}</label>
     </span>
     <ng-container *ngIf="item.title === 'Weather'">
-      <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo($event)" />
+      <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo($event)" *ngIf="item.icon != '☀️'" />
+      <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="item.icon == '☀️'" >{{ item.icon.substring(0, 3) }}</a>
     </ng-container>
     <ng-container *ngIf="item.title !== 'Weather'">
       <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon.substring(0, 3) }}</a>

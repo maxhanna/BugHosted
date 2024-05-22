@@ -86,12 +86,12 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-
         [HttpPost("/File/GetRomFile/{filePath}", Name = "GetRomFile")]
         public IActionResult GetRomFile([FromBody] User user, string filePath)
         {
             filePath = Path.Combine(baseTarget + "roms/", WebUtility.UrlDecode(filePath) ?? "");
             _logger.LogInformation($"GET /File/GetRomFile/{filePath}");
+
             if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {baseTarget}"); }
 
             try
@@ -103,20 +103,31 @@ namespace maxhanna.Server.Controllers
                     return BadRequest("File path is missing.");
                 }
 
-                // Check if the file exists
-                if (!System.IO.File.Exists(filePath))
+                if (filePath.Contains(".sav"))
                 {
-                    _logger.LogError($"File not found at {filePath}");
-                    return NotFound();
+                    string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
+                    string newFilename = filenameWithoutExtension + "_" + user!.Id + Path.GetExtension(filePath);
+                    string userSpecificPath = Path.Combine(baseTarget + "roms/", newFilename);
+
+                    if (System.IO.File.Exists(userSpecificPath))
+                    {
+                        filePath = userSpecificPath;
+                    }
+                    else
+                    {
+                        _logger.LogError($"File not found at {filePath} or {userSpecificPath}");
+                        return NotFound();
+                    }
+                    _logger.LogInformation($"File path changed . New FilePath: " + filePath);
+
                 }
+                _logger.LogInformation($"Filestreaing FilePath: " + filePath);
 
                 // Stream the content of the file
                 var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 
                 // Determine the content type based on the file extension (you can adjust it accordingly)
                 string contentType = "application/octet-stream";
-                Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin"); // You can specify specific origins instead of "*"
-                Response.Headers.Append("Cross-Origin-Embedder-Policy", "require-corp"); // Specify allowed methods
 
                 return File(fileStream, contentType, Path.GetFileName(filePath));
             }
@@ -239,9 +250,23 @@ namespace maxhanna.Server.Controllers
                         _logger.LogInformation($"File length is empty!");
                         continue; // Skip empty files
                     }
+                    string newFilename = "";
+                    if (file.FileName.Contains(".sav"))
+                    { 
+                        // Extract filename without extension
+                        string filenameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+
+                        // Construct the new filename with username inserted
+                        newFilename = filenameWithoutExtension + "_" + user!.Id + Path.GetExtension(file.FileName);
+
+                        _logger.LogInformation($"Original filename: {file.FileName}");
+                        _logger.LogInformation($"New filename: {newFilename}"); 
+                    }
 
                     var uploadDirectory = Path.Combine(baseTarget, "roms/"); // Combine base path with folder path
-                    var filePath = Path.Combine(uploadDirectory, file.FileName); // Combine upload directory with file name
+                    var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
+ 
+                    filePath = Path.Combine(uploadDirectory, filePath); // Combine upload directory with file name
                     _logger.LogInformation($"filePath : {filePath}");
 
                     // Create directory if it doesn't exist

@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <SpaRoot>..\maxhanna.client</SpaRoot>
     <SpaProxyLaunchCommand>npm start</SpaProxyLaunchCommand>
-    <SpaProxyServerUrl>https://localhost:8000</SpaProxyServerUrl>
+    <SpaProxyServerUrl>https://localhost:443</SpaProxyServerUrl>
     <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
   </PropertyGroup>
 

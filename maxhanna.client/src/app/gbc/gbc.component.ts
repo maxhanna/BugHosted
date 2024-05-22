@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { util, GameBoy } from 'jsgbc';
 import { FileService } from '../../services/file.service';
@@ -9,51 +9,63 @@ import { FileService } from '../../services/file.service';
   templateUrl: './gbc.component.html',
   styleUrl: './gbc.component.css'
 })
-export class GbcComponent extends ChildComponent implements AfterViewInit, OnDestroy {
+export class GbcComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('localFileOpen') localFileOpen!: ElementRef<HTMLInputElement>;
   @ViewChild('loadRomSelect') loadRomSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
   gameboy: undefined | GameBoy;
   gbGamesList: Array<string> = [];
   gbColorGamesList: Array<string> = [];
+  pokemonGamesList: Array<string> = [];
   autosave = true;
   soundOn = true;
 
   constructor(private fileService: FileService) { super(); }
 
+  ngOnInit() {
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
+  }
   async ngAfterViewInit() {
-    await this.getGames();
+    try {
+      await this.getGames();
+    } catch { }
     this.gameboy = new GameBoy({
       lcd: { canvas: this.canvas.nativeElement }
     });
     this.setHTMLControls();
-    window.addEventListener('keydown', e => this.canvasKeypress(e, false), false);
-    window.addEventListener('keyup', e => this.canvasKeypress(e, true), false);
+    window.addEventListener('keydown', e => this.canvasKeypress(e, false), false); //Sets keyboard controls
+    window.addEventListener('keyup', e => this.canvasKeypress(e, true), false); //Sets keyboard controls
+     
+    const debouncedSaveGame = this.debounce(this.saveGame.bind(this), 2000); // Adjust delay as needed (2 seconds in this case) -- ensures game cannot be saved more then once per n second(s).
 
-
-
-    const debouncedSaveGame = this.debounce(this.saveGame.bind(this), 2000); // Adjust delay as needed (2 seconds in this case)
-
-    this.gameboy.addListener("mbcRamWrite", () => {
+    this.gameboy.addListener("mbcRamWrite", () => { // Allows the server to handle saving the game automatically
       if (this.autosave) {
-        debouncedSaveGame(false); // Call the debounced function
+        debouncedSaveGame(false);
       }
     });
   }
   async getGames() {
-    const res = await this.fileService.getDirectory(this.parentRef?.user!, "roms/") as Array<string>;
-    this.gbGamesList = [];
-    this.gbColorGamesList = [];
-    res.forEach(x => {
-      if (this.fileService.getFileExtension(x)!.includes("gbc") && !this.fileService.getFileExtension(x)!.includes("gbs")) {
-        this.gbColorGamesList.push(x);
-      } else if (this.fileService.getFileExtension(x)!.includes("gb") && !this.fileService.getFileExtension(x)!.includes("gbs")) {
-        this.gbGamesList.push(x);
-      }
-    });
+    try {
+      const res = await this.fileService.getDirectory(this.parentRef?.user!, "roms/") as Array<string>;
+      this.gbGamesList = [];
+      this.gbColorGamesList = [];
+      res.forEach(x => {
+        if (x.toLowerCase().includes("poke") && !this.fileService.getFileExtension(x)!.includes("gbs") && !this.fileService.getFileExtension(x)!.includes("sav")) {
+          this.pokemonGamesList.push(x);
+        }
+        else if (this.fileService.getFileExtension(x)!.includes("gbc") && !this.fileService.getFileExtension(x)!.includes("gbs")) {
+          this.gbColorGamesList.push(x);
+        }
+        else if (this.fileService.getFileExtension(x)!.includes("gb") && !this.fileService.getFileExtension(x)!.includes("gbs")) {
+          this.gbGamesList.push(x);
+        }
+      });
+    } catch {
+      console.log("Could not get games list");
+    }
   }
   private debounce(func: Function, wait: number) {
-    let timeout: any; // Change the type according to your needs
+    let timeout: any; 
     return function (this: any, ...args: any[]) {
       const context = this;
       clearTimeout(timeout);
@@ -139,23 +151,25 @@ export class GbcComponent extends ChildComponent implements AfterViewInit, OnDes
   }
   async saveGame(forceSaveLocal: boolean) {
     console.log("Saving game");
+    
     const romSaveFileName = this.loadRomSelect.nativeElement.value.split('.')[0];
     if (this.gameboy && romSaveFileName) {
-      if (!this.autosave || forceSaveLocal) {
-        util.saveAs(this.gameboy.getBatteryFileArrayBuffer(), romSaveFileName + ".sav");
-      } else {
-        const formData = new FormData();
-        const ab = this.gameboy.getBatteryFileArrayBuffer();
-        if (ab) {
-          const blob = new Blob([ab]);
-          formData.append('files', blob, romSaveFileName + ".sav");
+      try {
+        if (!this.autosave || forceSaveLocal) {
+          util.saveAs(this.gameboy.getBatteryFileArrayBuffer(), romSaveFileName + ".sav");
+        } else {
+          const formData = new FormData();
+          const ab = this.gameboy.getBatteryFileArrayBuffer();
+          if (ab) {
+            const blob = new Blob([ab]);
+            formData.append('files', blob, romSaveFileName + ".sav");
+          }
+          this.fileService.uploadRomFile(this.parentRef?.user!, formData);
         }
-        this.fileService.uploadRomFile(this.parentRef?.user!, formData);
-      }
+      } catch { console.error("Error while saving game!"); }
     }
   }
-  setHTMLControls() {
-    // Helper function to add both mouse and touch event listeners
+  setHTMLControls() { 
     const addPressReleaseEvents = (elementClass: string, joypadIndex: number) => {
       const element = document.getElementsByClassName(elementClass)[0];
 
@@ -271,6 +285,11 @@ export class GbcComponent extends ChildComponent implements AfterViewInit, OnDes
     console.log(event);
     event.preventDefault();
   }
+  beforeUnloadHandler(event: BeforeUnloadEvent) {
+    const message = 'Are you sure you want to leave?';
+    event.returnValue = message; // Standard for most browsers
+    return message; // For some browsers
+  }
   ngOnDestroy() {
     if (this.gameboy) {
       try {
@@ -280,12 +299,15 @@ export class GbcComponent extends ChildComponent implements AfterViewInit, OnDes
         this.gameboy.stop();
       } catch (e) { }
     }
+    window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+
   }
   async fileChanged() {
     const file = this.localFileOpen.nativeElement.files![0];
-    const rom = await util.readBlob(file);
-    if (this.gameboy)
-      this.gameboy.replaceCartridge(rom);
-
+    try {
+      const rom = await util.readBlob(file);
+      if (this.gameboy)
+        this.gameboy.replaceCartridge(rom);
+    } catch (error) { console.error(error); }
   }
 } 

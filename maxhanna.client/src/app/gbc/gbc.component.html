@@ -6,11 +6,16 @@
   <div class="gamesContainer">
     <select (change)="loadRom($event)" #loadRomSelect>
       <option value="" disabled selected>Select A Game</option>
-      <option value="" disabled>=====Gameboy=====</option>
-      <option *ngFor="let game of gbGamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
+
+      <option value="" disabled>=====Pokémon=====</option>
+      <option *ngFor="let game of pokemonGamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
 
       <option value="" disabled>=====Gameboy Color=====</option>
       <option *ngFor="let game of gbColorGamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
+
+      <option value="" disabled>=====Gameboy=====</option>
+      <option *ngFor="let game of gbGamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
+
     </select>
     <span class="persistanceSpan">
       Server Save:
