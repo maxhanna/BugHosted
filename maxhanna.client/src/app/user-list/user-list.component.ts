@@ -9,7 +9,7 @@ import { User } from '../../services/datacontracts/user';
 })
 export class UserListComponent implements OnInit {
   @Input() user?: User;
-  @Output() shareEvent = new EventEmitter<User>();
+  @Output() userClickEvent = new EventEmitter<User>();
 
   users: Array<User> = [];
   constructor(private userService: UserService) { 
@@ -18,7 +18,7 @@ export class UserListComponent implements OnInit {
   async ngOnInit() {
     this.users = await this.userService.getAllUsers(this.user!); 
   }
-  share(value: User) {
-    this.shareEvent.emit(value);
+  click(value: User) {
+    this.userClickEvent.emit(value);
   }
 }

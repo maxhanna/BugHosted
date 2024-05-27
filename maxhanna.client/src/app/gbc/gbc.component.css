@@ -4,7 +4,8 @@
 }
 
 .componentMain {
-  width: 395px;
+  width: 381px;
+  height: 630px;
 }
 
 .gamesContainer {
@@ -18,11 +19,12 @@
   }
 
 .gameboy {
+  margin-left:-2px;
   overflow: hidden;
-  width: 390px;
+  width: 380px;
   height: 565px;
   border-radius: 20px;
-  padding: 13px;
+  padding: 10px;
   background-color: var(--gameboyBgColor);
   box-shadow: 0px -5px 0px var(--main-bg-color), 0px 5px 0px var(--main-bg-color);
   font-family: sans-serif;
@@ -213,12 +215,12 @@
 
 .a {
   top: 15px;
-  right: -10px;
+  left: 55px;
 }
 
 .b {
   top: 35px;
-  left: -10%;
+  left: -15%;
 }
 
 .gameboy .start-select {

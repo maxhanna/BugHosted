@@ -3,7 +3,7 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Notepad</div>
    
-    <app-user-list (shareEvent)="shareNote($event);" [user]="parentRef?.user!" *ngIf="isPanelExpanded"></app-user-list>
+    <app-user-list (userClickEvent)="shareNote($event);" [user]="parentRef?.user!" *ngIf="isPanelExpanded"></app-user-list>
 
   
 

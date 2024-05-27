@@ -7,10 +7,7 @@
     {{ isPanelExpanded ? 'Hide Users' : 'Show Users' }}
   </button>
 
-  <div class="userPanel" [class.expanded]="isPanelExpanded"> 
-      <div *ngFor="let user of users" (click)="openChat(user);">{{ user.username }}</div>
-  
-  </div>
+  <app-user-list (userClickEvent)="openChat($event);" [user]="parentRef?.user!" *ngIf="isPanelExpanded" class="userPanel" [class.expanded]="isPanelExpanded"></app-user-list>
 
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUser">
@@ -32,3 +29,5 @@
       </div>
     </div>
 
+  </div>
+</div>
