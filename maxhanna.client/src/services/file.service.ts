@@ -58,8 +58,8 @@ export class FileService
     form.append('user', JSON.stringify(user));
     form.append('isPublic', isPublic + "");
     try {
-      const dir = directory ? `folderPath=${encodeURIComponent(directory)}` : '';
-      const response = await fetch(`/file/upload?${dir}`, {
+      const dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
+      const response = await fetch(`/file/upload${dir}`, {
         method: 'POST', 
         body: form,
       });
