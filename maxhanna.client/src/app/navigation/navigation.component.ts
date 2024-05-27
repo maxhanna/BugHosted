@@ -9,6 +9,9 @@ import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
 import { CoinWatchService } from '../../services/coin-watch.service';
 import { AppComponent } from '../app.component';
+import { UserService } from '../../services/user.service';
+import { MenuItem } from '../../services/datacontracts/menu-item';
+import { ChatService } from '../../services/chat.service';
 
 @Component({
   selector: 'app-navigation',
@@ -18,51 +21,47 @@ import { AppComponent } from '../app.component';
 export class NavigationComponent implements OnInit {
   @ViewChild('navbar') navbar!: ElementRef<HTMLElement>;
   @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>;
-  navigationItems = [
-    { icon: "📕", title: "Close Menu", content: '' },
-    { icon: "🔍", title: "Favourites", content: undefined },
-    { icon: "📅", title: "Calendar", content: undefined },
-    { icon: "⛏️", title: "MiningDevices", content: undefined },
-    { icon: "🖥️", title: "MiningRigs", content: undefined },
-    { icon: "☀️", title: "Weather", content: '' },
-    { icon: "✔️", title: "Todo", content: undefined },
-    { icon: "🎼", title: "Music", content: undefined },
-    { icon: "📁", title: "Files", content: undefined },
-    { icon: "🗒️", title: "Notepad", content: undefined },
-    { icon: "📇", title: "Contacts", content: undefined },
-    { icon: "G", title: "Game", content: undefined },
-    { icon: "🎮", title: "Gbc", content: undefined },
-    { icon: "💵", title: "Coin-Wallet", content: undefined },
-    { icon: "₿", title: "Coin-Watch", content: undefined },
-    { icon: "👤", title: "User", content: undefined },
-  ];
-  @Input() user?: User;
- 
 
-  constructor(private _parent: AppComponent,
+  @Input() user?: User;
+
+  constructor(public _parent: AppComponent,
     private miningService: MiningService,
     private calendarService: CalendarService,
     private weatherService: WeatherService,
-    private coinwatchService: CoinWatchService) { 
+    private coinwatchService: CoinWatchService,
+    private userService: UserService,
+    private chatService: ChatService) {
   }
   async ngOnInit() {
-    setTimeout(() => {
-      this.getCurrentWeatherInfo();
-      this.getMiningInfo(); // also calls this.getCoinWatchInfo();
-      this.getCalendarInfo();
-      this.getCoinWalletInfo(); 
-    }, 1110);
-   
-  } 
+    this.getCurrentWeatherInfo();
+    this.getMiningInfo();
+    this.getCalendarInfo();
+    this.getCoinWalletInfo();
+    this.getSelectedMenuItems();
+    this.getChatInfo();
+  }
+  async getSelectedMenuItems() {
+    this._parent.selectedMenuItems = await this.userService.getUserMenu(this.user!);
+  }
+  menuIconsIncludes(title: string) {
+    return this._parent.selectedMenuItems.filter(x => x.title == title).length > 0;
+  }
+  async getChatInfo() {
+    const res = await this.chatService.getChatNotifications(this._parent.user!);
+    console.log(res + ": chat notifs");
+    if (res && res != 0) {
+      this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = res + "";
+    }
+  }
   async getCoinWalletInfo() {
     const res = await this.miningService.getMiningWallet(this.user!) as MiningWalletResponse;
-     
+
     if (res && res.currencies) {
       const totalBalance = res.currencies.find(x => x.currency!.toUpperCase() == "BTC")!.totalBalance!;
       const fiatRate = res!.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate!;
       const product = (parseFloat(totalBalance) * fiatRate).toFixed(0) + "$";
-      this.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = product + "";
-    }  
+      this._parent.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = product + "";
+    }
   }
   async getCalendarInfo() {
     let notificationCount = 0;
@@ -75,13 +74,13 @@ export class NavigationComponent implements OnInit {
         notificationCount++;
       }
     })
-    this.navigationItems.filter(x => x.title == "Calendar")[0].content = (notificationCount != 0 ? notificationCount + '' : '');
+    this._parent.navigationItems.filter(x => x.title == "Calendar")[0].content = (notificationCount != 0 ? notificationCount + '' : '');
   }
   async getCurrentWeatherInfo() {
     const res = await this.weatherService.getWeather(this.user!);
     if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
-      this.navigationItems.filter(x => x.title == "Weather")[0].content = res?.current.temp_c.toString() + "°C";
-      this.navigationItems.filter(x => x.title == "Weather")[0].icon = res.current.condition.icon;
+      this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = res?.current.temp_c.toString() + "°C";
+      this._parent.navigationItems.filter(x => x.title == "Weather")[0].icon = res.current.condition.icon;
     }
   }
   async getMiningInfo() {
@@ -90,11 +89,11 @@ export class NavigationComponent implements OnInit {
     let tmpNumberOfOnlineDevices = 0;
     let tmpHighestTemp = 0;
     const res = await this.miningService.getMiningRigInfo(this.user!) as Array<MiningRig>;
-     
+
     res?.forEach(x => {
       tmpLocalProfitability += x.localProfitability!;
       x.devices?.forEach(device => {
-          if (device.temperature! >= tmpHighestTemp) {
+        if (device.temperature! >= tmpHighestTemp) {
           tmpHighestTemp = device.temperature!;
         }
         if (device.state == 2) {
@@ -105,17 +104,17 @@ export class NavigationComponent implements OnInit {
         }
       });
     });
-    this.navigationItems.filter(x => x.title == "MiningDevices")[0].content = `${tmpHighestTemp}°C\n${tmpNumberOfOnlineDevices}/${tmpNumberOfDevices}`;
+    this._parent.navigationItems.filter(x => x.title == "MiningDevices")[0].content = `${tmpHighestTemp}°C\n${tmpNumberOfOnlineDevices}/${tmpNumberOfDevices}`;
     this.getCoinWatchInfo(tmpLocalProfitability);
-    
+
   }
   async getCoinWatchInfo(tmpLocalProfitability: number) {
-    const res = await this.coinwatchService.getCoinwatchResponse(this.user!); 
+    const res = await this.coinwatchService.getCoinwatchResponse(this.user!);
     const result = res as CoinWatchResponse[];
     if (result && result.length > 0) {
       const btcToCADRate = result.find(x => x.name?.toLowerCase() == "bitcoin")?.rate!;
-      this.navigationItems.filter(x => x.title == "MiningRigs")[0].content = (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
-      this.navigationItems.filter(x => x.title == "Coin-Watch")[0].content = btcToCADRate.toFixed(0) + "$";
+      this._parent.navigationItems.filter(x => x.title == "MiningRigs")[0].content = (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
+      this._parent.navigationItems.filter(x => x.title == "Coin-Watch")[0].content = btcToCADRate.toFixed(0) + "$";
     }
   }
   toggleMenu() {

@@ -37,10 +37,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": [
-              "src/assets/gba/gba_bundle.js",
-              "src/assets/gba/video/worker.js"
-            ]
+            "scripts": [ ]
           },
           "configurations": {
             "production": {
@@ -76,18 +73,14 @@
               "buildTarget": "maxhanna.client:build:development"
             }
           },
-          "defaultConfiguration": "production",
+          "defaultConfiguration": "development",
           "options": {
             "proxyConfig": "src/proxy.conf.js",
             "port": 443,
             "host": "0.0.0.0",
             "ssl": true,
             "sslCert": "ssl/maxhanna_selfip_com.crt",
-            "sslKey": "ssl/maxhanna_selfip_com.key",
-            "headers": {
-              "Cross-Origin-Opener-Policy": "same-origin",
-              "Cross-Origin-Embedder-Policy": "require-corp"
-            }
+            "sslKey": "ssl/maxhanna_selfip_com.key"
           }
         },
         "extract-i18n": {

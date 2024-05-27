@@ -15,6 +15,8 @@ import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
 import { User } from '../services/datacontracts/user';
+import { MenuItem } from '../services/datacontracts/menu-item';
+import { ChatComponent } from './chat/chat.component';
 
 
 @Component({
@@ -27,7 +29,26 @@ export class AppComponent implements OnInit {
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>()
-
+  navigationItems = [
+    { icon: "📕", title: "Close Menu", content: '' },
+    { icon: "🔍", title: "Favourites", content: undefined },
+    { icon: "📅", title: "Calendar", content: undefined },
+    { icon: "⛏️", title: "MiningDevices", content: undefined },
+    { icon: "🖥️", title: "MiningRigs", content: undefined },
+    { icon: "☀️", title: "Weather", content: '' },
+    { icon: "✔️", title: "Todo", content: undefined },
+    { icon: "🎼", title: "Music", content: undefined },
+    { icon: "📁", title: "Files", content: undefined },
+    { icon: "🗒️", title: "Notepad", content: undefined },
+    { icon: "📇", title: "Contacts", content: undefined },
+    { icon: "G", title: "Game", content: undefined },
+    { icon: "🎮", title: "Gameboy Color", content: undefined },
+    { icon: "💵", title: "Coin-Wallet", content: undefined },
+    { icon: "₿", title: "Coin-Watch", content: undefined },
+    { icon: "🗨️", title: "Chat", content: undefined },
+    { icon: "👤", title: "User", content: undefined },
+  ]; 
+  selectedMenuItems: Array<MenuItem> = []
   constructor() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
@@ -77,7 +98,7 @@ export class AppComponent implements OnInit {
       else if (componentType == "Game") {
         componentClass = GameComponent;
       }
-      else if (componentType == "Gbc") {
+      else if (componentType == "Gameboy Color") {
         componentClass = GbcComponent;
       }
       else if (componentType == "Coin-Wallet") {
@@ -85,6 +106,9 @@ export class AppComponent implements OnInit {
       }
       else if (componentType == "User") {
         componentClass = UserComponent;
+      }
+      else if (componentType == "Chat") {
+        componentClass = ChatComponent;
       }
 
       if (componentClass) {

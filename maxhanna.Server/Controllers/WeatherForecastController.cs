@@ -23,22 +23,28 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("", Name = "GetWeatherForecast")]
-        public WeatherForecast Get([FromBody] User user)
+        public async Task<WeatherForecast> GetWeatherForecast([FromBody] User user)
         {
             _logger.LogInformation("POST /WeatherForecast");
 
+            // Get the weather location for the user
+            var weatherLocationRes = await GetWeatherLocation(user);
+            var weatherLocation = weatherLocationRes.Location;
+            if (weatherLocation == null || string.IsNullOrEmpty(weatherLocation))
+            {
+                weatherLocation = "Montreal";
+            }
+            // Use the retrieved location in the API request
             var client = new RestClient(urlRoot);
-            var request = new RestRequest($"?key={apiKey}&q=Montreal&days=3");
-
+            var request = new RestRequest($"?key={apiKey}&q={weatherLocation}&days=3");
 
             var response = client.Execute(request, Method.Get);
             var content = response.Content;
 
-            var weatherForecast = JsonConvert.DeserializeObject<WeatherForecast>(content!);
-            return weatherForecast!;
-             
-
+            var weatherForecast = JsonConvert.DeserializeObject<WeatherForecast>(content);
+            return weatherForecast;
         }
+
         [HttpPost("/WeatherForecast/GetWeatherLocation", Name = "GetWeatherLocation")]
         public async Task<WeatherLocation> GetWeatherLocation([FromBody] User user)
         {
@@ -78,6 +84,7 @@ namespace maxhanna.Server.Controllers
 
             return loc;
         }
+
         [HttpPut("/WeatherForecast/UpdateWeatherLocation", Name = "UpdateWeatherLocation")]
         public async Task<IActionResult> UpdateOrCreateWeatherLocation([FromBody] CreateWeatherLocation location)
         {

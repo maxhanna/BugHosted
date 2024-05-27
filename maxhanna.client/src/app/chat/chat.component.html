@@ -1,1 +1,34 @@
-<p>chat works!</p>
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me();"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">Chat</div>
+
+  <button class="toggleButton" (click)="togglePanel()">
+    {{ isPanelExpanded ? 'Hide Users' : 'Show Users' }}
+  </button>
+
+  <div class="userPanel" [class.expanded]="isPanelExpanded"> 
+      <div *ngFor="let user of users" (click)="openChat(user);">{{ user.username }}</div>
+  
+  </div>
+
+  <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
+    <div *ngIf="currentChatUser">
+      <div class="chatHeader">
+        <span>Chat with {{ currentChatUser.username }}</span>
+        <button (click)="closeChat()">Close Chat</button>
+      </div>
+      <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
+        <div *ngFor="let message of chatHistory" [ngClass]="{'align-left': message.sender.id === parentRef?.user!.id, 'align-right': message.sender.id !== parentRef?.user!.id}">
+          <div class="messageContainer">
+            <div class="messageSender">{{ message.sender.username }} <small>({{ formatTimestamp(message.timestamp) }})</small></div>
+            <div class="messageContent">{{ message.content }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="messageInput">
+        <input placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()" />
+        <button (click)="sendMessage()">✉️</button>
+      </div>
+    </div>
+

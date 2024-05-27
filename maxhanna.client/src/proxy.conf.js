@@ -14,6 +14,7 @@ const PROXY_CONFIG = [
       "/notepad",
       "/contact",
       "/user",
+      "/chat",
     ],
     target,
     secure: false

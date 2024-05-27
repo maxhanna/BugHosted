@@ -31,6 +31,14 @@
     margin-right: auto;
     cursor: pointer;
   }
+
+.thumbnailFileNameAndDownload label {
+    display: inline-block;
+    width: CALC(100% - 30px);
+    overflow-x: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 .closeImageButton {
   position: relative;
   top: 0px;
@@ -86,3 +94,32 @@ tr[draggable] {
   tr[draggable]:hover {
     background-color: #f0f0f0;
   }
+
+
+.disabled-overlay {
+  position: absolute;
+  top: 80px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: CALC(100% - 80px);
+  background: rgba(128, 128, 128, 0.65);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.disabled {
+  pointer-events: none; /* Disable pointer events for the disabled elements */
+}
+
+.uploadFileNames {
+  max-width: 300px;  
+  white-space: nowrap; /* Prevent wrapping */
+  overflow: hidden; /* Hide overflow */
+  text-overflow: ellipsis; /* Add ellipsis */
+}
+
+.uploadOrCreateDirectoryDiv {
+    max-width:300px;
+}

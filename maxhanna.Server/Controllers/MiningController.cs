@@ -115,6 +115,7 @@ namespace maxhanna.Server.Controllers
             try
             {
                 Dictionary<string, string> kz = await GetNicehashCredentials(user);
+                if (kz.Count == 0) return rigs;
                 var res = _api.get(kz, "/main/api/v2/mining/rigs2", true);
                 JsonDocument jsonDoc = JsonDocument.Parse(res);
                 JsonElement miningRigs;
@@ -173,7 +174,10 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                var res = _api.get(await GetNicehashCredentials(user), "/main/api/v2/mining/rigs2", true);
+                var creds = await GetNicehashCredentials(user);
+                if (creds.Count == 0) return devices;
+
+                var res = _api.get(creds, "/main/api/v2/mining/rigs2", true);
                 JsonDocument jsonDoc = JsonDocument.Parse(res);
                 JsonElement miningRigs;
                 _logger.LogInformation("Connected to Nicehash :");
@@ -285,7 +289,10 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                var res = _api.get(await GetNicehashCredentials(user), "/main/api/v2/accounting/accounts2?fiat=CAD", true);
+                var creds = await GetNicehashCredentials(user);
+                if (creds.Count == 0) return Ok("No Nicehash API present!");
+
+                var res = _api.get(creds, "/main/api/v2/accounting/accounts2?fiat=CAD", true);
 
                 if (string.IsNullOrEmpty(res))
                 {
@@ -317,7 +324,10 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                var res = _api.get(await GetNicehashCredentials(user), "/main/api/v2/mining/rigs/stats/data", true);
+                var creds = await GetNicehashCredentials(user);
+                if (creds.Count == 0) return Ok("No Nicehash API present!");
+
+                var res = _api.get(creds, "/main/api/v2/mining/rigs/stats/data", true);
 
                 if (string.IsNullOrEmpty(res))
                 {
@@ -356,7 +366,10 @@ namespace maxhanna.Server.Controllers
                 }
                 payload.Add(new JProperty("action", statusUpdate.requestedAction));
 
-                var res = _api.post(await GetNicehashCredentials(statusUpdate.user), "/main/api/v2/mining/rigs/status2", JsonConvert.SerializeObject(payload), true);
+                var creds = await GetNicehashCredentials(statusUpdate.user);
+                if (creds.Count == 0) return Ok("No Nicehash API present!");
+
+                var res = _api.post(creds, "/main/api/v2/mining/rigs/status2", JsonConvert.SerializeObject(payload), true);
                 return Ok(res);
             }
             catch (Exception e)

@@ -21,6 +21,7 @@ import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
+import { UserListComponent } from './user-list/user-list.component';
 
 @NgModule({
   declarations: [
@@ -41,7 +42,8 @@ import { ChatComponent } from './chat/chat.component';
     CoinWalletComponent,
     GbcComponent,
     UserComponent,
-    ChatComponent
+    ChatComponent,
+    UserListComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

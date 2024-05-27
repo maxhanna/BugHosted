@@ -1,3 +1,11 @@
+
+
+.mainTable td {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
 .selectType {
-    align-self:center;
-} 
+  align-self: center;
+}

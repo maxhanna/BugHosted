@@ -191,44 +191,63 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     }
   }
   async createCalendarEntry() {
-    let tmpCalendarEntry = new CalendarEntry();
-    tmpCalendarEntry.date = new Date(this.selectedDate!.date!);
-    tmpCalendarEntry.type = this.calendarTypeEntry.nativeElement.value;
-    tmpCalendarEntry.note = this.calendarNoteEntry.nativeElement.value;
-
-    const timeValue = this.calendarTimeEntry.nativeElement.value;
-    const [hours, minutes] = timeValue.split(':');
-    const timeZoneOffset = tmpCalendarEntry.date.getTimezoneOffset();
-    tmpCalendarEntry.date.setHours(parseInt(hours, 10));
-    tmpCalendarEntry.date.setMinutes(parseInt(minutes, 10));
-
-    //const headers = { 'Content-Type': 'application/json' };
-    //const utcDate = new Date(tmpCalendarEntry.date.getTime() - (tmpCalendarEntry.date.getTimezoneOffset() * 60000));
-    //const body = JSON.stringify({ ...tmpCalendarEntry, date: utcDate });
-
     try {
+      const tmpCalendarEntry = this.prepareNewCalendarEntry();
+
       this.startLoading();
-      this.calendarService.createCalendarEntries(this.parentRef?.user!, tmpCalendarEntry);
-      //await lastValueFrom(await this.http.post("/calendar", body, { headers }));
-      this.stopLoading();
+      await this.calendarService.createCalendarEntries(this.parentRef?.user!, tmpCalendarEntry);
+
+      this.updateCalendarDaysWithNewEntry(tmpCalendarEntry);
+
+      await this.refreshCalendar();
+
       this.clearInputValues();
-      //this.selectedCalendarEntries!.push(tmpCalendarEntry);
-      await this.setCalendarDates(this.now);
-      await this.getCalendarDetails(this.selectedDate!);
-    }
-    catch (error) {
+      this.stopLoading();
+    } catch (error) {
       console.error(error);
     }
   }
+
+  private prepareNewCalendarEntry(): CalendarEntry {
+    const tmpCalendarEntry = new CalendarEntry();
+    tmpCalendarEntry.date = this.selectedDate!.date!;
+
+    const timeString = this.calendarTimeEntry.nativeElement.value;
+    const [hours, minutes] = timeString.split(":").map(Number);
+    tmpCalendarEntry.date.setHours(hours, minutes);
+
+    const utcDate = new Date(tmpCalendarEntry.date.getTime() - (tmpCalendarEntry.date.getTimezoneOffset() * 60000));
+    tmpCalendarEntry.date = utcDate;
+
+    tmpCalendarEntry.type = this.calendarTypeEntry.nativeElement.value;
+    tmpCalendarEntry.note = this.calendarNoteEntry.nativeElement.value;
+
+    return tmpCalendarEntry;
+  }
+
+  private updateCalendarDaysWithNewEntry(tmpCalendarEntry: CalendarEntry) {
+    const tmpCD = this.calendarDays.find(x => x.date && x.date!.getDate() === this.selectedDate!.date!.getDate());
+    if (tmpCD) {
+      tmpCD.symbols!.push(this.eventSymbolMap[tmpCalendarEntry.type!]);
+    }
+  }
+
+  private async refreshCalendar() {
+    await this.getCalendarEntries();
+    await this.setCalendarDates(this.now);
+    await this.getCalendarDetails(this.selectedDate!);
+  }
+
+  private clearInputValues() {
+    this.calendarTimeEntry.nativeElement.value = "00:00";
+    this.calendarNoteEntry.nativeElement.value = "";
+    this.calendarTypeEntry.nativeElement.value = this.calendarTypeEntry.nativeElement.options[0].value;
+  }
+
   convertSymbols(symbols: string[] | undefined): string {
     return symbols ? symbols.map(symbol => this.eventSymbolMap[symbol] || symbol).join('') : '';
   }
   getEventTypes(): string[] {
     return Object.keys(this.eventSymbolMap);
-  }
-  private clearInputValues() {
-    this.calendarTimeEntry.nativeElement.value = "00:00";
-    this.calendarNoteEntry.nativeElement.value = "";
-    this.calendarTypeEntry.nativeElement.value = this.calendarTypeEntry.nativeElement.options[0].value;
   }
 }

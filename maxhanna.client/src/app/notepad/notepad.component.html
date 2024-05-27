@@ -2,10 +2,15 @@
   <div class="closeButton" (click)="remove_me();"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Notepad</div>
+   
+    <app-user-list (shareEvent)="shareNote($event);" [user]="parentRef?.user!" *ngIf="isPanelExpanded"></app-user-list>
+
+  
 
   <textarea #noteInput (input)="handleNoteInputChange()" required></textarea>
   <fieldset class="buttonFields">
-    <input type="submit" value="💾" (click)="addNote()" #noteAddButton title="Save Note" />
+    <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton title="Save Note" />
+    <input type="submit" value="↗️" (click)="isPanelExpanded = !isPanelExpanded; getUsers();" #shareNoteButton title="Share Note" />
     <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
     <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
     <input type="hidden" value="" #noteId />

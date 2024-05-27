@@ -36,7 +36,22 @@ export class NotepadService {
       return await response.json(); // Parse JSON response 
     } catch (error) {
       return null; // Return null in case of error
-    } 
+    }
+  }
+  async shareNote(user: User, user2: User, noteId: number) {
+    try {
+      const response = await fetch(`/notepad/share/${noteId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+        },
+        body: JSON.stringify({ user1: user, user2: user2 }), // Convert the user object to JSON string
+      });
+
+      return await response.json(); // Parse JSON response 
+    } catch (error) {
+      return null; // Return null in case of error
+    }
   }
   async addNote(user: User, text: string) {
     try {

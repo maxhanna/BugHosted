@@ -1,7 +1,7 @@
 <div class="componentMain">
   <div class="closeButton" (click)="ngOnDestroy(); remove_me();"></div>
   <!--<div class="refreshButton" (click)="ngAfterViewInit();"></div>-->
-  <div class="componentTitle">GBC</div>
+  <div class="componentTitle">Gameboy Color</div>
 
   <div class="gamesContainer">
     <select (change)="loadRom($event)" #loadRomSelect>
@@ -48,7 +48,7 @@
       <canvas id="mainCanvas" class="mainCanvas" #canvas slot="lcd" onkeypress="canvasKeypress($event)"></canvas>
     </div>
 
-    <div class="nintendo">Hackboy</div>
+    <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
     <div class="controls">
       <div class="dpad">

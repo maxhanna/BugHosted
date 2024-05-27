@@ -6,9 +6,8 @@ import { User } from './datacontracts/user';
 })
 export class FileService
 {
-  async getDirectory(user: User, dir: string)
-  {
-    var params = new URLSearchParams({ directory: dir });
+  async getDirectory(user: User, dir: string, visibility: string, ownership: string) {
+    var params = new URLSearchParams({ directory: dir, visibility: visibility || '', ownership: ownership || '' });
     try {
       const response = await fetch(`/file/getdirectory?` + params, {
         method: 'POST',
@@ -24,7 +23,7 @@ export class FileService
     }
   }
 
-  async createDirectory(user: User, directory: string)
+  async createDirectory(user: User, directory: string, isPublic: boolean)
   {
     try {
       const response = await fetch(`/file/makedirectory`, {
@@ -32,7 +31,7 @@ export class FileService
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, directory }),
+        body: JSON.stringify({ user, directory, isPublic }),
       });
 
       return await response.text();
@@ -55,9 +54,9 @@ export class FileService
       return null;
     }
   }
-  async uploadFile(user: User, form: FormData, directory?: string) {
+  async uploadFile(user: User, form: FormData, directory?: string, isPublic: boolean = true) {
     form.append('user', JSON.stringify(user));
-
+    form.append('isPublic', isPublic + "");
     try {
       const dir = directory ? `folderPath=${encodeURIComponent(directory)}` : '';
       const response = await fetch(`/file/upload?${dir}`, {

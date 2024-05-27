@@ -6,6 +6,7 @@ import { MiningService } from '../../services/mining.service';
 import { NicehashApiKeys } from '../../services/datacontracts/nicehash-api-keys';
 import { WeatherLocation } from '../../services/datacontracts/weather-location';
 import { WeatherService } from '../../services/weather.service';
+import { MenuItem } from '../../services/datacontracts/menu-item';
 
 
 @Component({
@@ -25,11 +26,11 @@ export class UserComponent extends ChildComponent implements OnInit {
   updateUserDivVisible = false;
   notifications: Array<string> = [];
   usersCount: string | null = null;
-  isGeneralToggled = true;
+  isGeneralToggled = false;
   isNicehashApiKeysToggled = false;
   isWeatherLocationToggled = false;
-  nhApiKeys?: NicehashApiKeys;
-  weatherLocation?: WeatherLocation;
+  isMenuIconsToggled = false;
+  nhApiKeys?: NicehashApiKeys;  
   constructor(private userService: UserService,
     private miningService: MiningService,
     private weatherService: WeatherService) { super(); }
@@ -43,11 +44,11 @@ export class UserComponent extends ChildComponent implements OnInit {
       this.updatedPassword.nativeElement.value = '';
     } 
     this.isNicehashApiKeysToggled = false;
-    this.isGeneralToggled = true;
+    this.isGeneralToggled = false;
     this.updateUserDivVisible = false;
     this.isWeatherLocationToggled = false;
-    this.weatherLocation = undefined;
-    this.nhApiKeys = undefined;
+    this.isMenuIconsToggled = false; 
+    this.nhApiKeys = undefined; 
   }
   logout() {
     this.clearForm();
@@ -55,7 +56,27 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.parentRef!.deleteCookie("user");
     this.notifications.push("Logged out successfully");
   }
+  menuIconsIncludes(title: string) {
+    return this.parentRef!.selectedMenuItems.filter(x => x.title == title).length > 0;
+  }
+  async getMenuIcons() {
+    if (this.isMenuIconsToggled) { 
+      const response = await this.userService.getUserMenu(this.parentRef?.user!);
+      this.parentRef!.selectedMenuItems = response;
+    }
+  }
+  async selectMenuIcon(title: string) {
+    if (this.parentRef!.selectedMenuItems.filter(x => x.title == title).length > 0) {
+      this.parentRef!.selectedMenuItems = this.parentRef!.selectedMenuItems.filter(x => x.title != title);
+      this.userService.deleteMenuItem(this.parentRef?.user!, title);
+      this.notifications.push(`Deleted menu item : ${title}`);
 
+    } else {
+      this.parentRef!.selectedMenuItems!.push(new MenuItem(this.parentRef?.user!.id!, title));
+      this.userService.addMenuItem(this.parentRef?.user!, title);
+      this.notifications.push(`Added menu item : ${title}`);
+    }
+  }
   async createUser() {
     const tmpUserName = this.loginUsername.nativeElement.value;
     const tmpPassword = this.loginPassword.nativeElement.value;
@@ -64,17 +85,17 @@ export class UserComponent extends ChildComponent implements OnInit {
       const tmpUser = new User(undefined, tmpUserName, tmpPassword);
       try {
         const res = await this.userService.createUser(tmpUser);
-        if (res) {
+        console.log("created user?  : " + res);
+        if (res && !res.includes("Error")) {
           tmpUser.id = parseInt(res);
+          console.log("id : " + parseInt(res));
           this.notifications.push("Successfully added user");
           const ip = await this.userService.getUserIp();
           console.log(ip);
           console.log(ip["city"]);
-          let location = new WeatherLocation;
-
-          location.location = ip["city"];
-          location.ownership = tmpUser.id;
-          await this.weatherService.updateWeatherLocation(tmpUser, location);
+          await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
+        } else {
+          this.notifications.push(`${JSON.parse(res!)["message"]}`);
         }
       } catch (error: any) {
         const message = error["message"];
@@ -89,12 +110,9 @@ export class UserComponent extends ChildComponent implements OnInit {
       return alert("Username cannot be empty!");
     }
   }
-  async getLoggedInUser() {
-    console.log("logged in user? ");
-
+  async getLoggedInUser() {  
     if (this.parentRef!.getCookie("user")) {
       this.parentRef!.user = JSON.parse(this.parentRef!.getCookie("user"));
-      console.log("logged in user : " + this.parentRef!.user);
     }
   }
   async getNicehashApiKeys() {
@@ -102,7 +120,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       this.nhApiKeys = await this.miningService.getNicehashApiInfo((this.parentRef?.user)!);
     }
   }
-  private async updateNHAPIKeys() {
+  async updateNHAPIKeys() {
     if (this.isNicehashApiKeysToggled) {
       let keys = new NicehashApiKeys();
       keys.orgId = this.orgId.nativeElement.value;
@@ -120,20 +138,18 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
   async getWeatherLocation() {
     if (this.isWeatherLocationToggled) {
-      this.weatherLocation = await this.weatherService.getWeatherLocation((this.parentRef?.user)!);
+      const res = await this.weatherService.getWeatherLocation(this.parentRef?.user!);
+      console.log(res);
+      this.weatherLocationInput.nativeElement.value = res.location;
     }
   }
-  private async updateWeatherLocation() {
-    if (this.isWeatherLocationToggled) {
-      let location = new WeatherLocation();
-      location.location = this.weatherLocationInput.nativeElement.value;
-      location.ownership = this.parentRef?.user!.id;
-
+  async updateWeatherLocation() {
+    if (this.isWeatherLocationToggled) { 
       try {
-        await this.weatherService.updateWeatherLocation((this.parentRef?.user)!, location);
-        this.notifications.push("Nicehash API Keys updated successfully");
+        await this.weatherService.updateWeatherLocation((this.parentRef?.user)!, this.weatherLocationInput.nativeElement.value);
+        this.notifications.push("Weather location updated successfully"); 
       } catch {
-        this.notifications.push("Error while updating Nicehash API Keys!");
+        this.notifications.push("Error while updating weather location!");
       }
     }
   }
@@ -142,9 +158,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     const tmpUser = new User(currUser.id, this.updatedUsername.nativeElement.value, this.updatedPassword.nativeElement.value);
     this.startLoading();
     try {
-      const res = await this.userService.updateUser(tmpUser);
-      await this.updateNHAPIKeys();
-      await this.updateWeatherLocation();
+      const res = await this.userService.updateUser(tmpUser); 
       const message = res["message"]; 
       this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10); 
       this.notifications.push(message);

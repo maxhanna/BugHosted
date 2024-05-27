@@ -22,7 +22,18 @@ namespace maxhanna.Server.Controllers
         {
             _logger.LogInformation($"GET /Notepad (for user: {user.Id})");
 
-            string sql = "SELECT (id, LEFT(note, 25) AS note, date, ownership) FROM maxhanna.notepad WHERE ownership = @Owner";
+            string sql = "SELECT " +
+                            "id, LEFT(note, 25) AS note, date, ownership " +
+                        "FROM " +
+                            "maxhanna.notepad " +
+                        "WHERE " +
+                            "ownership = @Owner " +
+                            "OR " +
+                            "ownership LIKE CONCAT('%,', @Owner, ',%') " +
+                            "OR " +
+                            "ownership LIKE CONCAT(@Owner, ',%') " +
+                            "OR " +
+                            "ownership LIKE CONCAT('%,', @Owner)";
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -57,12 +68,64 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while fetching Notepad.");
             }
         }
+
+        [HttpPost("/Notepad/Share/{noteId}", Name = "ShareNote")]
+        public async Task<IActionResult> Get([FromBody] ShareNotepadRequest request, int noteId)
+        {
+            _logger.LogInformation($"GET /Notepad (for user: {request.User1.Id} to user: {request.User2.Id})");
+
+            string sql = "UPDATE maxhanna.notepad SET Ownership = CONCAT(Ownership, ',', @user2id) WHERE id = @noteId";
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@user2id", request.User2.Id);
+                        cmd.Parameters.AddWithValue("@noteId", noteId);
+
+                        if (await cmd.ExecuteNonQueryAsync() > 0)
+                        {
+                            _logger.LogInformation("Returned OK");
+                            return Ok();
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Returned 500");
+                            return StatusCode(500, "Failed to insert data");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching Notepad.");
+                return StatusCode(500, "An error occurred while fetching Notepad.");
+            }
+        }
         [HttpPost("/Notepad/{id}", Name = "GetNoteById")]
         public async Task<IActionResult> Get([FromBody] User user, int id)
         {
             _logger.LogInformation($"GET /Notepad/" + id);
 
-            string sql = "SELECT id, note, date, ownership FROM maxhanna.notepad WHERE id = @ID AND ownership = @Owner";
+            string sql = "SELECT " +
+                            "id, note, date, ownership " +
+                        "FROM " +
+                            "maxhanna.notepad " +
+                        "WHERE " +
+                            "id = @ID " +
+                            "AND " +
+                            "(" +
+                                "ownership = @Owner " +
+                                "OR " +
+                                "ownership LIKE CONCAT('%,', @Owner, ',%') " +
+                                "OR " +
+                                "ownership LIKE CONCAT(@Owner, ',%') " +
+                                "OR " +
+                                "ownership LIKE CONCAT('%,', @Owner)" +
+                            ")";
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -81,7 +144,7 @@ namespace maxhanna.Server.Controllers
                                 return Ok(new NotepadEntry(
                                     id: rdr.GetInt32(0),
                                     note: rdr.GetString(1),
-                                    date: rdr.GetDateTime(2), 
+                                    date: rdr.GetDateTime(2),
                                     ownership: rdr.IsDBNull(3) ? null : rdr.GetString(3)
                                 ));
                             }
@@ -135,8 +198,24 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-                // Assuming CalendarEntryModel has properties for Type, Note, and Date
-                string sql = "UPDATE maxhanna.notepad SET note = @Note WHERE id = @ID AND ownership = @Owner";
+
+                string sql =
+                    "UPDATE " +
+                        "maxhanna.notepad " +
+                    "SET " +
+                        "note = @Note " +
+                    "WHERE " +
+                        "id = @ID " +
+                        "AND " +
+                        "(" +
+                            "ownership LIKE @Owner " +
+                            "OR " +
+                            "ownership LIKE CONCAT('%,', @Owner, ',%') " +
+                            "OR " +
+                            "ownership LIKE CONCAT(@Owner, ',%') " +
+                            "OR " +
+                            "ownership LIKE CONCAT('%,', @Owner)" +
+                        ")";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Note", note.note);
                 cmd.Parameters.AddWithValue("@ID", id);
@@ -167,7 +246,21 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-                string sql = "DELETE FROM maxhanna.notepad WHERE ID = @Id AND ownership = @Owner";
+                string sql =
+                    "DELETE FROM " +
+                        "maxhanna.notepad " +
+                    "WHERE " +
+                        "ID = @Id " +
+                    "AND " +
+                    "(" +
+                        "ownership = @Owner " +
+                        "OR " +
+                        "ownership LIKE CONCAT('%,', @Owner, ',%') " +
+                        "OR " +
+                        "ownership LIKE CONCAT(@Owner, ',%') " +
+                        "OR " +
+                        "ownership LIKE CONCAT('%,', @Owner)" +
+                    ")";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Id", id);
                 cmd.Parameters.AddWithValue("@Owner", user.Id);
@@ -192,5 +285,10 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
         }
+    }
+    public class ShareNotepadRequest
+    {
+        public User User1 { get; set; }
+        public User User2 { get; set; }
     }
 }

@@ -1,17 +1,21 @@
 <button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>
 <div #navbar id="navbar">
 
-  <div *ngFor="let item of navigationItems" class="navLinkDiv">
-    <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
-      <label (click)="goTo($event)" [title]="item.title">{{item.content ? item.content : ''}}</label>
-    </span>
-    <ng-container *ngIf="item.title === 'Weather'">
-      <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo($event)" *ngIf="item.icon != '☀️'" />
-      <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="item.icon == '☀️'" >{{ item.icon.substring(0, 3) }}</a>
-    </ng-container>
-    <ng-container *ngIf="item.title !== 'Weather'">
-      <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon.substring(0, 3) }}</a>
-    </ng-container>
-  </div>
+  <ng-container *ngFor="let item of _parent.navigationItems">
+    <div *ngIf="menuIconsIncludes(item.title) || item.title == 'Close Menu' || item.title == 'User'" class="navLinkDiv">
+      <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
+        <label (click)="goTo($event)" [title]="item.title">{{item.content ? item.content : ''}}</label>
+      </span>
+      <ng-container *ngIf="item.title === 'Weather'">
+        <ng-container *ngIf="item.icon != '☀️'">
+          <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo($event)" />
+        </ng-container>
+        <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="item.icon == '☀️'">{{ item.icon.substring(0, 3) }}</a>
+      </ng-container>
+      <ng-container *ngIf="item.title !== 'Weather'">
+        <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon.substring(0, 3) }}</a>
+      </ng-container>
+    </div>
+  </ng-container>
 
 </div>

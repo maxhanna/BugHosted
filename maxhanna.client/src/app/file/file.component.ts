@@ -3,6 +3,7 @@ import { ChildComponent } from '../child.component';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
 import { FileService } from '../../services/file.service';
+import { FileEntry } from '../../services/datacontracts/file-entry';
 
 @Component({
   selector: 'app-file',
@@ -14,7 +15,7 @@ export class FileComponent extends ChildComponent {
     super();
   }
   fS = "/";
-  directoryContents: Array<string> = [];
+  directoryContents: Array<FileEntry> = [];
   errorMessage: string | null = null;
   thumbnailSrc: string | null = null;
   thumbnailFileName: string | null = null;
@@ -23,17 +24,40 @@ export class FileComponent extends ChildComponent {
   draggedFilename: string | undefined;
   destinationFilename: string | undefined;
   notifications: Array<string> = [];
+  showMakeDirectoryPrompt = false;
+  isUploadInitiate = false;
+  uploadFileList: Array<File> = [];
+  isDisabled = false;
+  filter = {
+    visibility: 'public',
+    ownership: 'all'
+  };
+  createVisibility = 'public';
 
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
+  @ViewChild('makeFolderName') makeFolderName!: ElementRef<HTMLInputElement>;
 
 
   async ngOnInit() {
     this.changeDirectory();
     this.draggedFilename = undefined;
     this.destinationFilename = undefined;
+    this.showMakeDirectoryPrompt = false;
+  } 
+
+  setFilterVisibility(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.filter.visibility = target.value;
+    this.changeDirectory();
   }
 
+  setFilterOwnership(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.filter.ownership = target.value;
+    this.changeDirectory();
+  }
   async changeDirectory(folder?: string) {
     try {
       if (folder && this.isFile(folder)) {
@@ -51,40 +75,59 @@ export class FileComponent extends ChildComponent {
       }
       this.showUpFolderRow = target ? true : false;
       this.startLoading();
-      this.directoryContents = await this.fileService.getDirectory(this.parentRef?.user!, target);
+      this.directoryContents = await this.fileService.getDirectory(this.parentRef?.user!, target, this.filter.visibility, this.filter.ownership);
       this.stopLoading();
     } catch (error) {
       console.error("Error fetching directory entries:", error);
     }
   }
+  uploadInitiate() {
+    this.notifications = [];
+    this.isDisabled = true;
+    this.showMakeDirectoryPrompt = true;
+    this.isUploadInitiate = true;
+    if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
+      this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
+    }
+  } 
+  cancelMakeDirectoryOrFile() {
+    this.showMakeDirectoryPrompt = false;
+    this.isUploadInitiate = false;
+    if (this.fileInput) 
+      this.fileInput.nativeElement.value = '';
+    this.uploadFileList = [];
+    this.isDisabled = false;
+  }
+  createVisibilityOnChange() {
+    this.createVisibility = this.folderVisibility.nativeElement.value;
+    console.log(this.createVisibility);
+  }
   async upload() {
-    if (!this.fileInput.nativeElement.files || this.fileInput.nativeElement.files.length === 0) {
+    if (!this.fileInput) { return alert("weird bug, cant find fileInput"); }
+
+    const files = this.fileInput.nativeElement.files;
+    if (!files || !files.length) {
       return alert("No file to upload!");
     }
-    const directoryInput = this.directoryInput?.nativeElement?.value;
-    const files = this.fileInput.nativeElement.files;
-    var fileNames = [];
-    for (let x = 0; x < files!.length; x++) {
-      fileNames.push(files![x].name);
-    }
+    
+    const filesArray = Array.from(files);
+    const isPublic = this.createVisibility.toLowerCase() != "public" ? false : true;
+
+    const directoryInput = this.directoryInput?.nativeElement?.value || '';
+    const fileNames = Array.from(files).map(file => file.name);
+
     if (confirm(`Upload : ${directoryInput}/${fileNames.join(',')} ?`)) {
       this.startLoading();
       try {
         const formData = new FormData();
-        for (let i = 0; i < files!.length; i++) {
-          formData.append('files', files!.item(i)!);
-        }
-        if (directoryInput && directoryInput != '') {
-          await this.fileService.uploadFile(this.parentRef?.user!, formData, directoryInput);
-        } else {
-          await this.fileService.uploadFile(this.parentRef?.user!, formData, undefined);
-        }
+        filesArray.forEach(file => formData.append('files', file));
+        await this.fileService.uploadFile(this.parentRef?.user!, formData, directoryInput || undefined, isPublic);
         this.notifications.push(`${directoryInput}/${fileNames.join(',')} uploaded successfully`);
+        this.cancelMakeDirectoryOrFile();
       } catch (ex) {
         this.notifications.push(`${directoryInput}/${fileNames.join(',')} failed to upload!`);
       }
       this.stopLoading();
-
       this.ngOnInit();
     }
   }
@@ -146,10 +189,14 @@ export class FileComponent extends ChildComponent {
     }
   }
   async makeDirectory() {
-    const choice = prompt("Folder name:");
+    this.notifications = [];
+    const choice = this.makeFolderName.nativeElement.value;
     if (!choice || choice == "") {
       return alert("Folder name cannot be empty!");
     }
+
+    const isPublic = this.createVisibility.toLowerCase() == "public" ? true : false; 
+
     const directoryValue = this.directoryInput?.nativeElement?.value ?? "";
     let target = directoryValue.replace(/\\/g, "/");
     target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? choice : directoryValue.length > 0 ? this.fS + choice : choice;
@@ -158,12 +205,18 @@ export class FileComponent extends ChildComponent {
       const headers = { "Content-Type": "application/json" };
       this.startLoading();
       try {
-        const res = await this.fileService.createDirectory(this.parentRef?.user!, target);
+        const res = await this.fileService.createDirectory(this.parentRef?.user!, target, isPublic);
         this.notifications.push(res!);
+
+        if (!res?.toLowerCase().includes("already exists")) {
+          var tmpFileEntry = new FileEntry(choice, this.filter.visibility.toLowerCase(), this.parentRef?.user!.id + "", isPublic);
+          this.directoryContents.push(tmpFileEntry);
+          this.cancelMakeDirectoryOrFile();
+        }
       } catch (ex) {
         console.error(ex);
       }
-      this.directoryContents.push(choice);
+     
       this.stopLoading();
     }
   }
@@ -183,7 +236,7 @@ export class FileComponent extends ChildComponent {
         this.notifications.push(`Failed to delete ${target}!`);
       }
       this.stopLoading();
-      this.directoryContents = this.directoryContents.filter(res => res != name);
+      this.directoryContents = this.directoryContents.filter(res => res.name != name);
     }
   }
   private getCurrentDirectory() {
@@ -266,7 +319,7 @@ export class FileComponent extends ChildComponent {
     console.log("draggedFilename: " + this.draggedFilename)
     if (this.draggedFilename 
       && this.draggedFilename != this.destinationFilename
-      && confirm(`Move ${this.draggedFilename.trim()} to ${specDir ?? (currDir + this.destinationFilename)}?`)) {
+      && confirm(`Move ${this.draggedFilename!.trim()} to ${specDir ?? (currDir + this.destinationFilename)}?`)) {
       const inputFile = currDir + this.draggedFilename;
       const destinationFolder = specDir ?? (currDir + this.destinationFilename);
       this.startLoading();
@@ -274,7 +327,7 @@ export class FileComponent extends ChildComponent {
         const res = await this.fileService.moveFile(this.parentRef?.user!, inputFile, destinationFolder);
         this.notifications.push(res!);
         if (!res!.includes("error")) {
-          this.directoryContents = this.directoryContents.filter(x => x != this.draggedFilename);
+          this.directoryContents = this.directoryContents.filter(x => x.name != this.draggedFilename);
         }
       } catch (ex) {
         console.error(ex);

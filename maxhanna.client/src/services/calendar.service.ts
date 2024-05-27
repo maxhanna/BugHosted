@@ -27,6 +27,7 @@ export class CalendarService {
 
   async createCalendarEntries(user: User, calendarEntry: CalendarEntry) {
     calendarEntry.ownership = user.id?.toString();
+      
     try {
       const response = await fetch(`/calendar/create`, {
         method: 'POST',

@@ -102,6 +102,52 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
         }
+        [HttpPost("/User/GetAllUsers", Name = "GetAllUsers")]
+        public async Task<IActionResult> GetAllUsers([FromBody] User user)
+        {
+            _logger.LogInformation($"GET /User/GetAllUsers (for user: {user.Id})");
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                string sql = "SELECT id, username FROM maxhanna.users";
+
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+
+                List<User> users = new List<User>();
+
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (reader.Read())
+                    {
+                        users.Add(new User
+                        {
+                            Id = Convert.ToInt32(reader["id"]),
+                            Username = (string)reader["username"]
+                        });
+                    }
+                }
+
+                if (users.Count > 0)
+                {
+                    return Ok(users);
+                }
+                else
+                {
+                    return NotFound();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the GET request for all users.");
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
 
         [HttpPost("/User/CreateUser", Name = "CreateUser")]
         public async Task<IActionResult> CreateUser([FromBody] User user)
@@ -112,26 +158,39 @@ namespace maxhanna.Server.Controllers
             {
                 conn.Open();
 
-                string sql = @"SELECT COUNT(*) FROM maxhanna.users WHERE LOWER(username) = LOWER(@Username)";
-                MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@Username", user.Username);
+                string checkUserSql = @"SELECT COUNT(*) FROM maxhanna.users WHERE LOWER(username) = LOWER(@Username)";
+                MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
+                checkUserCmd.Parameters.AddWithValue("@Username", user.Username);
 
-                int userCount = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+                int userCount = Convert.ToInt32(await checkUserCmd.ExecuteScalarAsync());
 
                 if (userCount == 0)
                 {
                     // User doesn't exist, proceed with insertion
-                    string insertSql = @"
-                        INSERT INTO maxhanna.users (username, pass) VALUES (@Username, @Password);
-                        SELECT id where username = @Username AND pass = @Password AS Result;";
+                    string insertSql = @"INSERT INTO maxhanna.users (username, pass) VALUES (@Username, @Password);";
                     MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
                     insertCmd.Parameters.AddWithValue("@Username", user.Username);
                     insertCmd.Parameters.AddWithValue("@Password", user.Pass);
 
-                    string result = await insertCmd.ExecuteScalarAsync() as string;
-                    _logger.LogInformation(result);
+                    int rowsAffected = await insertCmd.ExecuteNonQueryAsync();
+                    if (rowsAffected > 0)
+                    {
+                        // Retrieve the inserted user's ID
+                        string selectIdSql = @"SELECT id FROM maxhanna.users WHERE username = @Username AND pass = @Password";
+                        MySqlCommand selectIdCmd = new MySqlCommand(selectIdSql, conn);
+                        selectIdCmd.Parameters.AddWithValue("@Username", user.Username);
+                        selectIdCmd.Parameters.AddWithValue("@Password", user.Pass);
 
-                    return Ok(new { message = result });
+                        int userId = Convert.ToInt32(await selectIdCmd.ExecuteScalarAsync());
+
+                        _logger.LogInformation($"User created successfully with ID: {userId}");
+                        return Ok(userId);
+                    }
+                    else
+                    {
+                        string result = "Error: Failed to create user";
+                        return StatusCode(500, new { message = result });
+                    }
                 }
                 else
                 {
@@ -150,6 +209,7 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
         }
+
 
         [HttpPatch(Name = "UpdateUser")]
         public async Task<IActionResult> UpdateUser([FromBody] User user)
@@ -260,5 +320,129 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
         }
+
+        [HttpPost("/User/Menu", Name = "GetUserMenu")]
+        public async Task<IActionResult> GetUserMenu([FromBody] User user)
+        {
+            _logger.LogInformation($"GET /UserMenu for user with ID: {user.Id}");
+
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                string sql = "SELECT * FROM maxhanna.menu WHERE ownership = @UserId";
+
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId", user.Id);
+
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    List<MenuItem> menuItems = new List<MenuItem>();
+
+                    while (reader.Read())
+                    {
+                        menuItems.Add(new MenuItem
+                        {
+                            Ownership = Convert.ToInt32(reader["ownership"]),
+                            Title = reader["title"].ToString()
+                        });
+                    }
+
+                    if (menuItems.Count > 0)
+                    {
+                        return Ok(menuItems);
+                    }
+                    else
+                    {
+                        return NotFound();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the GET request for user menu.");
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+        [HttpDelete("/User/Menu", Name = "DeleteMenuItem")]
+        public async Task<IActionResult> DeleteMenuItem([FromBody] MenuItemRequest request)
+        {
+            _logger.LogInformation($"DELETE /User/Menu for user with ID: {request.user.Id} and title: {request.Title}");
+
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                string sql = "DELETE FROM maxhanna.menu WHERE ownership = @UserId AND title = @Title";
+
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId", request.user.Id);
+                cmd.Parameters.AddWithValue("@Title", request.Title);
+
+                int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+                if (rowsAffected > 0)
+                {
+                    return Ok("Menu item deleted successfully.");
+                }
+                else
+                {
+                    return NotFound("Menu item not found for the specified user and title.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the DELETE request for menu item.");
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+        [HttpPost("/User/Menu/Add", Name = "AddMenuItem")]
+        public async Task<IActionResult> AddMenuItem([FromBody] MenuItemRequest request)
+        {
+            _logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.user.Id} and title: {request.Title}");
+
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                string sql = "INSERT INTO maxhanna.menu (ownership, title) VALUES (@UserId, @Title)";
+
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@UserId", request.user.Id);
+                cmd.Parameters.AddWithValue("@Title", request.Title);
+
+                int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+                if (rowsAffected > 0)
+                {
+                    return Ok("Menu item added successfully.");
+                }
+                else
+                {
+                    return StatusCode(500, "Failed to add menu item.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the POST request to add menu item.");
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+
     }
 }

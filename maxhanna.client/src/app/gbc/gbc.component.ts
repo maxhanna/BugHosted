@@ -46,19 +46,35 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
   }
   async getGames() {
     try {
-      const res = await this.fileService.getDirectory(this.parentRef?.user!, "roms/") as Array<string>;
+      const res = await this.fileService.getDirectory(this.parentRef?.user!, "roms/", "public", "all") as Array<string>;
       this.gbGamesList = [];
       this.gbColorGamesList = [];
       res.forEach(x => {
-        if (x.toLowerCase().includes("poke") && !this.fileService.getFileExtension(x)!.includes("gbs") && !this.fileService.getFileExtension(x)!.includes("sav")) {
-          this.pokemonGamesList.push(x);
+        const jsonObject = JSON.parse(JSON.stringify(x));
+
+        if (jsonObject.hasOwnProperty('name')) {
+          const name = jsonObject.name;
+
+          if (name) {
+            if (name.toLowerCase().includes("poke")
+              && !this.fileService.getFileExtension(name)!.includes("gbs")
+              && !this.fileService.getFileExtension(name)!.includes("sav")
+              && !this.pokemonGamesList.includes(name)) {
+              this.pokemonGamesList.push(name);
+            }
+            else if (this.fileService.getFileExtension(name)!.includes("gbc")
+              && !this.fileService.getFileExtension(name)!.includes("gbs")
+              && !this.gbColorGamesList.includes(name)) {
+              this.gbColorGamesList.push(name);
+            }
+            else if (this.fileService.getFileExtension(name)!.includes("gb")
+              && !this.fileService.getFileExtension(name)!.includes("gbs")
+              && !this.gbGamesList.includes(name)) {
+              this.gbGamesList.push(name);
+            }
+          } 
         }
-        else if (this.fileService.getFileExtension(x)!.includes("gbc") && !this.fileService.getFileExtension(x)!.includes("gbs")) {
-          this.gbColorGamesList.push(x);
-        }
-        else if (this.fileService.getFileExtension(x)!.includes("gb") && !this.fileService.getFileExtension(x)!.includes("gbs")) {
-          this.gbGamesList.push(x);
-        }
+        
       });
     } catch {
       console.log("Could not get games list");
@@ -224,6 +240,12 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
 
   canvasKeypress(event: Event, up: boolean) {
     const kbEvent = event as KeyboardEvent;
+    const targetElement = kbEvent.target as HTMLElement;
+
+    // If the event originated from an input or textarea, return early and don't handle the keypress
+    if (targetElement.tagName.toLowerCase() === 'input' || targetElement.tagName.toLowerCase() === 'textarea') {
+      return;
+    }
 
     if (kbEvent.key.toLowerCase() == 'a') {
       if (up)

@@ -1,3 +1,23 @@
 .mainTable thead {
-    cursor: pointer;
+  cursor: pointer;
+}
+
+.menuIcon {
+  display: inline-block;
+  font-size: 25px;
+  width: 30px;
+  height: 30px;
+  vertical-align: top;
+  padding: 10px;
+  text-align: center;
+}
+
+.selectedIcon {
+  border: var(--main-border);
+}
+
+.menuIconsTd {
+    max-width:500px;
+    overflow-x:auto;
+    white-space: nowrap;
 }

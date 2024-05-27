@@ -4,7 +4,7 @@
 }
 
 .componentMain {
-  width: 400px;
+  width: 395px;
 }
 
 .gamesContainer {
@@ -29,6 +29,7 @@
   -webkit-user-select: none;
   cursor: default;
 }
+ 
 
 .screen-area {
   height: 325px;
