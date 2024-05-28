@@ -22,6 +22,7 @@ import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
+import { MemeComponent } from './meme/meme.component';
 
 @NgModule({
   declarations: [
@@ -43,7 +44,8 @@ import { UserListComponent } from './user-list/user-list.component';
     GbcComponent,
     UserComponent,
     ChatComponent,
-    UserListComponent
+    UserListComponent,
+    MemeComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

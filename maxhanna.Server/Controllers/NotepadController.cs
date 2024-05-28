@@ -72,7 +72,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Notepad/Share/{noteId}", Name = "ShareNote")]
         public async Task<IActionResult> Get([FromBody] ShareNotepadRequest request, int noteId)
         {
-            _logger.LogInformation($"GET /Notepad (for user: {request.User1.Id} to user: {request.User2.Id})");
+            _logger.LogInformation($"POST /Notepad/Share/{noteId} (for user: {request.User1.Id} to user: {request.User2.Id})");
 
             string sql = "UPDATE maxhanna.notepad SET Ownership = CONCAT(Ownership, ',', @user2id) WHERE id = @noteId";
             try

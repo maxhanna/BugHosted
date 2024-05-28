@@ -12,8 +12,6 @@
   max-width: 200px;
   max-height: 100%;
   border: 1px solid black;
-  padding-left: 10px;
-  padding-right: 10px;
   z-index: 999;
   background-color: var(--main-bg-color);
   border: var(--main-border);
@@ -32,17 +30,22 @@
     cursor: pointer;
   }
 
-.thumbnailFileNameAndDownload label {
+.thumbnailTitle {
+    position:relative;
     display: inline-block;
+    width:100%;
+}
+  .thumbnailTitle span {
     width: CALC(100% - 30px);
     overflow-x: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
+    display: inline-block;
+  }
 .closeImageButton {
+  display: inline-block;
   position: relative;
   top: 0px;
-  right: -10px;
   height: 25px;
 }
 
@@ -60,8 +63,7 @@
   }
 
   .closeImageButton::before {
-    content: '❌';
-    right: 0px;
+    content: '❌'; 
   }
 
 .downloadImageButton {  
@@ -122,4 +124,11 @@ tr[draggable] {
 
 .uploadOrCreateDirectoryDiv {
     max-width:300px;
+}
+.fileActionsTd { 
+  width: 75px;
+  text-align:right;
+}
+.fileActionsTd input {
+    display: inline-block;
 }

@@ -4,6 +4,7 @@ import { UserService } from '../../services/user.service';
 import { ChatService } from '../../services/chat.service';
 import { Message } from '../../services/datacontracts/message';
 import { User } from '../../services/datacontracts/user';
+import { ChatNotification } from '../../services/datacontracts/chat-notification';
 
 @Component({
   selector: 'app-chat',
@@ -17,35 +18,48 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   chatHistory: Message[] = [];
   @ViewChild('newMessage') newMessage!: ElementRef<HTMLInputElement>;
   @ViewChild('chatWindow') chatWindow!: ElementRef;
-  pollingInterval: any;
   hasManuallyScrolled = false;
+  private pollingInterval: any;
+  private chatInfoInterval: any;
+
+  notifications: ChatNotification[] = [];
+
   constructor(private userService: UserService, private chatService: ChatService) {
     super();
   }
 
   async ngOnInit() {
+    this.getChatInfo();
     this.users = await this.userService.getAllUsers(this.parentRef?.user!);
+    this.chatInfoInterval = setInterval(() => this.getChatInfo(), 30 * 1000); // every 30 seconds
   }
 
   ngOnDestroy() {
     this.currentChatUser = null;
     clearInterval(this.pollingInterval);
+    clearInterval(this.chatInfoInterval);
   }
-
+  async getChatInfo() {
+    this.notifications = await this.chatService.getChatNotificationsByUser(this.parentRef?.user!);
+  }
   pollForMessages() {
-    this.pollingInterval = setInterval(async () => {
-      if (!this.isComponentInView()) {
-        clearInterval(this.pollingInterval);
-        return;
-      }
-      const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser);
-      if (res && res.status && res.status == "404") {
-        this.chatHistory = [];
-        return;
-      }
-      this.chatHistory = res;
-      this.scrollToBottomIfNeeded();
-    }, 5000);
+    if (this.currentChatUser) {
+      this.pollingInterval = setInterval(async () => {
+        if (!this.isComponentInView()) {
+          clearInterval(this.pollingInterval);
+          return;
+        }
+        try {
+          const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser);
+          if (res && res.status && res.status == "404") {
+            this.chatHistory = [];
+            return;
+          }
+          this.chatHistory = res;
+          this.scrollToBottomIfNeeded();
+        } catch { }
+      }, 5000);
+    }
   }
 
   scrollToBottomIfNeeded() {
@@ -112,8 +126,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.newMessage.nativeElement.value = '';
         this.scrollToBottomIfNeeded();
         await this.chatService.sendMessage(this.parentRef?.user!, this.currentChatUser!, msg);
-      } catch {
-        // Handle error
+      } catch (error) {
+        console.error(error);
       }
     }
   }

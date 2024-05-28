@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using maxhanna.Server.Controllers.DataContracts;
+using static maxhanna.Server.Controllers.ChatController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -25,7 +26,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Chat/Notifications", Name = "GetChatNotifications")]
         public async Task<IActionResult> GetChatNotifications([FromBody] User user)
         {
-            _logger.LogInformation($"POST /Chat/Notifications for users: {user.Id}");
+            _logger.LogInformation($"POST /Chat/Notifications for user: {user.Id}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
@@ -42,15 +43,15 @@ namespace maxhanna.Server.Controllers
                         (m.seen = 0)";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@userId", user.Id); 
+                cmd.Parameters.AddWithValue("@userId", user.Id);
 
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (reader.Read())
                     {
-                        return Ok(Convert.ToInt32(reader["count"])); 
+                        return Ok(Convert.ToInt32(reader["count"]));
                     }
-                } 
+                }
             }
             catch (Exception ex)
             {
@@ -60,7 +61,67 @@ namespace maxhanna.Server.Controllers
             {
                 conn.Close();
             }
-            return StatusCode(500, "An error occurred while processing the request."); 
+            return StatusCode(500, "An error occurred while processing the request.");
+        }
+
+        [HttpPost("/Chat/NotificationsByUser", Name = "GetChatNotificationsByUser")]
+        public async Task<IActionResult> GetChatNotificationsByUser([FromBody] User user)
+        {
+            _logger.LogInformation($"POST /Chat/NotificationsByUser for user: {user.Id}");
+            List<Notification> notifications = new List<Notification>();
+
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                string sql = @"
+                    SELECT 
+                        m.sender,
+                        COUNT(*) as count
+                    FROM 
+                        maxhanna.messages m
+                    WHERE 
+                        m.receiver = @userId
+                        AND 
+                        m.seen = 0
+                    GROUP BY 
+                        m.sender";
+
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@userId", user.Id);
+
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        int senderId = Convert.ToInt32(reader["sender"]);
+                        int count = Convert.ToInt32(reader["count"]);
+
+                        if (count > 0)
+                        {
+                            notifications.Add(new Notification { SenderId = senderId, Count = count });
+                        }
+                    }
+                    if (notifications.Count > 0)
+                    {
+                        return Ok(notifications);
+                    }
+                    else
+                    {
+                        return NoContent();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the POST request for message notifications.");
+            }
+            finally
+            {
+                await conn.CloseAsync();
+            }
+            return StatusCode(500, "An error occurred while processing the request.");
         }
 
         [HttpPost("/Chat/GetMessageHistory", Name = "GetMessageHistory")]
@@ -216,6 +277,11 @@ namespace maxhanna.Server.Controllers
             public User Sender { get; set; }
             public User Receiver { get; set; }
             public string Content { get; set; }
+        }
+        public class Notification
+        {
+            public int SenderId { get; set; }
+            public int Count { get; set; }
         }
     }
 }

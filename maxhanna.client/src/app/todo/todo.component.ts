@@ -43,6 +43,9 @@ export class TodoComponent extends ChildComponent implements OnInit {
     }
   }
   async addTodo() {
+    if (!this.todoInput.nativeElement.value) {
+      return alert("todo cannot be empty!");
+    }
     let tmpTodo = new Todo();
     tmpTodo.date = new Date();
     tmpTodo.type = this.selectedType.nativeElement.value;

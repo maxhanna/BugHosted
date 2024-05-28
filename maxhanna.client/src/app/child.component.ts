@@ -38,12 +38,12 @@ export class ChildComponent {
         x = rows[i].getElementsByTagName("TD")[id];
         y = rows[i + 1].getElementsByTagName("TD")[id];
         if (this.asc.some(([table, column]) => table === tableId && column === id)) {
-          if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+          if (x && x.innerHTML && x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
             shouldSwitch = true;
             break;
           }
         } else {
-          if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+          if (x && x.innerHTML && x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
             shouldSwitch = true;
             break;
           }

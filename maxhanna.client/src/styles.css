@@ -11,24 +11,52 @@
   --main-font-size: 0.9vw;
   --component-max-width: 300px;
 }
+
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   :root {
     --main-font-size: 2.45vw;
   }
 }
+/* prevent pull-to-refresh for Safari 16+ */
+@media screen and (pointer: coarse) {
+  @supports (-webkit-backdrop-filter: blur(1px)) and (overscroll-behavior-y: none) {
+    html {
+      min-height: 100.3%;
+      overscroll-behavior-y: none;
+    }
+  }
+}
+/* prevent pull-to-refresh for Safari 9~15 */
+@media screen and (pointer: coarse) {
+  @supports (-webkit-backdrop-filter: blur(1px)) and (not (overscroll-behavior-y: none)) {
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      margin: 0px;
+      max-height: 100%;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+}
 
 body {
+  overscroll-behavior-y: none; 
   font-family: Arial;
   background-color: black;
   color: var(--main-font-color);
   margin: 0;
-  padding: 0;
-  overscroll-behavior-y: contain;
+  padding: 0; 
   padding-bottom: 50px;
 }
+
 html, body {
   overscroll-behavior-x: none;
 }
+
 legend {
   border: var(--main-border);
   text-align: center;
@@ -84,20 +112,22 @@ fieldset {
   text-align: center;
   font-weight: bold;
   font-size: 25px;
-  line-height:29px;
+  line-height: 29px;
   top: 0px;
   display: block;
   border-bottom: 2px solid black;
   z-index: 1;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
 }
+
 .mainTableDiv {
-  max-height: 400px; 
-  overflow-y: auto; 
+  max-height: 400px;
+  overflow-y: auto;
 }
+
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
-  .mainTableDiv { 
-    width: var(--component-max-width); 
+  .mainTableDiv {
+    width: var(--component-max-width);
     overflow-x: auto;
   }
 }
@@ -112,12 +142,12 @@ fieldset {
 
 .mainTable tr > :last-child {
   position: sticky;
-  right: 0; 
+  right: 0;
   z-index: 2;
 }
 
 .mainTable {
-  font-size: var(--main-font-size); 
+  font-size: var(--main-font-size);
   width: 100%;
   background-color: var(--secondary-bg-color);
   border-collapse: collapse;
@@ -137,7 +167,7 @@ fieldset {
 
   .mainTable tr:nth-child(even) {
     background-color: var(--main-bg-color);
-  } 
+  }
 
   .mainTable tbody {
     height: 30px !important;
@@ -233,4 +263,12 @@ fieldset {
   ::-webkit-scrollbar-thumb:hover {
     background: var(--main-font-color);
   }
- 
+
+.notification {
+  color: var(--secondary-font-color);
+  font-size: smaller;
+}
+
+  .notification::before {
+    content: ' 🔸 ';
+  }

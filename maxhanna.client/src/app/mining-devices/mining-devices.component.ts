@@ -1,7 +1,5 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { HttpClient } from '@angular/common/http'; 
-import { lastValueFrom } from 'rxjs';
 import { MiningRigDevice } from '../../services/datacontracts/mining-rig-device';
 import { MiningService } from '../../services/mining.service';
 
@@ -12,8 +10,7 @@ import { MiningService } from '../../services/mining.service';
 })
 export class MiningDevicesComponent extends ChildComponent implements OnInit {
   miningRigDevices = new Array<MiningRigDevice>();
-  @ViewChild('notificationArea') notificationArea!: ElementRef<HTMLElement>;
-
+  notifications: string[] = [];
   constructor(private miningService: MiningService) {
     super();
   }
@@ -35,13 +32,13 @@ export class MiningDevicesComponent extends ChildComponent implements OnInit {
         var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
-        this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
+        this.notifications.push(`${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}`);
 
         this.getMiningInfo();
       }
       catch (error) {
         console.error(error);
-        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";;
+        this.notifications.push(JSON.stringify(error));
       }
     }    
   }

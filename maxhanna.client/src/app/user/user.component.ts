@@ -34,6 +34,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   constructor(private userService: UserService,
     private miningService: MiningService,
     private weatherService: WeatherService) { super(); }
+
   async ngOnInit() {
     this.getLoggedInUser();
     this.usersCount = await this.userService.getUserCount();
@@ -57,22 +58,22 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.notifications.push("Logged out successfully");
   }
   menuIconsIncludes(title: string) {
-    return this.parentRef!.selectedMenuItems.filter(x => x.title == title).length > 0;
+    return this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0;
   }
   async getMenuIcons() {
     if (this.isMenuIconsToggled) { 
       const response = await this.userService.getUserMenu(this.parentRef?.user!);
-      this.parentRef!.selectedMenuItems = response;
+      this.parentRef!.userSelectedNavigationItems = response;
     }
   }
   async selectMenuIcon(title: string) {
-    if (this.parentRef!.selectedMenuItems.filter(x => x.title == title).length > 0) {
-      this.parentRef!.selectedMenuItems = this.parentRef!.selectedMenuItems.filter(x => x.title != title);
+    if (this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0) {
+      this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
       this.userService.deleteMenuItem(this.parentRef?.user!, title);
       this.notifications.push(`Deleted menu item : ${title}`);
 
     } else {
-      this.parentRef!.selectedMenuItems!.push(new MenuItem(this.parentRef?.user!.id!, title));
+      this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user!.id!, title));
       this.userService.addMenuItem(this.parentRef?.user!, title);
       this.notifications.push(`Added menu item : ${title}`);
     }
@@ -85,14 +86,10 @@ export class UserComponent extends ChildComponent implements OnInit {
       const tmpUser = new User(undefined, tmpUserName, tmpPassword);
       try {
         const res = await this.userService.createUser(tmpUser);
-        console.log("created user?  : " + res);
         if (res && !res.includes("Error")) {
           tmpUser.id = parseInt(res);
-          console.log("id : " + parseInt(res));
           this.notifications.push("Successfully added user");
           const ip = await this.userService.getUserIp();
-          console.log(ip);
-          console.log(ip["city"]);
           await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
         } else {
           this.notifications.push(`${JSON.parse(res!)["message"]}`);
@@ -139,7 +136,6 @@ export class UserComponent extends ChildComponent implements OnInit {
   async getWeatherLocation() {
     if (this.isWeatherLocationToggled) {
       const res = await this.weatherService.getWeatherLocation(this.parentRef?.user!);
-      console.log(res);
       this.weatherLocationInput.nativeElement.value = res.location;
     }
   }

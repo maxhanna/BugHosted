@@ -6,8 +6,8 @@
 
   <fieldset>
     <legend>Add</legend>
-    <input type="text" id="todoInput" placeholder="todo" #todoInput required />
-    <input type="url" id="urlInput" placeholder="url?" #urlInput />
+    <input type="text" id="todoInput" placeholder="todo" #todoInput required (keydown.enter)="addTodo()" />
+    <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
     <input type="submit" value="💾" (click)="addTodo()" />
   </fieldset>
   <table class="mainTable" id="todoTable">
@@ -21,7 +21,7 @@
 
         </th>
         <th (click)="sortTable(1, 'todoTable')">🔗</th>
-        <th (click)="sortTable(2, 'todoTable')">Date</th>
+        <th (click)="sortTable(2, 'todoTable')">📅</th>
         <th></th>
       </tr>
     </thead>

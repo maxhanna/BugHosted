@@ -1,9 +1,10 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpEventType, HttpParams } from '@angular/common/http';
 import { lastValueFrom } from 'rxjs';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file-entry';
+import { User } from '../../services/datacontracts/user';
 
 @Component({
   selector: 'app-file',
@@ -28,11 +29,14 @@ export class FileComponent extends ChildComponent {
   isUploadInitiate = false;
   uploadFileList: Array<File> = [];
   isDisabled = false;
+  isSharePanelExpanded = false;
+  fileBeingShared = 0;
   filter = {
-    visibility: 'public',
+    visibility: 'all',
     ownership: 'all'
   };
   createVisibility = 'public';
+  uploadProgress: number = 0;
 
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -45,7 +49,23 @@ export class FileComponent extends ChildComponent {
     this.draggedFilename = undefined;
     this.destinationFilename = undefined;
     this.showMakeDirectoryPrompt = false;
-  } 
+    this.isSharePanelExpanded = false;
+  }
+
+  async shareFile(userToShareWith: User) {
+    try {
+      await this.fileService.shareFile(this.parentRef?.user!, userToShareWith, this.fileBeingShared);
+      this.fileBeingShared = 0;
+      this.isSharePanelExpanded = false;
+      this.notifications.push("File sharing has succeeded.");
+    } catch {
+      this.notifications.push("File sharing has failed.");
+    }
+  }
+
+  shareFileOpenUser(fileId: number) {
+    this.fileBeingShared = fileId;
+  }
 
   setFilterVisibility(event: Event): void {
     const target = event.target as HTMLSelectElement;
@@ -121,14 +141,26 @@ export class FileComponent extends ChildComponent {
       try {
         const formData = new FormData();
         filesArray.forEach(file => formData.append('files', file));
-        await this.fileService.uploadFile(this.parentRef?.user!, formData, directoryInput || undefined, isPublic);
-        this.notifications.push(`${directoryInput}/${fileNames.join(',')} uploaded successfully`);
-        this.cancelMakeDirectoryOrFile();
+
+        // Use HttpClient to track the upload progress
+        const uploadReq = this.fileService.uploadFileWithProgress(this.parentRef?.user!, formData, directoryInput || undefined, isPublic);
+        uploadReq.subscribe((event) => {
+          if (event.type === HttpEventType.UploadProgress) {
+            this.uploadProgress = Math.round(100 * (event.loaded / event.total!));
+          } else if (event.type === HttpEventType.Response) {
+            this.uploadProgress = 0;
+            this.notifications.push(`${directoryInput}/${fileNames.join(',')} uploaded successfully`);
+            this.cancelMakeDirectoryOrFile();
+            this.ngOnInit();
+          }
+        });
       } catch (ex) {
+        this.uploadProgress = 0;
         this.notifications.push(`${directoryInput}/${fileNames.join(',')} failed to upload!`);
+        this.cancelMakeDirectoryOrFile();
+        this.ngOnInit();
       }
       this.stopLoading();
-      this.ngOnInit();
     }
   }
   async displayPictureThumbnail(fileName: string) {
@@ -209,8 +241,7 @@ export class FileComponent extends ChildComponent {
         this.notifications.push(res!);
 
         if (!res?.toLowerCase().includes("already exists")) {
-          var tmpFileEntry = new FileEntry(choice, this.filter.visibility.toLowerCase(), this.parentRef?.user!.id + "", isPublic);
-          this.directoryContents.push(tmpFileEntry);
+          this.changeDirectory();
           this.cancelMakeDirectoryOrFile();
         }
       } catch (ex) {

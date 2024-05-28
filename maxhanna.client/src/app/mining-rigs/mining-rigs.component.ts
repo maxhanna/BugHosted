@@ -15,7 +15,7 @@ import { CoinWatchService } from '../../services/coin-watch.service';
   styleUrl: './mining-rigs.component.css'
 })
 export class MiningRigsComponent extends ChildComponent {
-  @ViewChild('notificationArea') notificationArea!: ElementRef<HTMLElement>;
+  notifications: string[] = [];
   miningRigs: Array<MiningRig> = [];
   dailyEarnings: Array<DailyMiningEarnings> = [];
   showAllData: boolean = false;
@@ -28,13 +28,15 @@ export class MiningRigsComponent extends ChildComponent {
   constructor(private miningService: MiningService, private coinwatchService: CoinWatchService) {
     super();
   }
-  ngOnInit() {
+  async ngOnInit() {
     this.rate = 1;
     this.localProfitability = 0;
     this.actualProfitability = 0;
-    this.getMiningInfo();
-    this.getBTCRate();
-    this.getDailyEarnings();
+    await this.getMiningInfo();
+    if (this.miningRigs.length > 0) {
+      this.getBTCRate();
+      this.getDailyEarnings();
+    }
   } 
   async getMiningInfo() {
     this.startLoading();
@@ -56,12 +58,12 @@ export class MiningRigsComponent extends ChildComponent {
         var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
-        this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${rig.rigName} ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
+        this.notifications.push(`${requestedActionCapitalized}ing ${rig.rigName} ${isSuccess ? 'Has Succeeded' : 'Has Failed'}`);
 
         this.getMiningInfo();
       }
       catch (error) {
-        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";
+        this.notifications.push(JSON.stringify(error));
       }
       this.stopLoading();
     }
@@ -78,13 +80,13 @@ export class MiningRigsComponent extends ChildComponent {
         var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
-        this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
+        this.notifications.push(`${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}`);
 
         this.getMiningInfo();
         this.miningRigDevices = undefined;
       }
       catch (error) {
-        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";
+        this.notifications.push(JSON.stringify(error));
       }
     }
   }

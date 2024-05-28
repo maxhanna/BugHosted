@@ -39,6 +39,21 @@ export class ChatService {
       return null;
     }
   }
+  async getChatNotificationsByUser(user: User) {
+    try {
+      const response = await fetch(`/chat/notificationsbyuser`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async sendMessage(sender: User, receiver: User, content: string) {
     try {
       const response = await fetch(`/chat/sendmessage`, {

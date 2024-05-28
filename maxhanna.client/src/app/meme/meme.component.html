@@ -1,0 +1,13 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me();"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">Meme</div>
+
+  <button type="submit"
+          (click)="fileInput.click()"
+          title="Upload">
+    ⏫
+  </button>
+  <input type="file" #fileInput (change)="upload()" style="visibility: hidden; position: absolute; width:1px;" multiple />
+
+</div>

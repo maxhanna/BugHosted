@@ -1,11 +1,14 @@
 import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user';
+import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
+import { Observable } from 'rxjs/internal/Observable';
 
 @Injectable({
   providedIn: 'root'
 })
-export class FileService
-{
+export class FileService {
+  constructor(private http: HttpClient) { }
+
   async getDirectory(user: User, dir: string, visibility: string, ownership: string) {
     var params = new URLSearchParams({ directory: dir, visibility: visibility || '', ownership: ownership || '' });
     try {
@@ -23,8 +26,7 @@ export class FileService
     }
   }
 
-  async createDirectory(user: User, directory: string, isPublic: boolean)
-  {
+  async createDirectory(user: User, directory: string, isPublic: boolean) {
     try {
       const response = await fetch(`/file/makedirectory`, {
         method: 'POST',
@@ -54,13 +56,25 @@ export class FileService
       return null;
     }
   }
+  uploadFileWithProgress(user: User, formData: FormData, directory: string | undefined, isPublic: boolean): Observable<HttpEvent<any>> {
+    formData.append('user', JSON.stringify(user));
+    formData.append('isPublic', isPublic + "");
+    const dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
+    const url = `/file/upload${dir}`;
+
+    const req = new HttpRequest('POST', url, formData, {
+      reportProgress: true,
+      responseType: 'text'
+    });
+
+    return this.http.request(req);
+  }
   async uploadFile(user: User, form: FormData, directory?: string, isPublic: boolean = true) {
-    form.append('user', JSON.stringify(user));
-    form.append('isPublic', isPublic + "");
+
     try {
       const dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
       const response = await fetch(`/file/upload${dir}`, {
-        method: 'POST', 
+        method: 'POST',
         body: form,
       });
 
@@ -100,6 +114,21 @@ export class FileService
       return null;
     }
   }
+  async shareFile(user: User, user2: User, fileId: number) {
+    try {
+      const response = await fetch(`/file/share/${fileId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user1: user, user2: user2 }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async getRomFile(user: User, rom: string) {
     try {
       const response = await fetch(`/file/getromfile/${encodeURIComponent(rom)}`, {
@@ -116,9 +145,9 @@ export class FileService
     }
   }
   async uploadRomFile(user: User, form: FormData) {
-    form.append('user', JSON.stringify(user)); 
+    form.append('user', JSON.stringify(user));
 
-    try { 
+    try {
       const response = await fetch(`/file/uploadrom/`, {
         method: 'POST',
         body: form,

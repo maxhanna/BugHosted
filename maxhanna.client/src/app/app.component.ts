@@ -41,14 +41,14 @@ export class AppComponent implements OnInit {
     { icon: "📁", title: "Files", content: undefined },
     { icon: "🗒️", title: "Notepad", content: undefined },
     { icon: "📇", title: "Contacts", content: undefined },
-    { icon: "G", title: "Game", content: undefined },
+    //{ icon: "G", title: "Game", content: undefined },
     { icon: "🎮", title: "Gameboy Color", content: undefined },
     { icon: "💵", title: "Coin-Wallet", content: undefined },
     { icon: "₿", title: "Coin-Watch", content: undefined },
     { icon: "🗨️", title: "Chat", content: undefined },
     { icon: "👤", title: "User", content: undefined },
   ]; 
-  selectedMenuItems: Array<MenuItem> = []
+  userSelectedNavigationItems: Array<MenuItem> = []
   constructor() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));

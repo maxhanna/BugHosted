@@ -7,7 +7,7 @@
     {{ isPanelExpanded ? 'Hide Users' : 'Show Users' }}
   </button>
 
-  <app-user-list (userClickEvent)="openChat($event);" [user]="parentRef?.user!" *ngIf="isPanelExpanded" class="userPanel" [class.expanded]="isPanelExpanded"></app-user-list>
+  <app-user-list (userClickEvent)="openChat($event);" [user]="parentRef?.user!" [notifications]="notifications" *ngIf="isPanelExpanded" class="userPanel" [class.expanded]="isPanelExpanded"></app-user-list>
 
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUser">

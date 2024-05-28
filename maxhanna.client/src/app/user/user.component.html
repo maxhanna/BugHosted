@@ -4,14 +4,14 @@
   <div class="componentTitle">Login</div>
   <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
   <div *ngIf="notifications" (click)="notifications = []">
-    <div *ngFor="let notif of notifications" [innerHTML]="notif"></div>
+    <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification"></div>
   </div>
 
   <div>
     <div *ngIf="!parentRef!.user">
       <div>
-        <input type="text" placeholder="Username" #loginUsername />
-        <input type="password" placeholder="Password" #loginPassword />
+        <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
+        <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" />
       </div>
       <div style="width:100%;text-align:center">
         <input type="submit" value="Login" (click)="login()" />
@@ -75,6 +75,24 @@
           </tr>
         </tbody>
 
+        <!--Weather-->
+        <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()">
+          <tr>
+            <th>Weather Location</th>
+            <th style="text-align:right;">
+              <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled">🔄</button>
+            </th>
+          </tr>
+        </thead>
+        <tbody *ngIf="isWeatherLocationToggled">
+          <tr>
+            <td>Location:</td>
+            <td><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></td>
+          </tr>
+        </tbody>
+
+
+
 
         <!--Nicehash API-->
         <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()">
@@ -100,21 +118,8 @@
           </tr>
         </tbody>
 
-        <!--Weather-->
-        <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()">
-          <tr>
-            <th>Weather Location</th>
-            <th style="text-align:right;">
-              <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled">🔄</button>
-            </th>
-          </tr>
-        </thead>
-        <tbody *ngIf="isWeatherLocationToggled">
-          <tr>
-            <td>Location:</td>
-            <td><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></td>
-          </tr>
-        </tbody>
+
+
       </table> 
       <button (click)="updateUserDivVisible = !updateUserDivVisible">Close</button>
     </fieldset>

@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Net;
 using MySqlConnector;
 using Microsoft.AspNetCore.Components.Forms;
+using System.IO;
 
 namespace maxhanna.Server.Controllers
 {
@@ -31,13 +32,11 @@ namespace maxhanna.Server.Controllers
             }
             else
             {
-                _logger.LogInformation($"COMBINING {directory} & {baseTarget}");
                 directory = Path.Combine(baseTarget, WebUtility.UrlDecode(directory));
                 if (!directory.EndsWith("/"))
                 {
                     directory += "/";
                 }
-                _logger.LogInformation($" = {directory}");
             }
             _logger.LogInformation($"GET /File/GetDirectory?directory={directory}&visibility={visibility}&ownership={ownership}");
 
@@ -51,13 +50,26 @@ namespace maxhanna.Server.Controllers
                 {
                     connection.Open();
 
-                    var command = new MySqlCommand("SELECT file_name, is_public, is_folder, ownership FROM maxhanna.file_uploads WHERE folder_path = @folderPath", connection);
+                    var command = new MySqlCommand(
+                        "SELECT " +
+                            "id, file_name, is_public, is_folder, ownership " +
+                        "FROM " +
+                            "maxhanna.file_uploads " +
+                        "WHERE " +
+                            "folder_path = @folderPath " +
+                        "AND (" +
+                            "is_public = 1 OR " +
+                            "FIND_IN_SET(@userId, ownership) > 0" +
+                        ")"
+                        , connection);
                     command.Parameters.AddWithValue("@folderPath", directory);
+                    command.Parameters.AddWithValue("@userId", user.Id);
 
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
+                            var id = reader.GetInt32("id");
                             var fileName = reader.GetString("file_name");
                             var isPublic = reader.GetBoolean("is_public");
                             var owner = reader.GetString("ownership");
@@ -65,11 +77,11 @@ namespace maxhanna.Server.Controllers
 
                             // Apply filters
                             bool matchesVisibility = (visibility == "public" && isPublic) || (visibility == "private" && !isPublic) || visibility == "all";
-                            bool matchesOwnership = (ownership == "own" && owner.Contains(user.Id.ToString())) || (ownership == "others" && !owner.Contains(user.Id.ToString())) || ownership == "all";
+                            bool matchesOwnership = (ownership == "own" && owner.Contains(user.Id.ToString())) || (ownership == "others" && !owner.Contains(user.Id.ToString())) || (ownership == "all");
 
                             if (matchesVisibility && matchesOwnership)
                             {
-                                fileEntries.Add(new FileEntry { Name = fileName, Visibility = isPublic ? "Public" : "Private", Owner = owner, IsFolder = isFolder });
+                                fileEntries.Add(new FileEntry { Id = id, Name = fileName, Visibility = isPublic ? "Public" : "Private", Owner = owner, IsFolder = isFolder });
                             }
                         }
                     }
@@ -86,8 +98,6 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while listing files.");
             }
         }
-
-
 
         [HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
         public IActionResult GetFile([FromBody] User user, string filePath)
@@ -178,9 +188,13 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError("POST /File/MakeDirectory ERROR: directoryPath cannot be empty!");
                 return StatusCode(500, "POST /File/MakeDirectory ERROR: directoryPath cannot be empty!");
             }
+
             request.directory = Path.Combine(baseTarget, WebUtility.UrlDecode(request.directory) ?? "");
             _logger.LogInformation($"POST /File/MakeDirectory/ (directoryPath: {request.directory})");
-            if (!ValidatePath(request.directory)) { return StatusCode(500, $"Must be within {baseTarget}"); }
+            if (!ValidatePath(request.directory))
+            {
+                return StatusCode(500, $"Must be within {baseTarget}");
+            }
 
             try
             {
@@ -191,30 +205,67 @@ namespace maxhanna.Server.Controllers
                 }
 
                 Directory.CreateDirectory(request.directory);
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+
+                DateTime uploadDate = DateTime.UtcNow;
+                string fileName = Path.GetFileName(request.directory);
+                string directoryName = Path.GetDirectoryName(request.directory).Replace("\\", "/");
+
+                string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+
+                using (var connection = new MySqlConnection(connectionString))
                 {
                     await connection.OpenAsync();
-
-                    string fileName = Path.GetFileName(request.directory);
-                    string directoryName = Path.GetDirectoryName(request.directory).Replace("\\", "/");
-                    if (!directoryName.EndsWith("/"))
+                    using (var transaction = await connection.BeginTransactionAsync())
                     {
-                        directoryName += "/";
+                        if (!directoryName.EndsWith("/"))
+                        {
+                            directoryName += "/";
+                        }
+
+                        var insertCommand = new MySqlCommand(
+                            "INSERT INTO maxhanna.file_uploads " +
+                            "(ownership, upload_date, file_name, folder_path, is_public, is_folder) " +
+                            "VALUES (@ownership, @uploadDate, @fileName, @folderPath, @isPublic, @isFolder)",
+                            connection,
+                            transaction);
+
+                        insertCommand.Parameters.AddWithValue("@ownership", request.user.Id);
+                        insertCommand.Parameters.AddWithValue("@uploadDate", uploadDate);
+                        insertCommand.Parameters.AddWithValue("@fileName", fileName);
+                        insertCommand.Parameters.AddWithValue("@folderPath", directoryName);
+                        insertCommand.Parameters.AddWithValue("@isPublic", request.isPublic);
+                        insertCommand.Parameters.AddWithValue("@isFolder", 1);
+
+                        await insertCommand.ExecuteNonQueryAsync();
+
+                        var selectCommand = new MySqlCommand(
+                            "SELECT id FROM maxhanna.file_uploads " +
+                            "WHERE ownership = @ownership AND upload_date = @uploadDate " +
+                            "AND file_name = @fileName AND folder_path = @folderPath " +
+                            "AND is_public = @isPublic AND is_folder = @isFolder",
+                            connection,
+                            transaction);
+
+                        selectCommand.Parameters.AddWithValue("@ownership", request.user.Id);
+                        selectCommand.Parameters.AddWithValue("@uploadDate", uploadDate);
+                        selectCommand.Parameters.AddWithValue("@fileName", fileName);
+                        selectCommand.Parameters.AddWithValue("@folderPath", directoryName);
+                        selectCommand.Parameters.AddWithValue("@isPublic", request.isPublic);
+                        selectCommand.Parameters.AddWithValue("@isFolder", 1);
+
+                        int id = 0;
+                        using (var reader = await selectCommand.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                id = reader.GetInt32("id");
+                            }
+                        }
+
+                        await transaction.CommitAsync();
+                        return Ok(id);
                     }
-
-                    var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (ownership, upload_date, file_name, folder_path, is_public, is_folder) VALUES (@ownership, @uploadDate, @fileName, @folderPath, @isPublic, @isFolder)", connection);
-                    command.Parameters.AddWithValue("@ownership", request.user.Id);
-                    command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
-                    command.Parameters.AddWithValue("@folderPath", directoryName);
-                    command.Parameters.AddWithValue("@fileName", fileName);
-                    command.Parameters.AddWithValue("@isPublic", request.isPublic);
-                    command.Parameters.AddWithValue("@isFolder", 1);
-
-                    await command.ExecuteNonQueryAsync();
                 }
-                _logger.LogInformation($"Directory created at {request.directory}");
-
-                return Ok("Directory created successfully.");
             }
             catch (Exception ex)
             {
@@ -222,6 +273,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while creating directory.");
             }
         }
+
 
         [HttpPost("/File/Upload", Name = "Upload")]
         public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
@@ -504,6 +556,106 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpPost("/File/Share/{fileId}", Name = "ShareFile")]
+        public async Task<IActionResult> ShareFileRequest([FromBody] ShareFileRequest request, int fileId)
+        {
+            _logger.LogInformation($"GET /File/Share/{fileId} (for user: {request.User1.Id} to user: {request.User2.Id})");
+
+            string updateSql = "UPDATE maxhanna.file_uploads SET ownership = CONCAT(ownership, ',', @user2id) WHERE id = @fileId";
+            string selectSql = "SELECT id, folder_path FROM maxhanna.file_uploads WHERE id = @fileId";
+
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+
+                    // Find the file's path
+                    string filePath = null;
+                    using (var selectCmd = new MySqlCommand(selectSql, conn))
+                    {
+                        selectCmd.Parameters.AddWithValue("@fileId", fileId);
+                        using (var reader = await selectCmd.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                filePath = reader["folder_path"].ToString();
+                            }
+                        }
+                    }
+
+                    if (filePath == null)
+                    {
+                        _logger.LogInformation("Returned 500: File path not found");
+                        return StatusCode(500, "File path not found");
+                    }
+
+                    // List to keep track of all ids to be updated
+                    List<int> idsToUpdate = new List<int> { fileId };
+
+                    // Find all parent directories
+                    while (!string.IsNullOrEmpty(filePath))
+                    {
+                        _logger.LogInformation($"LOG::: folderPath: {filePath}");
+
+                        string parentPath = Path.GetDirectoryName(filePath.TrimEnd('/').Replace("\\", "/")).Replace("\\", "/");
+                        if (!parentPath.EndsWith("/"))
+                        {
+                            parentPath += "/";
+                        }
+                        string folderName = Path.GetFileName(filePath.TrimEnd('/'));
+
+                        _logger.LogInformation($"LOG::: parentPath: {parentPath}");
+                        _logger.LogInformation($"LOG::: folderName: {folderName}");
+
+                        if (string.IsNullOrEmpty(parentPath))
+                        {
+                            break;
+                        }
+
+                        using (var selectParentCmd = new MySqlCommand("SELECT id FROM maxhanna.file_uploads WHERE folder_path = @parentPath AND file_name = @folderName AND is_folder = 1", conn))
+                        {
+                            selectParentCmd.Parameters.AddWithValue("@parentPath", parentPath);
+                            selectParentCmd.Parameters.AddWithValue("@folderName", folderName);
+
+                            using (var reader = await selectParentCmd.ExecuteReaderAsync())
+                            {
+                                if (await reader.ReadAsync())
+                                {
+                                    idsToUpdate.Add(reader.GetInt32("id"));
+                                    filePath = parentPath;
+                                }
+                                else
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Update all relevant records
+                    foreach (var id in idsToUpdate)
+                    {
+                        using (var updateCmd = new MySqlCommand(updateSql, conn))
+                        {
+                            updateCmd.Parameters.AddWithValue("@user2id", request.User2.Id);
+                            updateCmd.Parameters.AddWithValue("@fileId", id);
+                            await updateCmd.ExecuteNonQueryAsync();
+                        }
+                    }
+
+                    _logger.LogInformation("Returned OK");
+                    return Ok();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while sharing the file.");
+                return StatusCode(500, "An error occurred while sharing the file.");
+            }
+        }
+
+
         private async Task UpdateFilePathInDatabase(string oldFilePath, string newFilePath)
         {
 
@@ -646,9 +798,15 @@ namespace maxhanna.Server.Controllers
     }
     public class FileEntry
     {
+        public int Id { get; set; }
         public string Name { get; set; }
         public string Visibility { get; set; }
         public string Owner { get; set; }
         public bool IsFolder { get; set; }
+    } 
+    public class ShareFileRequest
+    {
+        public User User1 { get; set; }
+        public User User2 { get; set; }
     }
 }
