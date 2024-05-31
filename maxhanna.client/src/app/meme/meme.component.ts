@@ -100,6 +100,7 @@ export class MemeComponent extends ChildComponent implements OnInit {
     }
     return '';
   }
+   
 
   async loadMeme(memeId: number, memeName: string, index: number) {
     if (this.openedMemes.includes(index)) {
@@ -112,23 +113,25 @@ export class MemeComponent extends ChildComponent implements OnInit {
     }
     this.openedMemes.push(index);
     this.loading = true;
+    try {
+      const response = await this.memeService.getMeme(memeId);
+      const contentDisposition = response.headers["content-disposition"];
+      this.selectedMemeFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
+      this.selectedMeme = memeName; 
+      const type = this.fileType = this.videoFileExtensions.includes(this.selectedMemeFileExtension)
+        ? `video/${this.selectedMemeFileExtension}`
+        : `image/${this.selectedMemeFileExtension}`;
 
-    const response = await this.memeService.getMeme(memeId);
-    const contentDisposition = response.headers["content-disposition"];
-    this.selectedMemeFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
-    this.selectedMeme = memeName;
+      const blob = new Blob([response.blob], { type });
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        this.setMemeSrc(reader.result as string);
+      };
+    } catch {
+
+    }
     
-
-    const type = this.fileType = this.videoFileExtensions.includes(this.selectedMemeFileExtension)
-      ? `video/${this.selectedMemeFileExtension}`
-      : `image/${this.selectedMemeFileExtension}`;
-
-    const blob = new Blob([response.blob], { type });
-    const reader = new FileReader();
-    reader.readAsDataURL(blob);
-    reader.onloadend = () => {
-      this.setMemeSrc(reader.result as string);
-    }; 
     this.loading = false;
   }
 
@@ -210,18 +213,17 @@ export class MemeComponent extends ChildComponent implements OnInit {
   }
 
   async getComments(memeId: number) {
-    console.log("getting comments");
     try {
       const res = await this.fileService.getComments(memeId);
       if (res && res != '') {
-        console.log("got comments: " + res); 
         this.comments = res as FileComment[];
       }
-      console.log("no comments: " + res); 
+      else { 
+        this.comments = []; 
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes("404")) {
-        console.log("No comments found for this meme.");
-        this.comments = []; // Set comments to an empty array
+        this.comments = [];
       } else {
         console.error("Error fetching comments:", error);
       }

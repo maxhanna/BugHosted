@@ -10,7 +10,7 @@ import { ChatNotification } from '../../services/datacontracts/chat-notification
 })
 export class UserListComponent implements OnInit {
   @Input() user?: User;
-  @Input() notifications?: ChatNotification[];
+  @Input() chatNotifications?: ChatNotification[];
   @Output() userClickEvent = new EventEmitter<User>();
 
   users: Array<User> = [];
@@ -23,10 +23,10 @@ export class UserListComponent implements OnInit {
   click(value: User) {
     this.userClickEvent.emit(value);
   }
-  getNotificationsByUser(userId?: number) {
+  getChatNotificationsByUser(userId?: number) {
     if (userId) {
-      if (this.notifications && this.notifications.filter(x => x.senderId == userId)[0]) {
-        return '(' + this.notifications?.filter(x => x.senderId == userId)[0].count + ')';
+      if (this.chatNotifications && this.chatNotifications.filter(x => x.senderId == userId)[0]) {
+        return this.chatNotifications?.filter(x => x.senderId == userId)[0].count;
       }
     }
     return '';

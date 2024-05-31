@@ -101,6 +101,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!user) { return; }
     this.chatHistory = [];
     this.currentChatUser = user;
+    if (this.notifications) {
+      const numberOfNotifs = this.notifications.filter(x => x.senderId == user.id).length;
+      const numberOfNotifTotal = parseInt(this.parentRef!.navigationItems.filter(x => x.title == "Chat")[0].content!) ?? 0;
+      const grantTotal = numberOfNotifTotal - numberOfNotifs;
+      this.notifications = this.notifications.filter(x => x.senderId != user.id);
+      this.parentRef!.navigationItems.filter(x => x.title == "Chat")[0].content = (grantTotal == 0 ? '' : grantTotal + '');
+    }
     const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser);
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];

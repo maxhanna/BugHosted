@@ -1,11 +1,22 @@
-.notificationNumber {
-  font-size: 10px;
-  margin-left: 6px;
+.chatNotificationNumber {
+  font-size: 14px;
+  margin-left: -13px;
+  color: var(--secondary-font-color);
+  font-weight:bold;
 }
-.userList { 
+
+.chatIcon {
+  margin-right: 4px; /* Adjust spacing between the emoji and the username */
+  margin-top: 2px;
+  font-size: small;
+} 
+
+.userList {
   overflow-y: auto;
 }
-.user{
-    border: var(--main-border);
-    cursor: pointer;
+
+.user {
+  border: var(--main-border);
+  cursor: pointer;
+  padding: 5px;
 }

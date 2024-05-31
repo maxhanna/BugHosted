@@ -305,7 +305,8 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while streaming the meme.");
             }
         }
-                
+         
+
         private bool ValidatePath(string directory)
         {
             if (!directory.Contains(baseTarget))

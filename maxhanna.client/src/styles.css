@@ -44,13 +44,13 @@
 }
 
 body {
-  overscroll-behavior-y: none; 
+  overscroll-behavior-y: none;
   font-family: Arial;
   background-color: black;
   color: var(--main-font-color);
-  margin: 0;
-  padding: 0; 
-  padding-bottom: 50px;
+  margin: 0; 
+  padding: 0;
+  padding-bottom: 55px;
 }
 
 html, body {

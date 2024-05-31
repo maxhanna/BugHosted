@@ -25,7 +25,7 @@
         <th></th>
       </tr>
     </thead>
-    <tbody>
+    <tbody *ngIf="todos.length > 0">
       <tr *ngFor="let item of todos" id="todoNo{{item.id!}}">
         <td>{{ item.todo }}</td>
         <td><a [href]="item.url" target="_blank" *ngIf="item.url">🔗</a></td>
@@ -34,4 +34,5 @@
       </tr>
     </tbody>
   </table>
+  <div *ngIf="todos.length <= 0">Nothing in this list yet!</div>
 </div>

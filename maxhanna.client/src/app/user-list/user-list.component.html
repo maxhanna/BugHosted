@@ -1,3 +1,4 @@
-<div class="userList">
-  <div *ngFor="let user of users" (click)="click(user);" class="user">{{ user.username }}<span class="notificationNumber">{{getNotificationsByUser(user.id)}}</span></div>
+<div *ngFor="let user of users" (click)="click(user);" class="user">
+  {{ user.username }}
+  <span class="chatIcon" *ngIf="getChatNotificationsByUser(user.id)">💬<span class="chatNotificationNumber">{{ getChatNotificationsByUser(user.id) }}</span></span>
 </div>

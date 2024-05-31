@@ -1,21 +1,16 @@
 button {
-    cursor: pointer;
+  cursor: pointer;
 }
 
 .componentMain {
   max-width: 500px;
 }
 
-@media only screen and (min-device-width: 300px) and (max-device-width: 850px) {
-  .componentMain {
-    max-width: 300px;
-  }
-}
 
 .mainTable {
   display: block;
   max-height: 500px;
-  overflow-y: auto;
+  overflow: auto;
   width: 100%;
   margin-bottom: 25px;
 }
@@ -65,13 +60,7 @@ button {
   height: 100%;
   max-width: 500px;
   max-height: 500px;
-}
-
-@media only screen and (min-device-width: 300px) and (max-device-width: 850px) {
-  .memeImage, .memeVideo {
-    max-width: 300px;
-    max-height: 300px;
-  }
+  cursor: default;
 }
 
 .SendMemesSpan {
@@ -98,7 +87,9 @@ button {
 }
 
 .commentUsername {
+  margin-top: 5px;
   color: var(--secondary-font-color);
+  font-size: large;
 }
 
 .commentText {
@@ -106,10 +97,12 @@ button {
   padding: 5px 10px;
   border-radius: 10px;
   background-color: var(--main-highlight-color);
+  margin-left: 25px;
+  margin-bottom: 5px;
 }
 
 .commentVoteButtons {
-  display: inline-block; 
+  display: inline-block;
 }
 
 .addCommentTextArea {
@@ -136,12 +129,20 @@ button {
 
 .bottomInputs {
   width: 100%;
-  text-align:center;
+  text-align: center;
   min-height: 25px;
-  max-height:250px;
-  overflow-y:auto; 
+  max-height: 250px;
+  overflow-y: auto;
 }
-.sortOptions{
-    width:100%;
-    text-align:center;
+
+.sortOptions {
+  width: 100%;
+  text-align: center;
+}
+
+.filetype {
+  cursor: default;
+  width: 100%;
+  display: block;
+  font-size: small;
 }

@@ -53,7 +53,7 @@ namespace maxhanna.Server.Controllers
                                     type: rdr.GetString(2),
                                     url: rdr.IsDBNull(3) ? null : rdr.GetString(3),
                                     date: rdr.GetDateTime(4),
-                                    ownership: rdr.IsDBNull(5) ? null : rdr.GetString(5)
+                                    ownership: rdr.GetInt32(5)
                                 ));
                             }
 

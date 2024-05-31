@@ -30,6 +30,7 @@ export class MemeService {
     const blob = await response.blob();
     return { blob, headers };
   }
+    
 
   async getMemes(user: User) {
     try {

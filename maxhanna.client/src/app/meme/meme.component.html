@@ -58,11 +58,15 @@
             <div *ngIf="!loading">
               <img #memeContainer *ngIf="!this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" alt="meme" class="memeImage" />
               <video #memeContainer *ngIf="this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" controls preload="auto" autoplay class="memeVideo"></video>
-              <span class="filetype">file type : {{fileType}}</span>
+              <span class="filetype">{{fileType}}</span>
             </div>
 
             <!-- Comments Section -->
-            <div class="commentsHeader" (click)="showComments = !showComments">Comments ({{comments.length}})</div>
+            <div class="commentsHeader"
+                 [style.cursor]="comments.length <= 0 ? 'default' : 'pointer'"
+                 (click)="showComments = !showComments">
+              Comments ({{comments.length}})
+            </div>
             <div class="commentsInputArea">
               <input type="text" placeholder="💭Add a comment..." [id]="'addCommentInput'+meme.id" class="addCommentTextArea" (keyup.enter)="addComment(meme, $event)" />
               <button type="submit" (click)="addComment(meme, $event)">🗨️</button>

@@ -2,7 +2,7 @@ namespace maxhanna.Server.Controllers.DataContracts
 {
     public class Todo
     {
-        public Todo(int id, string todo, string type, string? url, DateTime? date, string? ownership)
+        public Todo(int id, string todo, string type, string? url, DateTime? date, int ownership)
         {
             this.id = id;
             this.todo = todo;
@@ -16,6 +16,6 @@ namespace maxhanna.Server.Controllers.DataContracts
         public string type { get; set; }
         public string? url { get; set; }
         public DateTime? date { get; set; }
-        public string? ownership { get; set; }
+        public int ownership { get; set; }
     }
 }
