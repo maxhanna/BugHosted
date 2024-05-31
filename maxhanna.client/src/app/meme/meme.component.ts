@@ -285,4 +285,7 @@ export class MemeComponent extends ChildComponent implements OnInit {
       this.directoryContents.sort((a, b) => b.downvotes - a.downvotes);
     }
   }
+  clickOnUpload() {
+    document.getElementById('fileUploader')!.getElementsByTagName('input')[0].click();
+  }
 }

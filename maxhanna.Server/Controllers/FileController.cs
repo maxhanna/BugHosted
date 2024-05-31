@@ -440,9 +440,9 @@ namespace maxhanna.Server.Controllers
 
                 DateTime uploadDate = DateTime.UtcNow;
                 string fileName = Path.GetFileName(request.directory);
-                string directoryName = Path.GetDirectoryName(request.directory).Replace("\\", "/");
+                string directoryName = (Path.GetDirectoryName(request.directory) ?? "").Replace("\\", "/");
 
-                string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+                string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 
                 using (var connection = new MySqlConnection(connectionString))
                 {
@@ -511,7 +511,6 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
         {
             _logger.LogInformation($"POST /File/Upload (folderPath = {folderPath})");
-            Boolean hasDupes = false;
             try
             {
                 if (Request.Form["user"].Count <= 0)
@@ -558,7 +557,7 @@ namespace maxhanna.Server.Controllers
                             "INSERT INTO maxhanna.file_uploads" +
                             " (ownership, file_name, upload_date, folder_path, is_public, is_folder) " +
                             "VALUES (@ownership, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder)", connection);
-                        command.Parameters.AddWithValue("@ownership", user.Id);
+                        command.Parameters.AddWithValue("@ownership", user!.Id);
                         command.Parameters.AddWithValue("@fileName", file.FileName);
                         command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
                         command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
@@ -642,7 +641,7 @@ namespace maxhanna.Server.Controllers
                         await connection.OpenAsync();
 
                         var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (ownership, file_name, upload_date, folder_path, is_public, is_folder) VALUES (@ownership, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder)", connection);
-                        command.Parameters.AddWithValue("@ownership", user.Id);
+                        command.Parameters.AddWithValue("@ownership", user!.Id);
                         command.Parameters.AddWithValue("@fileName", file.FileName);
                         command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
                         command.Parameters.AddWithValue("@folderPath", "roms");
@@ -712,7 +711,7 @@ namespace maxhanna.Server.Controllers
                 {
                     System.IO.File.Delete(request.file);
                     string fileName = Path.GetFileName(request.file).Replace("\\", "/");
-                    string folder = Path.GetDirectoryName(request.file).Replace("\\", "/");
+                    string folder = (Path.GetDirectoryName(request.file) ?? "").Replace("\\", "/");
                     if (!folder.EndsWith("/"))
                     {
                         folder += "/";
@@ -809,7 +808,7 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
 
                     // Find the file's path
-                    string filePath = null;
+                    string? filePath = null;
                     using (var selectCmd = new MySqlCommand(selectSql, conn))
                     {
                         selectCmd.Parameters.AddWithValue("@fileId", fileId);
@@ -836,7 +835,7 @@ namespace maxhanna.Server.Controllers
                     {
                         _logger.LogInformation($"LOG::: folderPath: {filePath}");
 
-                        string parentPath = Path.GetDirectoryName(filePath.TrimEnd('/').Replace("\\", "/")).Replace("\\", "/");
+                        string parentPath = (Path.GetDirectoryName(filePath.TrimEnd('/').Replace("\\", "/")) ?? "").Replace("\\", "/");
                         if (!parentPath.EndsWith("/"))
                         {
                             parentPath += "/";
@@ -902,12 +901,12 @@ namespace maxhanna.Server.Controllers
                 await connection.OpenAsync();
 
                 // Ensure folder paths are standardized (replace backslashes with forward slashes)
-                string oldFolderPath = Path.GetDirectoryName(oldFilePath)?.Replace("\\", "/");
+                string oldFolderPath = (Path.GetDirectoryName(oldFilePath) ?? "").Replace("\\", "/");
                 if (!oldFolderPath.EndsWith("/"))
                 {
                     oldFolderPath += "/";
                 }
-                string newFolderPath = Path.GetDirectoryName(newFilePath)?.Replace("\\", "/");
+                string newFolderPath = (Path.GetDirectoryName(newFilePath) ?? "").Replace("\\", "/");
                 if (!newFolderPath.EndsWith("/"))
                 {
                     newFolderPath += "/";

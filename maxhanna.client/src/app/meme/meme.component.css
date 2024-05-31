@@ -1,3 +1,7 @@
+button {
+    cursor: pointer;
+}
+
 .componentMain {
   max-width: 500px;
 }
@@ -73,6 +77,7 @@
 .SendMemesSpan {
   color: var(--secondary-font-color);
   font-weight: bold;
+  cursor: pointer;
 }
 
 .comments-section {
@@ -104,8 +109,7 @@
 }
 
 .commentVoteButtons {
-  display: inline-block;
-  margin-top:
+  display: inline-block; 
 }
 
 .addCommentTextArea {

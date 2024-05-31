@@ -42,11 +42,11 @@ namespace maxhanna.Server.Controllers
                                 {
                                     Id = rdr.GetInt32(0),
                                     Name = rdr.GetString(1),
-                                    Phone = rdr.IsDBNull(2) ? null : rdr.GetString(2),
+                                    Phone = rdr.IsDBNull(2) ? "" : rdr.GetString(2),
                                     Birthday = rdr.IsDBNull(3) ? null : rdr.GetDateTime(3),
-                                    Notes = rdr.IsDBNull(4) ? null : rdr.GetString(4),
-                                    Email = rdr.IsDBNull(5) ? null : rdr.GetString(5),
-                                    Ownership = rdr.IsDBNull(6) ? null : rdr.GetString(6)
+                                    Notes = rdr.IsDBNull(4) ? "" : rdr.GetString(4),
+                                    Email = rdr.IsDBNull(5) ? "" : rdr.GetString(5),
+                                    Ownership = rdr.IsDBNull(6) ? "" : rdr.GetString(6)
                                 });
                             }
 

@@ -188,30 +188,41 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/Meme/UpdateMemeName/{memeId}", Name = "UpdateMemeName")]
-        public IActionResult UpdateMemeName([FromBody] UpdateMemeRequest request, int memeId)
+        public async Task<IActionResult> UpdateMemeName([FromBody] UpdateMemeRequest request, int memeId)
         { 
             _logger.LogInformation($"GET /File/UpdateMemeName/{memeId} (for user: {request.User.Id}, text: {request.Text}"); 
             try
-            {  
+            {
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
-                    connection.Open();
+                    await connection.OpenAsync();
 
-                    var command = new MySqlCommand(
-                        "INSERT INTO " +
-                            "maxhanna.meme_names (meme_id, meme_name) " +
-                        "VALUES " +
-                            "(@memeId, @memeName) " +
-                        "ON DUPLICATE KEY UPDATE " +
-                            "meme_name = VALUES(meme_name) "
-                        , connection); ;
-                    command.Parameters.AddWithValue("@memeId", memeId);
-                    command.Parameters.AddWithValue("@memeName", request.Text);
+                    // Check if meme name already exists
+                    var checkCommand = new MySqlCommand(
+                        "SELECT COUNT(*) FROM maxhanna.meme_names WHERE meme_name = @memeName AND meme_id != @memeId " +
+                        "UNION ALL " +
+                        "SELECT COUNT(*) FROM maxhanna.file_uploads WHERE folder_path = 'E:/Uploads/Meme/' AND file_name = @memeName AND id != @memeId",
+                        connection);
+                    checkCommand.Parameters.AddWithValue("@memeName", request.Text);
+                    checkCommand.Parameters.AddWithValue("@memeId", memeId);
 
-                    command.ExecuteReaderAsync();
+                    var count = await checkCommand.ExecuteScalarAsync();
+                    if (count != null && (long)count > 0)
+                    {
+                        return Conflict("Meme name already exists.");
+                    }
+
+                    // Update or insert the meme name
+                    var updateCommand = new MySqlCommand(
+                        "INSERT INTO maxhanna.meme_names (meme_id, meme_name) " +
+                        "VALUES (@memeId, @memeName) " +
+                        "ON DUPLICATE KEY UPDATE meme_name = VALUES(meme_name)",
+                        connection);
+                    updateCommand.Parameters.AddWithValue("@memeId", memeId);
+                    updateCommand.Parameters.AddWithValue("@memeName", request.Text);
+
+                    await updateCommand.ExecuteNonQueryAsync();
                 }
-
-              
 
                 return Ok("Meme updated");
             }
@@ -259,7 +270,7 @@ namespace maxhanna.Server.Controllers
                         return NotFound();
                     }
 
-                    oldFilePath = Path.Combine(memeFolderPath, result.ToString()).Replace("\\", "/");
+                    oldFilePath = Path.Combine(memeFolderPath, result.ToString()!).Replace("\\", "/");
                     _logger.LogInformation($"Found file path: {oldFilePath}");
                 }
             }

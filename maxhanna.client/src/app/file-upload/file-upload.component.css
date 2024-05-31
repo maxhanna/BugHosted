@@ -21,3 +21,7 @@
   .removeFileButton:before {
     content: '❌';
   }
+
+  button {
+      cursor: pointer;
+  }
