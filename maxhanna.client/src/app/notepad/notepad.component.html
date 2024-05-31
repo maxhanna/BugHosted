@@ -2,10 +2,10 @@
   <div class="closeButton" (click)="remove_me();"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Notepad</div>
-   
+  <div class="userList">
     <app-user-list (userClickEvent)="shareNote($event);" [user]="parentRef?.user!" *ngIf="isPanelExpanded"></app-user-list>
+  </div>
 
-  
 
   <textarea #noteInput (input)="handleNoteInputChange()" required></textarea>
   <fieldset class="buttonFields">

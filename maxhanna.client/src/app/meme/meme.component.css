@@ -1,0 +1,143 @@
+.componentMain {
+  max-width: 500px;
+}
+
+@media only screen and (min-device-width: 300px) and (max-device-width: 850px) {
+  .componentMain {
+    max-width: 300px;
+  }
+}
+
+.mainTable {
+  display: block;
+  max-height: 500px;
+  overflow-y: auto;
+  width: 100%;
+  margin-bottom: 25px;
+}
+
+  .mainTable th:nth-child(2), td:nth-child(2) {
+    width: 100%;
+  }
+
+  .mainTable tbody tr {
+    cursor: pointer;
+  }
+
+  .mainTable td:not(:nth-last-child(-n+3)) {
+    padding: 5px;
+  }
+
+  .mainTable th {
+    text-align: center;
+  }
+/* Adjust the appearance of the vote count */
+.vote-count {
+  color: var(--main-font-color);
+  font-size: 14px;
+  font-weight: bold;
+}
+/* Adjust the appearance of the vote container */
+.vote-container {
+  display: flex;
+  align-items: center;
+}
+/* Adjust the appearance of the vote button */
+.vote-button {
+  font-size: 16px;
+  opacity: 0.7;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 5px;
+}
+  /* Increase opacity on hover for better visibility */
+  .vote-button:hover {
+    opacity: 1;
+  }
+
+.memeImage, .memeVideo {
+  width: 100%;
+  height: 100%;
+  max-width: 500px;
+  max-height: 500px;
+}
+
+@media only screen and (min-device-width: 300px) and (max-device-width: 850px) {
+  .memeImage, .memeVideo {
+    max-width: 300px;
+    max-height: 300px;
+  }
+}
+
+.SendMemesSpan {
+  color: var(--secondary-font-color);
+  font-weight: bold;
+}
+
+.comments-section {
+  cursor: default;
+  max-height: 300px;
+  overflow-y: auto;
+  border: var(--main-border);
+  background-color: var(--secondary-bg-color);
+}
+
+.commentsHeader {
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  font-size: large;
+  text-align: center;
+  cursor: pointer;
+}
+
+.commentUsername {
+  color: var(--secondary-font-color);
+}
+
+.commentText {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background-color: var(--main-highlight-color);
+}
+
+.commentVoteButtons {
+  display: inline-block;
+  margin-top:
+}
+
+.addCommentTextArea {
+  width: calc(100% - 42px);
+  height: 20px;
+}
+
+.commentsInputArea {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.searchInputs {
+  position: relative;
+  top: 0;
+  right: 0;
+}
+
+.fileUploadInputs {
+  width: 300px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.bottomInputs {
+  width: 100%;
+  text-align:center;
+  min-height: 25px;
+  max-height:250px;
+  overflow-y:auto; 
+}
+.sortOptions{
+    width:100%;
+    text-align:center;
+}

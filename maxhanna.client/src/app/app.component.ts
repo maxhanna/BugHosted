@@ -17,6 +17,8 @@ import { UserComponent } from './user/user.component';
 import { User } from '../services/datacontracts/user';
 import { MenuItem } from '../services/datacontracts/menu-item';
 import { ChatComponent } from './chat/chat.component';
+import { MemeComponent } from './meme/meme.component';
+import { SocialComponent } from './social/social.component';
 
 
 @Component({
@@ -24,7 +26,7 @@ import { ChatComponent } from './chat/chat.component';
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   child_unique_key: number = 0;
@@ -46,8 +48,10 @@ export class AppComponent implements OnInit {
     { icon: "💵", title: "Coin-Wallet", content: undefined },
     { icon: "₿", title: "Coin-Watch", content: undefined },
     { icon: "🗨️", title: "Chat", content: undefined },
+    { icon: "🤣", title: "Meme", content: undefined },
+    { icon: "🌐", title: "Social", content: undefined },
     { icon: "👤", title: "User", content: undefined },
-  ]; 
+  ];
   userSelectedNavigationItems: Array<MenuItem> = []
   constructor() {
     if (this.getCookie("user")) {
@@ -55,73 +59,54 @@ export class AppComponent implements OnInit {
     } else {
       setTimeout(() => this.createComponent("User"), 0); //setTimeout required to avoid ChangeDetectorRef error
     }
-  }
-  ngOnInit() {
-   
   } 
   createComponent(componentType: string) {
-    if (componentType && componentType.trim() != "") {
-      let componentClass = null;
-      if (componentType == "Favourites") {
-        componentClass = FavouritesComponent;
-      }
-      else if (componentType == "Coin-Watch") {
-        componentClass = CoinWatchComponent;
-      }
-      else if (componentType == "Calendar") {
-        componentClass = CalendarComponent;
-      }
-      else if (componentType == "Weather") {
-        componentClass = WeatherComponent;
-      }
-      else if (componentType == "MiningDevices") {
-        componentClass = MiningDevicesComponent;
-      }
-      else if (componentType == "MiningRigs") {
-        componentClass = MiningRigsComponent;
-      }
-      else if (componentType == "Files") {
-        componentClass = FileComponent;
-      }
-      else if (componentType == "Todo") {
-        componentClass = TodoComponent;
-      }
-      else if (componentType == "Music") {
-        componentClass = MusicComponent;
-      }
-      else if (componentType == "Notepad") {
-        componentClass = NotepadComponent;
-      }
-      else if (componentType == "Contacts") {
-        componentClass = ContactsComponent;
-      }
-      else if (componentType == "Game") {
-        componentClass = GameComponent;
-      }
-      else if (componentType == "Gameboy Color") {
-        componentClass = GbcComponent;
-      }
-      else if (componentType == "Coin-Wallet") {
-        componentClass = CoinWalletComponent;
-      }
-      else if (componentType == "User") {
-        componentClass = UserComponent;
-      }
-      else if (componentType == "Chat") {
-        componentClass = ChatComponent;
-      }
+    if (!componentType || componentType.trim() === "") return null;
 
-      if (componentClass) {
-        const childComponentRef = this.VCR.createComponent(componentClass);
+    const componentMap: { [key: string]: any } = {
+      "Favourites": FavouritesComponent,
+      "Coin-Watch": CoinWatchComponent,
+      "Calendar": CalendarComponent,
+      "Weather": WeatherComponent,
+      "MiningDevices": MiningDevicesComponent,
+      "MiningRigs": MiningRigsComponent,
+      "Files": FileComponent,
+      "Todo": TodoComponent,
+      "Music": MusicComponent,
+      "Notepad": NotepadComponent,
+      "Contacts": ContactsComponent,
+      "Game": GameComponent,
+      "Gameboy Color": GbcComponent,
+      "Coin-Wallet": CoinWalletComponent,
+      "User": UserComponent,
+      "Chat": ChatComponent,
+      "Social": SocialComponent,
+      "Meme": MemeComponent
+    };
 
-        let childComponent = childComponentRef.instance;
-        childComponent.unique_key = ++this.child_unique_key;
-        childComponent.parentRef = this; 
-        // add reference for newly created component
-        this.componentsReferences.push(childComponentRef);
+    const componentClass = componentMap[componentType];
+    if (!componentClass) { return null; }
+
+    const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
+    if (existingComponent) {
+      const existingComponentKey = existingComponent?.instance.unique_key;
+      if (existingComponentKey) {
+        const compClassName = ((String)(existingComponent?.componentType)).split(' ')[1];
+        if (compClassName.includes("GbcComponent")) return null;
+        this.removeComponent(existingComponentKey);
+        return;
       }
     }
-  } 
+
+    const childComponentRef = this.VCR.createComponent(componentClass);
+    let childComponent: any = childComponentRef.instance;
+    childComponent.unique_key = ++this.child_unique_key;
+    childComponent.parentRef = this;
+    this.componentsReferences.push(childComponentRef);
+    return childComponentRef;
+  }
+
+
   removeComponent(key: number) {
     if (this.VCR.length < 1) return;
 
@@ -140,6 +125,20 @@ export class AppComponent implements OnInit {
       x => x.instance.unique_key !== key
     );
   }
+
+  removeAllComponents() { 
+    if (this.VCR.length < 1) return;
+
+    const userComponentRef = this.componentsReferences.find(componentRef => componentRef.instance instanceof UserComponent);
+    this.componentsReferences.forEach(componentRef => {
+      if (componentRef !== userComponentRef) {
+        componentRef.destroy();
+      }
+    });
+
+    this.componentsReferences = userComponentRef ? [userComponentRef] : [];
+  }
+
   getCookie(name: string) {
     let ca: Array<string> = document.cookie.split(';');
     let caLen: number = ca.length;
@@ -153,7 +152,7 @@ export class AppComponent implements OnInit {
       }
     }
     return '';
-  } 
+  }
   deleteCookie(name: string) {
     this.setCookie(name, '', -1);
   }

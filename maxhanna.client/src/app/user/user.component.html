@@ -3,9 +3,8 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Login</div>
   <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
-  <div *ngIf="notifications" (click)="notifications = []">
-    <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification"></div>
-  </div>
+
+  <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
   <div>
     <div *ngIf="!parentRef!.user">
@@ -34,6 +33,7 @@
         <!--USERNAME / PASSWORD-->
         <thead (click)="isGeneralToggled = !isGeneralToggled">
           <tr>
+            <th></th>
             <th>General</th>
             <th style="text-align:right;">
               <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled">🔄</button>
@@ -55,11 +55,13 @@
         <!-- Menu Icons -->
         <thead (click)="isMenuIconsToggled = !isMenuIconsToggled; getMenuIcons()">
           <tr>
+            <th></th>
             <th colspan="2">Menu Icons</th>
           </tr>
         </thead>
         <tbody *ngIf="isMenuIconsToggled">
           <tr>
+            <td>
             <td>Available/Selected:</td>
             <td class="menuIconsTd">
               <ng-container *ngFor="let icon of parentRef!.navigationItems">
@@ -78,6 +80,8 @@
         <!--Weather-->
         <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()">
           <tr>
+            <th><span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
+      but you can also set your own City for a more precise location."></span></th>
             <th>Weather Location</th>
             <th style="text-align:right;">
               <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled">🔄</button>
@@ -86,6 +90,7 @@
         </thead>
         <tbody *ngIf="isWeatherLocationToggled">
           <tr>
+            <td></td>
             <td>Location:</td>
             <td><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></td>
           </tr>
@@ -97,6 +102,7 @@
         <!--Nicehash API-->
         <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()">
           <tr>
+            <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
             <th>Nicehash API Keys</th>
             <th style="text-align:right;">
               <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled">🔄</button>
@@ -105,14 +111,17 @@
         </thead>
         <tbody *ngIf="isNicehashApiKeysToggled">
           <tr>
+            <td></td>
             <td>OrgId:</td>
             <td><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></td>
           </tr>
           <tr>
+            <td></td>
             <td>ApiKey:</td>
             <td><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></td>
           </tr>
           <tr>
+            <td></td>
             <td>ApiSecret:</td>
             <td><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></td>
           </tr>

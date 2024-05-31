@@ -15,7 +15,7 @@ import { CoinWatchService } from '../../services/coin-watch.service';
   styleUrl: './mining-rigs.component.css'
 })
 export class MiningRigsComponent extends ChildComponent {
-  notifications: string[] = [];
+  @ViewChild('notificationArea') notificationArea!: ElementRef<HTMLElement>;
   miningRigs: Array<MiningRig> = [];
   dailyEarnings: Array<DailyMiningEarnings> = [];
   showAllData: boolean = false;
@@ -24,19 +24,18 @@ export class MiningRigsComponent extends ChildComponent {
   actualProfitability: number = 0;
   miningRigDevices?: MiningRigDevice[] = undefined;
   showLocal = true;
+  notifications: string[] = [];
 
   constructor(private miningService: MiningService, private coinwatchService: CoinWatchService) {
     super();
   }
-  async ngOnInit() {
+  ngOnInit() {
     this.rate = 1;
     this.localProfitability = 0;
     this.actualProfitability = 0;
-    await this.getMiningInfo();
-    if (this.miningRigs.length > 0) {
-      this.getBTCRate();
-      this.getDailyEarnings();
-    }
+    this.getMiningInfo();
+    this.getBTCRate();
+    this.getDailyEarnings();
   } 
   async getMiningInfo() {
     this.startLoading();
@@ -58,12 +57,12 @@ export class MiningRigsComponent extends ChildComponent {
         var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
-        this.notifications.push(`${requestedActionCapitalized}ing ${rig.rigName} ${isSuccess ? 'Has Succeeded' : 'Has Failed'}`);
+        this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${rig.rigName} ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
 
         this.getMiningInfo();
       }
       catch (error) {
-        this.notifications.push(JSON.stringify(error));
+        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";
       }
       this.stopLoading();
     }
@@ -80,13 +79,13 @@ export class MiningRigsComponent extends ChildComponent {
         var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
-        this.notifications.push(`${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}`);
+        this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
 
         this.getMiningInfo();
         this.miningRigDevices = undefined;
       }
       catch (error) {
-        this.notifications.push(JSON.stringify(error));
+        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";
       }
     }
   }
@@ -130,7 +129,15 @@ export class MiningRigsComponent extends ChildComponent {
       }
     }
     return this.rate != 1 ? (this.rate * totalWeeklyEarnings).toFixed(2) + ' CAD' : totalWeeklyEarnings + ' BTC';
-  } 
+  }
+  calculateAverageDailyEarnings(): string {
+    let totalDailyEarnings = 0;
+    for (let earnings of this.dailyEarnings) {
+      totalDailyEarnings += earnings.totalEarnings;
+    }
+    const averageDailyEarnings = totalDailyEarnings / this.dailyEarnings.length;
+    return this.rate != 1 ? (this.rate * averageDailyEarnings).toFixed(2) + ' CAD' : averageDailyEarnings + ' BTC';
+  }
   toggleDeviceDataVisibility(rig: MiningRig): void {
     if (this.miningRigDevices && this.miningRigDevices == rig.devices) {
       this.miningRigDevices = undefined;

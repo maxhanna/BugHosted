@@ -5,7 +5,7 @@
    
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
   <div class="mainTableDiv" *ngIf="miningRigDevices.length > 0">
-    <table class="mainTable" id="deviceRigTable">
+    <table class="mainTable miningStatusTable" id="deviceRigTable">
       <thead>
         <tr>
           <th (click)="sortTable(0, 'deviceRigTable')" title="Sort by Rig Name">Rig Name</th>

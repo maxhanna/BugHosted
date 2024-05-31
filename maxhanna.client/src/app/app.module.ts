@@ -23,6 +23,8 @@ import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
 import { MemeComponent } from './meme/meme.component';
+import { SocialComponent } from './social/social.component';
+import { FileUploadComponent } from './file-upload/file-upload.component';
 
 @NgModule({
   declarations: [
@@ -45,7 +47,9 @@ import { MemeComponent } from './meme/meme.component';
     UserComponent,
     ChatComponent,
     UserListComponent,
-    MemeComponent
+    MemeComponent,
+    SocialComponent,
+    FileUploadComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

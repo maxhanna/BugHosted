@@ -77,18 +77,26 @@ fieldset {
   transition: transform 0.8s ease;
 }
 
-.refreshButton::before, .closeButton::before {
-  position: absolute;
-  top: 0px;
-  width: 25px;
-  height: 25px;
-  font-size: 18px;
-  line-height: 25px;
-  z-index: 2;
-  border: 2px outset black;
-  text-align: center;
-  padding-left: 0px;
+.refreshButton::before {
+  border-top-left-radius: 3px;
 }
+
+.closeButton::before {
+  border-top-right-radius: 3px;
+}
+
+  .refreshButton::before, .closeButton::before {
+    position: absolute;
+    top: 0px;
+    width: 25px;
+    height: 25px;
+    font-size: 18px;
+    line-height: 25px;
+    z-index: 2;
+    border: 2px outset black;
+    text-align: center;
+    padding-left: 0px;
+  }
 
 .refreshButton:active::before,
 .closeButton:active::before {
@@ -135,16 +143,15 @@ fieldset {
 /* Make the table scrollable horizontally on mobile */
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   .mainTable {
-    overflow-x: scroll;
-    white-space: nowrap;
+    overflow-x: scroll; 
   }
 }
 
-.mainTable tr > :last-child {
+.miningStatusTable tr > :last-child {
   position: sticky;
   right: 0;
-  z-index: 2;
-}
+  z-index: 22;
+} 
 
 .mainTable {
   font-size: var(--main-font-size);
@@ -159,6 +166,7 @@ fieldset {
     top: 0;
     background-color: var(--main-bg-color);
     z-index: 10;
+    cursor: default;
   }
 
   .mainTable tr:not(thead,tr):hover {

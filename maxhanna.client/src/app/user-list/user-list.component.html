@@ -1,3 +1,3 @@
-<div class="userPanel">
-  <div *ngFor="let user of users" (click)="click(user);">{{ user.username }}<span class="notificationNumber">{{getNotificationsByUser(user.id)}}</span></div>
+<div class="userList">
+  <div *ngFor="let user of users" (click)="click(user);" class="user">{{ user.username }}<span class="notificationNumber">{{getNotificationsByUser(user.id)}}</span></div>
 </div>

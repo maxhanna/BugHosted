@@ -1,0 +1,23 @@
+.fileListDiv
+{
+    background-color: var(--main-highlight-color);
+    width:250px;
+    height:26px;
+    margin-top:2px;
+    margin-left:20px;
+    border: var(--main-border); 
+
+}
+
+.removeFileButton {
+  position: relative;
+  top: 0px;
+  right: 0px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+  .removeFileButton:before {
+    content: '❌';
+  }

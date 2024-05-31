@@ -6,6 +6,7 @@ using System.Net;
 using MySqlConnector;
 using Microsoft.AspNetCore.Components.Forms;
 using System.IO;
+using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -52,16 +53,29 @@ namespace maxhanna.Server.Controllers
 
                     var command = new MySqlCommand(
                         "SELECT " +
-                            "id, file_name, is_public, is_folder, ownership " +
+                            "f.id, " +
+                            "f.file_name, " +
+                            "f.is_public, " +
+                            "f.is_folder, " +
+                            "f.ownership, " +
+                            "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
+                            "SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, " +
+                            "f.upload_date as date " +
                         "FROM " +
-                            "maxhanna.file_uploads " +
+                            "maxhanna.file_uploads f " +
+                        "LEFT JOIN " +
+                            "maxhanna.file_votes fv " +
+                            "ON f.id = fv.file_id " +
                         "WHERE " +
-                            "folder_path = @folderPath " +
-                        "AND (" +
-                            "is_public = 1 OR " +
-                            "FIND_IN_SET(@userId, ownership) > 0" +
-                        ")"
+                            "f.folder_path = @folderPath " +
+                            "AND (" +
+                                "f.is_public = 1 OR " +
+                                "FIND_IN_SET(@userId, f.ownership) > 0" +
+                            ") " +
+                        "GROUP BY " +
+                            "f.id, f.file_name, f.is_public, f.is_folder, f.ownership"
                         , connection);
+
                     command.Parameters.AddWithValue("@folderPath", directory);
                     command.Parameters.AddWithValue("@userId", user.Id);
 
@@ -74,6 +88,9 @@ namespace maxhanna.Server.Controllers
                             var isPublic = reader.GetBoolean("is_public");
                             var owner = reader.GetString("ownership");
                             var isFolder = reader.GetBoolean("is_folder");
+                            var upvotes = reader.GetInt32("upvotes");
+                            var downvotes = reader.GetInt32("downvotes");
+                            var date = reader.GetDateTime("date");
 
                             // Apply filters
                             bool matchesVisibility = (visibility == "public" && isPublic) || (visibility == "private" && !isPublic) || visibility == "all";
@@ -81,14 +98,14 @@ namespace maxhanna.Server.Controllers
 
                             if (matchesVisibility && matchesOwnership)
                             {
-                                fileEntries.Add(new FileEntry { Id = id, Name = fileName, Visibility = isPublic ? "Public" : "Private", Owner = owner, IsFolder = isFolder });
+                                fileEntries.Add(new FileEntry(id, fileName, isPublic ? "Public" : "Private", owner,"", user.Id, isFolder, upvotes, downvotes, date));
                             }
                         }
                     }
                 }
 
-                Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin");
-                Response.Headers.Append("Cross-Origin-Embedder-Policy", "require-corp");
+                Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin"); //?still need??
+                Response.Headers.Append("Cross-Origin-Embedder-Policy", "require-corp"); //?still need??
 
                 return Ok(fileEntries);
             }
@@ -98,7 +115,221 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while listing files.");
             }
         }
+ 
+        [HttpGet("/File/Comments/{fileId}", Name = "GetCommentsForFile")]
+        public async Task<IActionResult> GetCommentsForFile(int fileId)
+        {
+            try
+            {
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await connection.OpenAsync();
 
+                    var command = new MySqlCommand(@"
+                        SELECT 
+                            c.id, 
+                            c.file_id, 
+                            c.user_id, 
+                            c.comment, 
+                            u.username,
+                            SUM(CASE WHEN cv_up.upvote = 1 THEN 1 ELSE 0 END) AS upvotes,
+                            SUM(CASE WHEN cv_down.downvote = 1 THEN 1 ELSE 0 END) AS downvotes
+                        FROM 
+                            maxhanna.file_comments c 
+                        JOIN 
+                            maxhanna.users u 
+                            ON c.user_id = u.id 
+                        LEFT JOIN 
+                            maxhanna.comment_votes cv_up 
+                            ON c.id = cv_up.comment_id AND cv_up.upvote = 1
+                        LEFT JOIN 
+                            maxhanna.comment_votes cv_down 
+                            ON c.id = cv_down.comment_id AND cv_down.downvote = 1
+                        WHERE 
+                            c.file_id = @fileId
+                        GROUP BY 
+                            c.id, c.file_id, c.user_id, c.comment, u.username", connection); 
+                    command.Parameters.AddWithValue("@fileId", fileId);
+
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        var comments = new List<Comment>();
+
+                        while (reader.Read())
+                        {
+                            var comment = new Comment
+                            {
+                                Id = reader.GetInt32("id"),
+                                FileId = reader.GetInt32("file_id"),
+                                UserId = reader.GetInt32("user_id"),
+                                Username = reader.GetString("username"),
+                                CommentText = reader.GetString("comment"),
+                                Upvotes = reader.GetInt32("upvotes"),
+                                Downvotes = reader.GetInt32("downvotes"),
+                            };
+
+                            comments.Add(comment);
+                        }
+
+                        return Ok(comments);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving comments for the file.");
+                return StatusCode(500, "An error occurred while retrieving comments for the file.");
+            }
+        }
+        [HttpPost("/File/Comment", Name = "CommentFile")]
+        public async Task<IActionResult> CommentFile([FromBody] CommentRequest request)
+        {
+            _logger.LogInformation($"POST /File/Comment");
+            try
+            {
+                if (request.User.Id <= 0 || request.FileId <= 0 || string.IsNullOrEmpty(request.Comment))
+                {
+                    _logger.LogWarning($"Invalid request data! Returning BadRequest.");
+                    return BadRequest("Invalid user, file ID, or comment.");
+                }
+
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await connection.OpenAsync();
+
+                    var command = new MySqlCommand("INSERT INTO file_comments (file_id, user_id, comment) VALUES (@fileId, @userId, @comment)", connection);
+                    command.Parameters.AddWithValue("@fileId", request.FileId);
+                    command.Parameters.AddWithValue("@userId", request.User.Id);
+                    command.Parameters.AddWithValue("@comment", request.Comment);
+
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                _logger.LogInformation($"Comment added to file {request.FileId} by user {request.User.Id}");
+                return Ok("Comment added successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while adding a comment to the file.");
+                return StatusCode(500, "An error occurred while adding a comment to the file.");
+            }
+        }
+        [HttpPost("/File/UpvoteComment", Name = "UpvoteComment")]
+        public async Task<IActionResult> UpvoteComment([FromBody] CommentVoteRequest request)
+        {
+            try
+            {
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await connection.OpenAsync();
+
+                    var command = new MySqlCommand("INSERT INTO comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, @upvote, 0) ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0", connection);
+                    command.Parameters.AddWithValue("@commentId", request.CommentId);
+                    command.Parameters.AddWithValue("@userId", request.User.Id);
+                    command.Parameters.AddWithValue("@upvote", request.Upvote);
+
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                return Ok("Comment upvoted successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while upvoting the comment.");
+                return StatusCode(500, "An error occurred while upvoting the comment.");
+            }
+        }
+
+        [HttpPost("/File/DownvoteComment", Name = "DownvoteComment")]
+        public async Task<IActionResult> DownvoteComment([FromBody] CommentVoteRequest request)
+        {
+            try
+            {
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await connection.OpenAsync();
+
+                    var command = new MySqlCommand("INSERT INTO comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, 0, @downvote) ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote", connection);
+                    command.Parameters.AddWithValue("@commentId", request.CommentId);
+                    command.Parameters.AddWithValue("@userId", request.User.Id);
+                    command.Parameters.AddWithValue("@downvote", request.Downvote);
+
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                return Ok("Comment downvoted successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while downvoting the comment.");
+                return StatusCode(500, "An error occurred while downvoting the comment.");
+            }
+        }
+        [HttpPost("/File/Upvote", Name = "UpvoteFile")]
+        public async Task<IActionResult> UpvoteFile([FromBody] VoteRequest request)
+        {
+            _logger.LogInformation($"POST /File/Upvote");
+            try
+            {
+                if (request.User.Id <= 0 || request.FileId <= 0)
+                {
+                    _logger.LogWarning($"Invalid request data! Returning BadRequest.");
+                    return BadRequest("Invalid user or File ID.");
+                }
+
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await connection.OpenAsync();
+
+                    var command = new MySqlCommand("INSERT INTO file_votes (file_id, user_id, upvote, downvote) VALUES (@fileId, @userId, 1, 0) ON DUPLICATE KEY UPDATE upvote = 1, downvote = 0", connection);
+                    command.Parameters.AddWithValue("@fileId", request.FileId);
+                    command.Parameters.AddWithValue("@userId", request.User.Id);
+
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                _logger.LogInformation($"File {request.FileId} upvoted by user {request.User.Id}");
+                return Ok("File upvoted successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while upvoting the file.");
+                return StatusCode(500, "An error occurred while upvoting the file.");
+            }
+        }
+
+        [HttpPost("/File/Downvote", Name = "DownvoteFile")]
+        public async Task<IActionResult> DownvoteFile([FromBody] VoteRequest request)
+        {
+            _logger.LogInformation($"POST /File/Downvote");
+            try
+            {
+                if (request.User.Id <= 0 || request.FileId <= 0)
+                {
+                    _logger.LogWarning($"Invalid request data! Returning BadRequest.");
+                    return BadRequest("Invalid user or File ID.");
+                }
+
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await connection.OpenAsync();
+
+                    var command = new MySqlCommand("INSERT INTO file_votes (file_id, user_id, upvote, downvote) VALUES (@fileId, @userId, 0, 1) ON DUPLICATE KEY UPDATE upvote = 0, downvote = 1", connection);
+                    command.Parameters.AddWithValue("@fileId", request.FileId);
+                    command.Parameters.AddWithValue("@userId", request.User.Id);
+
+                    await command.ExecuteNonQueryAsync();
+                }
+
+                _logger.LogInformation($"File {request.FileId} downvoted by user {request.User.Id}");
+                return Ok("File downvoted successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while downvoting the file.");
+                return StatusCode(500, "An error occurred while downvoting the file.");
+            }
+        }
         [HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
         public IActionResult GetFile([FromBody] User user, string filePath)
         {
@@ -133,6 +364,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+         
         [HttpPost("/File/GetRomFile/{filePath}", Name = "GetRomFile")]
         public IActionResult GetRomFile([FromBody] User user, string filePath)
         {
@@ -279,6 +511,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
         {
             _logger.LogInformation($"POST /File/Upload (folderPath = {folderPath})");
+            Boolean hasDupes = false;
             try
             {
                 if (Request.Form["user"].Count <= 0)
@@ -299,7 +532,7 @@ namespace maxhanna.Server.Controllers
                     if (file.Length == 0)
                         continue; // Skip empty files
 
-                    var uploadDirectory = string.IsNullOrEmpty(folderPath) ? baseTarget : Path.Combine(baseTarget, WebUtility.UrlDecode(folderPath)); // Combine base path with folder path
+                    var uploadDirectory = string.IsNullOrEmpty(folderPath) ? baseTarget : Path.Combine(baseTarget, WebUtility.UrlDecode(folderPath));
                     if (!uploadDirectory.EndsWith("/"))
                     {
                         uploadDirectory += "/";
@@ -342,6 +575,11 @@ namespace maxhanna.Server.Controllers
             }
             catch (Exception ex)
             {
+                if (ex.Message.Contains("Duplicate entry"))
+                {
+                    _logger.LogError(ex, "Cannot upload duplicate files.");
+                    return Conflict("Cannot upload duplicate files.");
+                }
                 _logger.LogError(ex, "An error occurred while uploading files.");
                 return StatusCode(500, "An error occurred while uploading files.");
             }
@@ -795,18 +1033,5 @@ namespace maxhanna.Server.Controllers
                     return "application/octet-stream";
             }
         }
-    }
-    public class FileEntry
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Visibility { get; set; }
-        public string Owner { get; set; }
-        public bool IsFolder { get; set; }
-    } 
-    public class ShareFileRequest
-    {
-        public User User1 { get; set; }
-        public User User2 { get; set; }
     }
 }

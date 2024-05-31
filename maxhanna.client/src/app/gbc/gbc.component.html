@@ -26,10 +26,9 @@
       <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="autosave = false">
     </span>
     <form>
-      <span class="uploadRomSpan">
+      <span class="uploadRomSpan">  
         <label for="localFileOpen" class="upload-label" title="Upload Rom/Save state">📤</label>
-        <input type="file" id="localFileOpen" #localFileOpen (change)="fileChanged()" accept=".gb,.gbc,.zip, .sav" class="file-input" />
-
+        <input type="file" id="localFileOpen" #localFileOpen (change)="fileChanged()" accept=".gb,.gbc,.zip, .sav" class="file-input" /> 
       </span>
     </form>
     <span *ngIf="loadRomSelect.value" class="uploadRomSpan">

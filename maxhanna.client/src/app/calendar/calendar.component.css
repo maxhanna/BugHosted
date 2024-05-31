@@ -45,7 +45,9 @@
   border: solid 1px black;
   background-color: white;
 }
-
+.staticCurrentDay {
+  background-color: var(--table-thead-color);
+}
 .currentDay, thead {
   background-color: var(--table-thead-color);
 }

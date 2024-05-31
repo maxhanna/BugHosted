@@ -23,9 +23,26 @@
     white-space: nowrap;
 }
 
-@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
-  .mainTable td:nth-child(2) {
-      max-width: 270px;
+@media only screen and (min-device-width: 400px) and (max-device-width: 700px) {
+  .mainTable td:last-child {
+    max-width: 270px;
   }
 }
 
+.helperSpanTitle {
+  display: inline-block;
+  width: 10.5px;
+  height: 10.5px;
+  line-height: 10.5px;
+  text-align: center;
+  font-size: small;
+  border-radius: 50%;
+  border: var(--main-border);
+  background-color: var(--main-bg-color);
+  color: var(--primary-font-color);
+  position: relative;
+  cursor: pointer;
+}
+  .helperSpanTitle:before {
+    content: 'ℹ️';
+  }

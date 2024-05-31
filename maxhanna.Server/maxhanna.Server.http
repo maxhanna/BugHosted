@@ -84,3 +84,9 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Chat/
 Accept: application/json
 ###
+DELETE {{maxhanna.Server_HostAddress}}/Meme/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Meme/
+Accept: application/json
+###

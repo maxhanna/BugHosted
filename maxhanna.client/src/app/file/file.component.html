@@ -5,50 +5,36 @@
   <div *ngFor="let notif of notifications" [innerHTML]="notif" (click)="notifications = [];" title="Click to clear notifications" class="notificationArea notification"></div>
 
   <app-user-list (userClickEvent)="shareFile($event);" [user]="parentRef?.user!" *ngIf="isSharePanelExpanded"></app-user-list>
-
-  <div>
+ 
+  <div [style.display]="isUploadInitiate ? 'none' : 'block'">
     <span *ngIf="!showMakeDirectoryPrompt">Current Directory :</span>
     <input type="text" #directoryInput placeholder="path/to/directory"
-           [style.visibility]="showMakeDirectoryPrompt || uploadFileList.length != 0 ? 'hidden' : 'visible'"
-           [style.position]="showMakeDirectoryPrompt || uploadFileList.length != 0 ? 'absolute' : 'unset'" />
+            [style.visibility]="showMakeDirectoryPrompt || uploadFileList.length != 0 ? 'hidden' : 'visible'"
+            [style.position]="showMakeDirectoryPrompt || uploadFileList.length != 0 ? 'absolute' : 'unset'" />
     <input type="submit" value="➡️" (click)="changeDirectory()" title="Change Directory" *ngIf="!showMakeDirectoryPrompt" />
     <input type="submit" value="⬅️" (click)="previousDirectory()" title="Previous Directory" *ngIf="!showMakeDirectoryPrompt" />
-    <input type="submit" value="📂" (click)="showMakeDirectoryPrompt=true; isDisabled = true; notifications = [];" title="New Folder" *ngIf="!showMakeDirectoryPrompt" />
-
-    <button type="submit"
-            (click)="fileInput.click()"
-            title="Upload"
-            [style.visibility]="showMakeDirectoryPrompt || uploadFileList.length != 0 ? 'hidden' : 'visible'"
-            [style.position]="showMakeDirectoryPrompt || uploadFileList.length != 0 ? 'absolute' : 'unset'">
-      ⏫
-    </button>
-    <input type="file" #fileInput (change)="uploadInitiate()" style="visibility: hidden; position: absolute; width:1px;" multiple />
   </div>
 
+  <input type="submit" value="📂" (click)="showMakeDirectoryPrompt=true;" title="New Folder" *ngIf="!showMakeDirectoryPrompt && !isUploadInitiate" />
 
-  <div *ngIf="showMakeDirectoryPrompt || uploadFileList.length > 0">
-    <div class="uploadFileNames">
-      <span *ngIf="uploadFileList.length > 0">Uploading :</span>
-      <span *ngFor="let file of uploadFileList; let i = index" class="uploadFileNames">
-        {{ file.name }}<span *ngIf="i < uploadFileList.length - 1">,</span>
-      </span>
-    </div>
-    <input placeholder="Folder Name" #makeFolderName *ngIf="!isUploadInitiate" />
+  <app-file-upload (userUploadEvent)="uploadInitiate();"
+                    (userNotificationEvent)="uploadNotification($event);"
+                    (userCancelEvent)="cancelMakeDirectoryOrFile();"
+                    [currentDirectory]="directoryInput!.value"
+                    [user]="parentRef?.user!"
+                    [visibility]="isUploadInitiate ? true : false"
+                    *ngIf="!showMakeDirectoryPrompt">
+  </app-file-upload> 
+
+  <div *ngIf="showMakeDirectoryPrompt"> 
+    <input placeholder="Folder Name" #makeFolderName />
     <label>
       <select #folderVisibility [value]="createVisibility" (change)="createVisibilityOnChange()">
         <option value="public">Public</option>
         <option value="private">Private</option>
       </select>
     </label>
-    <button (click)="makeDirectory()" *ngIf="!isUploadInitiate">Create Folder</button>
-    <button (click)="upload()" *ngIf="isUploadInitiate">
-      <ng-container *ngIf="uploadProgress == 0">
-        Upload File(s)
-      </ng-container>
-      <ng-container *ngIf="uploadProgress > 0">
-        ({{ uploadProgress }}%)
-      </ng-container>
-    </button>
+    <button (click)="makeDirectory()">Create Folder</button> 
     <button (click)="cancelMakeDirectoryOrFile()">Cancel</button>
   </div>
 
@@ -70,12 +56,12 @@
 
     <div style="margin-top:25px;"></div>
 
-    <!-- Updated filter elements -->
+    <!-- filter elements -->
     <div class="filters">
       <label>
         Visibility:
         <select (change)="setFilterVisibility($event)">
-          <option value="public" [selected]="filter.visibility === 'all'">All</option>
+          <option value="all" [selected]="filter.visibility === 'all'">All</option>
           <option value="public" [selected]="filter.visibility === 'public'">Public</option>
           <option value="private" [selected]="filter.visibility === 'private'">Private</option>
         </select>
@@ -89,17 +75,19 @@
         </select>
       </label>
     </div>
+
+    <!-- FILE TABLE --> 
     <table class="mainTable" id="fileTable">
       <thead>
         <tr *ngIf="showUpFolderRow">
           <td (click)="previousDirectory()"
-              style="cursor: pointer;"
+              class="upOneFolder"
               title="Up one folder"
               (drop)="onDrop($event)"
-              (dragover)="onDragOver($event)">
+              (dragover)="onDragOver($event)"
+              colspan="2">
             ⬆️📁...
           </td>
-          <td></td>
         </tr>
         <tr>
           <th (click)="sortTable(0, 'fileTable')">File Name</th>

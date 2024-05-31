@@ -37,6 +37,7 @@ export class FileComponent extends ChildComponent {
   };
   createVisibility = 'public';
   uploadProgress: number = 0;
+  showUploadPrivacySelection = false;
 
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -101,10 +102,16 @@ export class FileComponent extends ChildComponent {
       console.error("Error fetching directory entries:", error);
     }
   }
+  uploadNotification(event: string) {
+    this.notifications.push(event);
+    if (event == "OK") { 
+      this.ngOnInit();
+    }
+  }
   uploadInitiate() {
     this.notifications = [];
-    this.isDisabled = true;
-    this.showMakeDirectoryPrompt = true;
+    //this.isDisabled = true;
+    this.showMakeDirectoryPrompt = false;
     this.isUploadInitiate = true;
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
       this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
@@ -172,7 +179,7 @@ export class FileComponent extends ChildComponent {
     this.startLoading();
     try {
       const response = await this.fileService.getFile(this.parentRef?.user!, target);
-      const blob = new Blob([response!], { type: ('image/' + fileExt) });
+      const blob = new Blob([response!], { type: `image/${fileExt}` });
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = () => {

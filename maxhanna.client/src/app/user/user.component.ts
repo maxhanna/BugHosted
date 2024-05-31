@@ -52,20 +52,24 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.nhApiKeys = undefined; 
   }
   logout() {
+    this.parentRef!.removeAllComponents();
     this.clearForm();
     this.parentRef!.user = undefined;
     this.parentRef!.deleteCookie("user");
     this.notifications.push("Logged out successfully");
   }
+
   menuIconsIncludes(title: string) {
     return this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0;
   }
+
   async getMenuIcons() {
     if (this.isMenuIconsToggled) { 
       const response = await this.userService.getUserMenu(this.parentRef?.user!);
       this.parentRef!.userSelectedNavigationItems = response;
     }
   }
+
   async selectMenuIcon(title: string) {
     if (this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0) {
       this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
@@ -78,6 +82,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       this.notifications.push(`Added menu item : ${title}`);
     }
   }
+
   async createUser() {
     const tmpUserName = this.loginUsername.nativeElement.value;
     const tmpPassword = this.loginPassword.nativeElement.value;
@@ -107,16 +112,19 @@ export class UserComponent extends ChildComponent implements OnInit {
       return alert("Username cannot be empty!");
     }
   }
+
   async getLoggedInUser() {  
     if (this.parentRef!.getCookie("user")) {
       this.parentRef!.user = JSON.parse(this.parentRef!.getCookie("user"));
     }
   }
+
   async getNicehashApiKeys() {
     if (this.isNicehashApiKeysToggled) {
       this.nhApiKeys = await this.miningService.getNicehashApiInfo((this.parentRef?.user)!);
     }
   }
+
   async updateNHAPIKeys() {
     if (this.isNicehashApiKeysToggled) {
       let keys = new NicehashApiKeys();
@@ -133,12 +141,14 @@ export class UserComponent extends ChildComponent implements OnInit {
       }
     }
   }
+
   async getWeatherLocation() {
     if (this.isWeatherLocationToggled) {
       const res = await this.weatherService.getWeatherLocation(this.parentRef?.user!);
       this.weatherLocationInput.nativeElement.value = res.location;
     }
   }
+
   async updateWeatherLocation() {
     if (this.isWeatherLocationToggled) { 
       try {
@@ -149,6 +159,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       }
     }
   }
+
   async updateUser() {
     const currUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
     const tmpUser = new User(currUser.id, this.updatedUsername.nativeElement.value, this.updatedPassword.nativeElement.value);
@@ -164,6 +175,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.parentRef!.user = await this.userService.getUser(tmpUser);
     this.stopLoading();
   }
+
   async deleteUser() {
     if (this.parentRef!.getCookie("user")) {
       if (confirm("Are you sure you wish to delete your account?")) {
@@ -191,12 +203,23 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
         this.parentRef!.user = tmpUser;
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
+        const ip = await this.userService.getUserIp();
+        const weatherLocation = await this.weatherService.getWeatherLocation(tmpUser) as WeatherLocation;
+        if (weatherLocation && (this.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
+          await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
+        }
+
       } else {
         this.notifications.push("Access denied");
       }
 
     } catch (e) {
-      this.notifications.push("Access denied");
+      this.notifications.push("Login error: " + e);
     }
+  }
+
+  isValidIpAddress(value: string): boolean {
+    const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipPattern.test(value);
   }
 }

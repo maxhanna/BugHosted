@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user';
 import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
+import { FileComment } from './datacontracts/file-comment';
 
 @Injectable({
   providedIn: 'root'
@@ -54,6 +55,106 @@ export class FileService {
       return await response.blob();
     } catch (error) {
       return null;
+    }
+  }
+   
+  async getComments(fileId: number) {
+    try {
+      const response = await fetch(`/file/comments/${fileId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  } 
+  async commentFile(user: User, fileId: number, comment: string) {
+    try {
+      const response = await fetch(`/file/comment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, fileId, comment }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`);
+      }
+
+      return await response.text();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async upvoteComment(user: User, commentId: number) {
+    try {
+      const response = await fetch(`/file/upvotecomment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user: user, commentId, upvote: true, downvote: false }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async downvoteComment(user: User, commentId: number) {
+    try {
+      const response = await fetch(`/file/downvotecomment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user: user, commentId, upvote: false, downvote: true }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      throw error;
+    }
+  }
+  async upvoteFile(user: User, fileId: number) {
+    try {
+      const response = await fetch(`/file/upvote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, fileId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      throw error;
+    }
+  }
+  async downvoteFile(user: User, fileId: number) {
+    try {
+      const response = await fetch(`/file/downvote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, fileId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      throw error;
     }
   }
   uploadFileWithProgress(user: User, formData: FormData, directory: string | undefined, isPublic: boolean): Observable<HttpEvent<any>> {

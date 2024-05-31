@@ -1,5 +1,7 @@
 
-
+.componentMain{
+    max-width: 800px;
+}
 .mainTable td {
   word-wrap: break-word;
   overflow-wrap: break-word;

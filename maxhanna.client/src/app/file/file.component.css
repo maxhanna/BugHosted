@@ -1,3 +1,6 @@
+.componentMain {
+    max-width:700px;
+}
 .folder {
   color: black;
   cursor: pointer;
@@ -131,4 +134,10 @@ tr[draggable] {
 }
 .fileActionsTd input {
     display: inline-block;
+}
+.upOneFolder {
+  cursor: pointer;
+  font-size: large;
+  border: var(--main-border);
+  border-color: #4285f4;
 }

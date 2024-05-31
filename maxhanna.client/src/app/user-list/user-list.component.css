@@ -1,4 +1,11 @@
 .notificationNumber {
-    font-size: 10px;
-    margin-left: 6px;
+  font-size: 10px;
+  margin-left: 6px;
+}
+.userList { 
+  overflow-y: auto;
+}
+.user{
+    border: var(--main-border);
+    cursor: pointer;
 }

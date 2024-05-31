@@ -63,43 +63,43 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   async getChatInfo() {
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Chat")[0]) { return; }
-    console.log("got chat info");
     const res = await this.chatService.getChatNotifications(this._parent.user!);
     if (res && res != 0) {
       this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = res + '';
-    } else if (res && res == 0) {
+    } else {
       this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';
     }
   }
   async getCoinWalletInfo() {
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Coin-Wallet")[0]) { return; }
-    console.log("got coin wallet info");
     const res = await this.miningService.getMiningWallet(this.user!) as MiningWalletResponse;
     if (res && res.currencies) {
       const totalBalance = res.currencies.find(x => x.currency!.toUpperCase() == "BTC")!.totalBalance!;
       const fiatRate = res!.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate!;
       const product = (parseFloat(totalBalance) * fiatRate).toFixed(0) + '$';
       this._parent.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = product + '';
+    } else {
+      this._parent.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = '';
     }
   }
   async getCalendarInfo() {
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Calendar")[0]) { return; }
-    console.log("got calendar info");
     let notificationCount = 0;
     const startDate = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 1);
     const res = await this.calendarService.getCalendarEntries(this.user!, startDate, endDate) as Array<CalendarEntry>;
-    res.forEach(x => {
-      if (new Date(x.date!).getDate() == startDate.getDate()) {
-        notificationCount++;
-      }
-    })
+    if (res) {
+      res.forEach(x => {
+        if (new Date(x.date!).getDate() == startDate.getDate()) {
+          notificationCount++;
+        }
+      })
+    }
     this._parent.navigationItems.filter(x => x.title == "Calendar")[0].content = (notificationCount != 0 ? notificationCount + '' : '');
   }
   async getCurrentWeatherInfo() {
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Weather")[0]) { return; }
-    console.log("got weather info");
     const res = await this.weatherService.getWeather(this.user!);
     if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
       this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = res?.current.temp_c.toString() + "°C";
@@ -108,7 +108,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   async getMiningInfo() {
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title.toLowerCase().includes("mining"))[0]) { return; }
-    console.log("got mining info");
     let tmpLocalProfitability = 0;
     let tmpNumberOfDevices = 0;
     let tmpNumberOfOnlineDevices = 0;
@@ -135,7 +134,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   async getCoinWatchInfo(tmpLocalProfitability: number) {
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title.toLowerCase().includes("mining") || x.title == "Coin-Watch")[0]) { return; }
-    console.log("got coin-watch info");
     const res = await this.coinwatchService.getCoinwatchResponse(this.user!);
     const result = res as CoinWatchResponse[];
     if (result && result.length > 0) {

@@ -1,21 +1,13 @@
 namespace maxhanna.Server.Controllers.DataContracts
 {
-    public class Todo
+    public class VoteRequest
     {
-        public Todo(int id, string todo, string type, string? url, DateTime? date, string? ownership)
+        public VoteRequest(User user, int fileId)
         {
-            this.id = id;
-            this.todo = todo;
-            this.type = type;
-            this.url = url;
-            this.date = date;
-            this.ownership = ownership;
+            FileId = fileId;
+            User = user;
         }
-        public int id { get; set; }
-        public string todo { get; set; }
-        public string type { get; set; }
-        public string? url { get; set; }
-        public DateTime? date { get; set; }
-        public string? ownership { get; set; }
+        public int FileId { get; set; }
+        public User User { get; set; }
     }
 }
