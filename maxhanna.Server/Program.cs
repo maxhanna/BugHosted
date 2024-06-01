@@ -1,3 +1,4 @@
+using maxhanna.Server.Controllers.Helpers;
 using Microsoft.AspNetCore.Http.Features;
 using MySqlConnector;
 
@@ -13,6 +14,9 @@ builder.Services.Configure<FormOptions>(options =>
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+ 
+builder.Services.AddHttpClient();
+//builder.Services.AddHostedService<DalleImageGeneratorService>();
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
 

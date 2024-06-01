@@ -141,3 +141,10 @@ tr[draggable] {
   border: var(--main-border);
   border-color: #4285f4;
 }
+.thumbnailImage, .thumbnailVideo {
+  width: 100%;
+  height: 100%;
+  max-width: 500px;
+  max-height: 500px;
+  cursor: default;
+}

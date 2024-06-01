@@ -3,6 +3,7 @@ import { User } from './datacontracts/user';
 import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
 import { FileComment } from './datacontracts/file-comment';
+import { FileEntry } from './datacontracts/file-entry';
 
 @Injectable({
   providedIn: 'root'
@@ -51,8 +52,12 @@ export class FileService {
         },
         body: JSON.stringify(user),
       });
-
-      return await response.blob();
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value: string, name: string) => {
+        headers[name] = value;
+      });
+      const blob = await response.blob();
+      return { blob, headers };
     } catch (error) {
       return null;
     }
@@ -184,7 +189,7 @@ export class FileService {
       return null;
     }
   }
-  async deleteFile(user: User, file: string) {
+  async deleteFile(user: User, file: FileEntry) {
     try {
       const response = await fetch(`/file/delete`, {
         method: 'DELETE',
@@ -194,7 +199,7 @@ export class FileService {
         body: JSON.stringify({ user, file }),
       });
 
-      return await response.json();
+      return await response.text();
     } catch (error) {
       return null;
     }

@@ -1,0 +1,58 @@
+/* Styling for the list of news articles */
+.newsList {
+  margin-top: 20px;
+}
+
+.newsItem {
+  cursor: pointer;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+  .newsItem:hover {
+    background-color: #f0f0f0;
+  }
+
+.articleTitle {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.articleDescription {
+  margin-top: 5px;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Styling for the selected article details */
+.selectedArticle {
+  margin-top: 20px;
+  border: var(--main-border);
+  border-radius: 5px;
+  padding: 20px;
+  background-color: #f9f9f9;
+}
+
+.articleContent {
+  margin-top: 10px;
+}
+
+.articleDetails {
+  margin-top: 20px;
+}
+
+.articleAuthor,
+.articleSource,
+.articleDate {
+  font-size: 14px;
+  color: #666;
+}
+
+/* Styling for the message when there's no news to show */
+.noNewsMessage {
+  margin-top: 20px;
+  font-style: italic;
+  color: #999;
+}

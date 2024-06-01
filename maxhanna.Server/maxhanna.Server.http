@@ -90,3 +90,6 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Meme/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/News/
+Accept: application/json
+###

@@ -60,12 +60,14 @@ namespace maxhanna.Server.Controllers
                             "f.ownership, " +
                             "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
                             "SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, " +
-                            "f.upload_date as date " +
+                            "f.upload_date AS date, " +
+                            "COUNT(fc.id) AS commentCount " +
                         "FROM " +
                             "maxhanna.file_uploads f " +
                         "LEFT JOIN " +
-                            "maxhanna.file_votes fv " +
-                            "ON f.id = fv.file_id " +
+                            "maxhanna.file_votes fv ON f.id = fv.file_id " +
+                        "LEFT JOIN " +
+                            "maxhanna.file_comments fc ON f.id = fc.file_id " +
                         "WHERE " +
                             "f.folder_path = @folderPath " +
                             "AND (" +
@@ -75,6 +77,7 @@ namespace maxhanna.Server.Controllers
                         "GROUP BY " +
                             "f.id, f.file_name, f.is_public, f.is_folder, f.ownership"
                         , connection);
+
 
                     command.Parameters.AddWithValue("@folderPath", directory);
                     command.Parameters.AddWithValue("@userId", user.Id);
@@ -90,6 +93,7 @@ namespace maxhanna.Server.Controllers
                             var isFolder = reader.GetBoolean("is_folder");
                             var upvotes = reader.GetInt32("upvotes");
                             var downvotes = reader.GetInt32("downvotes");
+                            var commentCount = reader.GetInt32("commentCount");
                             var date = reader.GetDateTime("date");
 
                             // Apply filters
@@ -98,7 +102,7 @@ namespace maxhanna.Server.Controllers
 
                             if (matchesVisibility && matchesOwnership)
                             {
-                                fileEntries.Add(new FileEntry(id, fileName, isPublic ? "Public" : "Private", owner,"", user.Id, isFolder, upvotes, downvotes, date));
+                                fileEntries.Add(new FileEntry(id, fileName, isPublic ? "Public" : "Private", owner, "", user.Id, isFolder, upvotes, downvotes, commentCount, date));
                             }
                         }
                     }
@@ -115,7 +119,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while listing files.");
             }
         }
- 
+
         [HttpGet("/File/Comments/{fileId}", Name = "GetCommentsForFile")]
         public async Task<IActionResult> GetCommentsForFile(int fileId)
         {
@@ -148,7 +152,7 @@ namespace maxhanna.Server.Controllers
                         WHERE 
                             c.file_id = @fileId
                         GROUP BY 
-                            c.id, c.file_id, c.user_id, c.comment, u.username", connection); 
+                            c.id, c.file_id, c.user_id, c.comment, u.username", connection);
                     command.Parameters.AddWithValue("@fileId", fileId);
 
                     using (var reader = await command.ExecuteReaderAsync())
@@ -364,7 +368,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-         
+
         [HttpPost("/File/GetRomFile/{filePath}", Name = "GetRomFile")]
         public IActionResult GetRomFile([FromBody] User user, string filePath)
         {
@@ -666,70 +670,86 @@ namespace maxhanna.Server.Controllers
         [HttpDelete("/File/Delete/", Name = "DeleteFileOrDirectory")]
         public IActionResult DeleteFileOrDirectory([FromBody] DeleteFileOrDirectory request)
         {
-            request.file = this.baseTarget + request.file ?? "";
-            _logger.LogInformation($"DELETE /File/Delete - Path: {request.file}");
-            if (!ValidatePath(request.file)) { return StatusCode(500, $"Must be within {baseTarget}"); }
+            // Ensure baseTarget ends with a forward slash
+            string filePath;
 
             try
             {
-                if (!Directory.Exists(request.file) && !System.IO.File.Exists(request.file))
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
-                    _logger.LogError($"File or directory not found at {request.file}");
-                    return NotFound("File or directory not found.");
+                    connection.Open();
+                    _logger.LogInformation($"Opened connection to database for deleting file or directory with id {request.file.Id}");
+
+                    // Check for ownership
+                    var ownershipCommand = new MySqlCommand(
+                        "SELECT ownership, file_name, folder_path, is_folder FROM maxhanna.file_uploads WHERE id = @fileId",
+                        connection);
+                    ownershipCommand.Parameters.AddWithValue("@fileId", request.file.Id);
+
+                    var ownershipReader = ownershipCommand.ExecuteReader();
+                    if (!ownershipReader.Read())
+                    {
+                        _logger.LogError($"File or directory with id {request.file.Id} not found.");
+                        return NotFound("File or directory not found.");
+                    }
+
+                    var ownership = ownershipReader.GetString("ownership");
+                    if (!ownership.Split(',').Contains(request.user.Id.ToString()))
+                    {
+                        _logger.LogError($"User {request.user.Id} does not have ownership for {request.file.Name}");
+                        return StatusCode(409, "You do not have permission to delete this file or directory.");
+                    }
+
+                    var fileName = ownershipReader.GetString("file_name");
+                    var folderPath = ownershipReader.GetString("folder_path").Replace("\\", "/").TrimEnd('/') + "/";
+                    var isFolder = ownershipReader.GetBoolean("is_folder");
+
+                    filePath = Path.Combine(baseTarget, folderPath, fileName).Replace("\\", "/");
+                    ownershipReader.Close();
+
+                    _logger.LogInformation($"User {request.user.Id} has ownership. Proceeding with deletion. File Path: {filePath}");
+
+                    // Proceed with deletion if ownership is confirmed
+                    if (isFolder)
+                    {
+                        if (Directory.Exists(filePath))
+                        {
+                            _logger.LogInformation($"Deleting directory at {filePath}");
+                            Directory.Delete(filePath, true);
+                            _logger.LogInformation($"Directory deleted at {filePath}");
+                        }
+                        else
+                        {
+                            _logger.LogError($"Directory not found at {filePath}");
+                            return NotFound("Directory not found.");
+                        }
+                    }
+                    else
+                    {
+                        if (System.IO.File.Exists(filePath))
+                        {
+                            _logger.LogInformation($"Deleting file at {filePath}");
+                            System.IO.File.Delete(filePath);
+                            _logger.LogInformation($"File deleted at {filePath}");
+                        }
+                        else
+                        {
+                            _logger.LogError($"File not found at {filePath}");
+                            return NotFound("File not found.");
+                        }
+                    }
+
+                    // Delete record from database
+                    var deleteCommand = new MySqlCommand(
+                        "DELETE FROM maxhanna.file_uploads WHERE id = @fileId",
+                        connection);
+                    deleteCommand.Parameters.AddWithValue("@fileId", request.file.Id);
+                    deleteCommand.ExecuteNonQuery();
+
+                    _logger.LogInformation($"Record deleted from database for file or directory with id {request.file.Id}");
                 }
 
-                if (Directory.Exists(request.file))
-                {
-                    Directory.Delete(request.file, true);
-                    string subFoldersPath = request.file.Replace("\\", "/");
-                    if (!subFoldersPath.EndsWith("/"))
-                    {
-                        subFoldersPath += "/";
-                    }
-                    string fileName = Path.GetFileName(Path.GetDirectoryName(subFoldersPath))!;
-                    string folderPath = Path.GetDirectoryName(Path.GetDirectoryName(subFoldersPath))!.Replace("\\", "/");
-                    if (!folderPath.EndsWith("/"))
-                    {
-                        folderPath += "/";
-                    }
-
-                    _logger.LogInformation($"subFoldersPath: {subFoldersPath}; fileName: {fileName}; folderLocation: {folderPath}");
-
-                    using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                    {
-                        connection.Open();
-
-                        var command = new MySqlCommand("DELETE FROM maxhanna.file_uploads WHERE (folder_path = @folderPath and file_name = @fileName) OR folder_path LIKE CONCAT(@subFoldersPath,'%')", connection);
-                        command.Parameters.AddWithValue("@folderPath", folderPath);
-                        command.Parameters.AddWithValue("@fileName", fileName);
-                        command.Parameters.AddWithValue("@subFoldersPath", subFoldersPath);
-
-                        command.ExecuteNonQuery();
-                    }
-                }
-                else
-                {
-                    System.IO.File.Delete(request.file);
-                    string fileName = Path.GetFileName(request.file).Replace("\\", "/");
-                    string folder = (Path.GetDirectoryName(request.file) ?? "").Replace("\\", "/");
-                    if (!folder.EndsWith("/"))
-                    {
-                        folder += "/";
-                    }
-                    using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                    {
-                        connection.Open();
-
-                        var command = new MySqlCommand("DELETE FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName", connection);
-                        command.Parameters.AddWithValue("@folderPath", folder);
-                        command.Parameters.AddWithValue("@fileName", fileName);
-
-                        command.ExecuteNonQuery();
-                    } 
-                }
-
-                _logger.LogInformation($"File or directory deleted at {request.file}");
-
+                _logger.LogInformation($"File or directory deleted successfully at {filePath}");
                 return Ok("File or directory deleted successfully.");
             }
             catch (Exception ex)
@@ -738,6 +758,9 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while deleting file or directory.");
             }
         }
+
+
+
 
         [HttpPost("/File/Move/", Name = "MoveFile")]
         public async Task<IActionResult> MoveFile([FromBody] User user, [FromQuery] string inputFile, [FromQuery] string? destinationFolder)

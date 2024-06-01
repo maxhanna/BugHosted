@@ -25,6 +25,7 @@ import { UserListComponent } from './user-list/user-list.component';
 import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { FileUploadComponent } from './file-upload/file-upload.component';
+import { NewsComponent } from './news/news.component';
 
 @NgModule({
   declarations: [
@@ -49,7 +50,8 @@ import { FileUploadComponent } from './file-upload/file-upload.component';
     UserListComponent,
     MemeComponent,
     SocialComponent,
-    FileUploadComponent
+    FileUploadComponent,
+    NewsComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

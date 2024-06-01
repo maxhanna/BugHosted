@@ -1,0 +1,34 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me();"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">News</div>
+  <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
+
+  <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup.enter)="searchByKeyword()" />
+
+  <!-- Display list of news articles -->
+  <div class="newsList" *ngIf="newsArticles != null">
+    Newest Articles: (status: {{newsArticles.status}}, # of Results: {{newsArticles.numResults}})
+    <div class="newsItem" *ngFor="let article of newsArticles!.articles!.news" (click)="selectArticle(article)">
+      {{article}}
+      <div class="articleTitle">{{ article.title }}</div>
+      <div class="articleDescription">{{ article.description }}</div>
+    </div>
+  </div>
+
+  <!-- Display selected article details -->
+  <div *ngIf="selectedArticle" class="selectedArticle">
+    <div class="articleTitle">{{ selectedArticle.title }}</div>
+    <div class="articleContent">{{ selectedArticle.content }}</div>
+    <div class="articleDetails">
+      <div class="articleAuthor">Author:  </div>
+      <div class="articleSource">Source:  </div>
+      <div class="articleDate">Published Date: </div>
+    </div>
+  </div>
+
+  <div *ngIf="newsArticles == null || !newsArticles">
+    No news to show
+  </div>
+
+</div>

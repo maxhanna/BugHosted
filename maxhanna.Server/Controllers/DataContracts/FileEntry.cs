@@ -2,7 +2,7 @@ namespace maxhanna.Server.Controllers.DataContracts
 {
     public class FileEntry
     {
-        public FileEntry(int id, string name, string visibility, string owner, string username, int userId, bool isFolder, int upvotes, int downvotes, DateTime date)
+        public FileEntry(int id, string name, string visibility, string owner, string username, int userId, bool isFolder, int upvotes, int downvotes, int commentCount, DateTime date)
         {
             Id = id;
             Name = name;
@@ -13,6 +13,7 @@ namespace maxhanna.Server.Controllers.DataContracts
             IsFolder = isFolder;
             Upvotes = upvotes;
             Downvotes = downvotes;
+            CommentCount = commentCount;
             Date = date;
         }
         public int Id { get; set; }
@@ -24,6 +25,7 @@ namespace maxhanna.Server.Controllers.DataContracts
         public bool IsFolder { get; set; }
         public int Upvotes { get; set; }
         public int Downvotes { get; set; }
+        public int CommentCount { get; set; }
         public DateTime Date { get; set; }
     }
 }

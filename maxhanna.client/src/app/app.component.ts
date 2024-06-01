@@ -19,6 +19,7 @@ import { MenuItem } from '../services/datacontracts/menu-item';
 import { ChatComponent } from './chat/chat.component';
 import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
+import { NewsComponent } from './news/news.component';
 
 
 @Component({
@@ -47,6 +48,7 @@ export class AppComponent {
     { icon: "🎮", title: "Gameboy Color", content: undefined },
     { icon: "💵", title: "Coin-Wallet", content: undefined },
     { icon: "₿", title: "Coin-Watch", content: undefined },
+    { icon: "📰", title: "News", content: undefined },
     { icon: "🗨️", title: "Chat", content: undefined },
     { icon: "🤣", title: "Meme", content: undefined },
     { icon: "🌐", title: "Social", content: undefined },
@@ -77,6 +79,7 @@ export class AppComponent {
       "Contacts": ContactsComponent,
       "Game": GameComponent,
       "Gameboy Color": GbcComponent,
+      "News": NewsComponent,
       "Coin-Wallet": CoinWalletComponent,
       "User": UserComponent,
       "Chat": ChatComponent,

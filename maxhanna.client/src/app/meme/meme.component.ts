@@ -43,10 +43,17 @@ export class MemeComponent extends ChildComponent implements OnInit {
     this.startLoading();
     try {
       this.directoryContents = await this.memeService.getMemes(this.parentRef?.user!);
+      this.openFirstMeme();
     } catch (error) {
       this.notifications.push("Error fetching memes");
     }
     this.stopLoading();
+  }
+
+  openFirstMeme() {
+    if (this.directoryContents.length > 0) {
+      this.loadMeme(this.directoryContents[0].id, this.directoryContents[0].name, 0);
+    }
   }
 
   async upload() {
@@ -133,6 +140,7 @@ export class MemeComponent extends ChildComponent implements OnInit {
     }
     
     this.loading = false;
+    this.getComments(memeId);
   }
 
   getFileExtension(filePath: string) {
@@ -142,7 +150,6 @@ export class MemeComponent extends ChildComponent implements OnInit {
   setMemeSrc(url: string) {
     if (this.memeContainer && this.memeContainer.nativeElement) {
       this.memeContainer.nativeElement.src = url;
-      console.log("setMemeSrc");
     }
   }
 
@@ -150,8 +157,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
     this.openedMemes = [];
   }
   uploadNotification(event: string) {
-    console.log("got upload notif!");
     this.notifications.push(event);
+    this.ngOnInit();
   }
   editMemeKeyUp(event: KeyboardEvent, memeId: number) {
     const text = (event.target as HTMLInputElement).value;
@@ -236,7 +243,7 @@ export class MemeComponent extends ChildComponent implements OnInit {
     const comment = (document.getElementById("addCommentInput" + meme.id)! as HTMLInputElement).value;
     try {
       if (fileId && comment && comment.trim() != '') {
-        await this.fileService.commentFile(this.parentRef?.user!, fileId, comment);
+        this.notifications.push(await this.fileService.commentFile(this.parentRef?.user!, fileId, comment));
       }
       (document.getElementById("addCommentInput" + meme.id)! as HTMLInputElement).value = '';
     } catch (error) {
@@ -247,8 +254,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
 
   async upvoteComment(comment: FileComment, meme: FileEntry) {
     try {
-      await this.fileService.upvoteComment(this.parentRef?.user!, comment.id);
-      await this.getComments(meme.id); // Refresh comments after upvoting
+      this.notifications.push(await this.fileService.upvoteComment(this.parentRef?.user!, comment.id));
+      await this.getComments(meme.id);
     } catch (error) {
       console.error("Error upvoting comment:", error);
     }
@@ -256,8 +263,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
 
   async downvoteComment(comment: FileComment, meme: FileEntry) {
     try {
-      await this.fileService.downvoteComment(this.parentRef?.user!, comment.id);
-      await this.getComments(meme.id); // Refresh comments after downvoting
+      this.notifications.push(await this.fileService.downvoteComment(this.parentRef?.user!, comment.id));
+      await this.getComments(meme.id);
     } catch (error) {
       console.error("Error downvoting comment:", error);
     }

@@ -21,12 +21,12 @@ export class FileUploadComponent {
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
- 
+
   showMakeDirectoryPrompt = false;
   uploadFileList: Array<File> = [];
-  uploadProgress: number = 0; 
+  uploadProgress: number = 0;
 
-  uploadInitiate() {   
+  uploadInitiate() {
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
       this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
       this.userUploadEvent.emit(this.uploadFileList);
@@ -48,7 +48,7 @@ export class FileUploadComponent {
   removeFile(file: File) {
     this.uploadFileList = this.uploadFileList.filter(f => f !== file);
     if (this.uploadFileList.length == 0) {
-      this.userCancelEvent.emit(true); 
+      this.userCancelEvent.emit(true);
     }
   }
   async upload() {
@@ -73,22 +73,21 @@ export class FileUploadComponent {
         // Use HttpClient to track the upload progress
         const uploadReq = this.fileService.uploadFileWithProgress(this.user, formData, directoryInput || undefined, isPublic);
         uploadReq.subscribe((event) => {
-          console.log(event);
-          if (typeof event !== 'number') { 
+          if (typeof event !== 'number') {
             if (event.type === HttpEventType.UploadProgress) {
               this.uploadProgress = Math.round(100 * (event.loaded / event.total!));
             }
             else if (event.type === HttpEventType.Response) {
-              this.uploadProgress = 0; 
-              if (event.body && event.body.partialText) { 
+              this.uploadProgress = 0;
+              if (event.body && event.body.partialText) {
                 this.userNotificationEvent.emit(event.body.partialText);
               }
             }
             else if (event.type === HttpEventType.DownloadProgress) {
-              this.cancelFileUpload(); 
+              this.cancelFileUpload();
             }
-            else if (event.type == HttpEventType.ResponseHeader) { 
-              if (event.statusText) { 
+            else if (event.type == HttpEventType.ResponseHeader) {
+              if (event.statusText) {
                 this.userNotificationEvent.emit(event.statusText);
               }
             }

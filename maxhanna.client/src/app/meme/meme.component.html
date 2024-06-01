@@ -20,6 +20,7 @@
         <th (click)="sortTable(1, 'memeTable')">By</th>
         <th (click)="sortTable(2, 'memeTable')" style="text-align:center;" title="Upvotes">👍</th>
         <th (click)="sortTable(3, 'memeTable')" style="text-align:center;" title="Downvotes">👎</th>
+        <th (click)="sortTable(4, 'memeTable')" style="text-align:center;" title="Number of comments">🗨️</th>
       </tr>
     </thead>
     <tbody>
@@ -28,7 +29,7 @@
           <td>
             <button [style.display]="getCanEdit(meme.userId) ? 'inline-block':'none' " (click)="startEditing(meme.id, $event)">✏️</button>
           </td>
-          <td (click)="loadMeme(meme.id, meme.name, i); this.getComments(meme.id);" class="clickableTd" [id]="'memeIdTd'+meme.id">
+          <td (click)="loadMeme(meme.id, meme.name, i);" class="clickableTd" [id]="'memeIdTd'+meme.id">
             <input type="text"
                    placeholder="New meme name"
                    [value]="meme.name"
@@ -51,9 +52,10 @@
               <button class="vote-button" (click)="downvoteMeme(meme)">👎</button>
             </div>
           </td>
+          <td>{{meme.commentCount}}</td>
         </tr>
         <tr *ngIf="openedMemes.includes(i)">
-          <td colspan="5">
+          <td colspan="6">
             <div *ngIf="loading" class="loading-spinner">Loading...</div>
             <div *ngIf="!loading">
               <img #memeContainer *ngIf="!this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" alt="meme" class="memeImage" />

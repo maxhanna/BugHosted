@@ -53,19 +53,18 @@ namespace maxhanna.Server.Controllers
                             "u.id AS userid, " +
                             "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
                             "SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, " +
-                            "f.upload_date as date " +
+                            "f.upload_date AS date, " +
+                            "COUNT(fc.id) AS commentCount " +
                         "FROM " +
                             "maxhanna.file_uploads f " +
                         "JOIN " +
-                            "maxhanna.users u " +
-                            "ON " +
-                                "f.ownership = u.id " +
+                            "maxhanna.users u ON f.ownership = u.id " +
                         "LEFT JOIN " +
-                            "maxhanna.meme_names mn " +
-                            "ON mn.meme_id = f.id " +
+                            "maxhanna.meme_names mn ON mn.meme_id = f.id " +
                         "LEFT JOIN " +
-                            "maxhanna.file_votes fv " +
-                            "ON fv.file_id = f.id " +
+                            "maxhanna.file_votes fv ON fv.file_id = f.id " +
+                        "LEFT JOIN " +
+                            "maxhanna.file_comments fc ON fc.file_id = f.id " +
                         "WHERE " +
                             "f.folder_path = @folderPath " +
                         "GROUP BY " +
@@ -74,6 +73,7 @@ namespace maxhanna.Server.Controllers
                             "f.id DESC;"
                         , connection);
                     command.Parameters.AddWithValue("@folderPath", directory);
+
 
                     using (var reader = command.ExecuteReader())
                     {
@@ -86,9 +86,10 @@ namespace maxhanna.Server.Controllers
                             int userid = reader.GetInt32("userid");
                             int upvotes = reader.GetInt32("upvotes");
                             int downvotes = reader.GetInt32("downvotes");
+                            int commentCount = reader.GetInt32("commentCount");
                             DateTime date = reader.GetDateTime("date");
 
-                            fileEntries.Add(new FileEntry( id, fileName, "Public", owner, username, userid, false, upvotes, downvotes, date ));
+                            fileEntries.Add(new FileEntry( id, fileName, "Public", owner, username, userid, false, upvotes, downvotes, commentCount, date ));
                         }
                     }
                 }
@@ -134,18 +135,18 @@ namespace maxhanna.Server.Controllers
                             "u.id AS userid, " +
                             "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
                             "SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, " +
-                            "f.upload_date AS date " +
+                            "f.upload_date AS date, " +
+                            "COUNT(fc.id) AS commentCount " +
                         "FROM " +
                             "maxhanna.file_uploads f " +
                         "JOIN " +
-                            "maxhanna.users u " +
-                            "ON f.ownership = u.id " +
+                            "maxhanna.users u ON f.ownership = u.id " +
                         "LEFT JOIN " +
-                            "maxhanna.meme_names mn " +
-                            "ON mn.meme_id = f.id " +
+                            "maxhanna.meme_names mn ON mn.meme_id = f.id " +
                         "LEFT JOIN " +
-                            "maxhanna.file_votes fv " +
-                            "ON fv.file_id = f.id " +
+                            "maxhanna.file_votes fv ON fv.file_id = f.id " +
+                        "LEFT JOIN " +
+                            "maxhanna.file_comments fc ON fc.file_id = f.id " +
                         "WHERE " +
                             "f.folder_path = @folderPath " +
                             "AND (f.file_name LIKE @keywords OR mn.meme_name LIKE @keywords) " +
@@ -168,9 +169,10 @@ namespace maxhanna.Server.Controllers
                             int userid = reader.GetInt32("userid");
                             int upvotes = reader.GetInt32("upvotes");
                             int downvotes = reader.GetInt32("downvotes");
+                            int commentCount = reader.GetInt32("commentCount");
                             DateTime date = reader.GetDateTime("date");
 
-                            fileEntries.Add(new FileEntry(id, fileName, "Public", owner, username, userid, false, upvotes, downvotes, date));
+                            fileEntries.Add(new FileEntry(id, fileName, "Public", owner, username, userid, false, upvotes, downvotes, commentCount, date));
                         }
                     }
                 }

@@ -38,11 +38,17 @@ export class FileComponent extends ChildComponent {
   createVisibility = 'public';
   uploadProgress: number = 0;
   showUploadPrivacySelection = false;
+  videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
+  loading = false;
+  selectedThumbnailFileExtension = "";
+  selectedThumbnail = "";
+  selectedFileType = "";
 
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
   @ViewChild('makeFolderName') makeFolderName!: ElementRef<HTMLInputElement>;
+  @ViewChild('thumbnailContainer', { static: false }) thumbnailContainer!: ElementRef;
 
 
   async ngOnInit() {
@@ -104,7 +110,7 @@ export class FileComponent extends ChildComponent {
   }
   uploadNotification(event: string) {
     this.notifications.push(event);
-    if (event == "OK") { 
+    if (event == "OK") {
       this.ngOnInit();
     }
   }
@@ -116,11 +122,11 @@ export class FileComponent extends ChildComponent {
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
       this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
     }
-  } 
+  }
   cancelMakeDirectoryOrFile() {
     this.showMakeDirectoryPrompt = false;
     this.isUploadInitiate = false;
-    if (this.fileInput) 
+    if (this.fileInput)
       this.fileInput.nativeElement.value = '';
     this.uploadFileList = [];
     this.isDisabled = false;
@@ -136,7 +142,7 @@ export class FileComponent extends ChildComponent {
     if (!files || !files.length) {
       return alert("No file to upload!");
     }
-    
+
     const filesArray = Array.from(files);
     const isPublic = this.createVisibility.toLowerCase() != "public" ? false : true;
 
@@ -170,26 +176,60 @@ export class FileComponent extends ChildComponent {
       this.stopLoading();
     }
   }
+
+
+  getFileExtension(filePath: string) {
+    return filePath.split('.').pop();
+  }
+
+  getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
+    if (!contentDisposition) return '';
+
+    // Match the filename pattern
+    const filenameMatch = contentDisposition.match(/filename\*?=['"]?([^'";\s]+)['"]?/);
+    if (filenameMatch && filenameMatch[1]) {
+      const filename = filenameMatch[1];
+      return filename.split('.').pop() || '';
+    }
+    return '';
+  }
+  setThumbnailSrc(url: string) { 
+    if (this.thumbnailContainer && this.thumbnailContainer.nativeElement) {
+      this.thumbnailContainer.nativeElement.src = url;
+      console.log("setMemeSrc");
+    } 
+  }
+
   async displayPictureThumbnail(fileName: string) {
-    const fileExt = fileName.lastIndexOf('.') !== -1 ? fileName.substring(fileName.lastIndexOf('.') + 1) : '';
     const directoryValue = this.directoryInput?.nativeElement?.value ?? "";
     let target = directoryValue.replace(/\\/g, "/");
     target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? fileName : directoryValue.length > 0 ? this.fS + fileName : fileName;
-
+    this.selectedThumbnail = target;
+    this.loading = true;
     this.startLoading();
     try {
       const response = await this.fileService.getFile(this.parentRef?.user!, target);
-      const blob = new Blob([response!], { type: `image/${fileExt}` });
+      if (!response) return;
+      const contentDisposition = response.headers["content-disposition"];
+      this.selectedThumbnailFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
+      const type = this.selectedFileType = this.videoFileExtensions.includes(this.selectedThumbnailFileExtension)
+        ? `video/${this.selectedThumbnailFileExtension}`
+        : `image/${this.selectedThumbnailFileExtension}`;
+
+      const blob = new Blob([response.blob], { type });
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
-        this.thumbnailSrc = reader.result as string;
-        this.thumbnailFileName = fileName;
         this.showThumbnail = true;
+        setTimeout(() => { this.setThumbnailSrc(reader.result as string); },1); 
+        this.thumbnailFileName = fileName;
       };
+
+       
     } catch (ex) {
       console.error(ex);
     }
+    this.loading = false;
     this.stopLoading();
   }
   async downloadThumbnail() {
@@ -197,7 +237,7 @@ export class FileComponent extends ChildComponent {
     await this.download(this.thumbnailFileName!, true);
   }
   async download(fileName: string, force: boolean) {
-    if (this.isPictureFile(fileName) && !force) {
+    if (this.isMediaFile(fileName) && !force) {
       return this.displayPictureThumbnail(fileName);
     }
     if (!confirm(`Download ${fileName}?`)) {
@@ -211,7 +251,7 @@ export class FileComponent extends ChildComponent {
     try {
       this.startLoading();
       const response = await this.fileService.getFile(this.parentRef?.user!, target);
-      const blob = new Blob([response!], { type: 'application/octet-stream' });
+      const blob = new Blob([response?.blob!], { type: 'application/octet-stream' });
 
       const a = document.createElement('a');
       a.href = window.URL.createObjectURL(blob);
@@ -234,7 +274,7 @@ export class FileComponent extends ChildComponent {
       return alert("Folder name cannot be empty!");
     }
 
-    const isPublic = this.createVisibility.toLowerCase() == "public" ? true : false; 
+    const isPublic = this.createVisibility.toLowerCase() == "public" ? true : false;
 
     const directoryValue = this.directoryInput?.nativeElement?.value ?? "";
     let target = directoryValue.replace(/\\/g, "/");
@@ -254,27 +294,27 @@ export class FileComponent extends ChildComponent {
       } catch (ex) {
         console.error(ex);
       }
-     
+
       this.stopLoading();
     }
   }
-  async delete(name: string) {
-    const target = this.getCurrentDirectory() + name;
+  async delete(file: FileEntry) {
 
-    if (confirm(`Delete : ${target} ?`)) {
-      const headers = { "Content-Type": "application/json" };
-      const requestBody = '"' + target + '"';
+    if (confirm(`Delete : ${file.name} ?`)) {
       this.startLoading();
       try {
-        const response = this.fileService.deleteFile(this.parentRef?.user!, target);
-        //const response = await this.http.request('delete', '/file/delete', { body: requestBody, headers, responseType: 'text' }).toPromise();
-        this.notifications.push(`Deleted ${target} successfully`);
-      } catch (ex) {
-        console.error(ex);
-        this.notifications.push(`Failed to delete ${target}!`);
+        const response = await this.fileService.deleteFile(this.parentRef?.user!, file);
+        if (response) {
+          this.notifications.push(response);
+        }
+        if (response && response.includes("successfully")) {
+          this.directoryContents = this.directoryContents.filter(res => res.name != file.name);
+        }
+        console.log(response);
+      } catch (ex) { 
+        this.notifications.push(`Failed to delete ${file.name}!`);
       }
       this.stopLoading();
-      this.directoryContents = this.directoryContents.filter(res => res.name != name);
     }
   }
   private getCurrentDirectory() {
@@ -298,10 +338,13 @@ export class FileComponent extends ChildComponent {
       return true;
     }
   }
-  isPictureFile(fileName: string) {
-    const pictureFileTypes = ['jpg', 'png', 'gif', 'webp', 'tiff', 'psd', 'raw', 'bmp', 'heif', 'indd', 'jpeg 2000'];
+  isMediaFile(fileName: string): boolean {
+    const mediaFileTypes = [
+      'jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'psd', 'raw', 'bmp', 'heif', 'heic', 'indd', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', // Image formats
+      'mp4', 'mkv', 'flv', 'avi', 'mov', 'wmv', 'avchd', 'webm', 'mpeg', 'mpg', 'm4v', '3gp', '3g2', 'f4v', 'f4p', 'f4a', 'f4b', 'vob' // Video formats
+    ];
     const lowerCaseFileName = fileName.toLowerCase();
-    return pictureFileTypes.some(extension => lowerCaseFileName.includes(extension));
+    return mediaFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
   }
   handleFileClick(fileName: string) {
     if (!fileName || fileName == "") {
@@ -355,7 +398,7 @@ export class FileComponent extends ChildComponent {
     const currDir = this.getCurrentDirectory();
     console.log("destination: " + this.destinationFilename);
     console.log("draggedFilename: " + this.draggedFilename)
-    if (this.draggedFilename 
+    if (this.draggedFilename
       && this.draggedFilename != this.destinationFilename
       && confirm(`Move ${this.draggedFilename!.trim()} to ${specDir ?? (currDir + this.destinationFilename)}?`)) {
       const inputFile = currDir + this.draggedFilename;
