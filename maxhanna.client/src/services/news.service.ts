@@ -19,9 +19,7 @@ export class NewsService {
       if (!res.ok) {
         throw new Error('Failed to fetch news');
       }
-      const data = await res.json();
-      console.log("newz data: " + data);
-      return data as NewsResponse | null;
+      return await res.json() as NewsResponse;
     } catch (error) {
       console.error('Error fetching news:', error);
       return null;

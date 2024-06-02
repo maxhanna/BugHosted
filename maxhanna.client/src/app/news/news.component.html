@@ -9,21 +9,31 @@
   <!-- Display list of news articles -->
   <div class="newsList" *ngIf="newsArticles != null">
     Newest Articles: (status: {{newsArticles.status}}, # of Results: {{newsArticles.numResults}})
-    <div class="newsItem" *ngFor="let article of newsArticles!.articles!.news" (click)="selectArticle(article)">
-      {{article}}
-      <div class="articleTitle">{{ article.title }}</div>
-      <div class="articleDescription">{{ article.description }}</div>
+    <div *ngFor="let newsArticle of newsArticles.articles">
+      <div class="articleContainer" (click)="selectArticle(newsArticle)">
+        <div class="articleTitle">{{ newsArticle.title }}</div>
+        <div class="articleDescription">{{ newsArticle.content }}</div>
+        <!-- Additional details -->
+        <div class="articleAuthor">Author(s): {{ getAuthors(newsArticle) }}</div>
+        <div class="articleSource">Source: {{ newsArticle.source.domain }}</div>
+        <div class="articleDate">Published Date: {{ newsArticle.pubDate }}</div>
+        <!-- Add more details here as needed -->
+      </div>
     </div>
   </div>
 
   <!-- Display selected article details -->
   <div *ngIf="selectedArticle" class="selectedArticle">
-    <div class="articleTitle">{{ selectedArticle.title }}</div>
-    <div class="articleContent">{{ selectedArticle.content }}</div>
-    <div class="articleDetails">
-      <div class="articleAuthor">Author:  </div>
-      <div class="articleSource">Source:  </div>
-      <div class="articleDate">Published Date: </div>
+    <div class="selectedArticleContent">
+      <div class="closeSelectedArticle" (click)="selectedArticle = undefined">✖</div> <!-- Close button -->
+      <div class="articleTitle">{{ selectedArticle.title }}</div>
+      <div class="articleContent">{{ selectedArticle.summary }}</div>
+      <div class="articleDetails">
+        <div class="articleAuthor">Author(s): {{ getAuthors(selectedArticle) }}</div>
+        <div class="articleSource" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source.domain }}</div>
+        <div class="articleDate">Published Date: {{ selectedArticle.pubDate }}</div>
+        <!-- Add more details here as needed -->
+      </div>
     </div>
   </div>
 

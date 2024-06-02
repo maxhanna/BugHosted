@@ -12,7 +12,7 @@ namespace maxhanna.Server.Controllers
     public class NewsController : ControllerBase
     {
         private static readonly HttpClient client = new HttpClient();
-        private static readonly string apiUrl = "https://api.goperigon.com/v1/all";
+        private static readonly string apiUrl = "https://api.goperigon.com/v1/all?excludeLabel=Low%20Content&size=100&sortBy=date&language=en";
         private static readonly string apiKey = "b94bb4e9-f2fb-4ec9-bf30-b6ab071ba00d";
 
         private readonly ILogger<NewsController> _logger;
@@ -33,44 +33,37 @@ namespace maxhanna.Server.Controllers
                 var augmentedUrl = apiUrl;
                 if (!string.IsNullOrEmpty(keywords))
                 {
-                    augmentedUrl += "?q=" + keywords;
+                    augmentedUrl += "&q=" + keywords;
                 }
-                // Add API key to request headers
+
+                client.DefaultRequestHeaders.Clear(); 
                 client.DefaultRequestHeaders.Add("X-API-KEY", apiKey);
                 _logger.LogInformation("Client request headers: " + client.DefaultRequestHeaders.ToString());
 
-                // Make a GET request to the API endpoint
                 HttpResponseMessage response = await client.GetAsync(augmentedUrl);
 
-                // Check if the request was successful
                 if (response.IsSuccessStatusCode)
                 {
-                    // Read the response content
                     string responseBody = await response.Content.ReadAsStringAsync();
-                    //_logger.LogInformation($"got response body: {responseBody}");
 
-                    // Deserialize JSON response into object
                     var newsData = JsonConvert.DeserializeObject<NewsResponse>(responseBody);
                     _logger.LogInformation($"Returning {newsData}");
 
-                    // Return the news data
                     return Ok(newsData);
                 }
                 else
                 {
                     _logger.LogInformation($"Returning error ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}");
 
-                    // Return error status code and message
                     return StatusCode((int)response.StatusCode, await response.Content.ReadAsStringAsync());
                 }
             }
             catch (Exception ex)
             {
-                // Log and return error
                 Console.WriteLine(ex.Message);
                 return StatusCode(500, "An error occurred while fetching news data");
             }
         }
 
-    } 
+    }
 }

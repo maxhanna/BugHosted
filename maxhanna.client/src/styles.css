@@ -3,6 +3,7 @@
   --main-bg-color: rgba(54, 25, 25, .5);
   --main-highlight-color: rgba(245, 23, 23, .5);
   --secondary-bg-color: rgba(54, 25, 25, .2);
+  --main-bg-color-full-opacity: rgba(54, 25, 25);
   --table-thead-color: rgba(54, 25, 25);
   --main-font-color: #00FF00;
   --secondary-font-color: cornflowerblue;

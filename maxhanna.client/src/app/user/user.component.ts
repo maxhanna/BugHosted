@@ -23,13 +23,13 @@ export class UserComponent extends ChildComponent implements OnInit {
   @ViewChild('apiKey') apiKey!: ElementRef<HTMLInputElement>;
   @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationInput') weatherLocationInput!: ElementRef<HTMLInputElement>;
-  updateUserDivVisible = false;
+  updateUserDivVisible = true;
   notifications: Array<string> = [];
   usersCount: string | null = null;
   isGeneralToggled = false;
   isNicehashApiKeysToggled = false;
   isWeatherLocationToggled = false;
-  isMenuIconsToggled = false;
+  isMenuIconsToggled = true;
   nhApiKeys?: NicehashApiKeys;  
   constructor(private userService: UserService,
     private miningService: MiningService,
@@ -48,7 +48,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.isGeneralToggled = false;
     this.updateUserDivVisible = false;
     this.isWeatherLocationToggled = false;
-    this.isMenuIconsToggled = false; 
+    this.isMenuIconsToggled = true; 
     this.nhApiKeys = undefined; 
   }
   logout() {
@@ -90,14 +90,25 @@ export class UserComponent extends ChildComponent implements OnInit {
     if (tmpUserName) {
       const tmpUser = new User(undefined, tmpUserName, tmpPassword);
       try {
-        const res = await this.userService.createUser(tmpUser);
-        if (res && !res.includes("Error")) {
-          tmpUser.id = parseInt(res);
+        const resCreateUser = await this.userService.createUser(tmpUser);
+        if (resCreateUser && !resCreateUser.includes("Error")) {
+          tmpUser.id = parseInt(resCreateUser!);
           this.notifications.push("Successfully added user");
+
           const ip = await this.userService.getUserIp();
-          await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
+          const resUpdateWeather = await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
+          this.notifications.push(resUpdateWeather!);
+
+          const resAddMenuItemSocial = await this.userService.addMenuItem(tmpUser, "Social");
+          this.notifications.push(resAddMenuItemSocial + '');
+
+          const resAddMenuItemMeme = await this.userService.addMenuItem(tmpUser, "Meme");
+          this.notifications.push(resAddMenuItemMeme!);
+
+          const resAddMenuItemChat = await this.userService.addMenuItem(tmpUser, "Chat");
+          this.notifications.push(resAddMenuItemChat!);
         } else {
-          this.notifications.push(`${JSON.parse(res!)["message"]}`);
+          this.notifications.push(`${JSON.parse(resCreateUser!)["message"]}`);
         }
       } catch (error: any) {
         const message = error["message"];
@@ -107,9 +118,6 @@ export class UserComponent extends ChildComponent implements OnInit {
           this.notifications.push(`Error: ${message}`);
         }
       }
-    }
-    else {
-      return alert("Username cannot be empty!");
     }
   }
 

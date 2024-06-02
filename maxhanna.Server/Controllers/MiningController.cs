@@ -152,7 +152,7 @@ namespace maxhanna.Server.Controllers
                             }
                             rigs.Add(tmpRig);
                         }
-                        _logger.LogInformation("Found mining rig data");
+                        _logger.LogInformation($"Found mining rig data for user : {user.Id}");
                     }
                 }
                 return rigs;
@@ -193,7 +193,7 @@ namespace maxhanna.Server.Controllers
                             ExtractDeviceData(devices, rigId, v4Element, rigName);
                         }
                     }
-                    _logger.LogInformation("Found mining rig device data");
+                    _logger.LogInformation($"Found mining rig device data for user {user.Id}");
                 }
 
                 return devices.OrderBy(d => d, new MiningRigDeviceComparer()).ToList();
@@ -308,7 +308,7 @@ namespace maxhanna.Server.Controllers
                     return NotFound("Deserialized MiningWallet object is null");
                 }
 
-                _logger.LogInformation("Found mining rig data");
+                _logger.LogInformation("Found mining rig data for user " + user.Id);
                 return Ok(wallet);
             }
             catch (Exception ex)
@@ -343,7 +343,7 @@ namespace maxhanna.Server.Controllers
                     return NotFound("Deserialized DailyMiningEarnings object is null");
                 }
 
-                _logger.LogInformation("Found daily mining earnings data");
+                _logger.LogInformation("Found daily mining earnings data for user " + user.Id);
                 return Ok(wallet);
             }
             catch (Exception ex)

@@ -1,0 +1,46 @@
+
+.componentMain {
+  position: relative;
+}
+
+.inputDiv {
+    width:100%;
+    display:flex;
+    justify-content: flex-start;
+}
+  .inputDiv input {
+    height: 25px;
+  }
+  .whatsOnYourMind {
+    width: 100%;
+    padding: 10px; 
+    box-sizing: border-box;
+  }
+.storyText {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background-color: var(--main-highlight-color);
+}
+.storyUsername {
+  color: var(--secondary-font-color);
+}
+.storyDate {
+  color: var(--secondary-font-color);
+}
+.createStoryButton{
+    width: 165px;
+}
+.metadataImage {
+    max-width:500px;
+    max-height:500px;
+}
+@media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
+  .metadataImage {
+    max-width: 300px;
+    max-height: 300px;
+  }
+}
+.metadataTitle, .metadataDescription {
+    font-size: small;
+}

@@ -17,6 +17,7 @@ const PROXY_CONFIG = [
       "/chat",
       "/meme",
       "/news",
+      "/social",
     ],
     target,
     secure: false

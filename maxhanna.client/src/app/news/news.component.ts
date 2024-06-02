@@ -27,6 +27,8 @@ export class NewsComponent extends ChildComponent implements OnInit {
         this.newsArticles = data;
       } else {
         this.newsArticles = await this.newsService.getAllNews(this.parentRef?.user!) as NewsResponse;
+        console.log('newsArticles:', this.newsArticles);
+
         if (this.newsArticles == null) {
           this.notifications.push("Error fetching news data");
         }
@@ -36,7 +38,10 @@ export class NewsComponent extends ChildComponent implements OnInit {
     }
   }
 
-
+  openSource(url: string) {
+    console.log(url);
+    window.open(url, '_blank');
+  }
   selectArticle(article: NewsItem): void {
     if (this.selectedArticle) {
       this.selectedArticle = undefined;
@@ -58,6 +63,17 @@ export class NewsComponent extends ChildComponent implements OnInit {
       this.searchKeywords.nativeElement.value = ''; 
     } catch { 
       this.notifications.push("Error fetching news data");
+    }
+  }
+
+  getAuthors(article: NewsItem): string {
+    // Function to format authors' names
+    if (!article.authorsByline || article.authorsByline === '') {
+      return 'Unknown';
+    } else {
+      // Split authors by comma and trim extra spaces
+      const authors = article.authorsByline.split(',').map(author => author.trim());
+      return authors.join(', ');
     }
   }
 }

@@ -1,6 +1,100 @@
-/* Styling for the list of news articles */
+.componentMain {
+  max-height: 600px;
+  max-width: 800px;
+  overflow: auto;
+  position: relative;
+}
+
+.selectedArticle {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: var(--main-bg-color-full-opacity);
+  border: var(--main-border);
+  border-radius: 5px;
+  padding: 20px;
+  z-index: 9999;
+}
+.articleContainer{
+    margin-bottom:10px;
+}
+
+.selectedArticleContent {
+  position: relative;
+}
+
+.closeSelectedArticle {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  cursor: pointer;
+  color: var(--main-highlight-color);
+}
+
+.articleTitle {
+  font-weight: bold;
+}
+
+.articleDescription {
+  margin-bottom: 10px;
+}
+
+.articleAuthor,
+.articleSource,
+.articleDate {
+  margin-top: 10px;
+  text-shadow: 0.5px 0.5px 1px var(--secondary-font-color);
+}
+
+.articleSource {
+  cursor: pointer;
+}
+
+
+/* Styling for the message when there's no news to show */
+.noNewsMessage {
+  margin-top: 20px;
+  font-style: italic;
+  color: #999;
+}
+
+
+
+.selectedArticleContent {
+  position: relative;
+}
+
+.closeSelectedArticle {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  cursor: pointer;
+}
+
+.articleTitle {
+  font-weight: bold;
+}
+
+.articleDescription {
+  margin-bottom: 10px;
+}
+
+.articleAuthor,
+.articleSource,
+.articleDate {
+  margin-top: 10px;
+}
+
+.articleSource {
+  cursor: pointer;
+}
+
+
 .newsList {
   margin-top: 20px;
+  max-height:400px;
+  overflow: auto;
 }
 
 .newsItem {
@@ -23,7 +117,7 @@
 .articleDescription {
   margin-top: 5px;
   font-size: 14px;
-  color: #666;
+  color: var(--secondary-font-color);
 }
 
 /* Styling for the selected article details */
@@ -32,11 +126,11 @@
   border: var(--main-border);
   border-radius: 5px;
   padding: 20px;
-  background-color: #f9f9f9;
 }
 
 .articleContent {
   margin-top: 10px;
+  color: var(--secondary-font-color);
 }
 
 .articleDetails {
@@ -46,8 +140,9 @@
 .articleAuthor,
 .articleSource,
 .articleDate {
-  font-size: 14px;
+  font-size: small;
   color: #666;
+  text-align: right;
 }
 
 /* Styling for the message when there's no news to show */
@@ -56,3 +151,4 @@
   font-style: italic;
   color: #999;
 }
+

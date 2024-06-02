@@ -8,8 +8,10 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "prestart": "node aspnetcore-https",
-    "start:windows": "ng serve --ssl",
-    "start:default": "ng serve --ssl"
+    "start:windows": "start cmd /k \"npm run start:https\" & start cmd /k \"npm run start:http\"",
+    "start:default": "npm run start:https & npm run start:http",
+    "start:http": "ng serve --port 80 --configuration http",
+    "start:https": "ng serve --port 443 --ssl true --ssl-cert ssl/maxhanna_ca.crt --ssl-key ssl/maxhanna_ca.key --configuration https"
   },
   "private": true,
   "dependencies": {

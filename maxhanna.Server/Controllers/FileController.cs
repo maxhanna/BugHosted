@@ -144,10 +144,10 @@ namespace maxhanna.Server.Controllers
                             maxhanna.users u 
                             ON c.user_id = u.id 
                         LEFT JOIN 
-                            maxhanna.comment_votes cv_up 
+                            maxhanna.file_comment_votes cv_up 
                             ON c.id = cv_up.comment_id AND cv_up.upvote = 1
                         LEFT JOIN 
-                            maxhanna.comment_votes cv_down 
+                            maxhanna.file_comment_votes cv_down 
                             ON c.id = cv_down.comment_id AND cv_down.downvote = 1
                         WHERE 
                             c.file_id = @fileId
@@ -157,11 +157,11 @@ namespace maxhanna.Server.Controllers
 
                     using (var reader = await command.ExecuteReaderAsync())
                     {
-                        var comments = new List<Comment>();
+                        var comments = new List<FileComment>();
 
                         while (reader.Read())
                         {
-                            var comment = new Comment
+                            var comment = new FileComment
                             {
                                 Id = reader.GetInt32("id"),
                                 FileId = reader.GetInt32("file_id"),
@@ -227,7 +227,7 @@ namespace maxhanna.Server.Controllers
                 {
                     await connection.OpenAsync();
 
-                    var command = new MySqlCommand("INSERT INTO comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, @upvote, 0) ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0", connection);
+                    var command = new MySqlCommand("INSERT INTO file_comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, @upvote, 0) ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0", connection);
                     command.Parameters.AddWithValue("@commentId", request.CommentId);
                     command.Parameters.AddWithValue("@userId", request.User.Id);
                     command.Parameters.AddWithValue("@upvote", request.Upvote);
@@ -253,7 +253,7 @@ namespace maxhanna.Server.Controllers
                 {
                     await connection.OpenAsync();
 
-                    var command = new MySqlCommand("INSERT INTO comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, 0, @downvote) ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote", connection);
+                    var command = new MySqlCommand("INSERT INTO file_comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, 0, @downvote) ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote", connection);
                     command.Parameters.AddWithValue("@commentId", request.CommentId);
                     command.Parameters.AddWithValue("@userId", request.User.Id);
                     command.Parameters.AddWithValue("@downvote", request.Downvote);

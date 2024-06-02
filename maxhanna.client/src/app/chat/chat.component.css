@@ -16,7 +16,7 @@
 }
 
   .userPanel.expanded {
-    width: 96px;
+    width: 100px;
   }
 
 
@@ -49,6 +49,7 @@
   overflow-y: auto;
   margin-bottom: 10px;
 }
+
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   .chatWindow {
     max-width: 270px;
@@ -99,5 +100,5 @@
   }
 
 input[type="text"] {
-  touch-action: manipulation; /* or 'none' */
+  touch-action: manipulation;
 }

@@ -60,7 +60,7 @@
             <div *ngIf="!loading">
               <img #memeContainer *ngIf="!this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" alt="meme" class="memeImage" />
               <video #memeContainer *ngIf="this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" controls preload="auto" autoplay class="memeVideo"></video>
-              <span class="filetype">{{fileType}}</span>
+              <span class="filetype">{{fileType}} {{meme.username}} {{meme.date}}</span>
             </div>
 
             <!-- Comments Section -->

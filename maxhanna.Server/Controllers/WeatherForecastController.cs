@@ -106,7 +106,7 @@ namespace maxhanna.Server.Controllers
                         if (await cmd.ExecuteNonQueryAsync() >= 0)
                         {
                             _logger.LogInformation("Returned OK");
-                            return Ok();
+                            return Ok("Weather location updated.");
                         }
                         else
                         {

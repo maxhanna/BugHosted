@@ -79,11 +79,11 @@ namespace maxhanna.Server.Controllers
                     {
                         // User found, return the user details
                         return Ok(new User
-                        {
-                            Id = Convert.ToInt32(reader["id"]),
-                            Username = reader["username"].ToString(),
-                            Pass = reader["pass"].ToString()
-                        });
+                        (
+                            Convert.ToInt32(reader["id"]),
+                            reader["username"].ToString()!,
+                            reader["pass"].ToString()
+                        ));
                     }
                     else
                     {
@@ -122,10 +122,10 @@ namespace maxhanna.Server.Controllers
                     while (reader.Read())
                     {
                         users.Add(new User
-                        {
-                            Id = Convert.ToInt32(reader["id"]),
-                            Username = (string)reader["username"]
-                        });
+                        (
+                            Convert.ToInt32(reader["id"]),
+                            (string)reader["username"]
+                        ));
                     }
                 }
 
@@ -345,7 +345,7 @@ namespace maxhanna.Server.Controllers
                         menuItems.Add(new MenuItem
                         {
                             Ownership = Convert.ToInt32(reader["ownership"]),
-                            Title = reader["title"].ToString()
+                            Title = reader["title"].ToString()!
                         });
                     }
 
@@ -372,7 +372,7 @@ namespace maxhanna.Server.Controllers
         [HttpDelete("/User/Menu", Name = "DeleteMenuItem")]
         public async Task<IActionResult> DeleteMenuItem([FromBody] MenuItemRequest request)
         {
-            _logger.LogInformation($"DELETE /User/Menu for user with ID: {request.user.Id} and title: {request.Title}");
+            _logger.LogInformation($"DELETE /User/Menu for user with ID: {request.User.Id} and title: {request.Title}");
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
@@ -382,7 +382,7 @@ namespace maxhanna.Server.Controllers
                 string sql = "DELETE FROM maxhanna.menu WHERE ownership = @UserId AND title = @Title";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@UserId", request.user.Id);
+                cmd.Parameters.AddWithValue("@UserId", request.User.Id);
                 cmd.Parameters.AddWithValue("@Title", request.Title);
 
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
@@ -409,7 +409,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/User/Menu/Add", Name = "AddMenuItem")]
         public async Task<IActionResult> AddMenuItem([FromBody] MenuItemRequest request)
         {
-            _logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.user.Id} and title: {request.Title}");
+            _logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.User.Id} and title: {request.Title}");
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
@@ -419,7 +419,7 @@ namespace maxhanna.Server.Controllers
                 string sql = "INSERT INTO maxhanna.menu (ownership, title) VALUES (@UserId, @Title)";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@UserId", request.user.Id);
+                cmd.Parameters.AddWithValue("@UserId", request.User.Id);
                 cmd.Parameters.AddWithValue("@Title", request.Title);
 
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();

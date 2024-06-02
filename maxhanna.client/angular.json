@@ -37,7 +37,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "scripts": [ ]
+            "scripts": []
           },
           "configurations": {
             "production": {
@@ -71,16 +71,25 @@
             },
             "development": {
               "buildTarget": "maxhanna.client:build:development"
+            },
+            "http": {
+              "browserTarget": "maxhanna.client:build:development",
+              "port": 80,
+              "host": "0.0.0.0",
+              "ssl": false
+            },
+            "https": {
+              "browserTarget": "maxhanna.client:build:development",
+              "port": 443,
+              "host": "0.0.0.0",
+              "ssl": true,
+              "sslCert": "ssl/maxhanna_ca.crt",
+              "sslKey": "ssl/maxhanna_ca.key"
             }
           },
           "defaultConfiguration": "development",
           "options": {
-            "proxyConfig": "src/proxy.conf.js",
-            "port": 443,
-            "host": "0.0.0.0",
-            "ssl": true,
-            "sslCert": "ssl/maxhanna_selfip_com.crt",
-            "sslKey": "ssl/maxhanna_selfip_com.key"
+            "proxyConfig": "src/proxy.conf.js"
           }
         },
         "extract-i18n": {

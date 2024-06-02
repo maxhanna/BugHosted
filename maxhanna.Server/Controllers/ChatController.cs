@@ -162,23 +162,23 @@ namespace maxhanna.Server.Controllers
                     while (reader.Read())
                     {
                         var sender = new User
-                        {
-                            Id = Convert.ToInt32(reader["sender_id"]),
-                            Username = reader["sender_username"].ToString()
-                        };
+                        (
+                            Convert.ToInt32(reader["sender_id"]),
+                            reader["sender_username"].ToString()!
+                        );
 
                         var receiver = new User
-                        {
-                            Id = Convert.ToInt32(reader["receiver_id"]),
-                            Username = reader["receiver_username"].ToString()
-                        };
+                        (
+                            Convert.ToInt32(reader["receiver_id"]),
+                            reader["receiver_username"].ToString()!
+                        );
 
                         messages.Add(new Message
                         {
                             Id = Convert.ToInt32(reader["id"]),
                             Sender = sender,
                             Receiver = receiver,
-                            Content = reader["content"].ToString(),
+                            Content = reader["content"].ToString()!,
                             Timestamp = Convert.ToDateTime(reader["timestamp"])
                         });
                     }
@@ -236,7 +236,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Chat/SendMessage", Name = "SendMessage")]
         public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
         {
-            _logger.LogInformation($"POST /Chat/SendMessage from user: {request.Sender.Id} to user: {request.Receiver.Id}");
+            _logger.LogInformation($"POST /Chat/SendMessage from user: {request.Sender!.Id} to user: {request.Receiver!.Id}");
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
@@ -246,7 +246,7 @@ namespace maxhanna.Server.Controllers
                 string sql = "INSERT INTO maxhanna.messages (sender, receiver, content) VALUES (@Sender, @Receiver, @Content)";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@Sender", request.Sender.Id);
+                cmd.Parameters.AddWithValue("@Sender", request.Sender!.Id);
                 cmd.Parameters.AddWithValue("@Receiver", request.Receiver.Id);
                 cmd.Parameters.AddWithValue("@Content", request.Content);
 
@@ -274,9 +274,9 @@ namespace maxhanna.Server.Controllers
 
         public class SendMessageRequest
         {
-            public User Sender { get; set; }
-            public User Receiver { get; set; }
-            public string Content { get; set; }
+            public User? Sender { get; set; }
+            public User? Receiver { get; set; }
+            public string? Content { get; set; }
         }
         public class Notification
         {

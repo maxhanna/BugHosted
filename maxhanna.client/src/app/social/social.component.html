@@ -2,5 +2,25 @@
   <div class="closeButton" (click)="remove_me();"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Social</div>
-   
+
+  <div class="inputDiv">
+    <input type="text" #search placeholder="Search" (keyup.enter)="searchStories()" />
+    <button type="submit" (click)="searchStories()">🔍</button>
+  </div>
+
+  <div *ngFor="let story of stories">
+    <div class="storyText" [innerHtml]="createClickableUrls(story.storyText)"></div>
+    <div class="storyUsername">{{story.user.username}}</div>
+    <div class="storyDate">{{story.date}}</div>
+    <div *ngIf="story.metaData">
+      <div class="metadataTitle">{{story.metaData.title}}</div>
+      <div class="metadataDescription" [innerHtml]="createClickableUrls(story.metaData.description)"></div>
+      <div><img class="metadataImage" [src]="story.metaData.imageUrl" /></div>
+    </div>
+  </div>
+  
+  <div class="inputDiv">
+    <input type="text" #story placeholder="What's on your mind?" (keyup.enter)="post()" class="whatsOnYourMind" />
+    <input type="submit" (click)="post()" class="createStoryButton" value="✏️ Create Story"/>
+  </div>
 </div>

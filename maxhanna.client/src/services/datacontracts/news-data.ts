@@ -40,11 +40,8 @@ export class NewsItem {
 export class NewsResponse {
   status?: string = "";
   numResults: number = 0;
-  articles?: NewsData;
-}
-export class NewsData {
-  news?: NewsItem[] = [];
-}
+  articles?: NewsItem[];
+} 
 
 export class Source {
   domain: string | null = null;
