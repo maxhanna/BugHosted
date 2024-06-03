@@ -11,7 +11,7 @@ import { User } from '../../services/datacontracts/user';
 export class FileUploadComponent {
   constructor(private fileService: FileService) { }
   @Input() currentDirectory = '';
-  @Input() user!: User;
+  @Input() user?: User;
   @Input() visibility!: boolean;
   @Input() allowedFileTypes: string = '';
 
@@ -27,6 +27,8 @@ export class FileUploadComponent {
   uploadProgress: number = 0;
 
   uploadInitiate() {
+    if (!this.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
       this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
       this.userUploadEvent.emit(this.uploadFileList);
@@ -52,6 +54,7 @@ export class FileUploadComponent {
     }
   }
   async upload() {
+    if (!this.user || this.user == null) { return alert("You must be logged in to upload."); }
     if (!this.uploadFileList) { return alert("weird bug, cant find fileInput"); }
 
     const files = this.uploadFileList;
@@ -97,5 +100,9 @@ export class FileUploadComponent {
         this.uploadProgress = 0;
       }
     }
+  }
+  verifyUser() {
+    if (!this.user || this.user == null || this.user.id == 0) return false;
+    return true;
   }
 }

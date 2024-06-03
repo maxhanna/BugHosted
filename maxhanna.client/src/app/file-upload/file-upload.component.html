@@ -12,5 +12,7 @@
   <option value="public">Public</option>
   <option value="private">Private</option>
 </select>
-
-<div *ngFor="let file of uploadFileList" class="fileListDiv"> <div class="removeFileButton" (click)="removeFile(file)" title="Remove file">{{file.name}}</div></div>
+<div class="fileListContainer" *ngIf="uploadFileList.length > 0">
+  Upload {{uploadFileList.length}} files to {{currentDirectory}}?
+  <div *ngFor="let file of uploadFileList" class="fileListDiv"><div class="removeFileButton" (click)="removeFile(file)" title="Remove file">{{file.name}}</div></div>
+</div>

@@ -38,6 +38,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
 
   }
   async comment() {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
 
   }
   async share() {
@@ -54,20 +55,13 @@ export class SocialComponent extends ChildComponent implements OnInit {
     const search = keywords ?? this.search?.nativeElement.value;
     const res = await this.socialService.getStories(this.parentRef?.user!, search);
     if (res) {
-      this.stories = res;
-      this.stories.forEach(async x => {
-        const url = this.extractUrl(x.storyText!);
-        if (url) {
-          console.log("getting metadata for : " + url);
-          const res = await this.socialService.getMetadata(this.parentRef?.user!, url!);
-          console.log("found metadata: " + res);
-          x.metaData = res;
-        } 
-      });
-     }
+      this.stories = res; 
+    }
   }
 
   async post() {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     const storyText = this.story.nativeElement.value!;
     if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
     const newStory: Story = {
@@ -79,7 +73,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
       upvotes: 0,
       downvotes: 0,
       commentsCount: 0,
-      metaData: undefined,
+      metadata: undefined,
     };
 
     const res = await this.socialService.postStory(this.parentRef?.user!, newStory);
@@ -126,4 +120,9 @@ export class SocialComponent extends ChildComponent implements OnInit {
     // Further sanitize the clickable text to remove any malicious code
     return this.sanitizer.bypassSecurityTrustHtml(clickableText);
   }
+  focusInput(): void {
+    setTimeout(() => {
+      this.story.nativeElement.scrollIntoView({ behavior: 'smooth' });
+    }, 300); // Timeout to wait for the keyboard to appear
+  } 
 }

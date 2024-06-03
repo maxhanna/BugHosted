@@ -25,3 +25,7 @@
   button {
       cursor: pointer;
   }
+.fileListContainer {
+    max-height:300px;
+    overflow: auto;
+}

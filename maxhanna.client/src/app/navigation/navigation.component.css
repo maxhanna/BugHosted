@@ -17,7 +17,7 @@
   gap: 12px;
   transition: transform 0.3s ease; 
 }
-@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
   #navbar {
     height: 60px;
     justify-content: flex-start;

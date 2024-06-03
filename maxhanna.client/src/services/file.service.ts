@@ -43,7 +43,7 @@ export class FileService {
       return null;
     }
   }
-  async getFile(user: User, file: string) {
+  async getFile(user: User, file: string, options?: { signal: AbortSignal }) {
     try {
       const response = await fetch(`/file/getfile/${encodeURIComponent(file)}`, {
         method: 'POST',
@@ -51,18 +51,30 @@ export class FileService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(user),
+        signal: options?.signal  // Pass the AbortSignal here
       });
+
+      // Check if the request was aborted
+      if (options?.signal?.aborted) {
+        throw new Error('Request aborted');
+      }
+
       const headers: Record<string, string> = {};
       response.headers.forEach((value: string, name: string) => {
         headers[name] = value;
       });
       const blob = await response.blob();
       return { blob, headers };
-    } catch (error) {
-      return null;
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw error;
+      } else {
+        return null;
+      }
     }
   }
-   
+
+
   async getComments(fileId: number) {
     try {
       const response = await fetch(`/file/comments/${fileId}`, {
@@ -80,7 +92,7 @@ export class FileService {
     } catch (error) {
       throw error;
     }
-  } 
+  }
   async commentFile(user: User, fileId: number, comment: string) {
     try {
       const response = await fetch(`/file/comment`, {

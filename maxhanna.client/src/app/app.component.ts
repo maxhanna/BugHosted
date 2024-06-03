@@ -166,4 +166,8 @@ export class AppComponent {
     let cpath: string = path ? `; path=${path}` : '';
     document.cookie = `${name}=${value}; ${expires}${cpath}`;
   }
+  verifyUser() {
+    if (!this.user || this.user == null || this.user.id == 0) return false;
+    return true;
+  }
 }

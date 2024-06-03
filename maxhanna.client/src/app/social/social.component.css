@@ -1,46 +1,75 @@
-
-.componentMain {
-  position: relative;
+ 
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .componentMain {
+    max-width:365px;
+  }
 }
-
+.componentMain div {
+  max-width: 500px;
+}
 .inputDiv {
-    width:100%;
-    display:flex;
-    justify-content: flex-start;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
+
   .inputDiv input {
-    height: 25px;
+    height: 35px;
   }
-  .whatsOnYourMind {
-    width: 100%;
-    padding: 10px; 
-    box-sizing: border-box;
-  }
+
+.foodForThought {
+  min-width: 200px;
+  width:100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.storyContainer {
+    border: var(--main-border);
+    margin:5px;
+    padding:5px;
+}
 .storyText {
   display: inline-block;
-  padding: 5px 10px;
-  border-radius: 10px;
-  background-color: var(--main-highlight-color);
+  border-radius: 3px;
+  
+  word-wrap: break-word;
+}
+.hidden {
+    max-height: 200px;
+    overflow-x:hidden;
+    text-overflow:ellipsis;
+}
+
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .storyText {
+    max-width: 300px;
+  }
 }
 .storyUsername {
   color: var(--secondary-font-color);
 }
+
 .storyDate {
   color: var(--secondary-font-color);
 }
-.createStoryButton{
-    width: 165px;
+
+.createStoryButton {
+  background-color: var(--main-highlight-color);
+  border: var(--main-border)
 }
+
 .metadataImage {
-    max-width:500px;
-    max-height:500px;
+  max-width: 500px;
+  max-height: 500px;
 }
+
 @media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
   .metadataImage {
     max-width: 300px;
     max-height: 300px;
   }
 }
+
 .metadataTitle, .metadataDescription {
-    font-size: small;
+  font-size: small;
 }

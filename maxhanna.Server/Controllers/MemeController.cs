@@ -25,14 +25,14 @@ namespace maxhanna.Server.Controllers
         }
          
         [HttpPost("/Meme/GetMemes/", Name = "GetMemes")]
-        public IActionResult GetMemes([FromBody] User user)
+        public IActionResult GetMemes([FromBody] User? user)
         {
             var directory = baseTarget;
             if (!directory.EndsWith("/"))
             {
                 directory += "/";
             }
-            _logger.LogInformation($"GET /File/GetMemes (for user: {user.Id}, directory: {directory}");
+            _logger.LogInformation($"GET /File/GetMemes (for user: {user?.Id}, directory: {directory}");
 
             if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {baseTarget}"); }
 
@@ -234,7 +234,6 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while updating the meme.");
             }
         }
-         
 
         [HttpPost("/Meme/GetMeme/{memeId}", Name = "GetMeme")]
         public async Task<IActionResult> GetMeme(string memeId)
@@ -307,7 +306,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while streaming the meme.");
             }
         }
-         
+
 
         private bool ValidatePath(string directory)
         {

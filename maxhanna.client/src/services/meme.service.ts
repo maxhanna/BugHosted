@@ -10,12 +10,13 @@ import { FileComment } from './datacontracts/file-comment';
 export class MemeService {
   constructor(private http: HttpClient) { }
 
-  async getMeme(memeId: number) {
+  async getMeme(memeId: number, options?: { signal: AbortSignal }) {
     const response = await fetch(`/meme/getmeme/${memeId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-      }
+      },
+      signal: options?.signal  // Pass the AbortSignal here
     });
 
     if (!response.ok) {
@@ -32,7 +33,7 @@ export class MemeService {
   }
     
 
-  async getMemes(user: User) {
+  async getMemes(user?: User) {
     try {
       const response = await fetch(`/meme/getmemes`, {
         method: 'POST',

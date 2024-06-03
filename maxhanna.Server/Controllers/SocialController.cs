@@ -29,7 +29,8 @@ namespace maxhanna.Server.Controllers
                           s.id, s.user_id, u.username, s.story_text, s.file_id, s.date,
                           COUNT(CASE WHEN sv.upvote = 1 THEN 1 ELSE NULL END) AS upvotes,
                           COUNT(CASE WHEN sv.downvote = 1 THEN 1 ELSE NULL END) AS downvotes,
-                          COUNT(sc.id) AS comments_count
+                          COUNT(sc.id) AS comments_count,
+                          sm.title, sm.description, sm.image_url
                        FROM 
                           stories AS s 
                        JOIN 
@@ -38,18 +39,21 @@ namespace maxhanna.Server.Controllers
                           story_votes AS sv ON s.id = sv.story_id 
                        LEFT JOIN 
                           story_comments AS sc ON s.id = sc.story_id 
+                       LEFT JOIN 
+                          story_metadata AS sm ON s.id = sm.story_id 
                        WHERE 
                           s.story_text LIKE CONCAT('%', @search, '%') OR 
                           u.username = @search 
                        GROUP BY 
-                          s.id, s.user_id, u.username, s.story_text, s.file_id, s.date 
+                          s.id, s.user_id, u.username, s.story_text, s.file_id, s.date, sm.title, sm.description, sm.image_url 
                        ORDER BY 
                           s.id DESC;"
                     : @"SELECT 
                           s.id, s.user_id, u.username, s.story_text, s.file_id, s.date,
                           COUNT(CASE WHEN sv.upvote = 1 THEN 1 ELSE NULL END) AS upvotes,
                           COUNT(CASE WHEN sv.downvote = 1 THEN 1 ELSE NULL END) AS downvotes,
-                          COUNT(sc.id) AS comments_count
+                          COUNT(sc.id) AS comments_count,
+                          sm.title, sm.description, sm.image_url
                        FROM 
                           stories AS s 
                        JOIN 
@@ -58,10 +62,13 @@ namespace maxhanna.Server.Controllers
                           story_votes AS sv ON s.id = sv.story_id 
                        LEFT JOIN 
                           story_comments AS sc ON s.id = sc.story_id 
+                       LEFT JOIN 
+                          story_metadata AS sm ON s.id = sm.story_id 
                        GROUP BY 
-                          s.id, s.user_id, u.username, s.story_text, s.file_id, s.date 
+                          s.id, s.user_id, u.username, s.story_text, s.file_id, s.date, sm.title, sm.description, sm.image_url 
                        ORDER BY 
                           s.id DESC;";
+
 
 
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -86,11 +93,17 @@ namespace maxhanna.Server.Controllers
                                     Id = rdr.GetInt32(0),
                                     User = new User(rdr.GetInt32(1), rdr.GetString(2), null),
                                     StoryText = rdr.GetString(3),
-                                    FileId = rdr.IsDBNull(4) ? null : rdr.GetInt32(4),
+                                    FileId = rdr.IsDBNull(4) ? (int?)null : rdr.GetInt32(4),
                                     Date = rdr.GetDateTime(5),
                                     Upvotes = rdr.GetInt32(6),
                                     Downvotes = rdr.GetInt32(7),
                                     CommentsCount = rdr.GetInt32(8),
+                                    Metadata = new MetadataDto
+                                    {
+                                        Title = rdr.IsDBNull(9) ? null : rdr.GetString(9),
+                                        Description = rdr.IsDBNull(10) ? null : rdr.GetString(10),
+                                        ImageUrl = rdr.IsDBNull(11) ? null : rdr.GetString(11)
+                                    }
                                 };
 
                                 stories.Add(story);
@@ -118,7 +131,6 @@ namespace maxhanna.Server.Controllers
                 if (story.story.FileId != null && story.story.FileId != 0)
                 {
                     sql = @"INSERT INTO stories (user_id, story_text, file_id) VALUES (@userId, @storyText, @fileId);";
-
                 }
 
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -138,6 +150,18 @@ namespace maxhanna.Server.Controllers
 
                         if (rowsAffected == 1)
                         {
+                            // Fetch the last inserted ID
+                            int storyId = (int)(cmd.LastInsertedId);
+
+                            // Extract URL from story text
+                            var url = ExtractUrl(story.story.StoryText);
+                            if (url != null)
+                            {
+                                // Fetch metadata
+                                var metadataRequest = new MetadataRequest { User = story.user, Url = url };
+                                var metadataResponse = GetMetadata(metadataRequest, storyId);
+                            }
+
                             return Ok("Story posted successfully.");
                         }
                         else
@@ -153,6 +177,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while posting story.");
             }
         }
+
 
         [HttpPost("/Social/{storyId}/Comments", Name = "GetSocialComments")]
         public async Task<IActionResult> GetSocialComments([FromBody] User? user, int storyId)
@@ -318,18 +343,67 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/Social/GetMetadata")]
-        public async Task<IActionResult> GetMetadata([FromBody] MetadataRequest request)
+        public async Task<IActionResult> GetMetadata([FromBody] MetadataRequest request, int? storyId)
         {
             try
             {
-                _logger.LogInformation($"Getting metadata for user : {request.User.Id} for url: {request.Url}");
+                _logger.LogInformation($"Getting metadata for user : {request.User.Id} for url: {request.Url} for storyId: {storyId}");
                 var metadata = await FetchMetadataAsync(request.Url);
+
+                if(storyId != null && storyId != 0)
+                {
+                    _logger.LogInformation($"Inserting metadata for story {storyId}");
+                    return Ok(await InsertMetadata((int)storyId, metadata));
+                }
                 return Ok(metadata);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred while fetching metadata: {ex.Message}");
             }
+        }
+        private async Task<string> InsertMetadata(int storyId, MetadataDto metadata)
+        {
+            string sql = @"INSERT INTO story_metadata (story_id, title, description, image_url) VALUES (@storyId, @title, @description, @imageUrl);";
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@storyId", storyId);
+                        cmd.Parameters.AddWithValue("@title", metadata.Title);
+                        cmd.Parameters.AddWithValue("@description", metadata.Description);
+                        cmd.Parameters.AddWithValue("@imageUrl", metadata.ImageUrl);
+
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+                _logger.LogInformation($"Inserted metadata {metadata} for storyId {storyId}");
+            } catch
+            {
+                return "Could not insert metadata";
+            }
+            return "Inserted metadata";
+            
+        }
+
+        private static string? ExtractUrl(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return "";
+            }
+            // Regular expression pattern to match URLs
+            string urlPattern = @"(https?:\/\/[^\s]+)";
+
+            // Match URLs in the text
+            var matches = System.Text.RegularExpressions.Regex.Matches(text, urlPattern);
+
+            // Return the first match if found, otherwise return null
+             return matches.Count > 0 ? matches[0].Value : null;
         }
 
         private async Task<MetadataDto> FetchMetadataAsync(string url)
@@ -341,7 +415,7 @@ namespace maxhanna.Server.Controllers
             var htmlDocument = new HtmlDocument();
             htmlDocument.LoadHtml(html); 
             var metadata = new MetadataDto();
-            _logger.LogInformation($"URL {url}: Got HTML :"+ htmlDocument.ParsedText);
+            _logger.LogInformation($"Got HTML for {url}.");
 
             // Extract metadata from HTML document
             var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
@@ -364,16 +438,6 @@ namespace maxhanna.Server.Controllers
 
             return metadata;
         }
-        public class MetadataDto
-        {
-            public string Title { get; set; }
-            public string Description { get; set; }
-            public string ImageUrl { get; set; }
-        }
-        public class MetadataRequest
-        {
-            public string Url { get; set; }
-            public User User { get; set; } 
-        }
+        
     }
 }

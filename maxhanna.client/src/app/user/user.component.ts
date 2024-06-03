@@ -216,6 +216,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         if (weatherLocation && (this.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
           await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
         }
+        this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
 
       } else {
         this.notifications.push("Access denied");

@@ -1,7 +1,6 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { HttpClient, HttpEventType, HttpParams } from '@angular/common/http';
-import { lastValueFrom } from 'rxjs';
+import { HttpEventType } from '@angular/common/http';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { User } from '../../services/datacontracts/user';
@@ -43,6 +42,8 @@ export class FileComponent extends ChildComponent {
   selectedThumbnailFileExtension = "";
   selectedThumbnail = "";
   selectedFileType = "";
+  abortThumbnailRequestController: AbortController | null = null;
+
 
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
@@ -208,8 +209,19 @@ export class FileComponent extends ChildComponent {
     this.loading = true;
     this.startLoading();
     try {
-      const response = await this.fileService.getFile(this.parentRef?.user!, target);
-      if (!response) return;
+      // Cancel any ongoing thumbnail request
+      if (this.abortThumbnailRequestController) {
+        this.abortThumbnailRequestController.abort();
+      }
+
+      // Create a new AbortController for the thumbnail request
+      this.abortThumbnailRequestController = new AbortController();
+
+      const response = await this.fileService.getFile(this.parentRef?.user!, target, {
+        signal: this.abortThumbnailRequestController.signal
+      });
+
+      if (!response || response == null) return;
       const contentDisposition = response.headers["content-disposition"];
       this.selectedThumbnailFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
       const type = this.selectedFileType = this.videoFileExtensions.includes(this.selectedThumbnailFileExtension)

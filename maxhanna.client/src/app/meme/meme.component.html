@@ -100,15 +100,14 @@
       <button (click)="search();" title="Search">🔍</button>
     </div>
     <div class="fileUploadInputs">
-      <app-file-upload [user]="parentRef?.user!"
+      <app-file-upload [user]="parentRef?.user"
                        [currentDirectory]="'Meme'"
                        [visibility]="false"
                        [allowedFileTypes]="'image/*,video/*'"
                        (userNotificationEvent)="uploadNotification($event);"
                        (userUploadEvent)="uploadFileListEvent($event);"
                        (userCancelEvent)="uploadCancelEvent($event);"
-                       id="fileUploader"
-                       *ngIf="parentRef?.user!.id == 1">
+                       id="fileUploader">
       </app-file-upload>
       <label class="SendMemesSpan" *ngIf="!isUploadingInProcess" (click)="clickOnUpload()" title="Upload file(s)">Upload your memes!</label>
     </div>

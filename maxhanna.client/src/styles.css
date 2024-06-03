@@ -11,6 +11,7 @@
   --gameboyBgColor: darkgrey;
   --main-font-size: 0.9vw;
   --component-max-width: 300px;
+  --component-max-height: 800px;
 }
 
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
@@ -71,11 +72,13 @@ fieldset {
 .componentMain {
   background-color: var(--main-bg-color);
   min-width: var(--component-max-width);
+  max-height: var(--component-max-height);
   position: relative;
   padding-top: 35px;
   border: var(--main-border);
   border-radius: 5px;
   transition: transform 0.8s ease;
+  overflow: auto;
 }
 
 .refreshButton::before {
@@ -279,5 +282,5 @@ fieldset {
 }
 
   .notification::before {
-    content: ' 🔸 ';
+    content: '🥷';
   }

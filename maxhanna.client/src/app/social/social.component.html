@@ -4,23 +4,26 @@
   <div class="componentTitle">Social</div>
 
   <div class="inputDiv">
+    <textarea #story
+              placeholder="Food for thought"
+              (keyup.enter)="post()"
+              class="foodForThought"
+              (focus)="focusInput()"></textarea>
+    <input type="submit" (click)="post()" class="createStoryButton" value="🍌" />
+  </div>
+  <div class="inputDiv">
     <input type="text" #search placeholder="Search" (keyup.enter)="searchStories()" />
-    <button type="submit" (click)="searchStories()">🔍</button>
+    <input type="submit" (click)="searchStories()" class="createStoryButton" value="🔍" />
   </div>
 
-  <div *ngFor="let story of stories">
-    <div class="storyText" [innerHtml]="createClickableUrls(story.storyText)"></div>
+  <div *ngFor="let story of stories" class="storyContainer">
+    <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
     <div class="storyUsername">{{story.user.username}}</div>
-    <div class="storyDate">{{story.date}}</div>
-    <div *ngIf="story.metaData">
-      <div class="metadataTitle">{{story.metaData.title}}</div>
-      <div class="metadataDescription" [innerHtml]="createClickableUrls(story.metaData.description)"></div>
-      <div><img class="metadataImage" [src]="story.metaData.imageUrl" /></div>
+    <div class="storyDate">{{story.date?.toString()?.replace('T', '@')}}</div>
+    <div *ngIf="story.metadata">
+      <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
+      <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story.metadata.description)"></div>
+      <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story.metadata.imageUrl" /></div>
     </div>
-  </div>
-  
-  <div class="inputDiv">
-    <input type="text" #story placeholder="What's on your mind?" (keyup.enter)="post()" class="whatsOnYourMind" />
-    <input type="submit" (click)="post()" class="createStoryButton" value="✏️ Create Story"/>
   </div>
 </div>

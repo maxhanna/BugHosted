@@ -9,7 +9,7 @@ export class Story {
   upvotes: number | undefined;
   downvotes: number | undefined;
   commentsCount: number | undefined;
-  metaData: MetaData | undefined;
+  metadata: MetaData | undefined;
 }
 
 

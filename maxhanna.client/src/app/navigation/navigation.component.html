@@ -1,7 +1,7 @@
 <button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>
 <div #navbar id="navbar">
   <ng-container *ngFor="let item of _parent.navigationItems">
-    <div *ngIf="menuIconsIncludes(item.title) || item.title === 'Close Menu' || item.title === 'User'" class="navLinkDiv">
+    <div *ngIf="(menuIconsIncludes(item.title) && user) || item.title === 'Close Menu' || item.title === 'User' || item.title === 'Meme' || item.title === 'Social'" class="navLinkDiv">
       <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
         <span [title]="item.title">{{item.content || ''}}</span>
       </span>

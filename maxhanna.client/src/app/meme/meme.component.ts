@@ -5,6 +5,7 @@ import { HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileComment } from '../../services/datacontracts/file-comment';
 import { MemeService } from '../../services/meme.service';
+import { User } from '../../services/datacontracts/user';
 
 @Component({
   selector: 'app-meme',
@@ -30,6 +31,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
   fileType = "";
   showComments = true;
   isUploadingInProcess = false;
+  private abortController: AbortController | null = null;
+
   constructor(private fileService: FileService, private memeService: MemeService) { super(); }
 
   async ngOnInit() {
@@ -42,7 +45,7 @@ export class MemeComponent extends ChildComponent implements OnInit {
   async getFiles() {
     this.startLoading();
     try {
-      this.directoryContents = await this.memeService.getMemes(this.parentRef?.user!);
+      this.directoryContents = await this.memeService.getMemes(this.parentRef?.user);
       this.openFirstMeme();
     } catch (error) {
       this.notifications.push("Error fetching memes");
@@ -57,6 +60,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
   }
 
   async upload() {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     if (!this.fileInput) { return alert("weird bug, cant find fileInput"); }
 
     const files = this.fileInput.nativeElement.files;
@@ -107,24 +112,39 @@ export class MemeComponent extends ChildComponent implements OnInit {
     }
     return '';
   }
-   
+
+  cancelOngoingRequest() {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
 
   async loadMeme(memeId: number, memeName: string, index: number) {
+    // Cancel any ongoing request
+    this.cancelOngoingRequest();
+
+    // Initialize a new AbortController
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+
     if (this.openedMemes.includes(index)) {
       this.removeMeme();
       this.openedMemes = [];
       return;
-    } if (this.openedMemes.length > 0) {
+    }
+    if (this.openedMemes.length > 0) {
       this.removeMeme();
       this.openedMemes = [];
     }
     this.openedMemes.push(index);
     this.loading = true;
+
     try {
-      const response = await this.memeService.getMeme(memeId);
+      const response = await this.memeService.getMeme(memeId, { signal }); // Pass the signal
       const contentDisposition = response.headers["content-disposition"];
       this.selectedMemeFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
-      this.selectedMeme = memeName; 
+      this.selectedMeme = memeName;
       const type = this.fileType = this.videoFileExtensions.includes(this.selectedMemeFileExtension)
         ? `video/${this.selectedMemeFileExtension}`
         : `image/${this.selectedMemeFileExtension}`;
@@ -135,13 +155,18 @@ export class MemeComponent extends ChildComponent implements OnInit {
       reader.onloadend = () => {
         this.setMemeSrc(reader.result as string);
       };
-    } catch {
-
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Fetch aborted');
+      } else {
+        console.error('Fetch error:', error);
+      }
+    } finally {
+      this.loading = false;
+      this.getComments(memeId);
     }
-    
-    this.loading = false;
-    this.getComments(memeId);
   }
+
 
   getFileExtension(filePath: string) {
     return filePath.split('.').pop();
@@ -169,6 +194,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
     }
   }
   async search() {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     if (this.searchInput.nativeElement && this.searchInput.nativeElement.value && this.searchInput.nativeElement.value != '') {
       const keywords = this.searchInput.nativeElement.value.trim();
       if (keywords && keywords.trim() != '')
@@ -178,15 +205,21 @@ export class MemeComponent extends ChildComponent implements OnInit {
     }
   }
   async upvoteMeme(meme: FileEntry) {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     this.notifications.push(await this.fileService.upvoteFile(this.parentRef?.user!, meme.id));
     meme.upvotes++;
   }
   async downvoteMeme(meme: FileEntry) {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     this.notifications.push(await this.fileService.downvoteFile(this.parentRef?.user!, meme.id));
     meme.downvotes++;
   }
 
   async editMeme(memeId: number, text: string) {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     if (!text || text.trim() == '') { return; }
     const res = await this.memeService.updateMemeName(this.parentRef?.user!, memeId, text);
     if (document.getElementById("memeIdTd" + memeId) != null) {
@@ -216,7 +249,7 @@ export class MemeComponent extends ChildComponent implements OnInit {
   }
 
   getCanEdit(userid: string) {
-    return parseInt(userid) == this.parentRef?.user!.id;
+    return parseInt(userid) == this.parentRef?.user?.id;
   }
 
   async getComments(memeId: number) {
@@ -239,6 +272,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
 
 
   async addComment(meme: FileEntry, event: Event) {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     const fileId = meme.id;
     const comment = (document.getElementById("addCommentInput" + meme.id)! as HTMLInputElement).value;
     try {
@@ -253,6 +288,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
   }
 
   async upvoteComment(comment: FileComment, meme: FileEntry) {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     try {
       this.notifications.push(await this.fileService.upvoteComment(this.parentRef?.user!, comment.id));
       await this.getComments(meme.id);
@@ -262,6 +299,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
   }
 
   async downvoteComment(comment: FileComment, meme: FileEntry) {
+    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+
     try {
       this.notifications.push(await this.fileService.downvoteComment(this.parentRef?.user!, comment.id));
       await this.getComments(meme.id);
@@ -296,5 +335,5 @@ export class MemeComponent extends ChildComponent implements OnInit {
   }
   clickOnUpload() {
     document.getElementById('fileUploader')!.getElementsByTagName('input')[0].click();
-  }
+  } 
 }
