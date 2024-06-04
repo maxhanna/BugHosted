@@ -4,8 +4,9 @@
 }
 
 .componentMain {
-  width: 381px;
   height: 630px;
+  width: 381px;
+  overflow: unset;
 }
 
 .gamesContainer {

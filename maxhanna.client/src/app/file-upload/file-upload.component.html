@@ -8,9 +8,9 @@
 
 <input #fileInput type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes" style="visibility: hidden; position: absolute; width:1px;" multiple />
 
-<select #folderVisibility *ngIf="visibility">
-  <option value="public">Public</option>
-  <option value="private">Private</option>
+<select #folderVisibility *ngIf="showPrivatePublicOption">
+  <option [value]="true">Public</option>
+  <option [value]="false">Private</option>
 </select>
 <div class="fileListContainer" *ngIf="uploadFileList.length > 0">
   Upload {{uploadFileList.length}} files to {{currentDirectory}}?

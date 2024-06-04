@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { FileService } from '../../services/file.service';
+import { RomService } from '../../services/rom.service';
 
 @Component({
   selector: 'app-game',
@@ -12,7 +12,7 @@ export class GameComponent extends ChildComponent implements OnInit {
 
   private gba: any;
 
-  constructor(private fileService: FileService) {
+  constructor(private romService: RomService) {
     super();
   }
 
@@ -43,7 +43,7 @@ export class GameComponent extends ChildComponent implements OnInit {
   }
 
   async loadROM() {
-    const rom = await this.fileService.getRomFile(this.parentRef?.user!, "rom.gba");
+    const rom = await this.romService.getRomFile(this.parentRef?.user!, "rom.gba");
     if (this.gba.loadRomFromFile) {
       this.gba.loadRomFromFile(rom);
     } else if (this.gba.loadRomFromBuffer) {

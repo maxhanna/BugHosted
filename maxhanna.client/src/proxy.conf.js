@@ -18,6 +18,7 @@ const PROXY_CONFIG = [
       "/meme",
       "/news",
       "/social",
+      "/rom",
     ],
     target,
     secure: false

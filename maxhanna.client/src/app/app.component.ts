@@ -20,6 +20,7 @@ import { ChatComponent } from './chat/chat.component';
 import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { NewsComponent } from './news/news.component';
+import { NavigationComponent } from './navigation/navigation.component';
 
 
 @Component({
@@ -30,6 +31,8 @@ import { NewsComponent } from './news/news.component';
 export class AppComponent {
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
+  @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
+
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>()
   navigationItems = [
@@ -169,5 +172,12 @@ export class AppComponent {
   verifyUser() {
     if (!this.user || this.user == null || this.user.id == 0) return false;
     return true;
+  }
+  clearAllNotifications() {
+    this.navigationComponent.clearNotifications();
+    this.navigationComponent.ngOnInit();
+  }
+  getNotifications() {
+    this.navigationComponent.getNotifications();
   }
 }

@@ -37,6 +37,26 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private chatService: ChatService) {
   }
   async ngOnInit() {
+    this.getNotifications();
+  }
+  ngOnDestroy() { // Clear intervals when component is destroyed to prevent memory leaks
+    clearInterval(this.chatInfoInterval);
+    clearInterval(this.miningInfoInterval);
+    clearInterval(this.calendarInfoInterval);
+    clearInterval(this.coinWalletInfoInterval);
+    this.clearNotifications();
+  }
+  clearNotifications() {
+    console.log("inside clear notifications");
+    this._parent.navigationItems.filter(x => x.title == "MiningRigs")[0].content = '';
+    this._parent.navigationItems.filter(x => x.title == "Coin-Watch")[0].content = '';
+    this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';
+    this._parent.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = '';
+    this._parent.navigationItems.filter(x => x.title == "Calendar")[0].content = '';
+    this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = "";
+    this._parent.navigationItems.filter(x => x.title == "MiningDevices")[0].content = '';
+  }
+  async getNotifications() {
     await this.getSelectedMenuItems();
     this.getCurrentWeatherInfo();
     this.getMiningInfo();
@@ -49,12 +69,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes
     this.coinWalletInfoInterval = setInterval(() => this.getCoinWalletInfo(), 60 * 60 * 1000); // every hour
   }
-  ngOnDestroy() { // Clear intervals when component is destroyed to prevent memory leaks
-    clearInterval(this.chatInfoInterval);
-    clearInterval(this.miningInfoInterval);
-    clearInterval(this.calendarInfoInterval);
-    clearInterval(this.coinWalletInfoInterval);
-  }
   async getSelectedMenuItems() {
     this._parent.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
   }
@@ -62,6 +76,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return this._parent.userSelectedNavigationItems.filter(x => x.title == title).length > 0;
   }
   async getChatInfo() {
+    if (!this._parent.user) {
+      return;
+    }
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Chat")[0]) { return; }
     const res = await this.chatService.getChatNotifications(this._parent.user!);
     if (res && res != 0) {
@@ -71,6 +88,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
   async getCoinWalletInfo() {
+    if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Coin-Wallet")[0]) { return; }
     const res = await this.miningService.getMiningWallet(this.user!) as MiningWalletResponse;
     if (res && res.currencies) {
@@ -83,13 +101,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
   async getCalendarInfo() {
+    if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Calendar")[0]) { return; }
     let notificationCount = 0;
     const startDate = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 1);
     const res = await this.calendarService.getCalendarEntries(this.user!, startDate, endDate) as Array<CalendarEntry>;
-    if (res) {
+    if (res && res.length > 0) {
       res.forEach(x => {
         if (new Date(x.date!).getDate() == startDate.getDate()) {
           notificationCount++;
@@ -99,6 +118,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this._parent.navigationItems.filter(x => x.title == "Calendar")[0].content = (notificationCount != 0 ? notificationCount + '' : '');
   }
   async getCurrentWeatherInfo() {
+    if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Weather")[0]) { return; }
     const res = await this.weatherService.getWeather(this.user!);
     if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
@@ -107,6 +127,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
   async getMiningInfo() {
+    if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title.toLowerCase().includes("mining"))[0]) { return; }
     let tmpLocalProfitability = 0;
     let tmpNumberOfDevices = 0;

@@ -57,7 +57,9 @@ namespace maxhanna.Server.Controllers
                             "f.file_name, " +
                             "f.is_public, " +
                             "f.is_folder, " +
-                            "f.ownership, " +
+                            "f.user_id, " +
+                            "u.username, " +
+                            "f.shared_with, " +
                             "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
                             "SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, " +
                             "f.upload_date AS date, " +
@@ -68,14 +70,17 @@ namespace maxhanna.Server.Controllers
                             "maxhanna.file_votes fv ON f.id = fv.file_id " +
                         "LEFT JOIN " +
                             "maxhanna.file_comments fc ON f.id = fc.file_id " +
+                        "LEFT JOIN " +
+                            "maxhanna.users u ON f.user_id = u.id " +
                         "WHERE " +
                             "f.folder_path = @folderPath " +
                             "AND (" +
                                 "f.is_public = 1 OR " +
-                                "FIND_IN_SET(@userId, f.ownership) > 0" +
+                                "f.user_id = @userId OR " +
+                                "FIND_IN_SET(@userId, f.shared_with) > 0" +
                             ") " +
                         "GROUP BY " +
-                            "f.id, f.file_name, f.is_public, f.is_folder, f.ownership"
+                            "f.id, f.file_name, f.is_public, f.is_folder, f.user_id"
                         , connection);
 
 
@@ -89,7 +94,9 @@ namespace maxhanna.Server.Controllers
                             var id = reader.GetInt32("id");
                             var fileName = reader.GetString("file_name");
                             var isPublic = reader.GetBoolean("is_public");
-                            var owner = reader.GetString("ownership");
+                            var user_id = reader.GetInt32("user_id");
+                            var username = reader.GetString("username");
+                            var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
                             var isFolder = reader.GetBoolean("is_folder");
                             var upvotes = reader.GetInt32("upvotes");
                             var downvotes = reader.GetInt32("downvotes");
@@ -98,11 +105,11 @@ namespace maxhanna.Server.Controllers
 
                             // Apply filters
                             bool matchesVisibility = (visibility == "public" && isPublic) || (visibility == "private" && !isPublic) || visibility == "all";
-                            bool matchesOwnership = (ownership == "own" && owner.Contains(user.Id.ToString())) || (ownership == "others" && !owner.Contains(user.Id.ToString())) || (ownership == "all");
+                            bool matchesOwnership = (ownership == "own" && shared_with.Contains(user.Id.ToString())) || (ownership == "others" && user_id != user.Id) || (ownership == "all");
 
                             if (matchesVisibility && matchesOwnership)
                             {
-                                fileEntries.Add(new FileEntry(id, fileName, isPublic ? "Public" : "Private", owner, "", user.Id, isFolder, upvotes, downvotes, commentCount, date));
+                                fileEntries.Add(new FileEntry(id, fileName, isPublic ? "Public" : "Private", shared_with, username, user.Id, isFolder, upvotes, downvotes, commentCount, date));
                             }
                         }
                     }
@@ -368,54 +375,6 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-
-        [HttpPost("/File/GetRomFile/{filePath}", Name = "GetRomFile")]
-        public IActionResult GetRomFile([FromBody] User user, string filePath)
-        {
-            filePath = Path.Combine(baseTarget + "roms/", WebUtility.UrlDecode(filePath) ?? "");
-            _logger.LogInformation($"GET /File/GetRomFile/{filePath}");
-
-            if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {baseTarget}"); }
-
-            try
-            {
-                if (string.IsNullOrEmpty(filePath))
-                {
-                    _logger.LogError($"File path is missing.");
-                    return BadRequest("File path is missing.");
-                }
-
-                if (filePath.Contains(".sav"))
-                {
-                    string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
-                    string newFilename = filenameWithoutExtension + "_" + user!.Id + Path.GetExtension(filePath);
-                    string userSpecificPath = Path.Combine(baseTarget + "roms/", newFilename);
-
-                    if (System.IO.File.Exists(userSpecificPath))
-                    {
-                        filePath = userSpecificPath;
-                    }
-                    else
-                    {
-                        _logger.LogError($"File not found at {filePath} or {userSpecificPath}");
-                        return NotFound();
-                    }
-                    _logger.LogInformation($"File path changed . New FilePath: " + filePath);
-                }
-                _logger.LogInformation($"Filestreaing FilePath: " + filePath);
-
-                var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                string contentType = "application/octet-stream";
-
-                return File(fileStream, contentType, Path.GetFileName(filePath));
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while streaming the file.");
-                return StatusCode(500, "An error occurred while streaming the file.");
-            }
-        }
-
         [HttpPost("/File/MakeDirectory", Name = "MakeDirectory")]
         public async Task<IActionResult> MakeDirectory([FromBody] CreateDirectory request)
         {
@@ -459,43 +418,25 @@ namespace maxhanna.Server.Controllers
                         }
 
                         var insertCommand = new MySqlCommand(
-                            "INSERT INTO maxhanna.file_uploads " +
-                            "(ownership, upload_date, file_name, folder_path, is_public, is_folder) " +
-                            "VALUES (@ownership, @uploadDate, @fileName, @folderPath, @isPublic, @isFolder)",
-                            connection,
-                            transaction);
+                           "INSERT INTO maxhanna.file_uploads " +
+                           "(user_id, upload_date, file_name, folder_path, is_public, is_folder) " +
+                           "VALUES (@user_id, @uploadDate, @fileName, @folderPath, @isPublic, @isFolder);" +
+                           "SELECT LAST_INSERT_ID();",
+                           connection,
+                           transaction);
 
-                        insertCommand.Parameters.AddWithValue("@ownership", request.user.Id);
+                        insertCommand.Parameters.AddWithValue("@user_id", request.user.Id);
                         insertCommand.Parameters.AddWithValue("@uploadDate", uploadDate);
                         insertCommand.Parameters.AddWithValue("@fileName", fileName);
                         insertCommand.Parameters.AddWithValue("@folderPath", directoryName);
                         insertCommand.Parameters.AddWithValue("@isPublic", request.isPublic);
                         insertCommand.Parameters.AddWithValue("@isFolder", 1);
 
-                        await insertCommand.ExecuteNonQueryAsync();
-
-                        var selectCommand = new MySqlCommand(
-                            "SELECT id FROM maxhanna.file_uploads " +
-                            "WHERE ownership = @ownership AND upload_date = @uploadDate " +
-                            "AND file_name = @fileName AND folder_path = @folderPath " +
-                            "AND is_public = @isPublic AND is_folder = @isFolder",
-                            connection,
-                            transaction);
-
-                        selectCommand.Parameters.AddWithValue("@ownership", request.user.Id);
-                        selectCommand.Parameters.AddWithValue("@uploadDate", uploadDate);
-                        selectCommand.Parameters.AddWithValue("@fileName", fileName);
-                        selectCommand.Parameters.AddWithValue("@folderPath", directoryName);
-                        selectCommand.Parameters.AddWithValue("@isPublic", request.isPublic);
-                        selectCommand.Parameters.AddWithValue("@isFolder", 1);
-
                         int id = 0;
-                        using (var reader = await selectCommand.ExecuteReaderAsync())
+                        object? result = await insertCommand.ExecuteScalarAsync();
+                        if (result != null)
                         {
-                            if (await reader.ReadAsync())
-                            {
-                                id = reader.GetInt32("id");
-                            }
+                            id = Convert.ToInt32(result);
                         }
 
                         await transaction.CommitAsync();
@@ -514,6 +455,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/File/Upload", Name = "Upload")]
         public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
         {
+            List<FileEntry> uploaded = new List<FileEntry>();
             _logger.LogInformation($"POST /File/Upload (folderPath = {folderPath})");
             try
             {
@@ -530,6 +472,11 @@ namespace maxhanna.Server.Controllers
                 if (files == null || files.Count == 0)
                     return BadRequest("No files uploaded.");
 
+                if(user == null)
+                {
+                    return BadRequest("Must be logged in to upload.");
+                }
+
                 foreach (var file in files)
                 {
                     if (file.Length == 0)
@@ -542,129 +489,155 @@ namespace maxhanna.Server.Controllers
                     }
                     var filePath = Path.Combine(uploadDirectory, file.FileName); // Combine upload directory with file name
 
-                    if (!Directory.Exists(uploadDirectory))
+                    var conflictingFile = await GetConflictingFile(user.Id, file.FileName, uploadDirectory, isPublic);
+                    if (conflictingFile != null)
                     {
-                        Directory.CreateDirectory(uploadDirectory);
+                        _logger.LogError("Cannot upload duplicate files.");
+                        uploaded.Add(conflictingFile);
                     }
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    else
                     {
-                        await file.CopyToAsync(stream);
+
+                        if (!Directory.Exists(uploadDirectory))
+                        {
+                            Directory.CreateDirectory(uploadDirectory);
+
+                            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                            {
+                                await connection.OpenAsync();
+                                var directoryName = (Path.GetFileName(Path.GetDirectoryName(filePath.TrimEnd('/'))) ?? "").Replace("\\", "/");
+                                var directoryPath = (Path.GetDirectoryName(Path.GetDirectoryName(filePath.TrimEnd('/'))) ?? "").Replace("\\", "/").TrimEnd('/') + '/';
+                                var command = new MySqlCommand(
+                                    "INSERT INTO maxhanna.file_uploads" +
+                                    " (user_id, file_name, upload_date, folder_path, is_public, is_folder) " +
+                                    "VALUES (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder);", connection);
+                                command.Parameters.AddWithValue("@user_id", user!.Id);
+                                command.Parameters.AddWithValue("@fileName", directoryName);
+                                command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
+                                command.Parameters.AddWithValue("@folderPath", directoryPath ?? "");
+                                command.Parameters.AddWithValue("@isPublic", isPublic);
+                                command.Parameters.AddWithValue("@isFolder", true);
+
+                                await command.ExecuteScalarAsync(); 
+                                _logger.LogInformation($"Uploaded folder: {file.FileName}, Path: {filePath}");
+                            }
+                        }
+
+                        using (var stream = new FileStream(filePath, FileMode.Create))
+                        {
+                            await file.CopyToAsync(stream);
+                        }
+
+                        // Insert file metadata into MySQL database
+                        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                        {
+                            await connection.OpenAsync();
+
+                            var command = new MySqlCommand(
+                                "INSERT INTO maxhanna.file_uploads" +
+                                " (user_id, file_name, upload_date, folder_path, is_public, is_folder) " +
+                                "VALUES (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder); " +
+                                "SELECT LAST_INSERT_ID();", connection);
+                            command.Parameters.AddWithValue("@user_id", user!.Id);
+                            command.Parameters.AddWithValue("@fileName", file.FileName);
+                            command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
+                            command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
+                            command.Parameters.AddWithValue("@isPublic", isPublic);
+                            command.Parameters.AddWithValue("@isFolder", false);
+
+                            var fileId = await command.ExecuteScalarAsync();
+                            int fileIdInt = Convert.ToInt32(fileId);
+
+                            // Add uploaded file to the list
+                            var fileEntry = conflictingFile ?? new FileEntry(
+                                id: fileIdInt,
+                                name: file.FileName,
+                                visibility: isPublic ? "Public" : "Private", // Assuming default visibility is public 
+                                username: user.Username, // Replace with appropriate username
+                                userId: user!.Id,
+                                isFolder: false,
+                                upvotes: 0, // Initial values for upvotes, downvotes, comment count
+                                downvotes: 0,
+                                commentCount: 0,
+                                date: DateTime.UtcNow,
+                                sharedWith: string.Empty
+                            );
+                            uploaded.Add(fileEntry);
+                            _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}");
+                        }
                     }
-
-                    // Insert file metadata into MySQL database
-                    using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                    {
-                        await connection.OpenAsync();
-
-                        var command = new MySqlCommand(
-                            "INSERT INTO maxhanna.file_uploads" +
-                            " (ownership, file_name, upload_date, folder_path, is_public, is_folder) " +
-                            "VALUES (@ownership, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder)", connection);
-                        command.Parameters.AddWithValue("@ownership", user!.Id);
-                        command.Parameters.AddWithValue("@fileName", file.FileName);
-                        command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
-                        command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
-                        command.Parameters.AddWithValue("@isPublic", isPublic);
-                        command.Parameters.AddWithValue("@isFolder", 0);
-
-                        await command.ExecuteNonQueryAsync();
-                    }
-
-                    _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}");
                 }
 
-                return Ok("Files uploaded successfully.");
+                return Ok(uploaded);
             }
             catch (Exception ex)
             {
-                if (ex.Message.Contains("Duplicate entry"))
-                {
-                    _logger.LogError(ex, "Cannot upload duplicate files.");
-                    return Conflict("Cannot upload duplicate files.");
-                }
                 _logger.LogError(ex, "An error occurred while uploading files.");
                 return StatusCode(500, "An error occurred while uploading files.");
             }
         }
 
-        [HttpPost("/File/Uploadrom", Name = "Uploadrom")]
-        public async Task<IActionResult> UploadRom()
+        private async Task<FileEntry?> GetConflictingFile(int userId, string fileName, string folderPath, bool isPublic)
         {
-            _logger.LogInformation($"POST /File/Uploadrom");
-            try
+            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
-                if (Request.Form["user"].Count <= 0)
+                await connection.OpenAsync();
+
+                var command = new MySqlCommand(
+                       "SELECT " +
+                          "f.id, " +
+                          "f.file_name, " +
+                          "f.is_public, " +
+                          "f.is_folder, " +
+                          "f.user_id, " +
+                          "u.username, " +
+                          "f.shared_with, " +
+                          "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
+                          "SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, " +
+                          "f.upload_date AS date, " +
+                          "COUNT(fc.id) AS commentCount " +
+                      "FROM " +
+                          "maxhanna.file_uploads f " +
+                      "LEFT JOIN " +
+                          "maxhanna.file_votes fv ON f.id = fv.file_id " +
+                      "LEFT JOIN " +
+                          "maxhanna.file_comments fc ON f.id = fc.file_id " +
+                      "LEFT JOIN " +
+                          "maxhanna.users u ON u.id = f.user_id " +
+                      "WHERE " +
+                          "f.file_name = @fileName " +
+                          "AND f.folder_path = @folderPath " +
+                          "AND (" +
+                              "f.is_public = @isPublic OR " +
+                              "f.user_id = @userId OR " +
+                              "FIND_IN_SET(@userId, f.shared_with) > 0" +
+                          ") " +
+                      "GROUP BY " +
+                          "f.id, f.file_name, f.is_public, f.is_folder, f.user_id, u.username;"
+                      , connection);
+                command.Parameters.AddWithValue("@userId", userId);
+                command.Parameters.AddWithValue("@fileName", fileName);
+                command.Parameters.AddWithValue("@folderPath", folderPath);
+                command.Parameters.AddWithValue("@isPublic", isPublic);
+
+                using (var reader = await command.ExecuteReaderAsync())
                 {
-                    _logger.LogWarning($"Invalid user! Returning null.");
-                    return BadRequest("No user logged in.");
+                    if (await reader.ReadAsync())
+                    {
+                        var id = reader.GetInt32("id");
+                        var user_id = reader.GetInt32("user_id");
+                        var userName = reader.GetString("username");
+                        var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
+                        var isFolder = reader.GetBoolean("is_folder");
+                        var upvotes = reader.GetInt32("upvotes");
+                        var downvotes = reader.GetInt32("downvotes");
+                        var commentCount = reader.GetInt32("commentCount");
+                        var date = reader.GetDateTime("date");
+                        return new FileEntry(id, fileName, isPublic ? "Public" : "Private", shared_with, userName, user_id, isFolder, upvotes, downvotes, commentCount, date);
+                    }
                 }
-
-                var user = JsonConvert.DeserializeObject<User>(Request.Form["user"]!);
-                var files = Request.Form.Files; // Get all uploaded files
-
-                if (files == null || files.Count == 0)
-                {
-                    _logger.LogError($"No File Uploaded!");
-                    return BadRequest("No files uploaded.");
-                }
-
-                foreach (var file in files)
-                {
-                    if (file.Length == 0)
-                    {
-                        _logger.LogInformation($"File length is empty!");
-                        continue; // Skip empty files
-                    }
-
-                    string newFilename = "";
-                    if (file.FileName.Contains(".sav"))
-                    {
-                        string filenameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
-                        newFilename = filenameWithoutExtension + "_" + user!.Id + Path.GetExtension(file.FileName);
-                    }
-
-                    var uploadDirectory = Path.Combine(baseTarget, "roms/"); // Combine base path with folder path
-                    var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
-                    filePath = Path.Combine(uploadDirectory, filePath); // Combine upload directory with file name
-                    _logger.LogInformation($"filePath : {filePath}");
-
-                    if (!Directory.Exists(uploadDirectory))
-                    {
-                        Directory.CreateDirectory(uploadDirectory);
-                    }
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(stream);
-                    }
-
-                    // Insert file metadata into MySQL database
-                    using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                    {
-                        await connection.OpenAsync();
-
-                        var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (ownership, file_name, upload_date, folder_path, is_public, is_folder) VALUES (@ownership, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder)", connection);
-                        command.Parameters.AddWithValue("@ownership", user!.Id);
-                        command.Parameters.AddWithValue("@fileName", file.FileName);
-                        command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
-                        command.Parameters.AddWithValue("@folderPath", "roms");
-                        command.Parameters.AddWithValue("@isPublic", 1);
-                        command.Parameters.AddWithValue("@isFolder", 0);
-
-                        await command.ExecuteNonQueryAsync();
-                    }
-
-                    _logger.LogInformation($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}");
-                }
-
-                return Ok("ROM uploaded successfully.");
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while uploading files.");
-                return StatusCode(500, "An error occurred while uploading files.");
-            }
+            return null;
         }
 
         [HttpDelete("/File/Delete/", Name = "DeleteFileOrDirectory")]
@@ -682,7 +655,7 @@ namespace maxhanna.Server.Controllers
 
                     // Check for ownership
                     var ownershipCommand = new MySqlCommand(
-                        "SELECT ownership, file_name, folder_path, is_folder FROM maxhanna.file_uploads WHERE id = @fileId",
+                        "SELECT user_id, file_name, folder_path, is_folder, shared_with FROM maxhanna.file_uploads WHERE id = @fileId",
                         connection);
                     ownershipCommand.Parameters.AddWithValue("@fileId", request.file.Id);
 
@@ -693,10 +666,12 @@ namespace maxhanna.Server.Controllers
                         return NotFound("File or directory not found.");
                     }
 
-                    var ownership = ownershipReader.GetString("ownership");
-                    if (!ownership.Split(',').Contains(request.user.Id.ToString()))
+                    var userId = ownershipReader.GetInt32("user_id");
+                    var sharedWith = ownershipReader.IsDBNull(ownershipReader.GetOrdinal("shared_with")) ? string.Empty : ownershipReader.GetString("shared_with");
+
+                    if (!sharedWith.Split(',').Contains(request.user.Id.ToString()) && userId != request.user.Id)
                     {
-                        _logger.LogError($"User {request.user.Id} does not have ownership for {request.file.Name}");
+                        _logger.LogError($"User {request.user.Id} does not have ownership of {request.file.Name}");
                         return StatusCode(409, "You do not have permission to delete this file or directory.");
                     }
 
@@ -706,6 +681,9 @@ namespace maxhanna.Server.Controllers
 
                     filePath = Path.Combine(baseTarget, folderPath, fileName).Replace("\\", "/");
                     ownershipReader.Close();
+
+                    if (!ValidatePath(filePath)) { return BadRequest($"Cannot delete: {filePath}"); }
+
 
                     _logger.LogInformation($"User {request.user.Id} has ownership. Proceeding with deletion. File Path: {filePath}");
 
@@ -758,10 +736,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while deleting file or directory.");
             }
         }
-
-
-
-
+         
         [HttpPost("/File/Move/", Name = "MoveFile")]
         public async Task<IActionResult> MoveFile([FromBody] User user, [FromQuery] string inputFile, [FromQuery] string? destinationFolder)
         {
@@ -821,7 +796,19 @@ namespace maxhanna.Server.Controllers
         {
             _logger.LogInformation($"GET /File/Share/{fileId} (for user: {request.User1.Id} to user: {request.User2.Id})");
 
-            string updateSql = "UPDATE maxhanna.file_uploads SET ownership = CONCAT(ownership, ',', @user2id) WHERE id = @fileId";
+            string updateSql = @"
+                UPDATE maxhanna.file_uploads 
+                SET shared_with = 
+                    CASE 
+                        WHEN shared_with IS NULL OR shared_with = '' THEN @user2id
+                        ELSE CONCAT(shared_with, ',', @user2id) 
+                    END 
+                WHERE id = @fileId 
+                AND (
+                    shared_with IS NULL 
+                    OR NOT FIND_IN_SET(@user2id, shared_with)
+                )";
+
             string selectSql = "SELECT id, folder_path FROM maxhanna.file_uploads WHERE id = @fileId";
 
             try
@@ -1030,6 +1017,11 @@ namespace maxhanna.Server.Controllers
             if (!directory.Contains(baseTarget))
             {
                 _logger.LogError($"Must be within {baseTarget}");
+                return false;
+            } 
+            else if (directory.Equals("E:/Uploads/Users") || directory.Equals("E:/Uploads/Roms") || directory.Equals("E:/Uploads/Meme"))
+            {
+                _logger.LogError($"Cannot delete {directory}!");
                 return false;
             }
             else

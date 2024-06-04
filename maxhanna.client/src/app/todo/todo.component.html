@@ -10,29 +10,31 @@
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
     <input type="submit" value="💾" (click)="addTodo()" />
   </fieldset>
-  <table class="mainTable" id="todoTable">
-    <thead>
-      <tr>
-        <th>
+  <div class="mainTableContainer">
+    <table class="mainTable" id="todoTable">
+      <thead>
+        <tr>
+          <th>
 
-          <select #selectedType class=selectType (change)="typeOnChange()">
-            <option *ngFor="let type of todoTypes" [value]="type">{{ type }}</option>
-          </select>
+            <select #selectedType class=selectType (change)="typeOnChange()">
+              <option *ngFor="let type of todoTypes" [value]="type">{{ type }}</option>
+            </select>
 
-        </th>
-        <th (click)="sortTable(1, 'todoTable')">🔗</th>
-        <th (click)="sortTable(2, 'todoTable')">📅</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody *ngIf="todos.length > 0">
-      <tr *ngFor="let item of todos" id="todoNo{{item.id!}}">
-        <td>{{ item.todo }}</td>
-        <td><a [href]="item.url" target="_blank" *ngIf="item.url">🔗</a></td>
-        <td>{{ item.date | date }}</td>
-        <td><input type="button" value="❌" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id!}}" /></td>
-      </tr>
-    </tbody>
-  </table>
-  <div *ngIf="todos.length <= 0">Nothing in this list yet!</div>
+          </th>
+          <th (click)="sortTable(1, 'todoTable')">🔗</th>
+          <th (click)="sortTable(2, 'todoTable')">📅</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody *ngIf="todos.length > 0">
+        <tr *ngFor="let item of todos" id="todoNo{{item.id!}}">
+          <td>{{ item.todo }}</td>
+          <td><a [href]="item.url" target="_blank" *ngIf="item.url">🔗</a></td>
+          <td>{{ item.date | date }}</td>
+          <td><input type="button" value="❌" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id!}}" /></td>
+        </tr>
+      </tbody>
+    </table>
+    <div *ngIf="todos.length <= 0">Nothing in this list yet!</div>
+  </div>
 </div>

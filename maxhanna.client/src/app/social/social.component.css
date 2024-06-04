@@ -1,14 +1,17 @@
- 
+.componentMain {
+  max-width: 865px;
+}
+
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
   .componentMain {
-    max-width:365px;
+    max-width: 365px;
   }
 }
-.componentMain div {
-  max-width: 500px;
-}
+
 .inputDiv {
-  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  width: 90%;
   display: flex;
   justify-content: center;
 }
@@ -19,25 +22,30 @@
 
 .foodForThought {
   min-width: 200px;
-  width:100%;
+  width: 100%;
   padding: 10px;
   box-sizing: border-box;
 }
+
 .storyContainer {
-    border: var(--main-border);
-    margin:5px;
-    padding:5px;
+  border: var(--main-border);
+  margin: 15px;
+  padding: 10px;
+  word-break: break-all;
 }
+
 .storyText {
+  width: 100%;
+  padding: 5px;
   display: inline-block;
   border-radius: 3px;
-  
   word-wrap: break-word;
 }
+
 .hidden {
-    max-height: 200px;
-    overflow-x:hidden;
-    text-overflow:ellipsis;
+  max-height: 200px;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
 }
 
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
@@ -45,13 +53,25 @@
     max-width: 300px;
   }
 }
+
 .storyUsername {
-  color: var(--secondary-font-color);
+  text-shadow: 0.1px 0.1px var(--secondary-font-color);
+  display: inline-block;
 }
 
 .storyDate {
   color: var(--secondary-font-color);
+  font-size: smaller;
+  display: inline-block;
 }
+
+  .storyDate::before {
+    content: '(';
+  }
+
+  .storyDate::after {
+    content: ')';
+  }
 
 .createStoryButton {
   background-color: var(--main-highlight-color);
@@ -70,6 +90,30 @@
   }
 }
 
-.metadataTitle, .metadataDescription {
+.metadataDescription {
+  font-size: smaller;
+  color: var(--secondary-highlight-color);
+}
+
+.metadataTitle {
   font-size: small;
+  color: var(--main-highlight-color);
+}
+
+.attachedFileSpan {
+  border: var(--main-border);
+  cursor: pointer;
+}
+
+.attachment {
+  display: inline-block;
+}
+
+.fileNotImageOrVideo {
+  font-size: 40px;
+}
+
+.downloadAttachmentLink {
+  text-decoration: underline;
+  cursor: pointer;
 }

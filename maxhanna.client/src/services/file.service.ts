@@ -246,36 +246,7 @@ export class FileService {
     } catch (error) {
       return null;
     }
-  }
-  async getRomFile(user: User, rom: string) {
-    try {
-      const response = await fetch(`/file/getromfile/${encodeURIComponent(rom)}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(user),
-      });
-
-      return await response.blob();
-    } catch (error) {
-      return null;
-    }
-  }
-  async uploadRomFile(user: User, form: FormData) {
-    form.append('user', JSON.stringify(user));
-
-    try {
-      const response = await fetch(`/file/uploadrom/`, {
-        method: 'POST',
-        body: form,
-      });
-
-      return await response.json();
-    } catch (error) {
-      return null;
-    }
-  }
+  } 
   getFileExtension(file: string) {
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() : null;
   }

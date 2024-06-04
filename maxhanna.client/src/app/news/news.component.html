@@ -7,7 +7,7 @@
   <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup.enter)="searchByKeyword()" />
 
   <!-- Display list of news articles -->
-  <div class="newsList" *ngIf="newsArticles != null">
+  <div class="newsList mainTableContainer" *ngIf="newsArticles != null">
     Newest Articles: (status: {{newsArticles.status}}, # of Results: {{newsArticles.numResults}})
     <div *ngFor="let newsArticle of newsArticles.articles">
       <div class="articleContainer" (click)="selectArticle(newsArticle)">
@@ -23,7 +23,7 @@
   </div>
 
   <!-- Display selected article details -->
-  <div *ngIf="selectedArticle" class="selectedArticle">
+  <div *ngIf="selectedArticle" class="selectedArticle mainTableContainer">
     <div class="selectedArticleContent">
       <div class="closeSelectedArticle" (click)="selectedArticle = undefined">✖</div> <!-- Close button -->
       <div class="articleTitle">{{ selectedArticle.title }}</div>

@@ -2,6 +2,7 @@ import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } fr
 import { ChildComponent } from '../child.component';
 import { util, GameBoy } from 'jsgbc';
 import { FileService } from '../../services/file.service';
+import { RomService } from '../../services/rom.service';
 
 
 @Component({
@@ -20,7 +21,7 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
   autosave = true;
   soundOn = true;
 
-  constructor(private fileService: FileService) { super(); }
+  constructor(private fileService: FileService, private romService: RomService) { super(); }
 
   ngOnInit() {
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
@@ -131,12 +132,12 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
       if (!confirm(`Load ${romName}?`)) { this.stopLoading(); return; }
 
       try {
-        const response = await this.fileService.getRomFile(this.parentRef?.user!, romName);
+        const response = await this.romService.getRomFile(this.parentRef?.user!, romName);
         const romSaveFile = romName.split('.')[0] + ".sav";
         const rom = await util.readBlob(response!);
 
         try {
-          const saveStateResponse = await this.fileService.getRomFile(this.parentRef?.user!, romSaveFile);
+          const saveStateResponse = await this.romService.getRomFile(this.parentRef?.user!, romSaveFile);
 
           if (this.gameboy) {
             this.setGameColors(romName);
@@ -156,6 +157,13 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
       }
     }
     this.stopLoading();
+
+    const tmpAutosave = this.autosave;
+    this.autosave = false;
+    console.log("Disabling autosave for 20 seconds to prevent unwanted overwrites");
+    setTimeout(() => {
+      this.autosave = tmpAutosave; // Re-enable autosave after 20 seconds
+    }, 20000);
   }
   toggleSound() {
     if (!this.soundOn) {
@@ -180,7 +188,7 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
             const blob = new Blob([ab]);
             formData.append('files', blob, romSaveFileName + ".sav");
           }
-          this.fileService.uploadRomFile(this.parentRef?.user!, formData);
+          this.romService.uploadRomFile(this.parentRef?.user!, formData);
         }
       } catch { console.error("Error while saving game!"); }
     }
@@ -242,7 +250,6 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
     const kbEvent = event as KeyboardEvent;
     const targetElement = kbEvent.target as HTMLElement;
 
-    // If the event originated from an input or textarea, return early and don't handle the keypress
     if (targetElement.tagName.toLowerCase() === 'input' || targetElement.tagName.toLowerCase() === 'textarea') {
       return;
     }
@@ -252,60 +259,57 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
         this.gameboy!.joypad.up(4);
       else
         this.gameboy!.joypad.down(4);
-    }
-
-    if (kbEvent.key.toLowerCase() == 'b') {
+      event.preventDefault();
+    } 
+    else if (kbEvent.key.toLowerCase() == 'b') {
       if (up)
         this.gameboy!.joypad.up(5);
       else
         this.gameboy!.joypad.down(5);
-    }
-
-
-    if (kbEvent.key.toLowerCase() == 'enter') {
+      event.preventDefault();
+    } 
+    else if (kbEvent.key.toLowerCase() == 'enter') {
       if (up)
         this.gameboy!.joypad.up(7);
       else
         this.gameboy!.joypad.down(7);
-    }
-
-    if (kbEvent.key.toLowerCase() == 'shift') {
+      event.preventDefault();
+    } 
+    else if (kbEvent.key.toLowerCase() == 'shift') {
       if (up)
         this.gameboy!.joypad.up(6);
       else
         this.gameboy!.joypad.down(6);
-    }
-
-    if (kbEvent.key.toLowerCase() == 'arrowup') {
+      event.preventDefault();
+    } 
+    else if (kbEvent.key.toLowerCase() == 'arrowup') {
       if (up)
         this.gameboy!.joypad.up(2);
       else
         this.gameboy!.joypad.down(2);
-    }
-
-    if (kbEvent.key.toLowerCase() == 'arrowdown') {
+      event.preventDefault();
+    } 
+    else if (kbEvent.key.toLowerCase() == 'arrowdown') {
       if (up)
         this.gameboy!.joypad.up(3);
       else
         this.gameboy!.joypad.down(3);
-    }
-
-
-    if (kbEvent.key.toLowerCase() == 'arrowleft') {
+      event.preventDefault();
+    } 
+    else if (kbEvent.key.toLowerCase() == 'arrowleft') {
       if (up)
         this.gameboy!.joypad.up(1);
       else
         this.gameboy!.joypad.down(1);
-    }
-
-    if (kbEvent.key.toLowerCase() == 'arrowright') {
+      event.preventDefault();
+    } 
+    else if (kbEvent.key.toLowerCase() == 'arrowright') {
       if (up)
         this.gameboy!.joypad.up(0);
       else
         this.gameboy!.joypad.down(0);
+      event.preventDefault();
     }
-    console.log(event);
-    event.preventDefault();
   }
   beforeUnloadHandler(event: BeforeUnloadEvent) {
     const message = 'Are you sure you want to leave?';

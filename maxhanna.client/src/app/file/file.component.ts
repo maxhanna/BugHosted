@@ -44,7 +44,6 @@ export class FileComponent extends ChildComponent {
   selectedFileType = "";
   abortThumbnailRequestController: AbortController | null = null;
 
-
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
@@ -59,7 +58,13 @@ export class FileComponent extends ChildComponent {
     this.showMakeDirectoryPrompt = false;
     this.isSharePanelExpanded = false;
   }
-
+  uploadFinished(newFiles: Array<FileEntry>) {
+    console.log("got these finished files : " + newFiles.length);
+    for (var i = 0; i < newFiles.length; i++) {
+      console.log(newFiles[i]);
+      this.directoryContents.push(newFiles[i]);
+    }
+  }
   async shareFile(userToShareWith: User) {
     try {
       await this.fileService.shareFile(this.parentRef?.user!, userToShareWith, this.fileBeingShared);
@@ -110,9 +115,8 @@ export class FileComponent extends ChildComponent {
     }
   }
   uploadNotification(event: string) {
-    this.notifications.push(event);
-    if (event == "OK") {
-      this.ngOnInit();
+    if (event != '0') { 
+      this.notifications.push(event); 
     }
   }
   uploadInitiate() {
@@ -297,7 +301,7 @@ export class FileComponent extends ChildComponent {
       this.startLoading();
       try {
         const res = await this.fileService.createDirectory(this.parentRef?.user!, target, isPublic);
-        this.notifications.push(res!);
+        this.notifications.push("Created folder " + target);
 
         if (!res?.toLowerCase().includes("already exists")) {
           this.changeDirectory();
@@ -315,14 +319,13 @@ export class FileComponent extends ChildComponent {
     if (confirm(`Delete : ${file.name} ?`)) {
       this.startLoading();
       try {
-        const response = await this.fileService.deleteFile(this.parentRef?.user!, file);
+        const response = await this.fileService.deleteFile(this.parentRef?.user!, file); 
         if (response) {
           this.notifications.push(response);
+          if (response.includes("successfully")) {
+            this.directoryContents = this.directoryContents.filter(res => res.name != file.name);
+          }
         }
-        if (response && response.includes("successfully")) {
-          this.directoryContents = this.directoryContents.filter(res => res.name != file.name);
-        }
-        console.log(response);
       } catch (ex) { 
         this.notifications.push(`Failed to delete ${file.name}!`);
       }
@@ -358,15 +361,15 @@ export class FileComponent extends ChildComponent {
     const lowerCaseFileName = fileName.toLowerCase();
     return mediaFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
   }
-  handleFileClick(fileName: string) {
-    if (!fileName || fileName == "") {
+  handleFileClick(file: FileEntry) {
+    if (!file || file.name == "") {
       return alert("No file? Try again");
     }
 
-    if (this.isFile(fileName)) {
-      this.download(fileName, false);
+    if (!file.isFolder) {
+      this.download(file.name, false);
     } else {
-      this.changeDirectory(fileName);
+      this.changeDirectory(file.name);
     }
   }
   onDragStart(event: DragEvent, fileName: string) {

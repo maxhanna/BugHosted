@@ -1,5 +1,4 @@
 .componentMain {
-  max-height: 600px;
   max-width: 800px;
   overflow: auto;
   position: relative;
@@ -15,6 +14,8 @@
   border-radius: 5px;
   padding: 20px;
   z-index: 9999;
+  max-height:100%;
+  max-width:100%;
 }
 .articleContainer{
     margin-bottom:10px;
@@ -92,9 +93,7 @@
 
 
 .newsList {
-  margin-top: 20px;
-  max-height:400px;
-  overflow: auto;
+  margin-top: 20px;  
 }
 
 .newsItem {

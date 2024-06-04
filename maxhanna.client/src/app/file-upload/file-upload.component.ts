@@ -2,6 +2,7 @@ import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@
 import { FileService } from '../../services/file.service';
 import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
 import { User } from '../../services/datacontracts/user';
+import { FileEntry } from '../../services/datacontracts/file-entry';
 
 @Component({
   selector: 'app-file-upload',
@@ -12,10 +13,11 @@ export class FileUploadComponent {
   constructor(private fileService: FileService) { }
   @Input() currentDirectory = '';
   @Input() user?: User;
-  @Input() visibility!: boolean;
+  @Input() showPrivatePublicOption!: boolean;
   @Input() allowedFileTypes: string = '';
 
   @Output() userUploadEvent = new EventEmitter<Array<File>>();
+  @Output() userUploadFinishedEvent = new EventEmitter<Array<FileEntry>>();
   @Output() userNotificationEvent = new EventEmitter<string>();
   @Output() userCancelEvent = new EventEmitter<boolean>();
 
@@ -63,8 +65,9 @@ export class FileUploadComponent {
     }
 
     const filesArray = Array.from(files);
-    const isPublic = this.visibility ? (Boolean)(this.folderVisibility?.nativeElement.value) : true;
 
+    const isPublic = (this.showPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
+     
     const directoryInput = this.currentDirectory || '';
     const fileNames = Array.from(files).map(file => file.name);
 
@@ -82,6 +85,8 @@ export class FileUploadComponent {
             }
             else if (event.type === HttpEventType.Response) {
               this.uploadProgress = 0;
+              this.userUploadFinishedEvent.emit(JSON.parse(event.body) as Array<FileEntry>);
+
               if (event.body && event.body.partialText) {
                 this.userNotificationEvent.emit(event.body.partialText);
               }

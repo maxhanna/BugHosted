@@ -48,7 +48,7 @@ namespace maxhanna.Server.Controllers
                         "SELECT " +
                             "f.id, " +
                             "COALESCE(mn.meme_name, f.file_name) AS file_name, " +
-                            "f.ownership, " +
+                            "f.user_id, " +
                             "u.username AS username, " +
                             "u.id AS userid, " +
                             "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
@@ -58,7 +58,7 @@ namespace maxhanna.Server.Controllers
                         "FROM " +
                             "maxhanna.file_uploads f " +
                         "JOIN " +
-                            "maxhanna.users u ON f.ownership = u.id " +
+                            "maxhanna.users u ON f.user_id = u.id " +
                         "LEFT JOIN " +
                             "maxhanna.meme_names mn ON mn.meme_id = f.id " +
                         "LEFT JOIN " +
@@ -81,7 +81,6 @@ namespace maxhanna.Server.Controllers
                         {
                             var id = reader.GetInt32("id");
                             var fileName = reader.GetString("file_name");
-                            var owner = reader.GetString("ownership");
                             var username = reader.GetString("username");
                             int userid = reader.GetInt32("userid");
                             int upvotes = reader.GetInt32("upvotes");
@@ -89,7 +88,7 @@ namespace maxhanna.Server.Controllers
                             int commentCount = reader.GetInt32("commentCount");
                             DateTime date = reader.GetDateTime("date");
 
-                            fileEntries.Add(new FileEntry( id, fileName, "Public", owner, username, userid, false, upvotes, downvotes, commentCount, date ));
+                            fileEntries.Add(new FileEntry( id, fileName, "Public", "", username, userid, false, upvotes, downvotes, commentCount, date ));
                         }
                     }
                 }

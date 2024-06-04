@@ -248,8 +248,8 @@ export class MemeComponent extends ChildComponent implements OnInit {
     }
   }
 
-  getCanEdit(userid: string) {
-    return parseInt(userid) == this.parentRef?.user?.id;
+  getCanEdit(userid: number) {
+    return userid == this.parentRef?.user?.id;
   }
 
   async getComments(memeId: number) {

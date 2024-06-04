@@ -2,8 +2,8 @@ export class FileEntry {
   id: number;
   name: string;
   visibility: string;
-  owner: string;
-  userId: string;
+  sharedWith: string;
+  userId: number;
   username: string;
   isFolder: boolean;
   upvotes: number;
@@ -11,11 +11,11 @@ export class FileEntry {
   commentCount: number;
   date: Date;
 
-  constructor(id: number, name: string, visibility: string, owner: string, userid: string, username: string, isFolder: boolean, upvotes: number, downvotes: number, commentCount: number, date: Date) {
+  constructor(id: number, name: string, visibility: string, sharedWith: string, userid: number, username: string, isFolder: boolean, upvotes: number, downvotes: number, commentCount: number, date: Date) {
     this.id = id;
     this.name = name;
     this.visibility = visibility;
-    this.owner = owner;
+    this.sharedWith = sharedWith;
     this.username = username;
     this.userId = userid;
     this.isFolder = isFolder;

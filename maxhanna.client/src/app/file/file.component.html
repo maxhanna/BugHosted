@@ -18,12 +18,13 @@
   <input type="submit" value="📂" (click)="showMakeDirectoryPrompt=true;" title="New Folder" *ngIf="!showMakeDirectoryPrompt && !isUploadInitiate" />
 
   <app-file-upload (userUploadEvent)="uploadInitiate();"
-                    (userNotificationEvent)="uploadNotification($event);"
-                    (userCancelEvent)="cancelMakeDirectoryOrFile();"
-                    [currentDirectory]="directoryInput!.value"
-                    [user]="parentRef?.user!"
-                    [visibility]="isUploadInitiate ? true : false"
-                    *ngIf="!showMakeDirectoryPrompt">
+                   (userUploadFinishedEvent)="uploadFinished($event)"
+                   (userNotificationEvent)="uploadNotification($event);"
+                   (userCancelEvent)="cancelMakeDirectoryOrFile();"
+                   [currentDirectory]="directoryInput!.value"
+                   [user]="parentRef?.user!"
+                   [showPrivatePublicOption]="isUploadInitiate ? true : false"
+                   *ngIf="!showMakeDirectoryPrompt">
   </app-file-upload> 
 
   <div *ngIf="showMakeDirectoryPrompt"> 
@@ -51,7 +52,7 @@
       <div style="width:100%;text-align:center;">
         <div *ngIf="loading" class="loading-spinner">Loading...</div>
         <div *ngIf="!loading">
-          <img #thumbnailContainer *ngIf="!this.videoFileExtensions.includes(this.selectedThumbnailFileExtension!)" [src]="selectedThumbnail" alt="meme" class="thumbnailImage" />
+          <img #thumbnailContainer *ngIf="!this.videoFileExtensions.includes(this.selectedThumbnailFileExtension!)" [src]="selectedThumbnail" alt="thumbnail" class="thumbnailImage" />
           <video #thumbnailContainer *ngIf="this.videoFileExtensions.includes(this.selectedThumbnailFileExtension!)" [src]="selectedThumbnail" controls preload="auto" autoplay class="thumbnailVideo"></video>
           <span class="filetype">{{selectedFileType}}</span>
         </div>
@@ -99,12 +100,12 @@
           <th></th>
         </tr>
       </thead>
-      <tbody *ngIf="directoryContents.length > 0">
+      <tbody *ngIf="directoryContents && directoryContents.length > 0">
         <tr *ngFor="let file of directoryContents"
             draggable="true"
             (dragstart)="onDragStart($event, file.name)">
-          <td class="{{ !isFile(file.name) ? 'folder' : '' }}"
-              (click)="this.handleFileClick(file.name);"
+          <td class="{{ file.isFolder ? 'folder' : '' }}"
+              (click)="this.handleFileClick(file);"
               (dragover)="onDragOver($event)"
               (drop)="onDrop($event)">
             {{ file.name }}
@@ -114,15 +115,15 @@
                    type="submit"
                    (click)="isSharePanelExpanded = !isSharePanelExpanded; shareFileOpenUser(file.id);"
                    title="Share File"
-                   *ngIf="file.visibility.toLowerCase() == 'private'" />
+                   *ngIf="file?.visibility?.toLowerCase() == 'private'" />
             <input value="❌"
                    type="submit"
                    (click)="this.delete(file);"
-                   *ngIf="file.owner.includes(parentRef?.user!.id!+'')" />
+                   *ngIf="file?.sharedWith?.includes(parentRef?.user!.id!+'') || file?.userId == parentRef?.user!.id" />
           </td>
         </tr>
       </tbody>
-      <tbody *ngIf="directoryContents.length == 0">
+      <tbody *ngIf="directoryContents?.length == 0">
         <tr>
           <td>Directory is empty</td>
           <td></td>

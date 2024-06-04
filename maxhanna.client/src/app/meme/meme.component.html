@@ -102,7 +102,7 @@
     <div class="fileUploadInputs">
       <app-file-upload [user]="parentRef?.user"
                        [currentDirectory]="'Meme'"
-                       [visibility]="false"
+                       [showPrivatePublicOption]="false"
                        [allowedFileTypes]="'image/*,video/*'"
                        (userNotificationEvent)="uploadNotification($event);"
                        (userUploadEvent)="uploadFileListEvent($event);"

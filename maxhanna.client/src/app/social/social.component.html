@@ -6,11 +6,20 @@
   <div class="inputDiv">
     <textarea #story
               placeholder="Food for thought"
-              (keyup.enter)="post()"
               class="foodForThought"
-              (focus)="focusInput()"></textarea>
+              (focus)="focusInput()"></textarea> 
     <input type="submit" (click)="post()" class="createStoryButton" value="🍌" />
+    <app-file-upload (userUploadEvent)="uploadInitiate();"
+                     (userUploadFinishedEvent)="uploadFinished($event)"
+                     (userNotificationEvent)="uploadNotification($event);"
+                     (userCancelEvent)="cancelMakeDirectoryOrFile();"
+                     [currentDirectory]="'Users/'+parentRef?.user?.username"
+                     [user]="parentRef?.user"
+                     [showPrivatePublicOption]="false">
+    </app-file-upload> 
+    <div *ngIf="attachedFiles.length > 0"> Attached: {{attachedFiles[0].name}}</div>
   </div>
+
   <div class="inputDiv">
     <input type="text" #search placeholder="Search" (keyup.enter)="searchStories()" />
     <input type="submit" (click)="searchStories()" class="createStoryButton" value="🔍" />
@@ -18,12 +27,27 @@
 
   <div *ngFor="let story of stories" class="storyContainer">
     <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
-    <div class="storyUsername">{{story.user.username}}</div>
+    <div class="storyUsername">{{story.user.username}} </div>
     <div class="storyDate">{{story.date?.toString()?.replace('T', '@')}}</div>
+    <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
+      <div>Attachments:</div>
+      <div *ngFor="let file of story.storyFiles" (click)="loadFile(file.name, 'Users/'+story?.user?.username+'/'+file.name, story.id)" class="attachment">
+        <span class="attachedFileSpan">🍌{{file.name}}</span>
+        <div [id]="'attachmentContainer'+story.id+file.id" class="attachmentContainer" *ngIf="selectedAttachment == file.name && selectedStoryId == story.id">
+          <img [src]="selectedAttachmentUrl" alt="Attachment" class="attachmentImage" *ngIf="fileType?.includes('image') && selectedAttachment == file.name && selectedStoryId == story.id" />
+          <video [src]="selectedAttachmentUrl" controls preload="auto" autoplay class="attachmentVideo" *ngIf="fileType?.includes('video') && selectedAttachment == file.name && selectedStoryId == story.id"></video>
+          <div *ngIf="!fileType" class="fileNotImageOrVideo">🥷</div>
+          <div *ngIf="fileType">File type: {{fileType}}</div>
+          <div *ngIf="file.username">Uploader: {{file.username}}</div>
+          <div *ngIf="file.date">Uploaded: {{file.date}}</div>
+          <div *ngIf="file" (click)="download(file.name, story.user)" class="downloadAttachmentLink">Download</div>
+        </div>
+      </div>
+    </div>
     <div *ngIf="story.metadata">
       <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
-      <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story.metadata.description)"></div>
-      <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story.metadata.imageUrl" /></div>
+      <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story?.metadata?.description)"></div>
+      <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
     </div>
   </div>
 </div>

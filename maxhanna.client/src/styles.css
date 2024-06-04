@@ -150,6 +150,16 @@ fieldset {
     overflow-x: scroll; 
   }
 }
+.mainTableContainer {
+  max-height: 700px;
+  overflow: auto;
+}
+
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .mainTableContainer {
+    max-height: 550px;
+  }
+}
 
 .miningStatusTable tr > :last-child {
   position: sticky;
@@ -158,7 +168,6 @@ fieldset {
 } 
 
 .mainTable {
-  font-size: var(--main-font-size);
   width: 100%;
   background-color: var(--secondary-bg-color);
   border-collapse: collapse;
@@ -282,5 +291,5 @@ fieldset {
 }
 
   .notification::before {
-    content: '🥷';
+    content: '🍌';
   }

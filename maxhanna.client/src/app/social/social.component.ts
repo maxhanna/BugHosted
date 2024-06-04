@@ -5,6 +5,8 @@ import { StoryComment } from '../../services/datacontracts/story-comment';
 import { SocialService } from '../../services/social.service';
 import { User } from '../../services/datacontracts/user';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { FileEntry } from '../../services/datacontracts/file-entry';
+import { FileService } from '../../services/file.service';
 
 @Component({
   selector: 'app-social',
@@ -19,21 +21,148 @@ export class SocialComponent extends ChildComponent implements OnInit {
   loading = false;
   showComments = false;
   openedMemes: number[] = [];
-  selectedMeme: string | null = null;
-  selectedMemeFileExtension: string | null = null;
-  videoFileExtensions = ['mp4', 'avi', 'mov'];
+  selectedAttachmentFileExtension: string | null = null;
   isEditing: number[] = [];
- 
+  isUploadInitiate = true;
+  attachedFiles: Array<FileEntry> = [];
+  selectedAttachment: string | undefined;
+  selectedStoryId: number | undefined;
+  selectedAttachmentUrl: string | undefined;
+  imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp"];
+  videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
+  fileType: string | undefined;
+  abortAttachmentRequestController: AbortController | null = null;
+
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
 
-  constructor(private socialService: SocialService, private sanitizer: DomSanitizer) {
+  constructor(private socialService: SocialService, private fileService: FileService, private sanitizer: DomSanitizer) {
     super();
   }
 
   async ngOnInit() {
     this.getStories(); 
-   }
+  }
+
+  uploadInitiate() {
+
+  }
+  uploadFinished(files: Array<FileEntry>) {
+    this.attachedFiles = this.attachedFiles.concat(files);
+  }
+
+  uploadNotification(notification: string) {
+
+  }
+
+  cancelMakeDirectoryOrFile() { }
+
+
+  async loadFile(fileName: string, fileNamePath?: string, storyId?: number) {
+    this.loading = true;
+    if (!fileNamePath) { return; }
+    try {
+
+      if (this.selectedAttachment == fileName && this.selectedStoryId == storyId) {
+        this.selectedAttachment = undefined;
+        this.selectedStoryId = undefined;
+        return;
+      }
+      this.selectedAttachment = fileName;
+      this.selectedStoryId = storyId;
+
+      if (this.abortAttachmentRequestController) {
+        this.abortAttachmentRequestController.abort();
+      }
+
+      this.abortAttachmentRequestController = new AbortController();
+
+      const response = await this.fileService.getFile(this.parentRef?.user!, fileNamePath, {
+        signal: this.abortAttachmentRequestController.signal
+      });
+
+      const contentDisposition = response!.headers["content-disposition"];
+      this.selectedAttachmentFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
+      console.log("attachment file extension " + this.selectedAttachmentFileExtension);
+      if (this.videoFileExtensions.includes(this.selectedAttachmentFileExtension!)) {
+        this.fileType = `video/${this.selectedAttachmentFileExtension}`;
+      } else if (this.imageFileExtensions.includes(this.selectedAttachmentFileExtension!)) {
+        this.fileType = `image/${this.selectedAttachmentFileExtension}`;
+      } else {
+        this.fileType = undefined;
+        return;
+      }
+
+      const type = this.fileType;
+      const blob = new Blob([response!.blob], { type });
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {  
+        this.selectedAttachmentUrl = reader.result as string;
+      };
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Fetch aborted');
+      } else {
+        console.error('Fetch error:', error);
+      }
+    } finally {
+      this.loading = false;
+    }
+  }
+  async download(fileName: string, user: User) { 
+    if (!confirm(`Download ${fileName}?`)) {
+      return;
+    }
+    const target = "Users/" + user.username + "/" + fileName;
+    try {
+      this.startLoading();
+      const response = await this.fileService.getFile(this.parentRef?.user!, target);
+      const blob = new Blob([response?.blob!], { type: 'application/octet-stream' });
+
+      const a = document.createElement('a');
+      a.href = window.URL.createObjectURL(blob);
+      a.download = fileName;
+      a.id = (Math.random() * 100) + "";
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(a.href);
+      document.getElementById(a.id)?.remove();
+      this.stopLoading();
+    } catch (ex) {
+      console.error(ex);
+    }
+  }
+  getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
+    if (!contentDisposition) return '';
+    console.log(contentDisposition);
+
+    // Look for filename="..." and extract the substring
+    const filenameStart = contentDisposition.indexOf('filename=') + 10; // 10 to account for the length of 'filename="'
+    const filenameEnd = contentDisposition.indexOf('"', filenameStart);
+    if (filenameStart >= 10 && filenameEnd > filenameStart) {
+      const filename = contentDisposition.substring(filenameStart, filenameEnd);
+      console.log("filename: " + filename);
+      return filename.split('.').pop() || '';
+    }
+
+    // Look for filename*=UTF-8''... and extract the substring
+    const filenameStartEncoded = contentDisposition.indexOf("filename*=");
+    if (filenameStartEncoded >= 0) {
+      const filenameEncodedPart = contentDisposition.substring(filenameStartEncoded);
+      const utf8Match = filenameEncodedPart.match(/^filename\*=(UTF-8'')?(.+)$/);
+      if (utf8Match && utf8Match[2]) {
+        const filename = decodeURIComponent(utf8Match[2].replace(/'/g, ''));
+        console.log("decoded filename: " + filename);
+        return filename.split('.').pop() || '';
+      }
+    }
+
+    return '';
+  }
+
+ 
   async like() {
 
   }
@@ -74,11 +203,14 @@ export class SocialComponent extends ChildComponent implements OnInit {
       downvotes: 0,
       commentsCount: 0,
       metadata: undefined,
+      storyFiles: this.attachedFiles
     };
+
+    this.attachedFiles = [];
 
     const res = await this.socialService.postStory(this.parentRef?.user!, newStory);
     if (res) {
-      this.getStories();
+      await this.getStories();
       this.story.nativeElement.value = '';
     }
   }
@@ -97,7 +229,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
       story.downvotes!++;
     }
   }
-
+  
   extractUrl(text: string) {
     // Regular expression pattern to match URLs
     const urlPattern = /(https?:\/\/[^\s]+)/g;
@@ -114,7 +246,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
     const urlPattern = /(https?:\/\/[^\s]+)/g;
 
     // Replace URLs with clickable <a> tags
-    const sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text ?? '') || '';
+    const sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text!.replace(/\n/g, '<br>') ?? '') || '';
     const clickableText = sanitizedText.replace(urlPattern, '<a href="$1" target="_blank">$1</a>');
 
     // Further sanitize the clickable text to remove any malicious code

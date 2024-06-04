@@ -99,3 +99,6 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Social/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/Rom/
+Accept: application/json
+###

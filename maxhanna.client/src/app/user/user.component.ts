@@ -52,6 +52,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.nhApiKeys = undefined; 
   }
   logout() {
+    this.parentRef!.clearAllNotifications();
     this.parentRef!.removeAllComponents();
     this.clearForm();
     this.parentRef!.user = undefined;
@@ -224,6 +225,8 @@ export class UserComponent extends ChildComponent implements OnInit {
 
     } catch (e) {
       this.notifications.push("Login error: " + e);
+    } finally {
+      this.parentRef!.getNotifications();
     }
   }
 
