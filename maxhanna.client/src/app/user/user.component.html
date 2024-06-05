@@ -1,5 +1,5 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me();" *ngIf="parentRef?.user!"></div>
+  <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="parentRef?.user!"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Login</div>
   <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
@@ -43,11 +43,11 @@
         <tbody *ngIf="isGeneralToggled">
           <tr>
             <td>Name:</td>
-            <td><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user.username" /></td>
+            <td><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></td>
           </tr>
           <tr>
             <td>Password:</td>
-            <td><input type="password" placeholder="New Password" #updatedPassword [value]="parentRef!.user.pass" /></td>
+            <td><input type="password" placeholder="New Password" #updatedPassword [value]="parentRef!.user!.pass" /></td>
           </tr>
         </tbody>
 

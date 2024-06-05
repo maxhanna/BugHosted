@@ -16,7 +16,6 @@ import { TodoComponent } from './todo/todo.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { ContactsComponent } from './contacts/contacts.component';
-import { GameComponent } from './game/game.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
@@ -26,6 +25,7 @@ import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { FileUploadComponent } from './file-upload/file-upload.component';
 import { NewsComponent } from './news/news.component';
+import { TopicsComponent } from './topics/topics.component';
 
 @NgModule({
   declarations: [
@@ -41,8 +41,7 @@ import { NewsComponent } from './news/news.component';
     TodoComponent,
     NotepadComponent,
     MusicComponent,
-    ContactsComponent,
-    GameComponent,
+    ContactsComponent, 
     CoinWalletComponent,
     GbcComponent,
     UserComponent,
@@ -51,12 +50,13 @@ import { NewsComponent } from './news/news.component';
     MemeComponent,
     SocialComponent,
     FileUploadComponent,
-    NewsComponent
+    NewsComponent,
+    TopicsComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,
     AppRoutingModule
-  ],
+  ], 
   providers: [],
   bootstrap: [AppComponent]
 })

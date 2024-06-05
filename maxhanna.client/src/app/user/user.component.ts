@@ -51,7 +51,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.isMenuIconsToggled = true; 
     this.nhApiKeys = undefined; 
   }
-  logout() {
+  logout() { 
     this.parentRef!.clearAllNotifications();
     this.parentRef!.removeAllComponents();
     this.clearForm();

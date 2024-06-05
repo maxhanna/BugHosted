@@ -1,16 +1,16 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me()"></div>
+  <div class="closeButton" (click)="remove_me('MemeComponent')"></div>
   <div class="refreshButton" (click)="ngOnInit()"></div>
   <div class="componentTitle">Meme</div>
 
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
 
-  <!-- Dropdown for sorting --> 
+  <!-- Dropdown for sorting -->
   <select id="sortDropdown" (change)="onSortChange($event)" class="sortOptions">
     <option value="recent">Most Recent</option>
     <option value="upvotes">Most Upvotes</option>
     <option value="downvotes">Most Downvotes</option>
-  </select> 
+  </select>
 
   <table class="mainTable" id="memeTable" *ngIf="directoryContents.length > 0">
     <thead>
@@ -58,9 +58,17 @@
           <td colspan="6">
             <div *ngIf="loading" class="loading-spinner">Loading...</div>
             <div *ngIf="!loading">
-              <img #memeContainer *ngIf="!this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" alt="meme" class="memeImage" />
-              <video #memeContainer *ngIf="this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" controls preload="auto" autoplay class="memeVideo"></video>
-              <span class="filetype">{{fileType}} {{meme.username}} {{meme.date}}</span>
+              <img #memeContainer *ngIf="!this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" alt="meme" class="memeImage media" />
+              <video #memeContainer *ngIf="this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" controls preload="auto" autoplay class="memeVideo media"></video>
+              <span class="filetype">
+                {{fileType}}
+              </span> 
+              <div class="filetype">
+                {{meme.username}} 🍌 {{meme.date.toString().replace('T', ' ')}}
+              </div> 
+              <div class="filetype">
+                <button (click)="copyLink(meme.id)" title="Share Link">Share 📋</button>
+              </div>
             </div>
 
             <!-- Comments Section -->
@@ -76,7 +84,7 @@
             <div class="comments-section">
               <div *ngIf="showComments">
                 <div *ngFor="let comment of comments">
-                  <div class="commentUsername">{{ comment.username }}:</div>
+                  <div class="commentUsername"><span class="cursorPointer">{{ comment.username }}:</span></div>
                   <div class="commentText">{{ comment.commentText }}</div>
                   <div class="commentVoteButtons">
                     <button (click)="upvoteComment(comment, meme)" class="vote-button">👍</button>

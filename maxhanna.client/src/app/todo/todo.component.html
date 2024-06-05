@@ -1,5 +1,5 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me();"></div>
+  <div class="closeButton" (click)="remove_me('TodoComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Checklist</div>
 
@@ -30,7 +30,7 @@
         <tr *ngFor="let item of todos" id="todoNo{{item.id!}}">
           <td>{{ item.todo }}</td>
           <td><a [href]="item.url" target="_blank" *ngIf="item.url">🔗</a></td>
-          <td>{{ item.date | date }}</td>
+          <td>{{ item.date }}</td>
           <td><input type="button" value="❌" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id!}}" /></td>
         </tr>
       </tbody>

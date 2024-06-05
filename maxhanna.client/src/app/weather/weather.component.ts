@@ -92,4 +92,11 @@ export class WeatherComponent extends ChildComponent implements OnInit {
   isCollapsed(date: string) {
     return this.collapsedDays.includes(date);
   }
+  isCurrentHour(time: string): boolean {
+    const currentTime = new Date();
+    const hour = currentTime.getHours();
+    const timeParts = time.split(' ');
+    const hourPart = parseInt(timeParts[1].split(':')[0]);
+    return hourPart === hour;
+  }
 }

@@ -5,7 +5,7 @@ import { HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileComment } from '../../services/datacontracts/file-comment';
 import { MemeService } from '../../services/meme.service';
-import { User } from '../../services/datacontracts/user';
+import { ActivatedRoute } from '@angular/router'; 
 
 @Component({
   selector: 'app-meme',
@@ -33,13 +33,38 @@ export class MemeComponent extends ChildComponent implements OnInit {
   isUploadingInProcess = false;
   private abortController: AbortController | null = null;
 
-  constructor(private fileService: FileService, private memeService: MemeService) { super(); }
+  memeId: string | null = null;
+  constructor(private fileService: FileService, private memeService: MemeService, private route: ActivatedRoute) { super(); }
 
   async ngOnInit() {
+    this.route.paramMap.subscribe(params => {
+      this.memeId = params.get('memeId');
+      if (this.memeId) {
+        setTimeout(() => { this.scrollToMeme(this.memeId!); }, 500);
+      }
+    });
+
     this.isEditing = [];
     this.selectedMeme = "";
     this.removeMeme();
     await this.getFiles();
+  }
+  override remove_me(title: string) {
+    const routerOutletContainer = document.querySelector('.routerOutletContainer');
+    if (routerOutletContainer) {
+      routerOutletContainer.remove();
+    } else {
+      super.remove_me(title); // Call the parent method if the routerOutletContainer doesn't exist
+    }
+  }
+  scrollToMeme(memeId: string) {
+    setTimeout(() => {
+      const element = document.getElementById('memeIdTd' + memeId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.click();
+      }
+    }, 0);
   }
 
   async getFiles() {
@@ -51,6 +76,15 @@ export class MemeComponent extends ChildComponent implements OnInit {
       this.notifications.push("Error fetching memes");
     }
     this.stopLoading();
+  }
+
+  copyLink(memeId: number) {
+    const link = `https://maxhanna.ca/Memes/${memeId}`;
+    navigator.clipboard.writeText(link).then(() => {
+      this.notifications.push('Link copied to clipboard!');
+    }).catch(err => {
+      this.notifications.push('Failed to copy link!');
+    });
   }
 
   openFirstMeme() {
@@ -272,13 +306,11 @@ export class MemeComponent extends ChildComponent implements OnInit {
 
 
   async addComment(meme: FileEntry, event: Event) {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
     const fileId = meme.id;
     const comment = (document.getElementById("addCommentInput" + meme.id)! as HTMLInputElement).value;
     try {
       if (fileId && comment && comment.trim() != '') {
-        this.notifications.push(await this.fileService.commentFile(this.parentRef?.user!, fileId, comment));
+        this.notifications.push(await this.fileService.commentFile(fileId, comment, this.parentRef?.user));
       }
       (document.getElementById("addCommentInput" + meme.id)! as HTMLInputElement).value = '';
     } catch (error) {

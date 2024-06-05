@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ComponentFactoryResolver, ElementRef, Injector, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { MiningWalletResponse } from '../../services/datacontracts/mining-wallet-response';
 import { CalendarEntry } from '../../services/datacontracts/calendar-entry';
 import { MiningRig } from '../../services/datacontracts/mining-rig';
@@ -10,7 +10,7 @@ import { WeatherService } from '../../services/weather.service';
 import { CoinWatchService } from '../../services/coin-watch.service';
 import { AppComponent } from '../app.component';
 import { UserService } from '../../services/user.service';
-import { ChatService } from '../../services/chat.service';
+import { ChatService } from '../../services/chat.service'; 
 
 @Component({
   selector: 'app-navigation',
@@ -19,7 +19,7 @@ import { ChatService } from '../../services/chat.service';
 })
 export class NavigationComponent implements OnInit, OnDestroy {
   @ViewChild('navbar') navbar!: ElementRef<HTMLElement>;
-  @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>; 
+  @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>;
 
   private chatInfoInterval: any;
   private miningInfoInterval: any;
@@ -177,7 +177,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.toggleNavButton.nativeElement.innerText = currText != "📖" ? "📖" : "📕";
     this.toggleNavButton.nativeElement.title = currText != "📖" ? "Open Navigation" : "Close Navigation";
     window.document.body.style.paddingBottom = currText != "📖" ? "0px" : "50px";
-  }
+  } 
+
   goTo(event: any) {
     if (event.target.getAttribute("title").toLowerCase() == "close menu") {
       this.toggleMenu();
@@ -185,6 +186,5 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this._parent.createComponent(event.target.getAttribute('title'));
     }
     event.stopPropagation();
-  }
-
+  } 
 }

@@ -1,11 +1,11 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me();"></div>
+  <div class="closeButton" (click)="remove_me('MiningRigsComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Mining Rigs</div>
 
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
-  <div *ngIf="miningRigs.length > 0">
+  <div *ngIf="miningRigs.length > 0" class="miningStatusTable">
     <div class="currentProfitabilityDiv">
       <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? (rate * localProfitability).toFixed(2) + " CAD" : localProfitability + " BTC"}}</span></label>
       <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? (rate * actualProfitability).toFixed(2) + " CAD" : actualProfitability + " BTC"}}</span></label>
@@ -66,7 +66,7 @@
       </tbody>
     </table>
   </div>
-  <div *ngIf="miningRigDevices" class="deviceListDiv">
+  <div *ngIf="miningRigDevices" class="deviceListDiv miningStatusTable">
     <table class="mainTable miningStatusTable" id="deviceRigTable">
       <thead>
         <tr>

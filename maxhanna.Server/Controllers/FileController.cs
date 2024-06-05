@@ -195,13 +195,13 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/File/Comment", Name = "CommentFile")]
         public async Task<IActionResult> CommentFile([FromBody] CommentRequest request)
         {
-            _logger.LogInformation($"POST /File/Comment");
+            _logger.LogInformation($"POST /File/Comment (Adding a comment for user: {request.User?.Id})");
             try
             {
-                if (request.User.Id <= 0 || request.FileId <= 0 || string.IsNullOrEmpty(request.Comment))
+                if (request.FileId <= 0 || string.IsNullOrEmpty(request.Comment))
                 {
                     _logger.LogWarning($"Invalid request data! Returning BadRequest.");
-                    return BadRequest("Invalid user, file ID, or comment.");
+                    return BadRequest("Invalid file ID, or comment.");
                 }
 
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -210,13 +210,13 @@ namespace maxhanna.Server.Controllers
 
                     var command = new MySqlCommand("INSERT INTO file_comments (file_id, user_id, comment) VALUES (@fileId, @userId, @comment)", connection);
                     command.Parameters.AddWithValue("@fileId", request.FileId);
-                    command.Parameters.AddWithValue("@userId", request.User.Id);
+                    command.Parameters.AddWithValue("@userId", request.User?.Id ?? 0);
                     command.Parameters.AddWithValue("@comment", request.Comment);
 
                     await command.ExecuteNonQueryAsync();
                 }
 
-                _logger.LogInformation($"Comment added to file {request.FileId} by user {request.User.Id}");
+                _logger.LogInformation($"Comment added to file {request.FileId} by user {request.User?.Id}");
                 return Ok("Comment added successfully.");
             }
             catch (Exception ex)

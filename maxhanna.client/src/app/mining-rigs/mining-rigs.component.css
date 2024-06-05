@@ -1,4 +1,15 @@
 
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .componentMain {
+    max-width: 90vw !important;
+  }
+  .miningStatusTable {
+    max-width: 80vw !important;
+    overflow: auto; 
+  }
+} 
+
+
 .deviceTable {
   display: inline-block;
   vertical-align: top;
@@ -14,110 +25,123 @@
   border-radius: 5px;
 }
 
-  .deviceTable td,
-  .deviceTable th {
-    border: 0.2px solid var(--main-bg-color);
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding-left: 2px;
-    padding-right: 2px;
-  }
+    .deviceTable td,
+    .deviceTable th {
+      border: 0.2px solid var(--main-bg-color);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-left: 2px;
+      padding-right: 2px;
+    }
 
-    .deviceTable td::before,
-    .deviceTable th::before {
-      display: block;
-      content: attr(title);
+      .deviceTable td::before,
+      .deviceTable th::before {
+        display: block;
+        content: attr(title);
+        font-weight: bold;
+        height: 0;
+        overflow: hidden;
+        visibility: hidden;
+      }
+
+      .deviceTable td:nth-child(n+6),
+      .deviceTable th:nth-child(n+6) {
+        max-width: 45px;
+      }
+
+    .deviceTable tr:nth-child(even) {
+      background-color: var(--main-bg-color);
+    }
+
+    .deviceTable td:first-child {
+      color: var(--main-font-color);
+    }
+
+    .deviceTable td:nth-child(2) {
+      color: var(--main-font-color);
+    }
+
+    .deviceTable tr:hover {
+      background-color: var(--secondary-font-color);
+      color: black;
+      text-shadow: 0 0 5px royalblue;
+      font-weight: bolder;
+    }
+
+    .deviceTable th {
+      border-collapse: collapse;
+      text-align: left;
+      background-color: var(--table-thead-color);
+      color: var(--main-font-color);
+      position: sticky;
+      top: -3px;
       font-weight: bold;
-      height: 0;
-      overflow: hidden;
-      visibility: hidden;
+      text-shadow: 0 0 3px #7bac10, 0 0 5px black;
     }
 
-    .deviceTable td:nth-child(n+6),
-    .deviceTable th:nth-child(n+6) {
-      max-width: 45px;
-    }
-
-  .deviceTable tr:nth-child(even) {
+  .stopped, .started, .offline {
+    height: var(--main-font-size);
+    width: var(--main-font-size);
+    border-radius: 50%;
+    border: 2px ridge var(--main-font-color);
+    margin-left: auto;
+    margin-right: auto;
     background-color: var(--main-bg-color);
   }
 
-  .deviceTable td:first-child {
-    color: var(--main-font-color);
+  .stopped {
+    background-color: red;
+    cursor: pointer;
   }
 
-  .deviceTable td:nth-child(2) {
-    color: var(--main-font-color);
+  .started {
+    background-color: var(--main-bg-color);
+    cursor: pointer;
   }
 
-  .deviceTable tr:hover {
-    background-color: var(--secondary-font-color);
-    color: black;
-    text-shadow: 0 0 5px royalblue;
+  .offline {
+    background-color: grey;
+    cursor: pointer;
+  }
+
+    .stopped:hover, .offline:hover {
+      background-color: var(--main-font-color);
+    }
+
+  .started:hover {
+    background-color: red;
+  }
+
+  .totalDailyEarningsDiv {
+    border: var(--main-border);
+    text-align: center;
+    font-size: small;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    padding: 3px;
+  }
+
+  .deviceListDiv {
+    display: inline-block;
+    vertical-align: top;
+    margin: 12px;
+    color: var(--secondary-font-color);
+    font-family: Arial, Helvetica, sans-serif;
+    border-collapse: collapse;
+    max-height: 700px !important;
+    overflow-y: auto;
+    border: var(--main-border);
+    border-radius: 5px;
+  }
+
+  .currentProfitabilitySpan {
+    /*text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);*/
     font-weight: bolder;
   }
 
-  .deviceTable th {
-    border-collapse: collapse;
-    text-align: left;
-    background-color: var(--table-thead-color);
-    color: var(--main-font-color);
-    position: sticky;
-    top: -3px;
-    font-weight: bold;
-    text-shadow: 0 0 3px #7bac10, 0 0 5px black;
-  }
-
-.stopped, .started, .offline {
-  height: var(--main-font-size);
-  width: var(--main-font-size);
-  border-radius: 50%;
-  border: 2px ridge var(--main-font-color);
-  margin-left: auto;
-  margin-right: auto;
-  background-color: var(--main-bg-color);
-}
-
-.stopped {
-  background-color: red;
-  cursor: pointer;
-}
-
-.started {
-  background-color: var(--main-bg-color);
-  cursor: pointer;
-}
-
-.offline {
-  background-color: grey;
-  cursor: pointer;
-}
-
-  .stopped:hover, .offline:hover {
-    background-color: var(--main-font-color);
-  }
-
-.started:hover {
-  background-color: red;
-}
-.totalDailyEarningsDiv {
-    border: var(--main-border); 
+  .currentProfitabilityDiv {
+    width: 100%;
     text-align: center;
-    font-size: small;
-    margin-top:3px;
-    margin-bottom:3px;
-    padding:3px;
-}
-.deviceListDiv{
-    border: var(--main-border);
-}
-.currentProfitabilitySpan {
-  /*text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);*/
-  font-weight:bolder;
-}
-.currentProfitabilityDiv{
-    width:100%;
-    text-align:center;
-    margin-top:3px;
-    margin-bottom:3px; 
-}
+    margin-top: 3px;
+    margin-bottom: 3px;
+  }

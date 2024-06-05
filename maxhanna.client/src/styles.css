@@ -10,7 +10,7 @@
   --main-border: 2px ridge var(--main-highlight-color);
   --gameboyBgColor: darkgrey;
   --main-font-size: 0.9vw;
-  --component-max-width: 300px;
+  --component-max-width: 90vw;
   --component-max-height: 800px;
 }
 
@@ -50,7 +50,7 @@ body {
   font-family: Arial;
   background-color: black;
   color: var(--main-font-color);
-  margin: 0; 
+  margin: 0;
   padding: 0;
   padding-bottom: 55px;
 }
@@ -70,8 +70,7 @@ fieldset {
 }
 
 .componentMain {
-  background-color: var(--main-bg-color);
-  min-width: var(--component-max-width);
+  background-color: var(--main-bg-color); 
   max-height: var(--component-max-height);
   position: relative;
   padding-top: 35px;
@@ -81,6 +80,7 @@ fieldset {
   overflow: auto;
 }
 
+
 .refreshButton::before {
   border-top-left-radius: 3px;
 }
@@ -89,18 +89,18 @@ fieldset {
   border-top-right-radius: 3px;
 }
 
-  .refreshButton::before, .closeButton::before {
-    position: absolute;
-    top: 0px;
-    width: 25px;
-    height: 25px;
-    font-size: 18px;
-    line-height: 25px;
-    z-index: 2;
-    border: 2px outset black;
-    text-align: center;
-    padding-left: 0px;
-  }
+.refreshButton::before, .closeButton::before {
+  position: absolute;
+  top: 0px;
+  width: 25px;
+  height: 25px;
+  font-size: 18px;
+  line-height: 25px;
+  z-index: 2;
+  border: 2px outset black;
+  text-align: center;
+  padding-left: 0px;
+}
 
 .refreshButton:active::before,
 .closeButton:active::before {
@@ -133,31 +133,49 @@ fieldset {
 }
 
 .mainTableDiv {
-  max-height: 400px;
+  max-height: 80%;
   overflow-y: auto;
 }
-
-@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
-  .mainTableDiv {
-    width: var(--component-max-width);
-    overflow-x: auto;
-  }
-}
-
+ 
 /* Make the table scrollable horizontally on mobile */
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   .mainTable {
-    overflow-x: scroll; 
+    overflow-x: scroll;
   }
 }
+
 .mainTableContainer {
   max-height: 700px;
   overflow: auto;
 }
 
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .componentMain {
+    max-width: 100% !important;
+  }
+
+  .mainTableDiv { 
+    max-width: var(--component-max-width);
+    overflow-x: auto;
+  }
+
+  .media {
+    max-width: unset !important;
+  }
+
   .mainTableContainer {
     max-height: 550px;
+  }
+
+  .mainTable td {
+    max-width: 100px !important;
+    word-wrap: break-word;
+    text-overflow: ellipsis;
+  }
+  .mainTable input {
+    max-width: 100px !important;
+    word-wrap: break-word;
+    text-overflow: ellipsis;
   }
 }
 
@@ -165,7 +183,7 @@ fieldset {
   position: sticky;
   right: 0;
   z-index: 22;
-} 
+}
 
 .mainTable {
   width: 100%;
@@ -293,3 +311,8 @@ fieldset {
   .notification::before {
     content: '🍌';
   }
+
+.cursorPointer {
+  cursor: pointer;
+  text-decoration: underline;
+}

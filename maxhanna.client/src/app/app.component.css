@@ -5,4 +5,10 @@
   align-items: flex-start;
   align-content: flex-start;
   gap: 10px; 
-} 
+}
+.routerOutletContainer {
+    margin-left:auto;
+    margin-right:auto;
+    display:flex;
+    justify-content:center;
+}

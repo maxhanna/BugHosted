@@ -10,3 +10,7 @@ td {
   padding-left: 5px;
   padding-right: 5px;
 }
+.highlight {
+  background-color: var(--main-highlight-color) !important; 
+  border: var(--main-border);
+}

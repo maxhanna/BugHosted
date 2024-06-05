@@ -93,7 +93,7 @@ export class FileService {
       throw error;
     }
   }
-  async commentFile(user: User, fileId: number, comment: string) {
+  async commentFile(fileId: number, comment: string, user?: User) {
     try {
       const response = await fetch(`/file/comment`, {
         method: 'POST',

@@ -27,8 +27,8 @@ namespace maxhanna.Server.Controllers
             {
                 string sql = !string.IsNullOrEmpty(search)
                     ? @"SELECT 
-                        s.id, 
-                        u.id,
+                        s.id AS story_id, 
+                        u.id AS user_id,
                         u.username, 
                         s.story_text, 
                         s.date,
@@ -43,12 +43,18 @@ namespace maxhanna.Server.Controllers
                         f.is_public, 
                         f.is_folder, 
                         f.shared_with, 
-                        COALESCE(SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END), 0) AS file_upvotes,
-                        COALESCE(SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END), 0) AS file_downvotes,
+                        COALESCE(SUM(CASE WHEN fv.upvote = 1 THEN 1 END), 0) AS file_upvotes,
+                        COALESCE(SUM(CASE WHEN fv.downvote = 1 THEN 1 END), 0) AS file_downvotes,
                         COUNT(fc.id) AS file_comment_count, 
                         f.upload_date AS file_date, 
                         u.username AS file_username, 
-                        f.user_id AS file_user_id
+                        f.user_id AS file_user_id,
+                        sc.id AS comment_id, 
+                        sc.user_id AS comment_user_id, 
+                        uc.username as comment_username,
+                        sc.text AS comment_text, 
+                        COUNT(CASE WHEN svc.upvote = 1 THEN 1 END) AS comment_upvotes,
+                        COUNT(CASE WHEN svc.downvote = 1 THEN 1 END) AS comment_downvotes
                     FROM 
                         stories AS s 
                     JOIN 
@@ -57,6 +63,8 @@ namespace maxhanna.Server.Controllers
                         story_votes AS sv ON s.id = sv.story_id 
                     LEFT JOIN 
                         story_comments AS sc ON s.id = sc.story_id 
+                    LEFT JOIN 
+                        users AS uc ON sc.user_id = uc.id
                     LEFT JOIN 
                         story_metadata AS sm ON s.id = sm.story_id 
                     LEFT JOIN 
@@ -67,6 +75,8 @@ namespace maxhanna.Server.Controllers
                         file_votes AS fv ON f.id = fv.file_id
                     LEFT JOIN 
                         file_comments AS fc ON f.id = fc.file_id
+                    LEFT JOIN 
+                        story_comment_votes AS svc ON sc.id = svc.comment_id
                     WHERE 
                         s.story_text LIKE CONCAT('%', @search, '%') OR 
                         u.username = @search 
@@ -74,12 +84,13 @@ namespace maxhanna.Server.Controllers
                         s.id, u.id, u.username, s.story_text, s.date, 
                         sm.title, sm.description, sm.image_url,
                         f.id, f.file_name, f.is_public, f.is_folder, f.shared_with, 
-                        f.upload_date, u.username, f.user_id
+                        f.upload_date, u.username, f.user_id,
+                        sc.id, sc.user_id, sc.text
                     ORDER BY 
                         s.id DESC;"
                     : @"SELECT 
-                        s.id, 
-                        u.id, 
+                        s.id AS story_id, 
+                        u.id AS user_id, 
                         u.username, 
                         s.story_text, 
                         s.date,
@@ -94,12 +105,18 @@ namespace maxhanna.Server.Controllers
                         f.is_public, 
                         f.is_folder, 
                         f.shared_with, 
-                        COALESCE(SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END), 0) AS file_upvotes,
-                        COALESCE(SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END), 0) AS file_downvotes,
+                        COALESCE(SUM(CASE WHEN fv.upvote = 1 THEN 1 END), 0) AS file_upvotes,
+                        COALESCE(SUM(CASE WHEN fv.downvote = 1 THEN 1 END), 0) AS file_downvotes,
                         COUNT(fc.id) AS file_comment_count, 
                         f.upload_date AS file_date, 
                         u.username AS file_username, 
-                        f.user_id AS file_user_id
+                        f.user_id AS file_user_id,
+                        sc.id AS comment_id, 
+                        sc.user_id AS comment_user_id, 
+                        uc.username as comment_username,
+                        sc.text AS comment_text, 
+                        COUNT(CASE WHEN svc.upvote = 1 THEN 1 END) AS comment_upvotes,
+                        COUNT(CASE WHEN svc.downvote = 1 THEN 1 END) AS comment_downvotes
                     FROM 
                         stories AS s 
                     JOIN 
@@ -107,7 +124,9 @@ namespace maxhanna.Server.Controllers
                     LEFT JOIN 
                         story_votes AS sv ON s.id = sv.story_id 
                     LEFT JOIN 
-                        story_comments AS sc ON s.id = sc.story_id 
+                        story_comments AS sc ON s.id = sc.story_id
+                    LEFT JOIN 
+                        users AS uc ON sc.user_id = uc.id
                     LEFT JOIN 
                         story_metadata AS sm ON s.id = sm.story_id 
                     LEFT JOIN 
@@ -118,11 +137,14 @@ namespace maxhanna.Server.Controllers
                         file_votes AS fv ON f.id = fv.file_id
                     LEFT JOIN 
                         file_comments AS fc ON f.id = fc.file_id
+                    LEFT JOIN 
+                        story_comment_votes AS svc ON sc.id = svc.comment_id
                     GROUP BY 
                         s.id, u.id, u.username, s.story_text, s.date, 
                         sm.title, sm.description, sm.image_url,
                         f.id, f.file_name, f.is_public, f.is_folder, f.shared_with, 
-                        f.upload_date, u.username, f.user_id
+                        f.upload_date, u.username, f.user_id,
+                        sc.id, sc.user_id, sc.text
                     ORDER BY 
                         s.id DESC;";
 
@@ -143,25 +165,26 @@ namespace maxhanna.Server.Controllers
 
                             while (await rdr.ReadAsync())
                             {
-                                int storyId = rdr.GetInt32(0);
+                                int storyId = rdr.GetInt32("story_id");
                                 if (!stories.ContainsKey(storyId))
                                 {
                                     var story = new Story
                                     {
                                         Id = storyId,
-                                        User = new User(rdr.GetInt32(1), rdr.GetString(2), null),
-                                        StoryText = rdr.GetString(3),
-                                        Date = rdr.GetDateTime(4),
-                                        Upvotes = rdr.IsDBNull(rdr.GetOrdinal("upvotes")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("upvotes")),
-                                        Downvotes = rdr.IsDBNull(rdr.GetOrdinal("downvotes")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("downvotes")),
-                                        CommentsCount = rdr.IsDBNull(rdr.GetOrdinal("comments_count")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("comments_count")),
+                                        User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null),
+                                        StoryText = rdr.GetString("story_text"),
+                                        Date = rdr.GetDateTime("date"),
+                                        Upvotes = rdr.GetInt32("upvotes"),
+                                        Downvotes = rdr.GetInt32("downvotes"),
+                                        CommentsCount = rdr.GetInt32("comments_count"),
                                         Metadata = new MetadataDto
                                         {
-                                            Title = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString(rdr.GetOrdinal("title")),
-                                            Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString(rdr.GetOrdinal("description")),
-                                            ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString(rdr.GetOrdinal("image_url"))
+                                            Title = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title"),
+                                            Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description"),
+                                            ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
                                         },
-                                        StoryFiles = new List<FileEntry>()
+                                        StoryFiles = new List<FileEntry>(),
+                                        StoryComments = new List<StoryComment>()
                                     };
 
                                     stories.Add(storyId, story);
@@ -171,20 +194,36 @@ namespace maxhanna.Server.Controllers
                                 {
                                     var fileEntry = new FileEntry
                                     {
-                                        Id = rdr.GetInt32(rdr.GetOrdinal("file_id")),
-                                        Name = rdr.GetString(rdr.GetOrdinal("file_name")),
-                                        Visibility = rdr.GetBoolean(rdr.GetOrdinal("is_public")) ? "Public" : "Private",
-                                        SharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString(rdr.GetOrdinal("shared_with")),
-                                        Username = rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? null : rdr.GetString(rdr.GetOrdinal("file_username")),
-                                        UserId = rdr.GetInt32(rdr.GetOrdinal("file_user_id")),
-                                        IsFolder = rdr.GetBoolean(rdr.GetOrdinal("is_folder")),
-                                        Upvotes = rdr.IsDBNull(rdr.GetOrdinal("file_upvotes")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("file_upvotes")),
-                                        Downvotes = rdr.IsDBNull(rdr.GetOrdinal("file_downvotes")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("file_downvotes")),
-                                        CommentCount = rdr.IsDBNull(rdr.GetOrdinal("file_comment_count")) ? 0 : rdr.GetInt32(rdr.GetOrdinal("file_comment_count")),
-                                        Date = rdr.GetDateTime(rdr.GetOrdinal("file_date"))
+                                        Id = rdr.GetInt32("file_id"),
+                                        Name = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? null : rdr.GetString("file_name"),
+                                        Visibility = rdr.GetBoolean("is_public") ? "Public" : "Private",
+                                        SharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with"),
+                                        Username = rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? null : rdr.GetString("file_username"), 
+                                        UserId = rdr.GetInt32("file_user_id"),
+                                        IsFolder = rdr.GetBoolean("is_folder"),
+                                        Upvotes = rdr.GetInt32("file_upvotes"),
+                                        Downvotes = rdr.GetInt32("file_downvotes"),
+                                        CommentCount = rdr.GetInt32("file_comment_count"),
+                                        Date = rdr.GetDateTime("file_date")
                                     };
 
                                     stories[storyId].StoryFiles!.Add(fileEntry);
+                                }
+
+                                if (!rdr.IsDBNull(rdr.GetOrdinal("comment_id"))) // Check if there is a comment
+                                {
+                                    var comment = new StoryComment
+                                    {
+                                        Id = rdr.GetInt32("comment_id"),
+                                        StoryId = rdr.GetInt32("story_id"),
+                                        UserId = rdr.GetInt32("comment_user_id"),
+                                        Username = rdr.IsDBNull(rdr.GetOrdinal("comment_username")) ? null : rdr.GetString("comment_username"),
+                                        Text = rdr.IsDBNull(rdr.GetOrdinal("comment_text")) ? null : rdr.GetString("comment_text"),
+                                        Upvotes = rdr.GetInt32("comment_upvotes"),
+                                        Downvotes = rdr.GetInt32("comment_downvotes")
+                                    };
+
+                                    stories[storyId].StoryComments!.Add(comment);
                                 }
                             }
 
@@ -195,11 +234,10 @@ namespace maxhanna.Server.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while fetching stories.");
-                return StatusCode(500, "An error occurred while fetching stories.");
+                _logger.LogError(ex, "Error fetching stories");
+                return StatusCode(500, "Internal server error");
             }
         }
-
 
 
 
@@ -209,7 +247,7 @@ namespace maxhanna.Server.Controllers
             _logger.LogInformation($"POST /Social/Post-Story/ for user: {story.user.Id} with #of attached files : {story.story.StoryFiles?.Count}");
             try
             {
-                string sql = @"INSERT INTO stories (user_id, story_text) VALUES (@userId, @storyText);"; 
+                string sql = @"INSERT INTO stories (user_id, story_text) VALUES (@userId, @storyText);";
 
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
@@ -332,24 +370,61 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while fetching comments.");
             }
         }
+
         [HttpPost("/Social/Story/Upvote", Name = "UpvoteSocialStory")]
         public async Task<IActionResult> UpvoteSocialStory([FromBody] StoryVoteRequest request)
         {
+            _logger.LogInformation($"POST /Social/Story/Upvote (StoryId = {request.StoryId}, UserId = {request.User.Id}, Upvote = {request.Upvote})");
+
             try
             {
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await connection.OpenAsync();
 
-                    var command = new MySqlCommand("INSERT INTO story_votes (story_id, user_id, upvote, downvote) VALUES (@storyId, @userId, @upvote, 0) ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0", connection);
+
+                    var command = new MySqlCommand(
+                        @"INSERT INTO story_votes (story_id, user_id, upvote, downvote) 
+                          VALUES (@storyId, @userId, @upvote, 0) 
+                          ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0; 
+                          SELECT LAST_INSERT_ID();"
+                        , connection); 
                     command.Parameters.AddWithValue("@storyId", request.StoryId);
                     command.Parameters.AddWithValue("@userId", request.User.Id);
                     command.Parameters.AddWithValue("@upvote", request.Upvote);
 
-                    await command.ExecuteNonQueryAsync();
-                }
 
-                return Ok("Story upvoted successfully.");
+
+                    var result = Convert.ToInt32(await command.ExecuteScalarAsync());
+
+                    // Query to get the updated counts
+                    var countCommand = new MySqlCommand(
+                        @"SELECT 
+                            SUM(CASE WHEN upvote = 1 THEN 1 ELSE 0 END) AS upvoteCount, 
+                            SUM(CASE WHEN downvote = 1 THEN 1 ELSE 0 END) AS downvoteCount 
+                          FROM story_votes 
+                          WHERE story_id = @storyId;", connection);
+                    countCommand.Parameters.AddWithValue("@storyId", request.StoryId);
+
+                    using (var reader = await countCommand.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            var upvotes = reader.GetInt32("upvoteCount");
+                            var downvotes = reader.GetInt32("downvoteCount");
+
+                            return Ok(new UpDownVoteCounts()
+                            {
+                                Upvotes = upvotes,
+                                Downvotes = downvotes
+                            });
+                        }
+                        else
+                        {
+                            return StatusCode(500, "An error occurred while fetching the vote counts.");
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -360,21 +435,54 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Social/Story/Downvote", Name = "DownvoteSocialStory")]
         public async Task<IActionResult> DownvoteSocialStory([FromBody] StoryVoteRequest request)
         {
+            _logger.LogInformation($"POST /Social/Story/Downvote (StoryId = {request.StoryId}, UserId = {request.User.Id}, Downvote = {request.Downvote})");
+
             try
             {
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await connection.OpenAsync();
 
-                    var command = new MySqlCommand("INSERT INTO story_votes (story_id, user_id, upvote, downvote) VALUES (@storyId, @userId, 0, @downvote) ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote", connection);
+                    var command = new MySqlCommand(
+                        @"INSERT INTO story_votes (story_id, user_id, upvote, downvote) 
+                  VALUES (@storyId, @userId, 0, @downvote) 
+                  ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote; 
+                  SELECT LAST_INSERT_ID();"
+                        , connection);
                     command.Parameters.AddWithValue("@storyId", request.StoryId);
                     command.Parameters.AddWithValue("@userId", request.User.Id);
                     command.Parameters.AddWithValue("@downvote", request.Downvote);
 
-                    await command.ExecuteNonQueryAsync();
-                }
+                    var result = Convert.ToInt32(await command.ExecuteScalarAsync());
 
-                return Ok("Story downvoted successfully.");
+                    // Query to get the updated counts
+                    var countCommand = new MySqlCommand(
+                        @"SELECT 
+                            SUM(CASE WHEN upvote = 1 THEN 1 ELSE 0 END) AS upvoteCount, 
+                            SUM(CASE WHEN downvote = 1 THEN 1 ELSE 0 END) AS downvoteCount 
+                          FROM story_votes 
+                          WHERE story_id = @storyId;", connection);
+                    countCommand.Parameters.AddWithValue("@storyId", request.StoryId);
+
+                    using (var reader = await countCommand.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            var upvotes = reader.GetInt32("upvoteCount");
+                            var downvotes = reader.GetInt32("downvoteCount");
+
+                            return Ok(new UpDownVoteCounts()
+                            {
+                                Upvotes = upvotes,
+                                Downvotes = downvotes,
+                            });
+                        }
+                        else
+                        {
+                            return StatusCode(500, "An error occurred while fetching the vote counts.");
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -386,21 +494,54 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Social/Comment/Upvote", Name = "UpvoteSocialComment")]
         public async Task<IActionResult> UpvoteComment([FromBody] CommentVoteRequest request)
         {
+            _logger.LogInformation($"POST /Social/Comment/Upvote (CommentId = {request.CommentId}, UserId = {request.User.Id}, Downvote = {request.Downvote})");
+
             try
             {
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await connection.OpenAsync();
 
-                    var command = new MySqlCommand("INSERT INTO story_comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, @upvote, 0) ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0", connection);
+                    var command = new MySqlCommand(
+                        @"INSERT INTO story_comment_votes (comment_id, user_id, upvote, downvote) 
+                  VALUES (@commentId, @userId, @upvote, 0) 
+                  ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0; 
+                  SELECT LAST_INSERT_ID();"
+                        , connection);
                     command.Parameters.AddWithValue("@commentId", request.CommentId);
                     command.Parameters.AddWithValue("@userId", request.User.Id);
                     command.Parameters.AddWithValue("@upvote", request.Upvote);
 
-                    await command.ExecuteNonQueryAsync();
-                }
+                    var result = Convert.ToInt32(await command.ExecuteScalarAsync());
 
-                return Ok("Comment upvoted successfully.");
+                    // Query to get the updated counts
+                    var countCommand = new MySqlCommand(
+                        @"SELECT 
+                    SUM(CASE WHEN upvote = 1 THEN 1 ELSE 0 END) AS upvoteCount, 
+                    SUM(CASE WHEN downvote = 1 THEN 1 ELSE 0 END) AS downvoteCount 
+                  FROM story_comment_votes 
+                  WHERE comment_id = @commentId;", connection);
+                    countCommand.Parameters.AddWithValue("@commentId", request.CommentId);
+
+                    using (var reader = await countCommand.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            var upvotes = reader.GetInt32("upvoteCount");
+                            var downvotes = reader.GetInt32("downvoteCount");
+
+                            return Ok(new UpDownVoteCounts()
+                            {
+                                Upvotes = upvotes,
+                                Downvotes = downvotes,
+                            });
+                        }
+                        else
+                        {
+                            return StatusCode(500, "An error occurred while fetching the vote counts.");
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -412,27 +553,94 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Social/Comment/Downvote", Name = "DownvoteSocialComment")]
         public async Task<IActionResult> DownvoteSocialComment([FromBody] CommentVoteRequest request)
         {
+            _logger.LogInformation($"POST /Social/Comment/Downvote (CommentId = {request.CommentId}, UserId = {request.User.Id}, Downvote = {request.Downvote})");
+
             try
             {
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await connection.OpenAsync();
 
-                    var command = new MySqlCommand("INSERT INTO story_comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, 0, @downvote) ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote", connection);
+
+                    var command = new MySqlCommand(
+                        @"INSERT INTO story_comment_votes (comment_id, user_id, upvote, downvote) 
+                          VALUES (@commentId, @userId, 0, @downvote) 
+                          ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote; 
+                          SELECT LAST_INSERT_ID();"
+                        , connection); 
                     command.Parameters.AddWithValue("@commentId", request.CommentId);
                     command.Parameters.AddWithValue("@userId", request.User.Id);
                     command.Parameters.AddWithValue("@downvote", request.Downvote);
+                    var result = Convert.ToInt32(await command.ExecuteScalarAsync());
 
-                    await command.ExecuteNonQueryAsync();
-                }
+                    // Query to get the updated counts
+                    var countCommand = new MySqlCommand(
+                        @"SELECT 
+                            SUM(CASE WHEN upvote = 1 THEN 1 ELSE 0 END) AS upvoteCount, 
+                            SUM(CASE WHEN downvote = 1 THEN 1 ELSE 0 END) AS downvoteCount 
+                          FROM story_comment_votes 
+                          WHERE comment_id = @commentId;", connection);
+                    countCommand.Parameters.AddWithValue("@commentId", request.CommentId);
 
-                return Ok("Comment downvoted successfully.");
+                    using (var reader = await countCommand.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            var upvotes = reader.GetInt32("upvoteCount");
+                            var downvotes = reader.GetInt32("downvoteCount");
+                            return Ok(new UpDownVoteCounts()
+                            {
+                                Upvotes = upvotes,
+                                Downvotes = downvotes
+                            });
+                        }
+                        else
+                        {
+                            return StatusCode(500, "An error occurred while fetching the vote counts.");
+                        }
+                    }
+                } 
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while downvoting the comment.");
                 return StatusCode(500, "An error occurred while downvoting the comment.");
             }
+        }
+
+
+        [HttpPost("/Social/Comment/Post", Name = "AddComment")]
+        public async Task<IActionResult> AddComment([FromBody] AddCommentRequest request)
+        {
+            _logger.LogInformation($"POST /Social/Comment/Post (User Id = {request.User?.Id}, comment = {request.Comment}, storyId = {request.StoryId})");
+
+            try
+            {
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await connection.OpenAsync();
+
+                    var command = new MySqlCommand("INSERT INTO story_comments (story_id, user_id, text) VALUES (@story_id, @user_id, @text);", connection);
+                    command.Parameters.AddWithValue("@story_id", request.StoryId);
+                    command.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
+                    command.Parameters.AddWithValue("@text", request.Comment);
+
+ 
+                    int rowsAffected = await command.ExecuteNonQueryAsync();
+
+                    if (rowsAffected == 1)
+                    {
+                        // Fetch the last inserted ID
+                        return Ok((int)(command.LastInsertedId));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while adding the comment.");
+                return StatusCode(500, "An error occurred while adding the comment.");
+            }
+            return BadRequest(0);
         }
 
         [HttpPost("/Social/GetMetadata")]
@@ -443,7 +651,7 @@ namespace maxhanna.Server.Controllers
                 _logger.LogInformation($"Getting metadata for user : {request.User.Id} for url: {request.Url} for storyId: {storyId}");
                 var metadata = await FetchMetadataAsync(request.Url);
 
-                if(storyId != null && storyId != 0)
+                if (storyId != null && storyId != 0)
                 {
                     _logger.LogInformation($"Inserting metadata for story {storyId}");
                     return Ok(await InsertMetadata((int)storyId, metadata));
@@ -475,12 +683,13 @@ namespace maxhanna.Server.Controllers
                     }
                 }
                 _logger.LogInformation($"Inserted metadata {metadata} for storyId {storyId}");
-            } catch
+            }
+            catch
             {
                 return "Could not insert metadata";
             }
             return "Inserted metadata";
-            
+
         }
 
         private static string? ExtractUrl(string? text)
@@ -496,7 +705,7 @@ namespace maxhanna.Server.Controllers
             var matches = System.Text.RegularExpressions.Regex.Matches(text, urlPattern);
 
             // Return the first match if found, otherwise return null
-             return matches.Count > 0 ? matches[0].Value : null;
+            return matches.Count > 0 ? matches[0].Value : null;
         }
 
         private async Task<MetadataDto> FetchMetadataAsync(string url)
@@ -506,7 +715,7 @@ namespace maxhanna.Server.Controllers
             var html = await response.Content.ReadAsStringAsync();
 
             var htmlDocument = new HtmlDocument();
-            htmlDocument.LoadHtml(html); 
+            htmlDocument.LoadHtml(html);
             var metadata = new MetadataDto();
             _logger.LogInformation($"Got HTML for {url}.");
 
@@ -531,6 +740,6 @@ namespace maxhanna.Server.Controllers
 
             return metadata;
         }
-        
+
     }
 }

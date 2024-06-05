@@ -10,9 +10,11 @@ export class ChildComponent {
   public parentRef?: AppComponent;
   asc: [string, number][] =[];
 
-  remove_me() {
+  remove_me(componentTitle: string) {
     if (this.parentRef && this.unique_key) {
       this.parentRef.removeComponent(this.unique_key);
+    } else {
+      console.log("key not found: " + componentTitle);
     }
   }
   startLoading() {

@@ -1,13 +1,14 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me();"></div>
+  <div class="closeButton" (click)="remove_me('SocialComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Social</div>
+  <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
 
   <div class="inputDiv">
     <textarea #story
               placeholder="Food for thought"
               class="foodForThought"
-              (focus)="focusInput()"></textarea> 
+              (focus)="focusInput()"></textarea>
     <input type="submit" (click)="post()" class="createStoryButton" value="🍌" />
     <app-file-upload (userUploadEvent)="uploadInitiate();"
                      (userUploadFinishedEvent)="uploadFinished($event)"
@@ -16,7 +17,7 @@
                      [currentDirectory]="'Users/'+parentRef?.user?.username"
                      [user]="parentRef?.user"
                      [showPrivatePublicOption]="false">
-    </app-file-upload> 
+    </app-file-upload>
     <div *ngIf="attachedFiles.length > 0"> Attached: {{attachedFiles[0].name}}</div>
   </div>
 
@@ -24,30 +25,62 @@
     <input type="text" #search placeholder="Search" (keyup.enter)="searchStories()" />
     <input type="submit" (click)="searchStories()" class="createStoryButton" value="🔍" />
   </div>
-
-  <div *ngFor="let story of stories" class="storyContainer">
-    <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
-    <div class="storyUsername">{{story.user.username}} </div>
-    <div class="storyDate">{{story.date?.toString()?.replace('T', '@')}}</div>
-    <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
-      <div>Attachments:</div>
-      <div *ngFor="let file of story.storyFiles" (click)="loadFile(file.name, 'Users/'+story?.user?.username+'/'+file.name, story.id)" class="attachment">
-        <span class="attachedFileSpan">🍌{{file.name}}</span>
-        <div [id]="'attachmentContainer'+story.id+file.id" class="attachmentContainer" *ngIf="selectedAttachment == file.name && selectedStoryId == story.id">
-          <img [src]="selectedAttachmentUrl" alt="Attachment" class="attachmentImage" *ngIf="fileType?.includes('image') && selectedAttachment == file.name && selectedStoryId == story.id" />
-          <video [src]="selectedAttachmentUrl" controls preload="auto" autoplay class="attachmentVideo" *ngIf="fileType?.includes('video') && selectedAttachment == file.name && selectedStoryId == story.id"></video>
-          <div *ngIf="!fileType" class="fileNotImageOrVideo">🥷</div>
-          <div *ngIf="fileType">File type: {{fileType}}</div>
-          <div *ngIf="file.username">Uploader: {{file.username}}</div>
-          <div *ngIf="file.date">Uploaded: {{file.date}}</div>
-          <div *ngIf="file" (click)="download(file.name, story.user)" class="downloadAttachmentLink">Download</div>
+  <div class="mainTableDiv">
+    <div *ngFor="let story of stories" class="storyContainer" [id]="'storyDiv'+story.id">
+      <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
+      <div class="storyUsername">{{story.user.username}} </div>
+      <div class="storyDate">{{story.date?.toString()?.replace('T', '@')}}</div>
+      <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
+        <div>Attachments:</div>
+        <div *ngFor="let file of story.storyFiles" (click)="loadFile(file.name, 'Users/'+story?.user?.username+'/'+file.name, story.id)" class="attachment">
+          <span class="attachedFileSpan">🍌{{file.name}}</span>
+          <div [id]="'attachmentContainer'+story.id+file.id" class="attachmentContainer" *ngIf="selectedAttachment == file.name && selectedStoryId == story.id">
+            <img [src]="selectedAttachmentUrl" alt="Attachment" class="attachmentImage" *ngIf="fileType?.includes('image') && selectedAttachment == file.name && selectedStoryId == story.id" />
+            <video [src]="selectedAttachmentUrl" controls preload="auto" autoplay class="attachmentVideo" *ngIf="fileType?.includes('video') && selectedAttachment == file.name && selectedStoryId == story.id"></video>
+            <div *ngIf="!fileType" class="fileNotImageOrVideo">🥷</div>
+            <div *ngIf="fileType">File type: {{fileType}}</div>
+            <div *ngIf="file.username">Uploader: {{file.username}}</div>
+            <div *ngIf="file.date">Uploaded: {{file.date}}</div>
+            <div *ngIf="file" (click)="download(file.name, story.user)" class="downloadAttachmentLink">Download</div>
+          </div>
         </div>
       </div>
+      <div *ngIf="story.metadata">
+        <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
+        <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story?.metadata?.description)"></div>
+        <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
+      </div>
+      <div class="commentVoteButtons">
+        <button (click)="upvoteStory(story)" class="vote-button">👍</button>
+        <span class="vote-count">{{ story.upvotes }}</span>
+        <button (click)="downvoteStory(story)" class="vote-button">👎</button>
+        <span class="vote-count">{{ story.downvotes }}</span>
+      </div>
+      <!-- Comments Section -->
+      <div>
+        <div class="commentsHeader"
+             [style.cursor]="!story.storyComments || story.storyComments.length <= 0 ? 'default' : 'pointer'">
+          Comments <span *ngIf="story.storyComments">({{story.storyComments!.length}})</span>
+        </div>
+        <div class="commentsInputArea">
+          <input type="text" placeholder="💭Add a comment..." [id]="'addCommentInput'+story.id" class="addCommentTextArea" (keyup.enter)="addComment(story, $event)" />
+          <button type="submit" (click)="addComment(story, $event)">🗨️</button>
+        </div>
+        <div class="comments-section" *ngIf="story.storyComments">
+          <div *ngFor="let comment of story.storyComments!">
+            <div class="commentUsername">{{ comment.username }}:</div>
+            <div class="commentText">{{ comment.text }}</div>
+            <div class="commentVoteButtons">
+              <button (click)="upvoteComment(comment)" class="vote-button">👍</button>
+              <span class="vote-count">{{ comment.upvotes }}</span>
+              <button (click)="downvoteComment(comment)" class="vote-button">👎</button>
+              <span class="vote-count">{{ comment.downvotes }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End Comments Section -->
+      <button (click)="copyLink(story.id!)" title="Share Link">Share 📋</button>
     </div>
-    <div *ngIf="story.metadata">
-      <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
-      <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story?.metadata?.description)"></div>
-      <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
-    </div>
-  </div>
+  </div> 
 </div>

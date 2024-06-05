@@ -1,7 +1,5 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { lastValueFrom } from 'rxjs';
 import { CalendarEntry } from '../../services/datacontracts/calendar-entry';
 import { CalendarDate } from '../../services/datacontracts/calendar-date';
 import { CalendarService } from '../../services/calendar.service';

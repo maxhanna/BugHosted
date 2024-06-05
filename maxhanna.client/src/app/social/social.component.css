@@ -100,13 +100,13 @@
   color: var(--main-highlight-color);
 }
 
-.attachedFileSpan {
-  border: var(--main-border);
+.attachedFileSpan { 
   cursor: pointer;
 }
 
 .attachment {
   display: inline-block;
+  border: var(--main-border);
 }
 
 .fileNotImageOrVideo {

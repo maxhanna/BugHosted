@@ -7,6 +7,8 @@ import { User } from '../../services/datacontracts/user';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileService } from '../../services/file.service';
+import { UpDownVoteCounts } from '../../services/datacontracts/up-down-vote-counts';
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-social',
@@ -32,16 +34,35 @@ export class SocialComponent extends ChildComponent implements OnInit {
   videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
   fileType: string | undefined;
   abortAttachmentRequestController: AbortController | null = null;
+  notifications: String[] = [];
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
 
-  constructor(private socialService: SocialService, private fileService: FileService, private sanitizer: DomSanitizer) {
+  storyId: number | null = null;
+  constructor(private socialService: SocialService, private fileService: FileService, private sanitizer: DomSanitizer, private route: ActivatedRoute) {
     super();
   }
 
   async ngOnInit() {
-    this.getStories(); 
+    await this.getStories();
+
+    this.route.paramMap.subscribe(params => {
+      this.storyId = parseInt(params.get('storyId')!);
+      console.log("got storyid " + this.storyId);
+      if (this.storyId) {
+        this.scrollToStory(this.storyId);
+      }
+    });
+  }
+
+  scrollToStory(storyId: number): void {
+    setTimeout(() => {
+      const element = document.getElementById('storyDiv' + storyId); 
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
+      }
+    }, 1110);
   }
 
   uploadInitiate() {
@@ -51,13 +72,23 @@ export class SocialComponent extends ChildComponent implements OnInit {
     this.attachedFiles = this.attachedFiles.concat(files);
   }
 
+  copyLink(storyId: number) {
+    const link = `https://maxhanna.ca/Social/${storyId}`;
+    navigator.clipboard.writeText(link).then(() => {
+      this.notifications.push('Link copied to clipboard!');
+    }).catch(err => {
+      this.notifications.push('Failed to copy link!');
+    });
+  }
+
   uploadNotification(notification: string) {
 
   }
 
-  cancelMakeDirectoryOrFile() { }
-
-
+  cancelMakeDirectoryOrFile() { 
+  }
+   
+        
   async loadFile(fileName: string, fileNamePath?: string, storyId?: number) {
     this.loading = true;
     if (!fileNamePath) { return; }
@@ -80,10 +111,10 @@ export class SocialComponent extends ChildComponent implements OnInit {
       const response = await this.fileService.getFile(this.parentRef?.user!, fileNamePath, {
         signal: this.abortAttachmentRequestController.signal
       });
+      if (!response || response == null) return;
 
-      const contentDisposition = response!.headers["content-disposition"];
+      const contentDisposition = response.headers["content-disposition"];
       this.selectedAttachmentFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
-      console.log("attachment file extension " + this.selectedAttachmentFileExtension);
       if (this.videoFileExtensions.includes(this.selectedAttachmentFileExtension!)) {
         this.fileType = `video/${this.selectedAttachmentFileExtension}`;
       } else if (this.imageFileExtensions.includes(this.selectedAttachmentFileExtension!)) {
@@ -94,11 +125,13 @@ export class SocialComponent extends ChildComponent implements OnInit {
       }
 
       const type = this.fileType;
-      const blob = new Blob([response!.blob], { type });
+      const blob = new Blob([response.blob], { type });
       const reader = new FileReader();
       reader.readAsDataURL(blob);
-      reader.onloadend = () => {  
-        this.selectedAttachmentUrl = reader.result as string;
+      reader.onloadend = () => {
+        setTimeout(() => {
+          this.selectedAttachmentUrl = reader.result as string;
+       }, 1);
       };
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -165,14 +198,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
  
   async like() {
 
-  }
-  async comment() {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
-  }
-  async share() {
-
-  }
+  } 
   async searchStories() {
     const search = this.search.nativeElement.value;
     if (search) {
@@ -202,6 +228,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
       upvotes: 0,
       downvotes: 0,
       commentsCount: 0,
+      storyComments: undefined,
       metadata: undefined,
       storyFiles: this.attachedFiles
     };
@@ -215,29 +242,63 @@ export class SocialComponent extends ChildComponent implements OnInit {
     }
   }
 
-
-  async upvoteStory(story: Story) {
-    const res = await this.socialService.upvoteComment(this.parentRef?.user!, story.id!, true);
-    if (res) {
-      story.upvotes!++;
+  async addComment(story: Story, event: Event) {
+    if (!story || !story.id) { return alert("Invalid story glitch"); }
+    console.log(story.id);
+    console.log(event);
+    const text = (document.getElementById("addCommentInput" + story.id) as HTMLInputElement).value;
+    const commentId = await this.socialService.comment(story.id!, text, this.parentRef?.user);
+    if (commentId) {
+      let tmpComment = new StoryComment();
+      tmpComment.id = parseInt(commentId);
+      tmpComment.storyId = story.id;
+      tmpComment.text = text;
+      tmpComment.upvotes = 0;
+      tmpComment.downvotes = 0;
+      tmpComment.userId = this.parentRef?.user?.id ?? 0;
+      tmpComment.username = this.parentRef?.user?.username ?? "Anonymous";
+      story.storyComments!.push(tmpComment);
     }
   }
 
-  async downvoteMeme(story: Story) {
-    const res = await this.socialService.downvoteComment(this.parentRef?.user!, story.id!, true);
+  async upvoteStory(story: Story) {
+    const res = await this.socialService.upvoteStory(this.parentRef?.user!, story.id!, true);
+    console.log("upvote story");
     if (res) {
-      story.downvotes!++;
+      console.log(res);
+      story.upvotes! = res.upvotes!;
+      story.downvotes! = res.downvotes!;
+    } 
+  }
+
+  async downvoteStory(story: Story) {
+    const res = await this.socialService.downvoteStory(this.parentRef?.user!, story.id!, true);
+    if (res) {
+      console.log(res);
+      story.upvotes! = res.upvotes!;
+      story.downvotes! = res.downvotes!;
+    }
+  }
+
+  async upvoteComment(comment: StoryComment) {
+    const res = await this.socialService.upvoteComment(this.parentRef?.user!, comment.id!, true);
+    if (res) {
+      comment.upvotes! = res.upvotes!;
+      comment.downvotes! = res.downvotes!;
+    }
+  }
+  async downvoteComment(comment: StoryComment) {
+    const res = await this.socialService.downvoteComment(this.parentRef?.user!, comment.id!, true);
+    if (res) {
+      comment.upvotes! = res.upvotes!;
+      comment.downvotes! = res.downvotes!;
     }
   }
   
   extractUrl(text: string) {
     // Regular expression pattern to match URLs
     const urlPattern = /(https?:\/\/[^\s]+)/g;
-
-    // Match URLs in the text
     const matches = text.match(urlPattern);
-
-    // Return the first match if found, otherwise return null
     return matches ? matches[0] : null;
   }
 

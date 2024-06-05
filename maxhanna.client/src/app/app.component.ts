@@ -9,8 +9,7 @@ import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
 import { TodoComponent } from './todo/todo.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
-import { MusicComponent } from './music/music.component';
-import { GameComponent } from './game/game.component';
+import { MusicComponent } from './music/music.component'; 
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
@@ -21,6 +20,7 @@ import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { NewsComponent } from './news/news.component';
 import { NavigationComponent } from './navigation/navigation.component';
+import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 
 
 @Component({
@@ -28,10 +28,11 @@ import { NavigationComponent } from './navigation/navigation.component';
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
+  showMainContent: boolean = true;
 
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>()
@@ -46,8 +47,7 @@ export class AppComponent {
     { icon: "🎼", title: "Music", content: undefined },
     { icon: "📁", title: "Files", content: undefined },
     { icon: "🗒️", title: "Notepad", content: undefined },
-    { icon: "📇", title: "Contacts", content: undefined },
-    //{ icon: "G", title: "Game", content: undefined },
+    { icon: "📇", title: "Contacts", content: undefined }, 
     { icon: "🎮", title: "Gameboy Color", content: undefined },
     { icon: "💵", title: "Coin-Wallet", content: undefined },
     { icon: "₿", title: "Coin-Watch", content: undefined },
@@ -57,40 +57,50 @@ export class AppComponent {
     { icon: "🌐", title: "Social", content: undefined },
     { icon: "👤", title: "User", content: undefined },
   ];
+
+
+  private componentMap: { [key: string]: any } = {
+    "Favourites": FavouritesComponent,
+    "Coin-Watch": CoinWatchComponent,
+    "Calendar": CalendarComponent,
+    "Weather": WeatherComponent,
+    "MiningDevices": MiningDevicesComponent,
+    "MiningRigs": MiningRigsComponent,
+    "Files": FileComponent,
+    "Todo": TodoComponent,
+    "Music": MusicComponent,
+    "Notepad": NotepadComponent,
+    "Contacts": ContactsComponent,
+    "Gameboy Color": GbcComponent,
+    "News": NewsComponent,
+    "Coin-Wallet": CoinWalletComponent,
+    "User": UserComponent,
+    "Chat": ChatComponent,
+    "Social": SocialComponent,
+    "Meme": MemeComponent
+  };
   userSelectedNavigationItems: Array<MenuItem> = []
-  constructor() {
+  constructor(private router: Router, private activatedRoute: ActivatedRoute) {
+  }
+  ngOnInit() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
-    } else {
+    }
+
+    this.router.events.subscribe((event) => {
+      if (event instanceof NavigationEnd) {
+        this.showMainContent = !event.url.startsWith('/Memes/') && !event.url.startsWith('/Social/');
+      }
+    });
+
+    if (!this.user && this.showMainContent) {
       setTimeout(() => this.createComponent("User"), 0); //setTimeout required to avoid ChangeDetectorRef error
     }
-  } 
+  }
   createComponent(componentType: string) {
     if (!componentType || componentType.trim() === "") return null;
 
-    const componentMap: { [key: string]: any } = {
-      "Favourites": FavouritesComponent,
-      "Coin-Watch": CoinWatchComponent,
-      "Calendar": CalendarComponent,
-      "Weather": WeatherComponent,
-      "MiningDevices": MiningDevicesComponent,
-      "MiningRigs": MiningRigsComponent,
-      "Files": FileComponent,
-      "Todo": TodoComponent,
-      "Music": MusicComponent,
-      "Notepad": NotepadComponent,
-      "Contacts": ContactsComponent,
-      "Game": GameComponent,
-      "Gameboy Color": GbcComponent,
-      "News": NewsComponent,
-      "Coin-Wallet": CoinWalletComponent,
-      "User": UserComponent,
-      "Chat": ChatComponent,
-      "Social": SocialComponent,
-      "Meme": MemeComponent
-    };
-
-    const componentClass = componentMap[componentType];
+    const componentClass = this.componentMap[componentType];
     if (!componentClass) { return null; }
 
     const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
@@ -132,7 +142,7 @@ export class AppComponent {
     );
   }
 
-  removeAllComponents() { 
+  removeAllComponents() {
     if (this.VCR.length < 1) return;
 
     const userComponentRef = this.componentsReferences.find(componentRef => componentRef.instance instanceof UserComponent);

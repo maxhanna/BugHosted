@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user';
 import { Story } from './datacontracts/story';
 import { StoryComment } from './datacontracts/story-comment';
+import { UpDownVoteCounts } from './datacontracts/up-down-vote-counts';
 
 @Injectable({
   providedIn: 'root'
@@ -48,6 +49,25 @@ export class SocialService {
       return null;
     }
   }
+  async comment(storyId: number, comment: string, user?: User) {
+    try {
+      const response = await fetch(`/social/comment/post`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, storyId, comment }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`);
+      }
+
+      return await response.text();
+    } catch (error) {
+      throw error;
+    }
+  }
 
   async getComments(storyId: number, user?: User) {
     try {
@@ -88,7 +108,7 @@ export class SocialService {
       if (!res.ok) {
         throw new Error('Failed to upvote comment');
       }
-      return 'Comment upvoted successfully';
+      return await res.json() as UpDownVoteCounts;
     } catch (error) {
       console.error('Error upvoting comment:', error);
       return null;
@@ -114,7 +134,7 @@ export class SocialService {
       if (!res.ok) {
         throw new Error('Failed to downvote comment');
       }
-      return 'Comment downvoted successfully';
+      return await res.json() as UpDownVoteCounts;
     } catch (error) {
       console.error('Error downvoting comment:', error);
       return null;
@@ -139,7 +159,7 @@ export class SocialService {
       if (!res.ok) {
         throw new Error('Failed to upvote comment');
       }
-      return 'Comment upvoted successfully';
+      return await res.json() as UpDownVoteCounts;
     } catch (error) {
       console.error('Error upvoting comment:', error);
       return null;
@@ -165,7 +185,7 @@ export class SocialService {
       if (!res.ok) {
         throw new Error('Failed to downvote comment');
       }
-      return 'Comment downvoted successfully';
+      return await res.json() as UpDownVoteCounts;
     } catch (error) {
       console.error('Error downvoting comment:', error);
       return null;
