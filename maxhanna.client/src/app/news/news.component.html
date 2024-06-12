@@ -8,15 +8,15 @@
 
   <!-- Display list of news articles -->
   <div class="newsList mainTableContainer" *ngIf="newsArticles != null">
-    Newest Articles: (status: {{newsArticles.status}}, # of Results: {{newsArticles.numResults}})
+    Newest Articles: (status: {{newsArticles.status}}, # of Results: {{newsArticles.totalResults}})
     <div *ngFor="let newsArticle of newsArticles.articles">
       <div class="articleContainer" (click)="selectArticle(newsArticle)">
         <div class="articleTitle">{{ newsArticle.title }}</div>
-        <div class="articleDescription">{{ newsArticle.content }}</div>
+        <div class="articleDescription">{{ newsArticle.description }}</div>
         <!-- Additional details -->
         <div class="articleAuthor">Author(s): {{ getAuthors(newsArticle) }}</div>
-        <div class="articleSource">Source: {{ newsArticle.source.domain }}</div>
-        <div class="articleDate">Published Date: {{ newsArticle.pubDate }}</div>
+        <div class="articleSource">Source: {{ newsArticle.source.name }}</div>
+        <div class="articleDate">Published Date: {{ newsArticle.publishedAt }}</div>
         <!-- Add more details here as needed -->
       </div>
     </div>
@@ -27,11 +27,11 @@
     <div class="selectedArticleContent">
       <div class="closeSelectedArticle" (click)="selectedArticle = undefined">✖</div> <!-- Close button -->
       <div class="articleTitle">{{ selectedArticle.title }}</div>
-      <div class="articleContent">{{ selectedArticle.summary }}</div>
+      <div class="articleContent">{{ selectedArticle.description }}</div>
       <div class="articleDetails">
         <div class="articleAuthor">Author(s): {{ getAuthors(selectedArticle) }}</div>
-        <div class="articleSource" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source.domain }}</div>
-        <div class="articleDate">Published Date: {{ selectedArticle.pubDate }}</div>
+        <div class="articleSource" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source.name }}</div>
+        <div class="articleDate">Published Date: {{ selectedArticle.publishedAt }}</div>
         <!-- Add more details here as needed -->
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core'; 
-import { User } from './datacontracts/user'; 
-import { NewsResponse } from './datacontracts/news-data';
+import { User } from './datacontracts/user';  
+import { ArticlesResult } from './datacontracts/news-data';
 
 @Injectable({
   providedIn: 'root'
@@ -19,7 +19,7 @@ export class NewsService {
       if (!res.ok) {
         throw new Error('Failed to fetch news');
       }
-      return await res.json() as NewsResponse;
+      return await res.json() as ArticlesResult;
     } catch (error) {
       console.error('Error fetching news:', error);
       return null;
@@ -42,7 +42,7 @@ export class NewsService {
         throw new Error('Failed to fetch news');
       }
       const data = await res.json();
-      return data as NewsResponse | null;
+      return data as ArticlesResult | null;
     } catch (error) {
       console.error('Error fetching news:', error);
       return null;

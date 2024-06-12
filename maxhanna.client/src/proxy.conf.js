@@ -19,6 +19,9 @@ const PROXY_CONFIG = [
       "/news",
       "/social",
       "/rom",
+      "/topic",
+      "/friend",
+      "/wordler",
     ],
     target,
     secure: false

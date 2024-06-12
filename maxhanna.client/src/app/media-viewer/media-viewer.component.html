@@ -1,0 +1,48 @@
+<!-- Fullscreen Overlay -->
+<div #fullscreenOverlay class="fullscreen-overlay">
+  <span class="close-overlay" (click)="shrink()">✖</span>
+  <img #fullscreenImage class="fullscreen-media" />
+  <video #fullscreenVideo class="fullscreen-media" controls autoplay="autoplay"></video>
+  <div class="shrinkMediaDiv cursorPointer" (click)="shrink()">Shrink {{fileType}} ▢</div>
+</div>
+
+<div class="mediaContainerDiv">
+  <div *ngIf="isLoading" class="loading-spinner">Loading...</div>
+  <div *ngIf="!isLoading && selectedFileSrc != ''" class="mediaDiv">
+    <img #mediaContainer *ngIf="!this.videoFileExtensions.includes(this.selectedFileExtension!)" [src]="selectedFileSrc" alt="file" class="image media" />
+    <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension!)" [src]="selectedFileSrc" controls preload="auto" autoplay class="video media"></video>
+    <span class="filetype">
+      <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ▢</span>
+    </span>
+
+    <div class="filetype">
+      <span (click)="viewProfile(selectedFile?.user)">{{selectedFile?.user?.username}}</span> 🍌 {{selectedFile?.date!.toString().replace('T', ' ')}}
+    </div>
+    <div class="filetype">
+      <button (click)="copyLink(selectedFile!.id)" title="Share Link">Share 📋</button>
+    </div>
+    <!-- Comments Section -->
+    <div class="commentsHeader"
+         [style.cursor]="selectedFile?.fileComments!.length <= 0 ? 'default' : 'pointer'"
+         (click)="showComments = !showComments">
+      Comments ({{selectedFile?.fileComments!.length}})
+    </div>
+    <div class="commentsInputArea">
+      <input type="text" [placeholder]='selectedFile?.fileComments!.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the first to comment!"' [id]="'addCommentInput'+selectedFile!.id" class="addCommentTextArea" (keyup.enter)="addComment($event)" />
+      <button type="submit" (click)="addComment($event)">🗨️</button>
+    </div>
+    <div class="comments-section">
+      <div *ngIf="showComments">
+        <div *ngFor="let comment of selectedFile!.fileComments!">
+          <div class="commentUsername"><span class="cursorPointer" (click)="viewProfile(comment.user)">{{ comment.user.username }}:</span></div>
+          <div class="commentText">{{ comment.commentText }}</div>
+          <div class="commentVoteButtons">
+            <button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>
+            <button (click)="downvoteComment(comment)" class="vote-button" title="Downvote">⬇️{{ comment.downvotes }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End Comments Section -->
+  </div>
+</div>

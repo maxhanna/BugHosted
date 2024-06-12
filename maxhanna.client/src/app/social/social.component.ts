@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, SecurityContext, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, SecurityContext, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Story } from '../../services/datacontracts/story';
 import { StoryComment } from '../../services/datacontracts/story-comment';
@@ -7,8 +7,9 @@ import { User } from '../../services/datacontracts/user';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileService } from '../../services/file.service';
-import { UpDownVoteCounts } from '../../services/datacontracts/up-down-vote-counts';
 import { ActivatedRoute } from '@angular/router';
+import { TopicService } from '../../services/topic.service';
+import { Topic } from '../../services/datacontracts/topic';
 
 @Component({
   selector: 'app-social',
@@ -16,6 +17,7 @@ import { ActivatedRoute } from '@angular/router';
   styleUrls: ['./social.component.css']
 })
 export class SocialComponent extends ChildComponent implements OnInit {
+  @Input() user?: User; 
   fileMetadata: any;
   youtubeMetadata: any;
   stories: Story[] = [];
@@ -27,6 +29,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
   isEditing: number[] = [];
   isUploadInitiate = true;
   attachedFiles: Array<FileEntry> = [];
+  attachedTopics: Array<Topic> = [];
   selectedAttachment: string | undefined;
   selectedStoryId: number | undefined;
   selectedAttachmentUrl: string | undefined;
@@ -35,25 +38,26 @@ export class SocialComponent extends ChildComponent implements OnInit {
   fileType: string | undefined;
   abortAttachmentRequestController: AbortController | null = null;
   notifications: String[] = [];
+  attachedSearchTopics: Array<Topic> = [];
+  revealSearchFilters = false;
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
 
-  storyId: number | null = null;
-  constructor(private socialService: SocialService, private fileService: FileService, private sanitizer: DomSanitizer, private route: ActivatedRoute) {
+  @Input() storyId: number | null = null;
+  constructor(private socialService: SocialService,
+    private fileService: FileService,
+    private sanitizer: DomSanitizer,
+    private route: ActivatedRoute,
+    private topicService: TopicService) {
     super();
   }
 
   async ngOnInit() {
     await this.getStories();
-
-    this.route.paramMap.subscribe(params => {
-      this.storyId = parseInt(params.get('storyId')!);
-      console.log("got storyid " + this.storyId);
-      if (this.storyId) {
-        this.scrollToStory(this.storyId);
-      }
-    });
+    if (this.storyId) {
+      this.scrollToStory(this.storyId);
+    }
   }
 
   scrollToStory(storyId: number): void {
@@ -63,6 +67,10 @@ export class SocialComponent extends ChildComponent implements OnInit {
         element.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
       }
     }, 1110);
+  }
+
+  async onTopicAdded(topics: Array<Topic>) {
+    this.attachedTopics = topics;
   }
 
   uploadInitiate() {
@@ -108,9 +116,9 @@ export class SocialComponent extends ChildComponent implements OnInit {
 
       this.abortAttachmentRequestController = new AbortController();
 
-      const response = await this.fileService.getFile(this.parentRef?.user!, fileNamePath, {
+      const response = await this.fileService.getFile(fileNamePath, {
         signal: this.abortAttachmentRequestController.signal
-      });
+      }, this.parentRef?.user);
       if (!response || response == null) return;
 
       const contentDisposition = response.headers["content-disposition"];
@@ -150,7 +158,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
     const target = "Users/" + user.username + "/" + fileName;
     try {
       this.startLoading();
-      const response = await this.fileService.getFile(this.parentRef?.user!, target);
+      const response = await this.fileService.getFile(target, undefined, this.parentRef?.user);
       const blob = new Blob([response?.blob!], { type: 'application/octet-stream' });
 
       const a = document.createElement('a');
@@ -169,14 +177,12 @@ export class SocialComponent extends ChildComponent implements OnInit {
   }
   getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
     if (!contentDisposition) return '';
-    console.log(contentDisposition);
 
     // Look for filename="..." and extract the substring
     const filenameStart = contentDisposition.indexOf('filename=') + 10; // 10 to account for the length of 'filename="'
     const filenameEnd = contentDisposition.indexOf('"', filenameStart);
     if (filenameStart >= 10 && filenameEnd > filenameStart) {
       const filename = contentDisposition.substring(filenameStart, filenameEnd);
-      console.log("filename: " + filename);
       return filename.split('.').pop() || '';
     }
 
@@ -187,26 +193,30 @@ export class SocialComponent extends ChildComponent implements OnInit {
       const utf8Match = filenameEncodedPart.match(/^filename\*=(UTF-8'')?(.+)$/);
       if (utf8Match && utf8Match[2]) {
         const filename = decodeURIComponent(utf8Match[2].replace(/'/g, ''));
-        console.log("decoded filename: " + filename);
         return filename.split('.').pop() || '';
       }
     }
 
     return '';
   }
-
- 
-  async like() {
-
-  } 
+   
   async searchStories() {
     const search = this.search.nativeElement.value;
     if (search) {
       await this.getStories(search);
+    } else {
+      await this.getStories();
     }
   }
 
   async getStories(keywords?: string) {
+    if (this.user) {
+      const res = await this.socialService.getStories(this.parentRef?.user!, this.user.username);
+      if (res) {
+        this.stories = res;
+      }
+      return;
+    }
     const search = keywords ?? this.search?.nativeElement.value;
     const res = await this.socialService.getStories(this.parentRef?.user!, search);
     if (res) {
@@ -230,10 +240,12 @@ export class SocialComponent extends ChildComponent implements OnInit {
       commentsCount: 0,
       storyComments: undefined,
       metadata: undefined,
-      storyFiles: this.attachedFiles
+      storyFiles: this.attachedFiles,
+      storyTopics: this.attachedTopics
     };
 
     this.attachedFiles = [];
+    this.attachedTopics = [];
 
     const res = await this.socialService.postStory(this.parentRef?.user!, newStory);
     if (res) {
@@ -244,9 +256,10 @@ export class SocialComponent extends ChildComponent implements OnInit {
 
   async addComment(story: Story, event: Event) {
     if (!story || !story.id) { return alert("Invalid story glitch"); }
-    console.log(story.id);
-    console.log(event);
+
     const text = (document.getElementById("addCommentInput" + story.id) as HTMLInputElement).value;
+    (document.getElementById("addCommentInput" + story.id) as HTMLInputElement).value = '';
+
     const commentId = await this.socialService.comment(story.id!, text, this.parentRef?.user);
     if (commentId) {
       let tmpComment = new StoryComment();
@@ -255,17 +268,15 @@ export class SocialComponent extends ChildComponent implements OnInit {
       tmpComment.text = text;
       tmpComment.upvotes = 0;
       tmpComment.downvotes = 0;
-      tmpComment.userId = this.parentRef?.user?.id ?? 0;
-      tmpComment.username = this.parentRef?.user?.username ?? "Anonymous";
+      tmpComment.user = this.parentRef?.user ?? new User(0, "Anonymous");
+      tmpComment.date = new Date();
       story.storyComments!.push(tmpComment);
     }
   }
 
   async upvoteStory(story: Story) {
     const res = await this.socialService.upvoteStory(this.parentRef?.user!, story.id!, true);
-    console.log("upvote story");
     if (res) {
-      console.log(res);
       story.upvotes! = res.upvotes!;
       story.downvotes! = res.downvotes!;
     } 
@@ -274,7 +285,6 @@ export class SocialComponent extends ChildComponent implements OnInit {
   async downvoteStory(story: Story) {
     const res = await this.socialService.downvoteStory(this.parentRef?.user!, story.id!, true);
     if (res) {
-      console.log(res);
       story.upvotes! = res.upvotes!;
       story.downvotes! = res.downvotes!;
     }
@@ -296,22 +306,19 @@ export class SocialComponent extends ChildComponent implements OnInit {
   }
   
   extractUrl(text: string) {
-    // Regular expression pattern to match URLs
     const urlPattern = /(https?:\/\/[^\s]+)/g;
     const matches = text.match(urlPattern);
     return matches ? matches[0] : null;
   }
 
   createClickableUrls(text?: string): SafeHtml {
-    // Regular expression pattern to match URLs
-    const urlPattern = /(https?:\/\/[^\s]+)/g;
+    if (!text) { return ''; }
+    const urlPattern = /(https?:\/\/[^\s]+)/g; 
 
-    // Replace URLs with clickable <a> tags
-    const sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text!.replace(/\n/g, '<br>') ?? '') || '';
-    const clickableText = sanitizedText.replace(urlPattern, '<a href="$1" target="_blank">$1</a>');
+    text = text.replace(urlPattern, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
+    const sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
 
-    // Further sanitize the clickable text to remove any malicious code
-    return this.sanitizer.bypassSecurityTrustHtml(clickableText);
+    return sanitizedText;
   }
   focusInput(): void {
     setTimeout(() => {

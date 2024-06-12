@@ -18,13 +18,13 @@
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUser">
       <div class="chatHeader">
-        <span style="margin-right:10px;">Chat with <strong>{{ currentChatUser.username }}</strong></span>
+        <span style="margin-right:10px;">Chat with <span class="usernameProfileLink cursorPointer" (click)="viewProfile(currentChatUser);">{{ currentChatUser.username }}</span></span>
         <button (click)="closeChat()">Close Chat with {{ currentChatUser.username }}</button>
       </div>
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
         <div *ngFor="let message of chatHistory" [ngClass]="{'align-left': message.sender.id === parentRef?.user!.id, 'align-right': message.sender.id !== parentRef?.user!.id}">
           <div class="messageContainer">
-            <div class="messageSender">{{ message.sender.username }} <small>({{ formatTimestamp(message.timestamp) }})</small></div>
+            <div class="messageSender"><span class="usernameProfileLink cursorPointer" (click)="viewProfile(message.sender)">{{ message.sender.username }}</span> <small>({{ formatTimestamp(message.timestamp) }})</small></div>
             <div class="messageContent">{{ message.content }}</div>
           </div>
         </div>

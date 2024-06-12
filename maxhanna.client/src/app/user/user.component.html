@@ -1,136 +1,246 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="parentRef?.user!"></div>
+  <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="parentRef?.user! || user"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">Login</div>
-  <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
+  <div class="componentTitle">{{user ? user.username + '\'s profile' : 'Login'}}</div>
 
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
-  <div>
-    <div *ngIf="!parentRef!.user">
-      <div>
-        <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
-        <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" />
+  <div *ngIf="!user">
+    <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
+    <div>
+      <div *ngIf="!parentRef!.user">
+        <div>
+          <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
+          <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" />
+        </div>
+        <div style="width:100%;text-align:center">
+          <input type="submit" value="Login" (click)="login()" />
+          <input type="submit" value="Create User" (click)="createUser()" />
+        </div>
       </div>
-      <div style="width:100%;text-align:center">
-        <input type="submit" value="Login" (click)="login()" />
-        <input type="submit" value="Create User" (click)="createUser()" />
+      <div *ngIf="parentRef!.user" style="width:100%;text-align:center">
+        <div>Logged in as: {{ parentRef!.user.username }}</div>
+        <input type="submit" value="Logout" (click)="logout()" />
+        <input type="submit" value="🗑️" (click)="deleteUser()" title="Delete Account" />
+        <input type="submit" value="🔧" (click)="updateUserDivVisible = !updateUserDivVisible" title="Update Settings" />
       </div>
-    </div>
-    <div *ngIf="parentRef!.user" style="width:100%;text-align:center">
-      <div>Logged in as: {{ parentRef!.user.username }}</div>
-      <input type="submit" value="Logout" (click)="logout()" />
-      <input type="submit" value="🗑️" (click)="deleteUser()" title="Delete Account" />
-      <input type="submit" value="🔧" (click)="updateUserDivVisible = !updateUserDivVisible" title="Update Settings" />
     </div>
   </div>
 
-  <div *ngIf="parentRef!.user && updateUserDivVisible" style="margin-top:15px">
-    <fieldset>
-      <legend>Update:</legend>
+  <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [disabled]="!canAddFriend(user)" (click)="addFriend(user)">Add friend</button>
+  <button *ngIf="user && user != parentRef?.user && friends.includes(user)" (click)="removeFriend(user)">Remove friend</button>
+  <button *ngIf="user && parentRef && parentRef.user && user != parentRef.user" (click)="addContact(user)">Add as Contact</button>
+
+  <div *ngIf="user || parentRef?.user">
+    Friends:
+    <div class="mainTableDiv">
       <table class="mainTable">
-
-        <!--USERNAME / PASSWORD-->
-        <thead (click)="isGeneralToggled = !isGeneralToggled">
+        <thead>
           <tr>
-            <th></th>
-            <th>General</th>
-            <th style="text-align:right;">
-              <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled">🔄</button>
-            </th>
+            <th>Username</th>
+            <th>Actions</th>
           </tr>
         </thead>
-        <tbody *ngIf="isGeneralToggled">
-          <tr>
-            <td>Name:</td>
-            <td><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></td>
-          </tr>
-          <tr>
-            <td>Password:</td>
-            <td><input type="password" placeholder="New Password" #updatedPassword [value]="parentRef!.user!.pass" /></td>
-          </tr>
-        </tbody>
-
-
-        <!-- Menu Icons -->
-        <thead (click)="isMenuIconsToggled = !isMenuIconsToggled; getMenuIcons()">
-          <tr>
-            <th></th>
-            <th colspan="2">Menu Icons</th>
-          </tr>
-        </thead>
-        <tbody *ngIf="isMenuIconsToggled">
-          <tr>
+        <tbody>
+          <tr *ngFor="let friend of friends">
+            <td (click)="viewProfile(friend)" class="usernameProfileLink cursorPointer">{{friend.username}}</td>
             <td>
-            <td>Available/Selected:</td>
-            <td class="menuIconsTd">
-              <ng-container *ngFor="let icon of parentRef!.navigationItems">
-                <ng-container *ngIf="icon.title !== 'Close Menu' && icon.title !== 'User'">
-                  <span (click)="selectMenuIcon(icon.title)" [class]="menuIconsIncludes(icon.title) ? 'menuIcon selectedIcon' : 'menuIcon'" [title]="icon.title">
-                    <ng-container *ngIf="icon.title !== 'Weather'; else sunEmoji">{{ icon.icon }}</ng-container>
-                    <ng-template #sunEmoji>☀️</ng-template>
-                  </span>
-                </ng-container>
-              </ng-container>
+              <button title="Remove Friend"
+                      (click)="removeFriend(friend)">
+                ❌
+              </button>
             </td>
-
           </tr>
         </tbody>
+      </table>
+    </div>
+    <div *ngIf="isLoading && (!friends)">Loading friends list...</div>
+    <div *ngIf="!isLoading && (!friends)">Friends list is empty.</div>
+  </div>
+  <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)" style="margin-top:15px">
+    Friend Requests:
 
-        <!--Weather-->
-        <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()">
+    <div class="mainTableDiv">
+      <table class="mainTable" *ngIf="friendRequests.length > 0">
+        <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let request of friendRequests">
+            <td><span (click)="viewProfile(request.sender)" class="usernameProfileLink cursorPointer">{{request.sender.username}}</span></td>
+            <td><span (click)="viewProfile(request.receiver)" class="usernameProfileLink cursorPointer">{{request.receiver.username}}</span></td>
+            <td>{{request.createdAt}}</td>
+            <td>{{request.updatedAt}}</td>
+            <td>{{request.status == 1 + '' ? 'Accepted' : request.status == 2 + '' ? 'Rejected' : 'Pending'}}</td>
+            <td>
+              <button title="Accept Friendship"
+                      (click)="acceptFriendshipRequest(request)"
+                      *ngIf="request.sender.username != parentRef?.user?.username
+                          && (request.status != 2 + '' && request.status != 1 + '')">
+                ✅
+              </button>
+              <button title="Deny Friendship"
+                      (click)="denyFriendshipRequest(request)"
+                      *ngIf="request.status != 1 + ''">
+                ❌
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div *ngIf="!isLoading && (!friendRequests || friendRequests.length == 0)">No friendship requests.</div>
+    <div *ngIf="isLoading">Loading friendship requests...</div>
+  </div>
+  <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
+    Wordler Scores:
+    <div *ngIf="wordlerScores.length > 0" class="mainTableDiv">
+      <table *ngIf="wordlerScores && wordlerScores.length > 0" class="mainTable" id="scoreTable">
+        <thead>
           <tr>
-            <th><span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
-      but you can also set your own City for a more precise location."></span></th>
-            <th>Weather Location</th>
-            <th style="text-align:right;">
-              <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled">🔄</button>
-            </th>
+            <th (click)="sortTable(1, 'scoreTable')">Score</th>
+            <th (click)="sortTable(2, 'scoreTable')">Time</th>
+            <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
+            <th (click)="sortTable(3, 'scoreTable')">Date</th>
           </tr>
         </thead>
-        <tbody *ngIf="isWeatherLocationToggled">
-          <tr>
-            <td></td>
-            <td>Location:</td>
-            <td><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></td>
+        <tbody>
+          <tr *ngFor="let score of wordlerScores">
+            <td>{{score.score + 1}}</td>
+            <td>{{score.time}}</td>
+            <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
+            <td>{{score.submitted!.toString().replace('T', ' ')}}</td>
           </tr>
         </tbody>
+      </table>
+    </div>
+    <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No Worlder scores yet!</div>
+  </div>
+  <div *ngIf="user">
+    <!--Files Uploaded:
+    <div class="profileFiles">
+      <app-file [user]="user"></app-file>
+    </div>-->
+    Stories:
+    <div class="profileStories">
+      <app-social [user]="user"></app-social>
+    </div>
+  </div>
+  <div *ngIf="!user">
+    <div *ngIf="parentRef!.user && updateUserDivVisible" style="margin-top:15px">
+      <fieldset>
+        <legend>Update:</legend>
+        <table class="mainTable">
+
+          <!--USERNAME / PASSWORD-->
+          <thead (click)="isGeneralToggled = !isGeneralToggled">
+            <tr>
+              <th>
+                <span class="helperSpanTitle" title="Change your username or password."></span>
+              </th>
+              <th>General</th>
+              <th style="text-align:right;">
+                <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled">🔄</button>
+              </th>
+            </tr>
+          </thead>
+          <tbody *ngIf="isGeneralToggled">
+            <tr>
+              <td>Name:</td>
+              <td><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></td>
+            </tr>
+            <tr>
+              <td>Password:</td>
+              <td><input type="password" placeholder="New Password" #updatedPassword [value]="parentRef!.user!.pass" /></td>
+            </tr>
+          </tbody>
 
 
+          <!-- Menu Icons -->
+          <thead (click)="isMenuIconsToggled = !isMenuIconsToggled; getMenuIcons()">
+            <tr>
+              <th>
+                <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
+              </th>
+              <th colspan="2">Selectable Menu Items</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="isMenuIconsToggled">
+            <tr>
+              <td></td>
+              <td>Menu:</td>
+              <td class="">
+                <table class="mainTable">
+                  <thead>
+                    <tr>
+                      <th colspan="3">Menu Item</th>
+                    </tr>
+                  </thead>
+                  <tbody *ngIf="selectableIcons">
+                    <tr *ngFor="let icon of selectableIcons" (click)="selectMenuIcon(icon.title)">
+                      <td>
+                        <input type="checkbox"
+                               [checked]="menuIconsIncludes(icon.title)" />
+                      </td>
+                      <td>{{ icon.title == 'Weather' ? '☀️' : icon.icon }}</td>
+                      <td>{{ icon.title }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </tbody>
+
+          <!--Weather-->
+          <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()">
+            <tr>
+              <th>
+                <span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
+    but you can also set your own City for a more precise location."></span>
+              </th>
+              <th>Weather Location</th>
+              <th style="text-align:right;">
+                <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled">🔄</button>
+              </th>
+            </tr>
+          </thead>
+          <tbody *ngIf="isWeatherLocationToggled">
+            <tr>
+              <td></td>
+              <td>Location:</td>
+              <td><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></td>
+            </tr>
+          </tbody>
 
 
-        <!--Nicehash API-->
-        <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()">
-          <tr>
-            <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
-            <th>Nicehash API Keys</th>
-            <th style="text-align:right;">
-              <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled">🔄</button>
-            </th>
-          </tr>
-        </thead>
-        <tbody *ngIf="isNicehashApiKeysToggled">
-          <tr>
-            <td></td>
-            <td>OrgId:</td>
-            <td><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></td>
-          </tr>
-          <tr>
-            <td></td>
-            <td>ApiKey:</td>
-            <td><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></td>
-          </tr>
-          <tr>
-            <td></td>
-            <td>ApiSecret:</td>
-            <td><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></td>
-          </tr>
-        </tbody>
-
-
-
-      </table> 
-      <button (click)="updateUserDivVisible = !updateUserDivVisible">Close</button>
-    </fieldset>
+          <!--Nicehash API-->
+          <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()">
+            <tr>
+              <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
+              <th>Nicehash API Keys</th>
+              <th style="text-align:right;">
+                <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled">🔄</button>
+              </th>
+            </tr>
+          </thead>
+          <tbody *ngIf="isNicehashApiKeysToggled">
+            <tr>
+              <td></td>
+              <td>OrgId:</td>
+              <td><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>ApiKey:</td>
+              <td><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>ApiSecret:</td>
+              <td><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></td>
+            </tr>
+          </tbody>
+        </table>
+        <button (click)="updateUserDivVisible = !updateUserDivVisible">Close</button>
+      </fieldset>
+    </div>
   </div>
 </div>

@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+ import { User } from '../services/datacontracts/user';
 import { AppComponent } from './app.component';
 
 @Component({
@@ -8,7 +9,8 @@ import { AppComponent } from './app.component';
 export class ChildComponent {
   public unique_key?: number;
   public parentRef?: AppComponent;
-  asc: [string, number][] =[];
+  asc: [string, number][] = [];
+  isLoading = false;
 
   remove_me(componentTitle: string) {
     if (this.parentRef && this.unique_key) {
@@ -21,10 +23,17 @@ export class ChildComponent {
     if (document && document.getElementById("loadingDiv")) {
       document.getElementById("loadingDiv")!.style.display = "block";
     }
+    this.isLoading = true;
   }
   stopLoading() {
     if (document && document.getElementById("loadingDiv")) {
       document.getElementById("loadingDiv")!.style.display = "none";
+    }
+    this.isLoading = false;
+  } 
+  viewProfile(user?: User) { 
+    if (user && user.id != 0) {
+      this.parentRef?.createComponent("User", { "user": user });
     }
   }
   sortTable(columnIndex: number, tableId: string): void {

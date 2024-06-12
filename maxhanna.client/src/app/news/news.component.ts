@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { NewsService } from '../../services/news.service';
-import { NewsItem, NewsResponse } from '../../services/datacontracts/news-data';
+import { Article, ArticlesResult } from '../../services/datacontracts/news-data';
 
 @Component({
   selector: 'app-news',
@@ -9,8 +9,8 @@ import { NewsItem, NewsResponse } from '../../services/datacontracts/news-data';
   styleUrl: './news.component.css'
 })
 export class NewsComponent extends ChildComponent implements OnInit {
-  newsArticles?: undefined | NewsResponse;
-  selectedArticle?: NewsItem;
+  newsArticles?: undefined | ArticlesResult;
+  selectedArticle?: Article;
   notifications: string[] = [];
   @ViewChild('searchKeywords') searchKeywords!: ElementRef<HTMLInputElement>;
 
@@ -21,12 +21,12 @@ export class NewsComponent extends ChildComponent implements OnInit {
     this.loadNews();
   }
 
-  async loadNews(data?: NewsResponse) {
+  async loadNews(data?: ArticlesResult) {
     try {
       if (data) {
         this.newsArticles = data;
       } else {
-        this.newsArticles = await this.newsService.getAllNews(this.parentRef?.user!) as NewsResponse;
+        this.newsArticles = await this.newsService.getAllNews(this.parentRef?.user!) as ArticlesResult;
         console.log('newsArticles:', this.newsArticles);
 
         if (this.newsArticles == null) {
@@ -42,7 +42,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
     console.log(url);
     window.open(url, '_blank');
   }
-  selectArticle(article: NewsItem): void {
+  selectArticle(article: Article): void {
     if (this.selectedArticle) {
       this.selectedArticle = undefined;
       return;
@@ -66,13 +66,13 @@ export class NewsComponent extends ChildComponent implements OnInit {
     }
   }
 
-  getAuthors(article: NewsItem): string {
+  getAuthors(article: Article): string {
     // Function to format authors' names
-    if (!article.authorsByline || article.authorsByline === '') {
+    if (!article.author || article.author === '') {
       return 'Unknown';
     } else {
       // Split authors by comma and trim extra spaces
-      const authors = article.authorsByline.split(',').map(author => author.trim());
+      const authors = article.author.split(',').map(author => author.trim());
       return authors.join(', ');
     }
   }

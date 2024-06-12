@@ -11,13 +11,11 @@
 .inputDiv {
   margin-left: auto;
   margin-right: auto;
-  width: 90%;
-  display: flex;
-  justify-content: center;
+  width: 90%;  
 }
 
-  .inputDiv input {
-    height: 35px;
+  .inputDiv input[type=text] {
+    height: 20px;
   }
 
 .foodForThought {
@@ -40,6 +38,7 @@
   display: inline-block;
   border-radius: 3px;
   word-wrap: break-word;
+  font-size: large;
 }
 
 .hidden {
@@ -53,12 +52,7 @@
     max-width: 300px;
   }
 }
-
-.storyUsername {
-  text-shadow: 0.1px 0.1px var(--secondary-font-color);
-  display: inline-block;
-}
-
+ 
 .storyDate {
   color: var(--secondary-font-color);
   font-size: smaller;
@@ -75,7 +69,10 @@
 
 .createStoryButton {
   background-color: var(--main-highlight-color);
-  border: var(--main-border)
+  border: var(--main-border);
+  color: var(--secondary-font-color);
+  font-weight:bold;
+  font-size: 15px;
 }
 
 .metadataImage {
@@ -116,4 +113,66 @@
 .downloadAttachmentLink {
   text-decoration: underline;
   cursor: pointer;
+}
+.storyTopics span {  
+  border: var(--main-border);
+}
+  .storyTopics button {
+    float:right;
+  }
+.storyUserDetails {
+    display: inline-block;
+    width: 100%;
+}
+.commentVoteButtons { 
+  width: 200px;
+  height: 25px;
+  margin-bottom: 10px;
+}
+.commentUsername { 
+} 
+.commentText {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background-color: var(--main-highlight-color);
+  margin-left: 25px;
+  margin-bottom: 5px;
+}
+.commentsSection {
+    border: var(--main-border);
+    padding: 10px;
+}
+.commentDate {
+    font-size: small;
+    color: var(--secondary-font-color);
+}
+.matchingTopic {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 4px;
+  background-color: var(--main-highlight-color);
+  cursor: pointer;
+  border: var(--main-border);
+}
+.chosenTopic 
+{
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 4px;
+  background-color: var(--main-highlight-color);
+  cursor: pointer;
+  border: var(--main-border);
+}
+.mainFileUploaderAndTopicSelectorDiv {
+    display: flex;
+    justify-content: flex-start;
+}
+.searchInputs {
+    margin-left:auto;
+    margin-right:auto;
+    text-align:center;
+}
+.additionalSearchFiltersSpan {
+    font-size:smaller;
 }

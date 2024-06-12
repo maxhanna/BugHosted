@@ -29,7 +29,7 @@
       <tbody *ngIf="todos.length > 0">
         <tr *ngFor="let item of todos" id="todoNo{{item.id!}}">
           <td>{{ item.todo }}</td>
-          <td><a [href]="item.url" target="_blank" *ngIf="item.url">🔗</a></td>
+          <td><a [href]="item.url" [target]="item.url ? '_blank' : ''" *ngIf="item.url">🔗</a></td>
           <td>{{ item.date }}</td>
           <td><input type="button" value="❌" (click)="deleteTodo(item.id!);" id="todoDeleteNo{{item.id!}}" /></td>
         </tr>

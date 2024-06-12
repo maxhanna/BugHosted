@@ -1,19 +1,19 @@
+import { User } from "./user";
+
 export class FileComment {
-  constructor(id: number, fileId: number, userId: number, commentText: string, username: string, upvotes: number, downvotes: number) {
+  constructor(id: number, fileId: number, user: User, commentText: string, upvotes: number, downvotes: number) {
     this.id = id;
     this.fileId = fileId;
-    this.userId = userId;
+    this.user = user;
     this.commentText = commentText;
-    this.username = username;
     this.upvotes = upvotes;
     this.downvotes = downvotes;
   }
 
   id: number;
   fileId: number;
-  userId: number;
-  commentText: string;
-  username: string;
+  user: User;
+  commentText: string; 
   upvotes: number;
   downvotes: number;
 }

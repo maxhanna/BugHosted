@@ -1,20 +1,20 @@
 <button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>
 <div #navbar id="navbar">
   <ng-container *ngFor="let item of _parent.navigationItems">
-    <div *ngIf="(menuIconsIncludes(item.title) && user) || item.title === 'Close Menu' || item.title === 'User' || item.title === 'Meme' || item.title === 'Social'" class="navLinkDiv">
+    <div *ngIf="(menuIconsIncludes(item.title) && user) || item.title === 'Close Menu' || item.title === 'User' || item.title === 'Meme' || item.title === 'Social' || item.title === 'Wordler'" class="navLinkDiv">
       <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
-        <span [title]="item.title">{{item.content || ''}}</span>
+        <span [title]="item.title">{{item.content! || ''}}</span>
       </span>
       <ng-container *ngIf="item.title === 'Weather'; else otherItems">
         <ng-container *ngIf="item.icon !== '☀️'; else defaultWeatherIcon">
           <img [src]="item.icon" [title]="item.title" class="navLink" (click)="goTo($event)" />
         </ng-container>
         <ng-template #defaultWeatherIcon>
-          <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon.substring(0, 3) }}</a>
+          <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
         </ng-template>
       </ng-container>
       <ng-template #otherItems>
-        <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon.substring(0, 3) }}</a>
+        <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
       </ng-template>
     </div>
   </ng-container>

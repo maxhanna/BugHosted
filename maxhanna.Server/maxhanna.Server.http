@@ -102,3 +102,15 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Rom/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/Topic/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Friend/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Wordler/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/Wordler/
+Accept: application/json
+###

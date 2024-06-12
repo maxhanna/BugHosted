@@ -4,13 +4,15 @@
 }
 
 .componentMain {
-  height: 630px;
+  height: 650px;
   width: 381px;
   overflow: unset;
 }
 
 .gamesContainer {
   width: 100%;
+  max-height:200px;
+  overflow: auto;
   text-align: center;
 }
 
@@ -374,12 +376,12 @@
   }
 
 .speaker {
-  position: absolute;
+  position: relative;
   display: flex;
   width: 75px;
   height: 75px;
-  right: 15px;
-  bottom: 5px;
+  right: -274px;
+  bottom: 103px;
   justify-content: space-between;
   flex-wrap: wrap;
   z-index: 100;

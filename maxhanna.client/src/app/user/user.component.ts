@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user';
 import { UserService } from '../../services/user.service';
@@ -7,6 +7,13 @@ import { NicehashApiKeys } from '../../services/datacontracts/nicehash-api-keys'
 import { WeatherLocation } from '../../services/datacontracts/weather-location';
 import { WeatherService } from '../../services/weather.service';
 import { MenuItem } from '../../services/datacontracts/menu-item';
+import { Story } from '../../services/datacontracts/story';
+import { SocialService } from '../../services/social.service';
+import { FriendService } from '../../services/friend.service';
+import { FriendRequest } from '../../services/datacontracts/friendship-request';
+import { ContactService } from '../../services/contact.service';
+import { WordlerScore } from '../../services/datacontracts/wordler-score';
+import { WordlerService } from '../../services/wordler.service';
 
 
 @Component({
@@ -15,6 +22,8 @@ import { MenuItem } from '../../services/datacontracts/menu-item';
   styleUrl: './user.component.css'
 })
 export class UserComponent extends ChildComponent implements OnInit {
+  @Input() user?: User | undefined;
+
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
@@ -30,42 +39,146 @@ export class UserComponent extends ChildComponent implements OnInit {
   isNicehashApiKeysToggled = false;
   isWeatherLocationToggled = false;
   isMenuIconsToggled = true;
-  nhApiKeys?: NicehashApiKeys;  
+  nhApiKeys?: NicehashApiKeys;
+  selectableIcons: MenuItem[] = [];
+  stories: Story[] = [];
+  friends: User[] = [];
+  friendRequests: FriendRequest[] = [];
+  wordlerScores: WordlerScore[] = [];
+
   constructor(private userService: UserService,
+    private contactService: ContactService,
     private miningService: MiningService,
-    private weatherService: WeatherService) { super(); }
+    private weatherService: WeatherService,
+    private friendService: FriendService,
+    private wordlerService: WordlerService) { super(); }
 
   async ngOnInit() {
+    this.startLoading();
     this.getLoggedInUser();
     this.usersCount = await this.userService.getUserCount();
+    this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User');
+    await this.loadFriendData();
+    await this.loadWordlerData(); 
+    this.stopLoading();
   }
+
+  async loadWordlerData() {
+    try {
+      const res = await this.wordlerService.getAllScores(this.user ?? this.parentRef?.user);
+      console.log(res);
+      if (res) {
+        this.wordlerScores = res;
+      }
+    } catch (e) { } 
+  }
+
+  async loadFriendData() {
+    this.friends = await this.friendService.getFriends(this.user ?? this.parentRef?.user!);
+    console.log("maybe loading friend data");
+
+    if ((!this.user && this.parentRef && this.parentRef.user)
+      || (this.user && this.parentRef && this.parentRef.user)) {
+      const res = await this.friendService.getFriendRequests(this.user ?? this.parentRef.user);
+      console.log("loading friend data");
+      this.friendRequests = res;
+    }
+  }
+
+  async addContact(user: User) {
+    const res = await this.contactService.addUserContact(this.parentRef!.user!, user);
+    this.notifications.push(res!);
+  }
+
+  canAddFriend(user: User) {
+    let found = false;
+    this.friends.forEach(x => {
+      if (x.username == this.parentRef?.user?.username) {
+        found = true;
+      }
+    });
+    this.friendRequests.forEach(x => {
+      if (x.sender.username == this.parentRef?.user?.username) {
+        found = true;
+      }
+    });
+    return !found;
+  }
+
+  friendsIncludeMe() {
+    let found = false;
+    this.friends.forEach(x => {
+      if (x.username == this.parentRef?.user?.username) {
+        found = true;
+      }
+    });
+    return found;
+  }
+
   clearForm() {
     if (this.updatedUsername) {
       this.updatedUsername.nativeElement.value = '';
       this.updatedPassword.nativeElement.value = '';
-    } 
+    }
     this.isNicehashApiKeysToggled = false;
     this.isGeneralToggled = false;
     this.updateUserDivVisible = false;
     this.isWeatherLocationToggled = false;
-    this.isMenuIconsToggled = true; 
-    this.nhApiKeys = undefined; 
+    this.isMenuIconsToggled = true;
+    this.nhApiKeys = undefined;
+
+    this.stories = [];
+    this.friends = [];
+    this.friendRequests = [];
   }
-  logout() { 
+
+  logout() {
+    this.parentRef!.deleteCookie("user");
     this.parentRef!.clearAllNotifications();
     this.parentRef!.removeAllComponents();
     this.clearForm();
-    this.parentRef!.user = undefined;
-    this.parentRef!.deleteCookie("user");
     this.notifications.push("Logged out successfully");
+    this.wordlerScores = [];
+    this.friendRequests = [];
+    this.friends = [];
+    this.parentRef!.user = undefined;
   }
 
   menuIconsIncludes(title: string) {
     return this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0;
   }
 
+  async acceptFriendshipRequest(request: FriendRequest) {
+    const res = await this.friendService.acceptFriendRequest(request)
+    this.notifications.push(res);
+    await this.loadFriendData();
+  }
+  async denyFriendshipRequest(request: FriendRequest) {
+    const res = await this.friendService.rejectFriendRequest(request)
+    this.notifications.push(res);
+    await this.loadFriendData();
+  }
+
+  async addFriend(user: User) {
+    if (this.parentRef && this.parentRef.user) {
+      const res = await this.friendService.sendFriendRequest(this.parentRef.user, user);
+      this.notifications.push(res);
+      await this.loadFriendData();
+    } else {
+      this.notifications.push("You must be logged in to send a friendship request");
+    }
+  }
+  async removeFriend(user: User) {
+    if (this.parentRef && this.parentRef.user) {
+      const res = await this.friendService.removeFriend(this.parentRef.user, user);
+      this.notifications.push(res);
+      await this.loadFriendData();
+    } else {
+      this.notifications.push("You must be logged in to remove a friend");
+    }
+  }
   async getMenuIcons() {
-    if (this.isMenuIconsToggled) { 
+    if (this.isMenuIconsToggled) {
       const response = await this.userService.getUserMenu(this.parentRef?.user!);
       this.parentRef!.userSelectedNavigationItems = response;
     }
@@ -108,6 +221,9 @@ export class UserComponent extends ChildComponent implements OnInit {
 
           const resAddMenuItemChat = await this.userService.addMenuItem(tmpUser, "Chat");
           this.notifications.push(resAddMenuItemChat!);
+
+          const resAddMenuItemWordler = await this.userService.addMenuItem(tmpUser, "Wordler");
+          this.notifications.push(resAddMenuItemWordler!);
         } else {
           this.notifications.push(`${JSON.parse(resCreateUser!)["message"]}`);
         }
@@ -122,7 +238,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async getLoggedInUser() {  
+  async getLoggedInUser() {
     if (this.parentRef!.getCookie("user")) {
       this.parentRef!.user = JSON.parse(this.parentRef!.getCookie("user"));
     }
@@ -159,10 +275,10 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
 
   async updateWeatherLocation() {
-    if (this.isWeatherLocationToggled) { 
+    if (this.isWeatherLocationToggled) {
       try {
         await this.weatherService.updateWeatherLocation((this.parentRef?.user)!, this.weatherLocationInput.nativeElement.value);
-        this.notifications.push("Weather location updated successfully"); 
+        this.notifications.push("Weather location updated successfully");
       } catch {
         this.notifications.push("Error while updating weather location!");
       }
@@ -174,9 +290,9 @@ export class UserComponent extends ChildComponent implements OnInit {
     const tmpUser = new User(currUser.id, this.updatedUsername.nativeElement.value, this.updatedPassword.nativeElement.value);
     this.startLoading();
     try {
-      const res = await this.userService.updateUser(tmpUser); 
-      const message = res["message"]; 
-      this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10); 
+      const res = await this.userService.updateUser(tmpUser);
+      const message = res["message"];
+      this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
       this.notifications.push(message);
     } catch (error) {
       this.notifications.push(`Error updating user ${this.parentRef!.user?.username}. Error: ${JSON.stringify(error)}`);
@@ -226,7 +342,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     } catch (e) {
       this.notifications.push("Login error: " + e);
     } finally {
-      this.parentRef!.getNotifications();
+      this.ngOnInit();
     }
   }
 

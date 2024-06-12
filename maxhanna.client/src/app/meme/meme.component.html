@@ -2,122 +2,24 @@
   <div class="closeButton" (click)="remove_me('MemeComponent')"></div>
   <div class="refreshButton" (click)="ngOnInit()"></div>
   <div class="componentTitle">Meme</div>
-
-  <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
-
-  <!-- Dropdown for sorting -->
-  <select id="sortDropdown" (change)="onSortChange($event)" class="sortOptions">
-    <option value="recent">Most Recent</option>
-    <option value="upvotes">Most Upvotes</option>
-    <option value="downvotes">Most Downvotes</option>
-  </select>
-
-  <table class="mainTable" id="memeTable" *ngIf="directoryContents.length > 0">
-    <thead>
-      <tr>
-        <th></th>
-        <th (click)="sortTable(0, 'memeTable')">Title</th>
-        <th (click)="sortTable(1, 'memeTable')">By</th>
-        <th (click)="sortTable(2, 'memeTable')" style="text-align:center;" title="Upvotes">👍</th>
-        <th (click)="sortTable(3, 'memeTable')" style="text-align:center;" title="Downvotes">👎</th>
-        <th (click)="sortTable(4, 'memeTable')" style="text-align:center;" title="Number of comments">🗨️</th>
-      </tr>
-    </thead>
-    <tbody>
-      <ng-container *ngFor="let meme of directoryContents; let i = index">
-        <tr>
-          <td>
-            <button [style.display]="getCanEdit(meme.userId) ? 'inline-block':'none' " (click)="startEditing(meme.id, $event)">✏️</button>
-          </td>
-          <td (click)="loadMeme(meme.id, meme.name, i);" class="clickableTd" [id]="'memeIdTd'+meme.id">
-            <input type="text"
-                   placeholder="New meme name"
-                   [value]="meme.name"
-                   [style.display]="isEditing.includes(meme.id) ? 'inline-block':'none' "
-                   (keyup)="editMemeKeyUp($event, meme.id)"
-                   (click)="$event.stopPropagation()"
-                   [id]="'editMemeNameInput'+meme.id" />
-            {{ isEditing.includes(meme.id) ? '' : meme.name }}
-          </td>
-          <td>{{ meme.username }}</td>
-          <td>
-            <div class="vote-container">
-              <span class="vote-count">{{meme.upvotes}}</span>
-              <button class="vote-button" (click)="upvoteMeme(meme)">👍</button>
-            </div>
-          </td>
-          <td>
-            <div class="vote-container">
-              <span class="vote-count">{{meme.downvotes}}</span>
-              <button class="vote-button" (click)="downvoteMeme(meme)">👎</button>
-            </div>
-          </td>
-          <td>{{meme.commentCount}}</td>
-        </tr>
-        <tr *ngIf="openedMemes.includes(i)">
-          <td colspan="6">
-            <div *ngIf="loading" class="loading-spinner">Loading...</div>
-            <div *ngIf="!loading">
-              <img #memeContainer *ngIf="!this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" alt="meme" class="memeImage media" />
-              <video #memeContainer *ngIf="this.videoFileExtensions.includes(this.selectedMemeFileExtension!)" [src]="selectedMeme" controls preload="auto" autoplay class="memeVideo media"></video>
-              <span class="filetype">
-                {{fileType}}
-              </span> 
-              <div class="filetype">
-                {{meme.username}} 🍌 {{meme.date.toString().replace('T', ' ')}}
-              </div> 
-              <div class="filetype">
-                <button (click)="copyLink(meme.id)" title="Share Link">Share 📋</button>
-              </div>
-            </div>
-
-            <!-- Comments Section -->
-            <div class="commentsHeader"
-                 [style.cursor]="comments.length <= 0 ? 'default' : 'pointer'"
-                 (click)="showComments = !showComments">
-              Comments ({{comments.length}})
-            </div>
-            <div class="commentsInputArea">
-              <input type="text" placeholder="💭Add a comment..." [id]="'addCommentInput'+meme.id" class="addCommentTextArea" (keyup.enter)="addComment(meme, $event)" />
-              <button type="submit" (click)="addComment(meme, $event)">🗨️</button>
-            </div>
-            <div class="comments-section">
-              <div *ngIf="showComments">
-                <div *ngFor="let comment of comments">
-                  <div class="commentUsername"><span class="cursorPointer">{{ comment.username }}:</span></div>
-                  <div class="commentText">{{ comment.commentText }}</div>
-                  <div class="commentVoteButtons">
-                    <button (click)="upvoteComment(comment, meme)" class="vote-button">👍</button>
-                    <span class="vote-count">{{ comment.upvotes }}</span>
-                    <button (click)="downvoteComment(comment, meme)" class="vote-button">👎</button>
-                    <span class="vote-count">{{ comment.downvotes }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <!-- End Comments Section -->
-          </td>
-        </tr>
-      </ng-container>
-    </tbody>
-  </table>
-  <div *ngIf="!directoryContents || directoryContents.length == 0">No memes to show!</div>
-  <div class="bottomInputs">
-    <div class="searchInputs">
-      <input type="text" placeholder="Search for memes" #searchInput (keyup.enter)="search();" />
-      <button (click)="search();" title="Search">🔍</button>
-    </div>
-    <div class="fileUploadInputs">
-      <app-file-upload [user]="parentRef?.user"
-                       [currentDirectory]="'Meme'"
-                       [showPrivatePublicOption]="false"
-                       [allowedFileTypes]="'image/*,video/*'"
-                       (userNotificationEvent)="uploadNotification($event);"
-                       (userUploadEvent)="uploadFileListEvent($event);"
-                       (userCancelEvent)="uploadCancelEvent($event);"
-                       id="fileUploader">
-      </app-file-upload>
-      <label class="SendMemesSpan" *ngIf="!isUploadingInProcess" (click)="clickOnUpload()" title="Upload file(s)">Upload your memes!</label>
-    </div>
+  <div class="fileUploadInputs">
+    <app-file-upload [user]="parentRef?.user!"
+                     [currentDirectory]="'Meme'"
+                     [showPrivatePublicOption]="false"
+                     [allowedFileTypes]="'image/*,video/*'"
+                     (userNotificationEvent)="uploadNotification($event);"
+                     (userUploadEvent)="uploadFileListEvent($event);"
+                     (userCancelEvent)="uploadCancelEvent($event);"
+                     id="fileUploader">
+    </app-file-upload>
+    <label class="SendMemesSpan" *ngIf="!isUploadingInProcess" (click)="clickOnUpload()" title="Upload file(s)">Upload your memes!</label>
   </div>
+  <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
+  <app-file-search [user]="parentRef?.user!"
+                   [currentDirectory]="'Meme/'"
+                   [maxResults]="100"
+                   [maxHeight]="'500px'"
+                   [canChangeDirectory]="false"
+                   [canDragMove]="false">
+  </app-file-search>
 </div>

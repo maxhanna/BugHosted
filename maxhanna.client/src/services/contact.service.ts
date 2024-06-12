@@ -37,6 +37,21 @@ export class ContactService {
       return null;
     }
   }
+  async addUserContact(user: User, contact: User) {
+    try {
+      const response = await fetch(`/contact/adduser`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, contact }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return "Error adding user contact: " + error;
+    }
+  }
   async updateContact(user: User, contact: Contact) {
     try {
       const response = await fetch(`/contact/${contact.id}`, {

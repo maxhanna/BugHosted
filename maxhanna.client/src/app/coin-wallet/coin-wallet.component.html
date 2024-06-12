@@ -40,5 +40,8 @@
       </ng-container>
     </tbody>
   </table>
-
+  <div *ngIf="!wallet">
+    No coin wallet detected, Enter your Nicehash API key in the user settings to get one.
+    <div>In the future, we plan on having our own crypto wallets and an exchange for goods and coins; no middle man, just direct person to person coin trading!</div>
+  </div>
 </div>

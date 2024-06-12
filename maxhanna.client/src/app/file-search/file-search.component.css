@@ -1,0 +1,37 @@
+
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) { 
+  .componentMain {
+    width: 96vw;
+  }
+
+  .mainTable input {
+    max-width: 80% !important;
+    word-wrap: break-word;
+    text-overflow: ellipsis;
+  }
+}
+
+.tableDiv {
+  max-height: 100px;
+  overflow:auto;
+}
+
+.folder {
+  color: black;
+  cursor: pointer;
+}
+
+  .folder::before {
+    content: '📁';
+  }
+
+.upOneFolder {
+  cursor: pointer;
+  font-size: large;
+  border: var(--main-border);
+  border-color: #4285f4;
+}
+
+.actionTd {
+  text-align: right; 
+}

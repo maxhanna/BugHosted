@@ -50,7 +50,7 @@
       </thead>
       <tbody>
         <tr *ngFor="let contact of contacts" (click)="selectedContact && selectedContact == contact ? selectedContact = undefined : selectedContact = contact">
-          <td>{{ contact.name }}</td>
+          <td><span (click)="viewProfile(contact.user)">{{ contact.name }}</span></td>
           <td class="noTMI">{{ contact.phone }}</td>
           <td>{{ contact.birthday ? (contact.birthday | date: 'MMM dd, yyyy') : '---' }}</td>
           <td class="noTMI">{{ contact.notes }}</td>

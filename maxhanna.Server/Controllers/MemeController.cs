@@ -23,72 +23,131 @@ namespace maxhanna.Server.Controllers
             _logger = logger;
             _config = config;
         }
-         
+
         [HttpPost("/Meme/GetMemes/", Name = "GetMemes")]
-        public IActionResult GetMemes([FromBody] User? user)
+        public IActionResult GetMemes([FromBody] SearchRequest searchRequest)
         {
             var directory = baseTarget;
             if (!directory.EndsWith("/"))
             {
                 directory += "/";
             }
-            _logger.LogInformation($"GET /File/GetMemes (for user: {user?.Id}, directory: {directory}");
+            bool isSearch = !string.IsNullOrEmpty(searchRequest.Keywords);
+            _logger.LogInformation($"POST /File/GetMemes (for user: {searchRequest.User?.Id}, {(isSearch ? "keywords: " + searchRequest.Keywords : "directory: " + directory)})");
 
             if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {baseTarget}"); }
 
             try
             {
                 List<FileEntry> fileEntries = new List<FileEntry>();
+                Dictionary<int, FileEntry> fileEntryMap = new Dictionary<int, FileEntry>();
 
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     connection.Open();
 
-                    var command = new MySqlCommand(
-                        "SELECT " +
-                            "f.id, " +
-                            "COALESCE(mn.meme_name, f.file_name) AS file_name, " +
-                            "f.user_id, " +
-                            "u.username AS username, " +
-                            "u.id AS userid, " +
-                            "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
-                            "SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, " +
-                            "f.upload_date AS date, " +
-                            "COUNT(fc.id) AS commentCount " +
-                        "FROM " +
-                            "maxhanna.file_uploads f " +
-                        "JOIN " +
-                            "maxhanna.users u ON f.user_id = u.id " +
-                        "LEFT JOIN " +
-                            "maxhanna.meme_names mn ON mn.meme_id = f.id " +
-                        "LEFT JOIN " +
-                            "maxhanna.file_votes fv ON fv.file_id = f.id " +
-                        "LEFT JOIN " +
-                            "maxhanna.file_comments fc ON fc.file_id = f.id " +
-                        "WHERE " +
-                            "f.folder_path = @folderPath " +
-                        "GROUP BY " +
-                            "f.id, u.username, u.id, mn.meme_name, f.file_name " +
-                        "ORDER BY " +
-                            "f.id DESC;"
-                        , connection);
-                    command.Parameters.AddWithValue("@folderPath", directory);
+                    string sql = @"
+                SELECT 
+                    f.id AS fileId, 
+                    COALESCE(mn.given_file_name, f.file_name) AS file_name, 
+                    f.user_id, 
+                    u.username AS username, 
+                    u.id AS userid, 
+                    SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, 
+                    SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, 
+                    f.upload_date AS date, 
+                    fc.id AS commentId, 
+                    fc.user_id AS commentUserId, 
+                    uc.username AS commentUsername, 
+                    fc.comment AS commentText, 
+                    SUM(CASE WHEN fcv.upvote = 1 THEN 1 ELSE 0 END) AS commentUpvotes, 
+                    SUM(CASE WHEN fcv.downvote = 1 THEN 1 ELSE 0 END) AS commentDownvotes 
+                FROM 
+                    maxhanna.file_uploads f 
+                JOIN 
+                    maxhanna.users u ON f.user_id = u.id 
+                LEFT JOIN 
+                    maxhanna.file_data mn ON mn.file_id = f.id 
+                LEFT JOIN 
+                    maxhanna.file_votes fv ON fv.file_id = f.id 
+                LEFT JOIN 
+                    maxhanna.file_comments fc ON fc.file_id = f.id 
+                LEFT JOIN 
+                    maxhanna.users uc ON fc.user_id = uc.id 
+                LEFT JOIN 
+                    maxhanna.file_comment_votes fcv ON fc.id = fcv.comment_id 
+                WHERE 
+                    f.folder_path = @folderPath ";
 
+                    if (isSearch)
+                    {
+                        sql += "AND (f.file_name LIKE @keywords OR mn.given_file_name LIKE @keywords) ";
+                    }
+
+                    sql += @"
+                GROUP BY 
+                    f.id, u.username, u.id, COALESCE(mn.given_file_name, f.file_name), fc.id, uc.username, fc.comment 
+                ORDER BY 
+                    f.id DESC;";
+
+                    var command = new MySqlCommand(sql, connection);
+                    command.Parameters.AddWithValue("@folderPath", directory);
+                    if (isSearch)
+                    {
+                        command.Parameters.AddWithValue("@keywords", "%" + searchRequest.Keywords + "%");
+                    }
 
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            var id = reader.GetInt32("id");
-                            var fileName = reader.GetString("file_name");
-                            var username = reader.GetString("username");
-                            int userid = reader.GetInt32("userid");
-                            int upvotes = reader.GetInt32("upvotes");
-                            int downvotes = reader.GetInt32("downvotes");
-                            int commentCount = reader.GetInt32("commentCount");
-                            DateTime date = reader.GetDateTime("date");
+                            var fileId = reader.GetInt32("fileId");
 
-                            fileEntries.Add(new FileEntry( id, fileName, "Public", "", username, userid, false, upvotes, downvotes, commentCount, date ));
+                            if (!fileEntryMap.TryGetValue(fileId, out var fileEntry))
+                            {
+                                var fileName = reader.GetString("file_name");
+                                var username = reader.GetString("username");
+                                int userId = reader.GetInt32("userid");
+                                int upvotes = reader.GetInt32("upvotes");
+                                int downvotes = reader.GetInt32("downvotes");
+                                DateTime date = reader.GetDateTime("date");
+
+                                fileEntry = new FileEntry();
+                                fileEntry.Id = fileId;
+                                fileEntry.FileName = fileName;
+                                fileEntry.Visibility = "Public";
+                                fileEntry.SharedWith = "";
+                                fileEntry.User = new User(userId, username);
+                                fileEntry.IsFolder = false;
+                                fileEntry.Upvotes = upvotes;
+                                fileEntry.Downvotes = downvotes;
+                                fileEntry.FileComments = new List<FileComment>();
+                                fileEntry.Date = date;
+                                fileEntryMap[fileId] = fileEntry;
+                                fileEntries.Add(fileEntry);
+                            }
+
+                            if (!reader.IsDBNull(reader.GetOrdinal("commentId")))
+                            {
+                                var commentId = reader.GetInt32("commentId");
+                                var commentUserId = reader.GetInt32("commentUserId");
+                                var commentUsername = reader.GetString("commentUsername");
+                                var commentText = reader.GetString("commentText");
+                                var commentUpvotes = reader.GetInt32("commentUpvotes");
+                                var commentDownvotes = reader.GetInt32("commentDownvotes");
+
+                                var fileComment = new FileComment
+                                {
+                                    Id = commentId,
+                                    FileId = fileId,
+                                    User = new User(commentUserId, commentUsername ?? "Anonymous"),
+                                    CommentText = commentText,
+                                    Upvotes = commentUpvotes,
+                                    Downvotes = commentDownvotes
+                                };
+
+                                fileEntry.FileComments!.Add(fileComment);
+                            }
                         }
                     }
                 }
@@ -105,88 +164,6 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        [HttpPost("/Meme/SearchMemes/", Name = "SearchMemes")]
-        public IActionResult SearchMemes([FromBody] SearchRequest searchRequest)
-        {
-            var directory = baseTarget;
-            if (!directory.EndsWith("/"))
-            {
-                directory += "/";
-            }
-            _logger.LogInformation($"POST /File/SearchMemes (for user: {searchRequest.User.Id}, keywords: {searchRequest.Keywords}, directory: {directory})");
-
-            if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {baseTarget}"); }
-
-            try
-            {
-                List<FileEntry> fileEntries = new List<FileEntry>();
-
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    connection.Open();
-
-                    var command = new MySqlCommand(
-                        "SELECT " +
-                            "f.id, " +
-                            "COALESCE(mn.meme_name, f.file_name) AS file_name, " +
-                            "f.ownership, " +
-                            "u.username AS username, " +
-                            "u.id AS userid, " +
-                            "SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, " +
-                            "SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, " +
-                            "f.upload_date AS date, " +
-                            "COUNT(fc.id) AS commentCount " +
-                        "FROM " +
-                            "maxhanna.file_uploads f " +
-                        "JOIN " +
-                            "maxhanna.users u ON f.ownership = u.id " +
-                        "LEFT JOIN " +
-                            "maxhanna.meme_names mn ON mn.meme_id = f.id " +
-                        "LEFT JOIN " +
-                            "maxhanna.file_votes fv ON fv.file_id = f.id " +
-                        "LEFT JOIN " +
-                            "maxhanna.file_comments fc ON fc.file_id = f.id " +
-                        "WHERE " +
-                            "f.folder_path = @folderPath " +
-                            "AND (f.file_name LIKE @keywords OR mn.meme_name LIKE @keywords) " +
-                        "GROUP BY " +
-                            "f.id, u.username, u.id, mn.meme_name, f.file_name " +
-                        "ORDER BY " +
-                            "f.id DESC;"
-                        , connection);
-                    command.Parameters.AddWithValue("@folderPath", directory);
-                    command.Parameters.AddWithValue("@keywords", "%" + searchRequest.Keywords + "%");
-
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            var id = reader.GetInt32("id");
-                            var fileName = reader.GetString("file_name");
-                            var owner = reader.GetString("ownership");
-                            var username = reader.GetString("username");
-                            int userid = reader.GetInt32("userid");
-                            int upvotes = reader.GetInt32("upvotes");
-                            int downvotes = reader.GetInt32("downvotes");
-                            int commentCount = reader.GetInt32("commentCount");
-                            DateTime date = reader.GetDateTime("date");
-
-                            fileEntries.Add(new FileEntry(id, fileName, "Public", owner, username, userid, false, upvotes, downvotes, commentCount, date));
-                        }
-                    }
-                }
-
-                Response.Headers.Append("Cross-Origin-Opener-Policy", "same-origin");
-                Response.Headers.Append("Cross-Origin-Embedder-Policy", "require-corp");
-
-                return Ok(fileEntries);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while searching for memes.");
-                return StatusCode(500, "An error occurred while searching for memes.");
-            }
-        }
 
         [HttpPost("/Meme/UpdateMemeName/{memeId}", Name = "UpdateMemeName")]
         public async Task<IActionResult> UpdateMemeName([FromBody] UpdateMemeRequest request, int memeId)

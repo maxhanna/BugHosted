@@ -1,0 +1,137 @@
+
+
+.attempt {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.letter {
+  margin-right: 5px;
+}
+
+input {
+  width: 40px;
+  height: 40px;
+  text-align: center;
+  font-size: 18px;
+}
+
+  input.correct {
+    background-color: green;
+    color: white;
+  }
+
+  input.present {
+    background-color: yellow;
+    color: black;
+  }
+
+.wordlerTitleIcons {
+  font-size: xx-large;
+}
+
+.wordlerTitleDiv {
+  width: 100%;
+  text-align: center;
+  font-size: large;
+}
+
+.wordlerTitle {
+  align-items: center;
+  position: relative;
+  font-size: 24px;
+}
+
+.wordlerTitleText {
+  margin-left: -80px;
+  z-index: 10;
+  position: relative;
+  text-shadow: 1px 1px 2px var(--main-highlight-color), 0 0 1em var(--secondary-font-color), 0 0 0.2em var(--secondary-font-color);
+}
+
+.wordlerTitleIcons {
+  display: inline-block;
+}
+
+.villain {
+  z-index: 2;
+  position: relative;
+  font-size: 54px;
+}
+
+.brain {
+  z-index: 1;
+  position: relative;
+  font-size: 1.5em;
+  left: -45px;
+  top: -25px;
+}
+
+.keyboard {
+  gap: 5px;
+  text-align: center;
+}
+
+.keyboardRow { 
+  line-height: 35px;
+  width: 100%;
+  height: 35px;
+  display:flex;
+  gap:2px;
+  justify-content:center;
+}
+
+.key {  
+  cursor: pointer;
+  width:30px;
+  border-radius: 3px;
+}
+.grey {
+  background-color: #1f1f1f;
+}
+.yellow {
+  background-color: #ffd800;
+}
+.green {
+  background-color: #07a700;
+}
+
+  .key:hover {
+    background-color: #e0e0e0;
+  }
+.instructions{
+    font-size: small;
+}
+
+#backspaceButton span {
+  margin-left: -3px;
+}
+.difficultySelectDiv {
+    width:100%;
+    text-align:center;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-5px);
+  }
+
+  50% {
+    transform: translateX(5px);
+  }
+
+  75% {
+    transform: translateX(-5px);
+  }
+}
+
+.shake {
+  animation: shake 0.5s;
+}
+

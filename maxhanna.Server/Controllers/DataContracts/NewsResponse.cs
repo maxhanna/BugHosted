@@ -32,7 +32,7 @@ namespace maxhanna.Server.Controllers.DataContracts
         public string? Claim { get; set; }
         public string? Verdict { get; set; }
         public List<Keyword>? Keywords { get; set; }
-        public List<Topic>? Topics { get; set; }
+        public List<NewsTopic>? Topics { get; set; }
         public List<object>? Categories { get; set; }
         public List<Entity>? Entities { get; set; }
         public List<Company>? Companies { get; set; }
@@ -72,7 +72,7 @@ namespace maxhanna.Server.Controllers.DataContracts
         public double Weight { get; set; }
     }
 
-    public class Topic
+    public class NewsTopic
     {
         // Define properties as needed
     }

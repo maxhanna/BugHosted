@@ -4,19 +4,20 @@
   <div class="componentTitle">Gameboy Color</div>
 
   <div class="gamesContainer">
-    <select (change)="loadRom($event)" #loadRomSelect>
-      <option value="" disabled selected>Select A Game</option>
+    <app-file-search [user]="parentRef?.user"
+                     [currentDirectory]="'roms/'"
+                     [clearAfterSelectFile]="true"
+                     [allowedFileTypes]="['gbc', 'gb']"
+                     [showPrivatePublicOption]="false"
+                     [canChangeDirectory]="false"
+                     [canDragMove]="false"
+                     [displayFileActions]="false"
+                     [displayComments]="false"
+                     (selectFileEvent)="loadRom($event)">
+    </app-file-search>
+  </div>
 
-      <option value="" disabled>=====Pokémon=====</option>
-      <option *ngFor="let game of pokemonGamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
-
-      <option value="" disabled>=====Gameboy Color=====</option>
-      <option *ngFor="let game of gbColorGamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
-
-      <option value="" disabled>=====Gameboy=====</option>
-      <option *ngFor="let game of gbGamesList" [value]="game">{{ game.substring(0, game.lastIndexOf(".")) }}</option>
-
-    </select>
+  <div>
     <span class="persistanceSpan">
       Server Save:
       <label for="autosaveOn">On</label>
@@ -26,12 +27,12 @@
       <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="autosave = false">
     </span>
     <form>
-      <span class="uploadRomSpan">  
+      <span class="uploadRomSpan">
         <label for="localFileOpen" class="upload-label" title="Upload Rom/Save state">📤</label>
-        <input type="file" id="localFileOpen" #localFileOpen (change)="fileChanged()" accept=".gb,.gbc,.zip, .sav" class="file-input" /> 
+        <input type="file" id="localFileOpen" #localFileOpen (change)="fileChanged()" accept=".gb,.gbc,.zip, .sav" class="file-input" />
       </span>
     </form>
-    <span *ngIf="loadRomSelect.value" class="uploadRomSpan">
+    <span *ngIf="selectedRomName" class="uploadRomSpan">
       <label for="downloadSaveState" class="upload-label" title="Download Save State" (click)="saveGame(true)">📥</label>
     </span>
     <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span>
@@ -163,3 +164,5 @@
       <div class="dot placeholder"></div>
     </div>
   </div>
+
+</div>

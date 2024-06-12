@@ -30,15 +30,15 @@ export class MemeService {
     return { blob, headers };
   }
     
-
-  async getMemes(user?: User) {
+  async getMemes(user?: User, keywords?: string) {
     try {
+      const requestBody = { user, keywords };  
       const response = await fetch(`/meme/getmemes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(requestBody),  
       });
 
       return await response.json();
@@ -46,6 +46,8 @@ export class MemeService {
       throw error;
     }
   }
+
+
   async updateMemeName(user: User, memeId: number, text: string) {
     try {
       const response = await fetch(`/meme/updatememename/${memeId}`, {
@@ -57,22 +59,6 @@ export class MemeService {
       });
 
       return await response.text();
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async searchForMemes(user: User, keywords: string) {
-    try {
-      const response = await fetch(`/meme/searchmemes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user, keywords }),
-      });
-
-      return await response.json();
     } catch (error) {
       throw error;
     }

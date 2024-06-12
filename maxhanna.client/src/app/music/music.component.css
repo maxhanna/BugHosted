@@ -24,6 +24,6 @@ iframeDiv iframe {
     text-align: center; 
     margin: 4px;
   }
-.mainTableDiv {
-    width:100%;
+.mainTableDiv { 
+    max-height: 35vh !important;
 }

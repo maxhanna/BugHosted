@@ -36,7 +36,8 @@
   top: 25px;
   left: 1px;
   color: var(--primary-font-color);
-  text-shadow: 1px 1px 2px var(--secondary-font-color);
+  text-shadow: -1.1px 1.1px 1px var(--main-bg-color-full-opacity);
+  font-weight: bolder;
   width: 50px;
   height: 50px;
   font-size: 12px;

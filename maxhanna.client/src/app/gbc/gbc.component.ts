@@ -3,7 +3,9 @@ import { ChildComponent } from '../child.component';
 import { util, GameBoy } from 'jsgbc';
 import { FileService } from '../../services/file.service';
 import { RomService } from '../../services/rom.service';
-
+import { DirectoryResults } from '../../services/datacontracts/directory-results';
+import { FileEntry } from '../../services/datacontracts/file-entry';
+ 
 
 @Component({
   selector: 'app-gbc',
@@ -18,25 +20,24 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
   gbGamesList: Array<string> = [];
   gbColorGamesList: Array<string> = [];
   pokemonGamesList: Array<string> = [];
+  romDirectory: FileEntry[] = [];
   autosave = true;
   soundOn = true;
+  selectedRomName = "";
 
   constructor(private fileService: FileService, private romService: RomService) { super(); }
 
   ngOnInit() {
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
   }
-  async ngAfterViewInit() {
-    try {
-      await this.getGames();
-    } catch { }
+  async ngAfterViewInit() { 
     this.gameboy = new GameBoy({
       lcd: { canvas: this.canvas.nativeElement }
     });
     this.setHTMLControls();
     window.addEventListener('keydown', e => this.canvasKeypress(e, false), false); //Sets keyboard controls
     window.addEventListener('keyup', e => this.canvasKeypress(e, true), false); //Sets keyboard controls
-     
+
     const debouncedSaveGame = this.debounce(this.saveGame.bind(this), 2000); // Adjust delay as needed (2 seconds in this case) -- ensures game cannot be saved more then once per n second(s).
 
     this.gameboy.addListener("mbcRamWrite", () => { // Allows the server to handle saving the game automatically
@@ -45,44 +46,15 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
       }
     });
   }
-  async getGames() {
-    try {
-      const res = await this.fileService.getDirectory(this.parentRef?.user!, "roms/", "public", "all") as Array<string>;
-      this.gbGamesList = [];
-      this.gbColorGamesList = [];
-      res.forEach(x => {
-        const jsonObject = JSON.parse(JSON.stringify(x));
+  getFileExtension(fileName: string) {
+    this.fileService.getFileExtension(fileName).toLowerCase()
+  }
 
-        if (jsonObject.hasOwnProperty('name')) {
-          const name = jsonObject.name;
-
-          if (name) {
-            if (name.toLowerCase().includes("poke")
-              && !this.fileService.getFileExtension(name)!.includes("gbs")
-              && !this.fileService.getFileExtension(name)!.includes("sav")
-              && !this.pokemonGamesList.includes(name)) {
-              this.pokemonGamesList.push(name);
-            }
-            else if (this.fileService.getFileExtension(name)!.includes("gbc")
-              && !this.fileService.getFileExtension(name)!.includes("gbs")
-              && !this.gbColorGamesList.includes(name)) {
-              this.gbColorGamesList.push(name);
-            }
-            else if (this.fileService.getFileExtension(name)!.includes("gb")
-              && !this.fileService.getFileExtension(name)!.includes("gbs")
-              && !this.gbGamesList.includes(name)) {
-              this.gbGamesList.push(name);
-            }
-          } 
-        }
-        
-      });
-    } catch {
-      console.log("Could not get games list");
-    }
+  removeAccents(str: string) {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   }
   private debounce(func: Function, wait: number) {
-    let timeout: any; 
+    let timeout: any;
     return function (this: any, ...args: any[]) {
       const context = this;
       clearTimeout(timeout);
@@ -123,24 +95,23 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
       this.gameboy!.colors = gameboyColors;
     }
   }
-  async loadRom(event: Event) {
+  async loadRom(file: FileEntry) {
     this.startLoading();
 
-    if (this.gameboy) {
-      const romSelectElement = event.target as HTMLSelectElement;
-      const romName = romSelectElement.value;
-      if (!confirm(`Load ${romName}?`)) { this.stopLoading(); return; }
+    if (this.gameboy) { 
+      this.selectedRomName = file.fileName;
+      if (!confirm(`Load ${this.selectedRomName}?`)) { this.stopLoading(); return; }
 
       try {
-        const response = await this.romService.getRomFile(this.parentRef?.user!, romName);
-        const romSaveFile = romName.split('.')[0] + ".sav";
+        const response = await this.romService.getRomFile(this.parentRef?.user!, this.selectedRomName);
+        const romSaveFile = this.selectedRomName.split('.')[0] + ".sav";
         const rom = await util.readBlob(response!);
 
         try {
           const saveStateResponse = await this.romService.getRomFile(this.parentRef?.user!, romSaveFile);
 
           if (this.gameboy) {
-            this.setGameColors(romName);
+            this.setGameColors(this.selectedRomName);
             this.gameboy.replaceCartridge(rom);
           }
 
@@ -175,8 +146,8 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
   }
   async saveGame(forceSaveLocal: boolean) {
     console.log("Saving game");
-    
-    const romSaveFileName = this.loadRomSelect.nativeElement.value.split('.')[0];
+
+    const romSaveFileName = this.selectedRomName.split('.')[0];
     if (this.gameboy && romSaveFileName) {
       try {
         if (!this.autosave || forceSaveLocal) {
@@ -193,7 +164,7 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
       } catch { console.error("Error while saving game!"); }
     }
   }
-  setHTMLControls() { 
+  setHTMLControls() {
     const addPressReleaseEvents = (elementClass: string, joypadIndex: number) => {
       const element = document.getElementsByClassName(elementClass)[0];
 
@@ -222,6 +193,61 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
         e.preventDefault();
         this.gameboy!.joypad.up(joypadIndex);
       }, { passive: false });
+
+      let startX: number, startY: number;
+      element.addEventListener("touchstart", (e) => {
+        startX = (e as TouchEvent).touches[0].clientX;
+        startY = (e as TouchEvent).touches[0].clientY;
+      });
+
+      element.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+
+        const touchEvent = e as TouchEvent;
+        const touch = touchEvent.touches[0];
+        const currentX = touch.clientX;
+        const currentY = touch.clientY;
+        const elementUnderTouch = document.elementFromPoint(currentX, currentY);
+        const deltaX = currentX - startX;
+        const deltaY = currentY - startY;
+        // Determine the direction of the swipe
+        const threshold = 10; // Adjust this value to your needs
+        const timeout = 50; // Idk browser delay of some sort?
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          if (deltaX > threshold) {
+            this.gameboy!.joypad.down(0); // Right
+            this.gameboy!.joypad.up(1);   // Ensure left is not pressed
+            this.gameboy!.joypad.up(3);   // Ensure down is not pressed
+            this.gameboy!.joypad.up(2);   // Ensure up is not pressed 
+            setTimeout(() => this.gameboy!.joypad.up(0), timeout);   // Ensure up is not pressed 
+          } else if (deltaX < -threshold) {
+            this.gameboy!.joypad.down(1); // Left
+            this.gameboy!.joypad.up(0);   // Ensure right is not pressed 
+            this.gameboy!.joypad.up(3);   // Ensure down is not pressed
+            this.gameboy!.joypad.up(2);   // Ensure up is not pressed  
+            setTimeout(() => this.gameboy!.joypad.up(1), timeout);  // Ensure up is not pressed  
+          }
+        } else {
+          if (deltaY > threshold) {
+            this.gameboy!.joypad.down(3); // Down
+            this.gameboy!.joypad.up(2);   // Ensure up is not pressed 
+            this.gameboy!.joypad.up(1);   // Ensure left is not pressed 
+            this.gameboy!.joypad.up(0);   // Ensure right is not pressed 
+            setTimeout(() => this.gameboy!.joypad.up(3), timeout);   // Ensure right is not pressed 
+          } else if (deltaY < -threshold) {
+            this.gameboy!.joypad.down(2); // Up
+            this.gameboy!.joypad.up(3);   // Ensure down is not pressed
+            this.gameboy!.joypad.up(1);   // Ensure left is not pressed 
+            this.gameboy!.joypad.up(0);   // Ensure right is not pressed 
+            setTimeout(() => this.gameboy!.joypad.up(2), timeout);   // Ensure right is not pressed 
+          }
+        }
+      }, { passive: false });
+
+      element.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        this.gameboy!.joypad.up(joypadIndex);
+      }, { passive: false });
     };
 
     addPressReleaseEvents("start", 7);
@@ -234,16 +260,12 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
     addPressReleaseEvents("right", 0);
     addPressReleaseEvents("up-right", 2);
     addPressReleaseEvents("up-right", 0);
-
     addPressReleaseEvents("up-left", 2);
     addPressReleaseEvents("up-left", 1);
-
     addPressReleaseEvents("down-right", 3);
     addPressReleaseEvents("down-right", 0);
-
     addPressReleaseEvents("down-left", 3);
     addPressReleaseEvents("down-left", 1);
-
   }
 
   canvasKeypress(event: Event, up: boolean) {
@@ -260,49 +282,49 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
       else
         this.gameboy!.joypad.down(4);
       event.preventDefault();
-    } 
+    }
     else if (kbEvent.key.toLowerCase() == 'b') {
       if (up)
         this.gameboy!.joypad.up(5);
       else
         this.gameboy!.joypad.down(5);
       event.preventDefault();
-    } 
+    }
     else if (kbEvent.key.toLowerCase() == 'enter') {
       if (up)
         this.gameboy!.joypad.up(7);
       else
         this.gameboy!.joypad.down(7);
       event.preventDefault();
-    } 
+    }
     else if (kbEvent.key.toLowerCase() == 'shift') {
       if (up)
         this.gameboy!.joypad.up(6);
       else
         this.gameboy!.joypad.down(6);
       event.preventDefault();
-    } 
+    }
     else if (kbEvent.key.toLowerCase() == 'arrowup') {
       if (up)
         this.gameboy!.joypad.up(2);
       else
         this.gameboy!.joypad.down(2);
       event.preventDefault();
-    } 
+    }
     else if (kbEvent.key.toLowerCase() == 'arrowdown') {
       if (up)
         this.gameboy!.joypad.up(3);
       else
         this.gameboy!.joypad.down(3);
       event.preventDefault();
-    } 
+    }
     else if (kbEvent.key.toLowerCase() == 'arrowleft') {
       if (up)
         this.gameboy!.joypad.up(1);
       else
         this.gameboy!.joypad.down(1);
       event.preventDefault();
-    } 
+    }
     else if (kbEvent.key.toLowerCase() == 'arrowright') {
       if (up)
         this.gameboy!.joypad.up(0);
@@ -313,8 +335,7 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
   }
   beforeUnloadHandler(event: BeforeUnloadEvent) {
     const message = 'Are you sure you want to leave?';
-    event.returnValue = message; // Standard for most browsers
-    return message; // For some browsers
+    return message;
   }
   ngOnDestroy() {
     if (this.gameboy) {

@@ -3,7 +3,6 @@ import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 
 import { AppRoutingModule } from './app-routing.module';
-import { AppComponent } from './app.component';
 import { CalendarComponent } from './calendar/calendar.component';
 import { NavigationComponent } from './navigation/navigation.component';
 import { FavouritesComponent } from './favourites/favourites.component';
@@ -26,7 +25,11 @@ import { SocialComponent } from './social/social.component';
 import { FileUploadComponent } from './file-upload/file-upload.component';
 import { NewsComponent } from './news/news.component';
 import { TopicsComponent } from './topics/topics.component';
-
+import { WordlerComponent } from './wordler/wordler.component';
+ import { AppComponent } from './app.component';
+import { MediaViewerComponent } from './media-viewer/media-viewer.component';
+import { FileSearchComponent } from './file-search/file-search.component';
+ 
 @NgModule({
   declarations: [
     AppComponent,
@@ -51,7 +54,10 @@ import { TopicsComponent } from './topics/topics.component';
     SocialComponent,
     FileUploadComponent,
     NewsComponent,
-    TopicsComponent
+    TopicsComponent,
+    WordlerComponent,
+    FileSearchComponent,
+    MediaViewerComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

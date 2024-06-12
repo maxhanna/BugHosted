@@ -1,12 +1,12 @@
 import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
+import { RouterModule, Routes } from '@angular/router'; 
 import { AppComponent } from './app.component';
-import { MemeComponent } from './meme/meme.component';
-import { SocialComponent } from './social/social.component';
 
 const routes: Routes = [
-  { path: 'Memes/:memeId', component: MemeComponent },
-  { path: 'Social/:storyId', component: SocialComponent }
+  { path: 'Memes/:memeId', component: AppComponent },
+  { path: 'Social/:storyId', component: AppComponent },
+  { path: 'Wordler', component: AppComponent },
+  { path: 'wordler', component: AppComponent },
 ];
 
 @NgModule({

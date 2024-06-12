@@ -28,6 +28,9 @@
     max-width: 270px;
   }
 }
+.mainTable td {
+    max-width: unset !important;
+}
 
 .helperSpanTitle {
   display: inline-block;
@@ -46,3 +49,16 @@
   .helperSpanTitle:before {
     content: 'ℹ️';
   }
+
+.mainTable tr {
+    border: var(--main-border);
+}
+
+.profileUsername{
+    min-width: 30vw;
+    font-size: large;
+    text-align:center;
+}
+.wordlerScoreDiv{
+    margin-top: 15px;
+}

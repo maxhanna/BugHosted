@@ -4,6 +4,7 @@ import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
 import { FileComment } from './datacontracts/file-comment';
 import { FileEntry } from './datacontracts/file-entry';
+import { FileData } from './datacontracts/file-data';
 
 @Injectable({
   providedIn: 'root'
@@ -11,8 +12,16 @@ import { FileEntry } from './datacontracts/file-entry';
 export class FileService {
   constructor(private http: HttpClient) { }
 
-  async getDirectory(user: User, dir: string, visibility: string, ownership: string) {
-    var params = new URLSearchParams({ directory: dir, visibility: visibility || '', ownership: ownership || '' });
+  async getDirectory(dir: string, visibility: string, ownership: string, user?: User, page?: number, pageSize?: number, search?: string) {
+    var params = new URLSearchParams(
+      {
+        directory: dir,
+        visibility: visibility || '',
+        ownership: ownership || '',
+        page: page ? page + '' : '1',
+        pageSize: pageSize ? pageSize + '' : '100',
+        search: search ? search : '',
+      });
     try {
       const response = await fetch(`/file/getdirectory?` + params, {
         method: 'POST',
@@ -27,7 +36,21 @@ export class FileService {
       return null;
     }
   }
+  async updateFileData(user: User, fileData: FileData) {
+    try {
+      const response = await fetch(`/file/updatefiledata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, fileData }),
+      });
 
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async createDirectory(user: User, directory: string, isPublic: boolean) {
     try {
       const response = await fetch(`/file/makedirectory`, {
@@ -43,7 +66,7 @@ export class FileService {
       return null;
     }
   }
-  async getFile(user: User, file: string, options?: { signal: AbortSignal }) {
+  async getFile(file: string, options?: { signal: AbortSignal }, user?: User) {
     try {
       const response = await fetch(`/file/getfile/${encodeURIComponent(file)}`, {
         method: 'POST',
@@ -174,7 +197,7 @@ export class FileService {
       throw error;
     }
   }
-  uploadFileWithProgress(user: User, formData: FormData, directory: string | undefined, isPublic: boolean): Observable<HttpEvent<any>> {
+  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, user?: User): Observable<HttpEvent<any>> {
     formData.append('user', JSON.stringify(user));
     formData.append('isPublic', isPublic + "");
     const dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
@@ -248,6 +271,7 @@ export class FileService {
     }
   } 
   getFileExtension(file: string) {
-    return file.lastIndexOf('.') !== -1 ? file.split('.').pop() : null;
+    if (!file) return '';
+    return file.lastIndexOf('.') !== -1 ? file.split('.').pop() ?? '' : '';
   }
 }

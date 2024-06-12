@@ -1,27 +1,31 @@
+import { FileComment } from "./file-comment";
+import { FileData } from "./file-data";
+import { User } from "./user";
+
 export class FileEntry {
   id: number;
-  name: string;
+  fileName: string;
   visibility: string;
   sharedWith: string;
-  userId: number;
-  username: string;
+  user: User;
   isFolder: boolean;
   upvotes: number;
   downvotes: number;
-  commentCount: number;
+  fileComments: Array<FileComment>;
   date: Date;
+  fileData: FileData;
 
-  constructor(id: number, name: string, visibility: string, sharedWith: string, userid: number, username: string, isFolder: boolean, upvotes: number, downvotes: number, commentCount: number, date: Date) {
+  constructor(id: number, fileName: string, visibility: string, sharedWith: string, user: User, isFolder: boolean, upvotes: number, downvotes: number, comments: Array<FileComment>, date: Date, fileData: FileData) {
     this.id = id;
-    this.name = name;
+    this.fileName = fileName;
     this.visibility = visibility;
     this.sharedWith = sharedWith;
-    this.username = username;
-    this.userId = userid;
+    this.user = user;
     this.isFolder = isFolder;
     this.upvotes = upvotes;
     this.downvotes = downvotes;
-    this.commentCount = commentCount;
+    this.fileComments = comments;
     this.date = date;
+    this.fileData = fileData;
   }
 }

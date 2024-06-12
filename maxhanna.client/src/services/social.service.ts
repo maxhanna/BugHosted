@@ -67,7 +67,7 @@ export class SocialService {
     } catch (error) {
       throw error;
     }
-  }
+  }  
 
   async getComments(storyId: number, user?: User) {
     try {

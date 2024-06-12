@@ -2,67 +2,60 @@ using maxhanna.Server.Controllers.DataContracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
+using NewsAPI.Models;
+using NewsAPI;
 using Newtonsoft.Json;
 using RestSharp;
+using NewsAPI.Constants;
 
 namespace maxhanna.Server.Controllers
 {
     [ApiController]
     [Route("[controller]")]
     public class NewsController : ControllerBase
-    {
-        private static readonly HttpClient client = new HttpClient();
-        private static readonly string apiUrl = "https://api.goperigon.com/v1/all?excludeLabel=Low%20Content&size=100&sortBy=date&language=en";
-        private static readonly string apiKey = "b94bb4e9-f2fb-4ec9-bf30-b6ab071ba00d";
-
+    {  
         private readonly ILogger<NewsController> _logger;
-        private readonly IConfiguration _config;
 
-        public NewsController(ILogger<NewsController> logger, IConfiguration config)
+        public NewsController(ILogger<NewsController> logger)
         {
             _logger = logger;
-            _config = config;
         }
 
         [HttpPost(Name = "GetAllNews")]
-        public async Task<IActionResult> GetAllNews([FromBody] User user, [FromQuery] string? keywords)
+        public ArticlesResult GetAllNews([FromBody] User user, [FromQuery] string? keywords)
         {
             _logger.LogInformation($"POST /News (for user: {user.Id}, keywords?: {keywords})");
             try
             {
-                var augmentedUrl = apiUrl;
-                if (!string.IsNullOrEmpty(keywords))
+                var newsApiClient = new NewsApiClient("f782cf1b4d3349dd86ef8d9ac53d0440");
+                var articlesResponse = new ArticlesResult();
+                if (keywords != null)
                 {
-                    augmentedUrl += "&q=" + keywords;
-                }
-
-                client.DefaultRequestHeaders.Clear(); 
-                client.DefaultRequestHeaders.Add("X-API-KEY", apiKey);
-                _logger.LogInformation("Client request headers: " + client.DefaultRequestHeaders.ToString());
-
-                HttpResponseMessage response = await client.GetAsync(augmentedUrl);
-
-                if (response.IsSuccessStatusCode)
+                    articlesResponse = newsApiClient.GetEverything(new EverythingRequest
+                    {
+                        Q = keywords,
+                        SortBy = SortBys.PublishedAt,
+                        Language = Languages.EN
+                    });
+                } else
                 {
-                    string responseBody = await response.Content.ReadAsStringAsync();
-
-                    var newsData = JsonConvert.DeserializeObject<NewsResponse>(responseBody);
-                    _logger.LogInformation($"Returning {newsData}");
-
-                    return Ok(newsData);
+                    articlesResponse = newsApiClient.GetTopHeadlines(new TopHeadlinesRequest
+                    {  
+                        Language = Languages.EN
+                    });
                 }
-                else
+                if (articlesResponse.Status == Statuses.Ok)
                 {
-                    _logger.LogInformation($"Returning error ({(int)response.StatusCode}): {await response.Content.ReadAsStringAsync()}");
-
-                    return StatusCode((int)response.StatusCode, await response.Content.ReadAsStringAsync());
-                }
+                    return articlesResponse;  
+                } 
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
-                return StatusCode(500, "An error occurred while fetching news data");
+                return new ArticlesResult();
             }
+
+            return new ArticlesResult();
         }
 
     }

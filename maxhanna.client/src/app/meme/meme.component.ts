@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileService } from '../../services/file.service';
 import { HttpEventType } from '@angular/common/http';
@@ -6,22 +6,22 @@ import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileComment } from '../../services/datacontracts/file-comment';
 import { MemeService } from '../../services/meme.service';
 import { ActivatedRoute } from '@angular/router'; 
+import { User } from '../../services/datacontracts/user';
+import { DirectoryResults } from '../../services/datacontracts/directory-results';
+import { FileSearchComponent } from '../file-search/file-search.component';
 
 @Component({
   selector: 'app-meme',
   templateUrl: './meme.component.html',
   styleUrls: ['./meme.component.css']
 })
-export class MemeComponent extends ChildComponent implements OnInit {
-  @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('commentInput') commentInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('memeContainer', { static: false }) memeContainer!: ElementRef;
-  
+export class MemeComponent extends ChildComponent implements OnInit { 
+
   uploadProgress = 0;
   notifications: string[] = [];
   directoryContents: Array<FileEntry> = [];
   selectedMemeFileExtension: string | null = null;
+  selectedMemeSrc: any;
   loading: boolean = false;
   isEditing: Array<number> = [];
   openedMemes: Array<number> = [];
@@ -30,317 +30,28 @@ export class MemeComponent extends ChildComponent implements OnInit {
   comments: FileComment[] = [];
   fileType = "";
   showComments = true;
-  isUploadingInProcess = false;
-  private abortController: AbortController | null = null;
+  isUploadingInProcess = false; 
+  @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
 
-  memeId: string | null = null;
-  constructor(private fileService: FileService, private memeService: MemeService, private route: ActivatedRoute) { super(); }
+  @Input() memeId: string | null = null;
+  constructor(  private route: ActivatedRoute) { super(); }
 
   async ngOnInit() {
     this.route.paramMap.subscribe(params => {
       this.memeId = params.get('memeId');
+      console.log("memeId: "+ this.memeId);
       if (this.memeId) {
-        setTimeout(() => { this.scrollToMeme(this.memeId!); }, 500);
+        setTimeout(() => { this.fileSearchComponent.scrollToFile(this.memeId!); }, 2500);
       }
-    });
-
-    this.isEditing = [];
-    this.selectedMeme = "";
-    this.removeMeme();
-    await this.getFiles();
+    }); 
   }
-  override remove_me(title: string) {
-    const routerOutletContainer = document.querySelector('.routerOutletContainer');
-    if (routerOutletContainer) {
-      routerOutletContainer.remove();
-    } else {
-      super.remove_me(title); // Call the parent method if the routerOutletContainer doesn't exist
-    }
-  }
-  scrollToMeme(memeId: string) {
-    setTimeout(() => {
-      const element = document.getElementById('memeIdTd' + memeId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        element.click();
-      }
-    }, 0);
-  }
-
-  async getFiles() {
-    this.startLoading();
-    try {
-      this.directoryContents = await this.memeService.getMemes(this.parentRef?.user);
-      this.openFirstMeme();
-    } catch (error) {
-      this.notifications.push("Error fetching memes");
-    }
-    this.stopLoading();
-  }
-
-  copyLink(memeId: number) {
-    const link = `https://maxhanna.ca/Memes/${memeId}`;
-    navigator.clipboard.writeText(link).then(() => {
-      this.notifications.push('Link copied to clipboard!');
-    }).catch(err => {
-      this.notifications.push('Failed to copy link!');
-    });
-  }
-
-  openFirstMeme() {
-    if (this.directoryContents.length > 0) {
-      this.loadMeme(this.directoryContents[0].id, this.directoryContents[0].name, 0);
-    }
-  }
-
-  async upload() {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
-    if (!this.fileInput) { return alert("weird bug, cant find fileInput"); }
-
-    const files = this.fileInput.nativeElement.files;
-    if (!files || !files.length) {
-      return alert("No file to upload!");
-    }
-
-    const filesArray = Array.from(files);
-    const isPublic = true;
-
-    const directoryInput = "Meme";
-    const fileNames = Array.from(files).map(file => file.name);
-
-    if (confirm(`Upload : ${directoryInput}/${fileNames.join(',')} ?`)) {
-      this.startLoading();
-      try {
-        const formData = new FormData();
-        filesArray.forEach(file => formData.append('files', file));
-
-        // Use HttpClient to track the upload progress
-        const uploadReq = this.fileService.uploadFileWithProgress(this.parentRef?.user!, formData, directoryInput, isPublic);
-        uploadReq.subscribe((event) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            this.uploadProgress = Math.round(100 * (event.loaded / event.total!));
-          } else if (event.type === HttpEventType.Response) {
-            this.uploadProgress = 0;
-            this.notifications.push(`${directoryInput}/${fileNames.join(',')} uploaded successfully`);
-            this.ngOnInit();
-          }
-        });
-      } catch (ex) {
-        this.uploadProgress = 0;
-        this.notifications.push(`${directoryInput}/${fileNames.join(',')} failed to upload!`);
-        this.ngOnInit();
-      }
-      this.stopLoading();
-    }
-  }
-
-  getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
-    if (!contentDisposition) return '';
-
-    // Match the filename pattern
-    const filenameMatch = contentDisposition.match(/filename\*?=['"]?([^'";\s]+)['"]?/);
-    if (filenameMatch && filenameMatch[1]) {
-      const filename = filenameMatch[1];
-      return filename.split('.').pop() || '';
-    }
-    return '';
-  }
-
-  cancelOngoingRequest() {
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
-    }
-  }
-
-  async loadMeme(memeId: number, memeName: string, index: number) {
-    // Cancel any ongoing request
-    this.cancelOngoingRequest();
-
-    // Initialize a new AbortController
-    this.abortController = new AbortController();
-    const signal = this.abortController.signal;
-
-    if (this.openedMemes.includes(index)) {
-      this.removeMeme();
-      this.openedMemes = [];
-      return;
-    }
-    if (this.openedMemes.length > 0) {
-      this.removeMeme();
-      this.openedMemes = [];
-    }
-    this.openedMemes.push(index);
-    this.loading = true;
-
-    try {
-      const response = await this.memeService.getMeme(memeId, { signal }); // Pass the signal
-      const contentDisposition = response.headers["content-disposition"];
-      this.selectedMemeFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
-      this.selectedMeme = memeName;
-      const type = this.fileType = this.videoFileExtensions.includes(this.selectedMemeFileExtension)
-        ? `video/${this.selectedMemeFileExtension}`
-        : `image/${this.selectedMemeFileExtension}`;
-
-      const blob = new Blob([response.blob], { type });
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = () => {
-        this.setMemeSrc(reader.result as string);
-      };
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.log('Fetch aborted');
-      } else {
-        console.error('Fetch error:', error);
-      }
-    } finally {
-      this.loading = false;
-      this.getComments(memeId);
-    }
-  }
-
-
-  getFileExtension(filePath: string) {
-    return filePath.split('.').pop();
-  }
-
-  setMemeSrc(url: string) {
-    if (this.memeContainer && this.memeContainer.nativeElement) {
-      this.memeContainer.nativeElement.src = url;
-    }
-  }
-
-  removeMeme() {
-    this.openedMemes = [];
-  }
+   
+    
   uploadNotification(event: string) {
     this.notifications.push(event);
     this.ngOnInit();
   }
-  editMemeKeyUp(event: KeyboardEvent, memeId: number) {
-    const text = (event.target as HTMLInputElement).value;
-    if (event.key === 'Enter') {
-      this.editMeme(memeId, text);
-    } else {
-      event.stopPropagation();
-    }
-  }
-  async search() {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
-    if (this.searchInput.nativeElement && this.searchInput.nativeElement.value && this.searchInput.nativeElement.value != '') {
-      const keywords = this.searchInput.nativeElement.value.trim();
-      if (keywords && keywords.trim() != '')
-        this.directoryContents = await this.memeService.searchForMemes(this.parentRef?.user!, keywords.trim());
-    } else {
-      await this.getFiles(); 
-    }
-  }
-  async upvoteMeme(meme: FileEntry) {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
-    this.notifications.push(await this.fileService.upvoteFile(this.parentRef?.user!, meme.id));
-    meme.upvotes++;
-  }
-  async downvoteMeme(meme: FileEntry) {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
-    this.notifications.push(await this.fileService.downvoteFile(this.parentRef?.user!, meme.id));
-    meme.downvotes++;
-  }
-
-  async editMeme(memeId: number, text: string) {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
-    if (!text || text.trim() == '') { return; }
-    const res = await this.memeService.updateMemeName(this.parentRef?.user!, memeId, text);
-    if (document.getElementById("memeIdTd" + memeId) != null) {
-      document.getElementById("memeIdTd" + memeId)!.innerText = text;
-    }
-    this.notifications.push(res);
-    this.isEditing = this.isEditing.filter(x => x != memeId);
-  }
-
-  async startEditing(memeId: number, event: MouseEvent) {
-    event.stopPropagation();
-    const parent = document.getElementById("memeIdTd" + memeId)!;
-    const text = parent.getElementsByTagName("input")[0].value!;
-
-    if (this.isEditing.includes(memeId) && text.trim() == '') {
-      this.isEditing = this.isEditing.filter(x => x != memeId);
-      return;
-    }
-
-    if (!this.isEditing.includes(memeId)) {
-      this.isEditing.push(memeId); 
-      setTimeout(() => { (document.getElementById("editMemeNameInput" + memeId) as HTMLInputElement).focus() }, 1);  
-    } else { 
-      parent.innerText = text;
-      await this.editMeme(memeId, text);
-    }
-  }
-
-  getCanEdit(userid: number) {
-    return userid == this.parentRef?.user?.id;
-  }
-
-  async getComments(memeId: number) {
-    try {
-      const res = await this.fileService.getComments(memeId);
-      if (res && res != '') {
-        this.comments = res as FileComment[];
-      }
-      else { 
-        this.comments = []; 
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("404")) {
-        this.comments = [];
-      } else {
-        console.error("Error fetching comments:", error);
-      }
-    } 
-  }
-
-
-  async addComment(meme: FileEntry, event: Event) {
-    const fileId = meme.id;
-    const comment = (document.getElementById("addCommentInput" + meme.id)! as HTMLInputElement).value;
-    try {
-      if (fileId && comment && comment.trim() != '') {
-        this.notifications.push(await this.fileService.commentFile(fileId, comment, this.parentRef?.user));
-      }
-      (document.getElementById("addCommentInput" + meme.id)! as HTMLInputElement).value = '';
-    } catch (error) {
-      console.error("Error adding comment:", error);
-    }
-    return await this.getComments(fileId);
-  }
-
-  async upvoteComment(comment: FileComment, meme: FileEntry) {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
-    try {
-      this.notifications.push(await this.fileService.upvoteComment(this.parentRef?.user!, comment.id));
-      await this.getComments(meme.id);
-    } catch (error) {
-      console.error("Error upvoting comment:", error);
-    }
-  }
-
-  async downvoteComment(comment: FileComment, meme: FileEntry) {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
-    try {
-      this.notifications.push(await this.fileService.downvoteComment(this.parentRef?.user!, comment.id));
-      await this.getComments(meme.id);
-    } catch (error) {
-      console.error("Error downvoting comment:", error);
-    }
-  }
-
+        
   uploadFileListEvent(event: File[]) {
     this.isUploadingInProcess = event && event.length > 0;
   }
@@ -350,21 +61,7 @@ export class MemeComponent extends ChildComponent implements OnInit {
     }
   }
 
-
-  onSortChange(event: any) {
-    const sortBy = event.target.value;
-    this.sortMemes(sortBy);
-  }
-
-  sortMemes(sortBy: string) {
-    if (sortBy === 'recent') {
-      this.directoryContents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    } else if (sortBy === 'upvotes') {
-      this.directoryContents.sort((a, b) => b.upvotes - a.upvotes);
-    } else if (sortBy === 'downvotes') {
-      this.directoryContents.sort((a, b) => b.downvotes - a.downvotes);
-    }
-  }
+   
   clickOnUpload() {
     document.getElementById('fileUploader')!.getElementsByTagName('input')[0].click();
   } 

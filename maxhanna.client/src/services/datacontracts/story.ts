@@ -1,5 +1,6 @@
 import { FileEntry } from "./file-entry";
 import { StoryComment } from "./story-comment";
+import { Topic } from "./topic";
 import { User } from "./user";
 
 export class Story {
@@ -14,6 +15,7 @@ export class Story {
   metadata: MetaData | undefined;
   storyFiles: Array<FileEntry> | undefined;
   storyComments: Array<StoryComment> | undefined;
+  storyTopics: Array<Topic> | undefined;
 }
 
 

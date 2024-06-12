@@ -19,4 +19,10 @@
       </tr>
     </tbody>
   </table>
+  <div *ngIf="!data && isLoading">
+    Loading data, please wait...
+  </div>
+  <div *ngIf="!data && !isLoading">
+    Something went wrong, please refresh this component after a while.
+  </div>
 </div>

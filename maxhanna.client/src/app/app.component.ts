@@ -1,4 +1,4 @@
-import { Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { AfterViewInit, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
 import { CalendarComponent } from './calendar/calendar.component';
 import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { FavouritesComponent } from './favourites/favourites.component';
@@ -9,7 +9,7 @@ import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
 import { TodoComponent } from './todo/todo.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
-import { MusicComponent } from './music/music.component'; 
+import { MusicComponent } from './music/music.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
@@ -20,7 +20,9 @@ import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { NewsComponent } from './news/news.component';
 import { NavigationComponent } from './navigation/navigation.component';
-import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { WordlerComponent } from './wordler/wordler.component';
+
 
 
 @Component({
@@ -28,38 +30,39 @@ import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, AfterViewInit {
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
   showMainContent: boolean = true;
 
   child_unique_key: number = 0;
-  componentsReferences = Array<ComponentRef<any>>()
-  navigationItems = [
-    { icon: "📕", title: "Close Menu", content: '' },
-    { icon: "🔍", title: "Favourites", content: undefined },
-    { icon: "📅", title: "Calendar", content: undefined },
-    { icon: "⛏️", title: "MiningDevices", content: undefined },
-    { icon: "🖥️", title: "MiningRigs", content: undefined },
-    { icon: "☀️", title: "Weather", content: '' },
-    { icon: "✔️", title: "Todo", content: undefined },
-    { icon: "🎼", title: "Music", content: undefined },
-    { icon: "📁", title: "Files", content: undefined },
-    { icon: "🗒️", title: "Notepad", content: undefined },
-    { icon: "📇", title: "Contacts", content: undefined }, 
-    { icon: "🎮", title: "Gameboy Color", content: undefined },
-    { icon: "💵", title: "Coin-Wallet", content: undefined },
-    { icon: "₿", title: "Coin-Watch", content: undefined },
-    { icon: "📰", title: "News", content: undefined },
-    { icon: "🗨️", title: "Chat", content: undefined },
-    { icon: "🤣", title: "Meme", content: undefined },
-    { icon: "🌐", title: "Social", content: undefined },
-    { icon: "👤", title: "User", content: undefined },
+  componentsReferences = Array<ComponentRef<any>>();
+  navigationItems: MenuItem[] = [
+    { ownership: 0, icon: "📕", title: "Close Menu", content: '' },
+    { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
+    { ownership: 0, icon: "📅", title: "Calendar", content: undefined },
+    { ownership: 0, icon: "⛏️", title: "MiningDevices", content: undefined },
+    { ownership: 0, icon: "🖥️", title: "MiningRigs", content: undefined },
+    { ownership: 0, icon: "☀️", title: "Weather", content: '' },
+    { ownership: 0, icon: "✔️", title: "Todo", content: undefined },
+    { ownership: 0, icon: "🎼", title: "Music", content: undefined },
+    { ownership: 0, icon: "📁", title: "Files", content: undefined },
+    { ownership: 0, icon: "🗒️", title: "Notepad", content: undefined },
+    { ownership: 0, icon: "📇", title: "Contacts", content: undefined },
+    { ownership: 0, icon: "🎮", title: "Gameboy Color", content: undefined },
+    { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
+    { ownership: 0, icon: "💵", title: "Coin-Wallet", content: undefined },
+    { ownership: 0, icon: "₿", title: "Coin-Watch", content: undefined },
+    { ownership: 0, icon: "📰", title: "News", content: undefined },
+    { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
+    { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
+    { ownership: 0, icon: "🌐", title: "Social", content: undefined },
+    { ownership: 0, icon: "👤", title: "User", content: undefined },
   ];
 
 
-  private componentMap: { [key: string]: any } = {
+  private componentMap: { [key: string]: any; } = {
     "Favourites": FavouritesComponent,
     "Coin-Watch": CoinWatchComponent,
     "Calendar": CalendarComponent,
@@ -72,6 +75,7 @@ export class AppComponent implements OnInit {
     "Notepad": NotepadComponent,
     "Contacts": ContactsComponent,
     "Gameboy Color": GbcComponent,
+    "Wordler": WordlerComponent,
     "News": NewsComponent,
     "Coin-Wallet": CoinWalletComponent,
     "User": UserComponent,
@@ -79,38 +83,73 @@ export class AppComponent implements OnInit {
     "Social": SocialComponent,
     "Meme": MemeComponent
   };
-  userSelectedNavigationItems: Array<MenuItem> = []
-  constructor(private router: Router, private activatedRoute: ActivatedRoute) {
+  userSelectedNavigationItems: Array<MenuItem> = [];
+  constructor(private router: Router, private route: ActivatedRoute) {
   }
   ngOnInit() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
     }
-
-    this.router.events.subscribe((event) => {
-      if (event instanceof NavigationEnd) {
-        this.showMainContent = !event.url.startsWith('/Memes/') && !event.url.startsWith('/Social/');
+  }
+  ngAfterViewInit() {
+    this.route.paramMap.subscribe(params => {
+      const storyId = parseInt(params.get('storyId')!);
+      if (storyId) {
+        this.createComponent("Social", { "storyId": storyId });
+      }
+      const memeId = parseInt(params.get('memeId')!);
+      if (memeId) {
+        this.createComponent("Meme", { "memeId": memeId });
+      } 
+    });
+    this.router.events.subscribe(event => {
+      if (this.router.url.includes("Wordler")) { 
+        this.createComponent("Wordler");
       }
     });
-
-    if (!this.user && this.showMainContent) {
-      setTimeout(() => this.createComponent("User"), 0); //setTimeout required to avoid ChangeDetectorRef error
-    }
   }
-  createComponent(componentType: string) {
+  createComponent(componentType: string, inputs?: { [key: string]: any; }) {
     if (!componentType || componentType.trim() === "") return null;
 
     const componentClass = this.componentMap[componentType];
-    if (!componentClass) { return null; }
+    if (!componentClass) {
+      console.log(`Unknown component: ${componentType}`);
+      return null;
+    }
 
-    const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
-    if (existingComponent) {
-      const existingComponentKey = existingComponent?.instance.unique_key;
-      if (existingComponentKey) {
-        const compClassName = ((String)(existingComponent?.componentType)).split(' ')[1];
-        if (compClassName.includes("GbcComponent")) return null;
-        this.removeComponent(existingComponentKey);
-        return;
+    // Check if there's an existing component with the same input property
+    const existingComponentWithInput = inputs ? this.componentsReferences.find(compRef => {
+      const instance = compRef.instance;
+      if (!(instance instanceof componentClass)) return false;
+
+      // Compare inputs to see if they match
+      for (const key in inputs) {
+        if (inputs.hasOwnProperty(key)) {
+          if (((instance[key] as User) ?? '') !== ((inputs[key] as User) ?? '')) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }) : undefined;
+
+    // If there are inputs and an existing component with the same input, return null
+    if (inputs && existingComponentWithInput) {
+      console.log(`Component with same input already exists: ${componentType}`);
+      return null;
+    }
+
+    // If there are no inputs or no existing component with the same input, remove existing components and create a new one
+    if (!inputs) {
+      const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
+      if (existingComponent) {
+        const existingComponentKey = existingComponent.instance.unique_key;
+        if (existingComponentKey) {
+          const compClassName = String(existingComponent.componentType).split(' ')[1];
+          if (compClassName.includes("GbcComponent")) return null;
+          this.removeComponent(existingComponentKey);
+          return;
+        }
       }
     }
 
@@ -118,11 +157,16 @@ export class AppComponent implements OnInit {
     let childComponent: any = childComponentRef.instance;
     childComponent.unique_key = ++this.child_unique_key;
     childComponent.parentRef = this;
+
+    if (inputs) {
+      Object.keys(inputs).forEach(key => {
+        childComponent[key] = inputs[key];
+      });
+    }
+
     this.componentsReferences.push(childComponentRef);
     return childComponentRef;
   }
-
-
   removeComponent(key: number) {
     if (this.VCR.length < 1) return;
 
@@ -169,8 +213,8 @@ export class AppComponent implements OnInit {
     }
     return '';
   }
-  deleteCookie(name: string) {
-    this.setCookie(name, '', -1);
+  deleteCookie(name: string) { 
+    this.setCookie(name, '', 1); 
   }
   setCookie(name: string, value: string, expireDays: number, path: string = '') {
     let d: Date = new Date();
@@ -178,6 +222,7 @@ export class AppComponent implements OnInit {
     let expires: string = `expires=${d.toUTCString()}`;
     let cpath: string = path ? `; path=${path}` : '';
     document.cookie = `${name}=${value}; ${expires}${cpath}`;
+    console.log("set cookie : " + document.cookie);
   }
   verifyUser() {
     if (!this.user || this.user == null || this.user.id == 0) return false;

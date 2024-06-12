@@ -1,0 +1,102 @@
+<div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
+
+ 
+<input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
+<div *ngIf="showData"> 
+  <div class="filters" *ngIf="showPrivatePublicOption">
+    <label>
+      Visibility:
+      <select (change)="setFilterVisibility($event)">
+        <option value="all" [selected]="filter.visibility === 'all'">All</option>
+        <option value="public" [selected]="filter.visibility === 'public'">Public</option>
+        <option value="private" [selected]="filter.visibility === 'private'">Private</option>
+      </select>
+    </label>
+    <label>
+      Ownership:
+      <select (change)="setFilterOwnership($event)">
+        <option value="own" [selected]="filter.ownership === 'own'">Own</option>
+        <option value="others" [selected]="filter.ownership === 'others'">Others</option>
+        <option value="all" [selected]="filter.ownership === 'all'">All</option>
+      </select>
+    </label>
+  </div>
+  <!-- Pagination Controls -->
+  <div *ngIf="directory">
+    <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
+    <span>Page {{currentPage}} of {{totalPages}}</span>
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+  </div>
+  <!-- Main Data -->
+  <div class="tableDiv">
+    <table class="mainTable" id="fileTable" *ngIf="directory">
+      <thead>
+        <tr *ngIf="showUpFolderRow && canChangeDirectory">
+          <th (click)="previousDirectory()"
+              class="upOneFolder"
+              title="Up one folder"
+              (drop)="onDrop('...')"
+              (dragover)="onDragOver($event)"
+              colspan="4">
+            ⬆️📁...
+          </th>
+        </tr>
+        <tr>
+          <th>File</th>
+          <th *ngIf="displayFileType">Type</th>
+          <th *ngIf="displayFileActions"></th> 
+          <th *ngIf="displayComments" title="Number of comments">🗨️</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let file of directory.data; let i = index"> 
+          <tr draggable="true"
+              (dragstart)="onDragStart($event, file.fileName)"> 
+            <td class="{{ file.isFolder ? 'folder' : '' }}"
+                (click)="selectFile(file);"
+                (dragover)="onDragOver($event)"
+                (drop)="onDrop(file.fileName)"
+                [id]="'fileIdTd'+file.id"
+                [attr.data-content]="file?.fileData?.givenFileName ?? file.fileName.split('.')[0]!">
+              <input type="text"
+                     placeholder="New file name"
+                     [value]="file?.fileData?.givenFileName ?? file.fileName.split('.')[0]!"
+                     [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
+                     (keyup)="editFileKeyUp($event, file.id)"
+                     (click)="$event.stopPropagation()"
+                     [id]="'editFileNameInput'+file.id" />
+              {{isEditing.includes(file.id) ? '' : file?.fileData?.givenFileName ?? file.fileName.split('.')[0]!}}
+            </td>
+            <td (click)="selectFile(file);" *ngIf="displayFileType">{{getFileExtension(file.fileName).toUpperCase()}}</td>
+            <td class="actionTd" *ngIf="displayFileActions">
+              <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">✏️</button>
+              <input value="↗️"
+                     type="submit"
+                     title="Share File"
+                     *ngIf="file?.visibility?.toLowerCase() == 'private'" />
+              <input value="❌"
+                     type="submit"
+                     (click)="this.delete(file);"
+                     *ngIf="file?.sharedWith?.includes(user!.id!+'') || file?.user!.id == user!.id!" />
+              <button (click)="upvoteFile(file)">👍{{file.upvotes}}</button>
+              <button (click)="downvoteFile(file)">👎{{file.downvotes}}</button>
+            </td>
+            <td *ngIf="displayComments">{{file?.fileComments?.length ?? 0}}</td>
+          </tr>
+          <tr *ngIf="openedFiles.includes(file.id) && displayFileData">
+            <td colspan="4">
+              <app-media-viewer #mediaViewerComponent [user]="user" *ngIf="viewMediaFile && openedFiles.includes(file.id)"></app-media-viewer>
+            </td>
+          </tr>
+          </ng-container>
+      </tbody> 
+    </table>
+
+    <div *ngIf="isLoading">
+      Loading Data...
+    </div>
+    <div *ngIf="!isLoading && (!directory || directory.totalCount == 0)">
+      Empty.
+    </div>
+  </div>
+</div>

@@ -1,0 +1,15 @@
+.matchingTopic {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 4px;
+  background-color: var(--main-highlight-color);
+  cursor:pointer;
+  border: var(--main-border);
+}
+.topicSpanDiv{
+     
+}
+.addTopicButton {
+    visibility: hidden;
+    border: var(--main-border);
+}
