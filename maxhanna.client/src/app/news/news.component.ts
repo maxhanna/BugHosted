@@ -27,7 +27,6 @@ export class NewsComponent extends ChildComponent implements OnInit {
         this.newsArticles = data;
       } else {
         this.newsArticles = await this.newsService.getAllNews(this.parentRef?.user!) as ArticlesResult;
-        console.log('newsArticles:', this.newsArticles);
 
         if (this.newsArticles == null) {
           this.notifications.push("Error fetching news data");
@@ -39,7 +38,6 @@ export class NewsComponent extends ChildComponent implements OnInit {
   }
 
   openSource(url: string) {
-    console.log(url);
     window.open(url, '_blank');
   }
   selectArticle(article: Article): void {

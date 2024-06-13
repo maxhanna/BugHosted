@@ -61,7 +61,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost(Name = "GetUser")]
         public async Task<IActionResult> GetUser([FromBody] User user)
         {
-            _logger.LogInformation($"GET /User with username: {user.Username} and password: {user.Pass}");
+            _logger.LogInformation($"POST /User with username: {user.Username} and password: {user.Pass}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
@@ -102,18 +102,69 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
         }
-        [HttpPost("/User/GetAllUsers", Name = "GetAllUsers")]
-        public async Task<IActionResult> GetAllUsers([FromBody] User user)
+
+        [HttpPost("/User/{id}",Name = "GetUserById")]
+        public async Task<IActionResult> GetUserById([FromBody] User? user, int id)
         {
-            _logger.LogInformation($"GET /User/GetAllUsers (for user: {user.Id})");
+            _logger.LogInformation($"POST /User/{id} with user: {user?.Id}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
                 conn.Open();
 
-                string sql = "SELECT id, username FROM maxhanna.users";
+                string sql = "SELECT * FROM maxhanna.users WHERE id = @user_id;";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("@user_id", id); 
+
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    if (reader.Read())
+                    {
+                        // User found, return the user details
+                        return Ok(new User
+                        (
+                            Convert.ToInt32(reader["id"]),
+                            reader["username"].ToString()!
+                        ));
+                    }
+                    else
+                    {
+                        // User not found
+                        return NotFound();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the request.");
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+
+        [HttpPost("/User/GetAllUsers", Name = "GetAllUsers")]
+        public async Task<IActionResult> GetAllUsers([FromBody] UserSearchRequest request)
+        {
+            _logger.LogInformation($"GET /User/GetAllUsers (for user: {request.User?.Id})");
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                string sql = "SELECT id, username FROM maxhanna.users ";
+                if (!string.IsNullOrEmpty(request.Search))
+                {
+                    sql += "WHERE username like @search; ";
+                }
+
+                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                if (!string.IsNullOrEmpty(request.Search)) { 
+                    cmd.Parameters.AddWithValue("@search", "%"+request.Search+ "%");
+                }
 
                 List<User> users = new List<User>();
 

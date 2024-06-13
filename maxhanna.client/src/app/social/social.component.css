@@ -89,12 +89,12 @@
 
 .metadataDescription {
   font-size: smaller;
-  color: var(--secondary-highlight-color);
+  color: var(--secondary-font-color);
 }
 
 .metadataTitle {
   font-size: small;
-  color: var(--main-highlight-color);
+  color: var(--main-font-color);
 }
 
 .attachedFileSpan { 
@@ -175,4 +175,4 @@
 }
 .additionalSearchFiltersSpan {
     font-size:smaller;
-}
+} 

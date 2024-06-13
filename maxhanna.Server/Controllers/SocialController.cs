@@ -21,38 +21,33 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost(Name = "GetStories")]
-        public async Task<IActionResult> GetStories([FromBody] User? user, [FromQuery] string? search, [FromQuery] string? profile)
+        public async Task<IActionResult> GetStories([FromBody] GetStoryRequest request, [FromQuery] string? search)
         {
-            _logger.LogInformation($"POST /Social for user: {user?.Id} with search: {search}");
+            _logger.LogInformation($"POST /Social for user: {request.User?.Id} with search: {search} for profile: {request.ProfileUserId}.");
             var stories = new Dictionary<int, Story>();
 
             try
             {
-                var whereClause = new StringBuilder();
+                var whereClause = new StringBuilder("WHERE 1=1 ");
                 var parameters = new Dictionary<string, object>();
 
                 if (!string.IsNullOrEmpty(search))
                 {
-                    whereClause.Append("WHERE s.story_text LIKE CONCAT('%', @search, '%') OR u.username LIKE CONCAT('%', @search, '%') ");
+                    whereClause.Append("AND s.story_text LIKE CONCAT('%', @search, '%') ");
                     parameters.Add("@search", search);
                 }
 
-                if (!string.IsNullOrEmpty(profile))
+                if (request.ProfileUserId != null && request.ProfileUserId > 0)
                 {
-                    if (whereClause.Length > 0)
-                    {
-                        // Append "AND" if the WHERE clause already exists
-                        whereClause.Append("AND ");
-                    }
-                    else
-                    {
-                        // Start a fresh WHERE clause
-                        whereClause.Append("WHERE ");
-                    }
-
-                    whereClause.Append("u.username = @profile "); // Add your profile condition here
-                    parameters.Add("@profile", profile);
+                    whereClause.Append("AND s.profile_user_id = @profile ");
+                    parameters.Add("@profile", request.ProfileUserId.Value);
                 }
+
+                if (request.ProfileUserId == null || request.ProfileUserId == 0)
+                {
+                    whereClause.Append("AND s.profile_user_id IS NULL ");
+                }
+
 
                 string sql = $@"
             SELECT 
@@ -154,9 +149,9 @@ namespace maxhanna.Server.Controllers
                         {
                             cmd.Parameters.AddWithValue("@search", search);
                         }
-                        if (profile != null)
+                        if (request.ProfileUserId != null)
                         {
-                            cmd.Parameters.AddWithValue("@profile", profile);
+                            cmd.Parameters.AddWithValue("@profile", request.ProfileUserId);
                         }
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
@@ -298,7 +293,7 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                string sql = @"INSERT INTO stories (user_id, story_text) VALUES (@userId, @storyText);";
+                string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id) VALUES (@userId, @storyText, @profileUserId);";
                 string topicSql = @"INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, @topicId);";
 
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -309,6 +304,7 @@ namespace maxhanna.Server.Controllers
                     {
                         cmd.Parameters.AddWithValue("@userId", story.user.Id);
                         cmd.Parameters.AddWithValue("@storyText", story.story.StoryText);
+                        cmd.Parameters.AddWithValue("@profileUserId", story.story.ProfileUserId.HasValue && story.story.ProfileUserId != 0 ? story.story.ProfileUserId.Value : (object)DBNull.Value);
 
                         int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
@@ -369,74 +365,8 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "An error occurred while posting story.");
                 return StatusCode(500, "An error occurred while posting story.");
             }
-        }
-
-
-
-        [HttpPost("/Social/{storyId}/Comments", Name = "GetSocialComments")]
-        public async Task<IActionResult> GetSocialComments([FromBody] User? user, int storyId)
-        {
-            _logger.LogInformation($"/POST /Social/{storyId}/Comments (for user : {user!.Id})");
-            try
-            {
-                string sql = @"SELECT 
-                          sc.id, sc.story_id, sc.user_id, u.username, sc.text,  
-                          COUNT(CASE WHEN svc.upvote = 1 THEN 1 ELSE NULL END) AS upvotes,
-                          COUNT(CASE WHEN svc.downvote = 1 THEN 1 ELSE NULL END) AS downvotes,
-                          sc.date
-                       FROM 
-                          story_comments AS sc 
-                       JOIN 
-                          users AS u ON sc.user_id = u.id 
-                       LEFT JOIN 
-                          story_comment_votes AS svc ON sc.id = svc.comment_id 
-                       WHERE 
-                          sc.story_id = @storyId
-                       GROUP BY 
-                          sc.id, sc.story_id, sc.user_id, u.username, sc.text, sc.date;";
-
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await conn.OpenAsync();
-
-                    using (var cmd = new MySqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@storyId", storyId);
-
-                        using (var rdr = await cmd.ExecuteReaderAsync())
-                        {
-                            var comments = new List<StoryComment>();
-
-                            while (await rdr.ReadAsync())
-                            {
-                                var comment = new StoryComment
-                                {
-                                    Id = rdr.GetInt32(0),
-                                    StoryId = rdr.GetInt32(1),
-                                    User = new User(
-                                        rdr.GetInt32(2),
-                                        rdr.GetString(3)
-                                    ),
-                                    Text = rdr.GetString(4),
-                                    Upvotes = rdr.GetInt32(5),
-                                    Downvotes = rdr.GetInt32(6),
-                                    Date = rdr.GetDateTime(7)
-                                };
-
-                                comments.Add(comment);
-                            }
-
-                            return Ok(comments);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while fetching comments.");
-                return StatusCode(500, "An error occurred while fetching comments.");
-            }
-        }
+        } 
+         
 
         [HttpPost("/Social/Story/Upvote", Name = "UpvoteSocialStory")]
         public async Task<IActionResult> UpvoteSocialStory([FromBody] StoryVoteRequest request)

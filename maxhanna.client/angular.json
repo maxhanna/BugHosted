@@ -83,8 +83,8 @@
               "port": 443,
               "host": "0.0.0.0",
               "ssl": true,
-              "sslCert": "ssl/maxhanna_ca.crt",
-              "sslKey": "ssl/maxhanna_ca.key"
+              "sslCert": "ssl/bughosted_com.crt",
+              "sslKey": "ssl/bughosted_com.key"
             }
           },
           "defaultConfiguration": "development",

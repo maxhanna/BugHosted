@@ -10,6 +10,7 @@ import { FileService } from '../../services/file.service';
 import { ActivatedRoute } from '@angular/router';
 import { TopicService } from '../../services/topic.service';
 import { Topic } from '../../services/datacontracts/topic';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-social',
@@ -17,13 +18,13 @@ import { Topic } from '../../services/datacontracts/topic';
   styleUrls: ['./social.component.css']
 })
 export class SocialComponent extends ChildComponent implements OnInit {
-  @Input() user?: User; 
   fileMetadata: any;
   youtubeMetadata: any;
   stories: Story[] = [];
   comments: StoryComment[] = [];
   loading = false;
   showComments = false;
+  revealSearchFilters = false;
   openedMemes: number[] = [];
   selectedAttachmentFileExtension: string | null = null;
   isEditing: number[] = [];
@@ -39,21 +40,22 @@ export class SocialComponent extends ChildComponent implements OnInit {
   abortAttachmentRequestController: AbortController | null = null;
   notifications: String[] = [];
   attachedSearchTopics: Array<Topic> = [];
-  revealSearchFilters = false;
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
 
   @Input() storyId: number | null = null;
+  @Input() user?: User;
+  @Input() parent?: AppComponent; 
+
   constructor(private socialService: SocialService,
     private fileService: FileService,
-    private sanitizer: DomSanitizer,
-    private route: ActivatedRoute,
-    private topicService: TopicService) {
+    private sanitizer: DomSanitizer) {
     super();
   }
 
   async ngOnInit() {
+    console.log("social initilized with user : " + this.user);
     await this.getStories();
     if (this.storyId) {
       this.scrollToStory(this.storyId);
@@ -81,7 +83,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
   }
 
   copyLink(storyId: number) {
-    const link = `https://maxhanna.ca/Social/${storyId}`;
+    const link = `https://bughosted.com/Social/${storyId}`;
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {
@@ -143,7 +145,6 @@ export class SocialComponent extends ChildComponent implements OnInit {
       };
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('Fetch aborted');
       } else {
         console.error('Fetch error:', error);
       }
@@ -210,8 +211,9 @@ export class SocialComponent extends ChildComponent implements OnInit {
   }
 
   async getStories(keywords?: string) {
+    console.log("get stories for : " + this.user?.id + " keywords: " + keywords);
     if (this.user) {
-      const res = await this.socialService.getStories(this.parentRef?.user!, this.user.username);
+      const res = await this.socialService.getStories(this.parentRef?.user!, undefined, this.user?.id);
       if (res) {
         this.stories = res;
       }
@@ -225,7 +227,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
   }
 
   async post() {
-    if (!this.parentRef?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
+    if (!this.parentRef?.verifyUser() && !this.parent?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
 
     const storyText = this.story.nativeElement.value!;
     if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
@@ -241,13 +243,14 @@ export class SocialComponent extends ChildComponent implements OnInit {
       storyComments: undefined,
       metadata: undefined,
       storyFiles: this.attachedFiles,
-      storyTopics: this.attachedTopics
+      storyTopics: this.attachedTopics,
+      profileUserId: this.user?.id
     };
 
     this.attachedFiles = [];
     this.attachedTopics = [];
 
-    const res = await this.socialService.postStory(this.parentRef?.user!, newStory);
+    const res = await this.socialService.postStory(this.parentRef?.user! ?? this.parent?.user, newStory);
     if (res) {
       await this.getStories();
       this.story.nativeElement.value = '';

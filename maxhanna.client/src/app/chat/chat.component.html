@@ -2,10 +2,7 @@
   <div class="closeButton" (click)="remove_me('ChatComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Chat</div>
-
-  <button class="toggleButton" (click)="togglePanel()">
-    {{ isPanelExpanded ? 'Hide Users' : 'Show Users' }}
-  </button>
+   
 
   <app-user-list (userClickEvent)="openChat($event);"
                  [user]="parentRef?.user!"

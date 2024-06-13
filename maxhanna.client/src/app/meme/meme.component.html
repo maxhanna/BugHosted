@@ -15,11 +15,14 @@
     <label class="SendMemesSpan" *ngIf="!isUploadingInProcess" (click)="clickOnUpload()" title="Upload file(s)">Upload your memes!</label>
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
-  <app-file-search [user]="parentRef?.user!"
+  <app-file-search [inputtedParentRef]="parentRef"
+                   [user]="parentRef?.user!"
                    [currentDirectory]="'Meme/'"
                    [maxResults]="100"
                    [maxHeight]="'500px'"
                    [canChangeDirectory]="false"
-                   [canDragMove]="false">
+                   [canDragMove]="false"
+                   [showPrivatePublicOption]="false"
+                   [displayFileType]="false">
   </app-file-search>
 </div>

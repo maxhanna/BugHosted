@@ -308,16 +308,18 @@ namespace maxhanna.Server.Controllers
                 {
                     await connection.OpenAsync();
 
-                    var command = new MySqlCommand("INSERT INTO file_comments (file_id, user_id, comment) VALUES (@fileId, @userId, @comment)", connection);
+                    var command = new MySqlCommand(
+                       "INSERT INTO file_comments (file_id, user_id, comment) VALUES (@fileId, @userId, @comment); SELECT LAST_INSERT_ID();",
+                    connection);
                     command.Parameters.AddWithValue("@fileId", request.FileId);
                     command.Parameters.AddWithValue("@userId", request.User?.Id ?? 0);
                     command.Parameters.AddWithValue("@comment", request.Comment);
 
-                    await command.ExecuteNonQueryAsync();
-                }
+                    var newCommentId = await command.ExecuteScalarAsync() ?? 0;
 
-                _logger.LogInformation($"Comment added to file {request.FileId} by user {request.User?.Id}");
-                return Ok("Comment added successfully.");
+                    _logger.LogInformation($"Comment {newCommentId} added to file {request.FileId} by user {request.User?.Id}");
+                    return Ok(newCommentId);
+                } 
             }
             catch (Exception ex)
             {

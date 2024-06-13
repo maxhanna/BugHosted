@@ -5,10 +5,7 @@
   min-width: 300px;
 }
 
-.userPanel {
-  position: absolute;
-  top: 60px;
-  left: 0;
+.userPanel { 
   height: CALC(100% - 60px);
   width: 0px;
   overflow-x: hidden;

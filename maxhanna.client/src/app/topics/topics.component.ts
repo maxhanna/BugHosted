@@ -2,6 +2,7 @@ import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@
 import { TopicService } from '../../services/topic.service';
 import { Topic } from '../../services/datacontracts/topic';
 import { User } from '../../services/datacontracts/user';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-topics',
@@ -10,6 +11,7 @@ import { User } from '../../services/datacontracts/user';
 })
 export class TopicsComponent {
   @Input() user: User | undefined;
+  @Input() parent: AppComponent | undefined;
   @Output() topicAdded = new EventEmitter<Topic[]>();
   @ViewChild('newTopic') newTopic!: ElementRef<HTMLInputElement>;
   @ViewChild('addTopicButton') addTopicButton!: ElementRef<HTMLButtonElement>;
@@ -21,13 +23,13 @@ export class TopicsComponent {
   constructor(private topicService: TopicService) { }
 
   async addTopic() {
-    if (!this.user) { return alert("Must be logged in to add a topic!"); }
+    if (!this.user || !parent) { return alert("Must be logged in to add a topic!"); }
 
     const addedTopic = this.newTopic.nativeElement.value.trim();
 
     if (addedTopic !== '') {
       this.newTopic.nativeElement.value = ''; 
-      const tmpTopic = await this.topicService.addTopic(this.user, new Topic(0, addedTopic));
+      const tmpTopic = await this.topicService.addTopic(this.user ?? this.parent?.user, new Topic(0, addedTopic));
       this.topics.push(tmpTopic);
       this.topicAdded.emit(this.topics);
       this.addTopicButton.nativeElement.style.visibility = "hidden"; 
@@ -40,20 +42,21 @@ export class TopicsComponent {
     if (enteredValue.trim() != '') {
       const res = await debouncedSearch(enteredValue);
       this.matchingTopics = res;
-      console.log("mathinching topics: " + this.matchingTopics);
+
       if (this.matchingTopics.length == 0) {
         this.addTopicButton.nativeElement.style.visibility = "visible";
-        console.log("making add button visible, no matches");
-      } else {
+      }
+      else {
         if (this.matchingTopics.filter(x => x.topicText.toLowerCase() == enteredValue.toLowerCase()).length > 0) {
           this.addTopicButton.nativeElement.style.visibility = "hidden";
-          console.log("making add button hidden, found matches");
-        } else {
+        }
+        else {
           this.addTopicButton.nativeElement.style.visibility = "visible";
-          console.log("making add button visible, no matches");
         }
       }
-    } else {
+    }
+    else
+    {
       this.matchingTopics = []; // Clear the list if input is empty 
     } 
   }

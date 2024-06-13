@@ -16,6 +16,7 @@ export class Story {
   storyFiles: Array<FileEntry> | undefined;
   storyComments: Array<StoryComment> | undefined;
   storyTopics: Array<Topic> | undefined;
+  profileUserId?: number | undefined;
 }
 
 

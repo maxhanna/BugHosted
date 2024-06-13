@@ -41,19 +41,19 @@ export class UserService {
       const response = await fetch('/user', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', 
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(user),
       });
 
-      return await response.json(); 
+      return await response.json();
     } catch (error) {
-      return null; 
+      return null;
     }
   }
-  async getAllUsers(user: User) {
+  async getUserById(userId: number, user?: User) {
     try {
-      const response = await fetch('/user/getallusers', {
+      const response = await fetch(`/user/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,6 +64,21 @@ export class UserService {
       return await response.json();
     } catch (error) {
       return null;
+    }
+  }
+  async getAllUsers(user: User, search?: string) {
+    try {
+      const response = await fetch('/user/getallusers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, search }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return [];
     }
   }
   async updateUser(user: User) {

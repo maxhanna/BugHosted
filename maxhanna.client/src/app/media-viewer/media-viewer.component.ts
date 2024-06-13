@@ -4,6 +4,7 @@ import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileService } from '../../services/file.service';
 import { FileComment } from '../../services/datacontracts/file-comment';
 import { User } from '../../services/datacontracts/user';
+import { AppComponent } from '../app.component';
 
 
 @Component({
@@ -21,6 +22,7 @@ export class MediaViewerComponent extends ChildComponent {
   fileType = '';
   showThumbnail = false;
   showComments = true;
+  showCommentLoadingOverlay = false;
   selectedFileName = '';
   abortFileRequestController: AbortController | null = null;
   debounceTimer: any;
@@ -31,14 +33,19 @@ export class MediaViewerComponent extends ChildComponent {
   @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo!: ElementRef;
 
   @Input() user?: User;
+  @Input() inputtedParentRef?: AppComponent;
 
   copyLink(fileId: number) {
-    const link = `https://maxhanna.ca/Files/${fileId}`;
+    const link = `https://bughosted.com/Files/${fileId}`;
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {
       this.notifications.push('Failed to copy link!');
     });
+  }
+  createUserProfileComponent(user?: User) {
+    if (!user) { return alert("you must select a user!"); }
+    this.inputtedParentRef?.createComponent("User", { "user": user });
   }
   async setFileSrc(fileName: string, currentDirectory?: string) {
     this.startLoading();
@@ -111,56 +118,47 @@ export class MediaViewerComponent extends ChildComponent {
       return filename.split('.').pop() || '';
     }
     return '';
-  }
+  } 
 
-  async getComments(memeId: number) {
-    try {
-      const res = await this.fileService.getComments(memeId);
-      if (res && res != '') {
-        this.selectedFile!.fileComments = res as FileComment[];
-      }
-      else {
-        this.selectedFile!.fileComments = [];
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("404")) {
-        this.selectedFile!.fileComments = [];
-      } else {
-        console.error("Error fetching comments:", error);
-      }
-    }
-  }
-
-  async addComment(event: Event) {
-    clearTimeout(this.debounceTimer);
+  async addComment(comment: string) {
+    clearTimeout(this.debounceTimer); 
     this.debounceTimer = setTimeout(async () => {
       if (!this.selectedFile) {
         return alert("You must select a file!");
-      } else {
+      } else { 
         const fileId = this.selectedFile.id;
-        const comment = (document.getElementById("addCommentInput" + fileId)! as HTMLInputElement).value;
         try {
           if (fileId && comment && comment.trim() != '') {
-            this.notifications.push(await this.fileService.commentFile(fileId, comment, this.user));
+            const res = await this.fileService.commentFile(fileId, comment, this.user);
+            if (res && res != 0 + '') {
+              this.selectedFile.fileComments.push(new FileComment(parseInt(res), fileId, this.user ?? new User(0, "Anonymous"), comment, 0, 0));
+            }
           }
-          (event.target as HTMLInputElement).value = '';
         } catch (error) {
           console.error("Error adding comment:", error);
         }
-        return await this.getComments(fileId);
+        this.stopLoadingComment(fileId);
       }
-    }, 2000);
+    }, 2000);  
   }
+  async startLoadingComment() {
+    this.showCommentLoadingOverlay = true;
+    const comment = (document.getElementById("addCommentInput" + this.selectedFile!.id)! as HTMLInputElement).value;
 
+    await this.addComment(comment)
+  }
+  stopLoadingComment(fileId: number) {
+    this.showCommentLoadingOverlay = false;
+    setTimeout(() => { (document.getElementById("addCommentInput" + fileId)! as HTMLInputElement).value = ''; }, 1);  
+  }
   async upvoteComment(comment: FileComment) {
     if (!this.user) { return alert("You must be logged in to use this feature!"); }
-
+     
     try {
       this.notifications.push(await this.fileService.upvoteComment(this.user, comment.id));
-      await this.getComments(this.selectedFile!.id);
     } catch (error) {
       console.error("Error upvoting comment:", error);
-    }
+    } 
   }
 
   async downvoteComment(comment: FileComment) {
@@ -168,7 +166,6 @@ export class MediaViewerComponent extends ChildComponent {
 
     try {
       this.notifications.push(await this.fileService.downvoteComment(this.user, comment.id));
-      await this.getComments(this.selectedFile!.id);
     } catch (error) {
       console.error("Error downvoting comment:", error);
     }

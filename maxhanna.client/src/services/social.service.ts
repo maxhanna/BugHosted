@@ -8,7 +8,7 @@ import { UpDownVoteCounts } from './datacontracts/up-down-vote-counts';
   providedIn: 'root'
 })
 export class SocialService {
-  async getStories(user?: User, search?: string) {
+  async getStories(user?: User, search?: string, profileUserId?: number ) {
     var params = new URLSearchParams({ search: search! });
 
     try { 
@@ -17,7 +17,7 @@ export class SocialService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify({ user, profileUserId }),
       });
 
       if (!res.ok) {
@@ -30,14 +30,14 @@ export class SocialService {
     }
   }
 
-  async postStory(user: User, story: Story) {
+  async postStory(user: User, story: Story, profileStoryId?: number) {
     try {
       const res = await fetch('/social/post-story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({user, story}),
+        body: JSON.stringify({ user, story, profileStoryId }),
       });
 
       if (!res.ok) {

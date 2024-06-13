@@ -100,7 +100,6 @@ export class FileComponent extends ChildComponent {
   }
   createVisibilityOnChange() {
     this.createVisibility = this.folderVisibility.nativeElement.value;
-    console.log(this.createVisibility);
   }
   
 
@@ -122,7 +121,6 @@ export class FileComponent extends ChildComponent {
   setThumbnailSrc(url: string) {
     if (this.thumbnailContainer && this.thumbnailContainer.nativeElement) {
       this.thumbnailContainer.nativeElement.src = url;
-      console.log("setMemeSrc");
     }
   }
 

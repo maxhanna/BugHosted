@@ -8,6 +8,7 @@ import { ChildComponent } from '../child.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { FileData } from '../../services/datacontracts/file-data';
 import { ActivatedRoute } from '@angular/router';
+import { AppComponent } from '../app.component';
 
 
 @Component({
@@ -29,6 +30,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() displayFileActions: boolean = true;
   @Input() displayComments: boolean = true;
   @Input() canDragMove: boolean = true;
+  @Input() inputtedParentRef?: AppComponent;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
 
@@ -78,22 +80,29 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   scrollToFile(fileId: string) {
     setTimeout(() => {
       const element = document.getElementById('fileIdTd' + fileId);
-      console.log("scrolling to file");
-      console.log("element: " + 'fileIdTd' + fileId);
       if (element) {
-        console.log("element: " + element);
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         element.click();
       }
     }, 0);
   }
   async upvoteFile(file: FileEntry) {
-    this.notifications.push(await this.fileService.upvoteFile(this.user!, file.id));
-    file.upvotes++;
+    const res = await this.fileService.upvoteFile(this.user!, file.id); 
+    if (res.toLowerCase().includes("error")) {
+      this.notifications.push("Error upvoting, are you logged in?");
+    } else {
+      this.notifications.push(res);
+      file.upvotes++;
+    }
   }
   async downvoteFile(file: FileEntry) {
-    this.notifications.push(await this.fileService.downvoteFile(this.user!, file.id));
-    file.downvotes++;
+    const res = await this.fileService.downvoteFile(this.user!, file.id);
+    if (res.toLowerCase().includes("error")) {
+      this.notifications.push("Error downvoting, are you logged in?");
+    } else {
+      this.notifications.push(res);
+      file.downvotes++;
+    }
   }
   async delete(file: FileEntry) {
     if (confirm(`Delete : ${file.fileName} ?`)) {
@@ -116,12 +125,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.showData = true;
     this.showUpFolderRow = this.currentDirectory.includes('/') ? true : false;
-    console.log("getirectory: " + this.currentDirectory);
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.isLoading = true;
       try {
-        console.log("whats file? " + file);
         const res = await this.fileService.getDirectory(
           this.currentDirectory,
           this.filter.visibility,
@@ -160,7 +167,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         this.download(file, false);
       } else {
         this.currentDirectory += file.fileName + "/";
-        console.log(this.currentDirectory);
         this.getDirectory(file.fileName);
       }
     }
@@ -225,7 +231,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.isEditing.push(fileId);
       setTimeout(() => { (document.getElementById("editFileNameInput" + fileId) as HTMLInputElement).focus(); }, 1);
     } else {
-      console.log("parent inner text:  " + parent.innerText.trim());
       if (parent.dataset["content"]?.trim() === text.trim()) {
         this.isEditing = this.isEditing.filter(x => x != fileId);
         return alert("no changes detected");

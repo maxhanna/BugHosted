@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { FileSearchComponent } from './file-search.component';
 
-import { FileSearchComponent } from './FileSearchComponent';
-
+ 
 describe('FileSearchComponent', () => {
   let component: FileSearchComponent;
   let fixture: ComponentFixture<FileSearchComponent>;

@@ -32,9 +32,10 @@
 }
 .mediaDiv {
     max-width: 50vw;
-    max-height: 40vh;
+    max-height: 50vh;
     display:block;
-    margin: 10px;
+    margin-left:auto;
+    margin-right:auto;
     padding:3px;  
     text-align:center;
 }
@@ -43,59 +44,73 @@
   width: 100%;
   height: auto;
   max-width: 70vw;
-  max-height: 30vh;
+  max-height: 45vh;
   cursor: default;
   object-fit: contain;
 }
+.mediaContainerWrapperDiv{
+    width:100%;
+    display:flex;
+    justify-content:center;
+}
 .mediaContainerDiv{
     max-height:70vh;
+    max-width:80vh;
     overflow:auto;
 }
-
-
-.comments-section {
-  cursor: default;
-  max-height: 300px;
-  overflow-y: auto;
-  background-color: var(--secondary-bg-color);
-  padding: 15px;
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .mediaContainerDiv { 
+    width: 45vh; 
+  }
 }
 
-.commentsHeader {
-  margin-left: auto;
-  margin-right: auto;
-  width: 100%;
-  font-size: large;
-  text-align: center;
-  cursor: pointer;
-}
 
-.commentUsername {
-  margin-top: 5px;
-  color: var(--secondary-font-color);
-  font-size: large;
-}
 
-.commentText {
-  display: inline-block;
-  padding: 5px 10px;
-  border-radius: 10px;
-  background-color: var(--main-highlight-color);
-  margin-left: 25px;
-  margin-bottom: 5px;
-}
+  .comments-section {
+    cursor: default;
+    background-color: var(--secondary-bg-color);
+    padding: 15px;
+  }
 
-.commentVoteButtons {
-  display: inline-block;
-}
+  .commentsHeader {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    font-size: large;
+    text-align: center;
+    cursor: pointer;
+  }
 
-.addCommentTextArea {
-  height: 20px;
-  width: 80%;
-}
+  .commentUsername {
+    margin-top: 5px;
+    color: var(--secondary-font-color);
+    font-size: large;
+  }
 
-.commentsInputArea {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-}
+  .commentText {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background-color: var(--main-highlight-color);
+    margin-left: 25px;
+    margin-bottom: 5px;
+  }
+
+  .commentVoteButtons {
+    display: inline-block;
+  }
+
+  .addCommentTextArea {
+    height: 20px;
+    width: 80%;
+  }
+
+  .commentsInputArea {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .loadingCommentOverlay {
+    width: 100%;
+  }

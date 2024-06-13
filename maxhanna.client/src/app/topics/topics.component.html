@@ -1,4 +1,4 @@
-<div>
+<div *ngIf="user || parent?.user">
   <input type="text" #newTopic placeholder="Enter a topic" (keyup)="searchTopics(newTopic.value)">
   <span *ngFor="let topic of topics" class="matchingTopic">{{topic.topicText}}</span><button (click)="addTopic()" #addTopicButton class="addTopicButton">Add Topic</button>  
 </div>

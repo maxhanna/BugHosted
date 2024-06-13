@@ -47,7 +47,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.clearNotifications();
   }
   clearNotifications() {
-    console.log("inside clear notifications");
     this._parent.navigationItems.filter(x => x.title == "MiningRigs")[0].content = '';
     this._parent.navigationItems.filter(x => x.title == "Coin-Watch")[0].content = '';
     this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';

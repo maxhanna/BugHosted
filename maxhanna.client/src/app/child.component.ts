@@ -31,9 +31,10 @@ export class ChildComponent {
     }
     this.isLoading = false;
   } 
-  viewProfile(user?: User) { 
+  viewProfile(user?: User) {
     if (user && user.id != 0) {
-      this.parentRef?.createComponent("User", { "user": user });
+      console.log("vew profile: " + user.id);
+      this.parentRef?.createComponent("User", { "userId": user.id });
     }
   }
   sortTable(columnIndex: number, tableId: string): void {

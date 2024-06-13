@@ -171,7 +171,7 @@ namespace maxhanna.Server.Controllers
                         int requestId = Convert.ToInt32(result);
                         string updateQuery = "UPDATE friend_requests SET status = @status, updated_at = NOW() WHERE id = @requestId";
                         var updateCommand = new MySqlCommand(updateQuery, connection);
-                        updateCommand.Parameters.AddWithValue("@status", "Pending");
+                        updateCommand.Parameters.AddWithValue("@status", "Accepted");
                         updateCommand.Parameters.AddWithValue("@requestId", requestId);
                         await updateCommand.ExecuteNonQueryAsync();
                     }

@@ -45,7 +45,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     this.getHighScores();
   }
   copyLink() {
-    const link = `https://maxhanna.ca/Wordler`;
+    const link = `https://bughosted.com/Wordler`;
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {

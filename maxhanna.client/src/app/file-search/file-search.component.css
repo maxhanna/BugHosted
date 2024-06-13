@@ -32,6 +32,21 @@
   border-color: #4285f4;
 }
 
+.pageContainerDiv {
+    text-align:center;
+}
+.searchInput {
+    text-align:center;
+}
+.typeTd {
+    width: 1%;
+}
+
 .actionTd {
-  text-align: right; 
+  text-align: right;
+  width: 190px;
+}
+.commentCountTd {
+  width: 16px;
+  text-align:right;
 }

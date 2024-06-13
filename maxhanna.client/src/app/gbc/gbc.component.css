@@ -384,7 +384,7 @@
   bottom: 103px;
   justify-content: space-between;
   flex-wrap: wrap;
-  z-index: 100;
+  z-index: 8;
   transform: skewY(-10deg);
 }
 

@@ -59,6 +59,22 @@ html, body {
   overscroll-behavior-x: none;
 }
 
+a {
+  color: #4CAF50;
+  font-family: Gadugi, 'Comic Sans', cursive; /* Fun, non-standard font */
+  padding: 1px;
+  text-align: center;
+  border-radius: 5px; /* Rounded corners */
+  border-bottom: var(--main-highlight-color);
+  text-decoration: none;
+}
+a:visited {
+    color: var(--main-font-color);
+}
+a:active {
+    color: var(--secondary-font-color);
+}
+
 legend {
   border: var(--main-border);
   text-align: center;
@@ -318,7 +334,7 @@ fieldset {
 }
 
   .notification::before {
-    content: '🍌';
+    content: '🪲';
   }
 
 .cursorPointer {
@@ -333,4 +349,8 @@ fieldset {
 #enterButton {
     font-size:large;
 }
- 
+.smallExpander {
+    font-size:small;
+    font-family: 'Segoe UI Symbol';
+    cursor: pointer;
+}

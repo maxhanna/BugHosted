@@ -57,7 +57,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📰", title: "News", content: undefined },
     { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
     { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
-    { ownership: 0, icon: "🌐", title: "Social", content: undefined },
+    { ownership: 0, icon: "🌍", title: "Social", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
   ];
 
@@ -101,6 +101,10 @@ export class AppComponent implements OnInit, AfterViewInit {
       if (memeId) {
         this.createComponent("Meme", { "memeId": memeId });
       } 
+      const userId = parseInt(params.get('userId')!);
+      if (userId) {
+        this.createComponent("User", { "userId": userId });
+      } 
     });
     this.router.events.subscribe(event => {
       if (this.router.url.includes("Wordler")) { 
@@ -116,42 +120,14 @@ export class AppComponent implements OnInit, AfterViewInit {
       console.log(`Unknown component: ${componentType}`);
       return null;
     }
+    const prevComponent = this.componentsReferences[0];
+    const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
 
-    // Check if there's an existing component with the same input property
-    const existingComponentWithInput = inputs ? this.componentsReferences.find(compRef => {
-      const instance = compRef.instance;
-      if (!(instance instanceof componentClass)) return false;
-
-      // Compare inputs to see if they match
-      for (const key in inputs) {
-        if (inputs.hasOwnProperty(key)) {
-          if (((instance[key] as User) ?? '') !== ((inputs[key] as User) ?? '')) {
-            return false;
-          }
-        }
-      }
-      return true;
-    }) : undefined;
-
-    // If there are inputs and an existing component with the same input, return null
-    if (inputs && existingComponentWithInput) {
-      console.log(`Component with same input already exists: ${componentType}`);
-      return null;
+    if (componentType !== "User" && existingComponent) {
+      return;      // Prevent creating the same component if it's not a user profile - Allow new user profile creation even if a user profile is already open.
     }
 
-    // If there are no inputs or no existing component with the same input, remove existing components and create a new one
-    if (!inputs) {
-      const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
-      if (existingComponent) {
-        const existingComponentKey = existingComponent.instance.unique_key;
-        if (existingComponentKey) {
-          const compClassName = String(existingComponent.componentType).split(' ')[1];
-          if (compClassName.includes("GbcComponent")) return null;
-          this.removeComponent(existingComponentKey);
-          return;
-        }
-      }
-    }
+    this.removeAllComponents();
 
     const childComponentRef = this.VCR.createComponent(componentClass);
     let childComponent: any = childComponentRef.instance;
@@ -187,16 +163,15 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   removeAllComponents() {
+    console.log("Removing all components");
     if (this.VCR.length < 1) return;
 
-    const userComponentRef = this.componentsReferences.find(componentRef => componentRef.instance instanceof UserComponent);
     this.componentsReferences.forEach(componentRef => {
-      if (componentRef !== userComponentRef) {
-        componentRef.destroy();
-      }
+      componentRef.destroy();
     });
 
-    this.componentsReferences = userComponentRef ? [userComponentRef] : [];
+    this.VCR.clear();
+    this.componentsReferences = [];
   }
 
   getCookie(name: string) {
@@ -222,7 +197,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     let expires: string = `expires=${d.toUTCString()}`;
     let cpath: string = path ? `; path=${path}` : '';
     document.cookie = `${name}=${value}; ${expires}${cpath}`;
-    console.log("set cookie : " + document.cookie);
   }
   verifyUser() {
     if (!this.user || this.user == null || this.user.id == 0) return false;

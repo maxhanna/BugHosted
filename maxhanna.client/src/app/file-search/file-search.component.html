@@ -1,8 +1,8 @@
 <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
-
- 
-<input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
-<div *ngIf="showData"> 
+<div class="searchInput">
+  <input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}"  />
+</div>
+<div *ngIf="showData">
   <div class="filters" *ngIf="showPrivatePublicOption">
     <label>
       Visibility:
@@ -22,7 +22,7 @@
     </label>
   </div>
   <!-- Pagination Controls -->
-  <div *ngIf="directory">
+  <div *ngIf="directory" class="pageContainerDiv">
     <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
     <span>Page {{currentPage}} of {{totalPages}}</span>
     <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
@@ -43,15 +43,19 @@
         </tr>
         <tr>
           <th>File</th>
-          <th *ngIf="displayFileType">Type</th>
-          <th *ngIf="displayFileActions"></th> 
-          <th *ngIf="displayComments" title="Number of comments">🗨️</th>
+          <th *ngIf="displayFileActions" class="actionTd"></th> 
+          <th *ngIf="displayFileType" class="typeTd">
+            Type
+          </th>
+          <th *ngIf="displayComments" class="commentCountTd" title="Number of comments">
+            🗨️
+          </th>
         </tr>
       </thead>
       <tbody>
-        <ng-container *ngFor="let file of directory.data; let i = index"> 
+        <ng-container *ngFor="let file of directory.data; let i = index">
           <tr draggable="true"
-              (dragstart)="onDragStart($event, file.fileName)"> 
+              (dragstart)="onDragStart($event, file.fileName)">
             <td class="{{ file.isFolder ? 'folder' : '' }}"
                 (click)="selectFile(file);"
                 (dragover)="onDragOver($event)"
@@ -67,7 +71,6 @@
                      [id]="'editFileNameInput'+file.id" />
               {{isEditing.includes(file.id) ? '' : file?.fileData?.givenFileName ?? file.fileName.split('.')[0]!}}
             </td>
-            <td (click)="selectFile(file);" *ngIf="displayFileType">{{getFileExtension(file.fileName).toUpperCase()}}</td>
             <td class="actionTd" *ngIf="displayFileActions">
               <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">✏️</button>
               <input value="↗️"
@@ -77,19 +80,28 @@
               <input value="❌"
                      type="submit"
                      (click)="this.delete(file);"
-                     *ngIf="file?.sharedWith?.includes(user!.id!+'') || file?.user!.id == user!.id!" />
-              <button (click)="upvoteFile(file)">👍{{file.upvotes}}</button>
-              <button (click)="downvoteFile(file)">👎{{file.downvotes}}</button>
+                     *ngIf="file?.sharedWith?.includes(user?.id!+'') || file?.user?.id == user?.id!" />
+              <button (click)="upvoteFile(file)">
+                👍{{file.upvotes}}
+              </button>
+              <button (click)="downvoteFile(file)">
+                👎{{file.downvotes}}
+              </button>
             </td>
-            <td *ngIf="displayComments">{{file?.fileComments?.length ?? 0}}</td>
+            <td class="typeTd" (click)="selectFile(file);" *ngIf="displayFileType">
+              {{getFileExtension(file.fileName).toUpperCase()}}
+            </td>
+            <td *ngIf="displayComments" class="commentCountTd">
+              {{file?.fileComments?.length ?? 0}}
+            </td>
           </tr>
           <tr *ngIf="openedFiles.includes(file.id) && displayFileData">
             <td colspan="4">
-              <app-media-viewer #mediaViewerComponent [user]="user" *ngIf="viewMediaFile && openedFiles.includes(file.id)"></app-media-viewer>
+              <app-media-viewer #mediaViewerComponent [user]="user" [inputtedParentRef]="inputtedParentRef" *ngIf="viewMediaFile && openedFiles.includes(file.id)"></app-media-viewer>
             </td>
           </tr>
-          </ng-container>
-      </tbody> 
+        </ng-container>
+      </tbody>
     </table>
 
     <div *ngIf="isLoading">

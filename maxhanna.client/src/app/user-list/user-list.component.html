@@ -1,3 +1,4 @@
+<input #searchInput type="text" class="searchInput" placeholder="Search for users" (input)="search()"/><button (click)="search()">🔍</button>
 <div *ngFor="let user of users" (click)="click(user);" class="user">
   {{ user.username }}
   <span class="chatIcon" *ngIf="getChatNotificationsByUser(user.id)">💬<span class="chatNotificationNumber">{{ getChatNotificationsByUser(user.id) }}</span></span>

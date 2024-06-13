@@ -152,7 +152,6 @@ namespace maxhanna.Server.Controllers
                             }
                             rigs.Add(tmpRig);
                         }
-                        _logger.LogInformation($"Found mining rig data for user : {user.Id}");
                     }
                 }
                 return rigs;

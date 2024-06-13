@@ -7,13 +7,13 @@ import { NicehashApiKeys } from '../../services/datacontracts/nicehash-api-keys'
 import { WeatherLocation } from '../../services/datacontracts/weather-location';
 import { WeatherService } from '../../services/weather.service';
 import { MenuItem } from '../../services/datacontracts/menu-item';
-import { Story } from '../../services/datacontracts/story';
-import { SocialService } from '../../services/social.service';
 import { FriendService } from '../../services/friend.service';
 import { FriendRequest } from '../../services/datacontracts/friendship-request';
 import { ContactService } from '../../services/contact.service';
 import { WordlerScore } from '../../services/datacontracts/wordler-score';
 import { WordlerService } from '../../services/wordler.service';
+import { ActivatedRoute, Router } from '@angular/router';
+import { SocialComponent } from '../social/social.component';
 
 
 @Component({
@@ -23,6 +23,7 @@ import { WordlerService } from '../../services/wordler.service';
 })
 export class UserComponent extends ChildComponent implements OnInit {
   @Input() user?: User | undefined;
+  @Input() userId: string | null = null;
 
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
@@ -32,6 +33,8 @@ export class UserComponent extends ChildComponent implements OnInit {
   @ViewChild('apiKey') apiKey!: ElementRef<HTMLInputElement>;
   @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationInput') weatherLocationInput!: ElementRef<HTMLInputElement>;
+  @ViewChild(SocialComponent) socialComponent!: SocialComponent;
+
   updateUserDivVisible = true;
   notifications: Array<string> = [];
   usersCount: string | null = null;
@@ -39,9 +42,11 @@ export class UserComponent extends ChildComponent implements OnInit {
   isNicehashApiKeysToggled = false;
   isWeatherLocationToggled = false;
   isMenuIconsToggled = true;
+  isFriendsExpanded = true;
+  isFriendRequestsExpanded = false;
+  isWordlerScoresExpanded = false;
   nhApiKeys?: NicehashApiKeys;
-  selectableIcons: MenuItem[] = [];
-  stories: Story[] = [];
+  selectableIcons: MenuItem[] = []; 
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   wordlerScores: WordlerScore[] = [];
@@ -51,37 +56,49 @@ export class UserComponent extends ChildComponent implements OnInit {
     private miningService: MiningService,
     private weatherService: WeatherService,
     private friendService: FriendService,
-    private wordlerService: WordlerService) { super(); }
+    private wordlerService: WordlerService, 
+  ) { super(); }
 
   async ngOnInit() {
+    if (this.userId) {
+      const res = await this.userService.getUserById(parseInt(this.userId));
+      if (res) {
+        this.user = res as User;
+        this.socialComponent.user = this.user;
+        console.log("got this res: " + res.id + " " + res.username);
+      }
+    } else {
+      this.user = this.parentRef?.user;
+    }
+
     this.startLoading();
-    this.getLoggedInUser();
+    await this.getLoggedInUser();
     this.usersCount = await this.userService.getUserCount();
     this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User');
     await this.loadFriendData();
-    await this.loadWordlerData(); 
+    await this.loadWordlerData();
     this.stopLoading();
   }
 
   async loadWordlerData() {
     try {
       const res = await this.wordlerService.getAllScores(this.user ?? this.parentRef?.user);
-      console.log(res);
-      if (res) {
+       if (res) {
         this.wordlerScores = res;
+        if (this.wordlerScores.length > 0) {
+          this.isWordlerScoresExpanded = true;
+        }
       }
     } catch (e) { } 
   }
 
   async loadFriendData() {
     this.friends = await this.friendService.getFriends(this.user ?? this.parentRef?.user!);
-    console.log("maybe loading friend data");
-
+ 
     if ((!this.user && this.parentRef && this.parentRef.user)
       || (this.user && this.parentRef && this.parentRef.user)) {
       const res = await this.friendService.getFriendRequests(this.user ?? this.parentRef.user);
-      console.log("loading friend data");
-      this.friendRequests = res;
+       this.friendRequests = res;
     }
   }
 
@@ -126,8 +143,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.isWeatherLocationToggled = false;
     this.isMenuIconsToggled = true;
     this.nhApiKeys = undefined;
-
-    this.stories = [];
+     
     this.friends = [];
     this.friendRequests = [];
   }
@@ -345,9 +361,20 @@ export class UserComponent extends ChildComponent implements OnInit {
       this.ngOnInit();
     }
   }
-
+  getNewFriendRequestCount() {
+    const count = this.friendRequests.filter(x => x.status == '3').length;
+    return count > 0 ? `(${count})` : '';
+  }
   isValidIpAddress(value: string): boolean {
     const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipPattern.test(value);
+  }
+  copyLink() {
+    const link = `https://bughosted.com/User/${this.user?.id ?? this.userId ?? this.parentRef?.user?.id}`;
+    navigator.clipboard.writeText(link).then(() => {
+      this.notifications.push('Link copied to clipboard!');
+    }).catch(err => {
+      this.notifications.push('Failed to copy link!');
+    });
   }
 }

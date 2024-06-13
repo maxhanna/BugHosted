@@ -62,3 +62,9 @@
 .wordlerScoreDiv{
     margin-top: 15px;
 }
+.friendsContainer {
+    width: 300px;
+}
+.welcomeMessage{
+    text-align:center;
+}

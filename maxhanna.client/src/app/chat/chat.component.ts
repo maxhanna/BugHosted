@@ -97,12 +97,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   togglePanel() {
     this.isPanelExpanded = !this.isPanelExpanded;
-    console.log("inside togglepanel, result : " + this.isPanelExpanded);
   }
 
   async openChat(user: User | null) {
-    console.log("inside openChat");
     if (!user) { return; }
+
+    this.isPanelExpanded = true;
     this.chatHistory = [];
     this.currentChatUser = user;
     if (this.notifications) {

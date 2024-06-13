@@ -5,7 +5,7 @@ namespace maxhanna.Server.Controllers.DataContracts
         public StoryRequest(Story story, User user)
         {
             this.user = user;
-            this.story = story; 
+            this.story = story;
         }
         public User user { get; set; }
         public Story story { get; set; } 

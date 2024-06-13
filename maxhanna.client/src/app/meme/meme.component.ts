@@ -34,7 +34,7 @@ export class MemeComponent extends ChildComponent implements OnInit {
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
 
   @Input() memeId: string | null = null;
-  constructor(  private route: ActivatedRoute) { super(); }
+  constructor(private route: ActivatedRoute) { super(); }
 
   async ngOnInit() {
     this.route.paramMap.subscribe(params => {

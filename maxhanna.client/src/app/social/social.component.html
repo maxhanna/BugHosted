@@ -3,9 +3,9 @@
     <div class="closeButton" (click)="remove_me('SocialComponent');"></div>
     <div class="refreshButton" (click)="ngOnInit();"></div>
     <div class="componentTitle">Social</div>
-    <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div> 
   </div>
-  
+  <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
+
   <div class="inputDiv">
     <div class="mainFileUploaderAndTopicSelectorDiv">
       <app-file-upload (userUploadEvent)="uploadInitiate();"
@@ -16,7 +16,7 @@
                        [user]="parentRef?.user"
                        [showPrivatePublicOption]="false">
       </app-file-upload>
-      <app-topics [user]="parentRef?.user" (topicAdded)="onTopicAdded($event)"></app-topics>
+      <app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>
     </div>
     <textarea #story
               placeholder="Food for thought"
@@ -24,12 +24,14 @@
               (focus)="focusInput()"></textarea>
     <button (click)="post()" class="createStoryButton">🍌 Post your story</button>
     <div *ngIf="attachedFiles.length > 0"> Attached: {{attachedFiles[0].fileName}}</div>
-</div> 
-  <div class="inputDiv searchInputs">
+  </div>
+  <div class="inputDiv searchInputs"  *ngIf="!user">
     <input type="text" #search placeholder="Search" (keyup.enter)="searchStories()" />
     <input type="submit" (click)="searchStories()" class="createStoryButton" value="🔍" />
-    <span (click)="revealSearchFilters = revealSearchFilters!;" class="additionalSearchFiltersSpan">(+ Additional search filters)</span>
-    <div *ngIf="revealSearchFilters"></div>
+    <div (click)="revealSearchFilters = !revealSearchFilters;" class="additionalSearchFiltersSpan cursorPointer">(+ Additional search filters)</div>
+    <div *ngIf="revealSearchFilters">asd
+      Topic filter : <app-topics></app-topics>
+    </div>
   </div>
   <div class="mainTableDiv">
     <div *ngFor="let story of stories" class="storyContainer" [id]="'storyDiv'+story.id">

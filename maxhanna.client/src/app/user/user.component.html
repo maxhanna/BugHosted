@@ -1,5 +1,5 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="parentRef?.user! || user"></div>
+  <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="parentRef?.user || user"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">{{user ? user.username + '\'s profile' : 'Login'}}</div>
 
@@ -9,6 +9,10 @@
     <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
     <div>
       <div *ngIf="!parentRef!.user">
+        <div class="welcomeMessage">
+          <p class="notification">Bug Hosted🪲</p>
+          <p>For all things social... <small>and anti-social.</small></p>
+        </div>
         <div>
           <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
           <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" />
@@ -27,14 +31,19 @@
     </div>
   </div>
 
-  <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [disabled]="!canAddFriend(user)" (click)="addFriend(user)">Add friend</button>
+  <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">Add friend</button>
   <button *ngIf="user && user != parentRef?.user && friends.includes(user)" (click)="removeFriend(user)">Remove friend</button>
-  <button *ngIf="user && parentRef && parentRef.user && user != parentRef.user" (click)="addContact(user)">Add as Contact</button>
+  <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" (click)="addContact(user)">Add as Contact</button>
+  <button (click)="copyLink()" title="Share Link">Share 📋</button>
 
-  <div *ngIf="user || parentRef?.user">
-    Friends:
-    <div class="mainTableDiv">
-      <table class="mainTable">
+
+  <div *ngIf="user || parentRef?.user" class="friendsContainer">
+    <span class="cursorPointer mainTable" (click)="isFriendsExpanded = !isFriendsExpanded">Friends</span>
+    <span class="smallExpander mainTable" (click)="isFriendsExpanded = !isFriendsExpanded">
+      {{getNewFriendRequestCount()}}{{isFriendsExpanded ? '-' : '+'}}
+    </span>
+    <div class="mainTableDiv" *ngIf="isFriendsExpanded">
+      <table class="mainTable" *ngIf="friends">
         <thead>
           <tr>
             <th>Username</th>
@@ -53,14 +62,17 @@
           </tr>
         </tbody>
       </table>
+      <div *ngIf="isLoading && (!friends)">Loading friends list...</div>
+      <div *ngIf="!isLoading && (!friends)">Friends list is empty.</div>
     </div>
-    <div *ngIf="isLoading && (!friends)">Loading friends list...</div>
-    <div *ngIf="!isLoading && (!friends)">Friends list is empty.</div>
   </div>
   <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)" style="margin-top:15px">
-    Friend Requests:
+    <span class="cursorPointer mainTable" (click)="isFriendRequestsExpanded = !isFriendRequestsExpanded">Friend Requests</span>
+    <span class="smallExpander mainTable" (click)="isFriendRequestsExpanded = !isFriendRequestsExpanded">
+      {{getNewFriendRequestCount()}}{{isFriendRequestsExpanded ? '-' : '+'}}
+    </span>
 
-    <div class="mainTableDiv">
+    <div class="mainTableDiv" *ngIf="isFriendRequestsExpanded">
       <table class="mainTable" *ngIf="friendRequests.length > 0">
         <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
@@ -91,8 +103,12 @@
     <div *ngIf="isLoading">Loading friendship requests...</div>
   </div>
   <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
-    Wordler Scores:
-    <div *ngIf="wordlerScores.length > 0" class="mainTableDiv">
+    <span class="cursorPointer mainTable" (click)="isWordlerScoresExpanded = !isWordlerScoresExpanded">Wordler Scores</span>
+    <span class="smallExpander mainTable" (click)="isWordlerScoresExpanded = !isWordlerScoresExpanded">
+      {{wordlerScores.length > 0 ? '('+wordlerScores.length+')' : ''}}{{isWordlerScoresExpanded ? '-' : '+'}}
+    </span>
+
+    <div *ngIf="wordlerScores.length > 0 && isWordlerScoresExpanded" class="mainTableDiv">
       <table *ngIf="wordlerScores && wordlerScores.length > 0" class="mainTable" id="scoreTable">
         <thead>
           <tr>
@@ -114,14 +130,14 @@
     </div>
     <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No Worlder scores yet!</div>
   </div>
-  <div *ngIf="user">
+  <div *ngIf="user || parentRef?.user">
     <!--Files Uploaded:
     <div class="profileFiles">
       <app-file [user]="user"></app-file>
     </div>-->
     Stories:
     <div class="profileStories">
-      <app-social [user]="user"></app-social>
+      <app-social #socialComponent [user]="user" [parent]="parentRef" *ngIf="user"></app-social>
     </div>
   </div>
   <div *ngIf="!user">
