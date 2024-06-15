@@ -1,10 +1,11 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('MemeComponent')"></div>
-  <div class="refreshButton" (click)="ngOnInit()"></div>
+  <!--<div class="refreshButton" (click)="ngOnInit()"></div>-->
   <div class="componentTitle">Meme</div>
   <div class="fileUploadInputs">
-    <app-file-upload [user]="parentRef?.user!"
+    <app-file-upload 
                      [currentDirectory]="'Meme'"
+                     [user]="parentRef?.user"
                      [showPrivatePublicOption]="false"
                      [allowedFileTypes]="'image/*,video/*'"
                      (userNotificationEvent)="uploadNotification($event);"
@@ -16,10 +17,9 @@
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
   <app-file-search [inputtedParentRef]="parentRef"
-                   [user]="parentRef?.user!"
+                   [user]="parentRef?.user"
                    [currentDirectory]="'Meme/'"
                    [maxResults]="100"
-                   [maxHeight]="'500px'"
                    [canChangeDirectory]="false"
                    [canDragMove]="false"
                    [showPrivatePublicOption]="false"

@@ -10,7 +10,7 @@ import { FileService } from '../../services/file.service';
 import { ActivatedRoute } from '@angular/router';
 import { TopicService } from '../../services/topic.service';
 import { Topic } from '../../services/datacontracts/topic';
-import { AppComponent } from '../app.component';
+import { AppComponent } from '../AppComponent';
 
 @Component({
   selector: 'app-social',
@@ -55,7 +55,9 @@ export class SocialComponent extends ChildComponent implements OnInit {
   }
 
   async ngOnInit() {
-    console.log("social initilized with user : " + this.user);
+    if (this.parent) {
+      this.parentRef = this.parent;
+    }
     await this.getStories();
     if (this.storyId) {
       this.scrollToStory(this.storyId);
@@ -257,25 +259,25 @@ export class SocialComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async addComment(story: Story, event: Event) {
-    if (!story || !story.id) { return alert("Invalid story glitch"); }
+  //async addComment(story: Story, event: Event) {
+  //  if (!story || !story.id) { return alert("Invalid story glitch"); }
 
-    const text = (document.getElementById("addCommentInput" + story.id) as HTMLInputElement).value;
-    (document.getElementById("addCommentInput" + story.id) as HTMLInputElement).value = '';
+  //  const text = (document.getElementById("addCommentInput" + story.id) as HTMLInputElement).value;
+  //  (document.getElementById("addCommentInput" + story.id) as HTMLInputElement).value = '';
 
-    const commentId = await this.socialService.comment(story.id!, text, this.parentRef?.user);
-    if (commentId) {
-      let tmpComment = new StoryComment();
-      tmpComment.id = parseInt(commentId);
-      tmpComment.storyId = story.id;
-      tmpComment.text = text;
-      tmpComment.upvotes = 0;
-      tmpComment.downvotes = 0;
-      tmpComment.user = this.parentRef?.user ?? new User(0, "Anonymous");
-      tmpComment.date = new Date();
-      story.storyComments!.push(tmpComment);
-    }
-  }
+  //  const commentId = await this.socialService.comment(story.id!, text, this.parentRef?.user);
+  //  if (commentId) {
+  //    let tmpComment = new StoryComment();
+  //    tmpComment.id = parseInt(commentId);
+  //    tmpComment.storyId = story.id;
+  //    tmpComment.text = text;
+  //    tmpComment.upvotes = 0;
+  //    tmpComment.downvotes = 0;
+  //    tmpComment.user = this.parentRef?.user ?? new User(0, "Anonymous");
+  //    tmpComment.date = new Date();
+  //    story.storyComments!.push(tmpComment);
+  //  }
+  //}
 
   async upvoteStory(story: Story) {
     const res = await this.socialService.upvoteStory(this.parentRef?.user!, story.id!, true);

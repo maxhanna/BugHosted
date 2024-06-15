@@ -45,6 +45,7 @@
   height: auto;
   max-width: 70vw;
   max-height: 45vh;
+  max-height: auto;
   cursor: default;
   object-fit: contain;
 }
@@ -54,63 +55,16 @@
     justify-content:center;
 }
 .mediaContainerDiv{
-    max-height:70vh;
-    max-width:80vh;
+    max-height:60vh;
+    width: 100%;
     overflow:auto;
+    margin: 10px;
+    object-fit:contain;
+    background-color:black;
+    border: var(--main-border);
 }
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
   .mediaContainerDiv { 
     width: 45vh; 
   }
-}
-
-
-
-  .comments-section {
-    cursor: default;
-    background-color: var(--secondary-bg-color);
-    padding: 15px;
-  }
-
-  .commentsHeader {
-    margin-left: auto;
-    margin-right: auto;
-    width: 100%;
-    font-size: large;
-    text-align: center;
-    cursor: pointer;
-  }
-
-  .commentUsername {
-    margin-top: 5px;
-    color: var(--secondary-font-color);
-    font-size: large;
-  }
-
-  .commentText {
-    display: inline-block;
-    padding: 5px 10px;
-    border-radius: 10px;
-    background-color: var(--main-highlight-color);
-    margin-left: 25px;
-    margin-bottom: 5px;
-  }
-
-  .commentVoteButtons {
-    display: inline-block;
-  }
-
-  .addCommentTextArea {
-    height: 20px;
-    width: 80%;
-  }
-
-  .commentsInputArea {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-  }
-
-  .loadingCommentOverlay {
-    width: 100%;
-  }
+} 

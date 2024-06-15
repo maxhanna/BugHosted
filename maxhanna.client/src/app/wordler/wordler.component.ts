@@ -19,6 +19,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   gameStarted = false;
   numberOfTries: number = 6;
   scores: WordlerScore[] = [];
+  guesses: WordlerGuess[] = [];
   startTime = new Date().getTime();
   timerInterval = setInterval(this.updateTimer, 1000);
   elapsedTime = 0;
@@ -26,6 +27,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   notifications: string[] = [];
   selectedDifficulty = 0;
   disableAllInputs = false;
+
+  maintenanceMode = true;
 
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
 
@@ -130,6 +133,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     this.selectedDifficulty = parseInt(this.difficultySelect.nativeElement.value);
 
     this.wordToGuess = (await this.wordlerService.getRandomWord(this.selectedDifficulty)).toUpperCase();
+    console.log(this.wordToGuess);
     await this.reloadGuesses();
 
     this.gameStarted = true;
@@ -150,6 +154,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         const res = await this.wordlerService.getGuesses(this.parentRef?.user!, this.selectedDifficulty) as WordlerGuess[];
         setTimeout(() => {
           if (res) {
+            this.guesses = res;
             var startTime = new Date(res[0].date!).getTime() ?? 0;
             var endTime = new Date(res[res.length - 1].date!).getTime() ?? 0;
             var timeCumul = endTime - startTime;
@@ -215,6 +220,18 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
 
     if (guess.length === this.selectedDifficulty) { //if the user filled the guess
+      //check if guess exists already
+      let newGuess: WordlerGuess = {
+        user: this.parentRef?.user ?? new User(0, "Unknown"),
+        attemptNumber: this.currentAttempt,
+        difficulty: this.selectedDifficulty,
+        guess: guess,
+      }
+      if (this.guesses.filter(x => x.guess == newGuess.guess).length > 0) {
+        this.notifications.push("The Wordler says: 'Hah! Trying again? You're as persistent as you are predictable.'");
+        this.shakeCurrentAttempt();
+        return;
+      }
       //first check if valid word
       const validityRes = await this.wordlerService.checkGuess(this.selectedDifficulty, guess);
       if (validityRes && validityRes[0] == "0") {
@@ -234,22 +251,17 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       }
       this.currentAttempt++;
       this.provideFeedback(guess, attemptIndex);
-
+      
+      this.guesses.push(newGuess);
  
-      if (this.parentRef && this.parentRef.user && this.parentRef.user.id != 0) {
-        let wordlerGuess: WordlerGuess = {
-          user: this.parentRef.user,
-          attemptNumber: this.currentAttempt,
-          difficulty: this.selectedDifficulty,
-          guess: guess, 
-        };
+      if (this.parentRef && this.parentRef.user && this.parentRef.user.id != 0) { 
         try {
-          await this.wordlerService.submitGuess(wordlerGuess);
+          await this.wordlerService.submitGuess(newGuess);
         } catch { } 
       }
      
       if (guess === this.wordToGuess) {
-        await this.winningScenario(); 
+        await this.winningScenario(guess); 
         this.showScores = true; 
       } else if (this.currentAttempt < this.numberOfTries) {
         if (!this.onMobile()) {
@@ -260,17 +272,25 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         const message = `Game over! The word was: ${this.wordToGuess}; Time elapsed: ${this.elapsedTime}`;
         this.notifications.push(message);
         this.showScores = true;
-        alert(message);
+        alert(message); 
+        const definition = await this.wordlerService.getWordDefinition(guess);
+        if (definition) {
+          this.notifications.push(`Word definition: ${definition}`);
+        }
       }
     }
   }
    
-  async winningScenario() {
+  async winningScenario(guess: string) {
     this.stopTimer();
     alert(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Time Elapsed: ${this.elapsedTime}`);
     let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
     await this.getHighScores();
+    const definition = await this.wordlerService.getWordDefinition(guess);
+    if (definition) {
+      this.notifications.push(`Word definition: ${definition}`);
+    }
     this.showScores = true;
     this.disableAllInputs = true;
   }
@@ -328,7 +348,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     guessArray.forEach((letter, index) => {
       console.log(letter);
       if (!wordArray.includes(letter)) {
-        (document.getElementById(letter.toLowerCase() + "Button") as HTMLButtonElement).classList.add("grey");   // change keyboard button
+        (document.getElementById(letter.toLowerCase() + "Button") as HTMLButtonElement).disabled = true;   // change keyboard button
       } 
     });
   }

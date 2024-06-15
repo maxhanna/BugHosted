@@ -10,7 +10,6 @@ import { FileEntry } from '../../services/datacontracts/file-entry';
   styleUrl: './file-upload.component.css'
 })
 export class FileUploadComponent {
-  constructor(private fileService: FileService) { }
   @Input() currentDirectory = '';
   @Input() user?: User;
   @Input() showPrivatePublicOption: boolean = true;
@@ -27,9 +26,9 @@ export class FileUploadComponent {
   showMakeDirectoryPrompt = false;
   uploadFileList: Array<File> = [];
   uploadProgress: number = 0;
+  constructor(private fileService: FileService) { }
 
-  uploadInitiate() {
- 
+  uploadInitiate() { 
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
       this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
       this.userUploadEvent.emit(this.uploadFileList);

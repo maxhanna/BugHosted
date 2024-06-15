@@ -2,6 +2,7 @@ import { FileEntry } from "./file-entry";
 import { StoryComment } from "./story-comment";
 import { Topic } from "./topic";
 import { User } from "./user";
+import { Comment } from "../datacontracts/comment";
 
 export class Story {
   id: number | undefined;
@@ -14,7 +15,7 @@ export class Story {
   commentsCount: number | undefined;
   metadata: MetaData | undefined;
   storyFiles: Array<FileEntry> | undefined;
-  storyComments: Array<StoryComment> | undefined;
+  storyComments: Array<Comment> | undefined;
   storyTopics: Array<Topic> | undefined;
   profileUserId?: number | undefined;
 }

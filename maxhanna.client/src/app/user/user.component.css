@@ -18,9 +18,9 @@
 }
 
 .menuIconsTd {
-    max-width:500px;
-    overflow-x:auto;
-    white-space: nowrap;
+  max-width: 500px;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 @media only screen and (min-device-width: 400px) and (max-device-width: 700px) {
@@ -28,8 +28,9 @@
     max-width: 270px;
   }
 }
+
 .mainTable td {
-    max-width: unset !important;
+  max-width: unset !important;
 }
 
 .helperSpanTitle {
@@ -46,25 +47,38 @@
   position: relative;
   cursor: pointer;
 }
+
   .helperSpanTitle:before {
     content: 'ℹ️';
   }
 
 .mainTable tr {
-    border: var(--main-border);
+  border: var(--main-border);
 }
 
-.profileUsername{
-    min-width: 30vw;
-    font-size: large;
-    text-align:center;
+.profileUsername {
+  min-width: 30vw;
+  font-size: large;
+  text-align: center;
 }
-.wordlerScoreDiv{
-    margin-top: 15px;
+
+.wordlerScoreDiv {
+  margin-top: 15px;
 }
+
 .friendsContainer {
-    width: 300px;
+  width: 300px;
 }
-.welcomeMessage{
+
+.welcomeMessage {
+  text-align: center;
+}
+
+.welcomeTitle {
+  color: var(--secondary-font-color);
+  font-weight: bold;
+  font-size:12px;
+}
+.profileControls  {
     text-align:center;
 }

@@ -4,14 +4,13 @@
   <div class="componentTitle">{{user ? user.username + '\'s profile' : 'Login'}}</div>
 
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
-
-  <div *ngIf="!user">
+  <div *ngIf="(user && parentRef && parentRef.user && user.id == parentRef.user.id) || !user && !parentRef?.user">
     <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
     <div>
       <div *ngIf="!parentRef!.user">
         <div class="welcomeMessage">
-          <p class="notification">Bug Hosted🪲</p>
-          <p>For all things social... <small>and anti-social.</small></p>
+          <p class="welcomeTitle">BugHosted🪲com</p>
+          <p>Social... <small>and anti-social</small> Community</p>
         </div>
         <div>
           <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
@@ -22,241 +21,134 @@
           <input type="submit" value="Create User" (click)="createUser()" />
         </div>
       </div>
-      <div *ngIf="parentRef!.user" style="width:100%;text-align:center">
+      <div *ngIf="parentRef!.user!" style="width:100%;text-align:center">
         <div>Logged in as: {{ parentRef!.user.username }}</div>
         <input type="submit" value="Logout" (click)="logout()" />
-        <input type="submit" value="🗑️" (click)="deleteUser()" title="Delete Account" />
-        <input type="submit" value="🔧" (click)="updateUserDivVisible = !updateUserDivVisible" title="Update Settings" />
+        <input type="submit" value="🔧" (click)="parentRef?.createComponent('UpdateUserSettings')" title="Update Settings" />
       </div>
     </div>
   </div>
 
-  <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">Add friend</button>
-  <button *ngIf="user && user != parentRef?.user && friends.includes(user)" (click)="removeFriend(user)">Remove friend</button>
-  <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" (click)="addContact(user)">Add as Contact</button>
-  <button (click)="copyLink()" title="Share Link">Share 📋</button>
-
-
-  <div *ngIf="user || parentRef?.user" class="friendsContainer">
-    <span class="cursorPointer mainTable" (click)="isFriendsExpanded = !isFriendsExpanded">Friends</span>
-    <span class="smallExpander mainTable" (click)="isFriendsExpanded = !isFriendsExpanded">
-      {{getNewFriendRequestCount()}}{{isFriendsExpanded ? '-' : '+'}}
-    </span>
-    <div class="mainTableDiv" *ngIf="isFriendsExpanded">
-      <table class="mainTable" *ngIf="friends">
-        <thead>
-          <tr>
-            <th>Username</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let friend of friends">
-            <td (click)="viewProfile(friend)" class="usernameProfileLink cursorPointer">{{friend.username}}</td>
-            <td>
-              <button title="Remove Friend"
-                      (click)="removeFriend(friend)">
-                ❌
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="isLoading && (!friends)">Loading friends list...</div>
-      <div *ngIf="!isLoading && (!friends)">Friends list is empty.</div>
-    </div>
+  <div class="profileControls">
+    <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">Add friend</button>
+    <button *ngIf="user && user != parentRef?.user && friends.includes(user)" (click)="removeFriend(user)">Remove friend</button>
+    <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" (click)="addContact(user)">Add as Contact</button>
+    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">Share 📋</button>
   </div>
-  <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)" style="margin-top:15px">
-    <span class="cursorPointer mainTable" (click)="isFriendRequestsExpanded = !isFriendRequestsExpanded">Friend Requests</span>
-    <span class="smallExpander mainTable" (click)="isFriendRequestsExpanded = !isFriendRequestsExpanded">
-      {{getNewFriendRequestCount()}}{{isFriendRequestsExpanded ? '-' : '+'}}
-    </span>
 
-    <div class="mainTableDiv" *ngIf="isFriendRequestsExpanded">
-      <table class="mainTable" *ngIf="friendRequests.length > 0">
-        <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>
-          <tr *ngFor="let request of friendRequests">
-            <td><span (click)="viewProfile(request.sender)" class="usernameProfileLink cursorPointer">{{request.sender.username}}</span></td>
-            <td><span (click)="viewProfile(request.receiver)" class="usernameProfileLink cursorPointer">{{request.receiver.username}}</span></td>
-            <td>{{request.createdAt}}</td>
-            <td>{{request.updatedAt}}</td>
-            <td>{{request.status == 1 + '' ? 'Accepted' : request.status == 2 + '' ? 'Rejected' : 'Pending'}}</td>
-            <td>
-              <button title="Accept Friendship"
-                      (click)="acceptFriendshipRequest(request)"
-                      *ngIf="request.sender.username != parentRef?.user?.username
-                          && (request.status != 2 + '' && request.status != 1 + '')">
-                ✅
-              </button>
-              <button title="Deny Friendship"
-                      (click)="denyFriendshipRequest(request)"
-                      *ngIf="request.status != 1 + ''">
-                ❌
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div *ngIf="!isLoading && (!friendRequests || friendRequests.length == 0)">No friendship requests.</div>
-    <div *ngIf="isLoading">Loading friendship requests...</div>
-  </div>
-  <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
-    <span class="cursorPointer mainTable" (click)="isWordlerScoresExpanded = !isWordlerScoresExpanded">Wordler Scores</span>
-    <span class="smallExpander mainTable" (click)="isWordlerScoresExpanded = !isWordlerScoresExpanded">
-      {{wordlerScores.length > 0 ? '('+wordlerScores.length+')' : ''}}{{isWordlerScoresExpanded ? '-' : '+'}}
-    </span>
 
-    <div *ngIf="wordlerScores.length > 0 && isWordlerScoresExpanded" class="mainTableDiv">
-      <table *ngIf="wordlerScores && wordlerScores.length > 0" class="mainTable" id="scoreTable">
-        <thead>
-          <tr>
-            <th (click)="sortTable(1, 'scoreTable')">Score</th>
-            <th (click)="sortTable(2, 'scoreTable')">Time</th>
-            <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
-            <th (click)="sortTable(3, 'scoreTable')">Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let score of wordlerScores">
-            <td>{{score.score + 1}}</td>
-            <td>{{score.time}}</td>
-            <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
-            <td>{{score.submitted!.toString().replace('T', ' ')}}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No Worlder scores yet!</div>
-  </div>
-  <div *ngIf="user || parentRef?.user">
-    <!--Files Uploaded:
-    <div class="profileFiles">
-      <app-file [user]="user"></app-file>
-    </div>-->
-    Stories:
-    <div class="profileStories">
-      <app-social #socialComponent [user]="user" [parent]="parentRef" *ngIf="user"></app-social>
-    </div>
-  </div>
-  <div *ngIf="!user">
-    <div *ngIf="parentRef!.user && updateUserDivVisible" style="margin-top:15px">
-      <fieldset>
-        <legend>Update:</legend>
-        <table class="mainTable">
-
-          <!--USERNAME / PASSWORD-->
-          <thead (click)="isGeneralToggled = !isGeneralToggled">
+  <div class="topProfileContainer" id="friendsProfileContainer" (click)="expandDiv('friendsProfileContainer'); isFriendsExpanded = !isFriendsExpanded">
+    <div *ngIf="user || parentRef?.user" class="friendsContainer">
+      <span class="cursorPointer mainTable">Friends</span>
+      <span class="smallExpander mainTable">
+        {{getNewFriendRequestCount()}}{{isFriendsExpanded ? '-' : '+'}}
+      </span>
+      <div class="mainTableDiv" *ngIf="isFriendsExpanded">
+        <table class="mainTable" *ngIf="friends">
+          <thead>
             <tr>
-              <th>
-                <span class="helperSpanTitle" title="Change your username or password."></span>
-              </th>
-              <th>General</th>
-              <th style="text-align:right;">
-                <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled">🔄</button>
-              </th>
+              <th>Username</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody *ngIf="isGeneralToggled">
-            <tr>
-              <td>Name:</td>
-              <td><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></td>
-            </tr>
-            <tr>
-              <td>Password:</td>
-              <td><input type="password" placeholder="New Password" #updatedPassword [value]="parentRef!.user!.pass" /></td>
-            </tr>
-          </tbody>
-
-
-          <!-- Menu Icons -->
-          <thead (click)="isMenuIconsToggled = !isMenuIconsToggled; getMenuIcons()">
-            <tr>
-              <th>
-                <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
-              </th>
-              <th colspan="2">Selectable Menu Items</th>
-            </tr>
-          </thead>
-          <tbody *ngIf="isMenuIconsToggled">
-            <tr>
-              <td></td>
-              <td>Menu:</td>
-              <td class="">
-                <table class="mainTable">
-                  <thead>
-                    <tr>
-                      <th colspan="3">Menu Item</th>
-                    </tr>
-                  </thead>
-                  <tbody *ngIf="selectableIcons">
-                    <tr *ngFor="let icon of selectableIcons" (click)="selectMenuIcon(icon.title)">
-                      <td>
-                        <input type="checkbox"
-                               [checked]="menuIconsIncludes(icon.title)" />
-                      </td>
-                      <td>{{ icon.title == 'Weather' ? '☀️' : icon.icon }}</td>
-                      <td>{{ icon.title }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+          <tbody>
+            <tr *ngFor="let friend of friends">
+              <td (click)="viewProfile(friend)" class="usernameProfileLink cursorPointer">{{friend.username}}</td>
+              <td>
+                <button title="Remove Friend"
+                        (click)="removeFriend(friend)">
+                  ❌
+                </button>
               </td>
             </tr>
           </tbody>
+        </table>
+        <div *ngIf="isLoading && (!friends)">Loading friends list...</div>
+        <div *ngIf="!isLoading && (!friends)">Friends list is empty.</div>
+      </div>
+    </div>
+  </div>
+  <div class="topProfileContainer" id="friendRequestProfileContainer" (click)="expandDiv('friendRequestProfileContainer'); isFriendRequestsExpanded = !isFriendRequestsExpanded">
+    <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)" style="margin-top:15px">
+      <span class="cursorPointer mainTable">Friend Requests</span>
+      <span class="smallExpander mainTable">
+        {{getNewFriendRequestCount()}}{{isFriendRequestsExpanded ? '-' : '+'}}
+      </span>
 
-          <!--Weather-->
-          <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()">
-            <tr>
-              <th>
-                <span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
-    but you can also set your own City for a more precise location."></span>
-              </th>
-              <th>Weather Location</th>
-              <th style="text-align:right;">
-                <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled">🔄</button>
-              </th>
-            </tr>
-          </thead>
-          <tbody *ngIf="isWeatherLocationToggled">
-            <tr>
-              <td></td>
-              <td>Location:</td>
-              <td><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></td>
-            </tr>
-          </tbody>
-
-
-          <!--Nicehash API-->
-          <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()">
-            <tr>
-              <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
-              <th>Nicehash API Keys</th>
-              <th style="text-align:right;">
-                <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled">🔄</button>
-              </th>
-            </tr>
-          </thead>
-          <tbody *ngIf="isNicehashApiKeysToggled">
-            <tr>
-              <td></td>
-              <td>OrgId:</td>
-              <td><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></td>
-            </tr>
-            <tr>
-              <td></td>
-              <td>ApiKey:</td>
-              <td><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></td>
-            </tr>
-            <tr>
-              <td></td>
-              <td>ApiSecret:</td>
-              <td><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></td>
+      <div class="mainTableDiv" *ngIf="isFriendRequestsExpanded">
+        <table class="mainTable" *ngIf="friendRequests.length > 0">
+          <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let request of friendRequests">
+              <td><span (click)="viewProfile(request.sender)" class="usernameProfileLink cursorPointer">{{request.sender.username}}</span></td>
+              <td><span (click)="viewProfile(request.receiver)" class="usernameProfileLink cursorPointer">{{request.receiver.username}}</span></td>
+              <td>{{request.createdAt}}</td>
+              <td>{{request.updatedAt}}</td>
+              <td>{{request.status == 1 + '' ? 'Accepted' : request.status == 2 + '' ? 'Rejected' : 'Pending'}}</td>
+              <td>
+                <button title="Accept Friendship"
+                        (click)="acceptFriendshipRequest(request)"
+                        *ngIf="request.sender.username != parentRef?.user?.username
+                        && (request.status != 2 + '' && request.status != 1 + '')">
+                  ✅
+                </button>
+                <button title="Deny Friendship"
+                        (click)="denyFriendshipRequest(request)"
+                        *ngIf="request.status != 1 + ''">
+                  ❌
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
-        <button (click)="updateUserDivVisible = !updateUserDivVisible">Close</button>
-      </fieldset>
+      </div>
+      <div *ngIf="!isLoading && (!friendRequests || friendRequests.length == 0)">No friendship requests.</div>
+      <div *ngIf="isLoading">Loading friendship requests...</div>
+    </div>
+  </div>
+  <div class="topProfileContainer" id="wordlerScoresProfileContainer" (click)="expandDiv('wordlerScoresProfileContainer'); isWordlerScoresExpanded = !isWordlerScoresExpanded">
+    <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
+      <span class="cursorPointer mainTable">Wordler Scores</span>
+      <span class="smallExpander mainTable">
+        {{wordlerScores.length > 0 ? '('+wordlerScores.length+')' : ''}}{{isWordlerScoresExpanded ? '-' : '+'}}
+      </span>
+
+      <div *ngIf="wordlerScores.length > 0 && isWordlerScoresExpanded" class="mainTableDiv">
+        <table *ngIf="wordlerScores && wordlerScores.length > 0" class="mainTable" id="scoreTable">
+          <thead>
+            <tr>
+              <th (click)="sortTable(1, 'scoreTable')">Score</th>
+              <th (click)="sortTable(2, 'scoreTable')">Time</th>
+              <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
+              <th (click)="sortTable(3, 'scoreTable')">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let score of wordlerScores">
+              <td>{{score.score + 1}}</td>
+              <td>{{score.time}}</td>
+              <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
+              <td>{{score.submitted!.toString().replace('T', ' ')}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No Worlder scores yet!</div>
+    </div>
+  </div>
+
+  <div class="topProfileContainer expanded" id="socialProfileContainer">
+    <div>
+      <div *ngIf="user || parentRef?.user">
+        <span class="cursorPointer mainTable" (click)="expandDiv('socialProfileContainer'); isSocialDivExpanded = !isSocialDivExpanded">Stories</span>
+        <span class="smallExpander mainTable" (click)="expandDiv('socialProfileContainer'); isSocialDivExpanded = !isSocialDivExpanded">
+          {{isSocialDivExpanded ? '-' : '+'}}
+        </span>
+
+        <div class="profileStories" *ngIf="isSocialDivExpanded">
+          <app-social #socialComponent [user]="user" [parent]="parentRef" *ngIf="user && parentRef"></app-social>
+        </div>
+      </div>
     </div>
   </div>
 </div>

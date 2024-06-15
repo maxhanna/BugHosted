@@ -35,8 +35,8 @@
    
   <app-file-search
     [user]="parentRef?.user"
-    [maxResults]="100"
-    [maxHeight]="'500px'"
+    [inputtedParentRef]="parentRef"
+    [maxResults]="100" 
     (currentDirectoryChangeEvent)="changeDirectoryEvent($event)">
   </app-file-search>
    

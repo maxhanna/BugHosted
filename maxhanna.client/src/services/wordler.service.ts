@@ -28,6 +28,26 @@ export class WordlerService {
     }
   }
 
+  async getWordDefinition(word: string) {
+    try {
+      const response = await fetch(`/wordler/getdictionaryword/${word}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return `Error fetching random word: ${response.statusText}`;
+      }
+
+      return await response.text();
+    } catch (error) {
+      console.error(error);
+      return '';
+    }
+  }
+
   async submitGuess(guess: WordlerGuess) {
     try {
       const response = await fetch(`/wordler/submitguess`, {

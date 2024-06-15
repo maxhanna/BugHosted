@@ -10,7 +10,7 @@ import { WeatherService } from '../../services/weather.service';
 import { CoinWatchService } from '../../services/coin-watch.service';
 import { UserService } from '../../services/user.service';
 import { ChatService } from '../../services/chat.service';
-import { AppComponent } from '../app.component';
+import { AppComponent } from '../AppComponent';
 
 @Component({
   selector: 'app-navigation',
@@ -119,11 +119,19 @@ export class NavigationComponent implements OnInit, OnDestroy {
   async getCurrentWeatherInfo() {
     if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Weather")[0]) { return; }
-    const res = await this.weatherService.getWeather(this.user!);
-    if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
-      this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = res?.current.temp_c.toString() + "°C";
-      this._parent.navigationItems.filter(x => x.title == "Weather")[0].icon = res.current.condition.icon;
+
+    try {
+      const res = await this.weatherService.getWeather(this.user!);
+      if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
+        this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = res?.current.temp_c.toString() + "°C";
+        this._parent.navigationItems.filter(x => x.title == "Weather")[0].icon = res.current.condition.icon;
+      } else {
+        this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = "?";
+      }
+    } catch {
+
     }
+   
   }
   async getMiningInfo() {
     if (!this.user) { return; }

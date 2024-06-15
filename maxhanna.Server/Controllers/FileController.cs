@@ -82,13 +82,13 @@ namespace maxhanna.Server.Controllers
                     "LEFT JOIN " +
                         "maxhanna.file_data fd ON f.id = fd.file_id " +
                     "LEFT JOIN " +
-                        "maxhanna.file_comments fc ON f.id = fc.file_id " +
+                        "maxhanna.comments fc ON f.id = fc.file_id " +
                     "LEFT JOIN " +
                         "maxhanna.users u ON f.user_id = u.id " +
                     "LEFT JOIN " +
                         "maxhanna.users uc ON fc.user_id = uc.id " +
                     "LEFT JOIN " +
-                        "maxhanna.file_comment_votes fcv ON fc.id = fcv.comment_id " +
+                        "maxhanna.comment_votes fcv ON fc.id = fcv.comment_id " +
                     "WHERE " +
                         "f.folder_path = @folderPath " +
                         "AND (" +
@@ -96,7 +96,7 @@ namespace maxhanna.Server.Controllers
                             "f.user_id = @userId OR " +
                             "FIND_IN_SET(@userId, f.shared_with) > 0" +
                         ") " +
-                    (string.IsNullOrEmpty(search) ? "" : "AND f.file_name LIKE @search ") + 
+                    (string.IsNullOrEmpty(search) ? "" : "AND f.file_name LIKE @search ") +
                     "GROUP BY " +
                         "f.id, fc.id, fd.given_file_name, fd.description, fd.last_Updated " +
                     "ORDER BY " +
@@ -206,7 +206,7 @@ namespace maxhanna.Server.Controllers
                         countCommand.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter to count command
                     }
                     int totalCount = Convert.ToInt32(countCommand.ExecuteScalar());
-                     
+
 
                     // Return the paginated results
                     var result = new
@@ -319,7 +319,7 @@ namespace maxhanna.Server.Controllers
 
                     _logger.LogInformation($"Comment {newCommentId} added to file {request.FileId} by user {request.User?.Id}");
                     return Ok(newCommentId);
-                } 
+                }
             }
             catch (Exception ex)
             {
@@ -363,63 +363,8 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "An error occurred while updating the Filedata.");
                 return StatusCode(500, "An error occurred while updating the Filedata.");
             }
-        }
+        } 
 
-        [HttpPost("/File/UpvoteComment", Name = "UpvoteComment")]
-        public async Task<IActionResult> UpvoteComment([FromBody] CommentVoteRequest request)
-        {
-            _logger.LogInformation($"POST /File/UpvoteComment (Upvoting a comment for user: {request.User?.Id})");
-
-            try
-            {
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await connection.OpenAsync();
-
-                    var command = new MySqlCommand("INSERT INTO file_comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, @upvote, 0) ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0", connection);
-                    command.Parameters.AddWithValue("@commentId", request.CommentId);
-                    command.Parameters.AddWithValue("@userId", request.User?.Id);
-                    command.Parameters.AddWithValue("@upvote", request.Upvote);
-
-                    await command.ExecuteNonQueryAsync();
-                }
-
-                return Ok("Comment upvoted successfully.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while upvoting the comment.");
-                return StatusCode(500, "An error occurred while upvoting the comment.");
-            }
-        }
-
-        [HttpPost("/File/DownvoteComment", Name = "DownvoteComment")]
-        public async Task<IActionResult> DownvoteComment([FromBody] CommentVoteRequest request)
-        {
-            _logger.LogInformation($"POST /File/DownvoteComment (Downvoting a comment for user: {request.User?.Id})");
-
-            try
-            {
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await connection.OpenAsync();
-
-                    var command = new MySqlCommand("INSERT INTO file_comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, 0, @downvote) ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote", connection);
-                    command.Parameters.AddWithValue("@commentId", request.CommentId);
-                    command.Parameters.AddWithValue("@userId", request.User?.Id);
-                    command.Parameters.AddWithValue("@downvote", request.Downvote);
-
-                    await command.ExecuteNonQueryAsync();
-                }
-
-                return Ok("Comment downvoted successfully.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while downvoting the comment.");
-                return StatusCode(500, "An error occurred while downvoting the comment.");
-            }
-        }
         [HttpPost("/File/Upvote", Name = "UpvoteFile")]
         public async Task<IActionResult> UpvoteFile([FromBody] VoteRequest request)
         {
@@ -615,7 +560,7 @@ namespace maxhanna.Server.Controllers
 
                 if (files == null || files.Count == 0)
                     return BadRequest("No files uploaded.");
-                 
+
 
                 foreach (var file in files)
                 {
@@ -658,7 +603,7 @@ namespace maxhanna.Server.Controllers
                                 command.Parameters.AddWithValue("@isPublic", isPublic);
                                 command.Parameters.AddWithValue("@isFolder", true);
 
-                                await command.ExecuteScalarAsync(); 
+                                await command.ExecuteScalarAsync();
                                 _logger.LogInformation($"Uploaded folder: {file.FileName}, Path: {filePath}");
                             }
                         }
@@ -700,7 +645,7 @@ namespace maxhanna.Server.Controllers
                             tmpFileEntry.FileComments = [];
                             tmpFileEntry.Date = DateTime.UtcNow;
                             tmpFileEntry.SharedWith = string.Empty;
-                             var fileEntry = conflictingFile ?? tmpFileEntry;
+                            var fileEntry = conflictingFile ?? tmpFileEntry;
                             uploaded.Add(fileEntry);
                             _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}");
                         }
@@ -789,7 +734,7 @@ namespace maxhanna.Server.Controllers
                         var fileData = new FileData();
                         fileData.Description = reader.GetString("description");
                         fileData.GivenFileName = reader.GetString("given_file_name");
-                         
+
                         var fileEntry = new FileEntry();
                         fileEntry.Id = id;
                         fileEntry.FileName = fileName;
@@ -933,7 +878,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while deleting file or directory.");
             }
         }
-         
+
         [HttpPost("/File/Move/", Name = "MoveFile")]
         public async Task<IActionResult> MoveFile([FromBody] User user, [FromQuery] string inputFile, [FromQuery] string? destinationFolder)
         {
@@ -1215,7 +1160,7 @@ namespace maxhanna.Server.Controllers
             {
                 _logger.LogError($"Must be within {baseTarget}");
                 return false;
-            } 
+            }
             else if (directory.Equals("E:/Uploads/Users") || directory.Equals("E:/Uploads/Roms") || directory.Equals("E:/Uploads/Meme"))
             {
                 _logger.LogError($"Cannot delete {directory}!");

@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router'; 
-import { AppComponent } from './app.component';
+import { AppComponent } from './AppComponent';
 
 const routes: Routes = [
   { path: 'Memes/:memeId', component: AppComponent },

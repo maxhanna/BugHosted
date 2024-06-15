@@ -5,7 +5,7 @@ namespace maxhanna.Server.Controllers.DataContracts
         public int Id { get; set; }
         public int StoryId { get; set; }
         public User? User { get; set; } 
-        public string? Text { get; set; }
+        public string? CommentText { get; set; }
         public int Upvotes { get; set; }
         public int Downvotes { get; set; }
         public DateTime Date { get; set; }

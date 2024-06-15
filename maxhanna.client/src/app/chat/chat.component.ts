@@ -101,6 +101,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   async openChat(user: User | null) {
     if (!user) { return; }
+    this.startLoading();
 
     this.isPanelExpanded = true;
     this.chatHistory = [];
@@ -113,6 +114,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.parentRef!.navigationItems.filter(x => x.title == "Chat")[0].content = (grantTotal == 0 ? '' : grantTotal + '');
     }
     const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser);
+    this.stopLoading(); 
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];
       this.togglePanel();
@@ -121,7 +123,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.chatHistory = res;
     this.scrollToBottomIfNeeded();
     this.pollForMessages(); // Restart polling when opening a new chat
-    this.togglePanel();
+    this.togglePanel(); 
   }
 
   closeChat() {

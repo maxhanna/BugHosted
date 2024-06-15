@@ -85,7 +85,7 @@ namespace maxhanna.Server.Controllers
                 sc.id AS comment_id, 
                 sc.user_id AS comment_user_id, 
                 uc.username as comment_username,
-                sc.text AS comment_text, 
+                sc.comment AS comment_text, 
                 sc.date AS comment_date,
                 COUNT(CASE WHEN svc.upvote = 1 THEN 1 END) AS comment_upvotes,
                 COUNT(CASE WHEN svc.downvote = 1 THEN 1 END) AS comment_downvotes,
@@ -98,7 +98,7 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN 
                 story_votes AS sv ON s.id = sv.story_id 
             LEFT JOIN 
-                story_comments AS sc ON s.id = sc.story_id 
+                comments AS sc ON s.id = sc.story_id 
             LEFT JOIN 
                 users AS uc ON sc.user_id = uc.id
             LEFT JOIN 
@@ -110,7 +110,7 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN 
                 file_votes AS fv ON f.id = fv.file_id
             LEFT JOIN 
-                file_comments AS fc ON f.id = fc.file_id
+                comments AS fc ON f.id = fc.file_id
             LEFT JOIN 
                 file_data AS fd ON f.id = fd.file_id
             LEFT JOIN 
@@ -118,9 +118,9 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN 
                 users AS fcu ON fc.user_id = fcu.id
             LEFT JOIN 
-                file_comment_votes AS fcv ON fc.id = fcv.comment_id
+                comment_votes AS fcv ON fc.id = fcv.comment_id
             LEFT JOIN 
-                story_comment_votes AS svc ON sc.id = svc.comment_id
+                comment_votes AS svc ON sc.id = svc.comment_id
             LEFT JOIN 
                 story_topics AS st ON s.id = st.story_id
             LEFT JOIN 
@@ -133,7 +133,7 @@ namespace maxhanna.Server.Controllers
                 fd.given_file_name, file_data_description, file_data_updated,
                 f.upload_date, fu.username, f.user_id,
                 fc.id, fc.user_id, fc.comment,
-                sc.id, sc.user_id, sc.text, t.topic, t.id
+                sc.id, sc.user_id, sc.comment, t.topic, t.id
             ORDER BY 
                 s.id DESC;";
 
@@ -246,7 +246,7 @@ namespace maxhanna.Server.Controllers
                                             rdr.GetInt32("comment_user_id"),
                                             rdr.IsDBNull(rdr.GetOrdinal("comment_username")) ? "Anonymous" : rdr.GetString("comment_username")
                                         ),
-                                        Text = rdr.IsDBNull(rdr.GetOrdinal("comment_text")) ? null : rdr.GetString("comment_text"),
+                                        CommentText = rdr.IsDBNull(rdr.GetOrdinal("comment_text")) ? null : rdr.GetString("comment_text"),
                                         Upvotes = rdr.GetInt32("comment_upvotes"),
                                         Downvotes = rdr.GetInt32("comment_downvotes"),
                                         Date = rdr.GetDateTime("comment_date"),
@@ -487,158 +487,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while downvoting the story.");
             }
         }
-
-        [HttpPost("/Social/Comment/Upvote", Name = "UpvoteSocialComment")]
-        public async Task<IActionResult> UpvoteComment([FromBody] CommentVoteRequest request)
-        {
-            _logger.LogInformation($"POST /Social/Comment/Upvote (CommentId = {request.CommentId}, UserId = {request.User.Id}, Downvote = {request.Downvote})");
-
-            try
-            {
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await connection.OpenAsync();
-
-                    var command = new MySqlCommand(
-                        @"INSERT INTO story_comment_votes (comment_id, user_id, upvote, downvote) 
-                  VALUES (@commentId, @userId, @upvote, 0) 
-                  ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0; 
-                  SELECT LAST_INSERT_ID();"
-                        , connection);
-                    command.Parameters.AddWithValue("@commentId", request.CommentId);
-                    command.Parameters.AddWithValue("@userId", request.User.Id);
-                    command.Parameters.AddWithValue("@upvote", request.Upvote);
-
-                    var result = Convert.ToInt32(await command.ExecuteScalarAsync());
-
-                    // Query to get the updated counts
-                    var countCommand = new MySqlCommand(
-                        @"SELECT 
-                    SUM(CASE WHEN upvote = 1 THEN 1 ELSE 0 END) AS upvoteCount, 
-                    SUM(CASE WHEN downvote = 1 THEN 1 ELSE 0 END) AS downvoteCount 
-                  FROM story_comment_votes 
-                  WHERE comment_id = @commentId;", connection);
-                    countCommand.Parameters.AddWithValue("@commentId", request.CommentId);
-
-                    using (var reader = await countCommand.ExecuteReaderAsync())
-                    {
-                        if (await reader.ReadAsync())
-                        {
-                            var upvotes = reader.GetInt32("upvoteCount");
-                            var downvotes = reader.GetInt32("downvoteCount");
-
-                            return Ok(new UpDownVoteCounts()
-                            {
-                                Upvotes = upvotes,
-                                Downvotes = downvotes,
-                            });
-                        }
-                        else
-                        {
-                            return StatusCode(500, "An error occurred while fetching the vote counts.");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while upvoting the comment.");
-                return StatusCode(500, "An error occurred while upvoting the comment.");
-            }
-        }
-
-        [HttpPost("/Social/Comment/Downvote", Name = "DownvoteSocialComment")]
-        public async Task<IActionResult> DownvoteSocialComment([FromBody] CommentVoteRequest request)
-        {
-            _logger.LogInformation($"POST /Social/Comment/Downvote (CommentId = {request.CommentId}, UserId = {request.User.Id}, Downvote = {request.Downvote})");
-
-            try
-            {
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await connection.OpenAsync();
-
-
-                    var command = new MySqlCommand(
-                        @"INSERT INTO story_comment_votes (comment_id, user_id, upvote, downvote) 
-                          VALUES (@commentId, @userId, 0, @downvote) 
-                          ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote; 
-                          SELECT LAST_INSERT_ID();"
-                        , connection);
-                    command.Parameters.AddWithValue("@commentId", request.CommentId);
-                    command.Parameters.AddWithValue("@userId", request.User.Id);
-                    command.Parameters.AddWithValue("@downvote", request.Downvote);
-                    var result = Convert.ToInt32(await command.ExecuteScalarAsync());
-
-                    // Query to get the updated counts
-                    var countCommand = new MySqlCommand(
-                        @"SELECT 
-                            SUM(CASE WHEN upvote = 1 THEN 1 ELSE 0 END) AS upvoteCount, 
-                            SUM(CASE WHEN downvote = 1 THEN 1 ELSE 0 END) AS downvoteCount 
-                          FROM story_comment_votes 
-                          WHERE comment_id = @commentId;", connection);
-                    countCommand.Parameters.AddWithValue("@commentId", request.CommentId);
-
-                    using (var reader = await countCommand.ExecuteReaderAsync())
-                    {
-                        if (await reader.ReadAsync())
-                        {
-                            var upvotes = reader.GetInt32("upvoteCount");
-                            var downvotes = reader.GetInt32("downvoteCount");
-                            return Ok(new UpDownVoteCounts()
-                            {
-                                Upvotes = upvotes,
-                                Downvotes = downvotes
-                            });
-                        }
-                        else
-                        {
-                            return StatusCode(500, "An error occurred while fetching the vote counts.");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while downvoting the comment.");
-                return StatusCode(500, "An error occurred while downvoting the comment.");
-            }
-        }
-
-
-        [HttpPost("/Social/Comment/Post", Name = "AddComment")]
-        public async Task<IActionResult> AddComment([FromBody] AddCommentRequest request)
-        {
-            _logger.LogInformation($"POST /Social/Comment/Post (User Id = {request.User?.Id}, comment = {request.Comment}, storyId = {request.StoryId})");
-
-            try
-            {
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await connection.OpenAsync();
-
-                    var command = new MySqlCommand("INSERT INTO story_comments (story_id, user_id, text) VALUES (@story_id, @user_id, @text);", connection);
-                    command.Parameters.AddWithValue("@story_id", request.StoryId);
-                    command.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
-                    command.Parameters.AddWithValue("@text", request.Comment);
-
-
-                    int rowsAffected = await command.ExecuteNonQueryAsync();
-
-                    if (rowsAffected == 1)
-                    {
-                        // Fetch the last inserted ID
-                        return Ok((int)(command.LastInsertedId));
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while adding the comment.");
-                return StatusCode(500, "An error occurred while adding the comment.");
-            }
-            return BadRequest(0);
-        }
+         
 
         [HttpPost("/Social/GetMetadata")]
         public async Task<IActionResult> GetMetadata([FromBody] MetadataRequest request, int? storyId)

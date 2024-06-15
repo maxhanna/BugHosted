@@ -25,6 +25,12 @@
             <div class="messageContent">{{ message.content }}</div>
           </div>
         </div>
+        <div *ngIf="(!chatHistory  || chatHistory.length == 0 ) && !isLoading">
+          ZZzzz. Empty chat!
+        </div>
+        <div *ngIf="(!chatHistory  || chatHistory.length == 0 ) && isLoading">
+          Loading chat...
+        </div>
       </div>
       <div class="messageInput">
         <input placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()" />

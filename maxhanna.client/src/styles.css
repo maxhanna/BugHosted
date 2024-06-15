@@ -61,7 +61,7 @@ html, body {
 
 a {
   color: #4CAF50;
-  font-family: Gadugi, 'Comic Sans', cursive; /* Fun, non-standard font */
+  font-family: Gadugi, Arial, Helvetica;
   padding: 1px;
   text-align: center;
   border-radius: 5px; /* Rounded corners */
@@ -179,8 +179,8 @@ fieldset {
   }
 
   .mainTableDiv {
-    max-width: var(--component-max-width);
-    overflow-x: auto;
+/*    max-width: var(--component-max-width);
+*/    overflow-x: auto;
   }
 
   .media {
@@ -345,9 +345,6 @@ fieldset {
 .usernameProfileLink {
   text-decoration-color: var(--secondary-font-color);
   text-shadow: 0.1px 0.1px var(--secondary-font-color);
-}
-#enterButton {
-    font-size:large;
 }
 .smallExpander {
     font-size:small;

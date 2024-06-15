@@ -8,7 +8,7 @@ import { ChildComponent } from '../child.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { FileData } from '../../services/datacontracts/file-data';
 import { ActivatedRoute } from '@angular/router';
-import { AppComponent } from '../app.component';
+import { AppComponent } from '../AppComponent';
 
 
 @Component({
@@ -23,7 +23,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() user?: User;
   @Input() showPrivatePublicOption: boolean = true;
   @Input() maxResults: number = 50;
-  @Input() maxHeight: string = "100px";
   @Input() canChangeDirectory: boolean = true;
   @Input() displayFileType: boolean = true;
   @Input() displayFileData: boolean = true;
@@ -42,9 +41,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   directory: DirectoryResults | undefined;
   defaultCurrentPage = 1;
   defaultTotalPages = 1;
-  defaultItemsPerPage = this.maxResults;
   currentPage = this.defaultCurrentPage;
-  itemsPerPage = this.defaultItemsPerPage;
   totalPages = this.defaultTotalPages;
   showUpFolderRow: boolean = true;
   draggedFilename: string | undefined;
@@ -122,6 +119,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
   async getDirectory(file?: string) {
+    console.log("items per page : " + this.maxResults);
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.showData = true;
     this.showUpFolderRow = this.currentDirectory.includes('/') ? true : false;
@@ -135,12 +133,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
           this.filter.ownership,
           this.user,
           this.currentPage,
-          this.itemsPerPage,
+          this.maxResults,
           this.search && this.search.nativeElement.value != '' ? this.search.nativeElement.value : undefined
         );
         this.directory = res;
         if (this.directory && this.directory.totalCount) {
-          this.totalPages = Math.ceil(this.directory.totalCount / this.itemsPerPage);
+          this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
           if (this.allowedFileTypes && this.allowedFileTypes.length > 0) {
             this.directory.data = this.directory.data!.filter(x => this.allowedFileTypes.includes(this.getFileExtension(x.fileName).toLowerCase()));
           }
@@ -148,7 +146,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       } catch (error) {
         this.notifications.push((error as Error).message);
       }
-      (document.getElementsByClassName("tableDiv")[0] as HTMLDivElement).style.maxHeight = this.maxHeight;
 
       this.isLoading = false;
     }, 500);
@@ -378,7 +375,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   }
   reinitializePages() {
     this.currentPage = this.defaultCurrentPage;
-    this.itemsPerPage = this.defaultItemsPerPage;
+    this.maxResults = 50;
     this.totalPages = this.defaultTotalPages;
   }
   isMediaFile(fileName: string): boolean {

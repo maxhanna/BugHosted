@@ -20,35 +20,14 @@
       </div>
       <div class="filetype">
         <button (click)="copyLink(selectedFile!.id)" title="Share Link">Share 📋</button>
+        <button (click)="download(selectedFile!, true)">Download</button>
       </div>
-      <!-- Comments Section -->
-      <div class="commentsHeader"
-           [style.cursor]="selectedFile?.fileComments!.length <= 0 ? 'default' : 'pointer'"
-           (click)="showComments = !showComments">
-        Comments ({{selectedFile?.fileComments!.length}})
-      </div>
-      <div class="commentsInputArea">
-        <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
-          Adding comment...
-        </div>
-        <div *ngIf="!showCommentLoadingOverlay">
-          <input type="text" [placeholder]='selectedFile?.fileComments!.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the first to comment!"' [id]="'addCommentInput'+selectedFile!.id" class="addCommentTextArea" (keyup.enter)="startLoadingComment();" />
-          <button type="submit" (click)="startLoadingComment();">🗨️</button>
-        </div> 
-      </div>
-      <div class="comments-section" *ngIf="!showCommentLoadingOverlay">
-        <div *ngIf="showComments">
-          <div *ngFor="let comment of selectedFile!.fileComments!">
-            <div class="commentUsername"><span class="cursorPointer" (click)="createUserProfileComponent(comment.user)">{{ comment.user.username }}:</span></div>
-            <div class="commentText">{{ comment.commentText }}</div>
-            <div class="commentVoteButtons">
-              <button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>
-              <button (click)="downvoteComment(comment)" class="vote-button" title="Downvote">⬇️{{ comment.downvotes }}</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- End Comments Section -->
+      <app-comments *ngIf="selectedFile"
+                    [parentRef]="inputtedParentRef"
+                    [type]="'File'"
+                    [component_id]="selectedFile.id"
+                    [commentList]="selectedFile.fileComments"> 
+      </app-comments>
     </div>
   </div>
 </div>

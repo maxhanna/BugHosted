@@ -4,7 +4,7 @@ import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileService } from '../../services/file.service';
 import { FileComment } from '../../services/datacontracts/file-comment';
 import { User } from '../../services/datacontracts/user';
-import { AppComponent } from '../app.component';
+import { AppComponent } from '../AppComponent';
 
 
 @Component({
@@ -26,7 +26,10 @@ export class MediaViewerComponent extends ChildComponent {
   selectedFileName = '';
   abortFileRequestController: AbortController | null = null;
   debounceTimer: any;
+  currentDirectory = '';
   fS = '/';
+  upvotedCommentIds: number[] = [];
+  downvotedCommentIds: number[] = [];
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
@@ -36,7 +39,7 @@ export class MediaViewerComponent extends ChildComponent {
   @Input() inputtedParentRef?: AppComponent;
 
   copyLink(fileId: number) {
-    const link = `https://bughosted.com/Files/${fileId}`;
+    const link = `https://bughosted.com/${this.currentDirectory == 'Meme/' ? 'Memes/' : this.currentDirectory}${fileId}`;
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {
@@ -45,14 +48,16 @@ export class MediaViewerComponent extends ChildComponent {
   }
   createUserProfileComponent(user?: User) {
     if (!user) { return alert("you must select a user!"); }
-    this.inputtedParentRef?.createComponent("User", { "user": user });
+    setTimeout(() => { this.inputtedParentRef?.createComponent("User", { "user": user }); }, 1);
   }
   async setFileSrc(fileName: string, currentDirectory?: string) {
     this.startLoading();
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort();
     }
-
+    if (currentDirectory) {
+      this.currentDirectory = currentDirectory;
+    }
     this.abortFileRequestController = new AbortController();
 
     let target = (currentDirectory ?? '').replace(/\\/g, "/");
@@ -153,21 +158,79 @@ export class MediaViewerComponent extends ChildComponent {
   }
   async upvoteComment(comment: FileComment) {
     if (!this.user) { return alert("You must be logged in to use this feature!"); }
-     
+    if (this.upvotedCommentIds.includes(comment.id)) { return alert("Cannot upvote twice!"); }
+
     try {
-      this.notifications.push(await this.fileService.upvoteComment(this.user, comment.id));
+      const res = await this.fileService.upvoteComment(this.user, comment.id);
+      if (res && res.includes("success")) {
+        comment.upvotes++;
+        if (this.downvotedCommentIds.includes(comment.id)) {
+          comment.downvotes--;
+        }
+        this.downvotedCommentIds = this.downvotedCommentIds.filter(x => x != comment.id);
+        this.upvotedCommentIds.push(comment.id);
+      }
     } catch (error) {
       console.error("Error upvoting comment:", error);
     } 
   }
+  async deleteComment(comment: FileComment) {
+    if (!this.user) { return alert("You must be logged in to delete a comment!"); }
+    if (!confirm("Are you sure?")) { return };
 
+    this.showCommentLoadingOverlay = true;
+    const res = await this.fileService.deleteComment(this.user, comment.id);
+    if (res && res.includes("success")) {
+      this.selectedFile!.fileComments! = this.selectedFile!.fileComments.filter(x => x.id != comment.id);
+    } 
+    this.showCommentLoadingOverlay = false;
+  }
   async downvoteComment(comment: FileComment) {
     if (!this.user) { return alert("You must be logged in to use this feature!"); }
+    if (this.downvotedCommentIds.includes(comment.id)) { return alert("Cannot downvote twice!"); }
 
     try {
-      this.notifications.push(await this.fileService.downvoteComment(this.user, comment.id));
+      const res = await this.fileService.downvoteComment(this.user, comment.id);
+      if (res && res.includes("success")) {
+        comment.downvotes++;
+        if (this.upvotedCommentIds.includes(comment.id)) {
+          comment.upvotes--;
+        }
+        this.upvotedCommentIds = this.upvotedCommentIds.filter(x => x != comment.id);
+        this.downvotedCommentIds.push(comment.id);
+      }
     } catch (error) {
       console.error("Error downvoting comment:", error);
+    }
+  }
+
+  async download(file: FileEntry, force: boolean) {
+    
+    if (!confirm(`Download ${file.fileName}?`)) {
+      return;
+    }
+
+    const directoryValue = this.currentDirectory;
+    let target = directoryValue.replace(/\\/g, "/");
+    target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? file.fileName : directoryValue.length > 0 ? this.fS + file.fileName : file.fileName;
+
+    try {
+      this.startLoading();
+      const response = await this.fileService.getFile(target, undefined, this.user);
+      const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
+
+      const a = document.createElement('a');
+      a.href = window.URL.createObjectURL(blob);
+      a.download = file.fileName;
+      a.id = (Math.random() * 100) + "";
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(a.href);
+      document.getElementById(a.id)?.remove();
+      this.stopLoading();
+    } catch (ex) {
+      console.error(ex);
     }
   }
 }

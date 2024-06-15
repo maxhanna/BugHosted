@@ -9,8 +9,7 @@
     word-wrap: break-word;
     text-overflow: ellipsis;
   }
-}
-
+} 
 .tableDiv {
   max-height: 100px;
   overflow:auto;
@@ -49,4 +48,19 @@
 .commentCountTd {
   width: 16px;
   text-align:right;
+}
+
+.filters {
+    display:flex; 
+    flex-direction:column;
+}
+.privateOnTop {
+  position: relative;
+  top: -10px;
+  left: 0;
+}
+.fileTypeSpan {
+  position: relative;
+  top: +10px;
+  left: 0;
 }

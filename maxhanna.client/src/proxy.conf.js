@@ -22,6 +22,7 @@ const PROXY_CONFIG = [
       "/topic",
       "/friend",
       "/wordler",
+      "/comment",
     ],
     target,
     secure: false

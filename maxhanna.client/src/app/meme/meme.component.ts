@@ -15,7 +15,7 @@ import { FileSearchComponent } from '../file-search/file-search.component';
   templateUrl: './meme.component.html',
   styleUrls: ['./meme.component.css']
 })
-export class MemeComponent extends ChildComponent implements OnInit { 
+export class MemeComponent extends ChildComponent  { 
 
   uploadProgress = 0;
   notifications: string[] = [];
@@ -34,22 +34,20 @@ export class MemeComponent extends ChildComponent implements OnInit {
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
 
   @Input() memeId: string | null = null;
-  constructor(private route: ActivatedRoute) { super(); }
-
-  async ngOnInit() {
+  constructor(private route: ActivatedRoute) {
+    super();
     this.route.paramMap.subscribe(params => {
       this.memeId = params.get('memeId');
-      console.log("memeId: "+ this.memeId);
+      console.log("memeId: " + this.memeId);
       if (this.memeId) {
         setTimeout(() => { this.fileSearchComponent.scrollToFile(this.memeId!); }, 2500);
       }
     }); 
-  }
+  } 
    
     
   uploadNotification(event: string) {
-    this.notifications.push(event);
-    this.ngOnInit();
+    this.notifications.push(event); 
   }
         
   uploadFileListEvent(event: File[]) {

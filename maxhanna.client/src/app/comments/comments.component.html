@@ -1,0 +1,34 @@
+<!-- Comments Section -->
+<div class="commentsHeader">
+  <span [style.cursor]="commentList!.length <= 0 ? 'default' : 'pointer'" (click)="showComments = !showComments">
+    Comments ({{commentList!.length}}) <span class="smallExpander">{{showComments ? '-' : '+'}}</span> 
+  </span>
+</div>
+<div class="commentsInputArea">
+  
+  <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
+    <input type="text" [placeholder]='commentList!.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();" />
+    <button type="submit" (click)="startLoadingComment();">🗨️</button><app-media-selector></app-media-selector>
+  </div>
+</div>
+<div class="comments-section" *ngIf="commentList!.length > 0">
+  <div *ngIf="showComments">
+    <table class="commentTable">
+      <tbody>
+        <tr *ngFor="let comment of commentList!">
+          <td><span class="cursorPointer usernameProfileLink">{{ comment.user.username }}</span>:</td>
+          <td>{{ comment.commentText }}</td>
+          <td>
+            <button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>
+            <button (click)="downvoteComment(comment)" class="vote-button" title="Downvote">⬇️{{ comment.downvotes }}</button>
+            <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="parentRef?.user?.id == comment.user.id">❌</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
+      Adding comment...
+    </div>
+  </div>
+</div>
+<!-- End Comments Section -->

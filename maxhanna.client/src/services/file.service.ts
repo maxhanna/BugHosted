@@ -151,7 +151,21 @@ export class FileService {
       throw error;
     }
   }
+  async deleteComment(user: User, commentId: number) {
+    try {
+      const response = await fetch(`/file/deletecomment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user: user, commentId }),
+      });
 
+      return await response.text();
+    } catch (error) {
+      throw error;
+    }
+  }
   async downvoteComment(user: User, commentId: number) {
     try {
       const response = await fetch(`/file/downvotecomment`, {

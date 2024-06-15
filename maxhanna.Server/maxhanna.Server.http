@@ -114,3 +114,6 @@ Accept: application/json
 GET {{maxhanna.Server_HostAddress}}/Wordler/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/Comment/
+Accept: application/json
+###

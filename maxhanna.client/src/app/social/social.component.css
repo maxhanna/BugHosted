@@ -26,10 +26,12 @@
 }
 
 .storyContainer {
-  border: var(--main-border);
-  margin: 15px;
-  padding: 10px;
+  border: var(--main-border); 
   word-break: break-all;
+  margin-top:5px;
+}
+.storyTextContainer {
+  padding: 12px;
 }
 
 .storyText {
@@ -46,12 +48,7 @@
   overflow-x: hidden;
   text-overflow: ellipsis;
 }
-
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-  .storyText {
-    max-width: 300px;
-  }
-}
+ 
  
 .storyDate {
   color: var(--secondary-font-color);

@@ -27,12 +27,6 @@ export class UserComponent extends ChildComponent implements OnInit {
 
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
-  @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
-  @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
-  @ViewChild('orgId') orgId!: ElementRef<HTMLInputElement>;
-  @ViewChild('apiKey') apiKey!: ElementRef<HTMLInputElement>;
-  @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
-  @ViewChild('weatherLocationInput') weatherLocationInput!: ElementRef<HTMLInputElement>;
   @ViewChild(SocialComponent) socialComponent!: SocialComponent;
 
   updateUserDivVisible = true;
@@ -42,11 +36,10 @@ export class UserComponent extends ChildComponent implements OnInit {
   isNicehashApiKeysToggled = false;
   isWeatherLocationToggled = false;
   isMenuIconsToggled = true;
-  isFriendsExpanded = true;
+  isFriendsExpanded = false;
   isFriendRequestsExpanded = false;
   isWordlerScoresExpanded = false;
-  nhApiKeys?: NicehashApiKeys;
-  selectableIcons: MenuItem[] = []; 
+  isSocialDivExpanded = true;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   wordlerScores: WordlerScore[] = [];
@@ -64,7 +57,9 @@ export class UserComponent extends ChildComponent implements OnInit {
       const res = await this.userService.getUserById(parseInt(this.userId));
       if (res) {
         this.user = res as User;
-        this.socialComponent.user = this.user;
+        if (this.socialComponent) {
+          this.socialComponent.user = this.user; 
+        }
         console.log("got this res: " + res.id + " " + res.username);
       }
     } else {
@@ -74,20 +69,24 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.startLoading();
     await this.getLoggedInUser();
     this.usersCount = await this.userService.getUserCount();
-    this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User');
     await this.loadFriendData();
     await this.loadWordlerData();
     this.stopLoading();
+
+    console.log("got this parent : " + parent);
+    if (this.parentRef) {
+      console.log("it isnt undefined");
+      if (this.parentRef.user) {
+        console.log("parent ref user : " + this.parentRef.user.id);
+      }
+    }
   }
 
   async loadWordlerData() {
     try {
       const res = await this.wordlerService.getAllScores(this.user ?? this.parentRef?.user);
        if (res) {
-        this.wordlerScores = res;
-        if (this.wordlerScores.length > 0) {
-          this.isWordlerScoresExpanded = true;
-        }
+        this.wordlerScores = res; 
       }
     } catch (e) { } 
   }
@@ -100,6 +99,10 @@ export class UserComponent extends ChildComponent implements OnInit {
       const res = await this.friendService.getFriendRequests(this.user ?? this.parentRef.user);
        this.friendRequests = res;
     }
+  }
+
+  expandDiv(event: string) {
+    (document.getElementById(event) as HTMLDivElement).classList.toggle('expanded');
   }
 
   async addContact(user: User) {
@@ -133,17 +136,13 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
 
   clearForm() {
-    if (this.updatedUsername) {
-      this.updatedUsername.nativeElement.value = '';
-      this.updatedPassword.nativeElement.value = '';
-    }
+    
     this.isNicehashApiKeysToggled = false;
     this.isGeneralToggled = false;
     this.updateUserDivVisible = false;
     this.isWeatherLocationToggled = false;
     this.isMenuIconsToggled = true;
-    this.nhApiKeys = undefined;
-     
+      
     this.friends = [];
     this.friendRequests = [];
   }
@@ -160,9 +159,6 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.parentRef!.user = undefined;
   }
 
-  menuIconsIncludes(title: string) {
-    return this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0;
-  }
 
   async acceptFriendshipRequest(request: FriendRequest) {
     const res = await this.friendService.acceptFriendRequest(request)
@@ -193,25 +189,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       this.notifications.push("You must be logged in to remove a friend");
     }
   }
-  async getMenuIcons() {
-    if (this.isMenuIconsToggled) {
-      const response = await this.userService.getUserMenu(this.parentRef?.user!);
-      this.parentRef!.userSelectedNavigationItems = response;
-    }
-  }
 
-  async selectMenuIcon(title: string) {
-    if (this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0) {
-      this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
-      this.userService.deleteMenuItem(this.parentRef?.user!, title);
-      this.notifications.push(`Deleted menu item : ${title}`);
-
-    } else {
-      this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user!.id!, title));
-      this.userService.addMenuItem(this.parentRef?.user!, title);
-      this.notifications.push(`Added menu item : ${title}`);
-    }
-  }
 
   async createUser() {
     const tmpUserName = this.loginUsername.nativeElement.value;
@@ -260,79 +238,6 @@ export class UserComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async getNicehashApiKeys() {
-    if (this.isNicehashApiKeysToggled) {
-      this.nhApiKeys = await this.miningService.getNicehashApiInfo((this.parentRef?.user)!);
-    }
-  }
-
-  async updateNHAPIKeys() {
-    if (this.isNicehashApiKeysToggled) {
-      let keys = new NicehashApiKeys();
-      keys.orgId = this.orgId.nativeElement.value;
-      keys.apiKey = this.apiKey.nativeElement.value;
-      keys.apiSecret = this.apiSecret.nativeElement.value;
-      keys.ownership = this.parentRef?.user!.id;
-
-      try {
-        await this.miningService.updateNicehashApiInfo((this.parentRef?.user)!, keys);
-        this.notifications.push("Nicehash API Keys updated successfully");
-      } catch {
-        this.notifications.push("Error while updating Nicehash API Keys!");
-      }
-    }
-  }
-
-  async getWeatherLocation() {
-    if (this.isWeatherLocationToggled) {
-      const res = await this.weatherService.getWeatherLocation(this.parentRef?.user!);
-      this.weatherLocationInput.nativeElement.value = res.location;
-    }
-  }
-
-  async updateWeatherLocation() {
-    if (this.isWeatherLocationToggled) {
-      try {
-        await this.weatherService.updateWeatherLocation((this.parentRef?.user)!, this.weatherLocationInput.nativeElement.value);
-        this.notifications.push("Weather location updated successfully");
-      } catch {
-        this.notifications.push("Error while updating weather location!");
-      }
-    }
-  }
-
-  async updateUser() {
-    const currUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
-    const tmpUser = new User(currUser.id, this.updatedUsername.nativeElement.value, this.updatedPassword.nativeElement.value);
-    this.startLoading();
-    try {
-      const res = await this.userService.updateUser(tmpUser);
-      const message = res["message"];
-      this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
-      this.notifications.push(message);
-    } catch (error) {
-      this.notifications.push(`Error updating user ${this.parentRef!.user?.username}. Error: ${JSON.stringify(error)}`);
-    }
-    this.parentRef!.user = await this.userService.getUser(tmpUser);
-    this.stopLoading();
-  }
-
-  async deleteUser() {
-    if (this.parentRef!.getCookie("user")) {
-      if (confirm("Are you sure you wish to delete your account?")) {
-        const tmpUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
-        try {
-          const res = await this.userService.deleteUser(tmpUser);
-          this.notifications.push(res["message"]);
-          this.logout();
-        } catch (error) {
-          this.notifications.push(`Error deleting user ${this.parentRef!.user?.username}`);
-        }
-      }
-    } else { return alert("You must be logged in first!"); }
-  }
-
-
   async login() {
     this.parentRef!.user = undefined;
     this.parentRef!.deleteCookie("user");
@@ -370,7 +275,8 @@ export class UserComponent extends ChildComponent implements OnInit {
     return ipPattern.test(value);
   }
   copyLink() {
-    const link = `https://bughosted.com/User/${this.user?.id ?? this.userId ?? this.parentRef?.user?.id}`;
+    const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id; 
+    const link = `https://bughosted.com/${userId ? `User/${userId}` : ''}`;
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {

@@ -1,8 +1,11 @@
+import { User } from "./user";
+
 export class Comment {
   id!: number;
-  userId!: number;
-  username!: string;
+  user!: User;
   commentText?: string;
-  upvotes?: number;
-  downvotes?: number;
+  upvotes: number = 0;
+  downvotes: number = 0;
+  storyId?: number;
+  fileId?: number;
 }

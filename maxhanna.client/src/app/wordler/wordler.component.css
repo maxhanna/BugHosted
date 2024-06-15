@@ -105,6 +105,9 @@ input {
     font-size: small;
 }
 
+#enterButton {
+  font-size: large;
+}
 #backspaceButton span {
   margin-left: -3px;
 }

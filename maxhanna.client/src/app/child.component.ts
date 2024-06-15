@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
  import { User } from '../services/datacontracts/user';
-import { AppComponent } from './app.component';
+import { AppComponent } from './AppComponent';
 
 @Component({
   selector: 'app-child-component',
@@ -33,7 +33,6 @@ export class ChildComponent {
   } 
   viewProfile(user?: User) {
     if (user && user.id != 0) {
-      console.log("vew profile: " + user.id);
       this.parentRef?.createComponent("User", { "userId": user.id });
     }
   }

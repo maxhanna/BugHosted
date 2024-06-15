@@ -323,7 +323,10 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> DeleteUser([FromBody] User user)
         {
             _logger.LogInformation($"DELETE /User with ID: {user.Id}");
-
+            if (user.Id == 0 || user.Id == 1)
+            {
+                return BadRequest("Who do you think you are?");
+            }
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {

@@ -1,10 +1,14 @@
+using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.Helpers;
 using Microsoft.AspNetCore.Http.Features;
 using MySqlConnector;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddScoped<WordlerController>();
 
+// Register the background service
+builder.Services.AddHostedService<SlimChoicesBackgroundService>();
 builder.Services.AddMySqlDataSource(builder.Configuration.GetConnectionString("ConnectionStrings:maxhanna")!);
 builder.Services.AddControllers();
 builder.Services.Configure<FormOptions>(options =>
