@@ -12,7 +12,6 @@ import { FriendRequest } from '../../services/datacontracts/friendship-request';
 import { ContactService } from '../../services/contact.service';
 import { WordlerScore } from '../../services/datacontracts/wordler-score';
 import { WordlerService } from '../../services/wordler.service';
-import { ActivatedRoute, Router } from '@angular/router';
 import { SocialComponent } from '../social/social.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';

@@ -20,7 +20,7 @@ import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { NewsComponent } from './news/news.component';
 import { NavigationComponent } from './navigation/navigation.component';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { WordlerComponent } from './wordler/wordler.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
 import { EmulationComponent } from './emulation/emulation.component';
@@ -36,8 +36,11 @@ import { EmulationComponent } from './emulation/emulation.component';
 export class AppComponent implements OnInit, AfterViewInit {
   user: User | undefined = undefined;
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
+  @ViewChild("outlet") outlet!: RouterOutlet;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
   showMainContent: boolean = true;
+  private wordlerCreated = false;
+  private firstComponentCreated = false;
 
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>();
@@ -117,18 +120,32 @@ export class AppComponent implements OnInit, AfterViewInit {
       }
     });
     this.router.events.subscribe(event => {
-      if (this.router.url.includes("Wordler")) {
-        this.createComponent("Wordler");
-      }
-      if (this.router.url.includes("File/")) {
-        //console.log("got File param: " + this.router.url.split("File/")[1])
-        this.createComponent("File", {"fileId": this.router.url.split("File/")[1]});
+      if (event instanceof NavigationEnd) {
+        if (this.router.url.includes('Wordler')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Wordler');
+        }
+
+        if (this.router.url.includes('File/')) {
+          const fileId = this.router.url.split('File/')[1];
+          this.createComponent('File', { fileId });
+        }
       }
     });
   }
+  checkAndClearRouterOutlet() {
+    if (this.outlet) {
+      console.log("Router outlet is activated, navigating to root to clear it.");
+      this.router.navigate(['/']);
+      this.router.dispose();
+    }
+  }
   createComponent(componentType: string, inputs?: { [key: string]: any; }) {
-    console.log("creating component : " + componentType);
-    if (!componentType || componentType.trim() === "") return null;
+    console.log("creating component : " + componentType); 
+    if (!componentType || componentType.trim() === "") {
+      console.log("returning null due to invalid componentType");
+      return null;
+    }
 
     const componentClass = this.componentMap[componentType];
     if (!componentClass) {
@@ -185,7 +202,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
 
     this.VCR.clear();
-    this.componentsReferences = [];
+    this.componentsReferences = []; 
   }
 
   getCookie(name: string) {

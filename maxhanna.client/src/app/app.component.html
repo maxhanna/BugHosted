@@ -1,11 +1,12 @@
+<router-outlet #outlet>
+  <div id="loadingDiv"><div id="loadingBar"></div></div>
+  <app-navigation [user]="user"></app-navigation>
 
-<div id="loadingDiv"><div id="loadingBar"></div></div>
-<app-navigation [user]="user"></app-navigation>
 
+  <div class="componentContainer">
+    <ng-template #viewContainerRef></ng-template>
+  </div>
+  <div class="routerOutletContainer">
 
-<div class="componentContainer" >
-  <ng-template #viewContainerRef></ng-template> 
-</div>
-<div class="routerOutletContainer">
-  <router-outlet></router-outlet> 
-</div>
+  </div>
+</router-outlet>
