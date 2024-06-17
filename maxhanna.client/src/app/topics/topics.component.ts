@@ -2,7 +2,7 @@ import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@
 import { TopicService } from '../../services/topic.service';
 import { Topic } from '../../services/datacontracts/topic';
 import { User } from '../../services/datacontracts/user';
-import { AppComponent } from '../AppComponent';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-topics',

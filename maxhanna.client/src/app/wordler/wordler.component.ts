@@ -28,8 +28,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   selectedDifficulty = 0;
   disableAllInputs = false;
 
-  maintenanceMode = true;
-
+ 
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
 
   difficultyMapping: Record<DifficultyKey, number> = {

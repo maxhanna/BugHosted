@@ -1,5 +1,5 @@
  
-import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { User } from '../../services/datacontracts/user';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file-entry';
@@ -8,7 +8,7 @@ import { ChildComponent } from '../child.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { FileData } from '../../services/datacontracts/file-data';
 import { ActivatedRoute } from '@angular/router';
-import { AppComponent } from '../AppComponent';
+import { AppComponent } from '../app.component';
 
 
 @Component({
@@ -16,7 +16,7 @@ import { AppComponent } from '../AppComponent';
   templateUrl: './file-search.component.html',
   styleUrl: './file-search.component.css'
 })
-export class FileSearchComponent extends ChildComponent implements OnInit {
+export class FileSearchComponent extends ChildComponent implements OnInit, AfterViewInit {
   @Input() currentDirectory = '';
   @Input() clearAfterSelectFile = false;
   @Input() allowedFileTypes: string[] = [];
@@ -36,7 +36,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   showData = true;
   notifications: string[] = [];
   debounceTimer: any;
-  fileId: string | null = null;
+  @Input() fileId: string | null = null;
 
   directory: DirectoryResults | undefined;
   defaultCurrentPage = 1;
@@ -66,22 +66,30 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
   async ngOnInit() {
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
-    await this.getDirectory(); 
-    this.route.paramMap.subscribe(params => {
+    if (this.fileId) {
+      await this.getDirectory(undefined, parseInt(this.fileId));
+      return;
+    }
+
+    this.route.paramMap.subscribe(async params => {
       this.fileId = params.get('fileId');
       if (this.fileId) {
-        setTimeout(() => { this.scrollToFile(this.fileId!); }, 500);
+        await this.getDirectory(undefined, parseInt(this.fileId));  
+        return;
       }
-    }); 
+    });
+    await this.getDirectory();
+  }
+  ngAfterViewInit() { 
   }
   scrollToFile(fileId: string) {
     setTimeout(() => {
       const element = document.getElementById('fileIdTd' + fileId);
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         element.click();
       }
-    }, 0);
+    },1000);
   }
   async upvoteFile(file: FileEntry) {
     const res = await this.fileService.upvoteFile(this.user!, file.id); 
@@ -118,11 +126,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.stopLoading();
     }
   }
-  async getDirectory(file?: string) {
-    console.log("items per page : " + this.maxResults);
+  async getDirectory(file?: string, fileId?: number) {
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.showData = true;
-    this.showUpFolderRow = this.currentDirectory.includes('/') ? true : false;
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.isLoading = true;
@@ -134,13 +140,22 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
           this.user,
           this.currentPage,
           this.maxResults,
-          this.search && this.search.nativeElement.value != '' ? this.search.nativeElement.value : undefined
+          this.search && this.search.nativeElement.value != '' ? this.search.nativeElement.value : undefined,
+          fileId,
+          (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>())
         );
         this.directory = res;
         if (this.directory && this.directory.totalCount) {
+          this.currentDirectory = this.directory.currentDirectory!;
+          this.showUpFolderRow = this.currentDirectory.includes('/') ? true : false;
           this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
-          if (this.allowedFileTypes && this.allowedFileTypes.length > 0) {
-            this.directory.data = this.directory.data!.filter(x => this.allowedFileTypes.includes(this.getFileExtension(x.fileName).toLowerCase()));
+          
+          if (this.fileId && this.fileId != null && this.fileId != 0 + '' && this.directory.data!.filter(x => x.id == parseInt(this.fileId!))[0]) {
+            console.log("fileId defined, scrolling and opening");
+            if (this.directory.page) {
+              this.currentPage = this.directory.page!;
+            }
+            this.scrollToFile(this.fileId!);
           }
         }
       } catch (error) {
@@ -315,6 +330,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
   moveUpOneLevel(): string {
     const currDir = this.currentDirectory;
+    console.log("currDir: " + currDir);
     const lastSlashIndex = currDir.lastIndexOf('/');
     if (lastSlashIndex !== -1) {
       const directoryWithoutTrailingSlash = currDir.endsWith('/') ? currDir.slice(0, -1) : currDir;
@@ -356,10 +372,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   previousDirectory() {
     this.search.nativeElement.value = '';
     const target = this.moveUpOneLevel();
-    this.currentPage = this.defaultCurrentPage;
-    const parts = target.split(this.fS);
-    const parentDirectory = parts.slice(0, -1).join(this.fS);
-    this.currentDirectory = parentDirectory;
+    console.log("target ? " + target);
+    this.currentPage = this.defaultCurrentPage; 
+    console.log("setting currentDirectory to : " + target);
+    this.currentDirectory = target;
     this.getDirectory();
   }
 
@@ -393,5 +409,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     } else {
       return true;
     }
+  }
+  getFileWithoutExtension(fileName: string) {
+    return this.fileService.getFileWithoutExtension(fileName);
   }
 }

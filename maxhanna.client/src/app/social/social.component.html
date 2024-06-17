@@ -1,4 +1,4 @@
-<div class="componentMain">
+<div class="componentMain" #componentMain>
   <div *ngIf="!user">
     <div class="closeButton" (click)="remove_me('SocialComponent');"></div>
     <div class="refreshButton" (click)="ngOnInit();"></div>
@@ -7,6 +7,10 @@
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
 
   <div class="inputDiv">
+    <textarea #story
+              placeholder="Whats on your mind ?"
+              class="foodForThought"
+              (focus)="focusInput()"></textarea>
     <div class="mainFileUploaderAndTopicSelectorDiv">
       <app-file-upload (userUploadEvent)="uploadInitiate();"
                        (userUploadFinishedEvent)="uploadFinished($event)"
@@ -18,10 +22,6 @@
       </app-file-upload>
       <app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>
     </div>
-    <textarea #story
-              placeholder="Food for thought"
-              class="foodForThought"
-              (focus)="focusInput()"></textarea>
     <button (click)="post()" class="createStoryButton">🍌 Post your story</button>
     <div *ngIf="attachedFiles.length > 0"> Attached: {{attachedFiles[0].fileName}}</div>
   </div>

@@ -351,3 +351,22 @@ fieldset {
     font-family: 'Segoe UI Symbol';
     cursor: pointer;
 }
+
+.helperSpanTitle {
+  display: inline-block;
+  width: 10.5px;
+  height: 10.5px;
+  line-height: 10.5px;
+  text-align: center;
+  font-size: small;
+  border-radius: 50%;
+  border: var(--main-border);
+  background-color: var(--main-bg-color);
+  color: var(--primary-font-color);
+  position: relative;
+  cursor: pointer;
+}
+
+  .helperSpanTitle:before {
+    content: 'ℹ️';
+  }

@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
  import { User } from '../services/datacontracts/user';
-import { AppComponent } from './AppComponent';
+import { AppComponent } from './app.component';
 
 @Component({
   selector: 'app-child-component',

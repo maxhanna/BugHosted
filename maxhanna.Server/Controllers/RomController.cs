@@ -1,12 +1,8 @@
 using maxhanna.Server.Controllers.DataContracts;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
-using System.Diagnostics;
 using System.Net;
 using MySqlConnector;
-using Microsoft.AspNetCore.Components.Forms;
-using System.IO;
-using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -76,7 +72,7 @@ namespace maxhanna.Server.Controllers
 
                     var uploadDirectory = baseTarget; // Combine base path with folder path
                     var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
-                    filePath = Path.Combine(uploadDirectory, filePath); // Combine upload directory with file name
+                    filePath = Path.Combine(uploadDirectory, filePath).Replace("\\", "/"); // Combine upload directory with file name
                     _logger.LogInformation($"filePath : {filePath}");
 
                     if (!Directory.Exists(uploadDirectory))
@@ -148,7 +144,7 @@ namespace maxhanna.Server.Controllers
                     return BadRequest("File path is missing.");
                 }
 
-                if (filePath.Contains(".sav"))
+                if (filePath.Contains(".sav") || filePath.Contains(".srm"))
                 {
                     string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
                     string newFilename = filenameWithoutExtension + "_" + user!.Id + Path.GetExtension(filePath).Replace("\\", "/");

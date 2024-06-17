@@ -4,118 +4,115 @@
   <div class="componentTitle">Wordler</div>
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
-  <div *ngIf="maintenanceMode" class="notification">Sorry the Wordler is currently in maintenance mode, please check back in a few hours.</div>
-  <div *ngIf="!maintenanceMode">
-    <div>
-      <div class="wordlerTitleDiv">
-        <div class="wordlerTitle">
-          <span class="wordlerTitleIcons villain">🦹‍</span>
-          <span class="wordlerTitleIcons brain">🧠</span>
-          <span class="wordlerTitleText">Wordler</span>
+  <div>
+    <div class="wordlerTitleDiv">
+      <div class="wordlerTitle">
+        <span class="wordlerTitleIcons villain">🦹‍</span>
+        <span class="wordlerTitleIcons brain">🧠</span>
+        <span class="wordlerTitleText">Wordler</span>
+      </div>
+    </div>
+    <div class="instructions" *ngIf="!gameStarted">
+      <div>The Word Guessing Game!</div>
+      <div class="notification">You get {{numberOfTries}} tries to guess today's word.</div>
+      <div class="notification">Succeed or fail, you must wait until tomorrow to try again.</div>
+      <div class="notification">Everyone gets the same word.</div>
+      <div class="notification">A <span style="color:green;">green</span> square means a correct letter in the right spot</div>
+      <div class="notification">A <span style="color:yellow">yellow</span> square means a correct letter in an incorrect spot.</div>
+    </div>
+    <div [style.display]="gameStarted ? 'none' : 'block'" class="difficultySelectDiv">
+      <select #difficultySelect>
+        <option value="" disabled selected>Choose a difficulty</option>
+        <option *ngFor="let difficulty of difficulties" [value]="difficultyMapping[difficulty]">{{ difficulty }}</option>
+      </select>
+      <button (click)="resetGame()">Start ▶️</button>
+      <div>
+        <button class="shareButton" (click)="copyLink()" title="Share Link">Share 📋</button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="gameStarted">
+    <div id="attempts">
+      <div *ngFor="let attempt of attempts; let attemptIndex = index" class="attempt" [id]="'attemptDiv'+attemptIndex">
+        <div *ngFor="let letter of attempt; let letterIndex = index" class="letter">
+          <input type="text"
+                 maxlength="1"
+                 [id]="'inputIdRow' + attemptIndex + 'Letter' + letterIndex"
+                 [disabled]="attemptIndex !== currentAttempt || !gameStarted || disableAllInputs"
+                 [class]="'text ' + {'correct': feedback[attemptIndex][letterIndex] === 'correct', 'present': feedback[attemptIndex][letterIndex] === 'present'}"
+                 (keydown.enter)="checkGuess(attemptIndex)"
+                 (keyup)="moveToNextInput(attemptIndex, letterIndex, $event)"
+                 (touchstart)="keyFocus($event)" />
         </div>
       </div>
-      <div class="instructions" *ngIf="!gameStarted">
-        <div>The Word Guessing Game!</div>
-        <div class="notification">You get {{numberOfTries}} tries to guess today's word.</div>
-        <div class="notification">Succeed or fail, you must wait until tomorrow to try again.</div>
-        <div class="notification">Everyone gets the same word.</div>
-        <div class="notification">A <span style="color:green;">green</span> square means a correct letter in the right spot</div>
-        <div class="notification">A <span style="color:yellow">yellow</span> square means a correct letter in an incorrect spot.</div>
+      <div *ngIf="gameStarted && (!attempts || attempts.length == 0)">Game error</div>
+    </div>
+
+    <div class="keyboard">
+      <div class="keyboardRow">
+        <button id="qButton" class="key" (click)="pressedKey('Q',$event)" [disabled]="disableAllInputs">Q</button>
+        <button id="wButton" class="key" (click)="pressedKey('W',$event)" [disabled]="disableAllInputs">W</button>
+        <button id="eButton" class="key" (click)="pressedKey('E',$event)" [disabled]="disableAllInputs">E</button>
+        <button id="rButton" class="key" (click)="pressedKey('R',$event)" [disabled]="disableAllInputs">R</button>
+        <button id="tButton" class="key" (click)="pressedKey('T',$event)" [disabled]="disableAllInputs">T</button>
+        <button id="yButton" class="key" (click)="pressedKey('Y',$event)" [disabled]="disableAllInputs">Y</button>
+        <button id="uButton" class="key" (click)="pressedKey('U',$event)" [disabled]="disableAllInputs">U</button>
+        <button id="iButton" class="key" (click)="pressedKey('I',$event)" [disabled]="disableAllInputs">I</button>
+        <button id="oButton" class="key" (click)="pressedKey('O',$event)" [disabled]="disableAllInputs">O</button>
+        <button id="pButton" class="key" (click)="pressedKey('P',$event)" [disabled]="disableAllInputs">P</button>
       </div>
-      <div [style.display]="gameStarted ? 'none' : 'block'" class="difficultySelectDiv">
-        <select #difficultySelect>
-          <option value="" disabled selected>Choose a difficulty</option>
-          <option *ngFor="let difficulty of difficulties" [value]="difficultyMapping[difficulty]">{{ difficulty }}</option>
-        </select>
-        <button (click)="resetGame()">Start ▶️</button>
-        <div>
-          <button class="shareButton" (click)="copyLink()" title="Share Link">Share 📋</button>
-        </div>
+      <div class="keyboardRow">
+        <button id="aButton" class="key" (click)="pressedKey('A',$event)" [disabled]="disableAllInputs">A</button>
+        <button id="sButton" class="key" (click)="pressedKey('S',$event)" [disabled]="disableAllInputs">S</button>
+        <button id="dButton" class="key" (click)="pressedKey('D',$event)" [disabled]="disableAllInputs">D</button>
+        <button id="fButton" class="key" (click)="pressedKey('F',$event)" [disabled]="disableAllInputs">F</button>
+        <button id="gButton" class="key" (click)="pressedKey('G',$event)" [disabled]="disableAllInputs">G</button>
+        <button id="hButton" class="key" (click)="pressedKey('H',$event)" [disabled]="disableAllInputs">H</button>
+        <button id="jButton" class="key" (click)="pressedKey('J',$event)" [disabled]="disableAllInputs">J</button>
+        <button id="kButton" class="key" (click)="pressedKey('K',$event)" [disabled]="disableAllInputs">K</button>
+        <button id="lButton" class="key" (click)="pressedKey('L',$event)" [disabled]="disableAllInputs">L</button>
+        <button id="backspaceButton" class="key" (click)="pressedKey('backspace',$event)" [disabled]="disableAllInputs"><span>⌫</span></button>
+      </div>
+      <div class="keyboardRow">
+        <button id="zButton" class="key" (click)="pressedKey('Z',$event)" [disabled]="disableAllInputs">Z</button>
+        <button id="xButton" class="key" (click)="pressedKey('X',$event)" [disabled]="disableAllInputs">X</button>
+        <button id="cButton" class="key" (click)="pressedKey('C',$event)" [disabled]="disableAllInputs">C</button>
+        <button id="vButton" class="key" (click)="pressedKey('V',$event)" [disabled]="disableAllInputs">V</button>
+        <button id="bButton" class="key" (click)="pressedKey('B',$event)" [disabled]="disableAllInputs">B</button>
+        <button id="nButton" class="key" (click)="pressedKey('N',$event)" [disabled]="disableAllInputs">N</button>
+        <button id="mButton" class="key" (click)="pressedKey('M',$event)" [disabled]="disableAllInputs">M</button>
+        <button id="enterButton" class="key" (click)="pressedKey('enter',$event)" [disabled]="disableAllInputs">↵</button>
       </div>
     </div>
 
-    <div *ngIf="gameStarted">
-      <div id="attempts">
-        <div *ngFor="let attempt of attempts; let attemptIndex = index" class="attempt" [id]="'attemptDiv'+attemptIndex">
-          <div *ngFor="let letter of attempt; let letterIndex = index" class="letter">
-            <input type="text"
-                   maxlength="1"
-                   [id]="'inputIdRow' + attemptIndex + 'Letter' + letterIndex"
-                   [disabled]="attemptIndex !== currentAttempt || !gameStarted || disableAllInputs"
-                   [class]="'text ' + {'correct': feedback[attemptIndex][letterIndex] === 'correct', 'present': feedback[attemptIndex][letterIndex] === 'present'}"
-                   (keydown.enter)="checkGuess(attemptIndex)"
-                   (keyup)="moveToNextInput(attemptIndex, letterIndex, $event)"
-                   (touchstart)="keyFocus($event)" />
-          </div>
-        </div>
-        <div *ngIf="gameStarted && (!attempts || attempts.length == 0)">Game error</div>
-      </div>
 
-      <div class="keyboard">
-        <div class="keyboardRow">
-          <button id="qButton" class="key" (click)="pressedKey('Q',$event)" [disabled]="disableAllInputs">Q</button>
-          <button id="wButton" class="key" (click)="pressedKey('W',$event)" [disabled]="disableAllInputs">W</button>
-          <button id="eButton" class="key" (click)="pressedKey('E',$event)" [disabled]="disableAllInputs">E</button>
-          <button id="rButton" class="key" (click)="pressedKey('R',$event)" [disabled]="disableAllInputs">R</button>
-          <button id="tButton" class="key" (click)="pressedKey('T',$event)" [disabled]="disableAllInputs">T</button>
-          <button id="yButton" class="key" (click)="pressedKey('Y',$event)" [disabled]="disableAllInputs">Y</button>
-          <button id="uButton" class="key" (click)="pressedKey('U',$event)" [disabled]="disableAllInputs">U</button>
-          <button id="iButton" class="key" (click)="pressedKey('I',$event)" [disabled]="disableAllInputs">I</button>
-          <button id="oButton" class="key" (click)="pressedKey('O',$event)" [disabled]="disableAllInputs">O</button>
-          <button id="pButton" class="key" (click)="pressedKey('P',$event)" [disabled]="disableAllInputs">P</button>
-        </div>
-        <div class="keyboardRow">
-          <button id="aButton" class="key" (click)="pressedKey('A',$event)" [disabled]="disableAllInputs">A</button>
-          <button id="sButton" class="key" (click)="pressedKey('S',$event)" [disabled]="disableAllInputs">S</button>
-          <button id="dButton" class="key" (click)="pressedKey('D',$event)" [disabled]="disableAllInputs">D</button>
-          <button id="fButton" class="key" (click)="pressedKey('F',$event)" [disabled]="disableAllInputs">F</button>
-          <button id="gButton" class="key" (click)="pressedKey('G',$event)" [disabled]="disableAllInputs">G</button>
-          <button id="hButton" class="key" (click)="pressedKey('H',$event)" [disabled]="disableAllInputs">H</button>
-          <button id="jButton" class="key" (click)="pressedKey('J',$event)" [disabled]="disableAllInputs">J</button>
-          <button id="kButton" class="key" (click)="pressedKey('K',$event)" [disabled]="disableAllInputs">K</button>
-          <button id="lButton" class="key" (click)="pressedKey('L',$event)" [disabled]="disableAllInputs">L</button>
-          <button id="backspaceButton" class="key" (click)="pressedKey('backspace',$event)" [disabled]="disableAllInputs"><span>⌫</span></button>
-        </div>
-        <div class="keyboardRow">
-          <button id="zButton" class="key" (click)="pressedKey('Z',$event)" [disabled]="disableAllInputs">Z</button>
-          <button id="xButton" class="key" (click)="pressedKey('X',$event)" [disabled]="disableAllInputs">X</button>
-          <button id="cButton" class="key" (click)="pressedKey('C',$event)" [disabled]="disableAllInputs">C</button>
-          <button id="vButton" class="key" (click)="pressedKey('V',$event)" [disabled]="disableAllInputs">V</button>
-          <button id="bButton" class="key" (click)="pressedKey('B',$event)" [disabled]="disableAllInputs">B</button>
-          <button id="nButton" class="key" (click)="pressedKey('N',$event)" [disabled]="disableAllInputs">N</button>
-          <button id="mButton" class="key" (click)="pressedKey('M',$event)" [disabled]="disableAllInputs">M</button>
-          <button id="enterButton" class="key" (click)="pressedKey('enter',$event)" [disabled]="disableAllInputs">↵</button>
-        </div>
-      </div>
+    <button (click)="giveUp()" *ngIf="!showScores && currentAttempt >= 0">{{elapsedTime && currentAttempt != numberOfTries ? 'Give up?' : 'Exit Game'}}</button>
+  </div>
 
 
-      <button (click)="giveUp()" *ngIf="!showScores && currentAttempt >= 0">{{elapsedTime && currentAttempt != numberOfTries ? 'Give up?' : 'Exit Game'}}</button>
-    </div>
-
-
-    <div *ngIf="showScores" class="mainTableDiv">
-      <span class="mainTableTitle">Today's Scoreboard:</span>
-      <table *ngIf="scores && scores.length > 0" class="mainTable" id="scoreTable">
-        <thead>
-          <tr>
-            <th (click)="sortTable(0, 'scoreTable')">User</th>
-            <th (click)="sortTable(1, 'scoreTable')">Attempts</th>
-            <th (click)="sortTable(2, 'scoreTable')">Time</th>
-            <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let score of scores">
-            <td class="usernameProfileLink cursorPointer" (click)="viewProfile(score.user)">{{score.user.username ?? 'Anonymous'}}</td>
-            <td>{{score.score}}</td>
-            <td>{{score.time}}</td>
-            <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="!scores || scores.length == 0">
-        None has beat the Wordler today!
-      </div>
+  <div *ngIf="showScores" class="mainTableDiv">
+    <span class="mainTableTitle">Today's Scoreboard:</span>
+    <table *ngIf="scores && scores.length > 0" class="mainTable" id="scoreTable">
+      <thead>
+        <tr>
+          <th (click)="sortTable(0, 'scoreTable')">User</th>
+          <th (click)="sortTable(1, 'scoreTable')">Attempts</th>
+          <th (click)="sortTable(2, 'scoreTable')">Time</th>
+          <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let score of scores">
+          <td class="usernameProfileLink cursorPointer" (click)="viewProfile(score.user)">{{score.user.username ?? 'Anonymous'}}</td>
+          <td>{{score.score}}</td>
+          <td>{{score.time}}</td>
+          <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div *ngIf="!scores || scores.length == 0">
+      None has beat the Wordler today!
     </div>
   </div>
 </div>

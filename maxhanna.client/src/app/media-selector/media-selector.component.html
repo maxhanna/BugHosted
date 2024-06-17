@@ -1,1 +1,9 @@
-<button>🖼️</button>
+<button (click)="viewMediaChoicesOpen = !viewMediaChoicesOpen">🖼️</button>
+<div *ngIf="viewMediaChoicesOpen">
+  <div *ngFor="let file of fileSelections">
+    selected file : {{file.fileName}}
+  </div>
+  <!--<app-file-upload></app-file-upload>
+  <div><app-file-search [allowedFileTypes]="allowedFileExtensions"></app-file-search></div>-->
+  temporarily disabled
+</div>

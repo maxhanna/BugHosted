@@ -1,6 +1,5 @@
 import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
-import { AppComponent } from '../AppComponent';
-import { MenuItem } from '../../services/datacontracts/menu-item';
+ import { MenuItem } from '../../services/datacontracts/menu-item';
 import { MiningService } from '../../services/mining.service';
 import { WeatherService } from '../../services/weather.service';
 import { UserService } from '../../services/user.service';

@@ -1,38 +1,60 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterContentChecked, AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { lastValueFrom } from 'rxjs';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
+import { User } from '../../services/datacontracts/user';
 
 @Component({
   selector: 'app-music',
   templateUrl: './music.component.html',
   styleUrl: './music.component.css'
 })
-export class MusicComponent extends ChildComponent implements OnInit {
+export class MusicComponent extends ChildComponent implements OnInit, AfterViewInit {
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('musicVideo') musicVideo!: ElementRef<HTMLIFrameElement>;
   @ViewChild('orderSelect') orderSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   songs: Array<Todo> = [];
   orders: Array<string> = ["Newest", "Oldest", "Alphanumeric ASC", "Alphanumeric DESC", "Random"];
+  isMusicPlaying = false;
+  @Input() user?: User;
+  @Input() songPlaylist?: Todo[];
+  @Input() smallPlayer = false;
+  @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>();
 
   constructor(private todoService: TodoService) { super(); }
   async ngOnInit() {
-    await this.getSongList();
+    if (!this.user) {
+      console.log("didnt get a user");
+    }
+    await this.getSongList(); 
+    if (this.songs && this.songs[this.songs.length - 1] && this.songs[this.songs.length - 1].url) {
+      this.play(this.songs[this.songs.length - 1].url!);
+    }
     this.clearInputs();
     this.reorderTable(undefined, this.orderSelect.nativeElement.value);
     this.isMusicControlsDisplayed(false);
   }
+  async ngAfterViewInit() {
+    if (this.user) { 
+      this.componentMain.nativeElement.style.padding = "unset";
+    }
+  }
   play(url: string) {
+    if (url == '') { return alert("Url cant be empty"); }
+    this.isMusicPlaying = true;
     const playlist = this.getPlaylistForYoutubeUrl(url).join(',')
     const trimmedUrl = this.trimYoutubeUrl(url);
     const target = `https://www.youtube.com/embed/${trimmedUrl}?playlist=${playlist}&autoplay=1&vq=tiny`;
-    this.musicVideo.nativeElement.src = target;
+    setTimeout(() => {
+      this.musicVideo.nativeElement.src = target;
+    }, 1)
     this.isMusicControlsDisplayed(true);
   }
   async addSong() {
+    if (this.user) { alert("Cant add song on another persons list"); }
     const url = this.extractYouTubeVideoId(this.urlInput.nativeElement.value);
     const title = this.titleInput.nativeElement.value;
     if (!url || !title || url.trim() == "" || title.trim() == "") {
@@ -47,7 +69,15 @@ export class MusicComponent extends ChildComponent implements OnInit {
     this.ngOnInit();
   }
   async getSongList() {
-    this.songs = await this.todoService.getTodo(this.parentRef?.user!, "Music");
+    console.log("getting song list");
+    if (this.songPlaylist && this.songPlaylist.length > 0) {
+      console.log("songs were passed in");
+      this.songs = this.songPlaylist;
+    } else {
+      console.log("manual song fetch");
+      this.songs = await this.todoService.getTodo(this.user ?? this.parentRef?.user!, "Music");
+    }
+    this.gotPlaylistEvent.emit(this.songs);
   }
   async searchForSong() {
     const search = this.searchInput.nativeElement.value!;
@@ -77,7 +107,7 @@ export class MusicComponent extends ChildComponent implements OnInit {
     this.stopMusic();
   }
   reorderTable(event?: Event, targetOrder?: string) {
-    if (!event && !targetOrder) return;
+    if (!event && !targetOrder || this.songs.length == 0 || !this.songs.sort) return;
     const order = event ? (event.target as HTMLSelectElement).value : targetOrder;
 
     switch (order) {
@@ -126,6 +156,7 @@ export class MusicComponent extends ChildComponent implements OnInit {
     }
   }
   stopMusic() {
+    this.isMusicPlaying = false;
     this.musicVideo.nativeElement.src = ""; 
     this.isMusicControlsDisplayed(false);
   }

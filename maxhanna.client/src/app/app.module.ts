@@ -26,12 +26,13 @@ import { FileUploadComponent } from './file-upload/file-upload.component';
 import { NewsComponent } from './news/news.component';
 import { TopicsComponent } from './topics/topics.component';
 import { WordlerComponent } from './wordler/wordler.component';
-import { AppComponent } from './AppComponent';
+import { AppComponent } from './app.component';
 import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 import { FileSearchComponent } from './file-search/file-search.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
 import { CommentsComponent } from './comments/comments.component';
 import { MediaSelectorComponent } from './media-selector/media-selector.component';
+import { EmulationComponent } from './emulation/emulation.component';
  
 @NgModule({
   declarations: [
@@ -63,7 +64,8 @@ import { MediaSelectorComponent } from './media-selector/media-selector.componen
     MediaViewerComponent,
     UpdateUserSettingsComponent,
     CommentsComponent,
-    MediaSelectorComponent
+    MediaSelectorComponent,
+    EmulationComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,

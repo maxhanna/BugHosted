@@ -15,6 +15,7 @@
       (userUploadFinishedEvent)="uploadFinished($event)"
       (userNotificationEvent)="uploadNotification($event);"
       (userCancelEvent)="cancelMakeDirectoryOrFile();"
+      [currentDirectory]="currentDirectory"
       [user]="parentRef?.user!"
       [showPrivatePublicOption]="isUploadInitiate ? true : false"
       *ngIf="!showMakeDirectoryPrompt">
@@ -36,7 +37,8 @@
   <app-file-search
     [user]="parentRef?.user"
     [inputtedParentRef]="parentRef"
-    [maxResults]="100" 
+    [maxResults]="100"
+    [fileId]="fileId"
     (currentDirectoryChangeEvent)="changeDirectoryEvent($event)">
   </app-file-search>
    

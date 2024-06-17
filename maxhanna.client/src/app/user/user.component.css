@@ -33,24 +33,6 @@
   max-width: unset !important;
 }
 
-.helperSpanTitle {
-  display: inline-block;
-  width: 10.5px;
-  height: 10.5px;
-  line-height: 10.5px;
-  text-align: center;
-  font-size: small;
-  border-radius: 50%;
-  border: var(--main-border);
-  background-color: var(--main-bg-color);
-  color: var(--primary-font-color);
-  position: relative;
-  cursor: pointer;
-}
-
-  .helperSpanTitle:before {
-    content: 'ℹ️';
-  }
 
 .mainTable tr {
   border: var(--main-border);
@@ -61,10 +43,7 @@
   font-size: large;
   text-align: center;
 }
-
-.wordlerScoreDiv {
-  margin-top: 15px;
-}
+ 
 
 .friendsContainer {
   width: 300px;
@@ -82,3 +61,31 @@
 .profileControls  {
     text-align:center;
 }
+.avatar {
+  width: 50px;
+  height: 50px;
+  border: var(--main-border);
+  margin-left:auto;
+  margin-right:auto;
+}
+
+.avatarBug, .avatarBrain, .avatarBust {
+display:inline;
+position: relative;  
+  top: auto; /* Remove top positioning */
+  left: auto; /* Remove left positioning */
+}
+
+.avatarBug {
+  z-index: 3;
+  font-size: 15px;
+  left: 8px;
+}
+ 
+
+.avatarBust {
+  font-size: 40px;
+  top: -20px;
+  left: -1px;
+  z-index:2; 
+} 

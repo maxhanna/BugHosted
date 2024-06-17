@@ -12,7 +12,7 @@ import { FileData } from './datacontracts/file-data';
 export class FileService {
   constructor(private http: HttpClient) { }
 
-  async getDirectory(dir: string, visibility: string, ownership: string, user?: User, page?: number, pageSize?: number, search?: string) {
+  async getDirectory(dir: string, visibility: string, ownership: string, user?: User, page?: number, pageSize?: number, search?: string, fileId?: number, fileType?: Array<string>) {
     var params = new URLSearchParams(
       {
         directory: dir,
@@ -21,6 +21,8 @@ export class FileService {
         page: page ? page + '' : '1',
         pageSize: pageSize ? pageSize + '' : '100',
         search: search ? search : '',
+        fileId: fileId ? fileId + '' : '',
+        fileType: fileType ? fileType.join(',') : '',
       });
     try {
       const response = await fetch(`/file/getdirectory?` + params, {
@@ -287,5 +289,16 @@ export class FileService {
   getFileExtension(file: string) {
     if (!file) return '';
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() ?? '' : '';
+  }
+  getFileWithoutExtension(file: string) {
+    const lastPeriodIndex = file.lastIndexOf('.');
+    if (lastPeriodIndex !== -1) {
+      // Extract the name part before the last period
+      const nameWithoutExtension = file.substring(0, lastPeriodIndex);
+      return nameWithoutExtension;  // Output: my.file.name.rom.sav
+    } else {
+      console.error("Filename does not contain an extension.");
+      return file;
+    } 
   }
 }

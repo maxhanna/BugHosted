@@ -15,8 +15,12 @@ export class FileEntry {
   fileComments: Array<Comment>;
   date: Date;
   fileData: FileData;
+  fileSize: number;
+  fileType: string;
 
-  constructor(id: number, fileName: string, visibility: string, sharedWith: string, user: User, isFolder: boolean, upvotes: number, downvotes: number, comments: Array<Comment>, date: Date, fileData: FileData) {
+  constructor(id: number, fileName: string, visibility: string, sharedWith: string, user: User,
+    isFolder: boolean, upvotes: number, downvotes: number, comments: Array<Comment>, date: Date,
+    fileData: FileData, fileSize: number, fileType: string) {
     this.id = id;
     this.fileName = fileName;
     this.visibility = visibility;
@@ -28,5 +32,7 @@ export class FileEntry {
     this.fileComments = comments;
     this.date = date;
     this.fileData = fileData;
+    this.fileSize = fileSize;
+    this.fileType = fileType;
   }
 }

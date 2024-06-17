@@ -15,6 +15,7 @@ export class FileComponent extends ChildComponent {
     super();
   }
   @Input() user?: User;
+  @Input() fileId: string | null = null;
   fS = "/"; 
   errorMessage: string | null = null;
   thumbnailSrc: string | null = null;

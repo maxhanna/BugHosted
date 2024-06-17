@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, SecurityContext, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnInit, SecurityContext, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Story } from '../../services/datacontracts/story';
 import { StoryComment } from '../../services/datacontracts/story-comment';
@@ -10,14 +10,14 @@ import { FileService } from '../../services/file.service';
 import { ActivatedRoute } from '@angular/router';
 import { TopicService } from '../../services/topic.service';
 import { Topic } from '../../services/datacontracts/topic';
-import { AppComponent } from '../AppComponent';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-social',
   templateUrl: './social.component.html',
   styleUrls: ['./social.component.css']
 })
-export class SocialComponent extends ChildComponent implements OnInit {
+export class SocialComponent extends ChildComponent implements OnInit, AfterViewInit {
   fileMetadata: any;
   youtubeMetadata: any;
   stories: Story[] = [];
@@ -43,6 +43,7 @@ export class SocialComponent extends ChildComponent implements OnInit {
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
+  @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
 
   @Input() storyId: number | null = null;
   @Input() user?: User;
@@ -61,6 +62,11 @@ export class SocialComponent extends ChildComponent implements OnInit {
     await this.getStories();
     if (this.storyId) {
       this.scrollToStory(this.storyId);
+    }
+  }
+  ngAfterViewInit() {
+    if (this.user) {
+      this.componentMain.nativeElement.style.padding = "5px";
     }
   }
 

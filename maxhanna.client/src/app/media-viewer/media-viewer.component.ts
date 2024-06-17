@@ -4,7 +4,7 @@ import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileService } from '../../services/file.service';
 import { FileComment } from '../../services/datacontracts/file-comment';
 import { User } from '../../services/datacontracts/user';
-import { AppComponent } from '../AppComponent';
+import { AppComponent } from '../app.component';
 
 
 @Component({
@@ -38,8 +38,8 @@ export class MediaViewerComponent extends ChildComponent {
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
 
-  copyLink(fileId: number) {
-    const link = `https://bughosted.com/${this.currentDirectory == 'Meme/' ? 'Memes/' : this.currentDirectory}${fileId}`;
+  copyLink() {
+    const link = `https://bughosted.com/${this.currentDirectory == 'Meme/' ? 'Memes' : 'File'}/${this.selectedFile!.id}`;
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {

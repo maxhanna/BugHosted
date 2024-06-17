@@ -1,0 +1,158 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="ngOnDestroy(); remove_me('GbcComponent');"></div>
+  <!--<div class="refreshButton" (click)="ngAfterViewInit();"></div>-->
+  <div class="componentTitle">Emulation</div>
+  <div class="gamesContainer">
+    <app-file-search [user]="parentRef?.user"
+                     [currentDirectory]="'roms/'"
+                     [clearAfterSelectFile]="true"
+                     [allowedFileTypes]="getAllowedFileTypes()"
+                     [showPrivatePublicOption]="false"
+                     [canChangeDirectory]="false"
+                     [canDragMove]="false"
+                     [displayFileActions]="false"
+                     [displayComments]="false"
+                     (selectFileEvent)="loadRom($event)">
+    </app-file-search>
+  </div>
+
+  <div>
+    <span class="helperSpanTitle"
+          title="To save your game using this emulator, just press 'Save'.
+          The next time you reload the game, your save will be loaded in automatically.
+          You can also press on the 'Load' button to reload from your save file."></span>
+    <button (click)="saveState()">Save</button>
+    <button (click)="loadState()">Load</button>
+    <button id="fullscreenBtn" (click)="toggleFullscreen()">Toggle Fullscreen</button>
+    <button (click)="stopEmulator()">Stop</button>
+
+    <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span>
+    <span class="uploadRomSpan keyboardControlsSpan" title="Controls for keyboard: Up,down,right,left arrows for movement; a = x, b = z, c = a, enter = start, shift = select.">⌨️</span>
+  </div>
+   
+
+  <div class="gameboy" id="GameBoy" #fullscreenContainer>
+
+    <div class="screen-area">
+      <canvas id="mainCanvas" class="mainCanvas" #canvas slot="lcd" onkeypress="canvasKeypress($event)"></canvas>
+    </div>
+
+    <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
+
+    <div class="controls">
+      <div class="dpad">
+        <div class="up-left">
+          <div class="up-left-triangle"></div>
+        </div>
+        <div class="up">
+          <div class="up-triangle"></div>
+        </div>
+        <div class="up-right">
+          <div class="up-right-triangle"></div>
+        </div>
+        <div class="right">
+          <div class="right-triangle"></div>
+        </div>
+        <div class="down">
+          <div class="down-triangle"></div>
+        </div>
+        <div class="down-left">
+          <div class="down-left-triangle"></div>
+        </div>
+        <div class="left">
+          <div class="left-triangle"></div>
+        </div>
+        <div class="down-right">
+          <div class="down-right-triangle"></div>
+        </div>
+        <div class="middle">
+        </div>
+      </div>
+      <div class="a-b">
+        <div class="b">B</div>
+        <div class="a">A</div>
+      </div> 
+      <div class="y" [style.visibility]="currentFileType != '' && segaFileTypes.includes(currentFileType) ? 'visible' : 'hidden'">C</div>
+    </div>
+
+    <div class="start-select">
+      <div class="select">SELECT</div>
+      <div class="start">START</div>
+    </div>
+
+    <div class="speaker" (click)="toggleSound()">
+      <div class="dot placeholder"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot placeholder"></div>
+
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+
+      <div class="dot placeholder"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot closed"></div>
+      <div class="dot open"></div>
+      <div class="dot placeholder"></div>
+    </div>
+  </div>
+
+</div>

@@ -1,31 +1,30 @@
-<div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div> 
-<div *ngIf="showData">
+<div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
+<div class="filters" *ngIf="showPrivatePublicOption && showData">
+  <div>
+    <label>
+      Visibility:
+      <select (change)="setFilterVisibility($event)">
+        <option value="all" [selected]="filter.visibility === 'all'">All</option>
+        <option value="public" [selected]="filter.visibility === 'public'">Public</option>
+        <option value="private" [selected]="filter.visibility === 'private'">Private</option>
+      </select>
+    </label>
+  </div>
+  <div>
+    <label>
+      Ownership:
+      <select (change)="setFilterOwnership($event)">
+        <option value="own" [selected]="filter.ownership === 'own'">Own</option>
+        <option value="others" [selected]="filter.ownership === 'others'">Others</option>
+      </select>
+    </label>
+  </div>
+</div>
+<div class="searchInput">
+  <input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
+</div>
 
-  <div class="filters" *ngIf="showPrivatePublicOption">
-    <div>
-      <label>
-        Visibility:
-        <select (change)="setFilterVisibility($event)">
-          <option value="all" [selected]="filter.visibility === 'all'">All</option>
-          <option value="public" [selected]="filter.visibility === 'public'">Public</option>
-          <option value="private" [selected]="filter.visibility === 'private'">Private</option>
-        </select>
-      </label>
-    </div>
-    <div>
-      <label>
-        Ownership:
-        <select (change)="setFilterOwnership($event)">
-          <option value="own" [selected]="filter.ownership === 'own'">Own</option>
-          <option value="others" [selected]="filter.ownership === 'others'">Others</option>
-          <option value="all" [selected]="filter.ownership === 'all'">All</option>
-        </select>
-      </label>
-    </div>
-  </div>
-  <div class="searchInput">
-    <input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
-  </div>
+<div *ngIf="showData">
   <!-- Pagination Controls -->
   <div *ngIf="directory" class="pageContainerDiv">
     <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
@@ -36,7 +35,7 @@
 
   <!-- Main Data -->
   <div class="">
-    <table class="mainTable" id="fileTable" *ngIf="directory">
+    <table class="mainTable" id="fileTable" *ngIf="!isLoading">
       <thead>
         <tr *ngIf="showUpFolderRow && canChangeDirectory">
           <th (click)="previousDirectory()"
@@ -59,7 +58,7 @@
           </th>
         </tr>
       </thead>
-      <tbody>
+      <tbody *ngIf="directory && directory.totalCount! > 0">
         <ng-container *ngFor="let file of directory.data; let i = index">
           <tr draggable="true"
               (dragstart)="onDragStart($event, file.fileName)">
@@ -76,7 +75,7 @@
                      (keyup)="editFileKeyUp($event, file.id)"
                      (click)="$event.stopPropagation()"
                      [id]="'editFileNameInput'+file.id" />
-              {{isEditing.includes(file.id) ? '' : file?.fileData?.givenFileName ?? file.fileName.split('.')[0]!}}
+              {{isEditing.includes(file.id) ? '' : file?.fileData?.givenFileName ?? getFileWithoutExtension(file.fileName)!}}
             </td>
             <td class="actionTd" *ngIf="displayFileActions">
               <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">✏️</button>
@@ -96,13 +95,20 @@
               </button>
             </td>
             <td class="typeTd" (click)="selectFile(file);" *ngIf="displayFileType">
-              <span [class]="(getFileExtension(file.fileName).toUpperCase() != '' && file.visibility == 'Private') ? 'fileTypeSpan' : ''">{{getFileExtension(file.fileName).toUpperCase()}}</span> <span [class]="getFileExtension(file.fileName).toUpperCase() && file.visibility == 'Private' ? 'privateOnTop':''" title="This is a private file.">{{file.visibility == 'Private' ? '🔒' : ''}}</span>
+              <span *ngIf="file && file.fileType"
+                    [class]="file.visibility == 'Private' ? 'fileTypeSpan' : ''">
+                {{file.fileType.toUpperCase()}}
+              </span>
+              <span [class]="file.visibility == 'Private' ? 'private':''"
+                    title="This is a private file.">
+                {{file.visibility == 'Private' ? '🔒' : ''}}
+              </span>
             </td>
             <td *ngIf="displayComments" class="commentCountTd">
               {{file?.fileComments?.length ?? 0}}
             </td>
           </tr>
-          <tr *ngIf="openedFiles.includes(file.id) && displayFileData">
+          <tr *ngIf="openedFiles.includes(file.id)">
             <td colspan="4">
               <app-media-viewer #mediaViewerComponent [user]="user" [inputtedParentRef]="inputtedParentRef" *ngIf="viewMediaFile && openedFiles.includes(file.id)"></app-media-viewer>
             </td>
@@ -113,7 +119,7 @@
     <div *ngIf="isLoading">
       Loading Data...
     </div>
-    <div *ngIf="!isLoading && (!directory || directory.totalCount == 0)">
+    <div *ngIf="!isLoading && directory && directory.totalCount == 0">
       Empty.
     </div>
   </div>

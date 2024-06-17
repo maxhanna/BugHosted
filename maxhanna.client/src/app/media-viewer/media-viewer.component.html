@@ -19,7 +19,7 @@
         <span (click)="createUserProfileComponent(selectedFile?.user)" class="usernameProfileLink cursorPointer">{{selectedFile?.user?.username}}</span> 🍌 {{selectedFile?.date!.toString().replace('T', ' ')}}
       </div>
       <div class="filetype">
-        <button (click)="copyLink(selectedFile!.id)" title="Share Link">Share 📋</button>
+        <button (click)="copyLink()" title="Share Link">Share 📋</button>
         <button (click)="download(selectedFile!, true)">Download</button>
       </div>
       <app-comments *ngIf="selectedFile"

@@ -1,17 +1,17 @@
-<div class="componentMain">
-  <div class="closeButton" (click)="remove_me('MusicComponent');"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">Music</div>
+<div class="componentMain" #componentMain>
+  <div class="closeButton" *ngIf="!user" (click)="remove_me('MusicComponent');"></div>
+  <div class="refreshButton" *ngIf="!user" (click)="ngOnInit();"></div>
+  <div class="componentTitle" *ngIf="!user">Music</div>
 
-  <fieldset>
+  <fieldset *ngIf="!user">
     <legend title="Add to the music list">Add to the music list</legend>
     <input type="text" #titleInput placeholder="Artist - Song Title" />
     <input type="text" #urlInput placeholder="URL" />
     <input type="submit" value="💾" (click)="addSong()" />
   </fieldset>
-  <div>
-    <div class="iframeDiv">
-      <iframe frameborder=0 id=musicVideo #musicVideo></iframe>
+  <div id="musicPlayerDiv">
+    <div *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="smallPlayer ? 'smallIframeDiv' : 'iframeDiv'">
+      <iframe frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
     </div>
     <div class="musicControls">
       <label id="stopMusicButton" (click)="stopMusic()">◼</label>
@@ -30,7 +30,7 @@
           <tbody>
             <tr *ngFor="let song of songs" id="songId{{song.id!}}">
               <td (click)="play(song.url!)">{{song.todo}}</td>
-              <td style="width:0%;"><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
+              <td style="width:0%;" *ngIf="!user"><input (click)="deleteSong(song.id!)" value="❌" type="submit" /></td>
             </tr>
           </tbody>
         </table>

@@ -2,8 +2,12 @@
   <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="parentRef?.user || user"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">{{user ? user.username + '\'s profile' : 'Login'}}</div>
-
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
+  <div class="avatar">
+    <span class="avatarBug">🪲</span>
+    <span class="avatarBust">👤</span>
+  </div>
+
   <div *ngIf="(user && parentRef && parentRef.user && user.id == parentRef.user.id) || !user && !parentRef?.user">
     <div style="width:100%;text-align:center">Total users: {{usersCount}}</div>
     <div>
@@ -41,7 +45,7 @@
     <div *ngIf="user || parentRef?.user" class="friendsContainer">
       <span class="cursorPointer mainTable">Friends</span>
       <span class="smallExpander mainTable">
-        {{getNewFriendRequestCount()}}{{isFriendsExpanded ? '-' : '+'}}
+        {{'('+friends.length+')'}}{{isFriendsExpanded ? '-' : '+'}}
       </span>
       <div class="mainTableDiv" *ngIf="isFriendsExpanded">
         <table class="mainTable" *ngIf="friends">
@@ -69,7 +73,7 @@
     </div>
   </div>
   <div class="topProfileContainer" id="friendRequestProfileContainer" (click)="expandDiv('friendRequestProfileContainer'); isFriendRequestsExpanded = !isFriendRequestsExpanded">
-    <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)" style="margin-top:15px">
+    <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)">
       <span class="cursorPointer mainTable">Friend Requests</span>
       <span class="smallExpander mainTable">
         {{getNewFriendRequestCount()}}{{isFriendRequestsExpanded ? '-' : '+'}}
@@ -79,7 +83,7 @@
         <table class="mainTable" *ngIf="friendRequests.length > 0">
           <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            <tr *ngFor="let request of friendRequests">
+            <tr *ngFor="let request of getFilteredFriendRequests()">
               <td><span (click)="viewProfile(request.sender)" class="usernameProfileLink cursorPointer">{{request.sender.username}}</span></td>
               <td><span (click)="viewProfile(request.receiver)" class="usernameProfileLink cursorPointer">{{request.receiver.username}}</span></td>
               <td>{{request.createdAt}}</td>
@@ -110,7 +114,7 @@
     <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
       <span class="cursorPointer mainTable">Wordler Scores</span>
       <span class="smallExpander mainTable">
-        {{wordlerScores.length > 0 ? '('+wordlerScores.length+')' : ''}}{{isWordlerScoresExpanded ? '-' : '+'}}
+        {{'('+wordlerScores.length+')'}}{{isWordlerScoresExpanded ? '-' : '+'}}
       </span>
 
       <div *ngIf="wordlerScores.length > 0 && isWordlerScoresExpanded" class="mainTableDiv">
@@ -133,7 +137,24 @@
           </tbody>
         </table>
       </div>
-      <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No Worlder scores yet!</div>
+      <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading && isWordlerScoresExpanded">No Worlder scores yet!</div>
+    </div>
+  </div>
+
+  <div class="topProfileContainer" id="musicProfileContainer">
+    <div *ngIf="user || parentRef?.user" class="">
+      <span class="cursorPointer mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">Music Playlist</span>
+      <span class="smallExpander mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">
+        {{'('+(playListCount || songPlaylist.length)+')'}}{{isMusicContainerExpanded ? '-' : '+'}}
+      </span>
+      <div style="width:100%;height:100px;overflow:auto;" *ngIf="isMusicContainerExpanded">
+        <app-music *ngIf="isMusicContainerExpanded"
+                   [user]="user"
+                   [songPlaylist]="songPlaylist"
+                   [smallPlayer]="true"
+                   (gotPlaylistEvent)="gotPlaylistEvent($event)">
+        </app-music>
+      </div> 
     </div>
   </div>
 

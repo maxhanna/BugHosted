@@ -1,5 +1,5 @@
 import { Component, ElementRef, Input, ViewChild } from '@angular/core';
-import { AppComponent } from '../AppComponent';
+import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { Comment } from '../../services/datacontracts/comment';
 import { User } from '../../services/datacontracts/user';

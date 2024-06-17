@@ -65,7 +65,7 @@ export class FileUploadComponent {
 
     const isPublic = (this.showPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
      
-    const directoryInput = this.currentDirectory || '';
+    const directoryInput = (this.currentDirectory || '').replace(/\/+$/, '');
     const fileNames = Array.from(files).map(file => file.name);
 
     if (confirm(`✅ Upload : ${directoryInput}/${fileNames.join(',')} ?`)) {

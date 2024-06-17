@@ -10,7 +10,7 @@ import { WeatherService } from '../../services/weather.service';
 import { CoinWatchService } from '../../services/coin-watch.service';
 import { UserService } from '../../services/user.service';
 import { ChatService } from '../../services/chat.service';
-import { AppComponent } from '../AppComponent';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-navigation',
@@ -187,7 +187,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   goTo(event: any) {
-    if (event.target.getAttribute("title").toLowerCase() == "close menu") {
+    if (event.target.getAttribute("title")?.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else {
       this._parent.createComponent(event.target.getAttribute('title'));

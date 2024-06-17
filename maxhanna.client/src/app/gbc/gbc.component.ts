@@ -104,7 +104,7 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
 
       try {
         const response = await this.romService.getRomFile(this.parentRef?.user!, this.selectedRomName);
-        const romSaveFile = this.selectedRomName.split('.')[0] + ".sav";
+        const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
         const rom = await util.readBlob(response!);
 
         try {
@@ -147,7 +147,7 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
   async saveGame(forceSaveLocal: boolean) {
     console.log("Saving game");
 
-    const romSaveFileName = this.selectedRomName.split('.')[0];
+    const romSaveFileName = this.fileService.getFileWithoutExtension(this.selectedRomName);
     if (this.gameboy && romSaveFileName) {
       try {
         if (!this.autosave || forceSaveLocal) {

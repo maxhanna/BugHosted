@@ -14,6 +14,8 @@ import { WordlerScore } from '../../services/datacontracts/wordler-score';
 import { WordlerService } from '../../services/wordler.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { SocialComponent } from '../social/social.component';
+import { Todo } from '../../services/datacontracts/todo';
+import { TodoService } from '../../services/todo.service';
 
 
 @Component({
@@ -43,13 +45,17 @@ export class UserComponent extends ChildComponent implements OnInit {
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   wordlerScores: WordlerScore[] = [];
+  isMusicContainerExpanded = false;
+  playListCount = 0;
+  playListFirstFetch = true;
+  songPlaylist: Todo[] = [];
 
   constructor(private userService: UserService,
-    private contactService: ContactService,
-    private miningService: MiningService,
+    private contactService: ContactService, 
     private weatherService: WeatherService,
     private friendService: FriendService,
-    private wordlerService: WordlerService, 
+    private wordlerService: WordlerService,
+    private todoService: TodoService, 
   ) { super(); }
 
   async ngOnInit() {
@@ -65,23 +71,27 @@ export class UserComponent extends ChildComponent implements OnInit {
     } else {
       this.user = this.parentRef?.user;
     }
-
     this.startLoading();
     await this.getLoggedInUser();
     this.usersCount = await this.userService.getUserCount();
     await this.loadFriendData();
     await this.loadWordlerData();
-    this.stopLoading();
-
-    console.log("got this parent : " + parent);
-    if (this.parentRef) {
-      console.log("it isnt undefined");
-      if (this.parentRef.user) {
-        console.log("parent ref user : " + this.parentRef.user.id);
-      }
-    }
+    await this.loadSongData();
+    this.stopLoading(); 
   }
 
+  async gotPlaylistEvent(event: Array<Todo>) { 
+    this.playListCount = event.length; 
+  }
+  async loadSongData() {
+    try {
+      const res = await this.todoService.getTodo(this.user ?? this.parentRef?.user!, "Music");
+
+      if (res) {
+        this.songPlaylist = res;
+      }
+    } catch (e) { }
+  }
   async loadWordlerData() {
     try {
       const res = await this.wordlerService.getAllScores(this.user ?? this.parentRef?.user);
@@ -282,5 +292,9 @@ export class UserComponent extends ChildComponent implements OnInit {
     }).catch(err => {
       this.notifications.push('Failed to copy link!');
     });
+  }
+  getFilteredFriendRequests() {
+    this.friendRequests.forEach(x => console.log("ststus" + x.status));
+    return this.friendRequests.filter(x => parseInt(x.status) == 0);
   }
 }
