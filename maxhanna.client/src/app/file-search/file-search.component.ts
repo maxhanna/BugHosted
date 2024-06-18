@@ -386,7 +386,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   handleUploadedFiles(files: FileEntry[]) {
     if (this.directory) {
-      this.directory.data!.push(...files);
+      files.forEach(x => {
+        if (this.directory?.data && this.directory?.data?.filter(d => d.id == x.id).length == 0) {
+          this.directory.data!.push(x);
+        }  
+      });
     }
   }
   reinitializePages() {

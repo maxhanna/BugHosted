@@ -16,7 +16,7 @@ export class FileEntry {
   date: Date;
   fileData: FileData;
   fileSize: number;
-  fileType: string;
+  fileType: string; 
 
   constructor(id: number, fileName: string, visibility: string, sharedWith: string, user: User,
     isFolder: boolean, upvotes: number, downvotes: number, comments: Array<Comment>, date: Date,

@@ -10,6 +10,12 @@ using System.Xml.Linq;
 using static System.Net.WebRequestMethods;
 using System.Runtime.Intrinsics.Arm;
 using Microsoft.VisualBasic.FileIO;
+using static System.Net.Mime.MediaTypeNames;
+using Xabe.FFmpeg;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Formats.Webp;
+using Microsoft.Extensions.Logging;
 
 namespace maxhanna.Server.Controllers
 {
@@ -25,6 +31,7 @@ namespace maxhanna.Server.Controllers
         {
             _logger = logger;
             _config = config;
+            FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin"); // Windows
         }
 
         [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
@@ -275,7 +282,7 @@ namespace maxhanna.Server.Controllers
                     {
                         totalCountCommand.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
                     }
-                    _logger.LogInformation("total count sql : " + totalCountCommand.CommandText);
+                    //_logger.LogInformation("total count sql : " + totalCountCommand.CommandText);
                     int totalCount = Convert.ToInt32(totalCountCommand.ExecuteScalar()); 
                      var result = new
                     {
@@ -610,6 +617,7 @@ namespace maxhanna.Server.Controllers
         }
 
 
+
         [HttpPost("/File/Upload", Name = "Upload")]
         public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
         {
@@ -630,7 +638,6 @@ namespace maxhanna.Server.Controllers
                 if (files == null || files.Count == 0)
                     return BadRequest("No files uploaded.");
 
-
                 foreach (var file in files)
                 {
                     if (file.Length == 0)
@@ -643,7 +650,7 @@ namespace maxhanna.Server.Controllers
                     }
                     var filePath = Path.Combine(uploadDirectory, file.FileName); // Combine upload directory with file name
 
-                    var conflictingFile = await GetConflictingFile(user?.Id ?? 0, file.FileName, uploadDirectory, isPublic);
+                    var conflictingFile = await GetConflictingFile(user?.Id ?? 0, file, uploadDirectory, isPublic);
                     if (conflictingFile != null)
                     {
                         _logger.LogError("Cannot upload duplicate files.");
@@ -651,82 +658,35 @@ namespace maxhanna.Server.Controllers
                     }
                     else
                     {
-
                         if (!Directory.Exists(uploadDirectory))
                         {
                             Directory.CreateDirectory(uploadDirectory);
+                            await InsertDirectoryMetadata(user, filePath, isPublic);
+                        }
 
-                            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                        // Check file type and convert if necessary
+                        var convertedFilePath = filePath;
+                        if (IsImageFile(file))
+                        {
+                            convertedFilePath = await ConvertImageToWebp(file, uploadDirectory);
+                        }
+                        else if (IsVideoFile(file))
+                        {
+                            convertedFilePath = await ConvertVideoToWebm(file, uploadDirectory);
+                        }
+                        else
+                        {
+                            using (var stream = new FileStream(filePath, FileMode.Create))
                             {
-                                await connection.OpenAsync();
-                                var directoryName = (Path.GetFileName(Path.GetDirectoryName(filePath.TrimEnd('/'))) ?? "").Replace("\\", "/");
-                                var directoryPath = (Path.GetDirectoryName(Path.GetDirectoryName(filePath.TrimEnd('/'))) ?? "").Replace("\\", "/").TrimEnd('/') + '/';
-                                var command = new MySqlCommand(
-                                    @$"INSERT INTO maxhanna.file_uploads 
-                                        (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size) 
-                                    VALUES 
-                                        (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size);"
-                                , connection);
-                                command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
-                                command.Parameters.AddWithValue("@fileName", directoryName);
-                                command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
-                                command.Parameters.AddWithValue("@folderPath", directoryPath ?? "");
-                                command.Parameters.AddWithValue("@isPublic", isPublic);
-                                command.Parameters.AddWithValue("@isFolder", true);
-                                command.Parameters.AddWithValue("@file_size", 0);
-
-                                await command.ExecuteScalarAsync();
-                                _logger.LogInformation($"Uploaded folder: {file.FileName}, Path: {filePath}");
+                                await file.CopyToAsync(stream);
                             }
                         }
 
-                        using (var stream = new FileStream(filePath, FileMode.Create))
-                        {
-                            await file.CopyToAsync(stream);
-                        }
+                        var fileId = await InsertFileMetadata(user, file, uploadDirectory, isPublic, convertedFilePath);
+                        var fileEntry = CreateFileEntry(file, user, isPublic, fileId, convertedFilePath);
+                        uploaded.Add(fileEntry);
 
-                        // Insert file metadata into MySQL database
-                        using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                        {
-                            await connection.OpenAsync();
-
-                            var command = new MySqlCommand(
-                                @$"INSERT INTO maxhanna.file_uploads 
-                                    (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size)  
-                                VALUES 
-                                    (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size); 
-                                SELECT LAST_INSERT_ID();", connection);
-                            command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
-                            command.Parameters.AddWithValue("@fileName", file.FileName);
-                            command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
-                            command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
-                            command.Parameters.AddWithValue("@isPublic", isPublic);
-                            command.Parameters.AddWithValue("@isFolder", false);
-                            command.Parameters.AddWithValue("@file_size", file.Length);
-
-                            var fileId = await command.ExecuteScalarAsync();
-                            int fileIdInt = Convert.ToInt32(fileId);
-
-                            // Add uploaded file to the list
-                            var tmpFileEntry = new FileEntry
-                            {
-                                Id = fileIdInt,
-                                FileName = file.FileName,
-                                Visibility = isPublic ? "Public" : "Private",
-                                User = user ?? new User(0, "Anonymous"),
-                                IsFolder = false,
-                                Upvotes = 0,
-                                Downvotes = 0,
-                                FileComments = new List<FileComment>(),
-                                Date = DateTime.UtcNow,
-                                SharedWith = string.Empty,
-                                FileType = Path.GetExtension(file.FileName).TrimStart('.'),
-                                FileSize = (int)file.Length
-                            };
-                            var fileEntry = tmpFileEntry;
-                            uploaded.Add(fileEntry);
-                            _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}");
-                        }
+                        _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
                     }
                 }
 
@@ -739,8 +699,140 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<FileEntry?> GetConflictingFile(int userId, string fileName, string folderPath, bool isPublic)
+        private bool IsImageFile(IFormFile file)
         {
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return allowedExtensions.Contains(fileExtension);
+        }
+
+        private bool IsVideoFile(IFormFile file)
+        {
+            var allowedExtensions = new[] { ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return allowedExtensions.Contains(fileExtension);
+        }
+
+        private async Task<string> ConvertImageToWebp(IFormFile file, string uploadDirectory)
+        {
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+            var convertedFileName = $"{fileNameWithoutExtension}.webp";
+            var convertedFilePath = Path.Combine(uploadDirectory, convertedFileName);
+
+            using (var image = await SixLabors.ImageSharp.Image.LoadAsync(file.OpenReadStream()))
+            {
+                await image.SaveAsWebpAsync(convertedFilePath);
+            }
+
+            return convertedFilePath;
+        }
+
+        private async Task<string> ConvertVideoToWebm(IFormFile file, string uploadDirectory)
+        {
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+            var convertedFileName = $"{fileNameWithoutExtension}.webm";
+            var convertedFilePath = Path.Combine(uploadDirectory, convertedFileName);
+            _logger.LogInformation($"After converting video, got fileName :{convertedFileName} filepath:{convertedFilePath} ");
+            var inputFilePath = Path.Combine(uploadDirectory, file.FileName);
+            using (var stream = new FileStream(inputFilePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var res = await FFmpeg.Conversions.FromSnippet.ToWebM(inputFilePath, convertedFilePath);
+            var res2 = await res.Start();
+            _logger.LogInformation($"finished converting! " + res2);
+
+            System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
+
+            return convertedFilePath;
+        }
+
+        private async Task InsertDirectoryMetadata(User user, string directoryPath, bool isPublic)
+        {
+            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await connection.OpenAsync();
+                var directoryName = (Path.GetFileName(Path.GetDirectoryName(directoryPath.TrimEnd('/'))) ?? "").Replace("\\", "/");
+                var directoryPathTrimmed = (Path.GetDirectoryName(directoryPath.TrimEnd('/')) ?? "").Replace("\\", "/").TrimEnd('/') + '/';
+                var command = new MySqlCommand(
+                    @$"INSERT INTO maxhanna.file_uploads 
+                    (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size) 
+                VALUES 
+                    (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size);"
+                , connection);
+                command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
+                command.Parameters.AddWithValue("@fileName", directoryName);
+                command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
+                command.Parameters.AddWithValue("@folderPath", directoryPathTrimmed);
+                command.Parameters.AddWithValue("@isPublic", isPublic);
+                command.Parameters.AddWithValue("@isFolder", true);
+                command.Parameters.AddWithValue("@file_size", 0);
+
+                await command.ExecuteScalarAsync();
+                _logger.LogInformation($"Uploaded folder: {directoryName}, Path: {directoryPath}");
+            }
+        }
+
+        private async Task<int> InsertFileMetadata(User user, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath)
+        {
+            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await connection.OpenAsync();
+
+                var command = new MySqlCommand(
+                    @$"INSERT INTO maxhanna.file_uploads 
+                    (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size)  
+                VALUES 
+                    (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size); 
+                SELECT LAST_INSERT_ID();", connection);
+                command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
+                command.Parameters.AddWithValue("@fileName", Path.GetFileName(convertedFilePath));
+                command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
+                command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
+                command.Parameters.AddWithValue("@isPublic", isPublic);
+                command.Parameters.AddWithValue("@isFolder", false);
+                command.Parameters.AddWithValue("@file_size", new FileInfo(convertedFilePath).Length);
+
+                var fileId = await command.ExecuteScalarAsync();
+                return Convert.ToInt32(fileId);
+            }
+        }
+
+        private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath)
+        {
+            return new FileEntry
+            {
+                Id = fileId,
+                FileName = Path.GetFileName(filePath),
+                Visibility = isPublic ? "Public" : "Private",
+                User = user ?? new User(0, "Anonymous"),
+                IsFolder = false,
+                Upvotes = 0,
+                Downvotes = 0,
+                FileComments = new List<FileComment>(),
+                Date = DateTime.UtcNow,
+                SharedWith = string.Empty,
+                FileType = Path.GetExtension(filePath).TrimStart('.'),
+                FileSize = (int)new FileInfo(filePath).Length
+            };
+        }
+        private async Task<FileEntry?> GetConflictingFile(int userId, Microsoft.AspNetCore.Http.IFormFile file, string folderPath, bool isPublic)
+        {
+            var convertedFileName = "";
+            if (IsImageFile(file))
+            {
+                var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+                convertedFileName = $"{fileNameWithoutExtension}.webp";
+            } 
+            else if (IsVideoFile(file))
+            {
+                var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+                convertedFileName = $"{fileNameWithoutExtension}.webm";
+            }
+
+            _logger.LogInformation("Checking for duplicated files : " + (!string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName));
+
             using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
                 await connection.OpenAsync();
@@ -764,7 +856,8 @@ namespace maxhanna.Server.Controllers
                 SUM(CASE WHEN fcv.upvote = 1 THEN 1 ELSE 0 END) AS commentUpvotes, 
                 SUM(CASE WHEN fcv.downvote = 1 THEN 1 ELSE 0 END) AS commentDownvotes,
                 fd.given_file_name,
-                fd.description 
+                fd.description,
+                fd.last_updated as file_data_updated
             FROM 
                 maxhanna.file_uploads f 
             LEFT JOIN 
@@ -788,12 +881,12 @@ namespace maxhanna.Server.Controllers
                     FIND_IN_SET(@userId, f.shared_with) > 0
                 ) 
             GROUP BY 
-                f.id, u.username, f.file_name, fc.id, uc.username, fc.comment, fd.given_file_name, fd.description 
+                f.id, u.username, f.file_name, fc.id, uc.username, fc.comment, fd.given_file_name, fd.description, fd.last_updated 
             LIMIT 1;",
                     connection);
 
                 command.Parameters.AddWithValue("@userId", userId);
-                command.Parameters.AddWithValue("@fileName", fileName);
+                command.Parameters.AddWithValue("@fileName", !string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName);
                 command.Parameters.AddWithValue("@folderPath", folderPath);
                 command.Parameters.AddWithValue("@isPublic", isPublic);
 
@@ -810,12 +903,15 @@ namespace maxhanna.Server.Controllers
                         var downvotes = reader.GetInt32("downvotes");
                         var date = reader.GetDateTime("date");
                         var fileData = new FileData();
-                        fileData.Description = reader.GetString("description");
-                        fileData.GivenFileName = reader.GetString("given_file_name");
+                        fileData.FileId = reader.IsDBNull(reader.GetOrdinal("fileId")) ? 0 : reader.GetInt32("fileId");
+                        fileData.GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name");
+                        fileData.Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description");
+                        fileData.LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated");
+
 
                         var fileEntry = new FileEntry();
                         fileEntry.Id = id;
-                        fileEntry.FileName = fileName;
+                        fileEntry.FileName = !string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName;
                         fileEntry.Visibility = isPublic ? "Public" : "Private";
                         fileEntry.SharedWith = shared_with;
                         fileEntry.User = new User(user_id, userName);
