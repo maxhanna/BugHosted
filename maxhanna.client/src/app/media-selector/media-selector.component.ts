@@ -47,13 +47,19 @@ export class MediaSelectorComponent {
       this.showFileUploader = true;
     }
   }
-
+  uploadCancelledEvent(cancelled: boolean) {
+    this.displaySearchButton = true; 
+  }
+  uploadEvent(files: Array<File>) {
+    this.displaySearchButton = false;
+  }
   uploadFinishedEvent(files: FileEntry[]) {
     if (this.selectedFiles.length > this.maxSelectedFiles) {
       return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
     }
     if (files)
-    this.selectedFiles = this.selectedFiles.concat(files);
+      this.selectedFiles = this.selectedFiles.concat(files);
+    this.displaySearchButton = this.displaySearch;
   }
   directoryChanged(dir: string) {
     this.currentDirectory = dir;

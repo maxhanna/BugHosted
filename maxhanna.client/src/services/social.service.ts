@@ -3,16 +3,23 @@ import { User } from './datacontracts/user';
 import { Story } from './datacontracts/story';
 import { StoryComment } from './datacontracts/story-comment';
 import { UpDownVoteCounts } from './datacontracts/up-down-vote-counts';
+import { StoryResponse } from './datacontracts/story-response';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SocialService {
-  async getStories(user?: User, search?: string, profileUserId?: number ) {
-    var params = new URLSearchParams({ search: search! });
+  async getStories(user?: User, search?: string, profileUserId?: number, page: number = 1, pageSize: number = 10) {
+    var params = new URLSearchParams();
+    if (search)
+      params.append("search", search);
+    if (page)
+      params.append("page", page + '');
+    if (pageSize)
+      params.append("pageSize", pageSize + '');
 
-    try { 
-      const res = await fetch('/social' + (search ? '?' + params : ''), {
+    try {
+      const res = await fetch('/social' + (params.size > 0 ? ('?' + params) : ''), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -23,7 +30,7 @@ export class SocialService {
       if (!res.ok) {
         throw new Error('Failed to fetch stories');
       }
-      return await res.json() as Story[];
+      return await res.json() as StoryResponse;
     } catch (error) {
       console.error('Error fetching stories:', error);
       return null;
@@ -87,7 +94,7 @@ export class SocialService {
     } catch (error) {
       throw error;
     }
-  }  
+  }
 
   async getComments(storyId: number, user?: User) {
     try {

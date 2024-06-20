@@ -13,6 +13,8 @@
   </div>
   <app-file-upload [showPrivatePublicOption]="false"
                    (userUploadFinishedEvent)="uploadFinishedEvent($event)"
+                   (userUploadEvent)="uploadEvent($event)"
+                   (userCancelEvent)="uploadCancelledEvent($event)"
                    *ngIf="showFileUploader">
   </app-file-upload>
   <div>

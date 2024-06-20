@@ -53,16 +53,6 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
   removeAccents(str: string) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   }
-  private debounce(func: Function, wait: number) {
-    let timeout: any;
-    return function (this: any, ...args: any[]) {
-      const context = this;
-      clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        func.apply(context, args);
-      }, wait);
-    };
-  }
 
   private setGameColors(title: string) {
     if (this.gameboy) {
@@ -103,12 +93,12 @@ export class GbcComponent extends ChildComponent implements OnInit, AfterViewIni
       if (!confirm(`Load ${this.selectedRomName}?`)) { this.stopLoading(); return; }
 
       try {
-        const response = await this.romService.getRomFile(this.parentRef?.user!, this.selectedRomName);
+        const response = await this.romService.getRomFile(this.selectedRomName, this.parentRef?.user);
         const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
         const rom = await util.readBlob(response!);
 
         try {
-          const saveStateResponse = await this.romService.getRomFile(this.parentRef?.user!, romSaveFile);
+          const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
 
           if (this.gameboy) {
             this.setGameColors(this.selectedRomName);

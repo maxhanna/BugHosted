@@ -4,14 +4,15 @@ import { CommentService } from '../../services/comment.service';
 import { Comment } from '../../services/datacontracts/comment';
 import { User } from '../../services/datacontracts/user';
 import { FileEntry } from '../../services/datacontracts/file-entry';
+import { ChildComponent } from '../child.component';
 
 @Component({
   selector: 'app-comments',
   templateUrl: './comments.component.html',
   styleUrl: './comments.component.css'
 })
-export class CommentsComponent {
-  @Input() parentRef?: AppComponent;
+export class CommentsComponent extends ChildComponent {
+  @Input() inputtedParentRef?: AppComponent;
   @Input() commentList: Comment[] = [];
   @Input() type: string = '' || "Social" || "File";
   @Input() component_id: number = 0;
@@ -22,7 +23,14 @@ export class CommentsComponent {
   downvotedCommentIds: number[] = []
   selectedFiles: FileEntry[] = [];
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
-  constructor(private commentService: CommentService) { }
+  constructor(private commentService: CommentService) {
+    super(); 
+  }
+
+  override viewProfile(user: User) {
+    this.parentRef = this.inputtedParentRef;
+    super.viewProfile(user);
+  }
 
   async addComment(comment: string) {
     // Clear any existing debounce timer
@@ -35,14 +43,14 @@ export class CommentsComponent {
       const storyId = this.type === 'Social' ? this.component_id : undefined;
 
       // Send the comment to the server
-      const res = await this.commentService.addComment(comment, this.parentRef?.user, fileId, storyId, this.selectedFiles);
+      const res = await this.commentService.addComment(comment, this.inputtedParentRef?.user, fileId, storyId, this.selectedFiles);
 
       // Check if the response indicates success
       if (res && res.toLowerCase().includes("success")) {
         // Create a new Comment object
         const tmpComment = new Comment();
         tmpComment.id = parseInt(res.split(" ")[0]);
-        tmpComment.user = this.parentRef?.user ?? new User(0, "Anonymous");
+        tmpComment.user = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
         tmpComment.commentText = comment;
 
         // Set the appropriate ID based on the type
@@ -72,11 +80,11 @@ export class CommentsComponent {
     setTimeout(() => { this.addCommentInput.nativeElement.value = ''; }, 1);
   }
   async upvoteComment(comment: Comment) {
-    if (!this.parentRef?.user) { return alert("You must be logged in to use this feature!"); }
+    if (!this.inputtedParentRef?.user) { return alert("You must be logged in to use this feature!"); }
     if (this.upvotedCommentIds.includes(comment.id)) { return alert("Cannot upvote twice!"); }
 
     try {
-      const res = await this.commentService.upvoteComment(this.parentRef?.user, comment.id);
+      const res = await this.commentService.upvoteComment(this.inputtedParentRef?.user, comment.id);
       if (res && res.toLowerCase().includes("success")) {
         comment.upvotes++;
         if (this.downvotedCommentIds.includes(comment.id)) {
@@ -84,28 +92,30 @@ export class CommentsComponent {
         }
         this.downvotedCommentIds = this.downvotedCommentIds.filter(x => x != comment.id);
         this.upvotedCommentIds.push(comment.id);
+      } else if (res && res.toLowerCase().includes("already")){
+        alert("Cannot upvote twice!");
       }
     } catch (error) {
       console.error("Error upvoting comment:", error);
     }
   }
   async deleteComment(comment: Comment) {
-    if (!this.parentRef?.user) { return alert("You must be logged in to delete a comment!"); }
+    if (!this.inputtedParentRef?.user) { return alert("You must be logged in to delete a comment!"); }
     if (!confirm("Are you sure?")) { return };
 
     this.showCommentLoadingOverlay = true;
-    const res = await this.commentService.deleteComment(this.parentRef?.user, comment.id);
+    const res = await this.commentService.deleteComment(this.inputtedParentRef?.user, comment.id);
     if (res && res.includes("success")) {
       this.commentList! = this.commentList.filter(x => x.id != comment.id);
     }
     this.showCommentLoadingOverlay = false;
   }
   async downvoteComment(comment: Comment) {
-    if (!this.parentRef?.user) { return alert("You must be logged in to use this feature!"); }
+    if (!this.inputtedParentRef?.user) { return alert("You must be logged in to use this feature!"); }
     if (this.downvotedCommentIds.includes(comment.id)) { return alert("Cannot downvote twice!"); }
 
     try {
-      const res = await this.commentService.downvoteComment(this.parentRef?.user, comment.id);
+      const res = await this.commentService.downvoteComment(this.inputtedParentRef?.user, comment.id);
       if (res && res.includes("success")) {
         comment.downvotes++;
         if (this.upvotedCommentIds.includes(comment.id)) {
@@ -113,6 +123,8 @@ export class CommentsComponent {
         }
         this.upvotedCommentIds = this.upvotedCommentIds.filter(x => x != comment.id);
         this.downvotedCommentIds.push(comment.id);
+      } else if (res && res.toLowerCase().includes("already")) {
+        alert("Cannot upvote twice!");
       }
     } catch (error) {
       console.error("Error downvoting comment:", error);

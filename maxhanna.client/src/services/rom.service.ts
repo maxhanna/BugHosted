@@ -11,7 +11,7 @@ import { FileEntry } from './datacontracts/file-entry';
 export class RomService {
   constructor() { }
    
-  async getRomFile(user: User, rom: string) {
+  async getRomFile(rom: string, user?: User) {
     try {
       const response = await fetch(`/rom/getromfile/${encodeURIComponent(rom)}`, {
         method: 'POST',

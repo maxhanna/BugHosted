@@ -76,12 +76,10 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.user = this.parentRef?.user;
       }
 
-      await this.getLoggedInUser();
-      if (this.parentRef?.user) { 
-        await this.loadFriendData();
-        await this.loadWordlerData();
-        await this.loadSongData();
-      }
+      await this.getLoggedInUser(); 
+      await this.loadFriendData();
+      await this.loadWordlerData();
+      await this.loadSongData(); 
     }
     catch (error) { console.log((error as Error).message); }
     this.stopLoading(); 
@@ -235,6 +233,12 @@ export class UserComponent extends ChildComponent implements OnInit {
 
           const resAddMenuItemWordler = await this.userService.addMenuItem(tmpUser, "Wordler");
           this.notifications.push(resAddMenuItemWordler!);
+
+          const resAddMenuItemFiles = await this.userService.addMenuItem(tmpUser, "Files");
+          this.notifications.push(resAddMenuItemFiles!);
+
+          const resAddMenuItemEmulation = await this.userService.addMenuItem(tmpUser, "Emulation");
+          this.notifications.push(resAddMenuItemEmulation!);
 
           await this.login();
           this.parentRef?.createComponent('UpdateUserSettings');

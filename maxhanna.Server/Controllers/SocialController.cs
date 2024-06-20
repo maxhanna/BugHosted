@@ -24,14 +24,18 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost(Name = "GetStories")]
-        public async Task<IActionResult> GetStories([FromBody] GetStoryRequest request, [FromQuery] string? search)
+        public async Task<IActionResult> GetStories(
+            [FromBody] GetStoryRequest request, 
+            [FromQuery] string? search,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            _logger.LogInformation($"POST /Social for user: {request.User?.Id} with search: {search} for profile: {request.ProfileUserId}.");
+            _logger.LogInformation($"POST /Social for user: {request.User?.Id} with search: {search} for profile: {request.ProfileUserId}. Pagination: Page {page}, PageSize {pageSize}.");
 
             try
             {
-                var stories = await GetStoriesAsync(request, search);
-                return Ok(stories.OrderByDescending(s => s.Date));
+                var stories = await GetStoriesAsync(request, search, page, pageSize);
+                 return Ok(stories);
             }
             catch (Exception ex)
             {
@@ -40,7 +44,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<List<Story>> GetStoriesAsync(GetStoryRequest request, string? search)
+        private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, int page = 1, int pageSize = 10)
         {
             var whereClause = new StringBuilder("WHERE 1=1 ");
             var parameters = new Dictionary<string, object>();
@@ -53,7 +57,7 @@ namespace maxhanna.Server.Controllers
 
             if (request.ProfileUserId != null && request.ProfileUserId > 0)
             {
-                whereClause.Append("AND s.profile_user_id = @profile ");
+                whereClause.Append("AND s.profile_user_id = @profile OR s.user_id = @profile ");
                 parameters.Add("@profile", request.ProfileUserId.Value);
             }
 
@@ -62,37 +66,54 @@ namespace maxhanna.Server.Controllers
                 whereClause.Append("AND s.profile_user_id IS NULL ");
             }
 
-            string sql = @"
-        SELECT 
-            s.id AS story_id, 
-            u.id AS user_id,
-            u.username, 
-            s.story_text, 
-            s.date,
-            COUNT(CASE WHEN sv.upvote = 1 THEN 1 END) AS upvotes,
-            COUNT(CASE WHEN sv.downvote = 1 THEN 1 END) AS downvotes,
-            COUNT(c.id) AS comments_count,
-            sm.title, 
-            sm.description, 
-            sm.image_url
-        FROM 
-            stories AS s 
-        JOIN 
-            users AS u ON s.user_id = u.id 
-        LEFT JOIN 
-            story_votes AS sv ON s.id = sv.story_id 
-        LEFT JOIN 
-            comments AS c ON s.id = c.story_id 
-        LEFT JOIN 
-            story_metadata AS sm ON s.id = sm.story_id 
-        " + whereClause + @"
-        GROUP BY 
-            s.id, u.id, u.username, s.story_text, s.date, 
-            sm.title, sm.description, sm.image_url
-        ORDER BY 
-            s.id DESC;";
+            int offset = (page - 1) * pageSize;
 
-            var stories = new List<Story>();
+            string countSql = @"
+                SELECT 
+                    COUNT(*) AS total_count
+                FROM 
+                    stories AS s 
+                " + whereClause + ";";
+
+            string sql = @"
+                SELECT 
+                    s.id AS story_id, 
+                    u.id AS user_id,
+                    u.username, 
+                    s.story_text, 
+                    s.date, 
+                    COALESCE(sv.upvotes, 0) AS upvotes,
+                    COALESCE(sv.downvotes, 0) AS downvotes,
+                    COALESCE(c.comments_count, 0) AS comments_count,
+                    sm.title, 
+                    sm.description, 
+                    sm.image_url
+                FROM 
+                    stories AS s 
+                    JOIN 
+                        users AS u ON s.user_id = u.id 
+                    LEFT JOIN 
+                        (SELECT story_id, 
+                                COUNT(CASE WHEN upvote = 1 THEN 1 END) AS upvotes,
+                                COUNT(CASE WHEN downvote = 1 THEN 1 END) AS downvotes
+                         FROM story_votes
+                         GROUP BY story_id) AS sv ON s.id = sv.story_id
+                    LEFT JOIN 
+                        (SELECT story_id, COUNT(id) AS comments_count
+                         FROM comments
+                         GROUP BY story_id) AS c ON s.id = c.story_id
+                    LEFT JOIN 
+                        story_metadata AS sm ON s.id = sm.story_id 
+                    " + whereClause + @"
+                    ORDER BY 
+                        s.id DESC
+                    LIMIT 
+                        @pageSize 
+                    OFFSET 
+                        @offset;";
+
+            var storyResponse = new StoryResponse();
+            int totalCount = 0;
 
             using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
@@ -101,6 +122,25 @@ namespace maxhanna.Server.Controllers
 
                 using (var cmd = new MySqlCommand(sql, conn))
                 {
+
+                    // Execute count query
+                    using (var countCmd = new MySqlCommand(countSql, conn))
+                    {
+                        if (search != null)
+                        {
+                            countCmd.Parameters.AddWithValue("@search", search);
+                        }
+                        if (request.ProfileUserId != null)
+                        {
+                            countCmd.Parameters.AddWithValue("@profile", request.ProfileUserId);
+                        }
+
+                        totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+                    }
+
+                    // Execute data query 
+                    cmd.Parameters.AddWithValue("@pageSize", pageSize);
+                    cmd.Parameters.AddWithValue("@offset", offset);
                     if (search != null)
                     {
                         cmd.Parameters.AddWithValue("@search", search);
@@ -136,16 +176,20 @@ namespace maxhanna.Server.Controllers
                                 StoryTopics = new List<Topic>()
                             };
 
-                            stories.Add(story);
+                            storyResponse.Stories.Add(story);
                         }
                     }
                 }
             }
-            await AttachCommentsToStoriesAsync(stories); 
-            await AttachFilesToStoriesAsync(stories);
- 
+            await AttachCommentsToStoriesAsync(storyResponse.Stories!); 
+            await AttachFilesToStoriesAsync(storyResponse.Stories!);
+
+            storyResponse.TotalCount = totalCount;
+            storyResponse.CurrentPage = page;
+            storyResponse.PageCount = (int)Math.Ceiling((double)totalCount / pageSize);
+
             _logger.LogInformation("Stories fetched and processed.");
-            return stories;
+            return storyResponse;
         }
 
         private async Task AttachFilesToStoriesAsync(List<Story> stories)
@@ -259,7 +303,7 @@ namespace maxhanna.Server.Controllers
                                     }
                                 };
 
-                                story.StoryFiles.Add(fileEntry);
+                                story.StoryFiles!.Add(fileEntry);
                             }
                         }
                     }
@@ -301,7 +345,9 @@ namespace maxhanna.Server.Controllers
         fu.username AS file_username,
         fd.given_file_name as comment_file_given_file_name,
         fd.description as comment_file_description,
-        fd.last_updated as comment_file_date
+        fd.last_updated as comment_file_date,
+        COALESCE(cv.upvotes, 0) AS upvotes,
+        COALESCE(cv.downvotes, 0) AS downvotes
     FROM 
         comments AS c
     LEFT JOIN 
@@ -316,6 +362,13 @@ namespace maxhanna.Server.Controllers
         file_votes AS fv ON cf.file_id = fv.file_id
     LEFT JOIN 
         users AS fu ON f.user_id = fu.id
+    LEFT JOIN 
+        (SELECT 
+            comment_id, 
+            COUNT(CASE WHEN upvote = 1 THEN 1 END) AS upvotes,
+            COUNT(CASE WHEN downvote = 1 THEN 1 END) AS downvotes
+         FROM comment_votes
+         GROUP BY comment_id) AS cv ON c.id = cv.comment_id
     WHERE 
         c.story_id IN (");
 
@@ -374,10 +427,12 @@ namespace maxhanna.Server.Controllers
                                         StoryId = storyId,
                                         User = new User(userId, userName),
                                         Date = date,
-                                        CommentFiles = new List<FileEntry>()
+                                        CommentFiles = new List<FileEntry>(),
+                                        Upvotes = rdr.GetInt32("upvotes"),
+                                        Downvotes = rdr.GetInt32("downvotes")
                                     };
 
-                                    story.StoryComments.Add(comment);
+                                    story.StoryComments!.Add(comment);
                                 }
 
                                 // Check if there is a file associated with the comment
@@ -409,7 +464,7 @@ namespace maxhanna.Server.Controllers
                                         }
                                     };
 
-                                    comment.CommentFiles.Add(fileEntry);
+                                    comment.CommentFiles!.Add(fileEntry);
                                 }
                             }
                         }

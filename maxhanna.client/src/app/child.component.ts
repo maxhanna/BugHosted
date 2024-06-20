@@ -20,6 +20,17 @@ export class ChildComponent {
       console.log("key not found: " + componentTitle);
     }
   }
+  debounce(func: Function, wait: number) {
+    let timeout: any;
+    return function (this: any, ...args: any[]) {
+      const context = this;
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        func.apply(context, args);
+      }, wait);
+    };
+  }
+
   startLoading() {
     if (document && document.getElementById("loadingDiv")) {
       document.getElementById("loadingDiv")!.style.display = "block";
@@ -33,7 +44,9 @@ export class ChildComponent {
     this.isLoading = false;
   } 
   viewProfile(user?: User) {
+    console.log("view profile :" + user!.id);
     if (user && user.id != 0) {
+      console.log("creating component for user");
       this.parentRef?.createComponent("User", { "userId": user.id });
     }
   }

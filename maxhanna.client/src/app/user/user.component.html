@@ -38,7 +38,6 @@
         </div>
       </div>
       <div *ngIf="parentRef!.user!" style="width:100%;text-align:center">
-        <div>Logged in as: {{ parentRef!.user.username }}</div>
         <input type="submit" value="Logout" (click)="logout()" />
         <input type="submit" value="🔧" (click)="parentRef?.createComponent('UpdateUserSettings')" title="Update Settings" />
       </div>

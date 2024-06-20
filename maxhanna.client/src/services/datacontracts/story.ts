@@ -1,5 +1,4 @@
-import { FileEntry } from "./file-entry";
-import { StoryComment } from "./story-comment";
+import { FileEntry } from "./file-entry"; 
 import { Topic } from "./topic";
 import { User } from "./user";
 import { Comment } from "../datacontracts/comment";

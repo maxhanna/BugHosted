@@ -18,12 +18,12 @@
       <tbody>
         <tr *ngFor="let comment of commentList!"> 
           <td class="commentText">
-            <span class="cursorPointer usernameProfileLink">{{ comment.user.username }}</span>: {{ comment.commentText }}
+            <span class="cursorPointer usernameProfileLink" (click)="viewProfile(comment.user)">{{ comment.user.username }}</span>: {{ comment.commentText }}
             <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
               <app-media-viewer [file]="file"
                                 [user]="comment.user"
                                 [currentDirectory]="file.directory"
-                                [inputtedParentRef]="parentRef"
+                                [inputtedParentRef]="inputtedParentRef"
                                 [displayExtraInfo]="false"
                                 [showCommentSection]="false"></app-media-viewer>
             </div>
@@ -31,7 +31,7 @@
           <td>
             <button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>
             <button (click)="downvoteComment(comment)" class="vote-button" title="Downvote">⬇️{{ comment.downvotes }}</button>
-            <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="parentRef?.user?.id == comment.user.id">❌</button>
+            <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id">❌</button>
           </td>
         </tr>
       </tbody>

@@ -7,12 +7,12 @@
 <button type="submit" *ngIf="uploadFileList.length > 0 && uploadProgress <= 0" (click)="cancelFileUpload()" title="Cancel upload">❌</button>
 
 <input #fileInput type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes" style="visibility: hidden; position: absolute; width:1px;" multiple />
-
+<span *ngIf="showPrivatePublicOption">Select file(s) visibility:</span>
 <select #folderVisibility *ngIf="showPrivatePublicOption">
   <option [value]="true">Public</option>
   <option [value]="false">Private</option>
 </select>
 <div class="fileListContainer" *ngIf="uploadFileList.length > 0">
-  Upload {{uploadFileList.length}} files to {{currentDirectory}}?
+  Upload {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}?
   <div *ngFor="let file of uploadFileList" class="fileListDiv"><div class="removeFileButton" (click)="removeFile(file)" title="Remove file">{{file.name}}</div></div>
 </div>

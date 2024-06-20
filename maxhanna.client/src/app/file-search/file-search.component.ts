@@ -129,6 +129,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   async getDirectory(file?: string, fileId?: number) {
     this.openedFiles = [];
+    const search = this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : undefined;
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.showData = true;
     clearTimeout(this.debounceTimer);
@@ -142,7 +143,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           this.user,
           this.currentPage,
           this.maxResults,
-          this.search && this.search.nativeElement.value != '' ? this.search.nativeElement.value : undefined,
+          search,
           fileId,
           (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>())
         );

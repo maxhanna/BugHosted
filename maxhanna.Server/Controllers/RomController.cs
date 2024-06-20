@@ -129,7 +129,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
-        public IActionResult GetRomFile([FromBody] User user, string filePath)
+        public IActionResult GetRomFile([FromBody] User? user, string filePath)
         {
             filePath = Path.Combine(baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/");
             _logger.LogInformation($"POST /File/GetRomFile/{filePath}");

@@ -2,7 +2,7 @@
   <div class="closeButton" (click)="ngOnDestroy(); remove_me('GbcComponent');"></div>
   <!--<div class="refreshButton" (click)="ngAfterViewInit();"></div>-->
   <div class="componentTitle">Emulation</div>
-  <div class="gamesContainer">
+  <div class="gamesContainer" *ngIf="isSearchVisible">
     <app-file-search [user]="parentRef?.user"
                      [currentDirectory]="'roms/'"
                      [clearAfterSelectFile]="true"
@@ -19,16 +19,25 @@
 
   <div>
     <span class="helperSpanTitle"
-          title="To save your game using this emulator, just press 'Save'.
-          The next time you reload the game, your save will be loaded in automatically.
-          You can also press on the 'Load' button to reload from your save file."></span>
-    <button (click)="saveState()">Save</button>
-    <button (click)="loadState()">Load</button>
-    <button id="fullscreenBtn" (click)="toggleFullscreen()">Toggle Fullscreen</button>
-    <button (click)="stopEmulator()">Stop</button>
+          title=
+          "This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
+          🖵 : Toggle fullscreen mode.
+          🛑 : Click on this to power off the emulator (if autosave is selected, this will also save your progress).
+          🔊/🔇 : Click on this to mute/unmute the audio.
+          ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, c = a, q for left trigger (gba), w for right trigger (gba) enter = start, shift = select.
+          "></span>
+    Autosave:
+    <label for="autosaveOn">On</label>
+    <input type="radio" id="autosaveOn" name="autosave" [checked]="autosave" (change)="autosave = true">
 
-    <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span>
-    <span class="uploadRomSpan keyboardControlsSpan" title="Controls for keyboard: Up,down,right,left arrows for movement; a = x, b = z, c = a, enter = start, shift = select.">⌨️</span>
+    <label for="autosaveOff">Off</label>
+    <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="autosave = false">
+
+    <span *ngIf="!autosave" class="uploadRomSpan upload-label" (click)="saveState()">💾</span>
+
+    <span class="uploadRomSpan upload-label" #stopButton (click)="stopEmulator()" *ngIf="!isSearchVisible" title="Power Off">🛑</span>
+    <span class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()">🖵</span>
+    <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span> 
   </div>
    
 

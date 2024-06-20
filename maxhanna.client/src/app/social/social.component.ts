@@ -10,6 +10,7 @@ import { FileService } from '../../services/file.service';
 import { Topic } from '../../services/datacontracts/topic';
 import { AppComponent } from '../app.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { StoryResponse } from '../../services/datacontracts/story-response';
 
 @Component({
   selector: 'app-social',
@@ -19,7 +20,7 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 export class SocialComponent extends ChildComponent implements OnInit, AfterViewInit {
   fileMetadata: any;
   youtubeMetadata: any;
-  stories: Story[] = [];
+  storyResponse?: StoryResponse;
   comments: StoryComment[] = [];
   loading = false;
   showComments = false;
@@ -40,7 +41,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   notifications: String[] = [];
   attachedSearchTopics: Array<Topic> = [];
 
+  currentPage: number = 1;
+  totalPages: number = 1;
+  totalPagesArray: number[] = [];
+
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
+  @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
@@ -67,7 +73,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.componentMain.nativeElement.style.padding = "5px";
     }
   }
-
+  pageChanged() {
+    this.currentPage = parseInt(this.pageSelect.nativeElement.value);
+    this.getStories(this.currentPage);
+  }
   scrollToStory(storyId: number): void {
     setTimeout(() => {
       const element = document.getElementById('storyDiv' + storyId);
@@ -77,13 +86,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }, 1110);
   }
   async delete(story: Story) {
-    console.log(`deleting ${story.id}`);
     if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
     const res = await this.socialService.deleteStory(this.parentRef?.user, story);
     if (res) {
       this.notifications.push(res);
       if (res.toLowerCase().includes('successful')) {
-        this.stories = this.stories.filter(x => x.id != story.id);
+        this.storyResponse!.stories! = this.storyResponse!.stories!.filter((x: { id: number | undefined; }) => x.id != story.id);
       }
     }
   }
@@ -109,31 +117,46 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   uploadNotification(notification: string) {
 
-  } 
+  }
 
 
   async searchStories() {
     const search = this.search.nativeElement.value;
     if (search) {
-      await this.getStories(search);
+      await this.getStories(this.currentPage, 10, search);
     } else {
-      await this.getStories();
+      await this.getStories(this.currentPage, 10);
     }
   }
 
-  async getStories(keywords?: string) {
-    console.log("get stories for : " + this.user?.id + " keywords: " + keywords);
+  async getStories(page: number = 1, pageSize: number = 10, keywords?: string) {
     if (this.user) {
-      const res = await this.socialService.getStories(this.parentRef?.user!, undefined, this.user?.id);
+      const res = await this.socialService.getStories(
+        this.parentRef?.user!,
+        undefined,
+        this.user?.id,
+        page,
+        pageSize
+      );
       if (res) {
-        this.stories = res;
+        this.storyResponse = res;
+        this.totalPages = this.storyResponse.pageCount;
+        this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
       }
       return;
     }
     const search = keywords ?? this.search?.nativeElement.value;
-    const res = await this.socialService.getStories(this.parentRef?.user!, search);
+    const res = await this.socialService.getStories(
+      this.parentRef?.user!,
+      search,
+      undefined,
+      page,
+      pageSize
+    );
     if (res) {
-      this.stories = res;
+      this.storyResponse = res;
+      this.totalPages = this.storyResponse.pageCount;
+      this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
     }
   }
 

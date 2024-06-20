@@ -255,7 +255,7 @@ namespace maxhanna.Server.Controllers
                                 var commentId = reader.GetInt32("commentId");
 
                                 FileComment fileComment;
-                                if (!commentDictionary.TryGetValue(commentId, out fileComment))
+                                if (!commentDictionary.TryGetValue(commentId, out fileComment!))
                                 {
                                     var commentUserId = reader.GetInt32("commentUserId");
                                     var commentUsername = reader.GetString("commentUsername");
@@ -303,7 +303,7 @@ namespace maxhanna.Server.Controllers
                                         Date = commentFileDate
                                     };
 
-                                    fileComment.CommentFiles.Add(commentFileEntry);
+                                    fileComment.CommentFiles!.Add(commentFileEntry);
                                 }
                             }
                         }
@@ -617,7 +617,7 @@ namespace maxhanna.Server.Controllers
                         if (!Directory.Exists(uploadDirectory))
                         {
                             Directory.CreateDirectory(uploadDirectory);
-                            await InsertDirectoryMetadata(user, filePath, isPublic);
+                            await InsertDirectoryMetadata(user!, filePath, isPublic);
                         }
 
                         // Check file type and convert if necessary
@@ -643,8 +643,8 @@ namespace maxhanna.Server.Controllers
                             }
                         }
 
-                        var fileId = await InsertFileMetadata(user, file, uploadDirectory, isPublic, convertedFilePath);
-                        var fileEntry = CreateFileEntry(file, user, isPublic, fileId, convertedFilePath);
+                        var fileId = await InsertFileMetadata(user!, file, uploadDirectory, isPublic, convertedFilePath);
+                        var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath);
                         uploaded.Add(fileEntry);
 
                         _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");

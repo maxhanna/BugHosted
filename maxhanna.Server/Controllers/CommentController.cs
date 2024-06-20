@@ -160,6 +160,23 @@ namespace maxhanna.Server.Controllers
                 {
                     await connection.OpenAsync();
 
+                    var checkCommand = new MySqlCommand("SELECT upvote FROM comment_votes WHERE comment_id = @commentId AND user_id = @userId", connection);
+                    checkCommand.Parameters.AddWithValue("@commentId", request.CommentId);
+                    checkCommand.Parameters.AddWithValue("@userId", request.User?.Id);
+
+                    using (var reader = await checkCommand.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            bool upvoted = reader.GetBoolean("upvote"); 
+
+                            if (upvoted)
+                            {
+                                return BadRequest("You have already upvoted this comment.");
+                            } 
+                        }
+                    }
+
                     var command = new MySqlCommand("INSERT INTO comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, @upvote, 0) ON DUPLICATE KEY UPDATE upvote = @upvote, downvote = 0", connection);
                     command.Parameters.AddWithValue("@commentId", request.CommentId);
                     command.Parameters.AddWithValue("@userId", request.User?.Id);
@@ -188,6 +205,23 @@ namespace maxhanna.Server.Controllers
                 {
                     await connection.OpenAsync();
 
+                    var checkCommand = new MySqlCommand("SELECT downvote FROM comment_votes WHERE comment_id = @commentId AND user_id = @userId", connection);
+                    checkCommand.Parameters.AddWithValue("@commentId", request.CommentId);
+                    checkCommand.Parameters.AddWithValue("@userId", request.User?.Id);
+
+                    using (var reader = await checkCommand.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            bool downvoted = reader.GetBoolean("downvote");
+
+                            if (downvoted)
+                            {
+                                return BadRequest("You have already downvoted this comment.");
+                            } 
+                        }
+                    }
+
                     var command = new MySqlCommand("INSERT INTO comment_votes (comment_id, user_id, upvote, downvote) VALUES (@commentId, @userId, 0, @downvote) ON DUPLICATE KEY UPDATE upvote = 0, downvote = @downvote", connection);
                     command.Parameters.AddWithValue("@commentId", request.CommentId);
                     command.Parameters.AddWithValue("@userId", request.User?.Id);
@@ -204,5 +238,6 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while downvoting the comment.");
             }
         }
+
     }
 }

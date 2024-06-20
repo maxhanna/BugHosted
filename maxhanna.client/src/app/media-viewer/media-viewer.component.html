@@ -27,7 +27,7 @@
         <button (click)="download(selectedFile!, true)">Download</button>
       </div>
       <app-comments *ngIf="selectedFile && showCommentSection && displayExtraInfo"
-                    [parentRef]="inputtedParentRef"
+                    [inputtedParentRef]="inputtedParentRef"
                     [type]="'File'"
                     [component_id]="selectedFile.id"
                     [commentList]="selectedFile.fileComments"> 
