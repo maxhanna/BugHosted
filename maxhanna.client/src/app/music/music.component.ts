@@ -89,6 +89,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.reorderTable(undefined, this.orderSelect.nativeElement.value);
   }
   async deleteSong(id: number) {
+    if (!confirm("Deleting song. Are you sure?")) { return; }
     await this.todoService.deleteTodo(this.parentRef?.user!, id);
     if (document.getElementById("songId" + id)) {
       document.getElementById("songId" + id)!.style.textDecoration = "line-through";

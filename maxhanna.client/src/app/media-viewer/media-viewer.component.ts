@@ -5,6 +5,7 @@ import { FileService } from '../../services/file.service';
 import { FileComment } from '../../services/datacontracts/file-comment';
 import { User } from '../../services/datacontracts/user';
 import { AppComponent } from '../app.component';
+import { FileData } from '../../services/datacontracts/file-data';
 
 
 @Component({
@@ -12,7 +13,7 @@ import { AppComponent } from '../app.component';
   templateUrl: './media-viewer.component.html',
   styleUrl: './media-viewer.component.css'
 })
-export class MediaViewerComponent extends ChildComponent {
+export class MediaViewerComponent extends ChildComponent implements OnInit {
   constructor(private fileService: FileService) { super(); }
   notifications: string[] = [];
   videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
@@ -25,8 +26,7 @@ export class MediaViewerComponent extends ChildComponent {
   showCommentLoadingOverlay = false;
   selectedFileName = '';
   abortFileRequestController: AbortController | null = null;
-  debounceTimer: any;
-  currentDirectory = '';
+  debounceTimer: any; 
   fS = '/';
   upvotedCommentIds: number[] = [];
   downvotedCommentIds: number[] = [];
@@ -35,11 +35,25 @@ export class MediaViewerComponent extends ChildComponent {
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
   @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo!: ElementRef;
 
+  @Input() displayExpander: boolean = true;
+  @Input() displayExtraInfo: boolean = true;
+  @Input() autoplay: boolean = false;
+  @Input() showCommentSection: boolean = true;
+  @Input() file?: FileEntry; 
+  @Input() currentDirectory?: string = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
 
+  async ngOnInit() {
+    if (this.file && this.file.fileName && this.user) {
+      await this.setFileSrc(this.file.fileName, this.currentDirectory);
+      this.selectedFile = this.file;
+    }
+  }
   copyLink() {
-    const link = `https://bughosted.com/${this.currentDirectory == 'Meme/' ? 'Memes' : 'File'}/${this.selectedFile!.id}`;
+    console.log("in compy link");
+    const link = `https://bughosted.com/${this.currentDirectory == 'Meme/' ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`;
+    console.log(link);
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {
@@ -81,7 +95,7 @@ export class MediaViewerComponent extends ChildComponent {
       this.showThumbnail = true;
       setTimeout(() => { this.selectedFileSrc = (reader.result as string); }, 1);
       this.selectedFileName = fileName;
-    };
+    }; 
     this.stopLoading();
   }
   expandFile(file: any) {
@@ -124,85 +138,7 @@ export class MediaViewerComponent extends ChildComponent {
     }
     return '';
   } 
-
-  async addComment(comment: string) {
-    clearTimeout(this.debounceTimer); 
-    this.debounceTimer = setTimeout(async () => {
-      if (!this.selectedFile) {
-        return alert("You must select a file!");
-      } else { 
-        const fileId = this.selectedFile.id;
-        try {
-          if (fileId && comment && comment.trim() != '') {
-            const res = await this.fileService.commentFile(fileId, comment, this.user);
-            if (res && res != 0 + '') {
-              this.selectedFile.fileComments.push(new FileComment(parseInt(res), fileId, this.user ?? new User(0, "Anonymous"), comment, 0, 0));
-            }
-          }
-        } catch (error) {
-          console.error("Error adding comment:", error);
-        }
-        this.stopLoadingComment(fileId);
-      }
-    }, 2000);  
-  }
-  async startLoadingComment() {
-    this.showCommentLoadingOverlay = true;
-    const comment = (document.getElementById("addCommentInput" + this.selectedFile!.id)! as HTMLInputElement).value;
-
-    await this.addComment(comment)
-  }
-  stopLoadingComment(fileId: number) {
-    this.showCommentLoadingOverlay = false;
-    setTimeout(() => { (document.getElementById("addCommentInput" + fileId)! as HTMLInputElement).value = ''; }, 1);  
-  }
-  async upvoteComment(comment: FileComment) {
-    if (!this.user) { return alert("You must be logged in to use this feature!"); }
-    if (this.upvotedCommentIds.includes(comment.id)) { return alert("Cannot upvote twice!"); }
-
-    try {
-      const res = await this.fileService.upvoteComment(this.user, comment.id);
-      if (res && res.includes("success")) {
-        comment.upvotes++;
-        if (this.downvotedCommentIds.includes(comment.id)) {
-          comment.downvotes--;
-        }
-        this.downvotedCommentIds = this.downvotedCommentIds.filter(x => x != comment.id);
-        this.upvotedCommentIds.push(comment.id);
-      }
-    } catch (error) {
-      console.error("Error upvoting comment:", error);
-    } 
-  }
-  async deleteComment(comment: FileComment) {
-    if (!this.user) { return alert("You must be logged in to delete a comment!"); }
-    if (!confirm("Are you sure?")) { return };
-
-    this.showCommentLoadingOverlay = true;
-    const res = await this.fileService.deleteComment(this.user, comment.id);
-    if (res && res.includes("success")) {
-      this.selectedFile!.fileComments! = this.selectedFile!.fileComments.filter(x => x.id != comment.id);
-    } 
-    this.showCommentLoadingOverlay = false;
-  }
-  async downvoteComment(comment: FileComment) {
-    if (!this.user) { return alert("You must be logged in to use this feature!"); }
-    if (this.downvotedCommentIds.includes(comment.id)) { return alert("Cannot downvote twice!"); }
-
-    try {
-      const res = await this.fileService.downvoteComment(this.user, comment.id);
-      if (res && res.includes("success")) {
-        comment.downvotes++;
-        if (this.upvotedCommentIds.includes(comment.id)) {
-          comment.upvotes--;
-        }
-        this.upvotedCommentIds = this.upvotedCommentIds.filter(x => x != comment.id);
-        this.downvotedCommentIds.push(comment.id);
-      }
-    } catch (error) {
-      console.error("Error downvoting comment:", error);
-    }
-  }
+   
 
   async download(file: FileEntry, force: boolean) {
     
@@ -211,8 +147,8 @@ export class MediaViewerComponent extends ChildComponent {
     }
 
     const directoryValue = this.currentDirectory;
-    let target = directoryValue.replace(/\\/g, "/");
-    target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? file.fileName : directoryValue.length > 0 ? this.fS + file.fileName : file.fileName;
+    let target = (directoryValue ?? "").replace(/\\/g, "/");
+    target += ((directoryValue ?? "").length > 0 && (directoryValue ?? "")[(directoryValue ?? "").length - 1] === this.fS) ? file.fileName : (directoryValue ?? "").length > 0 ? this.fS + file.fileName : file.fileName;
 
     try {
       this.startLoading();

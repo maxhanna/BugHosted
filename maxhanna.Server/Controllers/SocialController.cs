@@ -2,6 +2,7 @@ using HtmlAgilityPack;
 using maxhanna.Server.Controllers.DataContracts;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Data;
 using System.Text;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -13,6 +14,8 @@ namespace maxhanna.Server.Controllers
     {
         private readonly ILogger<SocialController> _logger;
         private readonly IConfiguration _config;
+        private readonly string baseTarget = "E:/Uploads/";
+
 
         public SocialController(ILogger<SocialController> logger, IConfiguration config)
         {
@@ -24,267 +27,396 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> GetStories([FromBody] GetStoryRequest request, [FromQuery] string? search)
         {
             _logger.LogInformation($"POST /Social for user: {request.User?.Id} with search: {search} for profile: {request.ProfileUserId}.");
-            var stories = new Dictionary<int, Story>();
 
             try
             {
-                var whereClause = new StringBuilder("WHERE 1=1 ");
-                var parameters = new Dictionary<string, object>();
+                var stories = await GetStoriesAsync(request, search);
+                return Ok(stories.OrderByDescending(s => s.Date));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching stories.");
+                return StatusCode(500, "An error occurred while fetching stories.");
+            }
+        }
 
-                if (!string.IsNullOrEmpty(search))
+        private async Task<List<Story>> GetStoriesAsync(GetStoryRequest request, string? search)
+        {
+            var whereClause = new StringBuilder("WHERE 1=1 ");
+            var parameters = new Dictionary<string, object>();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                whereClause.Append("AND s.story_text LIKE CONCAT('%', @search, '%') ");
+                parameters.Add("@search", search);
+            }
+
+            if (request.ProfileUserId != null && request.ProfileUserId > 0)
+            {
+                whereClause.Append("AND s.profile_user_id = @profile ");
+                parameters.Add("@profile", request.ProfileUserId.Value);
+            }
+
+            if (request.ProfileUserId == null || request.ProfileUserId == 0)
+            {
+                whereClause.Append("AND s.profile_user_id IS NULL ");
+            }
+
+            string sql = @"
+        SELECT 
+            s.id AS story_id, 
+            u.id AS user_id,
+            u.username, 
+            s.story_text, 
+            s.date,
+            COUNT(CASE WHEN sv.upvote = 1 THEN 1 END) AS upvotes,
+            COUNT(CASE WHEN sv.downvote = 1 THEN 1 END) AS downvotes,
+            COUNT(c.id) AS comments_count,
+            sm.title, 
+            sm.description, 
+            sm.image_url
+        FROM 
+            stories AS s 
+        JOIN 
+            users AS u ON s.user_id = u.id 
+        LEFT JOIN 
+            story_votes AS sv ON s.id = sv.story_id 
+        LEFT JOIN 
+            comments AS c ON s.id = c.story_id 
+        LEFT JOIN 
+            story_metadata AS sm ON s.id = sm.story_id 
+        " + whereClause + @"
+        GROUP BY 
+            s.id, u.id, u.username, s.story_text, s.date, 
+            sm.title, sm.description, sm.image_url
+        ORDER BY 
+            s.id DESC;";
+
+            var stories = new List<Story>();
+
+            using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await conn.OpenAsync();
+                _logger.LogInformation("SQL connection opened.");
+
+                using (var cmd = new MySqlCommand(sql, conn))
                 {
-                    whereClause.Append("AND s.story_text LIKE CONCAT('%', @search, '%') ");
-                    parameters.Add("@search", search);
-                }
-
-                if (request.ProfileUserId != null && request.ProfileUserId > 0)
-                {
-                    whereClause.Append("AND s.profile_user_id = @profile ");
-                    parameters.Add("@profile", request.ProfileUserId.Value);
-                }
-
-                if (request.ProfileUserId == null || request.ProfileUserId == 0)
-                {
-                    whereClause.Append("AND s.profile_user_id IS NULL ");
-                }
-
-
-                string sql = $@"
-            SELECT 
-                s.id AS story_id, 
-                u.id AS user_id,
-                u.username, 
-                s.story_text, 
-                s.date,
-                COUNT(CASE WHEN sv.upvote = 1 THEN 1 END) AS upvotes,
-                COUNT(CASE WHEN sv.downvote = 1 THEN 1 END) AS downvotes,
-                COUNT(sc.id) AS comments_count,
-                sm.title, 
-                sm.description, 
-                sm.image_url,
-                f.id AS file_id, 
-                f.file_name, 
-                f.is_public, 
-                f.is_folder, 
-                f.shared_with, 
-                COALESCE(SUM(CASE WHEN fv.upvote = 1 THEN 1 END), 0) AS file_upvotes,
-                COALESCE(SUM(CASE WHEN fv.downvote = 1 THEN 1 END), 0) AS file_downvotes, 
-                fd.given_file_name,
-                fd.description as file_data_description,
-                fd.last_updated as file_data_updated,
-                f.upload_date AS file_date, 
-                fu.username AS file_username, 
-                f.user_id AS file_user_id,
-                fc.id AS file_comment_id, 
-                fc.user_id AS file_comment_user_id, 
-                fcu.username AS file_comment_username,
-                fc.comment AS file_comment_text, 
-                fc.date AS file_comment_date,
-                COUNT(CASE WHEN fcv.upvote = 1 THEN 1 END) AS file_comment_upvotes,
-                COUNT(CASE WHEN fcv.downvote = 1 THEN 1 END) AS file_comment_downvotes,
-                sc.id AS comment_id, 
-                sc.user_id AS comment_user_id, 
-                uc.username as comment_username,
-                sc.comment AS comment_text, 
-                sc.date AS comment_date,
-                COUNT(CASE WHEN svc.upvote = 1 THEN 1 END) AS comment_upvotes,
-                COUNT(CASE WHEN svc.downvote = 1 THEN 1 END) AS comment_downvotes,
-                GROUP_CONCAT(t.id) AS topic_ids,
-                GROUP_CONCAT(t.topic) AS topics
-            FROM 
-                stories AS s 
-            JOIN 
-                users AS u ON s.user_id = u.id 
-            LEFT JOIN 
-                story_votes AS sv ON s.id = sv.story_id 
-            LEFT JOIN 
-                comments AS sc ON s.id = sc.story_id 
-            LEFT JOIN 
-                users AS uc ON sc.user_id = uc.id
-            LEFT JOIN 
-                story_metadata AS sm ON s.id = sm.story_id 
-            LEFT JOIN 
-                story_files AS sf ON s.id = sf.story_id 
-            LEFT JOIN 
-                file_uploads AS f ON sf.file_id = f.id
-            LEFT JOIN 
-                file_votes AS fv ON f.id = fv.file_id
-            LEFT JOIN 
-                comments AS fc ON f.id = fc.file_id
-            LEFT JOIN 
-                file_data AS fd ON f.id = fd.file_id
-            LEFT JOIN 
-                users AS fu ON f.user_id = fu.id
-            LEFT JOIN 
-                users AS fcu ON fc.user_id = fcu.id
-            LEFT JOIN 
-                comment_votes AS fcv ON fc.id = fcv.comment_id
-            LEFT JOIN 
-                comment_votes AS svc ON sc.id = svc.comment_id
-            LEFT JOIN 
-                story_topics AS st ON s.id = st.story_id
-            LEFT JOIN 
-                topics AS t ON st.topic_id = t.id
-            {whereClause}
-            GROUP BY 
-                s.id, u.id, u.username, s.story_text, s.date, 
-                sm.title, sm.description, sm.image_url,
-                f.id, f.file_name, f.is_public, f.is_folder, f.shared_with,
-                fd.given_file_name, file_data_description, file_data_updated,
-                f.upload_date, fu.username, f.user_id,
-                fc.id, fc.user_id, fc.comment,
-                sc.id, sc.user_id, sc.comment, t.topic, t.id
-            ORDER BY 
-                s.id DESC;";
-
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await conn.OpenAsync();
-                    _logger.LogInformation("SQL connection opened.");
-
-                    using (var cmd = new MySqlCommand(sql, conn))
+                    if (search != null)
                     {
+                        cmd.Parameters.AddWithValue("@search", search);
+                    }
+                    if (request.ProfileUserId != null)
+                    {
+                        cmd.Parameters.AddWithValue("@profile", request.ProfileUserId);
+                    }
 
-                        if (search != null)
-                        {
-                            cmd.Parameters.AddWithValue("@search", search);
-                        }
-                        if (request.ProfileUserId != null)
-                        {
-                            cmd.Parameters.AddWithValue("@profile", request.ProfileUserId);
-                        }
-                        using (var rdr = await cmd.ExecuteReaderAsync())
-                        {
-                            _logger.LogInformation("SQL query executed, processing results.");
+                    using (var rdr = await cmd.ExecuteReaderAsync())
+                    {
+                        _logger.LogInformation("SQL query executed, processing results.");
 
-                            while (await rdr.ReadAsync())
+                        while (await rdr.ReadAsync())
+                        {
+                            var story = new Story
                             {
-                                int storyId = rdr.GetInt32("story_id");
-                                if (!stories.ContainsKey(storyId))
-                                { 
-                                    var story = new Story
+                                Id = rdr.GetInt32("story_id"),
+                                User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, null, null),
+                                StoryText = rdr.GetString("story_text"),
+                                Date = rdr.GetDateTime("date"),
+                                Upvotes = rdr.GetInt32("upvotes"),
+                                Downvotes = rdr.GetInt32("downvotes"),
+                                CommentsCount = rdr.GetInt32("comments_count"),
+                                Metadata = new MetadataDto
+                                {
+                                    Title = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title"),
+                                    Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description"),
+                                    ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
+                                },
+                                StoryFiles = new List<FileEntry>(),
+                                StoryComments = new List<StoryComment>(),
+                                StoryTopics = new List<Topic>()
+                            };
+
+                            stories.Add(story);
+                        }
+                    }
+                }
+            }
+            await AttachCommentsToStoriesAsync(stories); 
+            await AttachFilesToStoriesAsync(stories);
+ 
+            _logger.LogInformation("Stories fetched and processed.");
+            return stories;
+        }
+
+        private async Task AttachFilesToStoriesAsync(List<Story> stories)
+        {
+            // Extract all unique story IDs from the list of stories
+            var storyIds = stories.Select(s => s.Id).Distinct().ToList();
+
+            // If there are no stories, return early
+            if (storyIds.Count == 0)
+            {
+                return;
+            }
+
+            // Construct SQL query with parameterized IN clause for story IDs
+            StringBuilder sqlBuilder = new StringBuilder();
+            sqlBuilder.AppendLine(@"
+        SELECT 
+            s.id AS story_id,
+            f.id AS file_id, 
+            f.file_name, 
+            f.folder_path, 
+            f.is_public, 
+            f.is_folder, 
+            f.shared_with, 
+            COALESCE(SUM(CASE WHEN fv.upvote = 1 THEN 1 END), 0) AS file_upvotes,
+            COALESCE(SUM(CASE WHEN fv.downvote = 1 THEN 1 END), 0) AS file_downvotes, 
+            fd.given_file_name,
+            fd.description as file_data_description,
+            fd.last_updated as file_data_updated,
+            f.upload_date AS file_date, 
+            fu.username AS file_username, 
+            f.user_id AS file_user_id
+        FROM 
+            stories AS s
+        LEFT JOIN 
+            story_files AS sf ON s.id = sf.story_id
+        LEFT JOIN 
+            file_uploads AS f ON sf.file_id = f.id
+        LEFT JOIN 
+            file_votes AS fv ON f.id = fv.file_id
+        LEFT JOIN 
+            file_data AS fd ON f.id = fd.file_id
+        LEFT JOIN 
+            users AS fu ON f.user_id = fu.id
+        WHERE 
+            s.id IN (");
+
+            // Add placeholders for story IDs
+            for (int i = 0; i < storyIds.Count; i++)
+            {
+                sqlBuilder.Append("@storyId" + i);
+                if (i < storyIds.Count - 1)
+                {
+                    sqlBuilder.Append(", ");
+                }
+            }
+
+            sqlBuilder.AppendLine(@")
+        GROUP BY 
+            s.id, f.id, f.file_name, f.folder_path, f.is_public, f.is_folder, f.shared_with,
+            fd.given_file_name, file_data_description, file_data_updated,
+            f.upload_date, fu.username, f.user_id;");
+
+            // Execute the SQL query
+            using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await conn.OpenAsync();
+                _logger.LogInformation("SQL connection opened for file attachment.");
+
+                using (var cmd = new MySqlCommand(sqlBuilder.ToString(), conn))
+                {
+                    // Bind each story ID to its respective parameter
+                    for (int i = 0; i < storyIds.Count; i++)
+                    {
+                        cmd.Parameters.AddWithValue("@storyId" + i, storyIds[i]);
+                    }
+
+                    using (var rdr = await cmd.ExecuteReaderAsync())
+                    {
+                        _logger.LogInformation("File SQL query executed, processing results.");
+
+                        while (await rdr.ReadAsync())
+                        {
+                            int storyId = rdr.IsDBNull("story_id") ? 0 : rdr.GetInt32("story_id");
+                            var story = stories.FirstOrDefault(s => s.Id == storyId);
+
+                            if (story != null && !rdr.IsDBNull("file_id"))
+                            {
+                                var fileEntry = new FileEntry
+                                {
+                                    Id = rdr.GetInt32("file_id"),
+                                    FileName = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? null : rdr.GetString("file_name"),
+                                    Directory = rdr.IsDBNull(rdr.GetOrdinal("folder_path")) ? baseTarget : rdr.GetString("folder_path"), 
+                                    Visibility = rdr.GetBoolean("is_public") ? "Public" : "Private",
+                                    SharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with"),
+                                    User = new User(
+                                        rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? 0 : rdr.GetInt32("file_user_id"),
+                                        rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? "Anonymous" : rdr.GetString("file_username")
+                                    ),
+                                    IsFolder = rdr.GetBoolean("is_folder"),
+                                    Upvotes = rdr.GetInt32("file_upvotes"),
+                                    Downvotes = rdr.GetInt32("file_downvotes"),
+                                    Date = rdr.GetDateTime("file_date"),
+                                    FileComments = new List<FileComment>(),
+                                    FileData = new FileData()
                                     {
-                                        Id = storyId,
-                                        User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null),
-                                        StoryText = rdr.GetString("story_text"),
-                                        Date = rdr.GetDateTime("date"),
-                                        Upvotes = rdr.GetInt32("upvotes"),
-                                        Downvotes = rdr.GetInt32("downvotes"),
-                                        CommentsCount = rdr.GetInt32("comments_count"),
-                                        Metadata = new MetadataDto
-                                        {
-                                            Title = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title"),
-                                            Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description"),
-                                            ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
-                                        },
-                                        StoryFiles = new List<FileEntry>(),
-                                        StoryComments = new List<StoryComment>(),
-                                        StoryTopics = new List<Topic>()
+                                        FileId = rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? 0 : rdr.GetInt32("file_id"),
+                                        GivenFileName = rdr.IsDBNull(rdr.GetOrdinal("given_file_name")) ? null : rdr.GetString("given_file_name"),
+                                        Description = rdr.IsDBNull(rdr.GetOrdinal("file_data_description")) ? null : rdr.GetString("file_data_description"),
+                                        LastUpdated = rdr.IsDBNull(rdr.GetOrdinal("file_data_updated")) ? null : rdr.GetDateTime("file_data_updated"),
+                                    }
+                                };
+
+                                story.StoryFiles.Add(fileEntry);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private async Task AttachCommentsToStoriesAsync(List<Story> stories)
+        {
+            // Extract all unique story IDs from the list of stories
+            var storyIds = stories.Select(s => s.Id).Distinct().ToList();
+
+            // If there are no stories with comments, return early
+            if (storyIds.Count == 0)
+            {
+                return;
+            }
+
+            // Construct SQL query with parameterized IN clause for story IDs
+            StringBuilder sqlBuilder = new StringBuilder();
+            sqlBuilder.AppendLine(@"
+    SELECT 
+        c.id AS comment_id,
+        c.story_id AS story_id,
+        c.user_id,
+        u.username,
+        c.comment,
+        c.date,
+        cf.file_id AS comment_file_id,
+        f.file_name AS comment_file_name,
+        f.folder_path AS comment_file_folder_path,
+        f.is_public AS comment_file_visibility,
+        f.shared_with AS comment_file_shared_with,
+        f.is_folder AS comment_file_is_folder,
+        fv.upvote AS comment_file_upvote,
+        fv.downvote AS comment_file_downvote,
+        f.upload_date AS comment_file_date,
+        fu.id AS file_user_id,
+        fu.username AS file_username,
+        fd.given_file_name as comment_file_given_file_name,
+        fd.description as comment_file_description,
+        fd.last_updated as comment_file_date
+    FROM 
+        comments AS c
+    LEFT JOIN 
+        users AS u ON c.user_id = u.id
+    LEFT JOIN 
+        comment_files AS cf ON cf.comment_id = c.id
+    LEFT JOIN 
+        file_uploads AS f ON cf.file_id = f.id
+    LEFT JOIN
+        file_data as fd ON fd.file_id = cf.comment_id
+    LEFT JOIN 
+        file_votes AS fv ON cf.file_id = fv.file_id
+    LEFT JOIN 
+        users AS fu ON f.user_id = fu.id
+    WHERE 
+        c.story_id IN (");
+
+            // Add placeholders for story IDs
+            for (int i = 0; i < storyIds.Count; i++)
+            {
+                sqlBuilder.Append("@storyId" + i);
+                if (i < storyIds.Count - 1)
+                {
+                    sqlBuilder.Append(", ");
+                }
+            }
+
+            sqlBuilder.AppendLine(@")");
+
+            // Execute the SQL query
+            using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await conn.OpenAsync();
+                _logger.LogInformation("SQL connection opened for comments.");
+
+                using (var cmd = new MySqlCommand(sqlBuilder.ToString(), conn))
+                {
+                    // Bind each story ID to its respective parameter
+                    for (int i = 0; i < storyIds.Count; i++)
+                    {
+                        cmd.Parameters.AddWithValue("@storyId" + i, storyIds[i]);
+                    }
+
+                    using (var rdr = await cmd.ExecuteReaderAsync())
+                    {
+                        _logger.LogInformation("Comment SQL query executed, processing results.");
+
+                        while (await rdr.ReadAsync())
+                        {
+                            if (rdr.IsDBNull("comment_id") || rdr.IsDBNull("story_id")) { continue; }
+                            int storyId = rdr.GetInt32("story_id");
+                            var commentId = rdr.GetInt32("comment_id");
+                            var userId = rdr.GetInt32("user_id");
+                            var userName = rdr.GetString("username");
+                            var commentText = rdr.GetString("comment");
+                            var date = rdr.GetDateTime("date");
+
+                            var story = stories.FirstOrDefault(s => s.Id == storyId);
+
+                            if (story != null)
+                            {
+                                // Check if the comment already exists for the story
+                                var comment = story.StoryComments!.FirstOrDefault(c => c.Id == commentId);
+                                if (comment == null)
+                                {
+                                    comment = new StoryComment
+                                    {
+                                        Id = commentId,
+                                        CommentText = commentText,
+                                        StoryId = storyId,
+                                        User = new User(userId, userName),
+                                        Date = date,
+                                        CommentFiles = new List<FileEntry>()
                                     };
 
-                                    stories.Add(storyId, story);
+                                    story.StoryComments.Add(comment);
                                 }
 
-                                if (!rdr.IsDBNull(rdr.GetOrdinal("file_id"))) // Check if there is a file
+                                // Check if there is a file associated with the comment
+                                if (!rdr.IsDBNull("comment_file_id"))
                                 {
-                                    _logger.LogInformation($"Processing file for story ID: {storyId}");
+                                    _logger.LogInformation("processing fileentry: " + rdr.GetInt32("comment_file_id"));
 
                                     var fileEntry = new FileEntry
                                     {
-                                        Id = rdr.GetInt32("file_id"),
-                                        FileName = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? null : rdr.GetString("file_name"),
-                                        Visibility = rdr.GetBoolean("is_public") ? "Public" : "Private",
-                                        SharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with"),
+                                        Id = rdr.GetInt32("comment_file_id"),
+                                        FileName = rdr.IsDBNull("comment_file_name") ? null : rdr.GetString("comment_file_name"),
+                                        Directory = rdr.IsDBNull("comment_file_folder_path") ? baseTarget : rdr.GetString("comment_file_folder_path"), 
+                                        Visibility = rdr.IsDBNull("comment_file_visibility") ? null : rdr.GetBoolean("comment_file_visibility") ? "Public" : "Private", 
+                                        SharedWith = rdr.IsDBNull("comment_file_shared_with") ? null : rdr.GetString("comment_file_shared_with"),
                                         User = new User(
-                                            rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? 0 : rdr.GetInt32("file_user_id"),
-                                            rdr.IsDBNull(rdr.GetOrdinal("file_username")) ? "Anonymous" : rdr.GetString("file_username")
+                                            rdr.IsDBNull("file_user_id") ? 0 : rdr.GetInt32("file_user_id"),
+                                            rdr.IsDBNull("file_username") ? "Anonymous" : rdr.GetString("file_username")
                                         ),
-                                        IsFolder = rdr.GetBoolean("is_folder"),
-                                        Upvotes = rdr.GetInt32("file_upvotes"),
-                                        Downvotes = rdr.GetInt32("file_downvotes"),
-                                        Date = rdr.GetDateTime("file_date"),
-                                        FileComments = new List<FileComment>(),
+                                        IsFolder = rdr.GetBoolean("comment_file_is_folder"),
+                                        Upvotes = rdr.IsDBNull("comment_file_upvote") ? 0 : rdr.GetInt32("comment_file_upvote"),
+                                        Downvotes = rdr.IsDBNull("comment_file_downvote") ? 0 : rdr.GetInt32("comment_file_downvote"),
+                                        Date = rdr.GetDateTime("comment_file_date"),
                                         FileData = new FileData()
                                         {
-                                            FileId = rdr.IsDBNull(rdr.GetOrdinal("file_id")) ? 0 : rdr.GetInt32("file_id"), 
-                                            GivenFileName = rdr.IsDBNull(rdr.GetOrdinal("given_file_name")) ? null : rdr.GetString("given_file_name"),
-                                            Description = rdr.IsDBNull(rdr.GetOrdinal("file_data_description")) ? null : rdr.GetString("file_data_description"),
-                                            LastUpdated = rdr.IsDBNull(rdr.GetOrdinal("file_data_updated")) ? null : rdr.GetDateTime("file_data_updated"),
+                                            FileId = rdr.IsDBNull("comment_file_id") ? 0 : rdr.GetInt32("comment_file_id"),
+                                            GivenFileName = rdr.IsDBNull("comment_file_given_file_name") ? null : rdr.GetString("comment_file_given_file_name"),
+                                            Description = rdr.IsDBNull("comment_file_description") ? null : rdr.GetString("comment_file_description"),
+                                            LastUpdated = rdr.IsDBNull("comment_file_date") ? null : rdr.GetDateTime("comment_file_date"),
                                         }
                                     };
 
-                                    // Process file comments
-                                    if (!rdr.IsDBNull(rdr.GetOrdinal("file_comment_id")))
-                                    {
-                                        var fileComment = new FileComment
-                                        {
-                                            Id = rdr.GetInt32("file_comment_id"),
-                                            FileId = rdr.GetInt32("file_id"),
-                                            User = new User(
-                                                rdr.GetInt32("file_comment_user_id"),
-                                                rdr.IsDBNull(rdr.GetOrdinal("file_comment_username")) ? "Anonymous" : rdr.GetString("file_comment_username")
-                                            ),
-                                            CommentText = rdr.IsDBNull(rdr.GetOrdinal("file_comment_text")) ? null : rdr.GetString("file_comment_text"),
-                                            Upvotes = rdr.GetInt32("file_comment_upvotes"),
-                                            Downvotes = rdr.GetInt32("file_comment_downvotes"),
-                                            Date = rdr.GetDateTime("file_comment_date")
-                                        };
-
-                                        fileEntry.FileComments.Add(fileComment);
-                                    }
-
-                                    stories[storyId].StoryFiles!.Add(fileEntry);
-                                }
-
-                                if (!rdr.IsDBNull(rdr.GetOrdinal("comment_id"))) // Check if there is a comment
-                                {
-                                    var comment = new StoryComment
-                                    {
-                                        Id = rdr.GetInt32("comment_id"),
-                                        StoryId = rdr.GetInt32("story_id"),
-                                        User = new User(
-                                            rdr.GetInt32("comment_user_id"),
-                                            rdr.IsDBNull(rdr.GetOrdinal("comment_username")) ? "Anonymous" : rdr.GetString("comment_username")
-                                        ),
-                                        CommentText = rdr.IsDBNull(rdr.GetOrdinal("comment_text")) ? null : rdr.GetString("comment_text"),
-                                        Upvotes = rdr.GetInt32("comment_upvotes"),
-                                        Downvotes = rdr.GetInt32("comment_downvotes"),
-                                        Date = rdr.GetDateTime("comment_date"),
-                                    };
-
-                                    stories[storyId].StoryComments!.Add(comment);
-                                }
-
-                                if (!rdr.IsDBNull(rdr.GetOrdinal("topics"))) // Check if there are topics
-                                {
-                                    string[] topicIds = rdr.GetString("topic_ids").Split(','); // Split topic IDs by comma
-                                    string[] topicNames = rdr.GetString("topics").Split(','); // Split topics by comma
-                                    for (int i = 0; i < topicNames.Length; i++)
-                                    {
-                                        var topic = new Topic
-                                        {
-                                            Id = int.Parse(topicIds[i]), // Use the corresponding ID from the array
-                                            TopicText = topicNames[i]
-                                        };
-                                        if (stories[storyId].StoryTopics!.Where(x => x.TopicText == topic.TopicText).Count() == 0) {
-
-                                            stories[storyId].StoryTopics!.Add(topic);
-                                        }
-                                    }
+                                    comment.CommentFiles.Add(fileEntry);
                                 }
                             }
                         }
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching stories");
-                return StatusCode(500, "Internal server error");
-            }
-            return Ok(stories.Values.ToList());
         }
-
 
         [HttpPost("/Social/Post-Story/", Name = "PostStory")]
         public async Task<IActionResult> PostStory([FromBody] StoryRequest story)
@@ -365,9 +497,47 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "An error occurred while posting story.");
                 return StatusCode(500, "An error occurred while posting story.");
             }
-        } 
-         
+        }
 
+
+
+        [HttpPost("/Social/Delete-Story", Name = "DeleteStory")]
+        public async Task<IActionResult> DeleteStory([FromBody] StoryRequest request)
+        {
+            _logger.LogInformation($"POST /Social/Delete-Story for user: {request.user.Id} with storyId: {request.story.Id}");
+
+            try
+            {
+                string sql = @"DELETE FROM stories WHERE user_id = @userId AND id = @storyId;";
+ 
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", request.user.Id);
+                        cmd.Parameters.AddWithValue("@storyId", request.story.Id);
+
+                        int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+                        if (rowsAffected == 1)
+                        {
+                            return Ok("Story deleted successfully.");
+                        }
+                        else
+                        {
+                            return StatusCode(500, "Failed to delete story.");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while deleting story.");
+                return StatusCode(500, "An error occurred while deleting story.");
+            }
+        }
         [HttpPost("/Social/Story/Upvote", Name = "UpvoteSocialStory")]
         public async Task<IActionResult> UpvoteSocialStory([FromBody] StoryVoteRequest request)
         {

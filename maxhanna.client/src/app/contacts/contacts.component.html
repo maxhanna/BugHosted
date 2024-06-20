@@ -50,11 +50,11 @@
       </thead>
       <tbody>
         <tr *ngFor="let contact of contacts" (click)="selectedContact && selectedContact == contact ? selectedContact = undefined : selectedContact = contact">
-          <td><span (click)="viewProfile(contact.user)">{{ contact.name }}</span></td>
-          <td class="noTMI">{{ contact.phone }}</td>
-          <td>{{ contact.birthday ? (contact.birthday | date: 'MMM dd, yyyy') : '---' }}</td>
-          <td class="noTMI">{{ contact.notes }}</td>
-          <td><span class="noTMI">{{ contact.email }}</span> <a *ngIf="contact.email" [href]="'mailto:' + contact.email" (click)="$event.stopPropagation();"><label>📧</label></a></td>
+          <td><span (click)="viewProfile(contact.user)" [class]="contact.user?.id != 0 ? 'usernameProfileLink cursorPointer' : ''">{{ contact.name }}</span></td>
+          <td class="noTMI">{{ contact.user?.about?.phone != '' ? contact.user?.about?.phone : contact.phone }}</td>
+          <td>{{ contact.user?.about?.birthday != undefined ?  (contact.user!.about!.birthday! | date: 'MMM dd, yyyy') : contact.birthday ? (contact.birthday | date: 'MMM dd, yyyy') : '---' }}</td>
+          <td class="noTMI">{{ contact.user?.about?.description != '' ? contact.user?.about?.description  : contact.notes }}</td>
+          <td><span class="noTMI">{{ contact.user?.about?.email != '' ? contact.user?.about?.email : contact.email }}</span> <a *ngIf="contact.user?.about?.email != '' ? contact.user?.about?.email : contact.email" [href]="'mailto:' + contact.user?.about?.email ?? contact.email" (click)="$event.stopPropagation();"><label>📧</label></a></td>
           <td style="width:0%;"><button (click)="deleteContact(contact.id!);$event.stopPropagation();" style="z-index:2" title="Delete Contact">❌</button></td>
         </tr>
       </tbody>
@@ -74,19 +74,19 @@
       </tr>
       <tr>
         <td><label for="phone">Phone:</label></td>
-        <td><input type="text" #phone [value]="selectedContact.phone"></td>
+        <td><input type="text" #phone [placeholder]="selectedContact.user?.about?.phone != '' ? selectedContact.user?.about?.phone : selectedContact.phone" [value]="selectedContact.phone"></td>
       </tr>
       <tr>
         <td><label for="birthday">Birthday:</label></td>
-        <td><input type="date" #birthday [value]="selectedContact.birthday ? formatDate(selectedContact.birthday) : null"></td>
+        <td><input type="date" #birthday [placeholder]="selectedContact.user?.about?.birthday ? formatDate(selectedContact.user?.about?.birthday) : null" [value]="selectedContact.birthday ? formatDate(selectedContact.birthday) : null"></td>
       </tr>
       <tr>
         <td><label for="notes">Notes:</label></td>
-        <td><textarea #notes [value]="selectedContact.notes" class="longInput"></textarea></td>
+        <td><textarea #notes [placeholder]="selectedContact.user?.about?.description != '' ? selectedContact.user?.about?.description : selectedContact.notes" [value]="selectedContact.notes" class="longInput"></textarea></td>
       </tr>
       <tr>
         <td><label for="email">Email:</label></td>
-        <td><input type="email" #email [value]="selectedContact.email" class="longInput"></td>
+        <td><input type="email" #email [placeholder]="selectedContact.user?.about?.email != '' ? selectedContact.user?.about?.email : selectedContact.email" [value]="selectedContact.email" class="longInput"></td>
       </tr>
       <tr>
         <td colspan="2" class="saveCancelButtonTd">

@@ -10,19 +10,23 @@
     <div *ngIf="isLoading" class="loading-spinner">Loading...</div>
     <div *ngIf="!isLoading && selectedFileSrc != ''" class="mediaDiv">
       <img #mediaContainer *ngIf="!this.videoFileExtensions.includes(this.selectedFileExtension!)" [src]="selectedFileSrc" alt="file" class="image media" />
-      <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension!)" [src]="selectedFileSrc" controls preload="auto" autoplay class="video media"></video>
-      <span class="filetype">
-        <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ▢</span>
-      </span>
+      <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension!)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
 
-      <div class="filetype">
-        <span (click)="createUserProfileComponent(selectedFile?.user)" class="usernameProfileLink cursorPointer">{{selectedFile?.user?.username}}</span> 🍌 {{selectedFile?.date!.toString().replace('T', ' ')}}
+      <div class="filetype" *ngIf="displayExpander">
+        <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ▢</span>
       </div>
-      <div class="filetype">
+      <div class="filetype" *ngIf="displayExtraInfo">
+        <span (click)="createUserProfileComponent(selectedFile?.user)"
+              class="usernameProfileLink cursorPointer">
+          {{selectedFile?.user?.username}}
+        </span>
+        {{selectedFile ? '🍌' : ''}}{{selectedFile?.date!.toString().replace('T', ' ')}}
+      </div>
+      <div class="filetype" *ngIf="displayExtraInfo">
         <button (click)="copyLink()" title="Share Link">Share 📋</button>
         <button (click)="download(selectedFile!, true)">Download</button>
       </div>
-      <app-comments *ngIf="selectedFile"
+      <app-comments *ngIf="selectedFile && showCommentSection && displayExtraInfo"
                     [parentRef]="inputtedParentRef"
                     [type]="'File'"
                     [component_id]="selectedFile.id"

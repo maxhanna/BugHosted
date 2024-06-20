@@ -55,21 +55,20 @@
 }
 
 .commentTable {
-  border-collapse: collapse !important;
-  border-left: var(--main-border);
-  border-right: var(--main-border);
-  border-bottom: var(--main-border);
+  border-collapse: collapse !important; 
 }
 .commentTable td {
-  border-top: var(--main-border);
+    max-width: 300px;
 }
-
-  .commentTable td:nth-child(1) {
-    max-width: 115px;
-    white-space: nowrap;
-  }
-
-  .commentTable td:nth-child(3) {
-    max-width: 115px;
-    white-space: nowrap;
-  }
+ 
+.commentText {
+  border-top: var(--main-border);
+  text-align: left;
+} 
+.commentMediaFile {
+  display: block;
+  border: var(--main-border);
+  max-width: 225px;
+  max-height: 525px;
+  overflow-y: auto;
+}

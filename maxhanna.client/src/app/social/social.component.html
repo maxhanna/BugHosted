@@ -12,15 +12,11 @@
               class="foodForThought"
               (focus)="focusInput()"></textarea>
     <div class="mainFileUploaderAndTopicSelectorDiv">
-      <app-file-upload (userUploadEvent)="uploadInitiate();"
-                       (userUploadFinishedEvent)="uploadFinished($event)"
-                       (userNotificationEvent)="uploadNotification($event);"
-                       (userCancelEvent)="cancelMakeDirectoryOrFile();"
-                       [currentDirectory]="'Users/'+parentRef?.user?.username"
-                       [user]="parentRef?.user"
-                       [showPrivatePublicOption]="false">
-      </app-file-upload>
+
+      <app-media-selector #postMediaSelector (selectFileEvent)="selectFile($event)"></app-media-selector>
+
       <app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>
+
     </div>
     <button (click)="post()" class="createStoryButton">🍌 Post your story</button>
     <div *ngIf="attachedFiles.length > 0"> Attached: {{attachedFiles[0].fileName}}</div>
@@ -34,12 +30,14 @@
     </div>
   </div>
   <div class="mainTableDiv">
-    <div *ngFor="let story of stories" [id]="'storyDiv'+story.id"  class="storyContainer">
+    <div *ngFor="let story of stories" [id]="'storyDiv'+story.id" class="storyContainer">
+      <div class="commentVoteButtons">
+        <button (click)="upvoteStory(story)" class="vote-button">⬆️{{ story.upvotes }}</button>
+        <button (click)="downvoteStory(story)" class="vote-button">⬇️{{ story.downvotes }}</button>
+        <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">Share 📋</button>
+        <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Share Link" style="display:inline-block">Delete Story ❌</button>
+      </div>
       <div class="storyTextContainer">
-        <div class="commentVoteButtons">
-          <button (click)="upvoteStory(story)" class="vote-button">⬆️{{ story.upvotes }}</button>
-          <button (click)="downvoteStory(story)" class="vote-button">⬇️{{ story.downvotes }}</button>
-        </div>
         <div class="storyUserDetails">
           <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
           <div class="usernameProfileLink cursorPointer" (click)="viewProfile(story.user)">{{story.user.username}} </div>
@@ -50,17 +48,15 @@
         </div>
         <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
           <div>Attachments:</div>
-          <div *ngFor="let file of story.storyFiles" (click)="loadFile(file.fileName, 'Users/'+story?.user?.username+'/'+file.fileName, story.id)" class="attachment">
-            <span class="attachedFileSpan">🍌{{file.fileName}}</span>
-            <div [id]="'attachmentContainer'+story.id+file.id" class="attachmentContainer" *ngIf="selectedAttachment == file.fileName && selectedStoryId == story.id">
-              <img [src]="selectedAttachmentUrl" alt="Attachment" class="attachmentImage" *ngIf="fileType?.includes('image') && selectedAttachment == file.fileName && selectedStoryId == story.id" />
-              <video [src]="selectedAttachmentUrl" controls preload="auto" autoplay class="attachmentVideo" *ngIf="fileType?.includes('video') && selectedAttachment == file.fileName && selectedStoryId == story.id"></video>
-              <div *ngIf="!fileType" class="fileNotImageOrVideo">🥷</div>
-              <div *ngIf="fileType">File type: {{fileType}}</div>
-              <div *ngIf="file.user.username" (click)="viewProfile(file.user)">Uploader: <span class="usernameProfileLink cursorPointer">{{ file.user.username }}</span></div>
-              <div *ngIf="file.date">Uploaded: {{file.date}}</div>
-              <div *ngIf="file" (click)="download(file.fileName, story.user)" class="downloadAttachmentLink">Download</div>
-            </div>
+          <div *ngFor="let file of story.storyFiles" class="attachment">
+            <app-media-viewer [user]="file.user"
+                              [inputtedParentRef]="parentRef"
+                              [currentDirectory]="file.directory"
+                              [file]="file"
+                              [showCommentSection]="false"
+                              [displayExtraInfo]="false"
+                              [displayExpander]="true">
+            </app-media-viewer>
           </div>
         </div>
         <div *ngIf="story.metadata">
@@ -68,7 +64,6 @@
           <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story?.metadata?.description)"></div>
           <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
         </div>
-        <button (click)="copyLink(story.id!)" title="Share Link" style="display:inline-block">Share 📋</button>
       </div>
       <app-comments *ngIf="story"
                     [parentRef]="parentRef"
@@ -76,6 +71,6 @@
                     [component_id]="story.id!"
                     [commentList]="story!.storyComments!">
       </app-comments>
-    </div>
+    </div> 
   </div>
 </div>

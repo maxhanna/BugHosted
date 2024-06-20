@@ -6,6 +6,10 @@ import { UserService } from '../../services/user.service';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user';
 import { NicehashApiKeys } from '../../services/datacontracts/nicehash-api-keys';
+import { FileEntry } from '../../services/datacontracts/file-entry';
+import { UserAbout } from '../../services/datacontracts/user-about';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 
 @Component({
   selector: 'app-update-user-settings',
@@ -17,11 +21,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isGeneralToggled = false;
   isMenuIconsToggled = false;
   isWeatherLocationToggled = false;
+  isDisplayPictureToggled = false;
+  isAboutToggled = false;
   selectableIcons: MenuItem[] = [];
   notifications: string[] = [];
   isNicehashApiKeysToggled: any;
   nhApiKeys?: NicehashApiKeys;
- 
+  displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile; 
 
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
@@ -30,19 +36,43 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationInput') weatherLocationInput!: ElementRef<HTMLInputElement>;
 
+  @ViewChild('updatedEmail') updatedEmail!: ElementRef<HTMLInputElement>;
+  @ViewChild('updatedPhone') updatedPhone!: ElementRef<HTMLInputElement>;
+  @ViewChild('updatedBirthday') updatedBirthday!: ElementRef<HTMLInputElement>;
+  @ViewChild('updatedDescription') updatedDescription!: ElementRef<HTMLInputElement>;
+
+  @ViewChild(MediaSelectorComponent) displayPictureSelector!: MediaSelectorComponent;
+  @ViewChild(MediaViewerComponent) displayPictureViewer!: MediaViewerComponent;
+
+
   constructor(private miningService: MiningService, private weatherService: WeatherService, private userService: UserService) {
     super();
   }
-  ngOnInit() {
-    this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User');
+  async ngOnInit() {
+    console.log(this.parentRef?.user?.username + " is username! ");
 
+    this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User');
+    this.parentRef!.user = await this.userService.getUser(this.parentRef!.user!);
+    console.log(this.parentRef?.user?.username + " is username! " + this.parentRef?.user?.displayPictureFile?.id + " is displayPictureId");
+    this.displayPictureViewer.file 
   }
   async getNicehashApiKeys() {
     if (this.isNicehashApiKeysToggled) {
       this.nhApiKeys = await this.miningService.getNicehashApiInfo((this.parentRef?.user)!);
     }
   }
-
+  async updateUserAbout() {
+    let about = new UserAbout();
+    about.userId = this.parentRef!.user!.id!;
+    about.description = this.updatedDescription.nativeElement.value != '' ? this.updatedDescription.nativeElement.value : undefined;
+    about.phone = this.updatedPhone.nativeElement.value != '' ? this.updatedPhone.nativeElement.value : undefined;
+    about.email = this.updatedEmail.nativeElement.value != '' ? this.updatedEmail.nativeElement.value : undefined;
+    about.birthday = this.updatedBirthday.nativeElement.value != '' ? new Date(this.updatedBirthday.nativeElement.value) : undefined;
+    const res = await this.userService.updateUserAbout(this.parentRef!.user!, about);
+    if (res) {
+      this.notifications.push(res); 
+    }
+  }
   async updateNHAPIKeys() {
     if (this.isNicehashApiKeysToggled) {
       let keys = new NicehashApiKeys();
@@ -78,6 +108,16 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     }
   }
 
+  async avatarSelected(files: FileEntry[]) {
+    if (files && files.length > 0) {
+      console.log("updating avatar for user : " + this.parentRef?.user?.username + " fileId: " + files[0].id);
+      const res = await this.userService.updateDisplayPicture(this.parentRef?.user!, files[0].id);
+      this.parentRef!.user = await this.userService.getUser(this.parentRef?.user!);
+      this.displayPictureFile = this.parentRef?.user?.displayPictureFile;
+      this.displayPictureSelector.selectedFiles = [];
+    }
+  }
+
   async updateUser() {
     const currUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
     const tmpUser = new User(currUser.id, this.updatedUsername.nativeElement.value, this.updatedPassword.nativeElement.value);
@@ -101,7 +141,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         try {
           const res = await this.userService.deleteUser(tmpUser);
           this.notifications.push(res["message"]);
-         // this.logout();
+          this.parentRef?.deleteCookie("user");
+          window.location = window.location;
         } catch (error) {
           this.notifications.push(`Error deleting user ${this.parentRef!.user?.username}`);
         }

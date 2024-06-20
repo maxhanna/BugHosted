@@ -101,6 +101,9 @@
 .attachment {
   display: inline-block;
   border: var(--main-border);
+  max-width: 225px;
+  max-height: 525px;
+  overflow-y: auto;
 }
 
 .fileNotImageOrVideo {
@@ -122,9 +125,10 @@
     width: 100%;
 }
 .commentVoteButtons { 
-  width: 200px;
+  width: 100%;
   height: 25px;
-  margin-bottom: 10px;
+  text-align:right;
+  margin-bottom: -5px;
 }
 .commentUsername { 
 } 

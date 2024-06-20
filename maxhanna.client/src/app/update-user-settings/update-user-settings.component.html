@@ -35,6 +35,93 @@
         </tbody>
 
 
+        <!--Display Picture-->
+        <thead (click)="isDisplayPictureToggled = !isDisplayPictureToggled">
+          <tr>
+            <th>
+              <span class="helperSpanTitle" title="Change your display picture"></span>
+            </th>
+            <th>Display Picture</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody *ngIf="isDisplayPictureToggled">
+          <tr>
+            <td></td>
+            <td>
+              Upload or Select a profile picture here:
+              <div class="avatar" *ngIf="!this.parentRef?.user!.displayPictureFile">
+                <span class="avatarBug">🪲</span>
+                <span class="avatarBust">👤</span>
+              </div>
+              <div *ngIf="this.parentRef?.user?.displayPictureFile">
+                Current display picture:
+                <div class="avatar">
+                  <app-media-viewer #displayPictureViewer
+                                    [displayExpander]="false"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [file]="this.parentRef?.user!.displayPictureFile"
+                                    [currentDirectory]="this.parentRef?.user!.displayPictureFile!.directory"
+                                    [user]="parentRef!.user"
+                                    [inputtedParentRef]="parentRef!">
+                  </app-media-viewer>
+                </div>
+              </div>
+            </td>
+            <td>
+              <app-media-selector #displayPictureSelector
+                                  [maxSelectedFiles]="1"
+                                  [inputtedParentRef]="parentRef"
+                                  [user]="parentRef?.user"
+                                  [currentDirectory]="'Users/'+parentRef?.user?.username"
+                                  (selectFileEvent)="avatarSelected($event)">
+              </app-media-selector>
+            </td>
+          </tr>
+        </tbody>
+
+
+        <!--ABOUT-->
+        <thead (click)="isAboutToggled = !isAboutToggled">
+          <tr>
+            <th>
+              <span class="helperSpanTitle" title="Your contact information."></span>
+            </th>
+            <th>About You</th>
+            <th style="text-align:right;">
+              <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled">🔄</button>
+            </th>
+          </tr>
+        </thead>
+        <tbody *ngIf="isAboutToggled">
+          <tr>
+            <td colspan="3">
+              <table class="mainTable">
+                <tbody>
+                  <tr>
+                    <td>Description:</td>
+                    <td><input type="text" placeholder="Profile description" #updatedDescription [value]="parentRef?.user?.about?.description"  /></td>
+                  </tr>
+                  <tr>
+                    <td>Birthday:</td>
+                    <td><input type="date" #updatedBirthday [value]="parentRef?.user?.about?.birthday" /></td>
+                  </tr>
+                  <tr>
+                    <td>Email:</td>
+                    <td><input type="email" #updatedEmail [value]="parentRef?.user?.about?.email"  /></td>
+                  </tr>
+                  <tr>
+                    <td>Phone:</td>
+                    <td><input type="tel" #updatedPhone [value]="parentRef?.user?.about?.phone" /></td>
+                  </tr>
+                </tbody>
+              </table>
+              </td>
+            </tr>
+        </tbody>
+
+
         <!-- Menu Icons -->
         <thead (click)="isMenuIconsToggled = !isMenuIconsToggled; getMenuIcons()">
           <tr>
@@ -45,10 +132,8 @@
           </tr>
         </thead>
         <tbody *ngIf="isMenuIconsToggled">
-          <tr>
-            <td></td>
-            <td>Menu:</td>
-            <td class="">
+          <tr> 
+            <td class="" colspan=3>
               <table class="mainTable">
                 <thead>
                   <tr>
@@ -66,7 +151,7 @@
                   </tr>
                 </tbody>
               </table>
-            </td>
+            </td> 
           </tr>
         </tbody>
 
@@ -85,9 +170,9 @@ but you can also set your own City for a more precise location."></span>
         </thead>
         <tbody *ngIf="isWeatherLocationToggled">
           <tr>
-            <td></td>
             <td>Location:</td>
             <td><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></td>
+            <td></td>
           </tr>
         </tbody>
 

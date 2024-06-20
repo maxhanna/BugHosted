@@ -9,5 +9,6 @@ namespace maxhanna.Server.Controllers.DataContracts
         public int Upvotes { get; set; }
         public int Downvotes { get; set; }
         public DateTime Date { get; set; }
+        public List<FileEntry>? CommentFiles { get; set; }
     }
 }

@@ -40,7 +40,9 @@
 .typeTd {
     width: 1%;
 }
-
+.fileSizeTd{
+    width:1%;
+}
 .actionTd {
   text-align: right;
   width: 190px;

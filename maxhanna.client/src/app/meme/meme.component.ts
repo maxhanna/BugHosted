@@ -23,7 +23,11 @@ export class MemeComponent extends ChildComponent  {
     }); 
   } 
    
-    
+  uploadFinished(files: FileEntry[]) {
+    const directoryIds = this.fileSearchComponent.directory!.data!.map(file => file.id); 
+    const newFiles = files.filter(file => !directoryIds.includes(file.id)); 
+    this.fileSearchComponent.directory!.data! = newFiles.concat(this.fileSearchComponent.directory!.data!);
+  }
   uploadNotification(event: string) {
     this.notifications.push(event); 
   }

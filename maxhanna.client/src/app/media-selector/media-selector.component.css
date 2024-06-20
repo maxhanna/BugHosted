@@ -1,0 +1,6 @@
+.smallContainerForMedia
+ {
+    max-height:150px;
+    max-width:150px;
+    overflow:auto;
+}

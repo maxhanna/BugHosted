@@ -39,6 +39,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   isMenuIconsToggled = true;
   isFriendsExpanded = false;
   isFriendRequestsExpanded = false;
+  isAboutExpanded = true;
   isWordlerScoresExpanded = false;
   isSocialDivExpanded = true;
   friends: User[] = [];
@@ -58,24 +59,31 @@ export class UserComponent extends ChildComponent implements OnInit {
   ) { super(); }
 
   async ngOnInit() {
-    if (this.userId) {
-      const res = await this.userService.getUserById(parseInt(this.userId));
-      if (res) {
-        this.user = res as User;
-        if (this.socialComponent) {
-          this.socialComponent.user = this.user; 
-        }
-        console.log("got this res: " + res.id + " " + res.username);
-      }
-    } else {
-      this.user = this.parentRef?.user;
-    }
     this.startLoading();
-    await this.getLoggedInUser();
     this.usersCount = await this.userService.getUserCount();
-    await this.loadFriendData();
-    await this.loadWordlerData();
-    await this.loadSongData();
+   
+    try {
+      if (this.userId) {
+        const res = await this.userService.getUserById(parseInt(this.userId));
+        if (res) {
+          this.user = res as User;
+          if (this.socialComponent) {
+            this.socialComponent.user = this.user;
+          }
+          console.log("got this res: " + res.id + " " + res.username);
+        }
+      } else {
+        this.user = this.parentRef?.user;
+      }
+
+      await this.getLoggedInUser();
+      if (this.parentRef?.user) { 
+        await this.loadFriendData();
+        await this.loadWordlerData();
+        await this.loadSongData();
+      }
+    }
+    catch (error) { console.log((error as Error).message); }
     this.stopLoading(); 
   }
 
@@ -227,6 +235,9 @@ export class UserComponent extends ChildComponent implements OnInit {
 
           const resAddMenuItemWordler = await this.userService.addMenuItem(tmpUser, "Wordler");
           this.notifications.push(resAddMenuItemWordler!);
+
+          await this.login();
+          this.parentRef?.createComponent('UpdateUserSettings');
         } else {
           this.notifications.push(`${JSON.parse(resCreateUser!)["message"]}`);
         }

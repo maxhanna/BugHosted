@@ -2,6 +2,7 @@
 import { Injectable } from '@angular/core'; 
 import { User } from './datacontracts/user';
 import { MenuItem } from './datacontracts/menu-item';
+import { UserAbout } from './datacontracts/user-about';
 
 @Injectable({
   providedIn: 'root'
@@ -96,6 +97,21 @@ export class UserService {
       return null; // Return null in case of error
     }
   }
+  async updateUserAbout(user: User, about: UserAbout) {
+    try {
+      const response = await fetch('/user/updateabout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+        },
+        body: JSON.stringify({ user, about }), // Convert the user object to JSON string
+      });
+
+      return await response.json(); // Parse JSON response 
+    } catch (error) {
+      return null; // Return null in case of error
+    }
+  }
   async deleteUser(user: User) {
     try {
       const response = await fetch('/user/deleteuser', {
@@ -118,6 +134,21 @@ export class UserService {
       method: 'GET'
     }); 
     return await response.json();
+  }
+  async updateDisplayPicture(user: User, fileId: number) {
+    try {
+      const response = await fetch('/user/updatedisplaypicture', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+        },
+        body: JSON.stringify({ user, fileId }), // Convert the user object to JSON string
+      });
+
+      return await response.text(); // Parse JSON response 
+    } catch (error) {
+      return ''; // Return null in case of error
+    }
   }
   async getUserMenu(user: User) : Promise<Array<MenuItem>> {
     try {

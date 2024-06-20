@@ -67,10 +67,10 @@ export class ContactsComponent extends ChildComponent implements OnInit {
 
     if (this.selectedContact) {
       this.selectedContact.name = name;
-      this.selectedContact.email = this.email.nativeElement.value;
-      this.selectedContact.notes = this.notes.nativeElement.value;
-      this.selectedContact.phone = this.phone.nativeElement.value;
-      if (this.birthday.nativeElement.value) {
+      this.selectedContact.email = this.email.nativeElement.value != '' ? this.email.nativeElement.value : null;
+      this.selectedContact.notes = this.notes.nativeElement.value != '' ? this.notes.nativeElement.value : null;
+      this.selectedContact.phone = this.phone.nativeElement.value != '' ? this.phone.nativeElement.value : null;
+      if (this.birthday.nativeElement.value != '') {
         var jsDate = this.GetJsDate(this.birthday.nativeElement.value);
         this.selectedContact.birthday = jsDate;
       } else {

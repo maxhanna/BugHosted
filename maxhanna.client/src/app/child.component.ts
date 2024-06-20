@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
  import { User } from '../services/datacontracts/user';
 import { AppComponent } from './app.component';
 
@@ -11,8 +11,9 @@ export class ChildComponent {
   public parentRef?: AppComponent;
   asc: [string, number][] = [];
   isLoading = false;
-
+   
   remove_me(componentTitle: string) {
+    this.isLoading = false;
     if (this.parentRef && this.unique_key) {
       this.parentRef.removeComponent(this.unique_key);
     } else {

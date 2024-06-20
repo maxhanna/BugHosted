@@ -240,10 +240,28 @@ fieldset {
     cursor: default;
   }
 
-    .mainTable tbody tr:hover {
-      background-color: var(--main-bg-color);
-      box-shadow: inset 0 0 0 2px var(--secondary-font-color);
+    .mainTable tbody tr:hover td:first-child {
+      position: relative;
     }
+
+      .mainTable tbody tr:hover td:first-child::before,
+      .mainTable tbody tr:hover td:first-child::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        border-bottom: 1px dotted var(--secondary-font-color);
+        width: 100%;
+        height: 1px;
+        pointer-events: none;
+      }
+
+      .mainTable tbody tr:hover td:first-child::before {
+        left: 0;
+      }
+
+      .mainTable tbody tr:hover td:first-child::after {
+        right: 0;
+      }
 
   .mainTable a:link,
   .mainTable a:visited {
@@ -369,4 +387,33 @@ fieldset {
 
   .helperSpanTitle:before {
     content: 'ℹ️';
-  }
+  } 
+
+.avatar {
+  width: 50px;
+  height: 50px;
+  border: var(--main-border);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.avatarBug, .avatarBust {
+  display: inline;
+  position: relative;
+  top: auto;  
+  left: auto;  
+}
+
+.avatarBug {
+  z-index: 3;
+  font-size: 15px;
+  left: 8px;
+}
+
+
+.avatarBust {
+  font-size: 40px;
+  top: -20px;
+  left: -1px;
+  z-index: 2;
+} 

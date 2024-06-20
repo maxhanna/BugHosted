@@ -55,16 +55,16 @@
     justify-content:center;
 }
 .mediaContainerDiv{
-    max-height:60vh;
-    width: 100%;
-    overflow:auto;
-    margin: 10px;
+    max-height:60vh; 
+    overflow:auto; 
     object-fit:contain;
-    background-color:black;
-    border: var(--main-border);
+    background-color:black; 
 }
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
   .mediaContainerDiv { 
     width: 45vh; 
   }
-} 
+}
+.displayExpander {
+    font-size: 8px;
+}

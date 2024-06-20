@@ -38,9 +38,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild("outlet") outlet!: RouterOutlet;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
-  showMainContent: boolean = true;
-  private wordlerCreated = false;
-  private firstComponentCreated = false;
+  showMainContent: boolean = true; 
 
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>();

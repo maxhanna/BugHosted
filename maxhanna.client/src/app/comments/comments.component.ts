@@ -3,6 +3,7 @@ import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { Comment } from '../../services/datacontracts/comment';
 import { User } from '../../services/datacontracts/user';
+import { FileEntry } from '../../services/datacontracts/file-entry';
 
 @Component({
   selector: 'app-comments',
@@ -19,29 +20,46 @@ export class CommentsComponent {
   showCommentLoadingOverlay = false;
   upvotedCommentIds: number[] = []
   downvotedCommentIds: number[] = []
+  selectedFiles: FileEntry[] = [];
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
   constructor(private commentService: CommentService) { }
 
   async addComment(comment: string) {
-    console.log("addcoment:" + comment);
+    // Clear any existing debounce timer
     clearTimeout(this.debounceTimer);
+
+    // Set a new debounce timer
     this.debounceTimer = setTimeout(async () => {
-      const res = await this.commentService.addComment(comment, this.parentRef?.user, this.type == 'File' ? this.component_id : undefined, this.type == 'Social' ? this.component_id : undefined);
+      // Determine the component ID based on the type
+      const fileId = this.type === 'File' ? this.component_id : undefined;
+      const storyId = this.type === 'Social' ? this.component_id : undefined;
+
+      // Send the comment to the server
+      const res = await this.commentService.addComment(comment, this.parentRef?.user, fileId, storyId, this.selectedFiles);
+
+      // Check if the response indicates success
       if (res && res.toLowerCase().includes("success")) {
+        // Create a new Comment object
         const tmpComment = new Comment();
         tmpComment.id = parseInt(res.split(" ")[0]);
         tmpComment.user = this.parentRef?.user ?? new User(0, "Anonymous");
         tmpComment.commentText = comment;
-        if (this.type == "Social") {
+
+        // Set the appropriate ID based on the type
+        if (this.type === "Social") {
           tmpComment.storyId = this.component_id;
-        } else if (this.type == "File") {
+        } else if (this.type === "File") {
           tmpComment.fileId = this.component_id;
         }
-        this.commentList.push(tmpComment);
-        this.commentList.forEach(x => console.log(x));
+        this.commentList.unshift(tmpComment);
       }
+
+      // Stop the loading indicator for the current component
       this.stopLoadingComment(this.component_id);
-    }, 2000);
+    }, 2000); // Debounce delay in milliseconds
+  }
+  async selectFile(files: FileEntry[]) {
+    this.selectedFiles = files;
   }
   async startLoadingComment() {
     this.showCommentLoadingOverlay = true;

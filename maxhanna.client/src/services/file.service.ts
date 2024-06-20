@@ -296,8 +296,7 @@ export class FileService {
       // Extract the name part before the last period
       const nameWithoutExtension = file.substring(0, lastPeriodIndex);
       return nameWithoutExtension;  // Output: my.file.name.rom.sav
-    } else {
-      console.error("Filename does not contain an extension.");
+    } else { 
       return file;
     } 
   }

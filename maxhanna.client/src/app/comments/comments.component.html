@@ -7,17 +7,27 @@
 <div class="commentsInputArea">
   
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
-    <input type="text" [placeholder]='commentList!.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();" />
-    <button type="submit" (click)="startLoadingComment();">🗨️</button><app-media-selector></app-media-selector>
+    <textarea [placeholder]='commentList!.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();"></textarea>
+    <button type="submit" (click)="startLoadingComment();">🗨️</button>
+    <app-media-selector (selectFileEvent)="selectFile($event)"></app-media-selector>
   </div>
 </div>
 <div class="comments-section" *ngIf="commentList!.length > 0">
   <div *ngIf="showComments">
     <table class="commentTable">
       <tbody>
-        <tr *ngFor="let comment of commentList!">
-          <td><span class="cursorPointer usernameProfileLink">{{ comment.user.username }}</span>:</td>
-          <td>{{ comment.commentText }}</td>
+        <tr *ngFor="let comment of commentList!"> 
+          <td class="commentText">
+            <span class="cursorPointer usernameProfileLink">{{ comment.user.username }}</span>: {{ comment.commentText }}
+            <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
+              <app-media-viewer [file]="file"
+                                [user]="comment.user"
+                                [currentDirectory]="file.directory"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"></app-media-viewer>
+            </div>
+          </td>
           <td>
             <button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>
             <button (click)="downvoteComment(comment)" class="vote-button" title="Downvote">⬇️{{ comment.downvotes }}</button>
@@ -27,7 +37,7 @@
       </tbody>
     </table>
     <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
-      Adding comment...
+      Loading comments...
     </div>
   </div>
 </div>

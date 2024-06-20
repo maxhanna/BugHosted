@@ -53,6 +53,9 @@
           <th *ngIf="displayFileType" class="typeTd">
             Type
           </th>
+          <th *ngIf="displayFileSize" class="fileSizeTd">
+            Size
+          </th>
           <th *ngIf="displayComments" class="commentCountTd" title="Number of comments">
             🗨️
           </th>
@@ -103,6 +106,11 @@
                     title="This is a private file.">
                 {{file.visibility == 'Private' ? '🔒' : ''}}
               </span>
+            </td>
+            <td class="fileSizeTd" (click)="selectFile(file);" *ngIf="displayFileSize">
+              <span *ngIf="file && file.fileSize">
+                {{formatFileSize(file.fileSize)}}
+              </span> 
             </td>
             <td *ngIf="displayComments" class="commentCountTd">
               {{file?.fileComments?.length ?? 0}}

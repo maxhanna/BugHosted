@@ -6,6 +6,7 @@ import { Comment } from '../datacontracts/comment'
 export class FileEntry {
   id: number;
   fileName: string;
+  directory: string;
   visibility: string;
   sharedWith: string;
   user: User;
@@ -18,11 +19,12 @@ export class FileEntry {
   fileSize: number;
   fileType: string; 
 
-  constructor(id: number, fileName: string, visibility: string, sharedWith: string, user: User,
+  constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string, user: User,
     isFolder: boolean, upvotes: number, downvotes: number, comments: Array<Comment>, date: Date,
     fileData: FileData, fileSize: number, fileType: string) {
     this.id = id;
     this.fileName = fileName;
+    this.directory = directory;
     this.visibility = visibility;
     this.sharedWith = sharedWith;
     this.user = user;
@@ -34,5 +36,5 @@ export class FileEntry {
     this.fileData = fileData;
     this.fileSize = fileSize;
     this.fileType = fileType;
-  }
+  } 
 }

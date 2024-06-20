@@ -1,9 +1,34 @@
-<button (click)="viewMediaChoicesOpen = !viewMediaChoicesOpen">🖼️</button>
+<button (click)="clickViewMediaChoices()">🖼️</button>
+<button (click)="displaySearch = !displaySearch" *ngIf="displaySearchButton" title="Search for files">🔍</button>
 <div *ngIf="viewMediaChoicesOpen">
-  <div *ngFor="let file of fileSelections">
-    selected file : {{file.fileName}}
+  <div *ngFor="let file of selectedFiles" class="smallContainerForMedia">
+    <app-media-viewer [user]="file.user"
+                      [inputtedParentRef]="inputtedParentRef"
+                      [currentDirectory]="currentDirectory"
+                      [file]="file"
+                      [showCommentSection]="false"
+                      [displayExtraInfo]="false">
+    </app-media-viewer>
+    {{file.fileName}} <button (click)="removeFile(file)">Remove file</button>
   </div>
-  <!--<app-file-upload></app-file-upload>
-  <div><app-file-search [allowedFileTypes]="allowedFileExtensions"></app-file-search></div>-->
-  temporarily disabled
+  <app-file-upload [showPrivatePublicOption]="false"
+                   (userUploadFinishedEvent)="uploadFinishedEvent($event)"
+                   *ngIf="showFileUploader">
+  </app-file-upload>
+  <div>
+    <app-file-search *ngIf="displaySearch"
+                     [currentDirectory]="currentDirectory"
+                     [clearAfterSelectFile]="true"
+                     [showPrivatePublicOption]="false"
+                     [maxResults]="10"
+                     [canChangeDirectory]="true"
+                     [displayFileType]="false"
+                     [displayFileSize]="false"
+                     [displayFileData]="false"
+                     [displayFileActions]="false"
+                     [displayComments]="false"
+                     (selectFileEvent)="selectFile($event)"
+                     (currentDirectoryChangeEvent)="directoryChanged($event)">
+    </app-file-search>
+  </div>
 </div>

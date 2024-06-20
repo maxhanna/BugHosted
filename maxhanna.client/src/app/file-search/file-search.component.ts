@@ -25,6 +25,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() maxResults: number = 50;
   @Input() canChangeDirectory: boolean = true;
   @Input() displayFileType: boolean = true;
+  @Input() displayFileSize: boolean = true;
   @Input() displayFileData: boolean = true;
   @Input() displayFileActions: boolean = true;
   @Input() displayComments: boolean = true;
@@ -127,6 +128,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   async getDirectory(file?: string, fileId?: number) {
+    this.openedFiles = [];
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.showData = true;
     clearTimeout(this.debounceTimer);
@@ -169,9 +171,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   getFileExtension(filename: string) {
     return this.fileService.getFileExtension(filename);
   }
-  selectFile(file: FileEntry) {
-    this.selectFileEvent.emit(file);
-    if (this.clearAfterSelectFile) {
+  selectFile(file: FileEntry) { 
+    if (!file.isFolder && this.clearAfterSelectFile) {
+      this.selectFileEvent.emit(file); 
       this.showData = false;
       this.search.nativeElement.value = file.fileName;
     } else {
@@ -384,6 +386,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.filter.ownership = target.value;
     this.getDirectory();
   }
+
   handleUploadedFiles(files: FileEntry[]) {
     if (this.directory) {
       files.forEach(x => {
@@ -416,5 +419,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   getFileWithoutExtension(fileName: string) {
     return this.fileService.getFileWithoutExtension(fileName);
+  }
+  formatFileSize(bytes: number, decimalPoint: number = 2): string {
+    if (bytes === 0) return '0 Bytes';
+
+    const k = 1024;
+    const dm = decimalPoint <= 0 ? 0 : decimalPoint;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
 }

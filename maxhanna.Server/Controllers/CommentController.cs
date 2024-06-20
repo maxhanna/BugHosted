@@ -80,16 +80,33 @@ namespace maxhanna.Server.Controllers
                             cmd.Parameters.AddWithValue("@story_id", request.StoryId);
                         }
 
+                        int insertedId = 0;
                         using (var reader = await cmd.ExecuteReaderAsync())
                         {
-                            int insertedId = 0;
                             if (await reader.ReadAsync())
                             {
                                 insertedId = reader.GetInt32(0);
-                            }
-
-                            return Ok($"{insertedId} Comment Successfully Added");
+                                _logger.LogInformation("inserted comment : " + insertedId);
+                            } 
                         }
+                        if (insertedId != 0 && request.SelectedFiles != null && request.SelectedFiles.Count > 0)
+                        {
+                            foreach (var file in request.SelectedFiles)
+                            {
+                                using (var fileConn = new MySqlConnection(connectionString))
+                                {
+                                    await fileConn.OpenAsync();
+                                    string fileSql = @"INSERT INTO comment_files (comment_id, file_id) VALUES (@commentId, @fileId);";
+                                    using (var fileCmd = new MySqlCommand(fileSql, fileConn))
+                                    {
+                                        fileCmd.Parameters.AddWithValue("@commentId", insertedId);
+                                        fileCmd.Parameters.AddWithValue("@fileId", file.Id);
+                                        await fileCmd.ExecuteNonQueryAsync();
+                                    }
+                                }
+                            }
+                        } 
+                        return Ok($"{insertedId} Comment Successfully Added"); 
                     }
                 }
             }

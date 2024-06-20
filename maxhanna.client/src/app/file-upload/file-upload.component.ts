@@ -16,7 +16,7 @@ export class FileUploadComponent {
   @Input() allowedFileTypes: string = '';
 
   @Output() userUploadEvent = new EventEmitter<Array<File>>();
-  @Output() userUploadFinishedEvent = new EventEmitter<Array<FileEntry>>();
+  @Output() userUploadFinishedEvent = new EventEmitter<FileEntry[]>();
   @Output() userNotificationEvent = new EventEmitter<string>();
   @Output() userCancelEvent = new EventEmitter<boolean>();
 
@@ -82,7 +82,9 @@ export class FileUploadComponent {
             }
             else if (event.type === HttpEventType.Response) {
               this.uploadProgress = 0;
-              this.userUploadFinishedEvent.emit(JSON.parse(event.body) as Array<FileEntry>);
+              const files = JSON.parse(event.body) as FileEntry[];
+              console.log("got files : " + files.length);
+              this.userUploadFinishedEvent.emit(files);
 
               if (event.body && event.body.partialText) {
                 this.userNotificationEvent.emit(event.body.partialText);

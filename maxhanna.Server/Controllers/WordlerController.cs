@@ -447,7 +447,9 @@ namespace maxhanna.Server.Controllers
                     {
                         foreach (var sUrl in urls.EnumerateArray())
                         {
-                            sourceUrls.Add(sUrl.GetString());
+                            if (!string.IsNullOrEmpty(sUrl.GetString())) {
+                                sourceUrls.Add(sUrl.GetString()!);
+                            }
                         }
                     }
                 }

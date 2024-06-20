@@ -27,6 +27,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   notifications: string[] = [];
   selectedDifficulty = 0;
   disableAllInputs = false;
+  guessAttempts: string[] = [];
 
  
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
@@ -132,7 +133,6 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     this.selectedDifficulty = parseInt(this.difficultySelect.nativeElement.value);
 
     this.wordToGuess = (await this.wordlerService.getRandomWord(this.selectedDifficulty)).toUpperCase();
-    console.log(this.wordToGuess);
     await this.reloadGuesses();
 
     this.gameStarted = true;
@@ -167,9 +167,10 @@ export class WordlerComponent extends ChildComponent implements OnInit {
                   // REINSERT the guess into the inputs
                   (document.getElementById('inputIdRow' + x + 'Letter' + y) as HTMLInputElement).value = res[x].guess[y]; 
                   word += res[x].guess[y];
-                  (document.getElementById('inputIdRow' + x + 'Letter' + y) as HTMLInputElement).disabled = true;
+                  (document.getElementById('inputIdRow' + x + 'Letter' + y) as HTMLInputElement).classList.add("grey");
                 } 
                 if (word.length == this.selectedDifficulty) {
+                  this.guessAttempts.push(word);
                   this.provideFeedback(word, this.currentAttempt);
                   for (var y = 0; y < this.selectedDifficulty; y++) {
                     if (res && res[x] && res[x].guess && res[x].guess[y]) {
@@ -181,8 +182,17 @@ export class WordlerComponent extends ChildComponent implements OnInit {
                   this.currentAttempt++; 
                   if (numberOfGreens >= this.selectedDifficulty && !skipChecks) {
                     setTimeout(() => {
-                      alert(`Congratulations, you have defeated the Wordler!`);
-                      //const mode = this.selectedDifficulty == '4' ? 
+                     // alert(`Congratulations, you have defeated the Wordler!`);
+                      //const mode = this.selectedDifficulty == '4' ?
+                      setTimeout(() => {
+                        const inputs = document.getElementById("attemptDiv" + (this.currentAttempt - 1))?.getElementsByTagName("input");
+                          if (inputs) {
+                            Array.from(inputs).forEach(input => {
+                              input.classList.add("toss");
+                            });
+                          }
+                        }, 1000);  // Delay to let the flip animations complete
+                      
                       this.notifications.push(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Try another difficulty?`);
                     }, 1);
                     skipChecks = true;
@@ -207,7 +217,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async checkGuess(attemptIndex: number) { 
+  async checkGuess(attemptIndex: number) {
     if (attemptIndex !== this.currentAttempt) return; //<--not sure what this does anymore
     var guessLetters: string[] = [];
     const letters = document.getElementById("attemptDiv" + this.currentAttempt) as HTMLDivElement;
@@ -219,18 +229,20 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
 
     if (guess.length === this.selectedDifficulty) { //if the user filled the guess
-      //check if guess exists already
+      if (this.guessAttempts.includes(guess) || this.guesses.filter(x => x.guess == guess).length > 0) {
+        this.notifications.push("The Wordler says: 'Hah! Trying again? You're as persistent as you are predictable.'");
+        this.shakeCurrentAttempt();
+        return;
+      }
+      this.guessAttempts.push(guess);
+
       let newGuess: WordlerGuess = {
         user: this.parentRef?.user ?? new User(0, "Unknown"),
         attemptNumber: this.currentAttempt,
         difficulty: this.selectedDifficulty,
         guess: guess,
       }
-      if (this.guesses.filter(x => x.guess == newGuess.guess).length > 0) {
-        this.notifications.push("The Wordler says: 'Hah! Trying again? You're as persistent as you are predictable.'");
-        this.shakeCurrentAttempt();
-        return;
-      }
+      
       //first check if valid word
       const validityRes = await this.wordlerService.checkGuess(this.selectedDifficulty, guess);
       if (validityRes && validityRes[0] == "0") {
@@ -324,32 +336,62 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
     guessArray.forEach((letter, index) => {
       if (letter === wordArray[index]) {
-        (document.getElementById(letter.toLowerCase() + "Button") as HTMLButtonElement).classList.add("green");  // change keyboard button
-        (document.getElementById("attemptDiv" + attemptIndex)?.getElementsByTagName("input")[index] as HTMLInputElement).classList.add("green"); // change guess inputs
+        const button = document.getElementById(letter.toLowerCase() + "Button");
+        const input = document.getElementById("attemptDiv" + attemptIndex)?.getElementsByTagName("input")[index];
+
+        if (button) button.classList.add("green");
+        if (input) {
+          input.classList.add("green");
+          input.classList.add("flip");
+          setTimeout(() => input.classList.remove("flip"), 600);
+        }
         correctLetters.push(letter);
       }
     });
 
     guessArray.forEach((letter, index) => {
       if (wordArray.includes(letter)) {
-        if (!(document.getElementById(letter.toLowerCase() + "Button") as HTMLButtonElement).classList.contains("green")) {
-          (document.getElementById(letter.toLowerCase() + "Button") as HTMLButtonElement).classList.add("yellow");  // change keyboard button
+        const button = document.getElementById(letter.toLowerCase() + "Button");
+        const input = document.getElementById("attemptDiv" + attemptIndex)?.getElementsByTagName("input")[index];
+
+        if (button && !button.classList.contains("green")) {
+          button.classList.add("yellow");
         }
         var dupeLetterCount = wordArray.filter(x => x == letter).length;
         if ((halfCorrectLetters.filter(x => x == letter).length + correctLetters.filter(x => x == letter).length) < dupeLetterCount) {
-          (document.getElementById("attemptDiv" + attemptIndex)?.getElementsByTagName("input")[index] as HTMLInputElement).classList.add("yellow"); // change guess inputs
+          if (input) {
+            input.classList.add("yellow");
+            input.classList.add("flip");
+            setTimeout(() => input.classList.remove("flip"), 600);
+          }
           halfCorrectLetters.push(letter);
         }
       }
     });
 
-    console.log(wordArray);
     guessArray.forEach((letter, index) => {
-      console.log(letter);
       if (!wordArray.includes(letter)) {
-        (document.getElementById(letter.toLowerCase() + "Button") as HTMLButtonElement).disabled = true;   // change keyboard button
+        const button = document.getElementById(letter.toLowerCase() + "Button");
+        const input = document.getElementById("attemptDiv" + attemptIndex)?.getElementsByTagName("input")[index];
+
+        if (button) button.classList.add("grey");
+        if (input) {
+          input.classList.add("flip");
+          setTimeout(() => input.classList.remove("flip"), 600);
+        }
       } 
     });
+
+    if (guess === this.wordToGuess) {
+      setTimeout(() => {
+        const inputs = document.getElementById("attemptDiv" + attemptIndex)?.getElementsByTagName("input");
+        if (inputs) {
+          Array.from(inputs).forEach(input => {
+            input.classList.add("toss");
+          });
+        }
+      }, 1000);
+    }
   }
   shakeCurrentAttempt() {
     const attemptDiv = document.getElementById('attemptDiv' + this.currentAttempt);

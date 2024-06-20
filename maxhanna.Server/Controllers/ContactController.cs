@@ -24,9 +24,32 @@ namespace maxhanna.Server.Controllers
             _logger.LogInformation($"POST /Contact (User : {user.Id}) ");
 
             string sql = @"
-                SELECT c.id, c.name, c.phone, c.birthday, c.notes, c.email, c.user_id, c.contact_user_id as contact_user_id, u.username as contact_user_name
-                FROM maxhanna.contacts as c
-                LEFT JOIN maxhanna.users as u ON c.contact_user_id = u.id
+                SELECT 
+                    c.id, 
+                    c.name, 
+                    c.phone, 
+                    c.birthday, 
+                    c.notes,
+                    c.email, 
+                    c.user_id,
+                    c.contact_user_id as contact_user_id, 
+                    u.username as contact_user_name,
+                    ua.description as about_description,
+                    ua.phone as about_phone,
+                    ua.email as about_email,
+                    ua.birthday as about_birthday,
+                    udp.file_id as profile_file_id,
+                    udpf.folder_path as profile_file_directory
+                FROM 
+                    maxhanna.contacts as c
+                LEFT JOIN 
+                    maxhanna.users as u ON c.contact_user_id = u.id
+                LEFT JOIN 
+                    maxhanna.user_about AS ua ON ua.user_id = u.id
+                LEFT JOIN 
+                    maxhanna.user_display_pictures AS udp ON udp.user_id = u.id
+                LEFT JOIN 
+                    maxhanna.file_uploads AS udpf ON udpf.id = udp.file_id
                 WHERE c.user_id = @userId";
 
             try
@@ -54,7 +77,22 @@ namespace maxhanna.Server.Controllers
                                     Birthday = rdr.IsDBNull("birthday") ? null : rdr.GetDateTime("birthday"),
                                     Notes = rdr.IsDBNull("notes") ? "" : rdr.GetString("notes"),
                                     Email = rdr.IsDBNull("email") ? "" : rdr.GetString("email"), 
-                                    User = new User(rdr.IsDBNull("contact_user_id") ? 0 : rdr.GetInt32("contact_user_id"), rdr.IsDBNull("contact_user_name") ? "Anonymous" : rdr.GetString("contact_user_name"))
+                                    User = new User(
+                                        rdr.IsDBNull("contact_user_id") ? 0 : rdr.GetInt32("contact_user_id"),
+                                        rdr.IsDBNull("contact_user_name") ? "Anonymous" : rdr.GetString("contact_user_name"),
+                                        null,
+                                        new FileEntry()
+                                        {
+                                            Id = rdr.IsDBNull("profile_file_id") ? 0 : rdr.GetInt32("profile_file_id"),
+                                            Directory = rdr.IsDBNull("profile_file_directory") ? "" : rdr.GetString("profile_file_directory")
+                                        },
+                                        new UserAbout() {
+                                            Description = rdr.IsDBNull("about_description") ? "" : rdr.GetString("about_description"),
+                                            Email = rdr.IsDBNull("about_email") ? "" : rdr.GetString("about_email"),
+                                            Phone = rdr.IsDBNull("about_phone") ? "" : rdr.GetString("about_phone"),
+                                            Birthday = rdr.IsDBNull("about_birthday") ? null : rdr.GetDateOnly("about_birthday")
+                                       }
+                                    )
                                 }; 
 
                                 contacts.Add(contact);

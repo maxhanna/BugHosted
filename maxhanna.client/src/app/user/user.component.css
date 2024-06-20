@@ -61,31 +61,6 @@
 .profileControls  {
     text-align:center;
 }
-.avatar {
-  width: 50px;
-  height: 50px;
-  border: var(--main-border);
-  margin-left:auto;
-  margin-right:auto;
+.aboutTable {
+    text-align:center;
 }
-
-.avatarBug, .avatarBrain, .avatarBust {
-display:inline;
-position: relative;  
-  top: auto; /* Remove top positioning */
-  left: auto; /* Remove left positioning */
-}
-
-.avatarBug {
-  z-index: 3;
-  font-size: 15px;
-  left: 8px;
-}
- 
-
-.avatarBust {
-  font-size: 40px;
-  top: -20px;
-  left: -1px;
-  z-index:2; 
-} 

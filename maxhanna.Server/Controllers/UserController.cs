@@ -61,13 +61,34 @@ namespace maxhanna.Server.Controllers
         [HttpPost(Name = "GetUser")]
         public async Task<IActionResult> GetUser([FromBody] User user)
         {
-            _logger.LogInformation($"POST /User with username: {user.Username} and password: {user.Pass}");
+            _logger.LogInformation($"POST /User with username: {user.Username}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
                 conn.Open();
 
-                string sql = "SELECT * FROM maxhanna.users WHERE LOWER(username) = LOWER(@Username) AND pass = @Password";
+                string sql = $@"
+                   SELECT 
+                        u.*, 
+                        dp.file_id AS latest_file_id,
+                        dpf.file_name,
+                        dpf.folder_path,
+                        ua.description,
+                        ua.phone,
+                        ua.email,
+                        ua.birthday
+                    FROM 
+                        maxhanna.users u
+                    LEFT JOIN  
+                        maxhanna.user_display_pictures dp ON dp.user_id = u.id 
+                    LEFT JOIN  
+                        maxhanna.user_about ua ON ua.user_id = u.id 
+                    LEFT JOIN  
+                        maxhanna.file_uploads dpf ON dpf.id = dp.file_id 
+                    WHERE
+                        LOWER(u.username) = LOWER(@Username) 
+                        AND u.pass = @Password;
+                ";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Username", user.Username);
@@ -77,12 +98,29 @@ namespace maxhanna.Server.Controllers
                 {
                     if (reader.Read())
                     {
+                        FileEntry displayPic = new FileEntry()
+                        {
+                            Id = reader.IsDBNull(reader.GetOrdinal("latest_file_id")) ? 0 : reader.GetInt32("latest_file_id"),
+                            FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? "" : reader.GetString("file_name"),
+                            Directory = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? "" : reader.GetString("folder_path"),
+                        };
+                        UserAbout tmpAbout = new UserAbout()
+                        {
+                            UserId = reader.IsDBNull(reader.GetOrdinal("id")) ? 0 : reader.GetInt32("id"),
+                            Description = reader.IsDBNull(reader.GetOrdinal("description")) ? "" : reader.GetString("description"),
+                            Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"),
+                            Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
+                            Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateOnly("birthday"),
+                        };
+
                         // User found, return the user details
                         return Ok(new User
                         (
                             Convert.ToInt32(reader["id"]),
                             reader["username"].ToString()!,
-                            reader["pass"].ToString()
+                            reader["pass"].ToString(),
+                            displayPic.Id != 0 ? displayPic : null,
+                            tmpAbout
                         ));
                     }
                     else
@@ -112,7 +150,27 @@ namespace maxhanna.Server.Controllers
             {
                 conn.Open();
 
-                string sql = "SELECT * FROM maxhanna.users WHERE id = @user_id;";
+                string sql = @"
+                    SELECT 
+                        u.*, 
+                        dp.file_id AS latest_file_id,
+                        dpf.file_name,
+                        dpf.folder_path,
+                        ua.description,
+                        ua.phone,
+                        ua.email,
+                        ua.birthday
+                    FROM 
+                        maxhanna.users u
+                    LEFT JOIN 
+                        maxhanna.user_display_pictures dp ON dp.user_id = u.id
+                    LEFT JOIN 
+                        maxhanna.user_about ua ON ua.user_id = u.id
+                    LEFT JOIN 
+                        maxhanna.file_uploads dpf ON dpf.id = dp.file_id
+                    WHERE
+                        u.id = @user_id;
+                ";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@user_id", id); 
@@ -121,11 +179,30 @@ namespace maxhanna.Server.Controllers
                 {
                     if (reader.Read())
                     {
+                        FileEntry displayPic = new FileEntry()
+                        {
+                            Id = reader.IsDBNull(reader.GetOrdinal("latest_file_id")) ? 0 : reader.GetInt32("latest_file_id"),
+                            FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? "" : reader.GetString("file_name"),
+                            Directory = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? "" : reader.GetString("folder_path"),
+                        };
+
+                        UserAbout tmpAbout = new UserAbout()
+                        {
+                            UserId = reader.IsDBNull(reader.GetOrdinal("id")) ? 0 : reader.GetInt32("id"),
+                            Description = reader.IsDBNull(reader.GetOrdinal("description")) ? "" : reader.GetString("description"),
+                            Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"),
+                            Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
+                            Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateOnly("birthday"),
+                        };
+
                         // User found, return the user details
                         return Ok(new User
                         (
                             Convert.ToInt32(reader["id"]),
-                            reader["username"].ToString()!
+                            reader["username"].ToString()!,
+                            null, // Password is not returned in this method, you might need to adjust this based on your requirements
+                            displayPic.Id == 0 ? null : displayPic,
+                            tmpAbout
                         ));
                     }
                     else
@@ -319,6 +396,7 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
         }
+
         [HttpDelete("/User/DeleteUser", Name = "DeleteUser")]
         public async Task<IActionResult> DeleteUser([FromBody] User user)
         {
@@ -374,6 +452,80 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
         }
+
+        [HttpPost("/User/UpdateDisplayPicture", Name = "UpdateDisplayPicture")]
+        public async Task<IActionResult> UpdateDisplayPicture([FromBody] DisplayPictureRequest request)
+        {
+            _logger.LogInformation($"POST /User/UpdateDisplayPicture (for user: {request.User.Id})");
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                string checkUserSql = $@"
+                    INSERT INTO maxhanna.user_display_pictures (user_id, file_id)
+                    VALUES (@userId, @fileId)
+                    ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);
+                ";
+                MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
+                checkUserCmd.Parameters.AddWithValue("@userId", request.User.Id);
+                checkUserCmd.Parameters.AddWithValue("@fileId", request.FileId);
+                using (var reader = await checkUserCmd.ExecuteReaderAsync())
+                {
+                    return Ok();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the display picture POST request.");
+                return StatusCode(500, "An error occurred while processing the display picture request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+
+        [HttpPost("/User/UpdateAbout", Name = "UpdateAbout")]
+        public async Task<IActionResult> UpdateAbout([FromBody] UpdateAboutRequest request)
+        {
+            _logger.LogInformation($"POST /User/UpdateAbout (for user: {request.User.Id})");
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                conn.Open();
+
+                string checkUserSql = $@"
+                    INSERT INTO maxhanna.user_about (user_id, description, birthday, phone, email)
+                    VALUES (@userId, @description, @birthday, @phone, @email)
+                    ON DUPLICATE KEY UPDATE 
+                        description = VALUES(description),
+                        birthday = VALUES(birthday),
+                        phone = VALUES(phone),
+                        email = VALUES(email);
+                ";
+                MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
+                checkUserCmd.Parameters.AddWithValue("@userId", request.User.Id);
+                checkUserCmd.Parameters.AddWithValue("@description", request.About.Description);
+                checkUserCmd.Parameters.AddWithValue("@birthday", request.About.Birthday);
+                checkUserCmd.Parameters.AddWithValue("@phone", request.About.Phone);
+                checkUserCmd.Parameters.AddWithValue("@email", request.About.Email);
+                using (var reader = await checkUserCmd.ExecuteReaderAsync())
+                {
+                    return Ok("Sucessfully updated about information.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the user about POST request.");
+                return StatusCode(500, "An error occurred while processing the user about request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
+        }
+
 
         [HttpPost("/User/Menu", Name = "GetUserMenu")]
         public async Task<IActionResult> GetUserMenu([FromBody] User user)

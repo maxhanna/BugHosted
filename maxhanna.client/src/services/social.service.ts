@@ -49,6 +49,26 @@ export class SocialService {
       return null;
     }
   }
+
+  async deleteStory(user: User, story: Story) {
+    try {
+      const res = await fetch('/social/delete-story', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, story }),
+      });
+
+      if (!res.ok) {
+        return 'Error deleting story';
+      }
+      return 'Story deleted successfully';
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      return 'Error deleting story';
+    }
+  }
   async comment(storyId: number, comment: string, user?: User) {
     try {
       const response = await fetch(`/social/comment/post`, {

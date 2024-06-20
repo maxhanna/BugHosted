@@ -1,6 +1,7 @@
 // user.service.ts
 import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user';
+import { FileEntry } from './datacontracts/file-entry';
 
 @Injectable({
   providedIn: 'root'
@@ -8,7 +9,7 @@ import { User } from './datacontracts/user';
 export class CommentService {
  
 
-  async addComment(comment: string, user?: User, fileId?: number, storyId?: number) {
+  async addComment(comment: string, user?: User, fileId?: number, storyId?: number, selectedFiles?: FileEntry[]) {
     console.log("in add comment" + fileId + " " + storyId);
     if ((fileId && storyId) || (!fileId && !storyId)) {
       return;
@@ -19,7 +20,7 @@ export class CommentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, fileId, storyId, comment }),
+        body: JSON.stringify({ user, fileId, storyId, selectedFiles, comment }),
       });
 
       return await response.text();

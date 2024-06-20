@@ -1,3 +1,4 @@
+import { FileEntry } from "./file-entry";
 import { User } from "./user";
 
 export class Comment {
@@ -7,5 +8,6 @@ export class Comment {
   upvotes: number = 0;
   downvotes: number = 0;
   storyId?: number;
-  fileId?: number;
+  fileId?: number; 
+  commentFiles?: FileEntry[];
 }

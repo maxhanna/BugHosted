@@ -72,9 +72,9 @@
         <button id="jButton" class="key" (click)="pressedKey('J',$event)" [disabled]="disableAllInputs">J</button>
         <button id="kButton" class="key" (click)="pressedKey('K',$event)" [disabled]="disableAllInputs">K</button>
         <button id="lButton" class="key" (click)="pressedKey('L',$event)" [disabled]="disableAllInputs">L</button>
-        <button id="backspaceButton" class="key" (click)="pressedKey('backspace',$event)" [disabled]="disableAllInputs"><span>⌫</span></button>
       </div>
       <div class="keyboardRow">
+        <button id="enterButton" class="key enter" (click)="pressedKey('enter',$event)" [disabled]="disableAllInputs">ENTER</button> 
         <button id="zButton" class="key" (click)="pressedKey('Z',$event)" [disabled]="disableAllInputs">Z</button>
         <button id="xButton" class="key" (click)="pressedKey('X',$event)" [disabled]="disableAllInputs">X</button>
         <button id="cButton" class="key" (click)="pressedKey('C',$event)" [disabled]="disableAllInputs">C</button>
@@ -82,12 +82,13 @@
         <button id="bButton" class="key" (click)="pressedKey('B',$event)" [disabled]="disableAllInputs">B</button>
         <button id="nButton" class="key" (click)="pressedKey('N',$event)" [disabled]="disableAllInputs">N</button>
         <button id="mButton" class="key" (click)="pressedKey('M',$event)" [disabled]="disableAllInputs">M</button>
-        <button id="enterButton" class="key" (click)="pressedKey('enter',$event)" [disabled]="disableAllInputs">↵</button>
+        <button id="backspaceButton" class="key" (click)="pressedKey('backspace',$event)" [disabled]="disableAllInputs"><span>⌫</span></button>
       </div>
     </div>
 
-
-    <button (click)="giveUp()" *ngIf="!showScores && currentAttempt >= 0">{{elapsedTime && currentAttempt != numberOfTries ? 'Give up?' : 'Exit Game'}}</button>
+    <div class="exitGameButtonDiv">
+      <button (click)="giveUp()" *ngIf="!showScores && currentAttempt >= 0">Exit Game</button>
+    </div>
   </div>
 
 
