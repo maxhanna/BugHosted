@@ -3,8 +3,9 @@
   <!--<div class="refreshButton" (click)="ngOnInit()"></div>-->
   <div class="componentTitle">Meme</div>
   <div class="fileUploadInputs">
-    <app-file-upload 
-                     [currentDirectory]="'Meme'"
+    <label class="SendMemesSpan" *ngIf="!isUploadingInProcess" (click)="clickOnUpload()" title="Upload file(s)">Meme Uploader : </label>
+
+    <app-file-upload [currentDirectory]="'Meme'"
                      [user]="parentRef?.user"
                      [showPrivatePublicOption]="false"
                      [allowedFileTypes]="'image/*,video/*'"
@@ -14,7 +15,6 @@
                      (userCancelEvent)="uploadCancelEvent($event);"
                      id="fileUploader">
     </app-file-upload>
-    <label class="SendMemesSpan" *ngIf="!isUploadingInProcess" (click)="clickOnUpload()" title="Upload file(s)">Upload your memes!</label>
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
   <app-file-search [inputtedParentRef]="parentRef"

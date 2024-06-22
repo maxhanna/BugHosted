@@ -578,8 +578,11 @@ namespace maxhanna.Server.Controllers
         [HttpDelete("/User/Menu", Name = "DeleteMenuItem")]
         public async Task<IActionResult> DeleteMenuItem([FromBody] MenuItemRequest request)
         {
-            _logger.LogInformation($"DELETE /User/Menu for user with ID: {request.User.Id} and title: {request.Title}");
-
+            _logger.LogInformation($"DELETE /User/Menu for user with ID: {request.User?.Id} and title: {request.Title}"); 
+            if (request.User == null)
+            {
+                return BadRequest("User missing from DeleteMenuItem request");
+            }
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
@@ -615,8 +618,11 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/User/Menu/Add", Name = "AddMenuItem")]
         public async Task<IActionResult> AddMenuItem([FromBody] MenuItemRequest request)
         {
-            _logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.User.Id} and title: {request.Title}");
-
+            _logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.User?.Id} and title: {request.Title}"); 
+            if (request.User == null)
+            {
+                return BadRequest("User missing from AddMenuItem request");
+            }
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {

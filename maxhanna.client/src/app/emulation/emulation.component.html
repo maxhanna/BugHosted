@@ -21,7 +21,7 @@
     <span class="helperSpanTitle"
           title=
           "This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
-          🖵 : Toggle fullscreen mode.
+          ◻️ : Toggle fullscreen mode.
           🛑 : Click on this to power off the emulator (if autosave is selected, this will also save your progress).
           🔊/🔇 : Click on this to mute/unmute the audio.
           ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, c = a, q for left trigger (gba), w for right trigger (gba) enter = start, shift = select.
@@ -33,10 +33,10 @@
     <label for="autosaveOff">Off</label>
     <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="autosave = false">
 
-    <span *ngIf="!autosave" class="uploadRomSpan upload-label" (click)="saveState()">💾</span>
+    <span *ngIf="!autosave" class="uploadRomSpan upload-label" (click)="saveState()" title="Save your game">💾</span>
 
     <span class="uploadRomSpan upload-label" #stopButton (click)="stopEmulator()" *ngIf="!isSearchVisible" title="Power Off">🛑</span>
-    <span class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()">🖵</span>
+    <span class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">◻️</span>
     <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span> 
   </div>
    
@@ -44,7 +44,7 @@
   <div class="gameboy" id="GameBoy" #fullscreenContainer>
 
     <div class="screen-area">
-      <canvas id="mainCanvas" class="mainCanvas" #canvas slot="lcd" onkeypress="canvasKeypress($event)"></canvas>
+      <canvas id="mainCanvas" class="mainCanvas" #canvas slot="lcd"></canvas>
     </div>
 
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
@@ -82,7 +82,7 @@
         <div class="b">B</div>
         <div class="a">A</div>
       </div> 
-      <div class="y" [style.visibility]="currentFileType != '' && segaFileTypes.includes(currentFileType) ? 'visible' : 'hidden'">C</div>
+      <div class="c" [style.visibility]="currentFileType != '' && segaFileTypes.includes(currentFileType) ? 'visible' : 'hidden'">C</div>
     </div>
 
     <div class="start-select">
@@ -90,7 +90,7 @@
       <div class="start">START</div>
     </div>
 
-    <div class="speaker" (click)="toggleSound()">
+    <!--<div class="speaker" (click)="toggleSound()">
       <div class="dot placeholder"></div>
       <div class="dot open"></div>
       <div class="dot closed"></div>
@@ -162,7 +162,7 @@
       <div class="dot closed"></div>
       <div class="dot open"></div>
       <div class="dot placeholder"></div>
-    </div>
+    </div>-->
   </div>
 
 </div>

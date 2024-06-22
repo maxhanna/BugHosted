@@ -1,0 +1,18 @@
+<div class="avatar largeAvatar">
+  <div class="displayPicture avatar" *ngIf="user!.displayPictureFile">
+    <app-media-viewer [user]="user" 
+                      [currentDirectory]="user?.displayPictureFile?.directory"
+                      [file]="user?.displayPictureFile"
+                      [showCommentSection]="false"
+                      [displayExtraInfo]="false"
+                      [displayExpander]="false">
+    </app-media-viewer>
+  </div>
+  <div class="avatar noAvatar" *ngIf="!user!.displayPictureFile">
+    <span class="avatarBug noAvatar">🪲</span>
+    <span class="avatarBust noAvatar">👤</span>
+  </div>
+  <div class="username cursorPointer">
+    {{user?.username}}
+  </div>
+</div> 

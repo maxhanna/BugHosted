@@ -1,12 +1,7 @@
 .componentMain {
   max-width: 865px;
 }
-
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-  .componentMain {
-    max-width: 365px;
-  }
-}
+ 
 
 .inputDiv {
   margin-left: auto;
@@ -26,20 +21,16 @@
 }
 
 .storyContainer {
-  border: var(--main-border); 
-  word-break: break-all;
-  margin-top:5px;
-}
-.storyTextContainer {
-  padding: 12px;
+  border: var(--main-border);
+  margin-top: 5px;
+  overflow: hidden;
 }
 
 .storyText {
   width: 100%;
   padding: 5px;
   display: inline-block;
-  border-radius: 3px;
-  word-wrap: break-word;
+  border-radius: 3px; 
   font-size: large;
 }
 
@@ -55,15 +46,7 @@
   font-size: smaller;
   display: inline-block;
 }
-
-  .storyDate::before {
-    content: '(';
-  }
-
-  .storyDate::after {
-    content: ')';
-  }
-
+ 
 .createStoryButton {
   background-color: var(--main-highlight-color);
   border: var(--main-border);
@@ -176,4 +159,26 @@
 }
 .additionalSearchFiltersSpan {
     font-size:smaller;
-} 
+}
+.usernameProfileLink{ 
+}
+
+.storyTextContainer { 
+  display:flex;
+  justify-content:flex-start;
+
+}
+.storyContentDiv {
+  width: CALC(100% - 75px);
+  padding-left:10px;
+  padding-right:10px;
+}
+.avatarDiv { 
+  width: 70px; 
+  overflow: hidden;
+  display:table;
+}
+
+.pagination {
+    text-align:right;
+}

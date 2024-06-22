@@ -13,7 +13,7 @@
       <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension!)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
 
       <div class="filetype" *ngIf="displayExpander">
-        <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ▢</span>
+        <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ◻️</span>
       </div>
       <div class="filetype" *ngIf="displayExtraInfo">
         <span (click)="createUserProfileComponent(selectedFile?.user)"

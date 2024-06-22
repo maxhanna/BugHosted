@@ -72,3 +72,14 @@
   max-height: 525px;
   overflow-y: auto;
 }
+
+.commentContentAndAvatarContainerDiv {
+    display:flex;
+    width:100%;
+}
+.commentContent {
+  width: CALC(100% - 70px);
+}
+.commentAvatar {
+    width:70px;
+}

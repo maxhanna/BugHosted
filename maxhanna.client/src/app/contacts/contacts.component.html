@@ -54,7 +54,7 @@
           <td class="noTMI">{{ contact.user?.about?.phone != '' ? contact.user?.about?.phone : contact.phone }}</td>
           <td>{{ contact.user?.about?.birthday != undefined ?  (contact.user!.about!.birthday! | date: 'MMM dd, yyyy') : contact.birthday ? (contact.birthday | date: 'MMM dd, yyyy') : '---' }}</td>
           <td class="noTMI">{{ contact.user?.about?.description != '' ? contact.user?.about?.description  : contact.notes }}</td>
-          <td><span class="noTMI">{{ contact.user?.about?.email != '' ? contact.user?.about?.email : contact.email }}</span> <a *ngIf="contact.user?.about?.email != '' ? contact.user?.about?.email : contact.email" [href]="'mailto:' + contact.user?.about?.email ?? contact.email" (click)="$event.stopPropagation();"><label>📧</label></a></td>
+          <td><span class="noTMI">{{ contact.user?.about?.email != '' ? contact.user?.about?.email : contact.email }}</span> <a *ngIf="contact.user?.about?.email != '' ? contact.user?.about?.email : contact.email" [href]="'mailto:' + contact.user?.about?.email" (click)="$event.stopPropagation();"><label>📧</label></a></td>
           <td style="width:0%;"><button (click)="deleteContact(contact.id!);$event.stopPropagation();" style="z-index:2" title="Delete Contact">❌</button></td>
         </tr>
       </tbody>

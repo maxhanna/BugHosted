@@ -18,15 +18,24 @@
       <tbody>
         <tr *ngFor="let comment of commentList!"> 
           <td class="commentText">
-            <span class="cursorPointer usernameProfileLink" (click)="viewProfile(comment.user)">{{ comment.user.username }}</span>: {{ comment.commentText }}
-            <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
-              <app-media-viewer [file]="file"
-                                [user]="comment.user"
-                                [currentDirectory]="file.directory"
-                                [inputtedParentRef]="inputtedParentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"></app-media-viewer>
-            </div>
+            <div class="commentContentAndAvatarContainerDiv">
+              <div class="commentAvatar">
+                <span class="usernameProfileLink" (click)="viewProfile(comment.user)">
+                  <app-user-tag [user]="comment.user"></app-user-tag>
+                </span>
+              </div>
+              <div class="commentContent">
+                {{ comment.commentText }}
+                <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
+                  <app-media-viewer [file]="file"
+                                    [user]="comment.user"
+                                    [currentDirectory]="file.directory"
+                                    [inputtedParentRef]="inputtedParentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"></app-media-viewer>
+                </div>
+              </div>
+            </div>  
           </td>
           <td>
             <button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>

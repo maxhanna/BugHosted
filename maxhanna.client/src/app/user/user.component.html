@@ -12,10 +12,9 @@
                       [displayExpander]="false"
                       [displayExtraInfo]="false"
                       [showCommentSection]="false"
-                      [file]="user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile"
-                      [currentDirectory]="user?.displayPictureFile?.directory ?? this.parentRef?.user?.displayPictureFile!.directory"
-                      [user]="user ?? parentRef?.user"
-                      [inputtedParentRef]="parentRef">
+                      [file]="user.displayPictureFile"
+                      [currentDirectory]="user.displayPictureFile.directory"
+                      [user]="user">
     </app-media-viewer>
   </div>
 
@@ -85,6 +84,7 @@
             </tr>
           </tbody>
          </table>
+        </div>
     </div>
   </div>
   <!-- FRIENDS -->

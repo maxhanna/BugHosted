@@ -1,23 +1,42 @@
-<button (click)="clickViewMediaChoices()">🖼️</button>
-<button (click)="displaySearch = !displaySearch" *ngIf="displaySearchButton" title="Search for files">🔍</button>
-<div *ngIf="viewMediaChoicesOpen">
-  <div *ngFor="let file of selectedFiles" class="smallContainerForMedia">
-    <app-media-viewer [user]="file.user"
-                      [inputtedParentRef]="inputtedParentRef"
-                      [currentDirectory]="currentDirectory"
-                      [file]="file"
-                      [showCommentSection]="false"
-                      [displayExtraInfo]="false">
-    </app-media-viewer>
-    {{file.fileName}} <button (click)="removeFile(file)">Remove file</button>
-  </div>
-  <app-file-upload [showPrivatePublicOption]="false"
-                   (userUploadFinishedEvent)="uploadFinishedEvent($event)"
-                   (userUploadEvent)="uploadEvent($event)"
-                   (userCancelEvent)="uploadCancelledEvent($event)"
-                   *ngIf="showFileUploader">
-  </app-file-upload>
+
+<div class="mediaSelectorDiv">
+
   <div>
+    <button (click)="clickViewMediaChoices()">🖼️</button>
+
+    <div *ngIf="viewMediaChoicesOpen">
+      <div *ngFor="let file of selectedFiles">
+        <div class="smallContainerForMedia">
+          <app-media-viewer [user]="file.user"
+                            [inputtedParentRef]="inputtedParentRef"
+                            [currentDirectory]="currentDirectory"
+                            [file]="file"
+                            [showCommentSection]="false"
+                            [displayExtraInfo]="false"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+        <div>
+          {{file.fileName}} <button (click)="removeFile(file)">Remove file</button>
+        </div>
+
+      </div>
+      <div>
+
+        <app-file-upload [showPrivatePublicOption]="false"
+                         [currentDirectory]="currentDirectory"
+                         (userUploadFinishedEvent)="uploadFinishedEvent($event)"
+                         (userUploadEvent)="uploadEvent($event)"
+                         (userCancelEvent)="uploadCancelledEvent($event)"
+                         *ngIf="showFileUploader">
+        </app-file-upload>
+      </div>
+    </div>
+  </div>
+
+
+  <div>
+    <button (click)="displaySearch = !displaySearch" *ngIf="displaySearchButton" title="Search for files">🔍</button>
     <app-file-search *ngIf="displaySearch"
                      [currentDirectory]="currentDirectory"
                      [clearAfterSelectFile]="true"
@@ -32,5 +51,6 @@
                      (selectFileEvent)="selectFile($event)"
                      (currentDirectoryChangeEvent)="directoryChanged($event)">
     </app-file-search>
-  </div>
+  </div> 
 </div>
+

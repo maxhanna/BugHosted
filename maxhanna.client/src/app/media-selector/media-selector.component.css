@@ -4,3 +4,9 @@
     max-width:150px;
     overflow:auto;
 }
+.mediaSelectorDiv {
+    display:flex;
+    justify-content:center;
+    max-width: 300px;
+    min-width:50px;
+}

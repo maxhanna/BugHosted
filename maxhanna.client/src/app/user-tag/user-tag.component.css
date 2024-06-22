@@ -1,0 +1,13 @@
+.largeAvatar {
+  border: unset; 
+  height: 75px;
+  text-align: center;
+}
+
+.displayPicture {
+  overflow: hidden; 
+}
+
+.noAvatar{
+    text-decoration: unset !important;
+}

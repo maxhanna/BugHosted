@@ -8,7 +8,7 @@
 
   <div *ngIf="!user">
     
-    <input type="submit" value="📂" (click)="showMakeDirectoryPrompt=true;" title="New Folder" *ngIf="!showMakeDirectoryPrompt && !isUploadInitiate" />
+    <input type="submit" value="📂New Folder" (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt && !isUploadInitiate" />
 
     <app-file-upload
       (userUploadEvent)="uploadInitiate();"

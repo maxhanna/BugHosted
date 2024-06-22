@@ -4,18 +4,9 @@ using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Net;
 using MySqlConnector;
-using Microsoft.AspNetCore.Components.Forms;
-using System.IO;
-using System.Xml.Linq;
-using static System.Net.WebRequestMethods;
-using System.Runtime.Intrinsics.Arm;
-using Microsoft.VisualBasic.FileIO;
-using static System.Net.Mime.MediaTypeNames;
 using Xabe.FFmpeg;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Formats.Webp;
-using Microsoft.Extensions.Logging;
+using System.Runtime.Intrinsics.Arm;
 
 namespace maxhanna.Server.Controllers
 {
@@ -31,7 +22,7 @@ namespace maxhanna.Server.Controllers
         {
             _logger = logger;
             _config = config;
-            FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin"); // Windows
+            FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
         }
 
         [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
@@ -53,8 +44,8 @@ namespace maxhanna.Server.Controllers
             }
             _logger.LogInformation(
                 @$"POST /File/GetDirectory?directory={directory}&visibility={visibility}
-         &ownership={ownership}&search={search}&page={page}
-         &pageSize={pageSize}&fileId={fileId}&fileType={(fileType != null ? string.Join(", ", fileType) : "")}");
+                 &ownership={ownership}&search={search}&page={page}
+                 &pageSize={pageSize}&fileId={fileId}&fileType={(fileType != null ? string.Join(", ", fileType) : "")}");
 
             if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {baseTarget}"); }
 
@@ -118,6 +109,9 @@ namespace maxhanna.Server.Controllers
                     MAX(f.is_folder) AS is_folder,
                     MAX(f.user_id) AS fileUserId,
                     MAX(u.username) AS fileUsername,
+                    MAX(udpfl.id) AS fileUserDisplayPictureFileId,
+                    MAX(udpfl.file_name) AS fileUserDisplayPictureFileName,
+                    MAX(udpfl.folder_path) AS fileUserDisplayPictureFolderPath,
                     MAX(f.shared_with) AS shared_with,
                     SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS fileUpvotes,
                     SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS fileDownvotes,
@@ -125,6 +119,9 @@ namespace maxhanna.Server.Controllers
                     fc.id AS commentId,
                     fc.user_id AS commentUserId,
                     MAX(uc.username) AS commentUsername,
+                    MAX(ucudpfu.id) AS commentUserDisplayPicId,
+                    MAX(ucudpfu.file_name) AS commentUserDisplayPicFileName,
+                    MAX(ucudpfu.folder_path) AS commentUserDisplayPicFolderPath,
                     MAX(fc.comment) AS commentText,
                     SUM(CASE WHEN fcv.upvote = 1 THEN 1 ELSE 0 END) AS commentUpvotes,
                     SUM(CASE WHEN fcv.downvote = 1 THEN 1 ELSE 0 END) AS commentDownvotes,
@@ -154,7 +151,15 @@ namespace maxhanna.Server.Controllers
                 LEFT JOIN
                     maxhanna.users u ON f.user_id = u.id
                 LEFT JOIN
+                    maxhanna.user_display_pictures udp ON udp.user_id = u.id
+                LEFT JOIN
+                    maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+                LEFT JOIN
                     maxhanna.users uc ON fc.user_id = uc.id
+                LEFT JOIN
+                    maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
+                LEFT JOIN
+                    maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
                 LEFT JOIN
                     maxhanna.comment_votes fcv ON fc.id = fcv.comment_id
                 LEFT JOIN
@@ -226,6 +231,11 @@ namespace maxhanna.Server.Controllers
                                 fileData.Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description");
                                 fileData.LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated");
 
+                                var displayPictureFile = new FileEntry();
+                                displayPictureFile.Id = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPictureFileId")) ? 0 : reader.GetInt32("fileUserDisplayPictureFileId");
+                                displayPictureFile.FileName = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPictureFileName")) ? null : reader.GetString("fileUserDisplayPictureFileName");
+                                displayPictureFile.Directory = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPictureFolderPath")) ? null : reader.GetString("fileUserDisplayPictureFolderPath"); 
+
                                 bool matchesVisibility = (visibility == "public" && isPublic) || (visibility == "private" && !isPublic) || visibility == "all";
                                 bool matchesOwnership = (ownership == "own" && sharedWith.Contains(user?.Id.ToString() ?? "")) || (ownership == "others" && fileUserId != user?.Id) || (ownership == "all");
 
@@ -237,7 +247,7 @@ namespace maxhanna.Server.Controllers
                                     currentFileEntry.Directory = string.IsNullOrEmpty(folderPath) ? baseTarget : folderPath;
                                     currentFileEntry.Visibility = isPublic ? "Public" : "Private";
                                     currentFileEntry.SharedWith = sharedWith;
-                                    currentFileEntry.User = new User(fileUserId, fileUsername);
+                                    currentFileEntry.User = new User(fileUserId, fileUsername, null, displayPictureFile.Id != 0 ? displayPictureFile : null, null);
                                     currentFileEntry.IsFolder = isFolder;
                                     currentFileEntry.Upvotes = fileUpvotes;
                                     currentFileEntry.Downvotes = fileDownvotes;
@@ -252,59 +262,7 @@ namespace maxhanna.Server.Controllers
 
                             if (currentFileEntry != null && !reader.IsDBNull(reader.GetOrdinal("commentId")))
                             {
-                                var commentId = reader.GetInt32("commentId");
-
-                                FileComment fileComment;
-                                if (!commentDictionary.TryGetValue(commentId, out fileComment!))
-                                {
-                                    var commentUserId = reader.GetInt32("commentUserId");
-                                    var commentUsername = reader.GetString("commentUsername");
-                                    var commentText = reader.GetString("commentText");
-                                    var commentUpvotes = reader.GetInt32("commentUpvotes");
-                                    var commentDownvotes = reader.GetInt32("commentDownvotes");
-
-                                    fileComment = new FileComment
-                                    {
-                                        Id = commentId,
-                                        FileId = fileIdValue,
-                                        User = new User(commentUserId, commentUsername),
-                                        CommentText = commentText,
-                                        Upvotes = commentUpvotes,
-                                        Downvotes = commentDownvotes
-                                    };
-
-                                    commentDictionary[commentId] = fileComment;
-                                    currentFileEntry.FileComments!.Add(fileComment);
-                                }
-
-                                if (!reader.IsDBNull(reader.GetOrdinal("commentFileId")))
-                                {
-                                    var commentFileId = reader.GetInt32("commentFileId");
-                                    var commentFileName = reader.GetString("commentFileName");
-                                    var commentFileFolderPath = reader.GetString("commentFileFolderPath");
-                                    var commentFileIsPublic = reader.GetBoolean("commentFileIsPublic");
-                                    var commentFileIsFolder = reader.GetBoolean("commentFileIsFolder");
-                                    var commentFileUserId = reader.GetInt32("commentFileUserId");
-                                    var commentFileUserName = reader.GetString("commentFileUsername");
-                                    var commentFileType = reader.IsDBNull(reader.GetOrdinal("commentFileType")) ? null : reader.GetString("commentFileType");
-                                    var commentFileSize = reader.GetInt32("commentFileSize");
-                                    var commentFileDate = reader.GetDateTime("commentFileDate");
-
-                                    var commentFileEntry = new FileEntry
-                                    {
-                                        Id = commentFileId,
-                                        FileName = commentFileName,
-                                        Directory = commentFileFolderPath,
-                                        Visibility = commentFileIsPublic ? "Public" : "Private",
-                                        IsFolder = commentFileIsFolder,
-                                        User = new User(commentFileUserId, commentFileUserName),
-                                        FileType = commentFileType,
-                                        FileSize = commentFileSize,
-                                        Date = commentFileDate
-                                    };
-
-                                    fileComment.CommentFiles!.Add(commentFileEntry);
-                                }
+                                GetCommentsForFileEntry(reader, currentFileEntry, commentDictionary, fileIdValue);
                             }
                         }
 
@@ -356,6 +314,68 @@ namespace maxhanna.Server.Controllers
             {
                 _logger.LogError(ex, "An error occurred while listing files.");
                 return StatusCode(500, "An error occurred while listing files.");
+            }
+        }
+
+        private static void GetCommentsForFileEntry(MySqlDataReader reader, FileEntry? currentFileEntry, Dictionary<int, FileComment> commentDictionary, int fileIdValue)
+        {
+            var commentId = reader.GetInt32("commentId");
+
+            FileComment fileComment;
+            if (!commentDictionary.TryGetValue(commentId, out fileComment!))
+            {
+                var commentUserId = reader.GetInt32("commentUserId");
+                var commentUsername = reader.GetString("commentUsername");
+                var commentText = reader.GetString("commentText");
+                var commentUpvotes = reader.GetInt32("commentUpvotes");
+                var commentDownvotes = reader.GetInt32("commentDownvotes");
+
+                int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
+                string? displayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
+                string? displayPicFileFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
+                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+
+                fileComment = new FileComment
+                {
+                    Id = commentId,
+                    FileId = fileIdValue,
+                    User = new User(commentUserId, commentUsername, null, displayPicId != null ? dpFileEntry : null, null),
+                    CommentText = commentText,
+                    Upvotes = commentUpvotes,
+                    Downvotes = commentDownvotes
+                };
+
+                commentDictionary[commentId] = fileComment;
+                currentFileEntry!.FileComments!.Add(fileComment);
+            }
+
+            if (!reader.IsDBNull(reader.GetOrdinal("commentFileId")))
+            {
+                var commentFileId = reader.GetInt32("commentFileId");
+                var commentFileName = reader.GetString("commentFileName");
+                var commentFileFolderPath = reader.GetString("commentFileFolderPath");
+                var commentFileIsPublic = reader.GetBoolean("commentFileIsPublic");
+                var commentFileIsFolder = reader.GetBoolean("commentFileIsFolder");
+                var commentFileUserId = reader.GetInt32("commentFileUserId");
+                var commentFileUserName = reader.GetString("commentFileUsername");
+                var commentFileType = reader.IsDBNull(reader.GetOrdinal("commentFileType")) ? null : reader.GetString("commentFileType");
+                var commentFileSize = reader.GetInt32("commentFileSize");
+                var commentFileDate = reader.GetDateTime("commentFileDate"); 
+
+                var commentFileEntry = new FileEntry
+                {
+                    Id = commentFileId,
+                    FileName = commentFileName,
+                    Directory = commentFileFolderPath,
+                    Visibility = commentFileIsPublic ? "Public" : "Private",
+                    IsFolder = commentFileIsFolder,
+                    User = new User(commentFileUserId, commentFileUserName),
+                    FileType = commentFileType,
+                    FileSize = commentFileSize,
+                    Date = commentFileDate
+                };
+
+                fileComment.CommentFiles!.Add(commentFileEntry);
             }
         }
 
@@ -627,11 +647,11 @@ namespace maxhanna.Server.Controllers
                             convertedFilePath = await ConvertGifToWebp(file, uploadDirectory);
 
                         }
-                        else if (IsImageFile(file))
+                        else if (IsImageFile(file) && !IsWebPFile(file))
                         {
                             convertedFilePath = await ConvertImageToWebp(file, uploadDirectory);
                         }
-                        else if (IsVideoFile(file))
+                        else if (IsVideoFile(file) && !IsWebMFile(file))
                         {
                             convertedFilePath = await ConvertVideoToWebm(file, uploadDirectory);
                         }
@@ -650,7 +670,7 @@ namespace maxhanna.Server.Controllers
                         _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
                     }
                 }
-
+                _logger.LogInformation($"Uploaded {uploaded.Count} files."); 
                 return Ok(uploaded);
             }
             catch (Exception ex)
@@ -659,7 +679,16 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while uploading files.");
             }
         }
-
+        private bool IsWebPFile(IFormFile file)
+        {
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return fileExtension.ToLower() == ".webp";
+        }
+        private bool IsWebMFile(IFormFile file)
+        {
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return fileExtension.ToLower() == ".webm";
+        }
         private bool IsImageFile(IFormFile file)
         {
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif" };
@@ -684,60 +713,64 @@ namespace maxhanna.Server.Controllers
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
             var convertedFileName = $"{fileNameWithoutExtension}.webp";
             var convertedFilePath = Path.Combine(uploadDirectory, convertedFileName);
-            _logger.LogInformation($"After converting GIF, got fileName :{convertedFileName} filepath:{convertedFilePath} ");
             var inputFilePath = Path.Combine(uploadDirectory, file.FileName);
 
-            await Task.Run(async () =>
+            try
             {
-                try
+                using (var stream = new FileStream(inputFilePath, FileMode.Create))
                 {
-                    using (var stream = new FileStream(inputFilePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(stream);
-                    }
-                    var conversion = FFmpeg.Conversions.New()
-                        .AddParameter($"-i \"{inputFilePath}\"")
-                        .AddParameter("-c:v libwebp")
-                        .AddParameter("-lossless 0")
-                        .AddParameter("-q:v 75")
-                        .AddParameter("-loop 0")
-                        .SetOutput(convertedFilePath);
+                    await file.CopyToAsync(stream);
+                }
 
-                    await conversion.Start();
-                    _logger.LogInformation("Finished converting GIF to WebP");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred during GIF conversion.");
-                }
-                finally
-                {
-                    System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
-                }
-            });
+                var beforeFileSize = new FileInfo(inputFilePath).Length;
+
+                var conversion = FFmpeg.Conversions.New()
+                    .AddParameter($"-i \"{inputFilePath}\"")
+                    .AddParameter("-c:v libwebp")
+                    .AddParameter("-lossless 0")
+                    .AddParameter("-q:v 75")
+                    .AddParameter("-loop 0")
+                    .SetOutput(convertedFilePath);
+
+                await conversion.Start();
+
+                var afterFileSize = new FileInfo(convertedFilePath).Length;
+                _logger.LogInformation($"GIF to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during GIF conversion.");
+            }
+            finally
+            {
+                System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
+            }
 
             return convertedFilePath;
         }
+
         private async Task<string> ConvertImageToWebp(IFormFile file, string uploadDirectory)
         {
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
             var convertedFileName = $"{fileNameWithoutExtension}.webp";
             var convertedFilePath = Path.Combine(uploadDirectory, convertedFileName);
-            await Task.Run(async () =>
+
+            try
             {
-                try
+                using (var image = await SixLabors.ImageSharp.Image.LoadAsync(file.OpenReadStream()))
                 {
-                    using (var image = await SixLabors.ImageSharp.Image.LoadAsync(file.OpenReadStream()))
-                    {
-                        await image.SaveAsWebpAsync(convertedFilePath);
-                        _logger.LogInformation("Finished converting image to WebP"); 
-                    }
+                    var beforeFileSize = file.Length;
+
+                    await image.SaveAsWebpAsync(convertedFilePath);
+
+                    var afterFileSize = new FileInfo(convertedFilePath).Length;
+                    _logger.LogInformation($"Image to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred during photo conversion.");
-                } 
-            });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during image conversion.");
+            }
 
             return convertedFilePath;
         }
@@ -747,32 +780,35 @@ namespace maxhanna.Server.Controllers
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
             var convertedFileName = $"{fileNameWithoutExtension}.webm";
             var convertedFilePath = Path.Combine(uploadDirectory, convertedFileName);
-            _logger.LogInformation($"After converting video, got fileName :{convertedFileName} filepath:{convertedFilePath} ");
             var inputFilePath = Path.Combine(uploadDirectory, file.FileName);
 
-            await Task.Run(async () =>
+            try
             {
-                try
+                using (var stream = new FileStream(inputFilePath, FileMode.Create))
                 {
-                    using (var stream = new FileStream(inputFilePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(stream);
-                    }
-                    var res = await FFmpeg.Conversions.FromSnippet.ToWebM(inputFilePath, convertedFilePath);
-                    await res.Start();
-                    _logger.LogInformation($"Finished converting {fileNameWithoutExtension} to WebM.");
+                    await file.CopyToAsync(stream);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred during video conversion.");
-                }
-                finally
-                {
-                    System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
-                }
-            });
+
+                var beforeFileSize = new FileInfo(inputFilePath).Length;
+
+                var res = await FFmpeg.Conversions.FromSnippet.ToWebM(inputFilePath, convertedFilePath);
+                await res.Start();
+
+                var afterFileSize = new FileInfo(convertedFilePath).Length;
+                _logger.LogInformation($"Video to WebM conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during video conversion.");
+            }
+            finally
+            {
+                System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
+            }
+
             return convertedFilePath;
         }
+
 
         private async Task InsertDirectoryMetadata(User user, string directoryPath, bool isPublic)
         {
@@ -877,7 +913,7 @@ namespace maxhanna.Server.Controllers
                 f.upload_date AS date, 
                 fc.id AS commentId, 
                 fc.user_id AS commentUserId, 
-                uc.username AS commentUsername, 
+                uc.username AS commentUsername,  
                 fc.comment AS commentText, 
                 SUM(CASE WHEN fcv.upvote = 1 THEN 1 ELSE 0 END) AS commentUpvotes, 
                 SUM(CASE WHEN fcv.downvote = 1 THEN 1 ELSE 0 END) AS commentDownvotes,
@@ -895,7 +931,7 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN 
                 maxhanna.users u ON u.id = f.user_id 
             LEFT JOIN 
-                maxhanna.users uc ON fc.user_id = uc.id 
+                maxhanna.users uc ON fc.user_id = uc.id  
             LEFT JOIN 
                 maxhanna.comment_votes fcv ON fc.id = fcv.comment_id 
             WHERE 
@@ -960,11 +996,17 @@ namespace maxhanna.Server.Controllers
                                 var commentUpvotes = reader.GetInt32("commentUpvotes");
                                 var commentDownvotes = reader.GetInt32("commentDownvotes");
 
+
+                                int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
+                                string? displayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
+                                string? displayPicFileFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
+                                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+
                                 var fileComment = new FileComment
                                 {
                                     Id = commentId,
                                     FileId = id,
-                                    User = new User(commentUserId, commentUsername ?? "Anonymous"),
+                                    User = new User(commentUserId, commentUsername ?? "Anonymous", null, displayPicId != null ? dpFileEntry : null, null),
                                     CommentText = commentText,
                                     Upvotes = commentUpvotes,
                                     Downvotes = commentDownvotes

@@ -72,6 +72,10 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Notepad/Share/{noteId}", Name = "ShareNote")]
         public async Task<IActionResult> Get([FromBody] ShareNotepadRequest request, int noteId)
         {
+            if (request.User1 == null || request.User2 == null)
+            {
+                return BadRequest("Both users must be present in the request");
+            }
             _logger.LogInformation($"POST /Notepad/Share/{noteId} (for user: {request.User1.Id} to user: {request.User2.Id})");
 
             string sql = "UPDATE maxhanna.notepad SET Ownership = CONCAT(Ownership, ',', @user2id) WHERE id = @noteId";
@@ -288,7 +292,7 @@ namespace maxhanna.Server.Controllers
     }
     public class ShareNotepadRequest
     {
-        public User User1 { get; set; }
-        public User User2 { get; set; }
+        public User? User1 { get; set; }
+        public User? User2 { get; set; }
     }
 }

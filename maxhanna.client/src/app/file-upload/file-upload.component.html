@@ -1,7 +1,7 @@
 <button type="submit"
         (click)="uploadSubmitClicked()"
         title="Upload file(s)">
-  {{uploadProgress > 0 ? uploadProgress + '%' : uploadFileList.length > 0 ? '✅' : '⏫'}}
+  {{uploadProgress == 100 ? 'Finalizing...' : uploadProgress > 0 ? uploadProgress + '%' : uploadFileList.length > 0 ? '✅' : '⏫'}}
 </button>
 
 <button type="submit" *ngIf="uploadFileList.length > 0 && uploadProgress <= 0" (click)="cancelFileUpload()" title="Cancel upload">❌</button>

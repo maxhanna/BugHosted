@@ -9,23 +9,23 @@
          || item.title === 'Wordler'
          || item.title === 'Emulation'
          || item.title === 'Files'" class="navLinkDiv">
-      <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
-        <span (click)="goTo($event)" [title]="item.title">{{item.content! || ''}}</span>
-      </span>
-      <ng-container *ngIf="item.title === 'Weather'; else otherItems">
-        <ng-container *ngIf="item.icon !== '☀️';">
-          <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
-          <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" />
+        <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
+          <span (click)="goTo($event)" [title]="item.title">{{item.content! || ''}}</span> 
+        </span>
+        <ng-container *ngIf="item.title === 'Weather'; else otherItems">
+          <ng-container *ngIf="item.icon !== '☀️';">
+            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" />
+          </ng-container>
+          <ng-template #defaultWeatherIcon *ngIf="item.icon == '☀️'">
+            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
+          </ng-template>
         </ng-container>
-        <ng-template #defaultWeatherIcon *ngIf="item.icon == '☀️'">
+        <ng-template #otherItems>
           <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
           <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
         </ng-template>
-      </ng-container>
-      <ng-template #otherItems>
-        <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
-        <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
-      </ng-template>
     </div>
   </ng-container>
 </div>

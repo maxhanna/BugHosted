@@ -57,8 +57,10 @@ export class MediaSelectorComponent {
     if (this.selectedFiles.length > this.maxSelectedFiles) {
       return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
     }
-    if (files)
+    if (files) {
+      console.log(  "got files, atatching to orgi" );
       this.selectedFiles = this.selectedFiles.concat(files);
+    }
     this.displaySearchButton = this.displaySearch;
   }
   directoryChanged(dir: string) {
@@ -67,5 +69,12 @@ export class MediaSelectorComponent {
   clickViewMediaChoices() {
     this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
     this.displaySearchButton = !this.displaySearchButton;
+  }
+  closeMediaSelector() {
+    this.selectedFiles = [];
+    this.displaySearchButton = false;
+    this.viewMediaChoicesOpen = false;
+    this.displaySearch = false;
+    this.showFileUploader = true;
   }
 }

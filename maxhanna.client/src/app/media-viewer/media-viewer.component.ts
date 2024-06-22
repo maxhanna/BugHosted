@@ -114,7 +114,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
       video.style.display = 'none';
     }
 
-    overlay.style.display = 'flex';
+    overlay.style.display = 'block';
   }
 
   shrink() {

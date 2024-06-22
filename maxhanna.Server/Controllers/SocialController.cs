@@ -80,6 +80,9 @@ namespace maxhanna.Server.Controllers
                     s.id AS story_id, 
                     u.id AS user_id,
                     u.username, 
+                    udp.file_id as displayPictureFileId,
+                    udpfu.folder_path as displayPictureFileFolderPath,
+                    udpfu.file_name as displayPictureFileFileName,
                     s.story_text, 
                     s.date, 
                     COALESCE(sv.upvotes, 0) AS upvotes,
@@ -91,7 +94,11 @@ namespace maxhanna.Server.Controllers
                 FROM 
                     stories AS s 
                     JOIN 
-                        users AS u ON s.user_id = u.id 
+                        users AS u ON s.user_id = u.id  
+                    LEFT JOIN 
+                        user_display_pictures AS udp ON udp.user_id = u.id 
+                    LEFT JOIN 
+                        file_uploads AS udpfu ON udp.file_id = udpfu.id 
                     LEFT JOIN 
                         (SELECT story_id, 
                                 COUNT(CASE WHEN upvote = 1 THEN 1 END) AS upvotes,
@@ -156,10 +163,15 @@ namespace maxhanna.Server.Controllers
 
                         while (await rdr.ReadAsync())
                         {
+                            int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
+                            string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
+                            string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
+                            FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+
                             var story = new Story
                             {
                                 Id = rdr.GetInt32("story_id"),
-                                User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, null, null),
+                                User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null),
                                 StoryText = rdr.GetString("story_text"),
                                 Date = rdr.GetDateTime("date"),
                                 Upvotes = rdr.GetInt32("upvotes"),
@@ -330,6 +342,9 @@ namespace maxhanna.Server.Controllers
         c.story_id AS story_id,
         c.user_id,
         u.username,
+        udpfu.id as profileFileId,
+        udpfu.file_name as profileFileName,
+        udpfu.folder_path as profileFileFolder,
         c.comment,
         c.date,
         cf.file_id AS comment_file_id,
@@ -352,6 +367,10 @@ namespace maxhanna.Server.Controllers
         comments AS c
     LEFT JOIN 
         users AS u ON c.user_id = u.id
+    LEFT JOIN 
+        user_display_pictures AS udp ON udp.user_id = u.id
+    LEFT JOIN 
+        file_uploads AS udpfu ON udp.file_id = udpfu.id
     LEFT JOIN 
         comment_files AS cf ON cf.comment_id = c.id
     LEFT JOIN 
@@ -420,12 +439,18 @@ namespace maxhanna.Server.Controllers
                                 var comment = story.StoryComments!.FirstOrDefault(c => c.Id == commentId);
                                 if (comment == null)
                                 {
+
+                                    int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("profileFileId")) ? null : rdr.GetInt32("profileFileId");
+                                    string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("profileFileFolder")) ? null : rdr.GetString("profileFileFolder");
+                                    string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("profileFileName")) ? null : rdr.GetString("profileFileName");
+                                    FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+
                                     comment = new StoryComment
                                     {
                                         Id = commentId,
                                         CommentText = commentText,
                                         StoryId = storyId,
-                                        User = new User(userId, userName),
+                                        User = new User(userId, userName, null, displayPicId != null ? dpFileEntry : null, null),
                                         Date = date,
                                         CommentFiles = new List<FileEntry>(),
                                         Upvotes = rdr.GetInt32("upvotes"),
@@ -719,20 +744,24 @@ namespace maxhanna.Server.Controllers
         {
             try
             {
-                _logger.LogInformation($"Getting metadata for user : {request.User.Id} for url: {request.Url} for storyId: {storyId}");
-                var metadata = await FetchMetadataAsync(request.Url);
-
-                if (storyId != null && storyId != 0)
+                _logger.LogInformation($"Getting metadata for user : {request.User?.Id} for url: {request.Url} for storyId: {storyId}");
+                if (request.Url != null)
                 {
-                    _logger.LogInformation($"Inserting metadata for story {storyId}");
-                    return Ok(await InsertMetadata((int)storyId, metadata));
-                }
-                return Ok(metadata);
+                    var metadata = await FetchMetadataAsync(request.Url);
+
+                    if (storyId != null && storyId != 0)
+                    {
+                        _logger.LogInformation($"Inserting metadata for story {storyId}");
+                        return Ok(await InsertMetadata((int)storyId, metadata));
+                    }
+                    return Ok(metadata);
+                } 
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred while fetching metadata: {ex.Message}");
             }
+            return Ok();
         }
         private async Task<string> InsertMetadata(int storyId, MetadataDto metadata)
         {

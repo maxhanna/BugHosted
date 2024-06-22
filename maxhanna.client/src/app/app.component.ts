@@ -54,8 +54,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📁", title: "Files", content: undefined },
     { ownership: 0, icon: "🗒️", title: "Notepad", content: undefined },
     { ownership: 0, icon: "📇", title: "Contacts", content: undefined },
-    { ownership: 0, icon: "🎮", title: "Gameboy Color", content: undefined },
-    { ownership: 0, icon: "👾", title: "Emulation", content: undefined },
+    /*{ ownership: 0, icon: "🎮", title: "Gameboy Color", content: undefined },*/
+    { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "💵", title: "Coin-Wallet", content: undefined },
     { ownership: 0, icon: "₿", title: "Coin-Watch", content: undefined },

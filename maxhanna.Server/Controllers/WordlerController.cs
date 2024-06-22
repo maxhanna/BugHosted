@@ -55,14 +55,16 @@ namespace maxhanna.Server.Controllers
                     using (var command = new MySqlCommand(fetchWordOfTheDayQuery, connection))
                     {
                         command.Parameters.AddWithValue("@difficulty", difficulty);
-                        string wordOfTheDay = (string)await command.ExecuteScalarAsync();
-
-                        if (wordOfTheDay == null)
+                        var res = await command.ExecuteScalarAsync();
+                        if (res != null)
                         {
-                            return NotFound("No words found for the specified difficulty.");
+                            string wordOfTheDay = (string)res;
+                            if (wordOfTheDay == null || string.IsNullOrEmpty(wordOfTheDay))
+                            {
+                                return NotFound("No words found for the specified difficulty.");
+                            }
+                            return Ok(wordOfTheDay);
                         }
-
-                        return Ok(wordOfTheDay);
                     }
                 }
             }
@@ -71,6 +73,7 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "An error occurred while fetching the word of the day.");
                 return StatusCode(500, "An error occurred while fetching the word of the day.");
             }
+            return NotFound("No words found for the specified difficulty.");
         }
 
         [HttpPost("/Wordler/AddScore")]
@@ -372,7 +375,7 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("/Wordler/GetDictionaryWord/{word}")]
         public async Task<IActionResult> GetDictionaryWord(string word)
-        { 
+        {
             _logger.LogInformation($"POST /Wordler/GetDictionaryWord/{word}");
             string definition = "";
             try
@@ -402,7 +405,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "Error retrieving definition for word: " + word);
             }
         }
-         
+
 
         // Helper method to fetch the definition of a word
         private async Task<(string definition, List<string> sourceUrls)> GetDictionaryWordInternal(string word)
@@ -439,7 +442,7 @@ namespace maxhanna.Server.Controllers
                     {
                         foreach (var definition in meaning.GetProperty("definitions").EnumerateArray())
                         {
-                            definitions.Add(definition.GetProperty("definition").GetString());
+                            definitions.Add(definition.GetProperty("definition").GetString()!);
                         }
                     }
 
@@ -447,7 +450,8 @@ namespace maxhanna.Server.Controllers
                     {
                         foreach (var sUrl in urls.EnumerateArray())
                         {
-                            if (!string.IsNullOrEmpty(sUrl.GetString())) {
+                            if (!string.IsNullOrEmpty(sUrl.GetString()))
+                            {
                                 sourceUrls.Add(sUrl.GetString()!);
                             }
                         }
@@ -456,6 +460,6 @@ namespace maxhanna.Server.Controllers
 
                 return (definitions.Count > 0 ? string.Join("; ", definitions) : string.Empty, sourceUrls);
             }
-        } 
+        }
     }
 }

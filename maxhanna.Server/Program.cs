@@ -16,7 +16,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
  
 builder.Services.AddHttpClient();
-//builder.Services.AddHostedService<DalleImageGeneratorService>();
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
 

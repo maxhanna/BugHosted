@@ -47,7 +47,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     'snes': 'snes9x',           // Super Nintendo
     'nds': 'desmume',           // Nintendo DS
   };
-  segaFileTypes: string[] = Object.keys(this.coreMapping).filter(([key, value]) => value.includes('genesis'));
+  segaFileTypes: string[] = Object.entries(this.coreMapping)
+    .filter(([key, value]) => value.includes('genesis'))
+    .map(([key, value]) => key);
   oldNintendoDisplay = '';
   oldSpeakerDisplay = '';
 
@@ -106,7 +108,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       console.log(romSaveFile + "  got save state response ? " + saveStateResponse?.size);
 
       const response = await this.romService.getRomFile(file.fileName, this.parentRef?.user);
-      const fileType = this.currentFileType = this.fileService.getFileExtension(file?.fileName!);
+      const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
+      console.log(this.segaFileTypes + " contains : " + fileType);
+      if (this.segaFileTypes.includes('.'+fileType)) {
+        console.log("Sega");
+      }
       const style = {
         backgroundColor: 'black',
         zIndex: '1',
@@ -135,6 +141,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   setupAutosave() {
     this.clearAutosave();
+
+    this.autosave = false;
+    setTimeout(() => {
+      this.autosave = true;
+    }, 60000);  
 
     this.autosaveInterval = setInterval(async () => {
       if (this.autosave && this.nostalgist) {
@@ -249,7 +260,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     addPressReleaseEvents("select", "select");
     addPressReleaseEvents("a", "a");
     addPressReleaseEvents("b", "b");
-    addPressReleaseEvents("y", "y");
+    addPressReleaseEvents("c", "c");
     addPressReleaseEvents("up", "up");
     addPressReleaseEvents("down", "down");
     addPressReleaseEvents("left", "left");
@@ -302,71 +313,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }, { passive: false });
   }
 
-  canvasKeypress(event: Event, up: boolean) {
-    const kbEvent = event as KeyboardEvent;
-    const targetElement = kbEvent.target as HTMLElement;
-    console.log("inside canvas keypress");
-    if (targetElement.tagName.toLowerCase() === 'input' || targetElement.tagName.toLowerCase() === 'textarea') {
-      return;
-    }
-
-    if (kbEvent.key.toLowerCase() == 'a') {
-      if (up)
-        this.nostalgist?.pressUp('a');
-      else
-        this.nostalgist?.pressDown('a');
-      event.preventDefault();
-    }
-    else if (kbEvent.key.toLowerCase() == 'b') {
-      if (up)
-        this.nostalgist?.pressUp('b');
-      else
-        this.nostalgist?.pressDown('b');
-      event.preventDefault();
-    }
-    else if (kbEvent.key.toLowerCase() == 'enter') {
-      if (up)
-        this.nostalgist?.pressUp('start');
-      else
-        this.nostalgist?.pressDown('start');
-      event.preventDefault();
-    }
-    else if (kbEvent.key.toLowerCase() == 'shift') {
-      if (up)
-        this.nostalgist?.pressUp('select');
-      else
-        this.nostalgist?.pressDown('select');
-      event.preventDefault();
-    }
-    else if (kbEvent.key.toLowerCase() == 'arrowup') {
-      if (up)
-        this.nostalgist?.pressUp('up');
-      else
-        this.nostalgist?.pressDown('up');
-      event.preventDefault();
-    }
-    else if (kbEvent.key.toLowerCase() == 'arrowdown') {
-      if (up)
-        this.nostalgist?.pressUp('down');
-      else
-        this.nostalgist?.pressDown('down');
-      event.preventDefault();
-    }
-    else if (kbEvent.key.toLowerCase() == 'arrowleft') {
-      if (up)
-        this.nostalgist?.pressUp('left');
-      else
-        this.nostalgist?.pressDown('left');
-      event.preventDefault();
-    }
-    else if (kbEvent.key.toLowerCase() == 'arrowright') {
-      if (up)
-        this.nostalgist?.pressUp('right');
-      else
-        this.nostalgist?.pressDown('right');
-      event.preventDefault();
-    }
-  }
+   
   overrideGetUserMedia() {
     navigator.mediaDevices.getUserMedia = async (constraints) => {
       console.warn("getUserMedia request blocked");

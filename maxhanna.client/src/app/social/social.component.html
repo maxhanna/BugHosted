@@ -12,13 +12,15 @@
               class="foodForThought"
               (focus)="focusInput()"></textarea>
     <div class="mainFileUploaderAndTopicSelectorDiv">
+      <button (click)="post()" class="createStoryButton">🍌 Post your story</button>
 
-      <app-media-selector #postMediaSelector (selectFileEvent)="selectFile($event)"></app-media-selector>
+      <app-media-selector #postMediaSelector
+                          [currentDirectory]="user?.username ? 'Users/' + user!.username! : parentRef?.user?.username ? 'Users/' + parentRef!.user!.username! : ''"
+                          (selectFileEvent)="selectFile($event)"></app-media-selector>
 
       <app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>
 
     </div>
-    <button (click)="post()" class="createStoryButton">🍌 Post your story</button>
     <div *ngIf="attachedFiles.length > 0"> Attached: {{attachedFiles[0].fileName}}</div>
   </div>
   <div class="inputDiv searchInputs" *ngIf="!user">
@@ -45,32 +47,46 @@
         <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Share Link" style="display:inline-block">Delete Story ❌</button>
       </div>
       <div class="storyTextContainer">
-        <div class="storyUserDetails">
-          <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
-          <div class="usernameProfileLink cursorPointer" (click)="viewProfile(story.user)">{{story.user.username}} </div>
-          <div class="storyDate">{{story.date?.toString()?.replace('T', '@')}}</div>
-        </div>
-        <div class="storyTopics" *ngIf="story.storyTopics && story.storyTopics.length > 0">
-          Topics : <span *ngFor="let topic of story.storyTopics" class="chosenTopic">{{topic.topicText}}</span>
-        </div>
-        <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
-          <div>Attachments:</div>
-          <div *ngFor="let file of story.storyFiles" class="attachment">
-            <app-media-viewer [user]="file.user"
-                              [inputtedParentRef]="parentRef"
-                              [currentDirectory]="file.directory"
-                              [file]="file"
-                              [showCommentSection]="false"
-                              [displayExtraInfo]="false"
-                              [displayExpander]="true">
-            </app-media-viewer>
+        <div class="avatarDiv">
+          <div class="usernameProfileLink" (click)="viewProfile(story.user)">
+            <app-user-tag [user]="story.user"></app-user-tag>
+          </div>
+          <div class="storyDate">
+            <div class="datePart">
+              {{ story.date?.toString()?.split('T') ? story.date?.toString()!.split('T')[0] : '' }}
+            </div>
+            <div class="timePart">
+              {{ story.date?.toString()!.split('T').length > 0 ? story.date?.toString()!.split('T')[1] : '' }}
+            </div>
           </div>
         </div>
-        <div *ngIf="story.metadata">
-          <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
-          <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story?.metadata?.description)"></div>
-          <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
+        <div class="storyContentDiv">
+          <div class="storyUserDetails">
+            <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
+          </div>
+          <div class="storyTopics" *ngIf="story.storyTopics && story.storyTopics.length > 0">
+            Topics : <span *ngFor="let topic of story.storyTopics" class="chosenTopic">{{topic.topicText}}</span>
+          </div>
+          <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
+            <div>Attachments:</div>
+            <div *ngFor="let file of story.storyFiles" class="attachment">
+              <app-media-viewer [user]="file.user"
+                                [inputtedParentRef]="parentRef"
+                                [currentDirectory]="file.directory"
+                                [file]="file"
+                                [showCommentSection]="false"
+                                [displayExtraInfo]="false"
+                                [displayExpander]="true">
+              </app-media-viewer>
+            </div>
+          </div>
+          <div *ngIf="story.metadata">
+            <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
+            <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story?.metadata?.description)"></div>
+            <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
+          </div>
         </div>
+
       </div>
       <app-comments *ngIf="story"
                     [inputtedParentRef]="parentRef"

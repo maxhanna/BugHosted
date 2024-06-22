@@ -33,6 +33,7 @@ import { UpdateUserSettingsComponent } from './update-user-settings/update-user-
 import { CommentsComponent } from './comments/comments.component';
 import { MediaSelectorComponent } from './media-selector/media-selector.component';
 import { EmulationComponent } from './emulation/emulation.component';
+import { UserTagComponent } from './user-tag/user-tag.component';
  
 @NgModule({
   declarations: [
@@ -65,7 +66,8 @@ import { EmulationComponent } from './emulation/emulation.component';
     UpdateUserSettingsComponent,
     CommentsComponent,
     MediaSelectorComponent,
-    EmulationComponent
+    EmulationComponent,
+    UserTagComponent
   ],
   imports: [
     BrowserModule, HttpClientModule,
