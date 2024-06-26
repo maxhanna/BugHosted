@@ -13,6 +13,7 @@
                      [displayFileActions]="false"
                      [displayComments]="false"
                      [displayFileSize]="false"
+                     [displayReactions]="false"
                      (selectFileEvent)="loadRom($event)">
     </app-file-search>
   </div>
@@ -38,7 +39,7 @@
     <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">◻️</div>
 
     <div class="uploadRomSpan upload-label controlVolume">
-      <input type="range" min="0" max="100" value="100" (input)="onVolumeChange($event)" title="Adjust volume levels">
+      <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)" title="Adjust volume levels">
     </div>
     <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span>
 

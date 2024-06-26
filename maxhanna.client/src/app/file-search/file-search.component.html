@@ -35,7 +35,7 @@
 
   <!-- Main Data -->
   <div class="">
-    <div class="mainTable" id="fileTable" *ngIf="!isLoading">
+    <div id="fileTable" *ngIf="!isLoading">
         <div *ngIf="showUpFolderRow && canChangeDirectory">
           <div (click)="previousDirectory()"
               class="upOneFolder"
@@ -47,7 +47,7 @@
           </div>
         </div>
         
-      <div *ngIf="directory && directory.totalCount! > 0">
+      <div *ngIf="directory && directory.totalCount! > 0" class="directoryDisplayDiv">
         <ng-container *ngFor="let file of directory.data; let i = index">
           <div draggable="true"
               (dragstart)="onDragStart($event, file.fileName)">
@@ -64,12 +64,19 @@
                      (click)="$event.stopPropagation()"
                      [id]="'editFileNameInput'+file.id" />
 
-              <span class="fileFolderNameSpan" (click)="selectFile(file);">
+              <span class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}" (click)="selectFile(file);">
                 {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.fileData?.givenFileName ?? getFileWithoutExtension(file.fileName)!}}
               </span>
 
-              <div class="fileExtras"> 
-                <app-reaction [user]="user" [currentReactions]="file.reactions" [fileId]="file.id" *ngIf="!file.isFolder"></app-reaction>
+              <div class="fileExtras">
+                <app-reaction *ngIf="displayReactions && !file.isFolder"
+                              [user]="user"
+                              [currentReactions]="file.reactions"
+                              [fileId]="file.id">
+                </app-reaction>
+                <div *ngIf="displayComments" class="commentCountTd">
+                  {{file && file.fileComments ? '🗨️' + file.fileComments.length : ''}}
+                </div>
                 <div class="typeTd" (click)="selectFile(file);" *ngIf="displayFileType">
                   <span *ngIf="file && file.fileType"
                         [class]="file.visibility == 'Private' ? 'fileTypeSpan' : ''">
@@ -84,9 +91,6 @@
                   <span *ngIf="file && file.fileSize">
                     {{formatFileSize(file.fileSize)}}
                   </span>
-                </div>
-                <div *ngIf="displayComments" class="commentCountTd">
-                  🗨️{{file && file.fileComments ? file.fileComments.length : 0}}
                 </div>
                 <div class="actionTd" *ngIf="displayFileActions">
                   <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">✏️</button>

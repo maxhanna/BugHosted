@@ -583,7 +583,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Social/Post-Story/", Name = "PostStory")]
         public async Task<IActionResult> PostStory([FromBody] StoryRequest story)
         {
-            _logger.LogInformation($"POST /Social/Post-Story/ for user: {story.user.Id} with #of attached files : {story.story.StoryFiles?.Count}");
+            _logger.LogInformation($"POST /Social/Post-Story/ for user: {story.user?.Id} with #of attached files : {story.story.StoryFiles?.Count}");
 
             try
             {
@@ -596,7 +596,7 @@ namespace maxhanna.Server.Controllers
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
-                        cmd.Parameters.AddWithValue("@userId", story.user.Id);
+                        cmd.Parameters.AddWithValue("@userId", story.user?.Id ?? 0);
                         cmd.Parameters.AddWithValue("@storyText", story.story.StoryText);
                         cmd.Parameters.AddWithValue("@profileUserId", story.story.ProfileUserId.HasValue && story.story.ProfileUserId != 0 ? story.story.ProfileUserId.Value : (object)DBNull.Value);
 
@@ -666,7 +666,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Social/Delete-Story", Name = "DeleteStory")]
         public async Task<IActionResult> DeleteStory([FromBody] StoryRequest request)
         {
-            _logger.LogInformation($"POST /Social/Delete-Story for user: {request.user.Id} with storyId: {request.story.Id}");
+            _logger.LogInformation($"POST /Social/Delete-Story for user: {request.user?.Id} with storyId: {request.story.Id}");
 
             try
             {
@@ -678,7 +678,7 @@ namespace maxhanna.Server.Controllers
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
-                        cmd.Parameters.AddWithValue("@userId", request.user.Id);
+                        cmd.Parameters.AddWithValue("@userId", request.user?.Id ?? 0);
                         cmd.Parameters.AddWithValue("@storyId", request.story.Id);
 
                         int rowsAffected = await cmd.ExecuteNonQueryAsync();

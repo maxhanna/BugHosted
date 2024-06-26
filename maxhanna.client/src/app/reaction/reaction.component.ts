@@ -38,11 +38,7 @@ export class ReactionComponent implements OnInit {
   ngOnInit() {
     this.getReactionsListDisplay();
   }
-  tokenizeReactionsDisplay() {
-    if (this.reactionsDisplay) {
-      this.reactionsArray = this.reactionsDisplay.split(',').map(reaction => reaction.trim());
-    }
-  }
+   
   async selectReaction(reaction: string) {
     if (this.userHasReacted() && this.currentReactions && this.currentReactions.some(x => x.type && x.type == reaction)) {
       this.showReactionChoices = false;

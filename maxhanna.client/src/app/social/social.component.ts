@@ -163,8 +163,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
 
   async post() {
-    if (!this.parentRef?.verifyUser() && !this.parent?.verifyUser()) { return alert("You must be logged in to use this feature!"); }
-
+ 
     const storyText = this.story.nativeElement.value!;
     if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
     const newStory: Story = {

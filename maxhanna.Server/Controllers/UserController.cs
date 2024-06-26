@@ -355,11 +355,12 @@ namespace maxhanna.Server.Controllers
             {
                 conn.Open();
 
-                // Check if the user with the provided ID exists
-                string selectSql = "SELECT * FROM maxhanna.users WHERE id = @Id";
+                // Check if the user with the provided ID exists and get the current username
+                string selectSql = "SELECT username FROM maxhanna.users WHERE id = @Id";
                 MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
                 selectCmd.Parameters.AddWithValue("@Id", user.Id);
 
+                string oldUsername;
                 using (var reader = await selectCmd.ExecuteReaderAsync())
                 {
                     if (!reader.Read())
@@ -367,7 +368,33 @@ namespace maxhanna.Server.Controllers
                         // User with the provided ID not found
                         return NotFound();
                     }
+                    oldUsername = reader.GetString("username");
                 }
+
+                if (!oldUsername.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
+                {
+                    // Update the home folder path if the old username is different from the new username
+                    string oldPath = Path.Combine("E:/Uploads/Users/", oldUsername);
+                    string newPath = Path.Combine("E:/Uploads/Users/", user.Username);
+
+                    if (Directory.Exists(oldPath))
+                    {
+                        Directory.Move(oldPath, newPath);
+                    }
+
+                    // Update the file paths in the file_uploads table
+                    string updateFileUploadsSql = @"
+                        UPDATE maxhanna.file_uploads 
+                        SET folder_path = REPLACE(folder_path, @OldPath, @NewPath) 
+                        WHERE user_id = @UserId;
+                    ";
+                    MySqlCommand updateFileUploadsCmd = new MySqlCommand(updateFileUploadsSql, conn);
+                    updateFileUploadsCmd.Parameters.AddWithValue("@OldPath", oldUsername);
+                    updateFileUploadsCmd.Parameters.AddWithValue("@NewPath", user.Username);
+                    updateFileUploadsCmd.Parameters.AddWithValue("@UserId", user.Id);
+                    await updateFileUploadsCmd.ExecuteNonQueryAsync();
+                }
+
                 // Update the user record
                 string updateSql = "UPDATE maxhanna.users SET username = @Username, pass = @Password WHERE id = @Id";
                 MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
@@ -380,12 +407,12 @@ namespace maxhanna.Server.Controllers
                 if (rowsAffected > 0)
                 {
                     // User record updated successfully
-                    return Ok(new { message = "User updated successfully" }); // Return JSON object
+                    return Ok(new { message = "User updated successfully" });
                 }
                 else
                 {
                     // No rows affected, possibly due to no changes in data
-                    return Ok(new { message = "User not updated" }); // Return JSON object
+                    return Ok(new { message = "User not updated" });
                 }
             }
             catch (Exception ex)
@@ -398,6 +425,7 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
         }
+
 
         [HttpDelete("/User/DeleteUser", Name = "DeleteUser")]
         public async Task<IActionResult> DeleteUser([FromBody] User user)

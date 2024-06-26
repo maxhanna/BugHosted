@@ -63,7 +63,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   autosaveInterval: any;
   autosaveIntervalTime: number = 60000; // 1 minute in milliseconds
   autosave = true;
-  currentVolume = 100;
+  currentVolume = 99;
+  maxVolume = 99;
+  actionDelay = 50;
 
   async ngOnInit() {
     this.setHTMLControls();
@@ -182,7 +184,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
           this.decreaseVolume();
         }
         adjustVolumeStep(count - 1);
-      }, 100); // Adjust the delay as needed
+      }, this.actionDelay); // Adjust the delay as needed
     };
 
     adjustVolumeStep(steps);
@@ -196,7 +198,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
   increaseVolume() {
     if (this.nostalgist) {
-      this.currentVolume = Math.min(100, this.currentVolume + 1);
+      this.currentVolume = Math.min(this.maxVolume, this.currentVolume + 1);
       this.nostalgist.sendCommand('VOLUME_UP');
     }
   }
@@ -241,8 +243,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.soundOn = !this.soundOn;
   }
   async saveGame(forceSaveLocal: boolean) {
-    console.log("Saving game");
-    const { state } = await this.nostalgist!.saveState();
+    await this.nostalgist!.saveState();
   }
   setHTMLControls() {
     const addPressReleaseEvents = (elementClass: string, joypadIndex: string) => {
@@ -291,8 +292,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         const deltaX = currentX - startX;
         const deltaY = currentY - startY;
         // Determine the direction of the swipe
-        const threshold = 10; // Adjust this value to your needs
-        const timeout = 50; // Idk browser delay of some sort?
+        const threshold = 10; // Adjust this value to your needs 
         if (Math.abs(deltaX) > Math.abs(deltaY)) {
           if (deltaX > threshold) {
             this.nostalgist!.pressDown('right'); // Right 

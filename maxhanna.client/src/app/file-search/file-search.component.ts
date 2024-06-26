@@ -29,6 +29,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayFileData: boolean = true;
   @Input() displayFileActions: boolean = true;
   @Input() displayComments: boolean = true;
+  @Input() displayReactions: boolean = true;
   @Input() canDragMove: boolean = true;
   @Input() inputtedParentRef?: AppComponent;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();

@@ -2,13 +2,7 @@
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) { 
   .componentMain {
     width: 96vw;
-  }
-
-  .mainTable input {
-    max-width: 80% !important;
-    word-wrap: break-word;
-    text-overflow: ellipsis;
-  }
+  } 
 } 
 .tableDiv {
   max-height: 100px;
@@ -16,7 +10,7 @@
 }
 
 .folder {
-  color: black;
+  color: var(--secondary-font-color);
   cursor: pointer;
 }
  
@@ -37,18 +31,21 @@
 .typeTd {
   width: 50px;
   text-align: center;
+  color: var(--secondary-font-color);
 }
 .fileSizeTd {
   max-width: 100px;
   text-align: center;
+  color: var(--secondary-font-color);
 }
 .actionTd {
   text-align: center;
-  display: flex; 
+  display: flex;
+  color: var(--secondary-font-color);
 }
 .commentCountTd {
-  width: 35px;
-  text-align: center; 
+  text-align: center;
+  color: var(--secondary-font-color);
 }
 
 .filters {
@@ -72,14 +69,20 @@
     border-bottom: var(--main-border);
 }
 .fileFolderNameSpan {
-    width:100%;
-    color: var(--secondary-font-color);
+  width: 100%;
+  cursor: pointer;
+  display: flex;  
+  align-items: center; 
 }
 .fileExtras {
   display: inline-flex;
   justify-content: flex-end;
+  align-items: center;
   white-space: nowrap;
 }
 .fileExtras div {
     margin-left:5px;
+}
+.directoryDisplayDiv {
+    border-top: var(--main-border);
 }

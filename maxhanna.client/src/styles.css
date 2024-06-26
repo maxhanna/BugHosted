@@ -6,6 +6,8 @@
   --main-bg-color-full-opacity: rgba(54, 25, 25);
   --table-thead-color: rgba(54, 25, 25);
   --main-font-color: #00FF00;
+  --main-link-color: #2a6c2d;
+  --primary-font-color: var(--main-font-color);
   --secondary-font-color: cornflowerblue;
   --main-border: 2px ridge var(--main-highlight-color);
   --gameboyBgColor: darkgrey;
@@ -60,16 +62,17 @@ html, body {
 }
 
 a {
-  color: #4CAF50;
+  color: var(--main-link-color);
   font-family: Gadugi, Arial, Helvetica;
   padding: 1px;
   text-align: center;
-  border-radius: 5px; /* Rounded corners */
-  border-bottom: var(--main-highlight-color);
+  border-radius: 5px;
+  border-bottom: 1px dotted var(--main-font-color);
   text-decoration: none;
+  font-style: italic;
 }
 a:visited {
-    color: var(--main-font-color);
+  color: var(--main-link-color);
 }
 a:active {
     color: var(--secondary-font-color);

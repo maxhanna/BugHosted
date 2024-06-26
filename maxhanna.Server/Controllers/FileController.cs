@@ -58,6 +58,7 @@ namespace maxhanna.Server.Controllers
                         ? " AND LOWER(f.file_type) IN (" + string.Join(", ", replaced) + ") "
                         : "";
                 string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
+                string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     connection.Open();
@@ -87,10 +88,11 @@ namespace maxhanna.Server.Controllers
                              WHERE 
                                  f.folder_path = @folderPath 
                                  AND f.id <= @fileId 
-                     {fileTypeCondition} {visibilityCondition}",
+                     {fileTypeCondition} {visibilityCondition} {ownershipCondition}",
                              connection);
                         countCommand.Parameters.AddWithValue("@folderPath", directory);
                         countCommand.Parameters.AddWithValue("@fileId", fileId.Value);
+                        countCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
 
                         int filePosition = Convert.ToInt32(countCommand.ExecuteScalar());
                         page = (filePosition / pageSize) + 1;
@@ -138,6 +140,7 @@ namespace maxhanna.Server.Controllers
                             {(string.IsNullOrEmpty(search) ? "" : "AND (f.file_name LIKE @search OR fd.given_file_name LIKE @search)")}
                             {fileTypeCondition}
                             {visibilityCondition}
+                            {ownershipCondition}
                         ORDER BY 
                             f.id desc
                         LIMIT
@@ -147,7 +150,7 @@ namespace maxhanna.Server.Controllers
                     command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
                     command.Parameters.AddWithValue("@pageSize", pageSize);
                     command.Parameters.AddWithValue("@offset", offset);
-                    command.Parameters.AddWithValue("@fileId", fileId);
+                    command.Parameters.AddWithValue("@fileId", fileId); 
                     if (!string.IsNullOrEmpty(search))
                     {
                         command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
@@ -337,19 +340,21 @@ namespace maxhanna.Server.Controllers
                     //_logger.LogInformation("Getting reactions");
                     // Fetch reactions separately
                     var reactionsCommand = new MySqlCommand($@"
-                    SELECT
-                        r.id AS reaction_id,
-                        r.file_id AS reactionFileId,
-                        r.comment_id AS reactionCommentId,
-                        r.type AS reaction_type,
-                        r.user_id AS reaction_user_id,
-                        ru.username AS reaction_username
-                    FROM
-                        maxhanna.reactions r
-                    LEFT JOIN
-                        maxhanna.users ru ON r.user_id = ru.id
-                    WHERE 1=1
-                    {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) +')' : string.Empty)} {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};", connection);
+                        SELECT
+                            r.id AS reaction_id,
+                            r.file_id AS reactionFileId,
+                            r.comment_id AS reactionCommentId,
+                            r.type AS reaction_type,
+                            r.user_id AS reaction_user_id,
+                            ru.username AS reaction_username
+                        FROM
+                            maxhanna.reactions r
+                        LEFT JOIN
+                            maxhanna.users ru ON r.user_id = ru.id
+                        WHERE 1=1
+                        {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) +')' : string.Empty)} 
+                        {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};"
+                    , connection);
 
                     for (int i = 0; i < commentIds.Count; i++)
                     {
@@ -428,7 +433,8 @@ namespace maxhanna.Server.Controllers
                             ) 
                         {(string.IsNullOrEmpty(search) ? "" : " AND f.file_name LIKE @search OR fd.given_file_name LIKE @search ")}
                         {fileTypeCondition}
-                        {visibilityCondition}"
+                        {visibilityCondition}
+                        {ownershipCondition}"
                      , connection);
                     totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
                     totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);

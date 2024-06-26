@@ -18,6 +18,9 @@
   transition: transform 0.3s ease;
 }
 
+a {
+  font-style: unset;
+}
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
   #navbar {
     height: 60px;
