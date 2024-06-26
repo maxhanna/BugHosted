@@ -85,6 +85,14 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   width: 100%;
   padding: 0 10px;
 }
+.fullscreenBtnTop {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 50px;
+  padding: 0 10px;
+  z-index: 9999;
+}
 .nintendo {
   padding: 0px 5px;
   width: 82px;
@@ -424,6 +432,13 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
     left: 50%;
     transform: translate(-50%, -50%);
   }
+.controlVolume {
+  font-size: xx-small;
+  margin-left: 3px;
+  margin-right: 3px;
+  padding-left: 0px !important;
+  padding-right: 0px !important;
+}
 /*
 .speaker {
   position: relative;

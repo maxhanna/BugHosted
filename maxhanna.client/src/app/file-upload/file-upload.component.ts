@@ -12,6 +12,7 @@ import { FileEntry } from '../../services/datacontracts/file-entry';
 export class FileUploadComponent {
   @Input() currentDirectory = '';
   @Input() user?: User;
+  @Input() uploadButtonText: string = '';
   @Input() showPrivatePublicOption: boolean = true;
   @Input() allowedFileTypes: string = '';
 

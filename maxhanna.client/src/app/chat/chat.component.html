@@ -2,7 +2,7 @@
   <div class="closeButton" (click)="remove_me('ChatComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Chat</div>
-   
+
 
   <app-user-list (userClickEvent)="openChat($event);"
                  [user]="parentRef?.user!"
@@ -19,12 +19,37 @@
         <button (click)="closeChat()">Close Chat with {{ currentChatUser.username }}</button>
       </div>
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
-        <div *ngFor="let message of chatHistory" [ngClass]="{'align-left': message.sender.id === parentRef?.user!.id, 'align-right': message.sender.id !== parentRef?.user!.id}">
-          <div class="messageContainer">
-            <div class="messageSender"><span class="usernameProfileLink cursorPointer" (click)="viewProfile(message.sender)">{{ message.sender.username }}</span> <small>({{ formatTimestamp(message.timestamp) }})</small></div>
-            <div class="messageContent">{{ message.content }}</div>
-          </div>
+        <div *ngFor="let message of chatHistory" [class]="{'align-left': message.sender.id === parentRef?.user!.id, 'align-right': message.sender.id !== parentRef?.user!.id, 'messageContainer': true}"> 
+          <!-- USER MESSAGE -->
+          <ng-container *ngIf="message.sender.id === parentRef?.user!.id">
+            <div class="profileTag" (click)="viewProfile(message.sender)">
+              <div class="usernameProfileLink">
+                <app-user-tag [user]="message.sender"></app-user-tag>
+              </div>
+              ({{ formatTimestamp(message.timestamp) }})
+            </div>
+            <div class="messageContent">
+              {{ message.content }}
+              <app-reaction [messageId]="message.id" [user]="parentRef?.user" [currentReactions]="message.reactions"></app-reaction>
+            </div>
+          </ng-container>
+          <!-- RECEIVER MESSAGE -->
+          <ng-container *ngIf="message.sender.id !== parentRef?.user!.id">
+            <div class="messageContent">
+              {{ message.content }}
+              <app-reaction [messageId]="message.id"
+                            [user]="parentRef?.user"
+                            [currentReactions]="message.reactions"></app-reaction>
+            </div>
+            <div class="profileTag" (click)="viewProfile(message.sender)">
+              <div class="usernameProfileLink">
+                <app-user-tag [user]="message.sender"></app-user-tag>
+              </div>
+              ({{ formatTimestamp(message.timestamp) }})
+            </div>
+          </ng-container>
         </div>
+
         <div *ngIf="(!chatHistory  || chatHistory.length == 0 ) && !isLoading">
           ZZzzz. Empty chat!
         </div>

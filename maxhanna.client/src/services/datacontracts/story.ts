@@ -2,6 +2,7 @@ import { FileEntry } from "./file-entry";
 import { Topic } from "./topic";
 import { User } from "./user";
 import { Comment } from "../datacontracts/comment";
+import { Reaction } from "./reaction";
 
 export class Story {
   id: number | undefined;
@@ -17,6 +18,7 @@ export class Story {
   storyComments: Array<Comment> | undefined;
   storyTopics: Array<Topic> | undefined;
   profileUserId?: number | undefined;
+  reactions?: Array<Reaction> | undefined;
 }
 
 

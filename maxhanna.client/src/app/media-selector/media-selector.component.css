@@ -1,12 +1,49 @@
-.smallContainerForMedia
- {
-    max-height:150px;
-    max-width:150px;
+#selectMediaDiv {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  background: var(--main-bg-color-full-opacity);
+  border: var(--main-border);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); 
+  width: 330px;
+  height: 370px;
+  top: CALC(50% - 300px); /* Adjust as needed */
+  left: CALC(50% - 150px); /* Adjust as needed */
+  overflow: auto;
+}
+
+  #selectMediaDiv.open {
+    display: block;
+  }
+
+.smallContainerForMedia {
+  margin-bottom: 10px;
+  max-height: 10vh;
+  max-width: 10vw;
+  overflow: auto; 
+}
+.searchContainerDiv { 
+    max-height:250px;
     overflow:auto;
 }
-.mediaSelectorDiv {
-    display:flex;
-    justify-content:center;
-    max-width: 300px;
-    min-width:50px;
+.mediaSelectorTitle{
+    font-weight:bolder;
+    text-align:center;
+}
+.mediaFileName {
+  display: inline-block; /* or block */
+  width: 10vw;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.attachmentChoiceContainer {
+  display: flex;
+  justify-content: center;
+  flex-flow: wrap;
+  width: 300px;
+  border: var(--main-border);
+  margin-left: auto;
+  margin-right: auto;
+  gap: 15px;
 }

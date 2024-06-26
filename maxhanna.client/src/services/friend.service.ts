@@ -25,6 +25,7 @@ export class FriendService {
   }
 
   async getFriends(user: User) {
+    if (!user || user.id == 0) return;
     try {
       const response = await fetch(`/friend`, {
         method: 'POST',

@@ -106,7 +106,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   }
   selectFile(files: Array<FileEntry>) {
-    this.attachedFiles = this.attachedFiles.concat(files);
+    this.attachedFiles = files;
   }
 
   copyLink(storyId: number) {
@@ -120,8 +120,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   uploadNotification(notification: string) {
 
-  }
-
+  } 
 
   async searchStories() {
     const search = this.search.nativeElement.value;
@@ -227,12 +226,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     return sanitizedText;
   }
-  replaceEmojisInMessage(msg: string) {
-    const escapedKeys = Object.keys(this.emojiMap).map(key => key.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
-    const regex = new RegExp(escapedKeys.join("|"), "g");
-
-    return msg.replace(regex, match => this.emojiMap[match]);
-  }
+ 
   focusInput(): void {
     setTimeout(() => {
       this.story.nativeElement.scrollIntoView({ behavior: 'smooth' });

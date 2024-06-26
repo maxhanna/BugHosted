@@ -354,7 +354,9 @@ fieldset {
   .notification::before {
     content: '🪲';
   }
-
+  .pointer {
+      cursor: pointer;
+  }
 .cursorPointer {
   cursor: pointer;
   text-decoration: underline;
@@ -416,4 +418,8 @@ fieldset {
   top: -20px;
   left: -1px;
   z-index: 2;
-} 
+}
+.italics{
+    font-style:italic;
+}
+

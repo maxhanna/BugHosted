@@ -1,6 +1,10 @@
-import { HttpClientModule } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import {
+  provideCharts,
+  withDefaultRegisterables,
+} from 'ng2-charts';
 
 import { AppRoutingModule } from './app-routing.module';
 import { CalendarComponent } from './calendar/calendar.component';
@@ -34,14 +38,15 @@ import { CommentsComponent } from './comments/comments.component';
 import { MediaSelectorComponent } from './media-selector/media-selector.component';
 import { EmulationComponent } from './emulation/emulation.component';
 import { UserTagComponent } from './user-tag/user-tag.component';
- 
+import { LineGraphComponent } from './line-graph/line-graph.component';
+import { ReactionComponent } from './reaction/reaction.component';
+
 @NgModule({
   declarations: [
     AppComponent,
     CalendarComponent,
     NavigationComponent,
     FavouritesComponent,
-    CoinWatchComponent,
     WeatherComponent,
     MiningDevicesComponent,
     FileComponent,
@@ -49,10 +54,11 @@ import { UserTagComponent } from './user-tag/user-tag.component';
     TodoComponent,
     NotepadComponent,
     MusicComponent,
-    ContactsComponent, 
+    ContactsComponent,
     CoinWalletComponent,
     GbcComponent,
     UserComponent,
+    CoinWatchComponent,
     ChatComponent,
     UserListComponent,
     MemeComponent,
@@ -67,13 +73,16 @@ import { UserTagComponent } from './user-tag/user-tag.component';
     CommentsComponent,
     MediaSelectorComponent,
     EmulationComponent,
-    UserTagComponent
+    UserTagComponent,
+    ReactionComponent
   ],
-  imports: [
-    BrowserModule, HttpClientModule,
-    AppRoutingModule
-  ], 
-  providers: [],
-  bootstrap: [AppComponent]
+  bootstrap: [AppComponent],
+  imports: [BrowserModule,
+    LineGraphComponent,
+    AppRoutingModule],
+  providers: [
+    provideHttpClient(withInterceptorsFromDi()),
+    provideCharts(withDefaultRegisterables()),
+  ]
 })
 export class AppModule { }

@@ -216,6 +216,8 @@ export class FileService {
   uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, user?: User): Observable<HttpEvent<any>> {
     formData.append('user', JSON.stringify(user));
     formData.append('isPublic', isPublic + "");
+
+    console.log("appending userid: " + user?.id);
     const dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
     const url = `/file/upload${dir}`;
 

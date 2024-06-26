@@ -7,6 +7,9 @@ using MySqlConnector;
 using Xabe.FFmpeg;
 using SixLabors.ImageSharp;
 using System.Runtime.Intrinsics.Arm;
+using System.Data;
+using System.Xml.Linq;
+using System.ComponentModel.Design;
 
 namespace maxhanna.Server.Controllers
 {
@@ -24,11 +27,9 @@ namespace maxhanna.Server.Controllers
             _config = config;
             FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
         }
-
         [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
-        public IActionResult GetDirectory([FromBody] User? user, [FromQuery] string? directory,
-          [FromQuery] string? visibility, [FromQuery] string? ownership, [FromQuery] string? search,
-          [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] int? fileId = null, [FromQuery] List<string>? fileType = null)
+        public IActionResult GetDirectory([FromBody] User? user, [FromQuery] string? directory, [FromQuery] string? visibility, [FromQuery] string? ownership, [FromQuery] string? search,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] int? fileId = null, [FromQuery] List<string>? fileType = null)
         {
             if (string.IsNullOrEmpty(directory))
             {
@@ -43,7 +44,7 @@ namespace maxhanna.Server.Controllers
                 }
             }
             _logger.LogInformation(
-                @$"POST /File/GetDirectory?directory={directory}&visibility={visibility}
+                 @$"POST /File/GetDirectory?directory={directory}&visibility={visibility}
                  &ownership={ownership}&search={search}&page={page}
                  &pageSize={pageSize}&fileId={fileId}&fileType={(fileType != null ? string.Join(", ", fileType) : "")}");
 
@@ -56,18 +57,16 @@ namespace maxhanna.Server.Controllers
                 string fileTypeCondition = fileType != null && fileType.Any() && !string.IsNullOrEmpty(string.Join(',', fileType))
                         ? " AND LOWER(f.file_type) IN (" + string.Join(", ", replaced) + ") "
                         : "";
+                string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     connection.Open();
                     int offset = (page - 1) * pageSize;
-                    bool doOrder = true;
-
+ 
                     if (fileId.HasValue && page == 1)
                     {
                         _logger.LogInformation($"fetching specific fileId's: {fileId} folder path");
-                        doOrder = false;
-                        // Fetch directory path associated with fileId
-                        var directoryCommand = new MySqlCommand(
+                         var directoryCommand = new MySqlCommand(
                             "SELECT folder_path FROM maxhanna.file_uploads WHERE id = @fileId",
                             connection);
                         directoryCommand.Parameters.AddWithValue("@fileId", fileId.Value);
@@ -82,14 +81,14 @@ namespace maxhanna.Server.Controllers
 
                         var countCommand = new MySqlCommand(
                             @$"SELECT 
-                         COUNT(*) 
-                     FROM 
-                         maxhanna.file_uploads f 
-                     WHERE 
-                         f.folder_path = @folderPath 
-                         AND f.id <= @fileId 
-                         {fileTypeCondition}",
-                         connection);
+                                 COUNT(*) 
+                             FROM 
+                                 maxhanna.file_uploads f 
+                             WHERE 
+                                 f.folder_path = @folderPath 
+                                 AND f.id <= @fileId 
+                     {fileTypeCondition} {visibilityCondition}",
+                             connection);
                         countCommand.Parameters.AddWithValue("@folderPath", directory);
                         countCommand.Parameters.AddWithValue("@fileId", fileId.Value);
 
@@ -98,93 +97,52 @@ namespace maxhanna.Server.Controllers
                         offset = (page - 1) * pageSize;
                     }
 
-                    _logger.LogInformation($"setting page:{page}&offset={offset}");
+                    //_logger.LogInformation($"setting page:{page}&offset={offset}");
 
                     var command = new MySqlCommand($@"
-                SELECT 
-                    f.id AS fileId,
-                    MAX(f.file_name) AS file_name,
-                    MAX(f.folder_path) AS folder_path,
-                    MAX(f.is_public) AS is_public,
-                    MAX(f.is_folder) AS is_folder,
-                    MAX(f.user_id) AS fileUserId,
-                    MAX(u.username) AS fileUsername,
-                    MAX(udpfl.id) AS fileUserDisplayPictureFileId,
-                    MAX(udpfl.file_name) AS fileUserDisplayPictureFileName,
-                    MAX(udpfl.folder_path) AS fileUserDisplayPictureFolderPath,
-                    MAX(f.shared_with) AS shared_with,
-                    SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS fileUpvotes,
-                    SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS fileDownvotes,
-                    MAX(f.upload_date) AS date,
-                    fc.id AS commentId,
-                    fc.user_id AS commentUserId,
-                    MAX(uc.username) AS commentUsername,
-                    MAX(ucudpfu.id) AS commentUserDisplayPicId,
-                    MAX(ucudpfu.file_name) AS commentUserDisplayPicFileName,
-                    MAX(ucudpfu.folder_path) AS commentUserDisplayPicFolderPath,
-                    MAX(fc.comment) AS commentText,
-                    SUM(CASE WHEN fcv.upvote = 1 THEN 1 ELSE 0 END) AS commentUpvotes,
-                    SUM(CASE WHEN fcv.downvote = 1 THEN 1 ELSE 0 END) AS commentDownvotes,
-                    fd.given_file_name,
-                    fd.description,
-                    fd.last_updated AS file_data_updated,
-                    f.file_type AS file_type,
-                    f.file_size AS file_size,
-                    cf.file_id AS commentFileId,
-                    cf2.file_name AS commentFileName,
-                    cf2.folder_path AS commentFileFolderPath,
-                    cf2.is_public AS commentFileIsPublic,
-                    cf2.is_folder AS commentFileIsFolder,
-                    cf2.user_id AS commentFileUserId,
-                    cfu2.username AS commentFileUsername,
-                    cf2.file_type AS commentFileType,
-                    cf2.file_size AS commentFileSize,
-                    cf2.upload_date AS commentFileDate
-                FROM
-                    maxhanna.file_uploads f
-                LEFT JOIN
-                    maxhanna.file_votes fv ON f.id = fv.file_id
-                LEFT JOIN
-                    maxhanna.file_data fd ON f.id = fd.file_id
-                LEFT JOIN
-                    maxhanna.comments fc ON f.id = fc.file_id
-                LEFT JOIN
-                    maxhanna.users u ON f.user_id = u.id
-                LEFT JOIN
-                    maxhanna.user_display_pictures udp ON udp.user_id = u.id
-                LEFT JOIN
-                    maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
-                LEFT JOIN
-                    maxhanna.users uc ON fc.user_id = uc.id
-                LEFT JOIN
-                    maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
-                LEFT JOIN
-                    maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
-                LEFT JOIN
-                    maxhanna.comment_votes fcv ON fc.id = fcv.comment_id
-                LEFT JOIN
-                    maxhanna.comment_files cf ON fc.id = cf.comment_id
-                LEFT JOIN
-                    maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
-                LEFT JOIN 
-                    maxhanna.users cfu2 on cfu2.id = cf2.user_id
-                WHERE
-                    f.folder_path = @folderPath
-                    AND (
-                        f.is_public = 1
-                        OR f.user_id = @userId
-                        OR FIND_IN_SET(@userId, f.shared_with) > 0
-                    )
-                    {(string.IsNullOrEmpty(search) ? "" : "AND (f.file_name LIKE @search OR fd.given_file_name LIKE @search)")}
-                    {fileTypeCondition}
-                GROUP BY
-                    f.id, fc.id, fd.given_file_name, fd.description, fd.last_Updated, f.file_type, f.file_size, cf.file_id,
-                    cf2.file_name, cf2.folder_path, cf2.is_public, cf2.is_folder, cf2.user_id, cfu2.username, cf2.file_type,
-                    cf2.file_size, cf2.upload_date 
-                {(!doOrder ? "" : " ORDER BY f.id desc ")}
-                LIMIT
-                    @pageSize OFFSET @offset
-            ", connection);
+                        SELECT 
+                            f.id AS fileId,
+                            f.file_name,
+                            f.folder_path,
+                            f.is_public,
+                            f.is_folder,
+                            f.user_id AS fileUserId,
+                            u.username AS fileUsername,
+                            udpfl.id AS fileUserDisplayPictureFileId,
+                            udpfl.file_name AS fileUserDisplayPictureFileName,
+                            udpfl.folder_path AS fileUserDisplayPictureFolderPath,
+                            f.shared_with,
+                            f.upload_date AS date,
+                            fd.given_file_name,
+                            fd.description,
+                            fd.last_updated AS file_data_updated,
+                            f.file_type AS file_type,
+                            f.file_size AS file_size
+                        FROM
+                            maxhanna.file_uploads f
+                        LEFT JOIN
+                            maxhanna.file_data fd ON f.id = fd.file_id
+                        LEFT JOIN
+                            maxhanna.users u ON f.user_id = u.id
+                        LEFT JOIN
+                            maxhanna.user_display_pictures udp ON udp.user_id = u.id
+                        LEFT JOIN
+                            maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+                        WHERE
+                            f.folder_path = @folderPath
+                            AND (
+                                f.is_public = 1
+                                OR f.user_id = @userId
+                                OR FIND_IN_SET(@userId, f.shared_with) > 0
+                            )
+                            {(string.IsNullOrEmpty(search) ? "" : "AND (f.file_name LIKE @search OR fd.given_file_name LIKE @search)")}
+                            {fileTypeCondition}
+                            {visibilityCondition}
+                        ORDER BY 
+                            f.id desc
+                        LIMIT
+                            @pageSize OFFSET @offset;"
+                    , connection);
                     command.Parameters.AddWithValue("@folderPath", directory);
                     command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
                     command.Parameters.AddWithValue("@pageSize", pageSize);
@@ -197,98 +155,280 @@ namespace maxhanna.Server.Controllers
 
                     using (var reader = command.ExecuteReader())
                     {
-                        int previousFileId = -1;
-                        FileEntry? currentFileEntry = null;
-                        Dictionary<int, FileComment> commentDictionary = new Dictionary<int, FileComment>();
-
                         while (reader.Read())
                         {
-                            var fileIdValue = reader.GetInt32("fileId");
+                            var fileIdValue = reader.IsDBNull("fileId") ? 0 : reader.GetInt32("fileId");
 
-                            if (fileIdValue != previousFileId)
+                            var fileEntry = new FileEntry
                             {
-                                if (currentFileEntry != null)
+                                Id = fileIdValue,
+                                FileName = reader.IsDBNull("file_name") ? "": reader.GetString("file_name"),
+                                Directory = reader.IsDBNull("folder_path") ? "" : reader.GetString("folder_path"),
+                                Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
+                                IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
+                                User = new User(
+                                    reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId"),
+                                    reader.IsDBNull("fileUsername") ? "" : reader.GetString("fileUsername"),
+                                    null,
+                                    new FileEntry
+                                    {
+                                        Id = reader.IsDBNull("fileUserDisplayPictureFileId") ? 0 : reader.GetInt32("fileUserDisplayPictureFileId"),
+                                        FileName = reader.IsDBNull("fileUserDisplayPictureFileName") ? null : reader.GetString("fileUserDisplayPictureFileName"),
+                                        Directory = reader.IsDBNull("fileUserDisplayPictureFolderPath") ? null : reader.GetString("fileUserDisplayPictureFolderPath")
+                                    },
+                                    null
+                                ),
+                                SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
+                                Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"), 
+                                FileData = new FileData
                                 {
-                                    fileEntries.Add(currentFileEntry);
-                                }
+                                    GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
+                                    Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
+                                    LastUpdated = reader.IsDBNull("file_data_updated") ? (DateTime?)null : reader.GetDateTime("file_data_updated")
+                                },
+                                FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
+                                FileSize = reader.IsDBNull("file_size") ? 0 :  reader.GetInt32("file_size")
+                            };
 
-                                var fileName = reader.GetString("file_name");
-                                var folderPath = reader.GetString("folder_path");
-                                var isPublic = reader.GetBoolean("is_public");
-                                var fileUserId = reader.GetInt32("fileUserId");
-                                var fileUsername = reader.GetString("fileUsername");
-                                var sharedWith = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
-                                var isFolder = reader.GetBoolean("is_folder");
-                                var fileUpvotes = reader.GetInt32("fileUpvotes");
-                                var fileDownvotes = reader.GetInt32("fileDownvotes");
-                                var date = reader.GetDateTime("date");
-                                var fileTypeValue = reader.IsDBNull(reader.GetOrdinal("file_type")) ? null : reader.GetString("file_type");
-                                var fileSizeValue = reader.GetInt32("file_size");
-
-                                FileData fileData = new FileData();
-                                fileData.FileId = reader.IsDBNull(reader.GetOrdinal("fileId")) ? 0 : reader.GetInt32("fileId");
-                                fileData.GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name");
-                                fileData.Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description");
-                                fileData.LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated");
-
-                                var displayPictureFile = new FileEntry();
-                                displayPictureFile.Id = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPictureFileId")) ? 0 : reader.GetInt32("fileUserDisplayPictureFileId");
-                                displayPictureFile.FileName = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPictureFileName")) ? null : reader.GetString("fileUserDisplayPictureFileName");
-                                displayPictureFile.Directory = reader.IsDBNull(reader.GetOrdinal("fileUserDisplayPictureFolderPath")) ? null : reader.GetString("fileUserDisplayPictureFolderPath"); 
-
-                                bool matchesVisibility = (visibility == "public" && isPublic) || (visibility == "private" && !isPublic) || visibility == "all";
-                                bool matchesOwnership = (ownership == "own" && sharedWith.Contains(user?.Id.ToString() ?? "")) || (ownership == "others" && fileUserId != user?.Id) || (ownership == "all");
-
-                                if (matchesVisibility && matchesOwnership)
-                                {
-                                    currentFileEntry = new FileEntry();
-                                    currentFileEntry.Id = fileIdValue;
-                                    currentFileEntry.FileName = fileName;
-                                    currentFileEntry.Directory = string.IsNullOrEmpty(folderPath) ? baseTarget : folderPath;
-                                    currentFileEntry.Visibility = isPublic ? "Public" : "Private";
-                                    currentFileEntry.SharedWith = sharedWith;
-                                    currentFileEntry.User = new User(fileUserId, fileUsername, null, displayPictureFile.Id != 0 ? displayPictureFile : null, null);
-                                    currentFileEntry.IsFolder = isFolder;
-                                    currentFileEntry.Upvotes = fileUpvotes;
-                                    currentFileEntry.Downvotes = fileDownvotes;
-                                    currentFileEntry.FileComments = new List<FileComment>();
-                                    currentFileEntry.Date = date;
-                                    currentFileEntry.FileData = fileData;
-                                    currentFileEntry.FileType = fileTypeValue;
-                                    currentFileEntry.FileSize = fileSizeValue;
-                                }
-                                previousFileId = fileIdValue;
-                            }
-
-                            if (currentFileEntry != null && !reader.IsDBNull(reader.GetOrdinal("commentId")))
-                            {
-                                GetCommentsForFileEntry(reader, currentFileEntry, commentDictionary, fileIdValue);
-                            }
-                        }
-
-                        if (currentFileEntry != null)
-                        {
-                            fileEntries.Add(currentFileEntry);
+                            fileEntries.Add(fileEntry);
                         }
                     }
 
+                    var fileIds = fileEntries.Select(f => f.Id).ToList();
+                    var commentIds = new List<int>();
+                    //_logger.LogInformation("Getting comments for fileIds: " + string.Join(",", fileIds));
+
+                    var fileIdsParameters = new List<string>();
+                    for (int i = 0; i < fileIds.Count; i++)
+                    {
+                        fileIdsParameters.Add($"@fileId{i}");
+                    }
+
+                    // Fetch comments separately
+                    var commentsCommand = new MySqlCommand($@"
+                    SELECT 
+                        fc.id AS commentId,
+                        fc.file_id AS commentFileId,
+                        fc.user_id AS commentUserId,
+                        fc.date AS commentDate,
+                        uc.username AS commentUsername,
+                        ucudpfu.id AS commentUserDisplayPicId,
+                        ucudpfu.file_name AS commentUserDisplayPicFileName,
+                        ucudpfu.folder_path AS commentUserDisplayPicFolderPath,
+                        fc.comment AS commentText,
+                        cf.file_id AS commentFileEntryId,
+                        cf2.file_name AS commentFileEntryName,
+                        cf2.folder_path AS commentFileEntryFolderPath,
+                        cf2.is_public AS commentFileEntryIsPublic,
+                        cf2.is_folder AS commentFileEntryIsFolder,
+                        cf2.user_id AS commentFileEntryUserId,
+                        cfu2.username AS commentFileEntryUserName,
+                        cf2.file_type AS commentFileEntryType,
+                        cf2.file_size AS commentFileEntrySize,
+                        cf2.upload_date AS commentFileEntryDate
+                    FROM
+                        maxhanna.comments fc
+                    LEFT JOIN
+                        maxhanna.users uc ON fc.user_id = uc.id
+                    LEFT JOIN
+                        maxhanna.user_display_pictures ucudp ON ucudp.user_id = uc.id
+                    LEFT JOIN
+                        maxhanna.file_uploads ucudpfu ON ucudp.file_id = ucudpfu.id
+                    LEFT JOIN
+                        maxhanna.comment_files cf ON fc.id = cf.comment_id
+                    LEFT JOIN
+                        maxhanna.file_uploads cf2 ON cf.file_id = cf2.id
+                    LEFT JOIN 
+                        maxhanna.users cfu2 on cfu2.id = cf2.user_id 
+                    WHERE 1=1
+                       {(fileIds.Count > 0 ? " AND fc.file_id IN (" + string.Join(", ", fileIdsParameters) + ")" : string.Empty)};" 
+                    , connection);
+                    for (int i = 0; i < fileIds.Count; i++)
+                    {
+                        commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
+                    }
+                    //_logger.LogInformation(commentsCommand.CommandText);
+                    using (var reader = commentsCommand.ExecuteReader())
+                    {
+                        //_logger.LogInformation("comment command executed");
+                        while (reader.Read())
+                        {
+                            //_logger.LogInformation("comment command read");
+                            var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
+                            var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
+                            //_logger.LogInformation("Found commentId " + commentId);
+
+                            var commentUserDisplayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
+                            var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
+                            var commentUserDisplayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
+
+                            var comment = new FileComment
+                            {
+                                Id = commentId,
+                                FileId = fileIdValue,
+                                User = new User(
+                                    reader.GetInt32("commentUserId"),
+                                    reader.GetString("commentUsername"),
+                                    null,
+                                    new FileEntry
+                                    {
+                                        Id = commentUserDisplayPicId ?? 0,
+                                        FileName = commentUserDisplayPicFileName,
+                                        Directory = commentUserDisplayPicFolderPath
+                                    },
+                                    null
+                                ),
+                                CommentText = reader.GetString("commentText"),
+                                Date = reader.GetDateTime("commentDate")
+                            };
+                            commentIds.Add(commentId);
+                            //_logger.LogInformation("Comment constructed with id : " + commentId);
+                            var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
+
+                            if (fileEntryId.HasValue)
+                            {
+                                var fileEntryName = reader.IsDBNull(reader.GetOrdinal("commentFileEntryName")) ? null : reader.GetString("commentFileEntryName");
+                                var fileEntryFolderPath = reader.IsDBNull(reader.GetOrdinal("commentFileEntryFolderPath")) ? null : reader.GetString("commentFileEntryFolderPath");
+                                var fileEntryVisibility = reader.GetBoolean("commentFileEntryIsPublic") ? "Public" : "Private";
+                                var fileEntryUserId = reader.GetInt32("commentFileEntryUserId");
+                                var fileEntryUserName = reader.GetString("commentFileEntryUserName");
+                                var fileEntryDate = reader.GetDateTime("commentFileEntryDate");
+                                var fileEntryType = reader.GetString("commentFileEntryType");
+                                var fileEntrySize = reader.GetInt32("commentFileEntrySize");
+
+                                var fileEntryComment = new FileEntry
+                                {
+                                    Id = fileEntryId.Value,
+                                    FileName = fileEntryName,
+                                    Directory = fileEntryFolderPath,
+                                    Visibility = fileEntryVisibility,
+                                    IsFolder = reader.GetBoolean("commentFileEntryIsFolder"),
+                                    User = new User(fileEntryUserId, fileEntryUserName),
+                                    Date = fileEntryDate,
+                                    FileType = fileEntryType,
+                                    FileSize = fileEntrySize
+                                };
+
+                                comment.CommentFiles!.Add(fileEntryComment);
+                            }
+                            //_logger.LogInformation($"trying to find file with id value : {fileIdValue}");
+                            var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
+
+                            //_logger.LogInformation($"found : {fileEntry}");
+
+                            if (fileEntry != null)
+                            {
+                                if (fileEntry.FileComments == null)
+                                {
+                                    fileEntry.FileComments = new List<FileComment>();
+                                }
+                                fileEntry.FileComments!.Add(comment);
+                                //_logger.LogInformation($"Attached comment {comment.Id} to file {fileEntry.Id}");
+                            }
+                        }
+                    }
+
+                    var commentIdsParameters = new List<string>();
+                    for (int i = 0; i < commentIds.Count; i++)
+                    {
+                        commentIdsParameters.Add($"@commentId{i}");
+                    }
+
+                    //_logger.LogInformation("Getting reactions");
+                    // Fetch reactions separately
+                    var reactionsCommand = new MySqlCommand($@"
+                    SELECT
+                        r.id AS reaction_id,
+                        r.file_id AS reactionFileId,
+                        r.comment_id AS reactionCommentId,
+                        r.type AS reaction_type,
+                        r.user_id AS reaction_user_id,
+                        ru.username AS reaction_username
+                    FROM
+                        maxhanna.reactions r
+                    LEFT JOIN
+                        maxhanna.users ru ON r.user_id = ru.id
+                    WHERE 1=1
+                    {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) +')' : string.Empty)} {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};", connection);
+
+                    for (int i = 0; i < commentIds.Count; i++)
+                    {
+                        reactionsCommand.Parameters.AddWithValue($"@commentId{i}", commentIds[i]);
+                    }
+                    for (int i = 0; i < fileIds.Count; i++)
+                    {
+                        reactionsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
+                    }
+                    //_logger.LogInformation(reactionsCommand.CommandText);
+                    using (var reader = reactionsCommand.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var reactionId = reader.GetInt32("reaction_id");
+                            var fileIdValue = reader.IsDBNull(reader.GetOrdinal("reactionFileId")) ? 0 : reader.GetInt32("reactionFileId");
+                            var commentIdValue  = reader.IsDBNull(reader.GetOrdinal("reactionCommentId")) ? 0 : reader.GetInt32("reactionCommentId");
+
+                            var reaction = new Reaction
+                            {
+                                Id = reactionId,
+                                FileId = fileIdValue != 0 ? fileIdValue : null,
+                                CommentId = commentIdValue != 0 ? commentIdValue : null,
+                                Type = reader.GetString("reaction_type"),
+                                User = new User(reader.GetInt32("reaction_user_id"), reader.GetString("reaction_username"))
+                            };
+
+                            var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
+                            if (fileEntry != null)
+                            {
+                                if (fileEntry.Reactions == null)
+                                {
+                                    fileEntry.Reactions = new List<Reaction>();
+                                }
+                                fileEntry.Reactions.Add(reaction);
+                            }
+
+                            var commentEntry = new FileComment();
+                            commentEntry.Id = 0;
+                            for (var x = 0; x < fileEntries.Count; x++)
+                            {
+                                if (fileEntries[x].FileComments != null)
+                                {
+                                    if (fileEntries[x].FileComments!.Find(x => x.Id == commentIdValue) != null)
+                                    {
+                                        commentEntry = fileEntries[x].FileComments!.Find(x => x.Id == commentIdValue)!;
+                                        break;
+                                    }
+                                }
+                            }
+                              
+                            if (commentEntry.Id != 0)
+                            {
+                                if (commentEntry.Reactions == null)
+                                {
+                                    commentEntry.Reactions = new List<Reaction>();
+                                }
+                                commentEntry.Reactions.Add(reaction);
+                            }
+                        }
+                    }
                     // Get the total count of files for pagination
                     var totalCountCommand = new MySqlCommand(
                         $@"SELECT 
-                     COUNT(*) 
-                 FROM 
-                     maxhanna.file_uploads f 
-                 LEFT JOIN 
-                     maxhanna.file_data fd ON fd.file_id = f.id
-                 WHERE 
-                     f.folder_path = @folderPath 
-                     AND ( 
-                         f.is_public = 1 OR 
-                         f.user_id = @userId OR 
-                         FIND_IN_SET(@userId, f.shared_with) > 0
-                     ) 
-                     {(string.IsNullOrEmpty(search) ? "" : " AND f.file_name LIKE @search OR fd.given_file_name LIKE @search ")}
-                     {fileTypeCondition}"
+                            COUNT(*) 
+                        FROM 
+                            maxhanna.file_uploads f 
+                        LEFT JOIN 
+                            maxhanna.file_data fd ON fd.file_id = f.id
+                        WHERE 
+                            f.folder_path = @folderPath 
+                            AND ( 
+                                f.is_public = 1 OR 
+                                f.user_id = @userId OR 
+                                FIND_IN_SET(@userId, f.shared_with) > 0
+                            ) 
+                        {(string.IsNullOrEmpty(search) ? "" : " AND f.file_name LIKE @search OR fd.given_file_name LIKE @search ")}
+                        {fileTypeCondition}
+                        {visibilityCondition}"
                      , connection);
                     totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
                     totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
@@ -308,76 +448,15 @@ namespace maxhanna.Server.Controllers
                     };
 
                     return Ok(result);
-                }
+                } 
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while listing files.");
-                return StatusCode(500, "An error occurred while listing files.");
+                _logger.LogError($"error:{ex}");
+                return StatusCode(500, ex.Message);
             }
         }
 
-        private static void GetCommentsForFileEntry(MySqlDataReader reader, FileEntry? currentFileEntry, Dictionary<int, FileComment> commentDictionary, int fileIdValue)
-        {
-            var commentId = reader.GetInt32("commentId");
-
-            FileComment fileComment;
-            if (!commentDictionary.TryGetValue(commentId, out fileComment!))
-            {
-                var commentUserId = reader.GetInt32("commentUserId");
-                var commentUsername = reader.GetString("commentUsername");
-                var commentText = reader.GetString("commentText");
-                var commentUpvotes = reader.GetInt32("commentUpvotes");
-                var commentDownvotes = reader.GetInt32("commentDownvotes");
-
-                int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
-                string? displayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
-                string? displayPicFileFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
-                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
-
-                fileComment = new FileComment
-                {
-                    Id = commentId,
-                    FileId = fileIdValue,
-                    User = new User(commentUserId, commentUsername, null, displayPicId != null ? dpFileEntry : null, null),
-                    CommentText = commentText,
-                    Upvotes = commentUpvotes,
-                    Downvotes = commentDownvotes
-                };
-
-                commentDictionary[commentId] = fileComment;
-                currentFileEntry!.FileComments!.Add(fileComment);
-            }
-
-            if (!reader.IsDBNull(reader.GetOrdinal("commentFileId")))
-            {
-                var commentFileId = reader.GetInt32("commentFileId");
-                var commentFileName = reader.GetString("commentFileName");
-                var commentFileFolderPath = reader.GetString("commentFileFolderPath");
-                var commentFileIsPublic = reader.GetBoolean("commentFileIsPublic");
-                var commentFileIsFolder = reader.GetBoolean("commentFileIsFolder");
-                var commentFileUserId = reader.GetInt32("commentFileUserId");
-                var commentFileUserName = reader.GetString("commentFileUsername");
-                var commentFileType = reader.IsDBNull(reader.GetOrdinal("commentFileType")) ? null : reader.GetString("commentFileType");
-                var commentFileSize = reader.GetInt32("commentFileSize");
-                var commentFileDate = reader.GetDateTime("commentFileDate"); 
-
-                var commentFileEntry = new FileEntry
-                {
-                    Id = commentFileId,
-                    FileName = commentFileName,
-                    Directory = commentFileFolderPath,
-                    Visibility = commentFileIsPublic ? "Public" : "Private",
-                    IsFolder = commentFileIsFolder,
-                    User = new User(commentFileUserId, commentFileUserName),
-                    FileType = commentFileType,
-                    FileSize = commentFileSize,
-                    Date = commentFileDate
-                };
-
-                fileComment.CommentFiles!.Add(commentFileEntry);
-            }
-        }
 
         [HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
         public async Task<IActionResult> UpdateFileData([FromBody] FileDataRequest request)
@@ -598,7 +677,6 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
         {
             List<FileEntry> uploaded = new List<FileEntry>();
-            _logger.LogInformation($"POST /File/Upload (folderPath = {folderPath})");
             try
             {
                 if (Request.Form["user"].Count <= 0)
@@ -610,6 +688,8 @@ namespace maxhanna.Server.Controllers
                 var user = JsonConvert.DeserializeObject<User>(Request.Form["user"]!);
                 var isPublic = JsonConvert.DeserializeObject<bool>(Request.Form["isPublic"]!);
                 var files = Request.Form.Files;
+
+                _logger.LogInformation($"POST /File/Upload (user: {user?.Id} folderPath = {folderPath})");
 
                 if (files == null || files.Count == 0)
                     return BadRequest("No files uploaded.");
@@ -667,7 +747,7 @@ namespace maxhanna.Server.Controllers
                         var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath);
                         uploaded.Add(fileEntry);
 
-                        _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
+                        //_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
                     }
                 }
                 _logger.LogInformation($"Uploaded {uploaded.Count} files."); 
@@ -893,7 +973,7 @@ namespace maxhanna.Server.Controllers
                 convertedFileName = $"{fileNameWithoutExtension}.webm";
             }
 
-            _logger.LogInformation("Checking for duplicated files : " + (!string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName));
+            //_logger.LogInformation("Checking for duplicated files : " + (!string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName));
 
             using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
@@ -1082,8 +1162,7 @@ namespace maxhanna.Server.Controllers
                         }
                         else
                         {
-                            _logger.LogError($"Directory not found at {filePath}");
-                            return NotFound("Directory not found.");
+                            _logger.LogError($"Directory not found at {filePath}"); 
                         }
                     }
                     else
@@ -1096,8 +1175,7 @@ namespace maxhanna.Server.Controllers
                         }
                         else
                         {
-                            _logger.LogError($"File not found at {filePath}");
-                            return NotFound("File not found.");
+                            _logger.LogError($"File not found at {filePath}"); 
                         }
                     }
 

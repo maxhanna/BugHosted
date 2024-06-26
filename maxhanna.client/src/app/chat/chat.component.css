@@ -60,10 +60,15 @@
 
 .align-right {
   text-align: right;
-}
+} 
+  .align-right * {
+    border-color: var(--secondary-font-color);
+  }
 
 .messageContainer {
+  display: flex;
   margin: 10px 0;
+  position: relative;
 }
 
 .align-left .messageContainer {
@@ -77,9 +82,10 @@
 .messageContent {
   display: inline-block;
   padding: 5px 10px;
-  border-radius: 10px;
-  background-color: var(--main-highlight-color);
+  border-radius: 4px;
+  border: var(--main-border);
   word-break:break-word;
+  width: CALC(100% - 120px);
 }
 
 .messageSender {
@@ -100,4 +106,10 @@
 
 input[type="text"] {
   touch-action: manipulation;
+}
+.profileTag {
+  margin-left: unset !important;
+  margin-right: unset !important;
+  width: 100px;
+  text-align:center; 
 }

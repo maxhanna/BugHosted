@@ -1,5 +1,6 @@
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.Helpers;
+using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
 using MySqlConnector;
 
@@ -16,6 +17,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
  
 builder.Services.AddHttpClient();
+builder.Services.AddHostedService<CoinValueBackgroundService>();
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
 

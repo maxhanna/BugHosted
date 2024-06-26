@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, Renderer2, ViewChild } from '@angular/core';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user';
@@ -22,10 +22,29 @@ export class MediaSelectorComponent {
   @Input() maxSelectedFiles: number = 5;
   @Input() currentDirectory: string = "";
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
+  @ViewChild('selectMediaDiv', { static: false }) selectMediaDiv!: ElementRef;
+  @ViewChild('mediaButton', { static: false }) mediaButton!: ElementRef;
 
   constructor() { }
 
+  toggleMediaChoices() {
+    this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
+    this.displaySearchButton = true;
+    if (this.selectMediaDiv) {
+      if (this.selectMediaDiv.nativeElement.style.display == "block") {
+        this.selectMediaDiv.nativeElement.style.display = "none";
+      } else {
+        this.selectMediaDiv.nativeElement.style.display = "block"; 
+      }
+    }
+  }
+
+  done() {
+    this.toggleMediaChoices();
+  }
+
   selectFile(file: FileEntry) {
+    console.log("selecting file " + file.fileName);
     this.displaySearch = false;
     if (this.selectedFiles.length > this.maxSelectedFiles) {
       return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
@@ -51,7 +70,7 @@ export class MediaSelectorComponent {
     this.displaySearchButton = true; 
   }
   uploadEvent(files: Array<File>) {
-    this.displaySearchButton = false;
+    this.displaySearchButton = true;
   }
   uploadFinishedEvent(files: FileEntry[]) {
     if (this.selectedFiles.length > this.maxSelectedFiles) {
@@ -59,9 +78,11 @@ export class MediaSelectorComponent {
     }
     if (files) {
       console.log(  "got files, atatching to orgi" );
-      this.selectedFiles = this.selectedFiles.concat(files);
+      this.selectedFiles = files;
     }
-    this.displaySearchButton = this.displaySearch;
+    this.selectFileEvent.emit(this.selectedFiles);
+
+    this.displaySearchButton = true;
   }
   directoryChanged(dir: string) {
     this.currentDirectory = dir;

@@ -56,26 +56,28 @@ export class CommentsComponent extends ChildComponent {
         tmpComment.id = parseInt(res.split(" ")[0]);
         tmpComment.user = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
         tmpComment.commentText = commentsWithEmoji;
-
-        // Set the appropriate ID based on the type
-        if (this.type === "Social") {
-          tmpComment.storyId = this.component_id;
-        } else if (this.type === "File") {
-          tmpComment.fileId = this.component_id;
+        tmpComment.upvotes = 0;
+        tmpComment.downvotes = 0;
+        tmpComment.date = new Date();
+        tmpComment.fileId = fileId;
+        tmpComment.storyId = storyId;
+        tmpComment.commentFiles = this.selectedFiles;
+        if (!this.commentList) {
+          this.commentList = [];
         }
         this.commentList.unshift(tmpComment);
       }
-
-      // Stop the loading indicator for the current component
+      this.selectedFiles = [];
       this.stopLoadingComment(this.component_id);
-    }, 2000); // Debounce delay in milliseconds
+    }, 2000);  
   }
   async selectFile(files: FileEntry[]) {
     this.selectedFiles = files;
   }
   async startLoadingComment() {
-    this.showCommentLoadingOverlay = true;
     const comment = this.addCommentInput.nativeElement.value;
+    if ((!comment || comment.trim() == '') && (!this.selectedFiles || this.selectedFiles.length == 0)) { return alert("Comment cannot be empty!"); }
+    this.showCommentLoadingOverlay = true;
 
     await this.addComment(comment)
   }
@@ -134,10 +136,5 @@ export class CommentsComponent extends ChildComponent {
       console.error("Error downvoting comment:", error);
     }
   }
-  replaceEmojisInMessage(msg: string) {
-    const escapedKeys = Object.keys(this.emojiMap).map(key => key.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
-    const regex = new RegExp(escapedKeys.join("|"), "g");
-
-    return msg.replace(regex, match => this.emojiMap[match]);
-  }
+  
 }

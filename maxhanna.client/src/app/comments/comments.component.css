@@ -55,16 +55,18 @@
 }
 
 .commentTable {
-  border-collapse: collapse !important; 
+  border-collapse: collapse !important;
 }
-.commentTable td {
+
+  .commentTable td {
     max-width: 300px;
-}
- 
+  }
+
 .commentText {
   border-top: var(--main-border);
   text-align: left;
-} 
+}
+
 .commentMediaFile {
   display: block;
   border: var(--main-border);
@@ -74,12 +76,33 @@
 }
 
 .commentContentAndAvatarContainerDiv {
-    display:flex;
-    width:100%;
+  display: inline-flex;
+  width: CALC(100% - 40px);
 }
+
+.actionDiv {
+  width: 40px;
+  display: inline-block;
+  vertical-align: top;
+}
+
 .commentContent {
   width: CALC(100% - 70px);
 }
+
 .commentAvatar {
-    width:70px;
+  width: 70px;
+}
+
+.commentDate {
+  font-size: xx-small;
+  color: var(--secondary-font-color);
+}
+
+.commentSubmit {
+  min-width: 20px;
+  min-height: 20px;
+}
+.commentListDiv {
+  margin-bottom: 10px;
 }

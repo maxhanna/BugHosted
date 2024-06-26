@@ -32,7 +32,7 @@ export class CommentService {
 
   async deleteComment(user: User, commentId: number)  {
     try {
-      const response = await fetch(`/comment/deletecomment `, {
+      const response = await fetch(`/comment/deletecomment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

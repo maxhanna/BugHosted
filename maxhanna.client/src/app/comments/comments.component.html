@@ -1,50 +1,53 @@
 <!-- Comments Section -->
 <div class="commentsHeader">
-  <span [style.cursor]="commentList!.length <= 0 ? 'default' : 'pointer'" (click)="showComments = !showComments">
-    Comments ({{commentList!.length}}) <span class="smallExpander">{{showComments ? '-' : '+'}}</span> 
+  <span [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'" (click)="showComments = !showComments">
+    Comments ({{commentList ? commentList.length : '0'}}) <span class="smallExpander">{{showComments ? '-' : '+'}}</span>
   </span>
 </div>
 <div class="commentsInputArea">
-  
+
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
-    <textarea [placeholder]='commentList!.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();"></textarea>
-    <button type="submit" (click)="startLoadingComment();">🗨️</button>
-    <app-media-selector (selectFileEvent)="selectFile($event)"></app-media-selector>
+    <textarea [placeholder]='commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();"></textarea>
+    <button type="submit" (click)="startLoadingComment();" class="commentSubmit">🗨️</button>
+    <app-media-selector [currentDirectory]="'Users/' + (inputtedParentRef?.user && inputtedParentRef?.user?.id != 0 ? inputtedParentRef?.user!.username : 'Anonymous')"
+                        (selectFileEvent)="selectFile($event)"></app-media-selector>
   </div>
+  <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.</div>
 </div>
-<div class="comments-section" *ngIf="commentList!.length > 0">
+<div class="comments-section" *ngIf="commentList && commentList.length > 0">
   <div *ngIf="showComments">
-    <table class="commentTable">
-      <tbody>
-        <tr *ngFor="let comment of commentList!"> 
-          <td class="commentText">
-            <div class="commentContentAndAvatarContainerDiv">
-              <div class="commentAvatar">
-                <span class="usernameProfileLink" (click)="viewProfile(comment.user)">
-                  <app-user-tag [user]="comment.user"></app-user-tag>
-                </span>
-              </div>
-              <div class="commentContent">
-                {{ comment.commentText }}
-                <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
-                  <app-media-viewer [file]="file"
-                                    [user]="comment.user"
-                                    [currentDirectory]="file.directory"
-                                    [inputtedParentRef]="inputtedParentRef"
-                                    [displayExtraInfo]="false"
-                                    [showCommentSection]="false"></app-media-viewer>
-                </div>
-              </div>
-            </div>  
-          </td>
-          <td>
-            <button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>
-            <button (click)="downvoteComment(comment)" class="vote-button" title="Downvote">⬇️{{ comment.downvotes }}</button>
-            <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id">❌</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div *ngFor="let comment of commentList!" class="commentListDiv">
+      <div class="commentContentAndAvatarContainerDiv">
+        <div class="commentAvatar">
+          <span class="usernameProfileLink" (click)="viewProfile(comment.user)">
+            <app-user-tag [user]="comment.user"></app-user-tag>
+          </span>
+        </div>
+        <div class="commentContent">
+          {{ comment.commentText }}
+          <div class="commentDate">{{comment.date!.toString().replace('T', ' ')}}</div>
+
+          <app-reaction [commentId]="comment.id"
+                        [user]="inputtedParentRef?.user"
+                        [currentReactions]="comment.reactions">
+          </app-reaction>
+
+          <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
+            <app-media-viewer [file]="file"
+                              [user]="comment.user"
+                              [currentDirectory]="file.directory"
+                              [inputtedParentRef]="inputtedParentRef"
+                              [displayExtraInfo]="false"
+                              [showCommentSection]="false"></app-media-viewer>
+          </div>
+        </div>
+      </div>
+      <div class="actionDiv">
+        <!--<button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>
+        <button (click)="downvoteComment(comment)" class="vote-button" title="Downvote">⬇️{{ comment.downvotes }}</button>-->
+        <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id">❌</button>
+      </div>
+    </div>
     <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
       Loading comments...
     </div>

@@ -88,7 +88,9 @@
   max-height: 525px;
   overflow-y: auto;
 }
-
+.attachmentTdTitle{
+    font-size:small;
+}
 .fileNotImageOrVideo {
   font-size: 40px;
 }
@@ -153,15 +155,14 @@
     justify-content: flex-start;
 }
 .searchInputs {
-    margin-left:auto;
-    margin-right:auto;
-    text-align:center;
+    display:flex;
+    justify-content:space-between; 
 }
+
 .additionalSearchFiltersSpan {
     font-size:smaller;
 }
-.usernameProfileLink{ 
-}
+
 
 .storyTextContainer { 
   display:flex;
@@ -181,4 +182,6 @@
 
 .pagination {
     text-align:right;
+    display:inline;
+    margin-top:5px;
 }

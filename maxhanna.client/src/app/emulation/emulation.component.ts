@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Nostalgist } from 'nostalgist'
 import { ChildComponent } from '../child.component';
 import { RomService } from '../../services/rom.service';
@@ -26,6 +26,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   soundOn = true;
   currentFileType = '';
   isSearchVisible = true;
+  isFullScreen = false;
   coreMapping: { [key: string]: string } = {
     'sgx': 'mednafen_supergrafx', // SuperGrafx
     'vb': 'mednafen_vb',        // Virtual Boy
@@ -40,7 +41,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     '32x': 'genesis_plus_gx',   // Sega 32X
     'sms': 'genesis_plus_gx',   // Sega Master System
     'gg': 'genesis_plus_gx',    // Sega Game Gear
-    'nes': 'fceux',             // Nintendo Entertainment System
+    'nes': 'fceumm',             // Nintendo Entertainment System
     'fds': 'fceux',             // Famicom Disk System
     'sfc': 'snes9x',            // Super Famicom
     'smc': 'snes9x',            // Super Nintendo (alternate extension)
@@ -50,28 +51,58 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   segaFileTypes: string[] = Object.entries(this.coreMapping)
     .filter(([key, value]) => value.includes('genesis'))
     .map(([key, value]) => key);
+  snesFileTypes: string[] = Object.entries(this.coreMapping)
+    .filter(([key, value]) => value.includes('snes'))
+    .map(([key, value]) => key);
+  gameboyFileTypes: string[] = Object.entries(this.coreMapping)
+    .filter(([key, value]) => key.includes('gb'))
+    .map(([key, value]) => key);
   oldNintendoDisplay = '';
   oldSpeakerDisplay = '';
 
   autosaveInterval: any;
   autosaveIntervalTime: number = 60000; // 1 minute in milliseconds
   autosave = true;
+  currentVolume = 100;
 
   async ngOnInit() {
     this.setHTMLControls();
     this.overrideGetUserMedia();
+    this.setupEventListeners();
 
     document.addEventListener('fullscreenchange', () => {
+      console.log("inside fullscreenchange document listener");
       if (!document.fullscreenElement) {
         this.canvas.nativeElement.width = 380;
         this.canvas.nativeElement.height = 325;
       }
+      this.isFullScreen = !this.isFullScreen;
     });
   }
-  async ngOnDestroy() {
+  override async remove_me(componentTitle: string) {
+    this.stopEmulator();
+    this.isLoading = false;  // Ensure this is executed regardless of saveState result
+    if (this.parentRef && this.unique_key) {
+      this.parentRef.removeComponent(this.unique_key);
+    } else {
+      console.log("key not found: " + componentTitle);
+    }
+  }
+  async ngOnDestroy() { 
     await this.clearAutosave();
     this.nostalgist?.exit();
     this.nostalgist = undefined;
+  }
+  setupEventListeners() {
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' || event.key === 'Esc') {
+        console.log('Escape key pressed');
+        if (this.isFullScreen) {
+          console.log("toggling fs");
+          this.toggleFullscreen();
+        }
+      }
+    });
   }
   async saveState() {
     const res = await this.nostalgist?.saveState();
@@ -81,74 +112,104 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     await this.romService.uploadRomFile(this.parentRef?.user!, formData);
   }
   async stopEmulator() {
-    if (!confirm("Stop game?")) { return; }
+    if (this.selectedRomName != '' && confirm("Save game?")) { this.saveState(); }
     await this.clearAutosave();
-    await this.nostalgist?.exit();
+    await this.nostalgist?.getEmulator().exit();
     this.isSearchVisible = true;
+    this.currentFileType = '';
+    this.selectedRomName = '';
   }
   async loadState() {
     const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
     const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
-    console.log(romSaveFile + "  got save state response ? " + saveStateResponse?.size);
-
+ 
     await this.nostalgist?.loadState(saveStateResponse!);
   }
   async loadRom(file: FileEntry) {
-    try {
-      this.startLoading();
+ 
+    this.startLoading();
+     this.isSearchVisible = false; 
+    const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName) + ".sav";
+    this.selectedRomName = file.fileName;
+    const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
+ 
+    const response = await this.romService.getRomFile(file.fileName, this.parentRef?.user);
+    const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
+ 
+    const style = {
+      backgroundColor: 'black',
+      zIndex: '1',
+      width: '380px',
+      height: '325px',
+    }
+    const core = this.coreMapping[fileType.toLowerCase()] || 'default_core'; // Replace 'default_core' with a fallback core if needed
 
-      this.isSearchVisible = false;
+    this.nostalgist = await Nostalgist.launch({
+      core: core,
+      rom: { fileName: this.selectedRomName, fileContent: response! },
+      style: style,
+      element: this.canvas.nativeElement,
+      state: saveStateResponse != null ? saveStateResponse : undefined,
+      runEmulatorManually: true
+    });
 
-      this.nostalgist?.getEmulator().exit();
-      this.nostalgist = undefined;
+    await this.nostalgist.launchEmulator(); 
+    this.stopLoading();
 
-      const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName) + ".sav";
-      this.selectedRomName = file.fileName;
-      const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
-      console.log(romSaveFile + "  got save state response ? " + saveStateResponse?.size);
+    this.setupAutosave();
 
-      const response = await this.romService.getRomFile(file.fileName, this.parentRef?.user);
-      const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
-      console.log(this.segaFileTypes + " contains : " + fileType);
-      if (this.segaFileTypes.includes('.'+fileType)) {
-        console.log("Sega");
+  }
+
+  onVolumeChange(event: Event) {
+    const inputElement = event.target as HTMLInputElement;
+    const targetVolume = Number(inputElement.value);
+    this.adjustVolumeIncrementally(targetVolume);
+  }
+
+  adjustVolumeIncrementally(targetVolume: number) {
+    const step = targetVolume > this.currentVolume ? 1 : -1;
+    const steps = Math.abs(targetVolume - this.currentVolume);
+
+    const adjustVolumeStep = (count: number) => {
+      if (count <= 0) {
+        return;
       }
-      const style = {
-        backgroundColor: 'black',
-        zIndex: '1',
-        width: '380px',
-        height: '325px',
-      }
-      const core = this.coreMapping[fileType.toLowerCase()] || 'default_core'; // Replace 'default_core' with a fallback core if needed
 
-      this.nostalgist = await Nostalgist.launch({
-        core: core,
-        rom: { fileName: this.selectedRomName, fileContent: response! },
-        style: style,
-        element: this.canvas.nativeElement,
-        state: saveStateResponse != null ? saveStateResponse : undefined,
-        runEmulatorManually: true
-      });
+      setTimeout(() => {
+        if (step > 0) {
+          this.increaseVolume();
+        } else {
+          this.decreaseVolume();
+        }
+        adjustVolumeStep(count - 1);
+      }, 100); // Adjust the delay as needed
+    };
 
-      await this.nostalgist.launchEmulator();
-      this.stopLoading();
-
-      this.setupAutosave();
-    } catch (error) {
-      console.error("how?" + (error as Error).message);
+    adjustVolumeStep(steps);
+  }
+  decreaseVolume() {
+    if (this.nostalgist) {
+      this.currentVolume = Math.max(0, this.currentVolume - 1);
+      this.nostalgist.sendCommand('VOLUME_DOWN');
     }
   }
 
+  increaseVolume() {
+    if (this.nostalgist) {
+      this.currentVolume = Math.min(100, this.currentVolume + 1);
+      this.nostalgist.sendCommand('VOLUME_UP');
+    }
+  }
   setupAutosave() {
     this.clearAutosave();
 
     this.autosave = false;
     setTimeout(() => {
       this.autosave = true;
-    }, 60000);  
+    }, 60000);
 
     this.autosaveInterval = setInterval(async () => {
-      if (this.autosave && this.nostalgist) {
+      if (this.autosave && this.nostalgist && this.selectedRomName != '') {
         console.log('Autosaving game state...');
         await this.saveState();
       }
@@ -156,10 +217,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
 
   async clearAutosave() {
-    if (this.autosave && this.nostalgist) {
-      console.log('Autosaving game state...');
-      await this.saveState();
-    }
     if (this.autosaveInterval) {
       clearInterval(this.autosaveInterval);
       this.autosaveInterval = undefined;
@@ -173,6 +230,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   removeAccents(str: string) {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   }
+
 
   toggleSound() {
     if (!this.soundOn) {
@@ -252,7 +310,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
       element.addEventListener("touchend", (e) => {
         e.preventDefault();
-        //  this.gameboy!.joypad.up(joypadIndex);
+        this.nostalgist!.pressUp(joypadIndex)
       }, { passive: false });
     };
 
@@ -313,51 +371,45 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }, { passive: false });
   }
 
-   
+
   overrideGetUserMedia() {
     navigator.mediaDevices.getUserMedia = async (constraints) => {
       console.warn("getUserMedia request blocked");
       return Promise.reject(new Error("Webcam access is blocked."));
     };
   }
-  toggleFullscreen() {
+  async toggleFullscreen() {
     const elem = this.fullscreenContainer.nativeElement;
+    const canvas = this.nostalgist?.getCanvas();
+
     const controls = document.getElementsByClassName('controls')[0];
-    const speaker = document.getElementsByClassName('speaker')[0] as HTMLDivElement;
     const nintendo = document.getElementsByClassName('nintendo')[0] as HTMLDivElement;
     const startSelect = document.getElementsByClassName('start-select')[0];
-    const canvas = this.canvas.nativeElement;
 
-    controls.classList.toggle('fullscreenControlsBottom');
-    startSelect.classList.toggle('fullscreenControlsTop');
+    if (this.onMobile()) {
+      controls.classList.toggle('fullscreenControlsBottom');
+      startSelect.classList.toggle('fullscreenControlsTop');
+    }
 
-    // Toggle visibility and position
-    const isFullScreen = document.fullscreenElement;
-    if (!isFullScreen) {
+
+    if (!this.isFullScreen) {
       this.oldNintendoDisplay = nintendo.style.display;
-      this.oldSpeakerDisplay = speaker.style.display;
-    }
-    if (isFullScreen) {
-      speaker.style.display = 'none';
       nintendo.style.display = 'none';
-    } else {
-      speaker.style.display = this.oldSpeakerDisplay;
-      nintendo.style.display = this.oldNintendoDisplay;
-    }
 
-    // Request or exit fullscreen
-    if (!isFullScreen) {
-      if (this.onMobile() && elem.requestFullscreen) {
-        elem.requestFullscreen();
+      if (this.onMobile()) {
+        await elem.requestFullscreen();
       } else {
-        canvas.requestFullscreen();
+        await canvas!.requestFullscreen();
       }
     } else {
+      nintendo.style.display = this.oldNintendoDisplay;
+
       if (document.exitFullscreen) {
         document.exitFullscreen();
       }
     }
   }
+
   onMobile() {
     return (/Mobi|Android/i.test(navigator.userAgent));
   }

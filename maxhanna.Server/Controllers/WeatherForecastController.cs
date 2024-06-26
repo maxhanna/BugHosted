@@ -30,10 +30,19 @@ namespace maxhanna.Server.Controllers
             // Get the weather location for the user
             var weatherLocationRes = await GetWeatherLocation(user);
             var weatherLocation = weatherLocationRes.Location;
-            if (weatherLocation == null || string.IsNullOrEmpty(weatherLocation))
+            if (string.IsNullOrEmpty(weatherLocation))
             {
                 weatherLocation = "Montreal";
             }
+
+            // Check if there's a valid entry in the database
+            var cachedWeather = await GetCachedWeather(weatherLocation);
+            if (cachedWeather != null)
+            {
+                _logger.LogInformation("Returning cached weather!");
+                return cachedWeather;
+            }
+
             // Use the retrieved location in the API request
             var client = new RestClient(urlRoot);
             var request = new RestRequest($"?key={apiKey}&q={weatherLocation}&days=3");
@@ -42,7 +51,74 @@ namespace maxhanna.Server.Controllers
             var content = response.Content;
 
             var weatherForecast = JsonConvert.DeserializeObject<WeatherForecast>(content!);
+
+            // Cache the new weather data
+            if (weatherForecast != null)
+            {
+                await CacheWeatherData(weatherForecast, weatherLocation);
+            }
+
             return weatherForecast!;
+        }
+
+        private async Task<WeatherForecast?> GetCachedWeather(string location)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    string sql = "SELECT weather_data, timestamp FROM user_weather_forecast " +
+                                 "WHERE location = @Location ORDER BY timestamp DESC LIMIT 1;";
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    { 
+                        cmd.Parameters.AddWithValue("@Location", location);
+                        using (var rdr = await cmd.ExecuteReaderAsync())
+                        {
+                            if (await rdr.ReadAsync())
+                            {
+                                var timestamp = rdr.GetDateTime("timestamp");
+                                if (timestamp > DateTime.Now.AddMinutes(-60))
+                                {
+                                    var weatherData = rdr.GetString("weather_data");
+                                    return JsonConvert.DeserializeObject<WeatherForecast>(weatherData);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while retrieving cached weather data.");
+            }
+
+            return null;
+        }
+
+        private async Task CacheWeatherData(WeatherForecast weatherForecast, string location)
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    string sql = "INSERT INTO user_weather_forecast (location, weather_data, timestamp) " +
+                                 "VALUES (@Location, @WeatherData, @Timestamp) " +
+                                 "ON DUPLICATE KEY UPDATE weather_data = @WeatherData, timestamp = @Timestamp;";
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Location", location);
+                        cmd.Parameters.AddWithValue("@WeatherData", JsonConvert.SerializeObject(weatherForecast));
+                        cmd.Parameters.AddWithValue("@Timestamp", DateTime.Now);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while caching weather data.");
+            }
         }
 
         [HttpPost("/WeatherForecast/GetWeatherLocation", Name = "GetWeatherLocation")]
@@ -58,8 +134,7 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql =
-                        "SELECT ownership, location FROM maxhanna.weather_location WHERE ownership = @Owner;";
+                    string sql = "SELECT ownership, location FROM maxhanna.weather_location WHERE ownership = @Owner;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", user.Id);
@@ -96,9 +171,8 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql =
-                        "INSERT INTO maxhanna.weather_location (ownership, location) VALUES (@Owner, @Location) " +
-                        "ON DUPLICATE KEY UPDATE location = @Location;";
+                    string sql = "INSERT INTO maxhanna.weather_location (ownership, location) VALUES (@Owner, @Location) " +
+                                 "ON DUPLICATE KEY UPDATE location = @Location;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", location.user.Id);
@@ -122,6 +196,5 @@ namespace maxhanna.Server.Controllers
                 throw;
             }
         }
-
     }
 }

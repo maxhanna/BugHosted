@@ -15,10 +15,25 @@
       <tr *ngFor="let item of data">
         <td>{{ item.name }}</td>
         <td>{{ item.symbol }}</td>
-        <td>{{ item.rate ? item.rate.toFixed(2) : '-' }}</td>
+        <td>{{ item.valueCAD ? item.valueCAD.toFixed(2) : '-' }}</td>
       </tr>
     </tbody>
   </table>
+
+
+  <div *ngIf="allHistoricalData && allHistoricalData.length > 0">
+    <app-line-graph #lineGraphComponent
+                    [data]="allHistoricalData!">
+    </app-line-graph>
+    <app-line-graph #btcLineGraphComponent
+                    [selectedCoin]="'Bitcoin'"
+                    [data]="allHistoricalData!"
+                    [displayCoinSwitcher]="false">
+    </app-line-graph>
+  </div>
+
+
+
   <div *ngIf="!data && isLoading">
     Loading data, please wait...
   </div>

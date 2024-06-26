@@ -39,26 +39,26 @@
       <thead>
         <tr>
           <th (click)="sortTable(0, 'miningRigTable')">Rig</th>
+          <th title="Hottest Device Temperature">°C</th>
           <th (click)="sortTable(1, 'miningRigTable')">State</th>
+          <th (click)="sortTable(3, 'miningRigTable')" title="Local Profitability" *ngIf="showLocal">{{rate != 1 ? "CAD$" : "BTC"}}</th>
+          <th (click)="sortTable(3, 'miningRigTable')" title="Actual Profitability" *ngIf="!showLocal">{{rate != 1 ? "CAD$" : "BTC"}}</th>
           <th (click)="sortTable(2, 'miningRigTable')" title="Unpaid Amount">Unpaid</th>
           <th (click)="sortTable(3, 'miningRigTable')" title="Speed Rejected">Rejected</th>
-          <th (click)="sortTable(3, 'miningRigTable')" title="Local Profitability">L({{rate != 1 ? "CAD" : "BTC"}})</th>
-          <th (click)="sortTable(3, 'miningRigTable')" title="Actual Profitability">A({{rate != 1 ? "CAD" : "BTC"}})</th>
           <th (click)="sortTable(4, 'miningRigTable')" title="Devices">Devices</th>
-          <th title="Hottest Device Temperature">°C</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let rig of miningRigs">
           <td (click)="toggleDeviceDataVisibility(rig)">{{ rig.rigName }}</td>
-          <td (click)="toggleDeviceDataVisibility(rig)" [style]="rig.minerStatus != 'MINING' ? 'color:red;' : ''">{{ rig.minerStatus }}</td>
+          <td (click)="toggleDeviceDataVisibility(rig)" [style]="computeMaxDeviceTemperature(rig) >= 70 ? 'color:red;' : computeMaxDeviceTemperature(rig) >= 68 ? 'color:yellow;' : ''">{{ computeMaxDeviceTemperature(rig) }}</td>
+          <td (click)="toggleDeviceDataVisibility(rig)" [style]="rig.minerStatus != 'MINING' ? 'color:red;' : ''">{{ rig.minerStatus != 'MINING' ? '🛑' : '✅' }}</td>
+          <td (click)="toggleDeviceDataVisibility(rig)" *ngIf="showLocal">{{ rate != 1 ? ((rig.localProfitability ?? 0 )* rate!).toFixed(2) + '$' : rig.localProfitability }}</td>
+          <td (click)="toggleDeviceDataVisibility(rig)" *ngIf="!showLocal">{{ rate != 1 ? ((rig.actualProfitability ?? 0)* rate!).toFixed(2) + '$' : rig.actualProfitability }}</td>
           <td (click)="toggleDeviceDataVisibility(rig)">{{ rig.unpaidAmount! == 0 ? 0 : rate != 1 ? ((rig.unpaidAmount ?? 0 )* rate!).toFixed(2) + '$' : (rig.unpaidAmount ?? 0).toFixed(8) }}</td>
           <td (click)="toggleDeviceDataVisibility(rig)">{{ rig.speedRejected! == 0 ? 0 : (rig.speedRejected ?? 0).toFixed(8) }}</td>
-          <td (click)="toggleDeviceDataVisibility(rig)">{{ rate != 1 ? ((rig.localProfitability ?? 0 )* rate!).toFixed(2) + '$' : rig.localProfitability }}</td>
-          <td (click)="toggleDeviceDataVisibility(rig)">{{ rate != 1 ? ((rig.actualProfitability ?? 0)* rate!).toFixed(2) + '$' : rig.actualProfitability }}</td>
           <td (click)="toggleDeviceDataVisibility(rig)" [style]="computeDeviceCounts(rig).split(' ')[0] == '0' ? 'color:red;' : ''">{{ computeDeviceCounts(rig) }}</td>
-          <td (click)="toggleDeviceDataVisibility(rig)" [style]="computeMaxDeviceTemperature(rig) >= 70 ? 'color:red;' : computeMaxDeviceTemperature(rig) >= 68 ? 'color:yellow;' : ''">{{ computeMaxDeviceTemperature(rig) }}</td>
           <td (click)="requestRigStateChange(rig)">
             <div class="{{ isStopped(rig.minerStatus!) ? 'stopped' : isOffline(rig.minerStatus!) ? 'offline' : 'started' }}"></div>
           </td>

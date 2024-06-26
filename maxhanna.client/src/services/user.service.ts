@@ -150,7 +150,8 @@ export class UserService {
       return ''; // Return null in case of error
     }
   }
-  async getUserMenu(user: User) : Promise<Array<MenuItem>> {
+  async getUserMenu(user: User): Promise<Array<MenuItem>> {
+    if (!user || user.id == 0) return [];
     try {
       const response = await fetch('/user/menu', {
         method: 'POST',

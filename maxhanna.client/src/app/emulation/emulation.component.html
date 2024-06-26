@@ -19,8 +19,7 @@
 
   <div>
     <span class="helperSpanTitle"
-          title=
-          "This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
+          title="This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
           ◻️ : Toggle fullscreen mode.
           🛑 : Click on this to power off the emulator (if autosave is selected, this will also save your progress).
           🔊/🔇 : Click on this to mute/unmute the audio.
@@ -36,8 +35,13 @@
     <span *ngIf="!autosave" class="uploadRomSpan upload-label" (click)="saveState()" title="Save your game">💾</span>
 
     <span class="uploadRomSpan upload-label" #stopButton (click)="stopEmulator()" *ngIf="!isSearchVisible" title="Power Off">🛑</span>
-    <span class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">◻️</span>
-    <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span> 
+    <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">◻️</div>
+
+    <div class="uploadRomSpan upload-label controlVolume">
+      <input type="range" min="0" max="100" value="100" (input)="onVolumeChange($event)" title="Adjust volume levels">
+    </div>
+    <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span>
+
   </div>
    
 
@@ -78,7 +82,7 @@
         <div class="middle">
         </div>
       </div>
-      <div class="a-b">
+      <div class="a-b"  [style.visibility]="currentFileType != '' && (segaFileTypes.includes(currentFileType) || gameboyFileTypes.includes(currentFileType) || currentFileType.toLowerCase() == 'nes')? 'visible' : 'hidden'">
         <div class="b">B</div>
         <div class="a">A</div>
       </div> 

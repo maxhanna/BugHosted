@@ -20,12 +20,12 @@
 
   <!--LOGIN AREA-->
   <div *ngIf="(user && parentRef && parentRef.user && user.id == parentRef.user.id) || !user && !parentRef?.user">
-    <div style="width:100%;text-align:center" *ngIf="!parentRef?.user || !user">Total users: {{usersCount}}</div>
     <div>
       <div *ngIf="!parentRef!.user">
         <div class="welcomeMessage">
-          <p class="welcomeTitle">BugHosted🪲com</p>
-          <p>Social... <small>and anti-social</small> Community</p>
+          <p>BugHosted</p>
+          <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
+          <p class="welcomeTitle">Total users: {{usersCount}}</p> 
         </div>
         <div>
           <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
@@ -45,7 +45,7 @@
 
   <div class="profileControls">
     <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">Add friend</button>
-    <button *ngIf="user && user != parentRef?.user && friends.includes(user)" (click)="removeFriend(user)">Remove friend</button>
+    <button *ngIf="areWeFriends(user)" (click)="removeFriend(user)">Remove friend</button>
     <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" (click)="addContact(user)">Add as Contact</button>
     <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">Share 📋</button>
   </div>
@@ -58,28 +58,31 @@
         {{isAboutExpanded ? '-' : '+'}}
       </span>
       <div class="mainTableDiv" *ngIf="isAboutExpanded">
-        <table class="mainTable aboutTable" *ngIf="user?.about && (user?.about?.description || user?.about?.birthday || user?.about?.email || user?.about?.phone)"> 
+        <table class="mainTable aboutTable" *ngIf="user?.about && (user?.about?.description || user?.about?.birthday || user?.about?.email || user?.about?.phone || wordlerStreak > 0)"> 
           <tbody>
             <tr *ngIf="user?.about?.description">
               <td colspan="2" title=Description>
                 {{user?.about?.description}}
               </td>
             </tr>
-            <tr *ngIf="user?.about?.email"> 
+            <tr *ngIf="user?.about?.email">
               <td colspan="2" title="Email">
                 {{user?.about?.email}}
               </td>
             </tr>
-            <tr *ngIf="user?.about?.birthday">
-              <td>Birthday</td>
-              <td title="Birthday">
+            <tr *ngIf="user?.about?.birthday"> 
+              <td title="Birthday" colspan="2">
                 {{user?.about?.birthday}}
               </td>
             </tr>
-            <tr *ngIf="user?.about?.phone">
-              <td>Phone</td>
-              <td title="Phone Number">
+            <tr *ngIf="user?.about?.phone"> 
+              <td title="Phone Number" colspan="2">
                 {{user?.about?.phone}}
+              </td>
+            </tr>
+            <tr *ngIf="wordlerStreak > 0"> 
+              <td title="Wordler Streak" colspan="2">
+                Current Wordler streak: {{wordlerStreak}} consecutive days.
               </td>
             </tr>
           </tbody>
@@ -92,7 +95,7 @@
     <div *ngIf="user || parentRef?.user" class="friendsContainer">
       <span class="cursorPointer mainTable">Friends</span>
       <span class="smallExpander mainTable">
-        {{'('+friends.length+')'}}{{isFriendsExpanded ? '-' : '+'}}
+        {{friends ? '('+friends.length+')' : '(0)'}}{{isFriendsExpanded ? '-' : '+'}}
       </span>
       <div class="mainTableDiv" *ngIf="isFriendsExpanded">
         <table class="mainTable" *ngIf="friends">

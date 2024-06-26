@@ -15,7 +15,8 @@
         <ng-container *ngIf="item.title === 'Weather'; else otherItems">
           <ng-container *ngIf="item.icon !== '☀️';">
             <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
-            <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" />
+            <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" *ngIf="item.icon" />
+            <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="!item.icon">☀️</a> 
           </ng-container>
           <ng-template #defaultWeatherIcon *ngIf="item.icon == '☀️'">
             <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>

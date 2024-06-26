@@ -37,7 +37,7 @@ namespace maxhanna.Server.Controllers
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     if (reader.Read())
-                    { 
+                    {
                         return Ok(reader["count"].ToString());
                     }
                     else
@@ -141,7 +141,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        [HttpPost("/User/{id}",Name = "GetUserById")]
+        [HttpPost("/User/{id}", Name = "GetUserById")]
         public async Task<IActionResult> GetUserById([FromBody] User? user, int id)
         {
             _logger.LogInformation($"POST /User/{id} with user: {user?.Id}");
@@ -173,7 +173,7 @@ namespace maxhanna.Server.Controllers
                 ";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@user_id", id); 
+                cmd.Parameters.AddWithValue("@user_id", id);
 
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
@@ -239,8 +239,9 @@ namespace maxhanna.Server.Controllers
                 }
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
-                if (!string.IsNullOrEmpty(request.Search)) { 
-                    cmd.Parameters.AddWithValue("@search", "%"+request.Search+ "%");
+                if (!string.IsNullOrEmpty(request.Search))
+                {
+                    cmd.Parameters.AddWithValue("@search", "%" + request.Search + "%");
                 }
 
                 List<User> users = new List<User>();
@@ -344,7 +345,8 @@ namespace maxhanna.Server.Controllers
         {
             _logger.LogInformation($"PATCH /User with ID: {user.Id}");
 
-            if (string.IsNullOrEmpty(user.Username)) {
+            if (string.IsNullOrEmpty(user.Username))
+            {
                 return BadRequest("Username cannot be empty!");
             }
 
@@ -422,9 +424,10 @@ namespace maxhanna.Server.Controllers
                         // User with the provided ID not found
                         return NotFound();
                     }
-                }
+                } 
 
-                // Delete the user record
+                await DeleteUserFiles(user, conn); 
+                 
                 string deleteSql = "DELETE FROM maxhanna.users WHERE id = @Id";
                 MySqlCommand deleteCmd = new MySqlCommand(deleteSql, conn);
                 deleteCmd.Parameters.AddWithValue("@Id", user.Id);
@@ -450,6 +453,36 @@ namespace maxhanna.Server.Controllers
             finally
             {
                 conn.Close();
+            }
+        }
+
+        private async Task DeleteUserFiles(User user, MySqlConnection conn)
+        {
+            string selectFilesSql = "SELECT file_name, folder_path FROM maxhanna.file_uploads WHERE user_id = @UserId";
+            MySqlCommand selectFilesCmd = new MySqlCommand(selectFilesSql, conn);
+            selectFilesCmd.Parameters.AddWithValue("@UserId", user.Id);
+            List<string> filePaths = new List<string>();
+            using (var reader = await selectFilesCmd.ExecuteReaderAsync())
+            {
+                while (reader.Read())
+                {
+                    string fileName = reader["file_name"].ToString();
+                    string folderPath = reader["folder_path"].ToString();
+                    string fullPath = Path.Combine("E:/Uploads/", folderPath, fileName);
+                    filePaths.Add(fullPath);
+                }
+            }
+            foreach (var filePath in filePaths)
+            { 
+                if (System.IO.File.Exists(filePath))
+                {
+                    System.IO.File.Delete(filePath);
+                }
+            }
+            var tmpPath = Path.Combine("E:/Uploads/Users/", user.Username!);
+            if (tmpPath.Contains("E:/Uploads/Users/") && tmpPath.TrimEnd('/') != "E:/Uploads/Users" && Directory.Exists(tmpPath))
+            {
+                Directory.Delete(tmpPath, true);
             }
         }
 
@@ -578,7 +611,7 @@ namespace maxhanna.Server.Controllers
         [HttpDelete("/User/Menu", Name = "DeleteMenuItem")]
         public async Task<IActionResult> DeleteMenuItem([FromBody] MenuItemRequest request)
         {
-            _logger.LogInformation($"DELETE /User/Menu for user with ID: {request.User?.Id} and title: {request.Title}"); 
+            _logger.LogInformation($"DELETE /User/Menu for user with ID: {request.User?.Id} and title: {request.Title}");
             if (request.User == null)
             {
                 return BadRequest("User missing from DeleteMenuItem request");
@@ -618,7 +651,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/User/Menu/Add", Name = "AddMenuItem")]
         public async Task<IActionResult> AddMenuItem([FromBody] MenuItemRequest request)
         {
-            _logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.User?.Id} and title: {request.Title}"); 
+            _logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.User?.Id} and title: {request.Title}");
             if (request.User == null)
             {
                 return BadRequest("User missing from AddMenuItem request");

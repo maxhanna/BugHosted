@@ -1,14 +1,12 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { lastValueFrom } from 'rxjs';
-import { HttpClient, HttpResponse } from '@angular/common/http';
+import { ChildComponent } from '../child.component'; 
 import { MiningRig } from '../../services/datacontracts/mining-rig';
 import { MiningRigDevice } from '../../services/datacontracts/mining-rig-device';
 import { DailyMiningEarnings } from '../../services/datacontracts/daily-mining-earnings';
-import { CoinWatchResponse } from '../../services/datacontracts/coin-watch-response';
-import { MiningService } from '../../services/mining.service';
-import { CoinWatchService } from '../../services/coin-watch.service';
-
+ import { MiningService } from '../../services/mining.service';
+import { CoinValueService } from '../../services/coin-value.service';
+import { CoinValue } from '../../services/datacontracts/coin-value';
+ 
 @Component({
   selector: 'app-mining-rigs',
   templateUrl: './mining-rigs.component.html',
@@ -26,7 +24,7 @@ export class MiningRigsComponent extends ChildComponent {
   showLocal = true;
   notifications: string[] = [];
 
-  constructor(private miningService: MiningService, private coinwatchService: CoinWatchService) {
+  constructor(private miningService: MiningService, private coinValueService: CoinValueService) {
     super();
   }
   ngOnInit() {
@@ -96,9 +94,9 @@ export class MiningRigsComponent extends ChildComponent {
   }
   async getBTCRate() {
     this.startLoading();
-    const data = await this.coinwatchService.getCoinwatchResponse(this.parentRef?.user!);
+    const data = await this.coinValueService.getLatestCoinValuesByName("Bitcoin") as CoinValue;
     this.stopLoading();
-    this.rate = data.filter((x: CoinWatchResponse) => x.name == "Bitcoin")[0].rate;
+    this.rate = data.valueCAD;
   }
   
   toggleShowAllData() {

@@ -28,6 +28,28 @@ export class WordlerService {
     }
   }
 
+  async getConsecutiveDayStreak(user: User) {
+    if (!user || user.id == 0) return;
+    try {
+      const response = await fetch(`/wordler/getconsecutivedaysstreak`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error getConsecutiveDayStreak: ${response.statusText}`);
+      }
+
+      return await response.text();
+    } catch (error) {
+      console.error(error);
+      return '';
+    }
+  }
+
   async getWordDefinition(word: string) {
     try {
       const response = await fetch(`/wordler/getdictionaryword/${word}`, {

@@ -17,6 +17,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   feedback: string[][] = [];
   currentAttempt: number = 0;
   gameStarted = false;
+  showExitGameButton = false;
   numberOfTries: number = 6;
   scores: WordlerScore[] = [];
   guesses: WordlerGuess[] = [];
@@ -28,7 +29,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   selectedDifficulty = 0;
   disableAllInputs = false;
   guessAttempts: string[] = [];
-
+  currentStreak = 0;
  
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
 
@@ -45,7 +46,12 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   constructor(private wordlerService: WordlerService, private renderer: Renderer2) { super(); }
 
   async ngOnInit() {
+    this.showExitGameButton = false;
     this.getHighScores();
+    const res = await this.wordlerService.getConsecutiveDayStreak(this.parentRef?.user!);
+    if (res) {
+      this.currentStreak = parseInt(res);
+    }
   }
   copyLink() {
     const link = `https://bughosted.com/Wordler`;
@@ -130,6 +136,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       return alert("You must select a difficulty!");
     }
     this.disableAllInputs = false;
+    this.showExitGameButton = true;
     this.selectedDifficulty = parseInt(this.difficultySelect.nativeElement.value);
 
     this.wordToGuess = (await this.wordlerService.getRandomWord(this.selectedDifficulty)).toUpperCase();
@@ -414,6 +421,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       this.wordToGuess = '';
       this.stopTimer();
       this.disableAllInputs = true;
+      this.showExitGameButton = false;
     }
   } 
 }

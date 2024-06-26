@@ -14,8 +14,7 @@ const PROXY_CONFIG = [
       "/notepad",
       "/contact",
       "/user",
-      "/chat",
-      "/meme",
+      "/chat", 
       "/news",
       "/social",
       "/rom",
@@ -23,6 +22,8 @@ const PROXY_CONFIG = [
       "/friend",
       "/wordler",
       "/comment",
+      "/coinvalue",
+      "/reaction",
     ],
     target,
     secure: false

@@ -1,0 +1,31 @@
+.addReactionDiv {
+  position: relative;
+  bottom: 0;
+  right: 0;
+  font-size: small;
+  color: grey;
+  display: inline-block;
+}
+.addReactionSpan {
+    font-size: small;
+    border: 1px solid;
+    border-radius: 15px;
+    padding:1px;
+}
+
+.myReactionDiv{
+    display: inline-block;
+}
+.addReactionTitleSpan {
+  border: 1px solid;
+  border-radius: 15px;
+  padding: 1px;
+}
+.reactionsContainer {
+  min-width: 70px;
+}
+.reactionChoices {
+  position:relative;
+  z-index:4;
+  background-color: var(--main-bg-color-full-opacity);
+}

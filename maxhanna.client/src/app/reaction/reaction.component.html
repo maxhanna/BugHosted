@@ -1,0 +1,21 @@
+<div class="reactionsContainer">
+  <div class="addReactionDiv pointer" (click)="showReactionsOnClick()">{{reactionsDisplay}}</div>
+  <div class="addReactionDiv myReactionDiv" (click)="reactionDisplayOnClick()">
+    <span class="addReactionSpan cursorPointer">
+      {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
+      <span class="addReactionTitleSpan" *ngIf="!userHasReacted()">
+        reaction
+      </span>
+    </span>
+  </div>
+</div>
+<div class="reactionChoices" *ngIf="showReactionChoices">
+  <div class="reactionChoice" *ngFor="let reaction of reactions" (click)="selectReaction(reaction.type)">
+    {{reaction.emoji}} {{reaction.label}}
+  </div>
+</div>
+<div *ngIf="showReactions" class="reactionChoices">
+  <div *ngFor="let reaction of currentReactions">
+    {{reaction.user?.username}}:{{replaceReactionType(reaction.type)}}  
+  </div>
+</div>

@@ -8,6 +8,7 @@ import { Todo } from './datacontracts/todo';
 })
 export class TodoService { 
   async getTodo(user: User, type: string, search?: string) {
+    if (!user || user.id == 0) return;
     try {
       var params = new URLSearchParams({ type: type });
       if (search) {

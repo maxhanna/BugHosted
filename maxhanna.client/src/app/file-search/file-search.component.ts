@@ -17,7 +17,7 @@ import { AppComponent } from '../app.component';
   styleUrl: './file-search.component.css'
 })
 export class FileSearchComponent extends ChildComponent implements OnInit, AfterViewInit {
-  @Input() currentDirectory = '';
+  @Input() currentDirectory = ''; 
   @Input() clearAfterSelectFile = false;
   @Input() allowedFileTypes: string[] = [];
   @Input() user?: User;
@@ -128,6 +128,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   async getDirectory(file?: string, fileId?: number) {
+    this.directory = undefined;
     this.openedFiles = [];
     const search = this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : undefined;
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
@@ -147,10 +148,18 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           fileId,
           (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>())
         );
-        this.directory = res;
+        if (res) { 
+          this.directory = res;
+
+          if (this.directory && this.directory.currentDirectory) {
+            this.currentDirectory = this.directory.currentDirectory;
+          } else {
+            this.currentDirectory = '';
+          }
+          this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() != "" ? true : false);
+        }
+        console.log(res)
         if (this.directory && this.directory.totalCount) {
-          this.currentDirectory = this.directory.currentDirectory!;
-          this.showUpFolderRow = this.currentDirectory.includes('/') ? true : false;
           this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
           
           if (this.fileId && this.fileId != null && this.fileId != 0 + '' && this.directory.data!.filter(x => x.id == parseInt(this.fileId!))[0]) {

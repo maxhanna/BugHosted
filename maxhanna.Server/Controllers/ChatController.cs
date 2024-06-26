@@ -1,12 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
 using maxhanna.Server.Controllers.DataContracts;
-using static maxhanna.Server.Controllers.ChatController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -127,6 +121,10 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Chat/GetMessageHistory", Name = "GetMessageHistory")]
         public async Task<IActionResult> GetMessageHistory([FromBody] MessageHistoryRequest request)
         {
+            if(request.user1 == null || request.user2 == null)
+            {
+                return BadRequest("GetMessageHistory request must cointain two users");
+            }
             _logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.user1.Id} and {request.user2.Id}");
             List<Message> messages = new List<Message>();
 
@@ -138,14 +136,39 @@ namespace maxhanna.Server.Controllers
                 string sql = @"
                     SELECT 
                         m.*, 
-                        su.id AS sender_id, su.username AS sender_username,
-                        ru.id AS receiver_id, ru.username AS receiver_username
+                        su.id AS sender_id, 
+                        su.username AS sender_username,
+                        sudpfu.id as senderPicId, 
+                        sudpfu.folder_path as senderPicFolderPath,
+                        sudpfu.file_name as senderPicFileName,
+                        ru.id AS receiver_id, 
+                        ru.username AS receiver_username, 
+                        rudpfu.id as receiverPicId, 
+                        rudpfu.folder_path as receiverPicFolderPath,
+                        rudpfu.file_name as receiverPicFileName,
+                        r.id AS reaction_id,
+                        r.user_id AS reaction_user_id,
+                        reactionuser.username AS reaction_username,
+                        r.timestamp AS reaction_timestamp,
+                        r.type
                     FROM 
                         maxhanna.messages m
                     JOIN 
                         maxhanna.users su ON m.sender = su.id
+                    LEFT JOIN 
+                        maxhanna.user_display_pictures sudp ON sudp.user_id = su.id
+                    LEFT JOIN 
+                        maxhanna.file_uploads sudpfu ON sudp.file_id = sudpfu.id
                     JOIN 
-                        maxhanna.users ru ON m.receiver = ru.id
+                        maxhanna.users AS ru ON m.receiver = ru.id
+                    LEFT JOIN 
+                        maxhanna.user_display_pictures AS rudp ON rudp.user_id = ru.id
+                    LEFT JOIN 
+                        maxhanna.file_uploads AS rudpfu ON rudp.file_id = rudpfu.id
+                    LEFT JOIN 
+                        maxhanna.reactions AS r ON m.id = r.message_id
+                    LEFT JOIN 
+                        maxhanna.users AS reactionuser ON reactionuser.id = r.user_id
                     WHERE 
                         (m.sender = @User1Id AND m.receiver = @User2Id) OR 
                         (m.sender = @User2Id AND m.receiver = @User1Id)
@@ -159,29 +182,75 @@ namespace maxhanna.Server.Controllers
 
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
+                    Dictionary<int, Message> messageMap = new Dictionary<int, Message>();
+
                     while (reader.Read())
                     {
-                        var sender = new User
-                        (
-                            Convert.ToInt32(reader["sender_id"]),
-                            reader["sender_username"].ToString()!
-                        );
+                        int messageId = Convert.ToInt32(reader["id"]);
 
-                        var receiver = new User
-                        (
-                            Convert.ToInt32(reader["receiver_id"]),
-                            reader["receiver_username"].ToString()!
-                        );
-
-                        messages.Add(new Message
+                        if (!messageMap.ContainsKey(messageId))
                         {
-                            Id = Convert.ToInt32(reader["id"]),
-                            Sender = sender,
-                            Receiver = receiver,
-                            Content = reader["content"].ToString()!,
-                            Timestamp = Convert.ToDateTime(reader["timestamp"])
-                        });
+                            var senderDisplayPicture = new FileEntry();
+                            senderDisplayPicture.Id = reader.IsDBNull(reader.GetOrdinal("senderPicId")) ? 0 : reader.GetInt32("senderPicId");
+                            senderDisplayPicture.FileName = reader.IsDBNull(reader.GetOrdinal("senderPicFileName")) ? null : reader.GetString("senderPicFileName");
+                            senderDisplayPicture.Directory = reader.IsDBNull(reader.GetOrdinal("senderPicFolderPath")) ? null : reader.GetString("senderPicFolderPath");
+
+                            var sender = new User
+                            (
+                                Convert.ToInt32(reader["sender_id"]),
+                                reader["sender_username"].ToString()!,
+                                null,
+                                senderDisplayPicture.Id == 0 ? null : senderDisplayPicture,
+                                null
+                            );
+
+                            var receiverDisplayPicture = new FileEntry();
+                            receiverDisplayPicture.Id = reader.IsDBNull(reader.GetOrdinal("receiverPicId")) ? 0 : reader.GetInt32("receiverPicId");
+                            receiverDisplayPicture.FileName = reader.IsDBNull(reader.GetOrdinal("receiverPicFileName")) ? null : reader.GetString("receiverPicFileName");
+                            receiverDisplayPicture.Directory = reader.IsDBNull(reader.GetOrdinal("receiverPicFolderPath")) ? null : reader.GetString("receiverPicFolderPath");
+
+                            var receiver = new User
+                            (
+                                Convert.ToInt32(reader["receiver_id"]),
+                                reader["receiver_username"].ToString()!,
+                                null,
+                                receiverDisplayPicture.Id == 0 ? null : receiverDisplayPicture,
+                                null
+                            );
+
+                            var message = new Message
+                            {
+                                Id = messageId,
+                                Sender = sender,
+                                Receiver = receiver,
+                                Content = reader["content"].ToString()!,
+                                Timestamp = Convert.ToDateTime(reader["timestamp"]),
+                                Reactions = new List<Reaction>()
+                            };
+
+                            messageMap.Add(messageId, message);
+                        }
+
+                        // Check if reaction data is present and add to reactions list
+                        if (!reader.IsDBNull(reader.GetOrdinal("reaction_id")))
+                        {
+                            var reaction = new Reaction
+                            {
+                                Id = Convert.ToInt32(reader["reaction_id"]),
+                                User = new User(
+                                    reader.IsDBNull(reader.GetOrdinal("reaction_user_id")) ? 0 : Convert.ToInt32(reader["reaction_user_id"]),
+                                    reader.IsDBNull(reader.GetOrdinal("reaction_username")) ? "Anonymous" : reader.GetString("reaction_username")
+                                ),
+                                MessageId = messageId,
+                                Timestamp = Convert.ToDateTime(reader["reaction_timestamp"]),
+                                Type = reader["type"].ToString()
+                            };
+
+                            messageMap[messageId].Reactions!.Add(reaction);
+                        }
                     }
+
+                    messages = messageMap.Values.ToList();
                 } 
             }
             catch (Exception ex)

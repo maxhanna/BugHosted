@@ -57,7 +57,7 @@ namespace maxhanna.Server.Controllers
 
             if (request.ProfileUserId != null && request.ProfileUserId > 0)
             {
-                whereClause.Append("AND s.profile_user_id = @profile OR s.user_id = @profile ");
+                whereClause.Append("AND s.profile_user_id = @profile ");
                 parameters.Add("@profile", request.ProfileUserId.Value);
             }
 
@@ -69,55 +69,64 @@ namespace maxhanna.Server.Controllers
             int offset = (page - 1) * pageSize;
 
             string countSql = @"
-                SELECT 
-                    COUNT(*) AS total_count
-                FROM 
-                    stories AS s 
-                " + whereClause + ";";
+        SELECT 
+            COUNT(*) AS total_count
+        FROM 
+            stories AS s 
+        " + whereClause + ";";
 
             string sql = @"
-                SELECT 
-                    s.id AS story_id, 
-                    u.id AS user_id,
-                    u.username, 
-                    udp.file_id as displayPictureFileId,
-                    udpfu.folder_path as displayPictureFileFolderPath,
-                    udpfu.file_name as displayPictureFileFileName,
-                    s.story_text, 
-                    s.date, 
-                    COALESCE(sv.upvotes, 0) AS upvotes,
-                    COALESCE(sv.downvotes, 0) AS downvotes,
-                    COALESCE(c.comments_count, 0) AS comments_count,
-                    sm.title, 
-                    sm.description, 
-                    sm.image_url
-                FROM 
-                    stories AS s 
-                    JOIN 
-                        users AS u ON s.user_id = u.id  
-                    LEFT JOIN 
-                        user_display_pictures AS udp ON udp.user_id = u.id 
-                    LEFT JOIN 
-                        file_uploads AS udpfu ON udp.file_id = udpfu.id 
-                    LEFT JOIN 
-                        (SELECT story_id, 
-                                COUNT(CASE WHEN upvote = 1 THEN 1 END) AS upvotes,
-                                COUNT(CASE WHEN downvote = 1 THEN 1 END) AS downvotes
-                         FROM story_votes
-                         GROUP BY story_id) AS sv ON s.id = sv.story_id
-                    LEFT JOIN 
-                        (SELECT story_id, COUNT(id) AS comments_count
-                         FROM comments
-                         GROUP BY story_id) AS c ON s.id = c.story_id
-                    LEFT JOIN 
-                        story_metadata AS sm ON s.id = sm.story_id 
-                    " + whereClause + @"
-                    ORDER BY 
-                        s.id DESC
-                    LIMIT 
-                        @pageSize 
-                    OFFSET 
-                        @offset;";
+        SELECT 
+            s.id AS story_id, 
+            u.id AS user_id,
+            u.username, 
+            udp.file_id as displayPictureFileId,
+            udpfu.folder_path as displayPictureFileFolderPath,
+            udpfu.file_name as displayPictureFileFileName,
+            s.story_text, 
+            s.date, 
+            COALESCE(sv.upvotes, 0) AS upvotes,
+            COALESCE(sv.downvotes, 0) AS downvotes,
+            COALESCE(c.comments_count, 0) AS comments_count,
+            sm.title, 
+            sm.description, 
+            sm.image_url,
+            r.id AS reaction_id,
+            r.user_id AS reaction_user_id,
+            reactionusers.username AS reaction_user_name,
+            r.type AS reaction_type,
+            r.timestamp AS reaction_timestamp
+        FROM 
+            stories AS s 
+            JOIN 
+                users AS u ON s.user_id = u.id  
+            LEFT JOIN 
+                user_display_pictures AS udp ON udp.user_id = u.id 
+            LEFT JOIN 
+                file_uploads AS udpfu ON udp.file_id = udpfu.id 
+            LEFT JOIN 
+                (SELECT story_id, 
+                        COUNT(CASE WHEN upvote = 1 THEN 1 END) AS upvotes,
+                        COUNT(CASE WHEN downvote = 1 THEN 1 END) AS downvotes
+                 FROM story_votes
+                 GROUP BY story_id) AS sv ON s.id = sv.story_id
+            LEFT JOIN 
+                (SELECT story_id, COUNT(id) AS comments_count
+                 FROM comments
+                 GROUP BY story_id) AS c ON s.id = c.story_id
+            LEFT JOIN 
+                story_metadata AS sm ON s.id = sm.story_id 
+            LEFT JOIN 
+                reactions AS r ON s.id = r.story_id
+            LEFT JOIN 
+                users AS reactionusers ON reactionusers.id = r.user_id
+        " + whereClause + @"
+        ORDER BY 
+            s.id DESC
+        LIMIT 
+            @pageSize 
+        OFFSET 
+            @offset;";
 
             var storyResponse = new StoryResponse();
             int totalCount = 0;
@@ -157,43 +166,77 @@ namespace maxhanna.Server.Controllers
                         cmd.Parameters.AddWithValue("@profile", request.ProfileUserId);
                     }
 
+                    var storiesMap = new Dictionary<int, Story>(); // Dictionary to store stories by their ID
+
                     using (var rdr = await cmd.ExecuteReaderAsync())
                     {
                         _logger.LogInformation("SQL query executed, processing results.");
 
                         while (await rdr.ReadAsync())
                         {
-                            int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
-                            string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
-                            string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
-                            FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+                            int storyId = rdr.GetInt32("story_id");
 
-                            var story = new Story
+                            if (!storiesMap.ContainsKey(storyId))
                             {
-                                Id = rdr.GetInt32("story_id"),
-                                User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null),
-                                StoryText = rdr.GetString("story_text"),
-                                Date = rdr.GetDateTime("date"),
-                                Upvotes = rdr.GetInt32("upvotes"),
-                                Downvotes = rdr.GetInt32("downvotes"),
-                                CommentsCount = rdr.GetInt32("comments_count"),
-                                Metadata = new MetadataDto
-                                {
-                                    Title = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title"),
-                                    Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description"),
-                                    ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
-                                },
-                                StoryFiles = new List<FileEntry>(),
-                                StoryComments = new List<StoryComment>(),
-                                StoryTopics = new List<Topic>()
-                            };
+                                // Create a new Story object if it doesn't exist in the dictionary
+                                int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
+                                string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
+                                string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
+                                FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
 
-                            storyResponse.Stories.Add(story);
+                                var story = new Story
+                                {
+                                    Id = storyId,
+                                    User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null),
+                                    StoryText = rdr.GetString("story_text"),
+                                    Date = rdr.GetDateTime("date"),
+                                    Upvotes = rdr.GetInt32("upvotes"),
+                                    Downvotes = rdr.GetInt32("downvotes"),
+                                    CommentsCount = rdr.GetInt32("comments_count"),
+                                    Metadata = new MetadataDto
+                                    {
+                                        Title = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title"),
+                                        Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description"),
+                                        ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
+                                    },
+                                    StoryFiles = new List<FileEntry>(),
+                                    StoryComments = new List<StoryComment>(),
+                                    StoryTopics = new List<Topic>(),
+                                    Reactions = new List<Reaction>() // Initialize reactions list
+                                };
+
+                                storiesMap.Add(storyId, story);
+                            }
+
+                            // Add reactions if present
+                            if (!rdr.IsDBNull(rdr.GetOrdinal("reaction_id")))
+                            {
+                                var reaction = new Reaction
+                                {
+                                    Id = rdr.GetInt32("reaction_id"),
+                                    User = new User(
+                                        rdr.IsDBNull(rdr.GetOrdinal("reaction_user_id")) ? 0 : rdr.GetInt32("reaction_user_id"),
+                                        rdr.IsDBNull(rdr.GetOrdinal("reaction_user_name")) ? "Anonymous" : rdr.GetString("reaction_user_name"),
+                                        null,
+                                        null,
+                                        null
+                                    ),
+                                    Timestamp = rdr.IsDBNull(rdr.GetOrdinal("reaction_timestamp")) ? DateTime.Now : rdr.GetDateTime("reaction_timestamp"),
+                                    Type = rdr.IsDBNull(rdr.GetOrdinal("reaction_type")) ? "" : rdr.GetString("reaction_type"),
+                                    StoryId = storyId // Associate the reaction with the correct story
+                                };
+
+                                storiesMap[storyId].Reactions!.Add(reaction);
+                            }
                         }
                     }
+
+                    // Add all stories from the dictionary to the response
+                    storyResponse.Stories.AddRange(storiesMap.Values);
                 }
             }
-            await AttachCommentsToStoriesAsync(storyResponse.Stories!); 
+
+            await AttachCommentsToStoriesAsync(storyResponse.Stories!);
             await AttachFilesToStoriesAsync(storyResponse.Stories!);
 
             storyResponse.TotalCount = totalCount;
@@ -203,6 +246,7 @@ namespace maxhanna.Server.Controllers
             _logger.LogInformation("Stories fetched and processed.");
             return storyResponse;
         }
+
 
         private async Task AttachFilesToStoriesAsync(List<Story> stories)
         {
@@ -328,7 +372,7 @@ namespace maxhanna.Server.Controllers
             // Extract all unique story IDs from the list of stories
             var storyIds = stories.Select(s => s.Id).Distinct().ToList();
 
-            // If there are no stories with comments, return early
+            // If there are no stories, return early
             if (storyIds.Count == 0)
             {
                 return;
@@ -337,59 +381,68 @@ namespace maxhanna.Server.Controllers
             // Construct SQL query with parameterized IN clause for story IDs
             StringBuilder sqlBuilder = new StringBuilder();
             sqlBuilder.AppendLine(@"
-    SELECT 
-        c.id AS comment_id,
-        c.story_id AS story_id,
-        c.user_id,
-        u.username,
-        udpfu.id as profileFileId,
-        udpfu.file_name as profileFileName,
-        udpfu.folder_path as profileFileFolder,
-        c.comment,
-        c.date,
-        cf.file_id AS comment_file_id,
-        f.file_name AS comment_file_name,
-        f.folder_path AS comment_file_folder_path,
-        f.is_public AS comment_file_visibility,
-        f.shared_with AS comment_file_shared_with,
-        f.is_folder AS comment_file_is_folder,
-        fv.upvote AS comment_file_upvote,
-        fv.downvote AS comment_file_downvote,
-        f.upload_date AS comment_file_date,
-        fu.id AS file_user_id,
-        fu.username AS file_username,
-        fd.given_file_name as comment_file_given_file_name,
-        fd.description as comment_file_description,
-        fd.last_updated as comment_file_date,
-        COALESCE(cv.upvotes, 0) AS upvotes,
-        COALESCE(cv.downvotes, 0) AS downvotes
-    FROM 
-        comments AS c
-    LEFT JOIN 
-        users AS u ON c.user_id = u.id
-    LEFT JOIN 
-        user_display_pictures AS udp ON udp.user_id = u.id
-    LEFT JOIN 
-        file_uploads AS udpfu ON udp.file_id = udpfu.id
-    LEFT JOIN 
-        comment_files AS cf ON cf.comment_id = c.id
-    LEFT JOIN 
-        file_uploads AS f ON cf.file_id = f.id
-    LEFT JOIN
-        file_data as fd ON fd.file_id = cf.comment_id
-    LEFT JOIN 
-        file_votes AS fv ON cf.file_id = fv.file_id
-    LEFT JOIN 
-        users AS fu ON f.user_id = fu.id
-    LEFT JOIN 
-        (SELECT 
-            comment_id, 
-            COUNT(CASE WHEN upvote = 1 THEN 1 END) AS upvotes,
-            COUNT(CASE WHEN downvote = 1 THEN 1 END) AS downvotes
-         FROM comment_votes
-         GROUP BY comment_id) AS cv ON c.id = cv.comment_id
-    WHERE 
-        c.story_id IN (");
+        SELECT 
+            c.id AS comment_id,
+            c.story_id AS story_id,
+            c.user_id AS comment_user_id,
+            u.username AS comment_username,
+            udpfu.id as profileFileId,
+            udpfu.file_name as profileFileName,
+            udpfu.folder_path as profileFileFolder,
+            c.comment,
+            c.date,
+            cf.file_id AS comment_file_id,
+            f.file_name AS comment_file_name,
+            f.folder_path AS comment_file_folder_path,
+            f.is_public AS comment_file_visibility,
+            f.shared_with AS comment_file_shared_with,
+            f.is_folder AS comment_file_is_folder,
+            fv.upvote AS comment_file_upvote,
+            fv.downvote AS comment_file_downvote,
+            f.upload_date AS comment_file_date,
+            fu.id AS file_user_id,
+            fu.username AS file_username,
+            fd.given_file_name as comment_file_given_file_name,
+            fd.description as comment_file_description,
+            fd.last_updated as comment_file_date,
+            COALESCE(cv.upvotes, 0) AS upvotes,
+            COALESCE(cv.downvotes, 0) AS downvotes,
+            r.id AS reaction_id,
+            r.type AS reaction_type,
+            r.user_id AS reaction_user_id,
+            ru.username AS reaction_username,
+            r.timestamp AS reaction_time
+        FROM 
+            comments AS c
+        LEFT JOIN 
+            users AS u ON c.user_id = u.id
+        LEFT JOIN 
+            user_display_pictures AS udp ON udp.user_id = u.id
+        LEFT JOIN 
+            file_uploads AS udpfu ON udp.file_id = udpfu.id
+        LEFT JOIN 
+            comment_files AS cf ON cf.comment_id = c.id
+        LEFT JOIN 
+            file_uploads AS f ON cf.file_id = f.id
+        LEFT JOIN
+            file_data as fd ON fd.file_id = cf.comment_id
+        LEFT JOIN 
+            file_votes AS fv ON cf.file_id = fv.file_id
+        LEFT JOIN 
+            users AS fu ON f.user_id = fu.id
+        LEFT JOIN 
+            (SELECT 
+                comment_id, 
+                COUNT(CASE WHEN upvote = 1 THEN 1 END) AS upvotes,
+                COUNT(CASE WHEN downvote = 1 THEN 1 END) AS downvotes
+             FROM comment_votes
+             GROUP BY comment_id) AS cv ON c.id = cv.comment_id
+        LEFT JOIN 
+            reactions AS r ON c.id = r.comment_id
+        LEFT JOIN 
+            users AS ru ON r.user_id = ru.id   
+        WHERE 
+            c.story_id IN (");
 
             // Add placeholders for story IDs
             for (int i = 0; i < storyIds.Count; i++)
@@ -401,8 +454,12 @@ namespace maxhanna.Server.Controllers
                 }
             }
 
-            sqlBuilder.AppendLine(@")");
-
+            sqlBuilder.AppendLine(@")
+        GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
+        udpfu.file_name, udpfu.folder_path, cf.file_id, 
+        f.file_name, f.folder_path, f.is_public, f.shared_with, f.is_folder,
+        fv.upvote, fv.downvote, f.upload_date, fu.id, fu.username, fd.given_file_name, fd.description, fd.last_updated, upvotes, downvotes");
+             
             // Execute the SQL query
             using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
@@ -426,8 +483,8 @@ namespace maxhanna.Server.Controllers
                             if (rdr.IsDBNull("comment_id") || rdr.IsDBNull("story_id")) { continue; }
                             int storyId = rdr.GetInt32("story_id");
                             var commentId = rdr.GetInt32("comment_id");
-                            var userId = rdr.GetInt32("user_id");
-                            var userName = rdr.GetString("username");
+                            var userId = rdr.GetInt32("comment_user_id");
+                            var userName = rdr.GetString("comment_username");
                             var commentText = rdr.GetString("comment");
                             var date = rdr.GetDateTime("date");
 
@@ -439,7 +496,6 @@ namespace maxhanna.Server.Controllers
                                 var comment = story.StoryComments!.FirstOrDefault(c => c.Id == commentId);
                                 if (comment == null)
                                 {
-
                                     int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("profileFileId")) ? null : rdr.GetInt32("profileFileId");
                                     string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("profileFileFolder")) ? null : rdr.GetString("profileFileFolder");
                                     string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("profileFileName")) ? null : rdr.GetString("profileFileName");
@@ -450,27 +506,52 @@ namespace maxhanna.Server.Controllers
                                         Id = commentId,
                                         CommentText = commentText,
                                         StoryId = storyId,
-                                        User = new User(userId, userName, null, displayPicId != null ? dpFileEntry : null, null),
+                                        User = new User(userId, userName, null, dpFileEntry, null),
                                         Date = date,
                                         CommentFiles = new List<FileEntry>(),
                                         Upvotes = rdr.GetInt32("upvotes"),
-                                        Downvotes = rdr.GetInt32("downvotes")
+                                        Downvotes = rdr.GetInt32("downvotes"),
+                                        Reactions = new List<Reaction>() // Initialize reactions list
                                     };
 
                                     story.StoryComments!.Add(comment);
                                 }
 
+                                // Handle comment reactions
+                                if (!rdr.IsDBNull("reaction_id"))
+                                {
+                                    var reactionId = rdr.GetInt32("reaction_id");
+                                    var reactionType = rdr.GetString("reaction_type");
+                                    var reactionUserId = rdr.GetInt32("reaction_user_id");
+                                    var reactionUserName = rdr.GetString("reaction_username");
+                                    var reactionTime = rdr.GetDateTime("reaction_time");
+
+                                    // Check if the reaction already exists for the comment
+                                    var existingReaction = comment.Reactions.FirstOrDefault(r => r.Id == reactionId);
+                                    if (existingReaction == null)
+                                    {
+                                        // Fetch reaction user data
+                                        User reactionUser = new User(reactionUserId, reactionUserName);
+
+                                        comment.Reactions.Add(new Reaction
+                                        {
+                                            Id = reactionId,
+                                            Type = reactionType,
+                                            Timestamp = reactionTime,
+                                            User = reactionUser
+                                        });
+                                    } 
+                                }
+
                                 // Check if there is a file associated with the comment
                                 if (!rdr.IsDBNull("comment_file_id"))
                                 {
-                                    _logger.LogInformation("processing fileentry: " + rdr.GetInt32("comment_file_id"));
-
                                     var fileEntry = new FileEntry
                                     {
                                         Id = rdr.GetInt32("comment_file_id"),
                                         FileName = rdr.IsDBNull("comment_file_name") ? null : rdr.GetString("comment_file_name"),
-                                        Directory = rdr.IsDBNull("comment_file_folder_path") ? baseTarget : rdr.GetString("comment_file_folder_path"), 
-                                        Visibility = rdr.IsDBNull("comment_file_visibility") ? null : rdr.GetBoolean("comment_file_visibility") ? "Public" : "Private", 
+                                        Directory = rdr.IsDBNull("comment_file_folder_path") ? baseTarget : rdr.GetString("comment_file_folder_path"),
+                                        Visibility = rdr.IsDBNull("comment_file_visibility") ? null : rdr.GetBoolean("comment_file_visibility") ? "Public" : "Private",
                                         SharedWith = rdr.IsDBNull("comment_file_shared_with") ? null : rdr.GetString("comment_file_shared_with"),
                                         User = new User(
                                             rdr.IsDBNull("file_user_id") ? 0 : rdr.GetInt32("file_user_id"),
@@ -497,6 +578,7 @@ namespace maxhanna.Server.Controllers
                 }
             }
         }
+
 
         [HttpPost("/Social/Post-Story/", Name = "PostStory")]
         public async Task<IActionResult> PostStory([FromBody] StoryRequest story)

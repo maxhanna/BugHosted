@@ -51,12 +51,13 @@
 
 .welcomeMessage {
   text-align: center;
+  font-size: 24px;
 }
 
 .welcomeTitle {
   color: var(--secondary-font-color);
   font-weight: bold;
-  font-size:12px;
+  font-size:14px;
 }
 .profileControls  {
     text-align:center;

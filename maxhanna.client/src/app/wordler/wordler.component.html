@@ -13,7 +13,8 @@
       </div>
     </div>
     <div class="instructions" *ngIf="!gameStarted">
-      <div>The Word Guessing Game!</div>
+      <div class="instructionTitle">The Word Guessing Game!</div>
+      <div class="instructionTitle">Current Daily Streak : {{currentStreak}}</div>
       <div class="notification">You get {{numberOfTries}} tries to guess today's word.</div>
       <div class="notification">Succeed or fail, you must wait until tomorrow to try again.</div>
       <div class="notification">Everyone gets the same word.</div>
@@ -87,7 +88,7 @@
     </div>
 
     <div class="exitGameButtonDiv">
-      <button (click)="giveUp()" *ngIf="!showScores && currentAttempt >= 0">Exit Game</button>
+      <button (click)="giveUp()" *ngIf="showExitGameButton">Exit Game</button>
     </div>
   </div>
 

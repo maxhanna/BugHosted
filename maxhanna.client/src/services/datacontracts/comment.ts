@@ -1,4 +1,5 @@
 import { FileEntry } from "./file-entry";
+import { Reaction } from "./reaction";
 import { User } from "./user";
 
 export class Comment {
@@ -10,4 +11,6 @@ export class Comment {
   storyId?: number;
   fileId?: number; 
   commentFiles?: FileEntry[];
+  date?: Date; 
+  reactions?: Array<Reaction> | undefined;
 }

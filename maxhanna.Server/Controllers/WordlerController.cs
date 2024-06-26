@@ -405,61 +405,84 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "Error retrieving definition for word: " + word);
             }
         }
-
-
-        // Helper method to fetch the definition of a word
-        private async Task<(string definition, List<string> sourceUrls)> GetDictionaryWordInternal(string word)
+        
+        [HttpPost("/Wordler/GetConsecutiveDaysStreak/")]
+        public async Task<IActionResult> GetConsecutiveDays([FromBody] User user)
         {
-            using (var httpClient = new HttpClient())
+            _logger.LogInformation($"GET /Wordler/GetConsecutiveDaysStreak/{user.Id}");
+
+            if (user.Id <= 0)
             {
-                var url = $"https://api.dictionaryapi.dev/api/v2/entries/en/{word}";
-                var response = await httpClient.GetAsync(url);
+                return BadRequest("Invalid user ID.");
+            }
 
-                if (!response.IsSuccessStatusCode)
+            var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+
+            try
+            {
+                using (var connection = new MySqlConnection(connectionString))
                 {
-                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        // If the word is not found, return an empty string and an empty list to indicate no definition
-                        return (string.Empty, new List<string>());
-                    }
-                    else
-                    {
-                        // For any other status code, throw an exception
-                        throw new HttpRequestException($"Error fetching definition for word '{word}': {response.ReasonPhrase}");
-                    }
-                }
+                    await connection.OpenAsync();
 
-                var content = await response.Content.ReadAsStringAsync();
-                var jsonDocument = JsonDocument.Parse(content);
-                var rootElement = jsonDocument.RootElement;
+                    string query = @"
+                        SELECT DATE(submitted) AS score_date
+                        FROM wordler_scores
+                        WHERE user_id = @userId
+                        ORDER BY score_date DESC";
 
-                var definitions = new List<string>();
-                var sourceUrls = new List<string>();
-
-                foreach (var entry in rootElement.EnumerateArray())
-                {
-                    foreach (var meaning in entry.GetProperty("meanings").EnumerateArray())
+                    using (var command = new MySqlCommand(query, connection))
                     {
-                        foreach (var definition in meaning.GetProperty("definitions").EnumerateArray())
+                        command.Parameters.AddWithValue("@userId", user.Id);
+
+                        var scoreDates = new List<DateTime>();
+                        using (var reader = await command.ExecuteReaderAsync())
                         {
-                            definitions.Add(definition.GetProperty("definition").GetString()!);
-                        }
-                    }
-
-                    if (entry.TryGetProperty("sourceUrls", out var urls))
-                    {
-                        foreach (var sUrl in urls.EnumerateArray())
-                        {
-                            if (!string.IsNullOrEmpty(sUrl.GetString()))
+                            while (await reader.ReadAsync())
                             {
-                                sourceUrls.Add(sUrl.GetString()!);
+                                scoreDates.Add(reader.GetDateTime("score_date"));
                             }
                         }
+
+                        int consecutiveDays = CalculateConsecutiveDays(scoreDates);
+                        return Ok(consecutiveDays);
                     }
                 }
-
-                return (definitions.Count > 0 ? string.Join("; ", definitions) : string.Empty, sourceUrls);
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching the consecutive days.");
+                return StatusCode(500, "An error occurred while fetching the consecutive days.");
+            }
+        }
+
+        private int CalculateConsecutiveDays(List<DateTime> dates)
+        {
+            if (dates == null || dates.Count == 0)
+            {
+                return 0;
+            }
+
+            // Sort the dates in ascending order
+            dates.Sort();
+
+            int consecutiveDays = 1;
+            int maxConsecutiveDays = 1;
+
+            for (int i = 1; i < dates.Count; i++)
+            {
+                // Check if the current date is the day after the previous date
+                if ((dates[i] - dates[i - 1]).Days == 1)
+                {
+                    consecutiveDays++;
+                    maxConsecutiveDays = Math.Max(maxConsecutiveDays, consecutiveDays);
+                }
+                else if ((dates[i] - dates[i - 1]).Days > 1)
+                {
+                    consecutiveDays = 1;
+                }
+            }
+
+            return maxConsecutiveDays;
         }
     }
 }

@@ -2,15 +2,16 @@ import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@ang
 import { MiningWalletResponse } from '../../services/datacontracts/mining-wallet-response';
 import { CalendarEntry } from '../../services/datacontracts/calendar-entry';
 import { MiningRig } from '../../services/datacontracts/mining-rig';
-import { CoinWatchResponse } from '../../services/datacontracts/coin-watch-response';
+import { CoinValue } from '../../services/datacontracts/coin-value';
 import { User } from '../../services/datacontracts/user';
 import { MiningService } from '../../services/mining.service';
 import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
-import { CoinWatchService } from '../../services/coin-watch.service';
-import { UserService } from '../../services/user.service';
+ import { UserService } from '../../services/user.service';
 import { ChatService } from '../../services/chat.service';
 import { AppComponent } from '../app.component';
+import { CoinValueService } from '../../services/coin-value.service';
+import { WordlerService } from '../../services/wordler.service';
 
 @Component({
   selector: 'app-navigation',
@@ -25,6 +26,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private miningInfoInterval: any;
   private calendarInfoInterval: any;
   private coinWalletInfoInterval: any;
+  private wordlerInfoInterval: any;
 
   @Input() user?: User;
 
@@ -32,8 +34,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private miningService: MiningService,
     private calendarService: CalendarService,
     private weatherService: WeatherService,
-    private coinwatchService: CoinWatchService,
+    private coinValueService: CoinValueService,
     private userService: UserService,
+    private wordlerService: WordlerService,
     private chatService: ChatService) {
   }
   async ngOnInit() {
@@ -44,6 +47,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.miningInfoInterval);
     clearInterval(this.calendarInfoInterval);
     clearInterval(this.coinWalletInfoInterval);
+    clearInterval(this.wordlerInfoInterval);
     this.clearNotifications();
   }
   clearNotifications() {
@@ -54,6 +58,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this._parent.navigationItems.filter(x => x.title == "Calendar")[0].content = '';
     this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = "";
     this._parent.navigationItems.filter(x => x.title == "MiningDevices")[0].content = '';
+    this._parent.navigationItems.filter(x => x.title == "Wordler")[0].content = '';
   }
   async getNotifications() {
     await this.getSelectedMenuItems();
@@ -62,11 +67,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getCalendarInfo();
     this.getCoinWalletInfo();
     this.getChatInfo();
+    this.getWordlerStreakInfo();
 
-    this.chatInfoInterval = setInterval(() => this.getChatInfo(), 3 * 60 * 1000); // every 3 minutes
+    this.chatInfoInterval = setInterval(() => this.getChatInfo(), 60 * 1000); // every minute
     this.miningInfoInterval = setInterval(() => this.getMiningInfo(), 20 * 60 * 1000); // every 20 minutes
     this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes
     this.coinWalletInfoInterval = setInterval(() => this.getCoinWalletInfo(), 60 * 60 * 1000); // every hour
+    this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
   }
   async getSelectedMenuItems() {
     this._parent.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
@@ -80,7 +87,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Chat")[0]) { return; }
     const res = await this.chatService.getChatNotifications(this._parent.user!);
-    if (res && res != 0) {
+    if (res && res != 0 && res != "NaN") {
       this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = res + '';
     } else {
       this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';
@@ -117,11 +124,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this._parent.navigationItems.filter(x => x.title == "Calendar")[0].content = (notificationCount != 0 ? notificationCount + '' : '');
   }
   async getCurrentWeatherInfo() {
-    if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Weather")[0]) { return; }
+    if (!this._parent.user || !this._parent.userSelectedNavigationItems.filter(x => x.title == "Weather")[0]) { return; }
 
     try {
-      const res = await this.weatherService.getWeather(this.user!);
+      const res = await this.weatherService.getWeather(this._parent.user!);
       if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
         this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = res?.current.temp_c.toString() + "°C";
         this._parent.navigationItems.filter(x => x.title == "Weather")[0].icon = res.current.condition.icon;
@@ -162,12 +168,23 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   async getCoinWatchInfo(tmpLocalProfitability: number) {
     if (!this._parent.userSelectedNavigationItems.filter(x => x.title.toLowerCase().includes("mining") || x.title == "Coin-Watch")[0]) { return; }
-    const res = await this.coinwatchService.getCoinwatchResponse(this.user!);
-    const result = res as CoinWatchResponse[];
-    if (result && result.length > 0) {
-      const btcToCADRate = result.find(x => x.name?.toLowerCase() == "bitcoin")?.rate!;
+    const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
+    const result = res;
+    if (result) {
+      const btcToCADRate = result.valueCAD;
+      console.log("latestBTC Value : " + btcToCADRate);
+      console.log("result name : " + result.name);
+      console.log(result);
       this._parent.navigationItems.filter(x => x.title == "MiningRigs")[0].content = (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
       this._parent.navigationItems.filter(x => x.title == "Coin-Watch")[0].content = btcToCADRate.toFixed(0) + "$";
+    }
+  }
+
+  async getWordlerStreakInfo() {
+    if (!this._parent.userSelectedNavigationItems.filter(x => x.title.toLowerCase().includes("wordler"))[0]) { return; }
+    const res = await this.wordlerService.getConsecutiveDayStreak(this._parent.user!); 
+    if (res) {  
+      this._parent.navigationItems.filter(x => x.title == "Wordler")[0].content = res;
     }
   }
   toggleMenu() {
@@ -194,4 +211,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     event.stopPropagation();
   }
+  shouldDisplayItem(title: string): boolean {
+    // Logic to determine if an item should be displayed
+    const alwaysDisplay = ['Close Menu', 'User', 'Meme', 'Social', 'Wordler', 'Emulation', 'Files'];
+    return this.menuIconsIncludes(title) || alwaysDisplay.includes(title);
+  } 
 }

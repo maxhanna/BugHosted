@@ -83,13 +83,7 @@ Accept: application/json
 ###
 POST {{maxhanna.Server_HostAddress}}/Chat/
 Accept: application/json
-###
-DELETE {{maxhanna.Server_HostAddress}}/Meme/
-Accept: application/json
-###
-POST {{maxhanna.Server_HostAddress}}/Meme/
-Accept: application/json
-###
+### 
 POST {{maxhanna.Server_HostAddress}}/News/
 Accept: application/json
 ###
@@ -115,5 +109,11 @@ GET {{maxhanna.Server_HostAddress}}/Wordler/
 Accept: application/json
 ###
 POST {{maxhanna.Server_HostAddress}}/Comment/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/CoinValue/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Reaction/
 Accept: application/json
 ###

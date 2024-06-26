@@ -66,7 +66,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     tmpTodo.todo = title.trim(); 
 
     await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
-    this.ngOnInit();
+    this.songs.unshift(tmpTodo);
   }
   async getSongList() {
     console.log("getting song list");

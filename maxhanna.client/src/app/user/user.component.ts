@@ -49,6 +49,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   playListCount = 0;
   playListFirstFetch = true;
   songPlaylist: Todo[] = [];
+  wordlerStreak: number = 0;
 
   constructor(private userService: UserService,
     private contactService: ContactService, 
@@ -61,7 +62,6 @@ export class UserComponent extends ChildComponent implements OnInit {
   async ngOnInit() {
     this.startLoading();
     this.usersCount = await this.userService.getUserCount();
-   
     try {
       if (this.userId) {
         const res = await this.userService.getUserById(parseInt(this.userId));
@@ -75,7 +75,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       } else {
         this.user = this.parentRef?.user;
       }
-
+      
       await this.getLoggedInUser(); 
       await this.loadFriendData();
       await this.loadWordlerData();
@@ -98,12 +98,18 @@ export class UserComponent extends ChildComponent implements OnInit {
     } catch (e) { }
   }
   async loadWordlerData() {
-    try {
-      const res = await this.wordlerService.getAllScores(this.user ?? this.parentRef?.user);
-       if (res) {
-        this.wordlerScores = res; 
-      }
-    } catch (e) { } 
+    if (this.user || this.parentRef?.user) {
+      try {
+        const res = await this.wordlerService.getAllScores(this.user ?? this.parentRef?.user);
+        if (res) {
+          this.wordlerScores = res;
+        }
+        const wsRes = await this.wordlerService.getConsecutiveDayStreak((this.user ?? this.parentRef?.user)!);
+        if (wsRes) {
+          this.wordlerStreak = parseInt(wsRes);
+        }
+      } catch (e) { } 
+    }
   }
 
   async loadFriendData() {
@@ -195,7 +201,8 @@ export class UserComponent extends ChildComponent implements OnInit {
       this.notifications.push("You must be logged in to send a friendship request");
     }
   }
-  async removeFriend(user: User) {
+  async removeFriend(user?: User) {
+    if (!user) return;
     if (this.parentRef && this.parentRef.user) {
       const res = await this.friendService.removeFriend(this.parentRef.user, user);
       this.notifications.push(res);
@@ -310,5 +317,12 @@ export class UserComponent extends ChildComponent implements OnInit {
   getFilteredFriendRequests() {
     this.friendRequests.forEach(x => console.log("ststus" + x.status));
     return this.friendRequests.filter(x => parseInt(x.status) == 0);
+  }
+
+  areWeFriends(other?: User) {
+    if (!other || !Array.isArray(this.friends) || this.friends.length === 0) {
+      return false;
+    }
+    return this.friends.some(x => x.id === other.id);
   }
 }

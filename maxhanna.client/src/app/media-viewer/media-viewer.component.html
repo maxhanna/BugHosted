@@ -26,12 +26,13 @@
         <button (click)="copyLink()" title="Share Link">Share 📋</button>
         <button (click)="download(selectedFile!, true)">Download</button>
       </div>
-      <app-comments *ngIf="selectedFile && showCommentSection && displayExtraInfo"
-                    [inputtedParentRef]="inputtedParentRef"
-                    [type]="'File'"
-                    [component_id]="selectedFile.id"
-                    [commentList]="selectedFile.fileComments"> 
-      </app-comments>
     </div>
   </div>
 </div>
+
+<app-comments *ngIf="selectedFile && showCommentSection && displayExtraInfo"
+              [inputtedParentRef]="inputtedParentRef"
+              [type]="'File'"
+              [component_id]="selectedFile.id"
+              [commentList]="selectedFile.fileComments">
+</app-comments>

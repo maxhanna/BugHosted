@@ -15,34 +15,33 @@
       <button (click)="post()" class="createStoryButton">🍌 Post your story</button>
 
       <app-media-selector #postMediaSelector
-                          [currentDirectory]="user?.username ? 'Users/' + user!.username! : parentRef?.user?.username ? 'Users/' + parentRef!.user!.username! : ''"
+                          [currentDirectory]="parentRef?.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
+                          [user]="parentRef?.user"
                           (selectFileEvent)="selectFile($event)"></app-media-selector>
 
       <app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>
 
     </div>
-    <div *ngIf="attachedFiles.length > 0"> Attached: {{attachedFiles[0].fileName}}</div>
+    <div *ngIf="attachedFiles.length > 0"> Attached: <div *ngFor="let fz of attachedFiles">{{fz.fileName}}</div></div>
   </div>
-  <div class="inputDiv searchInputs" *ngIf="!user">
-    <input type="text" #search placeholder="Search" (keyup.enter)="searchStories()" />
-    <input type="submit" (click)="searchStories()" class="createStoryButton" value="🔍" />
-    <div (click)="revealSearchFilters = !revealSearchFilters;" class="additionalSearchFiltersSpan cursorPointer">(+ Additional search filters)</div>
-    <div *ngIf="revealSearchFilters">
-      Topic filter : <app-topics></app-topics> (coming soon)
+  <div class="inputDiv searchInputs">
+    <div class="pagination" *ngIf="totalPagesArray.length > 1">
+      <span>Page:</span>
+      <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
+        <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
+      </select>
+    </div>
+    <div> 
+      <input type="text" #search placeholder="Search the socials" (keyup.enter)="searchStories()" *ngIf="!user" />
+      <input type="submit" (click)="searchStories()" class="createStoryButton" value="🔍" *ngIf="!user" />
     </div>
   </div>
-  <div class="pagination">
-    <span>Page:</span>
-    <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
-      <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
-    </select>
-    <span>of {{ totalPages }}</span>
-  </div>
+  
   <div class="mainTableDiv">
     <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
       <div class="commentVoteButtons">
-        <button (click)="upvoteStory(story)" class="vote-button">⬆️{{ story.upvotes }}</button>
-        <button (click)="downvoteStory(story)" class="vote-button">⬇️{{ story.downvotes }}</button>
+        <!--<button (click)="upvoteStory(story)" class="vote-button">⬆️{{ story.upvotes }}</button>
+        <button (click)="downvoteStory(story)" class="vote-button">⬇️{{ story.downvotes }}</button>-->
         <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">Share 📋</button>
         <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Share Link" style="display:inline-block">Delete Story ❌</button>
       </div>
@@ -63,12 +62,15 @@
         <div class="storyContentDiv">
           <div class="storyUserDetails">
             <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
+            <app-reaction [storyId]="story.id"
+                          [user]="parentRef?.user"
+                          [currentReactions]="story.reactions"></app-reaction> 
           </div>
           <div class="storyTopics" *ngIf="story.storyTopics && story.storyTopics.length > 0">
             Topics : <span *ngFor="let topic of story.storyTopics" class="chosenTopic">{{topic.topicText}}</span>
           </div>
           <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
-            <div>Attachments:</div>
+            <div class="italics attachmentTdTitle">Attachments:</div>
             <div *ngFor="let file of story.storyFiles" class="attachment">
               <app-media-viewer [user]="file.user"
                                 [inputtedParentRef]="parentRef"

@@ -15,13 +15,14 @@ namespace maxhanna.Server.Controllers.DataContracts
         public List<StoryComment>? StoryComments { get; set; }
         public List<Topic>? StoryTopics { get; set; }
         public int? ProfileUserId { get; set; }
+        public List<Reaction>? Reactions { get; set; }
 
         public Story() { }
 
         public Story(int id, User user, string storyText, int? fileId, 
             DateTime date, int upvotes, int downvotes, int commentsCount, MetadataDto? metaData, 
             List<FileEntry> storyFiles, List<StoryComment> storyComments, List<Topic> storyTopics,
-            int? profileUserId)
+            int? profileUserId, List<Reaction>? reactions)
         {
             Id = id;
             User = user;
@@ -36,6 +37,7 @@ namespace maxhanna.Server.Controllers.DataContracts
             StoryComments = storyComments;
             StoryTopics = storyTopics;
             ProfileUserId = profileUserId;
+            Reactions = reactions;
         } 
     }
 }

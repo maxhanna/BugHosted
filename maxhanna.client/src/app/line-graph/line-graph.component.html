@@ -1,0 +1,28 @@
+<!-- Placeholder for the graph -->
+<div class="graphContainer">
+  <div class="graphTitle">
+    {{selectedCoin ? selectedCoin + ' to ' : ''}}{{graphTitle ? graphTitle : 'CAD$ Over Time'}} Span : {{selectedPeriod.replace('m',' month(s)').replace('y',' year(s)').replace('d',' day')}}
+  </div>
+  <div class="graphOptions">
+    <button (click)="changeGraphPeriod('1d')">1 Day</button>
+    <button (click)="changeGraphPeriod('1m')">1 Month</button>
+    <button (click)="changeGraphPeriod('3m')">3 Months</button>
+    <button (click)="changeGraphPeriod('6m')">6 Months</button>
+    <button (click)="changeGraphPeriod('1y')">1 Year</button>
+    <button (click)="changeGraphPeriod('3y')">3 Years</button>
+    <button (click)="changeGraphPeriod('5y')">5 Years</button>
+    <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher">
+      <option value="">All Coins</option>
+      <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin">{{ coin }}</option>
+    </select>
+  </div>
+  <div style="display: block">
+    <canvas baseChart width="400" height="300"
+            [datasets]="lineChartData"
+            [labels]="lineChartLabels"
+            [options]="lineChartOptions"
+            [legend]="lineChartLegend"
+            [type]="'line'">
+    </canvas>
+  </div>
+</div>
