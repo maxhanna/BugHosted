@@ -9,7 +9,7 @@ import { NicehashApiKeys } from './datacontracts/nicehash-api-keys';
   providedIn: 'root'
 })
 export class ChatService {
-  async getMessageHistory(user1: User, user2: User | null) {
+  async getMessageHistory(user1: User, user2: User | null, pageNumber?: number, pageSize?: number) {
     if (!user1 || !user2) { return; }
     try {
       const response = await fetch(`/chat/getmessagehistory`, {
@@ -17,7 +17,7 @@ export class ChatService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user1, user2 }),
+        body: JSON.stringify({ user1, user2, pageNumber, pageSize }),
       });
 
       return await response.json();  

@@ -3,6 +3,7 @@
   flex-direction: column;
   min-height: 300px;
   min-width: 300px;
+  max-height:80vh;
 }
 
 .userPanel { 
@@ -42,9 +43,9 @@
 .chatWindow {
   border: 1px solid #ccc;
   padding: 10px;
-  max-height: 300px;
+  max-height: 70vh;
   max-width: 570px;
-  overflow-y: auto;
+  overflow: auto;
   margin-bottom: 10px;
 }
 

@@ -121,11 +121,16 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Chat/GetMessageHistory", Name = "GetMessageHistory")]
         public async Task<IActionResult> GetMessageHistory([FromBody] MessageHistoryRequest request)
         {
-            if(request.user1 == null || request.user2 == null)
+            if (request.user1 == null || request.user2 == null)
             {
-                return BadRequest("GetMessageHistory request must cointain two users");
+                return BadRequest("GetMessageHistory request must contain two users");
             }
-            _logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.user1.Id} and {request.user2.Id}");
+
+            int pageSize = request.PageSize.HasValue && request.PageSize > 0 ? request.PageSize.Value : 10;
+            int pageNumber = request.PageNumber.HasValue && request.PageNumber > 0 ? request.PageNumber.Value : 1;
+            int totalRecords = 0;
+
+            _logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.user1.Id} and {request.user2.Id} pageNumber: {request.PageNumber} pageSize: {request.PageSize}");
             List<Message> messages = new List<Message>();
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -133,52 +138,81 @@ namespace maxhanna.Server.Controllers
             {
                 conn.Open();
 
+                string countSql = @"
+                SELECT COUNT(*)
+                FROM maxhanna.messages m
+                WHERE (m.sender = @User1Id AND m.receiver = @User2Id) OR 
+                      (m.sender = @User2Id AND m.receiver = @User1Id)";
+
+                MySqlCommand countCmd = new MySqlCommand(countSql, conn);
+                countCmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
+                countCmd.Parameters.AddWithValue("@User2Id", request.user2.Id);
+                totalRecords = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+
+                // Calculate total number of pages
+                int totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+                // If page number is null or less than 1, set it to the last page
+                if (!request.PageNumber.HasValue || request.PageNumber <= 0)
+                {
+                    pageNumber = totalPages;
+                }
+                else
+                {
+                    pageNumber = request.PageNumber.Value;
+                }
+
+                int offset = (pageNumber - 1) * pageSize;
+                _logger.LogInformation($"totalPages : {totalPages} offset : {offset} totalRecords: {totalRecords}");
+
                 string sql = @"
-                    SELECT 
-                        m.*, 
-                        su.id AS sender_id, 
-                        su.username AS sender_username,
-                        sudpfu.id as senderPicId, 
-                        sudpfu.folder_path as senderPicFolderPath,
-                        sudpfu.file_name as senderPicFileName,
-                        ru.id AS receiver_id, 
-                        ru.username AS receiver_username, 
-                        rudpfu.id as receiverPicId, 
-                        rudpfu.folder_path as receiverPicFolderPath,
-                        rudpfu.file_name as receiverPicFileName,
-                        r.id AS reaction_id,
-                        r.user_id AS reaction_user_id,
-                        reactionuser.username AS reaction_username,
-                        r.timestamp AS reaction_timestamp,
-                        r.type
-                    FROM 
-                        maxhanna.messages m
-                    JOIN 
-                        maxhanna.users su ON m.sender = su.id
-                    LEFT JOIN 
-                        maxhanna.user_display_pictures sudp ON sudp.user_id = su.id
-                    LEFT JOIN 
-                        maxhanna.file_uploads sudpfu ON sudp.file_id = sudpfu.id
-                    JOIN 
-                        maxhanna.users AS ru ON m.receiver = ru.id
-                    LEFT JOIN 
-                        maxhanna.user_display_pictures AS rudp ON rudp.user_id = ru.id
-                    LEFT JOIN 
-                        maxhanna.file_uploads AS rudpfu ON rudp.file_id = rudpfu.id
-                    LEFT JOIN 
-                        maxhanna.reactions AS r ON m.id = r.message_id
-                    LEFT JOIN 
-                        maxhanna.users AS reactionuser ON reactionuser.id = r.user_id
-                    WHERE 
-                        (m.sender = @User1Id AND m.receiver = @User2Id) OR 
-                        (m.sender = @User2Id AND m.receiver = @User1Id)
-                    ORDER BY 
-                        m.timestamp ASC";
+                SELECT 
+                    m.*, 
+                    su.id AS sender_id, 
+                    su.username AS sender_username,
+                    sudpfu.id as senderPicId, 
+                    sudpfu.folder_path as senderPicFolderPath,
+                    sudpfu.file_name as senderPicFileName,
+                    ru.id AS receiver_id, 
+                    ru.username AS receiver_username, 
+                    rudpfu.id as receiverPicId, 
+                    rudpfu.folder_path as receiverPicFolderPath,
+                    rudpfu.file_name as receiverPicFileName,
+                    r.id AS reaction_id,
+                    r.user_id AS reaction_user_id,
+                    reactionuser.username AS reaction_username,
+                    r.timestamp AS reaction_timestamp,
+                    r.type
+                FROM 
+                    maxhanna.messages m
+                JOIN 
+                    maxhanna.users su ON m.sender = su.id
+                LEFT JOIN 
+                    maxhanna.user_display_pictures sudp ON sudp.user_id = su.id
+                LEFT JOIN 
+                    maxhanna.file_uploads sudpfu ON sudp.file_id = sudpfu.id
+                JOIN 
+                    maxhanna.users AS ru ON m.receiver = ru.id
+                LEFT JOIN 
+                    maxhanna.user_display_pictures AS rudp ON rudp.user_id = ru.id
+                LEFT JOIN 
+                    maxhanna.file_uploads AS rudpfu ON rudp.file_id = rudpfu.id
+                LEFT JOIN 
+                    maxhanna.reactions AS r ON m.id = r.message_id
+                LEFT JOIN 
+                    maxhanna.users AS reactionuser ON reactionuser.id = r.user_id
+                WHERE 
+                    (m.sender = @User1Id AND m.receiver = @User2Id) OR 
+                    (m.sender = @User2Id AND m.receiver = @User1Id)
+                ORDER BY 
+                    m.timestamp ASC
+                LIMIT @PageSize OFFSET @PageOffset";
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
                 cmd.Parameters.AddWithValue("@User2Id", request.user2.Id);
-
+                cmd.Parameters.AddWithValue("@PageSize", pageSize);
+                cmd.Parameters.AddWithValue("@PageOffset", offset);
 
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
@@ -251,7 +285,7 @@ namespace maxhanna.Server.Controllers
                     }
 
                     messages = messageMap.Values.ToList();
-                } 
+                }
             }
             catch (Exception ex)
             {
@@ -263,25 +297,23 @@ namespace maxhanna.Server.Controllers
                 conn.Close();
             }
 
-
-
             try
             {
                 conn.Open();
 
-                string sql = @"
-                    UPDATE
-                        maxhanna.messages
-                    SET 
-                        seen = 1 
-                    WHERE 
-                        (receiver = @userId AND sender = @user2Id)";
+                string updateSql = @"
+                UPDATE
+                    maxhanna.messages
+                SET 
+                    seen = 1 
+                WHERE 
+                    (receiver = @userId AND sender = @user2Id)";
 
-                MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@userId", request.user1.Id);
-                cmd.Parameters.AddWithValue("@user2Id", request.user2.Id);
+                MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+                updateCmd.Parameters.AddWithValue("@userId", request.user1.Id);
+                updateCmd.Parameters.AddWithValue("@user2Id", request.user2.Id);
 
-                await cmd.ExecuteReaderAsync();
+                await updateCmd.ExecuteReaderAsync();
             }
             catch (Exception ex)
             {
@@ -294,13 +326,22 @@ namespace maxhanna.Server.Controllers
 
             if (messages.Count > 0)
             {
-                return Ok(messages);
+                var response = new
+                {
+                    Messages = messages,
+                    CurrentPage = pageNumber,
+                    PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling((double)totalRecords / pageSize),
+                    TotalRecords = totalRecords
+                };
+                return Ok(response);
             }
             else
             {
                 return NotFound();
             }
         }
+
 
         [HttpPost("/Chat/SendMessage", Name = "SendMessage")]
         public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)

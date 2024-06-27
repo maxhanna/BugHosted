@@ -23,9 +23,35 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
  
   notifications: ChatNotification[] = [];
   emojiMap: { [key: string]: string } =
-    { ":)": "😊", ":(": "☹️", ";)": "😉", ":D": "😃", "XD": "😆", ":P": "😛", ":O": "😮", "B)": "😎", ":/": "😕", ":'(": "😢", "<3": "❤️", "</3": "💔", ":*": "😘", "O:)": "😇", "3:)": "😈", ":|": "😐", ":$": "😳", "8)": "😎", "^_^": "😊", "-_-": "😑", ">_<": "😣", ":'D": "😂", ":3": "😺", ":v": "✌️", ":S": "😖", ":b": "😛", ":x": "😶", ":X": "🤐", ":Z": "😴", "*_*": "😍", ":@": "😡", ":#": "🤬", ">:(": "😠", ":&": "🤢", ":T": "😋", "T_T": "😭", "Q_Q": "😭", ":1": "😆", "O_O": "😳", "*o*": "😍", "T-T": "😭", ";P": "😜", ":B": "😛", ":W": "😅", ":L": "😞", ":E": "😲", ":M": "🤔", ":C": "😏", ":I": "🤓", ":Q": "😮", ":F": "😇", ":G": "😵", ":H": "😱", ":J": "😜", ":K": "😞", ":Y": "😮", ":N": "😒", ":U": "😕", ":V": "😈", ":wave:": "👋", ":ok:": "👌", ":thumbsup:": "👍", ":thumbsdown:": "👎", ":clap:": "👏", ":star:": "⭐", ":star2:": "🌟", ":dizzy:": "💫", ":sparkles:": "✨", ":boom:": "💥", ":fire:": "🔥", ":droplet:": "💧", ":sweat_drops:": "💦", ":dash:": "💨", ":cloud:": "☁️", ":sunny:": "☀️", ":umbrella:": "☂️", ":snowflake:": "❄️", ":snowman:": "⛄", ":zap:": "⚡", ":cyclone:": "🌀", ":fog:": "🌫️", ":rainbow:": "🌈", ":heart:": "❤️", ":blue_heart:": "💙", ":green_heart:": "💚", ":yellow_heart:": "💛", ":purple_heart:": "💜", ":black_heart:": "🖤", ":white_heart:": "🤍", ":orange_heart:": "🧡", ":broken_heart:": "💔", ":heartbeat:": "💓", ":heartpulse:": "💗", ":two_hearts:": "💕", ":sparkling_heart:": "💖", ":cupid:": "💘", ":gift_heart:": "💝", ":revolving_hearts:": "💞", ":heart_decoration:": "💟", ":peace:": "☮️", ":cross:": "✝️", ":star_and_crescent:": "☪️", ":om:": "🕉️", ":wheel_of_dharma:": "☸️", ":yin_yang:": "☯️", ":orthodox_cross:": "☦️", ":star_of_david:": "✡️", ":six_pointed_star:": "🔯", ":menorah:": "🕎", ":infinity:": "♾️", ":wavy_dash:": "〰️", ":congratulations:": "㊗️", ":secret:": "㊙️", ":red_circle:": "🔴", ":orange_circle:": "🟠", ":yellow_circle:": "🟡", ":green_circle:": "🟢", ":blue_circle:": "🔵", ":purple_circle:": "🟣", ":brown_circle:": "🟤", ":black_circle:": "⚫", ":white_circle:": "⚪", ":red_square:": "🟥", ":orange_square:": "🟧", ":yellow_square:": "🟨", ":green_square:": "🟩", ":blue_square:": "🟦", ":purple_square:": "🟪", ":brown_square:": "🟫", ":black_large_square:": "⬛", ":white_large_square:": "⬜", ":black_medium_square:": "◼️", ": black_medium_small_square: ": "◾", ": white_medium_small_square: ": "◽", ": black_small_square: ": "▪️", ": white_small_square: ": "▫️", ": large_orange_diamond: ": "🔶", ": large_blue_diamond: ": "🔷", ": small_orange_diamond: ": "🔸", ": small_blue_diamond: ": "🔹", ": red_triangle_pointed_up: ": "🔺", ": red_triangle_pointed_down: ": "🔻", ": diamond_shape_with_a_dot_inside: ": "💠", ": radio_button: ": "🔘", ": white_square_button: ": "🔳", ": black_square_button: ": "🔲", ": checkered_flag: ": "🏁", ": triangular_flag_on_post: ": "🚩", ": crossed_flags: ": "🎌", ": black_flag: ": "🏴", ": white_flag: ": "🏳️", ": rainbow_flag: ": "🏳️‍🌈", ": pirate_flag: ": "🏴‍☠️"};
+  {
+    ":)":"😊", ":(":"☹️", ";)":"😉", ":D":"😃", "XD":"😆", ":P":"😛", ":O":"😮", "B)":"😎", ":/":"😕", ":'(":"😢", "<3":"❤️", "</3":"💔",
+    ":*":"😘", "O:)":"😇", "3:)":"😈", ":|":"😐", ":$":"😳", "8)":"😎", "^_^":"😊", "-_-":"😑", ">_<":"😣", ":'D":"😂", ":3":"😺", ":v":
+      "✌️", ":S":"😖", ":b":"😛", ":x":"😶", ":X":"🤐", ":Z":"😴", "*_*":"😍", ":@":"😡", ":#":"🤬", ">:(":"😠", ":&":"🤢", ":T":"😋",
+    "T_T":"😭", "Q_Q":"😭", ":1":"😆", "O_O":"😳", "*o*":"😍", "T-T":"😭", ";P":"😜", ":B":"😛", ":W":"😅", ":L":"😞", ":E":"😲", ":M":"🤔",
+    ":C":"😏", ":I":"🤓", ":Q":"😮", ":F":"😇", ":G":"😵", ":H":"😱", ":J":"😜", ":K":"😞", ":Y":"😮", ":N":"😒", ":U":"😕", ":V":"😈",
+    ":wave:":"👋", ":ok:":"👌", ":thumbsup:":"👍", ":thumbsdown:":"👎", ":clap:":"👏", ":star:":"⭐", ":star2:":"🌟", ":dizzy:":"💫",
+    ":sparkles:":"✨", ":boom:":"💥", ":fire:":"🔥", ":droplet:":"💧", ":sweat_drops:":"💦", ":dash:":"💨", ":cloud:":"☁️", ":sunny:":"☀️",
+    ":umbrella:":"☂️", ":snowflake:":"❄️", ":snowman:":"⛄", ":zap:":"⚡", ":cyclone:":"🌀", ":fog:":"🌫️", ":rainbow:":"🌈", ":heart:":"❤️",
+    ":blue_heart:":"💙", ":green_heart:":"💚", ":yellow_heart:":"💛", ":purple_heart:":"💜", ":black_heart:":"🖤", ":white_heart:":"🤍",
+    ":orange_heart:":"🧡", ":broken_heart:":"💔", ":heartbeat:":"💓", ":heartpulse:":"💗", ":two_hearts:":"💕", ":sparkling_heart:":"💖",
+    ":cupid:":"💘", ":gift_heart:":"💝", ":revolving_hearts:":"💞", ":heart_decoration:":"💟", ":peace:":"☮️", ":cross:":"✝️", ":star_and_crescent:":"☪️",
+    ":om:":"🕉️", ":wheel_of_dharma:":"☸️", ":yin_yang:":"☯️", ":orthodox_cross:":"☦️", ":star_of_david:":"✡️", ":six_pointed_star:":"🔯", ":menorah:":"🕎",
+    ":infinity:":"♾️", ":wavy_dash:":"〰️", ":congratulations:":"㊗️", ":secret:":"㊙️", ":red_circle:":"🔴", ":orange_circle:":"🟠", ":yellow_circle:":"🟡",
+    ":green_circle:":"🟢", ":blue_circle:":"🔵", ":purple_circle:":"🟣", ":brown_circle:":"🟤", ":black_circle:":"⚫", ":white_circle:":"⚪",
+    ":red_square:":"🟥", ":orange_square:":"🟧", ":yellow_square:":"🟨", ":green_square:":"🟩", ":blue_square:":"🟦", ":purple_square:":"🟪",
+    ":brown_square:":"🟫", ":black_large_square:":"⬛", ":white_large_square:":"⬜", ":black_medium_square:":"◼️", ":black_medium_small_square: ":"◾",
+    ":white_medium_small_square:":"◽", ":black_small_square: ":"▪️", ":white_small_square: ":"▫️", ":large_orange_diamond: ":"🔶", ":large_blue_diamond: ":"🔷",
+    ":small_orange_diamond:":"🔸", ":small_blue_diamond:":"🔹", ":red_triangle_pointed_up:":"🔺", ":red_triangle_pointed_down:":"🔻", ":diamond_shape_with_a_dot_inside:":"💠",
+    ":radio_button: ":"🔘", ":white_square_button: ":"🔳", ":black_square_button: ":"🔲", ":checkered_flag: ":"🏁", ":triangular_flag_on_post: ":"🚩",
+    ":crossed_flags:":"🎌", ":black_flag:":"🏴", ":white_flag:":"🏳️", ":rainbow_flag:":"🏳️‍🌈", ":pirate_flag:" : "🏴‍☠️"
+  };
 
-  constructor(private userService: UserService, private chatService: ChatService) {
+  pageNumber = 1;
+  pageSize = 10;
+  totalPages = 1; 
+  totalPagesArray: number[] = [];
+
+  constructor( private chatService: ChatService) {
     super();
   }
 
@@ -39,7 +65,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   pollForMessages() {
-    if (this.currentChatUser) {
+    if (this.currentChatUser && this.pageNumber == 1) {
       this.pollingInterval = setInterval(async () => {
         if (!this.isComponentInView()) {
           clearInterval(this.pollingInterval);
@@ -60,18 +86,23 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     }, 1);
   }
-  async getMessageHistory() {
+  async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
     try {
-      const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser);
+      const res = await this.chatService.getMessageHistory(
+        this.parentRef?.user!,
+        this.currentChatUser,
+        pageNumber,
+        pageSize);
       if (res && res.status && res.status == "404") {
         this.chatHistory = [];
         return;
       }
-      if (res && Array.isArray(res)) {
+      if (res) {
         // Concatenate new messages that are not already in chatHistory
-        const newMessages = res.filter(newMessage => !this.chatHistory.some(existingMessage => existingMessage.id === newMessage.id));
+        const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
         this.chatHistory = [...this.chatHistory, ...newMessages];
-        this.scrollToBottomIfNeeded();
+        this.pageNumber = res.currentPage;
+         this.scrollToBottomIfNeeded();
       }
     } catch { }
   }
@@ -99,6 +130,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isPanelExpanded = !this.isPanelExpanded;
   }
 
+  changePage(event: any) {
+    this.pageNumber = +event.target.value;
+    this.chatHistory = [];
+    this.getMessageHistory(this.pageNumber, this.pageSize);
+  }
   async openChat(user: User | null) {
     if (!user) { return; }
     this.startLoading();
@@ -113,22 +149,28 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.notifications = this.notifications.filter(x => x.senderId != user.id);
       this.parentRef!.navigationItems.filter(x => x.title == "Chat")[0].content = (grantTotal == 0 || !grantTotal ? '' : grantTotal + '');
     }
-    const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser);
+    const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser, undefined, this.pageSize);
     this.stopLoading(); 
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];
       this.togglePanel();
       return;
     }
-    this.chatHistory = res;
+    this.chatHistory = res.messages;
+    this.pageNumber = res.currentPage;
+    this.totalPages = res.totalPages;
+    this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
     this.scrollToBottomIfNeeded();
-    this.pollForMessages(); // Restart polling when opening a new chat
+    this.pollForMessages();  
     this.togglePanel(); 
   }
 
   closeChat() {
     this.currentChatUser = null;
     this.chatHistory = [];
+    this.pageNumber = 0;
+    this.totalPages = 0;
+    this.totalPagesArray = new Array<number>();
     clearInterval(this.pollingInterval);
     this.togglePanel();
   }

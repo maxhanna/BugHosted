@@ -15,11 +15,21 @@
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUser">
       <div class="chatHeader">
-        <span style="margin-right:10px;">Chat with <span class="usernameProfileLink cursorPointer" (click)="viewProfile(currentChatUser);">{{ currentChatUser.username }}</span></span>
+        <span style="margin-right:10px;">
+          Chat with
+          <span class="usernameProfileLink cursorPointer" (click)="viewProfile(currentChatUser);">
+            {{ currentChatUser.username }}
+          </span>
+        </span>
+        <div class="pagination-controls" *ngIf="!isPanelExpanded">
+          <select (change)="changePage($event)">
+            <option *ngFor="let page of totalPagesArray; let i = index" [value]="i+1">{{ i+1 }}</option>
+          </select>
+        </div>
         <button (click)="closeChat()">Close Chat with {{ currentChatUser.username }}</button>
       </div>
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
-        <div *ngFor="let message of chatHistory" [class]="{'align-left': message.sender.id === parentRef?.user!.id, 'align-right': message.sender.id !== parentRef?.user!.id, 'messageContainer': true}"> 
+        <div *ngFor="let message of chatHistory" [class]="{'align-left': message.sender.id === parentRef?.user!.id, 'align-right': message.sender.id !== parentRef?.user!.id, 'messageContainer': true}">
           <!-- USER MESSAGE -->
           <ng-container *ngIf="message.sender.id === parentRef?.user!.id">
             <div class="profileTag" (click)="viewProfile(message.sender)">
@@ -49,7 +59,6 @@
             </div>
           </ng-container>
         </div>
-
         <div *ngIf="(!chatHistory  || chatHistory.length == 0 ) && !isLoading">
           ZZzzz. Empty chat!
         </div>
@@ -61,7 +70,6 @@
         <input placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()" />
         <button (click)="sendMessage()">✉️</button>
       </div>
-    </div>
-
+    </div> 
   </div>
 </div>
