@@ -123,49 +123,42 @@ namespace maxhanna.Server.Controllers
         {
             if (request.user1 == null || request.user2 == null)
             {
-                return BadRequest("GetMessageHistory request must contain two users");
+                return BadRequest("GetMessageHistory request must contain two users.");
             }
 
-            int pageSize = request.PageSize.HasValue && request.PageSize > 0 ? request.PageSize.Value : 10;
-            int pageNumber = request.PageNumber.HasValue && request.PageNumber > 0 ? request.PageNumber.Value : 1;
+            int pageSize = request.PageSize.HasValue && request.PageSize > 0 ? request.PageSize.Value : 20;
+            int pageNumber = request.PageNumber.HasValue && request.PageNumber > 0 ? request.PageNumber.Value : 1; // Default to the first page
             int totalRecords = 0;
 
-            _logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.user1.Id} and {request.user2.Id} pageNumber: {request.PageNumber} pageSize: {request.PageSize}");
+            _logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.user1.Id} and {request.user2.Id} pageNumber: {pageNumber} pageSize: {pageSize}");
             List<Message> messages = new List<Message>();
 
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            try
+            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
-                conn.Open();
+                try
+                {
+                    await conn.OpenAsync();
 
-                string countSql = @"
+                    // Get the total number of messages
+                    string countSql = @"
                 SELECT COUNT(*)
                 FROM maxhanna.messages m
                 WHERE (m.sender = @User1Id AND m.receiver = @User2Id) OR 
                       (m.sender = @User2Id AND m.receiver = @User1Id)";
 
-                MySqlCommand countCmd = new MySqlCommand(countSql, conn);
-                countCmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
-                countCmd.Parameters.AddWithValue("@User2Id", request.user2.Id);
-                totalRecords = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+                    MySqlCommand countCmd = new MySqlCommand(countSql, conn);
+                    countCmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
+                    countCmd.Parameters.AddWithValue("@User2Id", request.user2.Id);
+                    totalRecords = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 
-                // Calculate total number of pages
-                int totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+                    // Calculate total number of pages
+                    int totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+                    if (pageNumber > totalPages) pageNumber = totalPages;
 
-                // If page number is null or less than 1, set it to the last page
-                if (!request.PageNumber.HasValue || request.PageNumber <= 0)
-                {
-                    pageNumber = totalPages;
-                }
-                else
-                {
-                    pageNumber = request.PageNumber.Value;
-                }
+                    int offset = (totalRecords - pageNumber * pageSize) < 0 ? 0 : (totalRecords - pageNumber * pageSize);
+                    _logger.LogInformation($"totalPages: {totalPages} offset: {offset} totalRecords: {totalRecords}");
 
-                int offset = (pageNumber - 1) * pageSize;
-                _logger.LogInformation($"totalPages : {totalPages} offset : {offset} totalRecords: {totalRecords}");
-
-                string sql = @"
+                    string sql = @"
                 SELECT 
                     m.*, 
                     su.id AS sender_id, 
@@ -208,120 +201,125 @@ namespace maxhanna.Server.Controllers
                     m.timestamp ASC
                 LIMIT @PageSize OFFSET @PageOffset";
 
-                MySqlCommand cmd = new MySqlCommand(sql, conn);
-                cmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
-                cmd.Parameters.AddWithValue("@User2Id", request.user2.Id);
-                cmd.Parameters.AddWithValue("@PageSize", pageSize);
-                cmd.Parameters.AddWithValue("@PageOffset", offset);
+                    MySqlCommand cmd = new MySqlCommand(sql, conn);
+                    cmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
+                    cmd.Parameters.AddWithValue("@User2Id", request.user2.Id);
+                    cmd.Parameters.AddWithValue("@PageSize", pageSize);
+                    cmd.Parameters.AddWithValue("@PageOffset", offset);
 
-                using (var reader = await cmd.ExecuteReaderAsync())
-                {
-                    Dictionary<int, Message> messageMap = new Dictionary<int, Message>();
-
-                    while (reader.Read())
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        int messageId = Convert.ToInt32(reader["id"]);
+                        Dictionary<int, Message> messageMap = new Dictionary<int, Message>();
 
-                        if (!messageMap.ContainsKey(messageId))
+                        while (reader.Read())
                         {
-                            var senderDisplayPicture = new FileEntry();
-                            senderDisplayPicture.Id = reader.IsDBNull(reader.GetOrdinal("senderPicId")) ? 0 : reader.GetInt32("senderPicId");
-                            senderDisplayPicture.FileName = reader.IsDBNull(reader.GetOrdinal("senderPicFileName")) ? null : reader.GetString("senderPicFileName");
-                            senderDisplayPicture.Directory = reader.IsDBNull(reader.GetOrdinal("senderPicFolderPath")) ? null : reader.GetString("senderPicFolderPath");
+                            int messageId = Convert.ToInt32(reader["id"]);
 
-                            var sender = new User
-                            (
-                                Convert.ToInt32(reader["sender_id"]),
-                                reader["sender_username"].ToString()!,
-                                null,
-                                senderDisplayPicture.Id == 0 ? null : senderDisplayPicture,
-                                null
-                            );
-
-                            var receiverDisplayPicture = new FileEntry();
-                            receiverDisplayPicture.Id = reader.IsDBNull(reader.GetOrdinal("receiverPicId")) ? 0 : reader.GetInt32("receiverPicId");
-                            receiverDisplayPicture.FileName = reader.IsDBNull(reader.GetOrdinal("receiverPicFileName")) ? null : reader.GetString("receiverPicFileName");
-                            receiverDisplayPicture.Directory = reader.IsDBNull(reader.GetOrdinal("receiverPicFolderPath")) ? null : reader.GetString("receiverPicFolderPath");
-
-                            var receiver = new User
-                            (
-                                Convert.ToInt32(reader["receiver_id"]),
-                                reader["receiver_username"].ToString()!,
-                                null,
-                                receiverDisplayPicture.Id == 0 ? null : receiverDisplayPicture,
-                                null
-                            );
-
-                            var message = new Message
+                            if (!messageMap.ContainsKey(messageId))
                             {
-                                Id = messageId,
-                                Sender = sender,
-                                Receiver = receiver,
-                                Content = reader["content"].ToString()!,
-                                Timestamp = Convert.ToDateTime(reader["timestamp"]),
-                                Reactions = new List<Reaction>()
-                            };
+                                var senderDisplayPicture = new FileEntry
+                                {
+                                    Id = reader.IsDBNull(reader.GetOrdinal("senderPicId")) ? 0 : reader.GetInt32("senderPicId"),
+                                    FileName = reader.IsDBNull(reader.GetOrdinal("senderPicFileName")) ? null : reader.GetString("senderPicFileName"),
+                                    Directory = reader.IsDBNull(reader.GetOrdinal("senderPicFolderPath")) ? null : reader.GetString("senderPicFolderPath")
+                                };
 
-                            messageMap.Add(messageId, message);
+                                var sender = new User
+                                (
+                                    Convert.ToInt32(reader["sender_id"]),
+                                    reader["sender_username"].ToString(),
+                                    null,
+                                    senderDisplayPicture.Id == 0 ? null : senderDisplayPicture,
+                                    null
+                                );
+
+                                var receiverDisplayPicture = new FileEntry
+                                {
+                                    Id = reader.IsDBNull(reader.GetOrdinal("receiverPicId")) ? 0 : reader.GetInt32("receiverPicId"),
+                                    FileName = reader.IsDBNull(reader.GetOrdinal("receiverPicFileName")) ? null : reader.GetString("receiverPicFileName"),
+                                    Directory = reader.IsDBNull(reader.GetOrdinal("receiverPicFolderPath")) ? null : reader.GetString("receiverPicFolderPath")
+                                };
+
+                                var receiver = new User
+                                (
+                                    Convert.ToInt32(reader["receiver_id"]),
+                                    reader["receiver_username"].ToString(),
+                                    null,
+                                    receiverDisplayPicture.Id == 0 ? null : receiverDisplayPicture,
+                                    null
+                                );
+
+                                var message = new Message
+                                {
+                                    Id = messageId,
+                                    Sender = sender,
+                                    Receiver = receiver,
+                                    Content = reader["content"].ToString(),
+                                    Timestamp = Convert.ToDateTime(reader["timestamp"]),
+                                    Reactions = new List<Reaction>()
+                                };
+
+                                messageMap.Add(messageId, message);
+                            }
+
+                            // Check if reaction data is present and add to reactions list
+                            if (!reader.IsDBNull(reader.GetOrdinal("reaction_id")))
+                            {
+                                var reaction = new Reaction
+                                {
+                                    Id = Convert.ToInt32(reader["reaction_id"]),
+                                    User = new User(
+                                        reader.IsDBNull(reader.GetOrdinal("reaction_user_id")) ? 0 : Convert.ToInt32(reader["reaction_user_id"]),
+                                        reader.IsDBNull(reader.GetOrdinal("reaction_username")) ? "Anonymous" : reader.GetString("reaction_username")
+                                    ),
+                                    MessageId = messageId,
+                                    Timestamp = Convert.ToDateTime(reader["reaction_timestamp"]),
+                                    Type = reader["type"].ToString()
+                                };
+
+                                messageMap[messageId].Reactions.Add(reaction);
+                            }
                         }
 
-                        // Check if reaction data is present and add to reactions list
-                        if (!reader.IsDBNull(reader.GetOrdinal("reaction_id")))
-                        {
-                            var reaction = new Reaction
-                            {
-                                Id = Convert.ToInt32(reader["reaction_id"]),
-                                User = new User(
-                                    reader.IsDBNull(reader.GetOrdinal("reaction_user_id")) ? 0 : Convert.ToInt32(reader["reaction_user_id"]),
-                                    reader.IsDBNull(reader.GetOrdinal("reaction_username")) ? "Anonymous" : reader.GetString("reaction_username")
-                                ),
-                                MessageId = messageId,
-                                Timestamp = Convert.ToDateTime(reader["reaction_timestamp"]),
-                                Type = reader["type"].ToString()
-                            };
-
-                            messageMap[messageId].Reactions!.Add(reaction);
-                        }
+                        messages = messageMap.Values.ToList();
                     }
-
-                    messages = messageMap.Values.ToList();
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while processing the POST request for message history.");
-                return StatusCode(500, "An error occurred while processing the request.");
-            }
-            finally
-            {
-                conn.Close();
-            }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An error occurred while processing the POST request for message history.");
+                    return StatusCode(500, "An error occurred while processing the request.");
+                }
+                finally
+                {
+                    await conn.CloseAsync();
+                }
 
-            try
-            {
-                conn.Open();
+                try
+                {
+                    await conn.OpenAsync();
 
-                string updateSql = @"
+                    string updateSql = @"
                 UPDATE
                     maxhanna.messages
                 SET 
                     seen = 1 
                 WHERE 
-                    (receiver = @userId AND sender = @user2Id)";
+                    (receiver = @User1Id AND sender = @User2Id)";
 
-                MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-                updateCmd.Parameters.AddWithValue("@userId", request.user1.Id);
-                updateCmd.Parameters.AddWithValue("@user2Id", request.user2.Id);
+                    MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+                    updateCmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
+                    updateCmd.Parameters.AddWithValue("@User2Id", request.user2.Id);
 
-                await updateCmd.ExecuteReaderAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while processing the POST request for message history.");
-            }
-            finally
-            {
-                conn.Close();
+                    await updateCmd.ExecuteNonQueryAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An error occurred while updating message seen status.");
+                }
+                finally
+                {
+                    await conn.CloseAsync();
+                }
             }
 
             if (messages.Count > 0)

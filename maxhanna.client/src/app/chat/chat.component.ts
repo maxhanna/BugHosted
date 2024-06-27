@@ -65,13 +65,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   pollForMessages() {
-    if (this.currentChatUser && this.pageNumber == 1) {
+     if (this.currentChatUser) {
       this.pollingInterval = setInterval(async () => {
         if (!this.isComponentInView()) {
           clearInterval(this.pollingInterval);
           return;
         }
-        this.getMessageHistory();
+        if (this.currentChatUser && this.pageNumber == 1) {
+          this.getMessageHistory(); 
+        }
       }, 5000);
     }
   }
