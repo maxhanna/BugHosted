@@ -50,7 +50,7 @@
 .createStoryButton {
   background-color: var(--main-highlight-color);
   border: var(--main-border);
-  color: var(--secondary-font-color);
+  color: var(--main-font-color);
   font-weight:bold;
   font-size: 15px;
 }

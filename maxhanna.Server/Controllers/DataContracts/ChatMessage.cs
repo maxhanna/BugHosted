@@ -16,5 +16,6 @@ namespace maxhanna.Server.Controllers.DataContracts
         public string? Content { get; set; }
         public DateTime Timestamp { get; set; }
         public List<Reaction>? Reactions { get; set; }
+        public List<FileEntry> Files { get; set; } = new List<FileEntry>();
     }
 }

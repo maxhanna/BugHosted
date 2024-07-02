@@ -236,9 +236,9 @@ namespace maxhanna.Server.Controllers
                 }
             }
 
-            await AttachCommentsToStoriesAsync(storyResponse.Stories!);
-            await AttachFilesToStoriesAsync(storyResponse.Stories!);
-
+            await AttachCommentsToStoriesAsync(storyResponse.Stories);
+            await AttachFilesToStoriesAsync(storyResponse.Stories);
+            await AttachTopicsToStoriesAsync(storyResponse.Stories);
             storyResponse.TotalCount = totalCount;
             storyResponse.CurrentPage = page;
             storyResponse.PageCount = (int)Math.Ceiling((double)totalCount / pageSize);
@@ -571,6 +571,88 @@ namespace maxhanna.Server.Controllers
                                     };
 
                                     comment.CommentFiles!.Add(fileEntry);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        private async Task AttachTopicsToStoriesAsync(List<Story> stories)
+        {
+            // Extract all unique story IDs from the list of stories
+            var storyIds = stories.Select(s => s.Id).Distinct().ToList();
+
+            // If there are no stories, return early
+            if (storyIds.Count == 0)
+            {
+                return;
+            }
+
+            // Construct SQL query with parameterized IN clause for story IDs
+            StringBuilder sqlBuilder = new StringBuilder();
+            sqlBuilder.AppendLine(@"
+                SELECT 
+                    st.story_id AS story_id,
+                    t.id AS topic_id,
+                    t.topic AS topic_name
+                FROM 
+                    story_topics AS st
+                LEFT JOIN 
+                    topics AS t ON st.topic_id = t.id
+                WHERE 
+                    st.story_id IN (");
+
+            // Add placeholders for story IDs
+            for (int i = 0; i < storyIds.Count; i++)
+            {
+                sqlBuilder.Append("@storyId" + i);
+                if (i < storyIds.Count - 1)
+                {
+                    sqlBuilder.Append(", ");
+                }
+            }
+
+            sqlBuilder.AppendLine(@");");
+
+            // Execute the SQL query
+            using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await conn.OpenAsync();
+                _logger.LogInformation("SQL connection opened for topic attachment.");
+
+                using (var cmd = new MySqlCommand(sqlBuilder.ToString(), conn))
+                {
+                    // Bind each story ID to its respective parameter
+                    for (int i = 0; i < storyIds.Count; i++)
+                    {
+                        cmd.Parameters.AddWithValue("@storyId" + i, storyIds[i]);
+                    }
+
+                    using (var rdr = await cmd.ExecuteReaderAsync())
+                    {
+                        _logger.LogInformation("Topic SQL query executed, processing results.");
+
+                        while (await rdr.ReadAsync())
+                        {
+                            int storyId = rdr.GetInt32("story_id");
+                            var story = stories.FirstOrDefault(s => s.Id == storyId);
+
+                            if (story != null)
+                            {
+                                int topicId = rdr.GetInt32("topic_id");
+                                string topicName = rdr.GetString("topic_name");
+
+                                // Check if the story already has topics initialized
+                                if (story.StoryTopics == null)
+                                {
+                                    story.StoryTopics = new List<Topic>();
+                                }
+
+                                // Add the topic to the story's topics list if it doesn't exist already
+                                if (!story.StoryTopics.Any(t => t.Id == topicId))
+                                {
+                                    story.StoryTopics.Add(new Topic { Id = topicId, TopicText = topicName });
                                 }
                             }
                         }

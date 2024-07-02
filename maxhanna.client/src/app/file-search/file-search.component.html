@@ -54,7 +54,7 @@
             <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}" 
                  (dragover)="onDragOver($event)"
                  (drop)="onDrop(file.fileName)"
-                 [id]="'fileIdTd'+file.id"
+                 [id]="'fileIdDiv'+file.id"
                  [attr.data-content]="file?.fileData?.givenFileName ?? file.fileName.split('.')[0]!">
               <input type="text"
                      placeholder="New file name"
@@ -64,7 +64,7 @@
                      (click)="$event.stopPropagation()"
                      [id]="'editFileNameInput'+file.id" />
 
-              <span class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}" (click)="selectFile(file);">
+              <span class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}" (click)="selectFile(file);" [id]="'fileIdName'+file.id">
                 {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.fileData?.givenFileName ?? getFileWithoutExtension(file.fileName)!}}
               </span>
 

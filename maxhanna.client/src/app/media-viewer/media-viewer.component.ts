@@ -16,7 +16,24 @@ import { FileData } from '../../services/datacontracts/file-data';
 export class MediaViewerComponent extends ChildComponent implements OnInit {
   constructor(private fileService: FileService) { super(); }
   notifications: string[] = [];
-  videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
+
+  videoFileExtensions = [
+    "mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
+    "rmvb", "swf", "vob", "ts", "mts", "m2ts", "mxf", "ogv", "divx", "xvid", "dv", "drc", "f4v", "f4p",
+    "f4a", "f4b"
+  ]; 
+  audioFileExtensions = [
+    "mp3", "wav", "ogg", "flac", "aac", "aiff", "alac", "amr", "ape", "au", "dss", "gsm", "m4a", "m4b",
+    "m4p", "mid", "midi", "mpa", "mpc", "oga", "opus", "ra", "rm", "sln", "tta", "voc", "vox", "wma",
+    "wv"
+  ];
+  imageFileExtensions = [
+    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "heif", "heic", "ico", "psd", "raw",
+    "cr2", "nef", "orf", "sr2", "arw", "dng", "rw2", "pef", "raf", "3fr", "ari", "bay", "cap", "dcr",
+    "drf", "eip", "erf", "fff", "iiq", "k25", "kdc", "mdc", "mos", "mrw", "nrw", "obm", "orf", "pef",
+    "ptx", "r3d", "raf", "raw", "rwl", "rw2", "sr2", "srf", "srw", "x3f"
+  ];
+
   selectedFileExtension = '';
   selectedFileSrc = '';
   selectedFile: FileEntry | undefined;
@@ -34,10 +51,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
   @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo!: ElementRef;
+  @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef;
 
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
-  @Input() autoplay: boolean = false;
+  @Input() autoplay: boolean = true;
   @Input() showCommentSection: boolean = true;
   @Input() file?: FileEntry; 
   @Input() currentDirectory?: string = '';
@@ -77,7 +95,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     let target = (currentDirectory ?? '').replace(/\\/g, "/");
     target += (currentDirectory!.length > 0 && currentDirectory![currentDirectory!.length - 1] === this.fS) ? fileName : currentDirectory!.length > 0 ? this.fS + fileName : fileName;
 
-
     const response = await this.fileService.getFile(target, {
       signal: this.abortFileRequestController.signal
     });
@@ -86,7 +103,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     this.selectedFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
     const type = this.fileType = this.videoFileExtensions.includes(this.selectedFileExtension)
       ? `video/${this.selectedFileExtension}`
-      : `image/${this.selectedFileExtension}`;
+      : this.audioFileExtensions.includes(this.selectedFileExtension)
+        ? `audio/${this.selectedFileExtension}`
+        : `image/${this.selectedFileExtension}`;
 
     const blob = new Blob([response.blob], { type });
     const reader = new FileReader();
@@ -103,15 +122,23 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     const overlay = this.fullscreenOverlay.nativeElement;
     const image = this.fullscreenImage.nativeElement;
     const video = this.fullscreenVideo.nativeElement;
+    const audio = this.fullscreenAudio.nativeElement;
 
     if (this.videoFileExtensions.includes(file.extension)) {
       video.src = this.selectedFileSrc;
       video.style.display = 'block';
       image.style.display = 'none';
+      audio.style.display = 'none';
+    } else if (this.audioFileExtensions.includes(file.extension)) {
+      audio.src = this.selectedFileSrc;
+      audio.style.display = 'block';
+      image.style.display = 'none';
+      video.style.display = 'none';
     } else {
       image.src = this.selectedFileSrc;
       image.style.display = 'block';
       video.style.display = 'none';
+      audio.style.display = 'none';
     }
 
     overlay.style.display = 'block';
@@ -121,23 +148,33 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     const overlay = this.fullscreenOverlay.nativeElement;
     const image = this.fullscreenImage.nativeElement;
     const video = this.fullscreenVideo.nativeElement;
+    const audio = this.fullscreenAudio.nativeElement;
     image.src = undefined;
     video.src = undefined;
+    audio.src = undefined;
     (this.mediaContainer.nativeElement as HTMLMediaElement).src = this.selectedFileSrc;
 
     overlay.style.display = 'none';
   }
   getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
-    if (!contentDisposition) return '';
+     if (!contentDisposition) return '';
+
+    // Match the filename* pattern first to handle UTF-8 encoding
+    const filenameStarMatch = contentDisposition.match(/filename\*=['"]?UTF-8''([^'";\s]+)['"]?/);
+    if (filenameStarMatch && filenameStarMatch[1]) {
+      const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
+      return utf8Filename.split('.').pop() || '';
+    }
 
     // Match the filename pattern
-    const filenameMatch = contentDisposition.match(/filename\*?=['"]?([^'";\s]+)['"]?/);
+    const filenameMatch = contentDisposition.match(/filename=['"]?([^'";\s]+)['"]?/);
     if (filenameMatch && filenameMatch[1]) {
       const filename = filenameMatch[1];
       return filename.split('.').pop() || '';
     }
+
     return '';
-  } 
+  }
    
 
   async download(file: FileEntry, force: boolean) {

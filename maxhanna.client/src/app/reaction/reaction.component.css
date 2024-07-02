@@ -7,19 +7,18 @@
   display: inline-block;
 }
 .addReactionSpan {
-    font-size: small;
-    border: 1px solid;
-    border-radius: 15px;
-    padding:1px;
+  font-size: small;
+  border: 1px solid;
+  border-radius: 15px;
+  padding-right: 2px;
+  padding-left: 2px;
+  cursor: pointer;
 }
 
 .myReactionDiv{
     display: inline-block;
 }
-.addReactionTitleSpan {
-  border: 1px solid;
-  border-radius: 15px;
-  padding: 1px;
+.addReactionTitleSpan { 
 } 
 .reactionChoices {
   position:relative;

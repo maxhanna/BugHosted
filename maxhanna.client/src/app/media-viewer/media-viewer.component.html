@@ -3,16 +3,25 @@
   <div #fullscreenOverlay class="fullscreen-overlay">
     <span class="close-overlay" (click)="shrink()">✖</span>
     <img #fullscreenImage class="fullscreen-media" />
-    <video #fullscreenVideo class="fullscreen-media" controls autoplay="autoplay"></video>
+    <video #fullscreenVideo class="fullscreen-media" controls [autoplay]="autoplay"></video>
+    <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio> 
     <div class="shrinkMediaDiv cursorPointer" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
   <div class="mediaContainerDiv">
     <div *ngIf="isLoading" class="loading-spinner">Loading...</div>
     <div *ngIf="!isLoading && selectedFileSrc != ''" class="mediaDiv">
-      <img #mediaContainer *ngIf="!this.videoFileExtensions.includes(this.selectedFileExtension!)" [src]="selectedFileSrc" alt="file" class="image media" />
-      <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension!)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
-
-      <div class="filetype" *ngIf="displayExpander">
+      <img #mediaContainer *ngIf="this.imageFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="image media" />
+      <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
+      <audio #mediaContainer
+             *ngIf="this.audioFileExtensions.includes(this.selectedFileExtension)"
+             [src]="selectedFileSrc"
+             controls
+             preload="auto"
+             [autoplay]="false"
+             class="audio media">
+        Your browser does not support the audio element.
+      </audio>
+      <div class="filetype" *ngIf="displayExpander && !this.audioFileExtensions.includes(this.selectedFileExtension!)">
         <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ◻️</span>
       </div>
       <div class="filetype" *ngIf="displayExtraInfo">

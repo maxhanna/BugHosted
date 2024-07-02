@@ -119,5 +119,7 @@ export class ChildComponent {
       this.stopLoading();
     }
   }
-  
+  log(text: any) {
+    console.log(text);
+  }
 }

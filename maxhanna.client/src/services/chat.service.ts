@@ -4,6 +4,7 @@ import { User } from './datacontracts/user';
 import { MiningRig } from './datacontracts/mining-rig';
 import { MiningRigDevice } from './datacontracts/mining-rig-device';
 import { NicehashApiKeys } from './datacontracts/nicehash-api-keys';
+import { FileEntry } from './datacontracts/file-entry';
 
 @Injectable({
   providedIn: 'root'
@@ -54,14 +55,14 @@ export class ChatService {
       return null;
     }
   }
-  async sendMessage(sender: User, receiver: User, content: string) {
+  async sendMessage(sender: User, receiver: User, content: string, files?: FileEntry[]) {
     try {
       const response = await fetch(`/chat/sendmessage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ sender, receiver, content }), 
+        body: JSON.stringify({ sender, receiver, content, files }), 
       });
 
       return await response.json();

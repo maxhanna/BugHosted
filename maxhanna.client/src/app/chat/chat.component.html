@@ -32,14 +32,23 @@
         <div *ngFor="let message of chatHistory" [class]="{'align-left': message.sender.id === parentRef?.user!.id, 'align-right': message.sender.id !== parentRef?.user!.id, 'messageContainer': true}">
           <!-- USER MESSAGE -->
           <ng-container *ngIf="message.sender.id === parentRef?.user!.id">
-            <div class="profileTag" (click)="viewProfile(message.sender)">
+            <div class="profileTag">
               <div class="usernameProfileLink">
-                <app-user-tag [user]="message.sender"></app-user-tag>
+                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
               ({{ formatTimestamp(message.timestamp) }})
             </div>
             <div class="messageContent">
               {{ message.content }}
+              <div *ngFor="let file of message.files">
+                <app-media-viewer [file]="file"
+                                  [currentDirectory]="file.directory"
+                                  [inputtedParentRef]="parentRef"
+                                  [displayExtraInfo]="false"
+                                  [showCommentSection]="false"
+                                  [user]="parentRef?.user">
+                </app-media-viewer>
+              </div>
               <app-reaction [messageId]="message.id" [user]="parentRef?.user" [currentReactions]="message.reactions"></app-reaction>
             </div>
           </ng-container>
@@ -47,13 +56,24 @@
           <ng-container *ngIf="message.sender.id !== parentRef?.user!.id">
             <div class="messageContent">
               {{ message.content }}
+              <div *ngFor="let file of message.files">
+                <div class="attachmentMedia">
+                  <app-media-viewer [file]="file"
+                                    [currentDirectory]="file.directory"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [user]="parentRef?.user">
+                  </app-media-viewer>
+                </div>
+              </div>
               <app-reaction [messageId]="message.id"
                             [user]="parentRef?.user"
                             [currentReactions]="message.reactions"></app-reaction>
             </div>
-            <div class="profileTag" (click)="viewProfile(message.sender)">
+            <div class="profileTag">
               <div class="usernameProfileLink">
-                <app-user-tag [user]="message.sender"></app-user-tag>
+                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
               ({{ formatTimestamp(message.timestamp) }})
             </div>
@@ -68,8 +88,17 @@
       </div>
       <div class="messageInput">
         <input placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()" />
-        <button (click)="sendMessage()">✉️</button>
+        <button (click)="sendMessage()">🗨️</button>
+        <div>
+          <app-media-selector [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user!.username : 'Anonymous')"
+                              (selectFileEvent)="selectFile($event)">
+          </app-media-selector>
+        </div>
       </div>
-    </div> 
+      <div *ngIf="attachedFiles && attachedFiles.length > 0">Attachments :</div>
+      <div *ngIf="attachedFiles && attachedFiles.length > 0" class="attachedFilesDiv">
+        <div *ngFor="let file of attachedFiles">{{file.fileName}}</div>
+      </div>
+    </div>
   </div>
 </div>

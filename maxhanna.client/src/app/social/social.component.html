@@ -12,7 +12,7 @@
               class="foodForThought"
               (focus)="focusInput()"></textarea>
     <div class="mainFileUploaderAndTopicSelectorDiv">
-      <button (click)="post()" class="createStoryButton">🍌 Post your story</button>
+      <button (click)="post()" class="createStoryButton">🗨️ Post</button>
 
       <app-media-selector #postMediaSelector
                           [currentDirectory]="parentRef?.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
@@ -31,24 +31,22 @@
         <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
       </select>
     </div>
-    <div> 
+    <div>
       <input type="text" #search placeholder="Search the socials" (keyup.enter)="searchStories()" *ngIf="!user" />
       <input type="submit" (click)="searchStories()" class="createStoryButton" value="🔍" *ngIf="!user" />
     </div>
   </div>
-  
+
   <div class="mainTableDiv">
     <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
       <div class="commentVoteButtons">
-        <!--<button (click)="upvoteStory(story)" class="vote-button">⬆️{{ story.upvotes }}</button>
-        <button (click)="downvoteStory(story)" class="vote-button">⬇️{{ story.downvotes }}</button>-->
         <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">Share 📋</button>
         <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Share Link" style="display:inline-block">Delete Story ❌</button>
       </div>
       <div class="storyTextContainer">
         <div class="avatarDiv">
-          <div class="usernameProfileLink" (click)="viewProfile(story.user)">
-            <app-user-tag [user]="story.user"></app-user-tag>
+          <div class="usernameProfileLink">
+            <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef"></app-user-tag>
           </div>
           <div class="storyDate">
             <div class="datePart">
@@ -64,7 +62,7 @@
             <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)"></div>
             <app-reaction [storyId]="story.id"
                           [user]="parentRef?.user"
-                          [currentReactions]="story.reactions"></app-reaction> 
+                          [currentReactions]="story.reactions"></app-reaction>
           </div>
           <div class="storyTopics" *ngIf="story.storyTopics && story.storyTopics.length > 0">
             Topics : <span *ngFor="let topic of story.storyTopics" class="chosenTopic">{{topic.topicText}}</span>
@@ -78,7 +76,8 @@
                                 [file]="file"
                                 [showCommentSection]="false"
                                 [displayExtraInfo]="false"
-                                [displayExpander]="true">
+                                [displayExpander]="true"
+                                [autoplay]="false">
               </app-media-viewer>
             </div>
           </div>

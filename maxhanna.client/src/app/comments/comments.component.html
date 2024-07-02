@@ -19,8 +19,8 @@
     <div *ngFor="let comment of commentList!" class="commentListDiv">
       <div class="commentContentAndAvatarContainerDiv">
         <div class="commentAvatar">
-          <span class="usernameProfileLink" (click)="viewProfile(comment.user)">
-            <app-user-tag [user]="comment.user"></app-user-tag>
+          <span class="usernameProfileLink">
+            <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
           </span>
         </div>
         <div class="commentContent">
@@ -42,9 +42,7 @@
           </div>
         </div>
       </div>
-      <div class="actionDiv">
-        <!--<button (click)="upvoteComment(comment)" class="vote-button" title="Upvote">⬆️{{ comment.upvotes }}</button>
-        <button (click)="downvoteComment(comment)" class="vote-button" title="Downvote">⬇️{{ comment.downvotes }}</button>-->
+      <div class="actionDiv"> 
         <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id">❌</button>
       </div>
     </div>

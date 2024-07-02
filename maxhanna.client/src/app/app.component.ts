@@ -139,7 +139,6 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   createComponent(componentType: string, inputs?: { [key: string]: any; }) {
-    console.log("creating component : " + componentType); 
     if (!componentType || componentType.trim() === "") {
       console.log("returning null due to invalid componentType");
       return null;
@@ -153,8 +152,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
 
     if (componentType !== "User" && existingComponent) {
-      console.log("found existing component");
-      return; // Prevent creating the same component if it's not a user profile - Allow new user profile creation even if a user profile is already open.
+      return;
     }
 
     this.removeAllComponents();

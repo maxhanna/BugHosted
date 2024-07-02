@@ -171,10 +171,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
     const result = res;
     if (result) {
-      const btcToCADRate = result.valueCAD;
-      console.log("latestBTC Value : " + btcToCADRate);
-      console.log("result name : " + result.name);
-      console.log(result);
+      const btcToCADRate = result.valueCAD; 
       this._parent.navigationItems.filter(x => x.title == "MiningRigs")[0].content = (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
       this._parent.navigationItems.filter(x => x.title == "Coin-Watch")[0].content = btcToCADRate.toFixed(0) + "$";
     }

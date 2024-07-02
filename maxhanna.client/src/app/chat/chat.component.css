@@ -43,17 +43,11 @@
 .chatWindow {
   border: 1px solid #ccc;
   padding: 10px;
-  max-height: 70vh;
-  max-width: 570px;
+  max-height: 60vh; 
   overflow: auto;
   margin-bottom: 10px;
 }
-
-@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
-  .chatWindow {
-    max-width: 270px;
-  }
-}
+ 
 
 .align-left {
   text-align: left;
@@ -95,10 +89,12 @@
 
 .messageInput {
   width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
   .messageInput input {
-    width: CALC(100% - 50px);
+    min-width: CALC(100% - 200px);
   }
 
   .messageInput button {
@@ -113,4 +109,8 @@ input[type="text"] {
   margin-right: unset !important;
   width: 100px;
   text-align:center; 
+}
+.attachedFilesDiv {
+  display: flex;
+  justify-content: center;
 }

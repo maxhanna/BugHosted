@@ -12,7 +12,7 @@
     <span class="avatarBug noAvatar">🪲</span>
     <span class="avatarBust noAvatar">👤</span>
   </div>
-  <div class="username cursorPointer">
-    {{user?.username}}
+  <div class="username cursorPointer usernameProfileLink">
+    <span class="usernameSpan" (click)="viewProfile(user)">{{user?.username}}</span>
   </div>
 </div> 

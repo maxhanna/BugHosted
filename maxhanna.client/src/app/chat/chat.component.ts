@@ -5,6 +5,7 @@ import { ChatService } from '../../services/chat.service';
 import { Message } from '../../services/datacontracts/message';
 import { User } from '../../services/datacontracts/user';
 import { ChatNotification } from '../../services/datacontracts/chat-notification';
+import { FileEntry } from '../../services/datacontracts/file-entry';
 
 @Component({
   selector: 'app-chat',
@@ -16,6 +17,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   isPanelExpanded: boolean = true;
   currentChatUser: User | null = null;
   chatHistory: Message[] = [];
+  attachedFiles: FileEntry[] = [];
   @ViewChild('newMessage') newMessage!: ElementRef<HTMLInputElement>;
   @ViewChild('chatWindow') chatWindow!: ElementRef;
   hasManuallyScrolled = false;
@@ -50,6 +52,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   pageSize = 10;
   totalPages = 1; 
   totalPagesArray: number[] = [];
+
 
   constructor( private chatService: ChatService) {
     super();
@@ -175,23 +178,25 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.totalPagesArray = new Array<number>();
     clearInterval(this.pollingInterval);
     this.togglePanel();
-  }
-
-
+  } 
   async sendMessage() {
     let msg = this.newMessage.nativeElement.value.trim();
 
     if (msg) {
       msg = this.replaceEmojisInMessage(msg);
       try {
-        var newMsg = new Message(0, this.parentRef?.user!, this.currentChatUser!, msg, new Date());
         this.newMessage.nativeElement.value = '';
         this.scrollToBottomIfNeeded();
-        await this.chatService.sendMessage(this.parentRef?.user!, this.currentChatUser!, msg);
-        await this.getMessageHistory()
+        await this.chatService.sendMessage(this.parentRef?.user!, this.currentChatUser!, msg, this.attachedFiles);
+        this.attachedFiles = [];
+        await this.getMessageHistory();
       } catch (error) {
         console.error(error);
       }
     }
   }
+
+  selectFile(files: FileEntry[]) {
+    this.attachedFiles = files;
+  } 
 }

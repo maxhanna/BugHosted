@@ -99,8 +99,8 @@ namespace maxhanna.Server.Controllers
                         offset = (page - 1) * pageSize;
                     }
 
-                    //_logger.LogInformation($"setting page:{page}&offset={offset}");
-
+                    _logger.LogInformation($"setting page:{page}&offset={offset}");
+                    string orderBy = fileId == null ? " ORDER BY f.id desc " : string.Empty;
                     var command = new MySqlCommand($@"
                         SELECT 
                             f.id AS fileId,
@@ -141,8 +141,7 @@ namespace maxhanna.Server.Controllers
                             {fileTypeCondition}
                             {visibilityCondition}
                             {ownershipCondition}
-                        ORDER BY 
-                            f.id desc
+                            {orderBy}
                         LIMIT
                             @pageSize OFFSET @offset;"
                     , connection);
@@ -155,7 +154,7 @@ namespace maxhanna.Server.Controllers
                     {
                         command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
                     }
-
+                    //_logger.LogInformation(command.CommandText);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -501,72 +500,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while updating the Filedata.");
             }
         } 
-
-        [HttpPost("/File/Upvote", Name = "UpvoteFile")]
-        public async Task<IActionResult> UpvoteFile([FromBody] VoteRequest request)
-        {
-            _logger.LogInformation($"POST /File/Upvote");
-            try
-            {
-                if (request.User.Id <= 0 || request.FileId <= 0)
-                {
-                    _logger.LogWarning($"Invalid request data! Returning BadRequest.");
-                    return BadRequest("Invalid user or File ID.");
-                }
-
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await connection.OpenAsync();
-
-                    var command = new MySqlCommand("INSERT INTO file_votes (file_id, user_id, upvote, downvote) VALUES (@fileId, @userId, 1, 0) ON DUPLICATE KEY UPDATE upvote = 1, downvote = 0", connection);
-                    command.Parameters.AddWithValue("@fileId", request.FileId);
-                    command.Parameters.AddWithValue("@userId", request.User.Id);
-
-                    await command.ExecuteNonQueryAsync();
-                }
-
-                _logger.LogInformation($"File {request.FileId} upvoted by user {request.User.Id}");
-                return Ok("File upvoted successfully.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while upvoting the file.");
-                return StatusCode(500, "An error occurred while upvoting the file.");
-            }
-        }
-
-        [HttpPost("/File/Downvote", Name = "DownvoteFile")]
-        public async Task<IActionResult> DownvoteFile([FromBody] VoteRequest request)
-        {
-            _logger.LogInformation($"POST /File/Downvote");
-            try
-            {
-                if (request.User.Id <= 0 || request.FileId <= 0)
-                {
-                    _logger.LogWarning($"Invalid request data! Returning BadRequest.");
-                    return BadRequest("Invalid user or File ID.");
-                }
-
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-                {
-                    await connection.OpenAsync();
-
-                    var command = new MySqlCommand("INSERT INTO file_votes (file_id, user_id, upvote, downvote) VALUES (@fileId, @userId, 0, 1) ON DUPLICATE KEY UPDATE upvote = 0, downvote = 1", connection);
-                    command.Parameters.AddWithValue("@fileId", request.FileId);
-                    command.Parameters.AddWithValue("@userId", request.User.Id);
-
-                    await command.ExecuteNonQueryAsync();
-                }
-
-                _logger.LogInformation($"File {request.FileId} downvoted by user {request.User.Id}");
-                return Ok("File downvoted successfully.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An error occurred while downvoting the file.");
-                return StatusCode(500, "An error occurred while downvoting the file.");
-            }
-        }
+         
         [HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
         public IActionResult GetFile([FromBody] User? user, string filePath)
         {
@@ -741,6 +675,10 @@ namespace maxhanna.Server.Controllers
                         {
                             convertedFilePath = await ConvertVideoToWebm(file, uploadDirectory);
                         }
+                        else if (IsAudioFile(file) && !file.FileName.EndsWith(".opus"))
+                        {
+                            convertedFilePath = await ConvertAudioToOpusMP4(file, uploadDirectory);
+                        }
                         else
                         {
                             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -787,13 +725,77 @@ namespace maxhanna.Server.Controllers
             var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
             return allowedExtensions.Contains(fileExtension);
         }
-
+        private bool IsAudioFile(IFormFile file)
+        {
+            var allowedExtensions = new[] { ".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".wma", ".opus" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return allowedExtensions.Contains(fileExtension);
+        }
         private bool IsVideoFile(IFormFile file)
         {
             var allowedExtensions = new[] { ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv" };
             var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
             return allowedExtensions.Contains(fileExtension);
         }
+        private async Task<string> ConvertAudioToOpusMP4(IFormFile file, string uploadDirectory)
+        {
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
+            var opusConvertedFileName = $"{fileNameWithoutExtension}.opus";
+            var opusConvertedFilePath = Path.Combine(uploadDirectory, opusConvertedFileName);
+            var mp4ConvertedFileName = $"{fileNameWithoutExtension}.mp4";
+            var mp4ConvertedFilePath = Path.Combine(uploadDirectory, mp4ConvertedFileName);
+            var inputFilePath = Path.Combine(uploadDirectory, file.FileName);
+
+            try
+            {
+                // Save the input file temporarily
+                using (var stream = new FileStream(inputFilePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                var beforeFileSize = new FileInfo(inputFilePath).Length;
+
+                // Convert to Opus
+                var opusConversion = FFmpeg.Conversions.New()
+                    .AddParameter($"-i \"{inputFilePath}\"")
+                    .AddParameter("-c:a libopus")
+                    .AddParameter("-b:a 128k")
+                    .SetOutput(opusConvertedFilePath);
+                await opusConversion.Start();
+
+                // Verify Opus conversion success
+                if (!System.IO.File.Exists(opusConvertedFilePath))
+                {
+                    throw new FileNotFoundException("Opus conversion failed or output file not found.");
+                }
+
+                // Convert Opus to MP4
+                var mp4Conversion = FFmpeg.Conversions.New()
+                    .AddParameter($"-i \"{opusConvertedFilePath}\"")
+                    .SetOutput(mp4ConvertedFilePath);
+                await mp4Conversion.Start();
+
+                var afterFileSize = new FileInfo(mp4ConvertedFilePath).Length;
+                _logger.LogInformation($"Audio conversion completed: before [fileName={file.FileName}, fileSize={beforeFileSize} bytes] after [fileName={mp4ConvertedFileName}, fileSize={afterFileSize} bytes]");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during audio conversion.");
+            }
+            finally
+            {
+                // Clean up: delete temporary files
+                System.IO.File.Delete(inputFilePath);
+                if (System.IO.File.Exists(opusConvertedFilePath))
+                {
+                    System.IO.File.Delete(opusConvertedFilePath);
+                }
+            }
+
+            return mp4ConvertedFilePath;
+        }
+
         private async Task<string> ConvertGifToWebp(IFormFile file, string uploadDirectory)
         {
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
@@ -955,9 +957,7 @@ namespace maxhanna.Server.Controllers
                 FileName = Path.GetFileName(filePath),
                 Visibility = isPublic ? "Public" : "Private",
                 User = user ?? new User(0, "Anonymous"),
-                IsFolder = false,
-                Upvotes = 0,
-                Downvotes = 0,
+                IsFolder = false, 
                 FileComments = new List<FileComment>(),
                 Date = DateTime.UtcNow,
                 SharedWith = string.Empty,
@@ -993,23 +993,17 @@ namespace maxhanna.Server.Controllers
                 f.is_folder, 
                 f.user_id, 
                 u.username AS username, 
-                f.shared_with, 
-                SUM(CASE WHEN fv.upvote = 1 THEN 1 ELSE 0 END) AS upvotes, 
-                SUM(CASE WHEN fv.downvote = 1 THEN 1 ELSE 0 END) AS downvotes, 
+                f.shared_with,  
                 f.upload_date AS date, 
                 fc.id AS commentId, 
                 fc.user_id AS commentUserId, 
                 uc.username AS commentUsername,  
-                fc.comment AS commentText, 
-                SUM(CASE WHEN fcv.upvote = 1 THEN 1 ELSE 0 END) AS commentUpvotes, 
-                SUM(CASE WHEN fcv.downvote = 1 THEN 1 ELSE 0 END) AS commentDownvotes,
+                fc.comment AS commentText,  
                 fd.given_file_name,
                 fd.description,
                 fd.last_updated as file_data_updated
             FROM 
-                maxhanna.file_uploads f 
-            LEFT JOIN 
-                maxhanna.file_votes fv ON f.id = fv.file_id 
+                maxhanna.file_uploads f   
             LEFT JOIN 
                 maxhanna.file_data fd ON f.id = fd.file_id 
             LEFT JOIN 
@@ -1017,9 +1011,7 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN 
                 maxhanna.users u ON u.id = f.user_id 
             LEFT JOIN 
-                maxhanna.users uc ON fc.user_id = uc.id  
-            LEFT JOIN 
-                maxhanna.comment_votes fcv ON fc.id = fcv.comment_id 
+                maxhanna.users uc ON fc.user_id = uc.id   
             WHERE 
                 f.file_name = @fileName 
                 AND f.folder_path = @folderPath 
@@ -1047,8 +1039,7 @@ namespace maxhanna.Server.Controllers
                         var userName = reader.GetString("username");
                         var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
                         var isFolder = reader.GetBoolean("is_folder");
-                        var upvotes = reader.GetInt32("upvotes");
-                        var downvotes = reader.GetInt32("downvotes");
+                       
                         var date = reader.GetDateTime("date");
                         var fileData = new FileData();
                         fileData.FileId = reader.IsDBNull(reader.GetOrdinal("fileId")) ? 0 : reader.GetInt32("fileId");
@@ -1063,9 +1054,7 @@ namespace maxhanna.Server.Controllers
                         fileEntry.Visibility = isPublic ? "Public" : "Private";
                         fileEntry.SharedWith = shared_with;
                         fileEntry.User = new User(user_id, userName);
-                        fileEntry.IsFolder = isFolder;
-                        fileEntry.Upvotes = upvotes;
-                        fileEntry.Downvotes = downvotes;
+                        fileEntry.IsFolder = isFolder; 
                         fileEntry.FileComments = new List<FileComment>();
                         fileEntry.Date = date;
                         fileEntry.FileData = fileData;
@@ -1078,9 +1067,7 @@ namespace maxhanna.Server.Controllers
                                 var commentId = reader.GetInt32("commentId");
                                 var commentUserId = reader.GetInt32("commentUserId");
                                 var commentUsername = reader.GetString("commentUsername");
-                                var commentText = reader.GetString("commentText");
-                                var commentUpvotes = reader.GetInt32("commentUpvotes");
-                                var commentDownvotes = reader.GetInt32("commentDownvotes");
+                                var commentText = reader.GetString("commentText"); 
 
 
                                 int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
@@ -1093,9 +1080,7 @@ namespace maxhanna.Server.Controllers
                                     Id = commentId,
                                     FileId = id,
                                     User = new User(commentUserId, commentUsername ?? "Anonymous", null, displayPicId != null ? dpFileEntry : null, null),
-                                    CommentText = commentText,
-                                    Upvotes = commentUpvotes,
-                                    Downvotes = commentDownvotes
+                                    CommentText = commentText, 
                                 };
 
                                 fileEntry.FileComments!.Add(fileComment);

@@ -3,15 +3,18 @@ import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user';
 import { ChatNotification } from '../../services/datacontracts/chat-notification';
 import { ChatService } from '../../services/chat.service';
+import { ChildComponent } from '../child.component';
 
 @Component({
   selector: 'app-user-list',
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css'
 })
-export class UserListComponent implements OnInit, OnDestroy {
+export class UserListComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User;
   @Input() chatNotifications?: ChatNotification[];
+  @Input() friendsOnly: boolean = false;
+  @Input() contactsOnly: boolean = false;
   @Output() userClickEvent = new EventEmitter<User>();
 
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
@@ -19,7 +22,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   private chatInfoInterval: any;
   users: Array<User> = [];
   constructor(private userService: UserService, private chatService: ChatService) {
-
+    super();
   }
   async ngOnInit() {
     this.getChatInfo();
@@ -64,20 +67,8 @@ export class UserListComponent implements OnInit, OnDestroy {
         return countB - countA;
       });
     }
-  }
-
-  debounce(func: Function, delay: number): (...args: any[]) => Promise<User[]> {
-    let timeoutId: NodeJS.Timeout;
-    return (...args: any[]) => {
-      return new Promise(resolve => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(async () => {
-          const result = await func.apply(this, args);
-          resolve(result);
-        }, delay);
-      });
-    };
-  }
+  } 
+ 
   async search() {
     try {
       const search = this.searchInput.nativeElement.value.trim();

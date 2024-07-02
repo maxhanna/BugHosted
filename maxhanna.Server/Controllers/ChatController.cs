@@ -175,7 +175,10 @@ namespace maxhanna.Server.Controllers
                     r.user_id AS reaction_user_id,
                     reactionuser.username AS reaction_username,
                     r.timestamp AS reaction_timestamp,
-                    r.type
+                    r.type, 
+                    f.id as file_id,
+                    f.file_name as file_name,
+                    f.folder_path as folder_path
                 FROM 
                     maxhanna.messages m
                 JOIN 
@@ -194,6 +197,10 @@ namespace maxhanna.Server.Controllers
                     maxhanna.reactions AS r ON m.id = r.message_id
                 LEFT JOIN 
                     maxhanna.users AS reactionuser ON reactionuser.id = r.user_id
+                LEFT JOIN
+                    maxhanna.message_files mf ON m.id = mf.message_id
+                LEFT JOIN
+                    maxhanna.file_uploads f ON mf.file_id = f.id
                 WHERE 
                     (m.sender = @User1Id AND m.receiver = @User2Id) OR 
                     (m.sender = @User2Id AND m.receiver = @User1Id)
@@ -279,6 +286,18 @@ namespace maxhanna.Server.Controllers
 
                                 messageMap[messageId].Reactions.Add(reaction);
                             }
+                            // Check if file data is present and add to files list 
+                            if (!reader.IsDBNull(reader.GetOrdinal("file_id")))
+                            {
+                                var file = new FileEntry
+                                {
+                                    Id = Convert.ToInt32(reader["file_id"]),
+                                    FileName = reader["file_name"].ToString(),
+                                    Directory = reader["folder_path"].ToString()
+                                };
+
+                                messageMap[messageId].Files.Add(file);
+                            }
                         }
 
                         messages = messageMap.Values.ToList();
@@ -299,12 +318,12 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
 
                     string updateSql = @"
-                UPDATE
-                    maxhanna.messages
-                SET 
-                    seen = 1 
-                WHERE 
-                    (receiver = @User1Id AND sender = @User2Id)";
+                    UPDATE
+                        maxhanna.messages
+                    SET 
+                        seen = 1 
+                    WHERE 
+                        (receiver = @User1Id AND sender = @User2Id)";
 
                     MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
                     updateCmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
@@ -344,7 +363,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Chat/SendMessage", Name = "SendMessage")]
         public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
         {
-            _logger.LogInformation($"POST /Chat/SendMessage from user: {request.Sender!.Id} to user: {request.Receiver!.Id}");
+            _logger.LogInformation($"POST /Chat/SendMessage from user: {request.Sender!.Id} to user: {request.Receiver!.Id} with {request.Files?.Count ?? 0} # of files");
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
@@ -359,6 +378,24 @@ namespace maxhanna.Server.Controllers
                 cmd.Parameters.AddWithValue("@Content", request.Content);
 
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+                if (rowsAffected > 0)
+                {
+                    // Retrieve the last inserted ID
+                    long insertedId = cmd.LastInsertedId; 
+                    if (insertedId != 0 && request.Files != null && request.Files.Count > 0)
+                    { 
+                        for (var x = 0; x < request.Files.Count; x++) {
+                            sql = "INSERT INTO maxhanna.message_files (message_id, file_id) VALUES (@messageId, @fileId)";
+
+                            MySqlCommand filecmd = new MySqlCommand(sql, conn);
+                            filecmd.Parameters.AddWithValue("@messageId", insertedId);
+                            filecmd.Parameters.AddWithValue("@fileId", request.Files[x].Id); 
+                            await filecmd.ExecuteNonQueryAsync();
+                        } 
+                    }
+                } 
+                 
 
                 if (rowsAffected > 0)
                 {
@@ -385,11 +422,12 @@ namespace maxhanna.Server.Controllers
             public User? Sender { get; set; }
             public User? Receiver { get; set; }
             public string? Content { get; set; }
+            public List<FileEntry>? Files { get; set; }
         }
         public class Notification
         {
             public int SenderId { get; set; }
             public int Count { get; set; }
-        }
+        } 
     }
 }

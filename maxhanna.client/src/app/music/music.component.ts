@@ -26,9 +26,6 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
 
   constructor(private todoService: TodoService) { super(); }
   async ngOnInit() {
-    if (!this.user) {
-      console.log("didnt get a user");
-    }
     await this.getSongList(); 
     if (this.songs && this.songs[this.songs.length - 1] && this.songs[this.songs.length - 1].url) {
       this.play(this.songs[this.songs.length - 1].url!);
@@ -69,12 +66,9 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     this.songs.unshift(tmpTodo);
   }
   async getSongList() {
-    console.log("getting song list");
     if (this.songPlaylist && this.songPlaylist.length > 0) {
-      console.log("songs were passed in");
       this.songs = this.songPlaylist;
     } else {
-      console.log("manual song fetch");
       this.songs = await this.todoService.getTodo(this.user ?? this.parentRef?.user!, "Music");
     }
     this.gotPlaylistEvent.emit(this.songs);

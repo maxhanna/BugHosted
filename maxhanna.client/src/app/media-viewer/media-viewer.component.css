@@ -66,3 +66,14 @@
 .displayExpander {
     font-size: 8px;
 }
+.attachmentMedia {
+  display: block;
+  border: var(--main-border);
+  max-width: 225px;
+  max-height: 525px;
+  overflow-y: auto;
+}
+.audio {
+    width:220px;
+    height:25px;
+}

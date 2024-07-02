@@ -1,4 +1,4 @@
- 
+
 import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { User } from '../../services/datacontracts/user';
 import { FileService } from '../../services/file.service';
@@ -17,7 +17,7 @@ import { AppComponent } from '../app.component';
   styleUrl: './file-search.component.css'
 })
 export class FileSearchComponent extends ChildComponent implements OnInit, AfterViewInit {
-  @Input() currentDirectory = ''; 
+  @Input() currentDirectory = '';
   @Input() clearAfterSelectFile = false;
   @Input() allowedFileTypes: string[] = [];
   @Input() user?: User;
@@ -76,25 +76,25 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.route.paramMap.subscribe(async params => {
       this.fileId = params.get('fileId');
       if (this.fileId) {
-        await this.getDirectory(undefined, parseInt(this.fileId));  
+        await this.getDirectory(undefined, parseInt(this.fileId));
         return;
       }
     });
     await this.getDirectory();
   }
-  ngAfterViewInit() { 
+  ngAfterViewInit() {
   }
   scrollToFile(fileId: string) {
     setTimeout(() => {
-      const element = document.getElementById('fileIdTd' + fileId);
+      const element = document.getElementById('fileIdName' + fileId);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         element.click();
       }
-    },1000);
+    }, 1000);
   }
   async upvoteFile(file: FileEntry) {
-    const res = await this.fileService.upvoteFile(this.user!, file.id); 
+    const res = await this.fileService.upvoteFile(this.user!, file.id);
     if (res.toLowerCase().includes("error")) {
       this.notifications.push("Error upvoting, are you logged in?");
     } else {
@@ -149,7 +149,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           fileId,
           (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>())
         );
-        if (res) { 
+        if (res) {
           this.directory = res;
 
           if (this.directory && this.directory.currentDirectory) {
@@ -158,16 +158,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
             this.currentDirectory = '';
           }
           this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() != "" ? true : false);
-        }
-        console.log(res)
-        if (this.directory && this.directory.totalCount) {
-          this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
-          
-          if (this.fileId && this.fileId != null && this.fileId != 0 + '' && this.directory.data!.filter(x => x.id == parseInt(this.fileId!))[0]) {
-            console.log("fileId defined, scrolling and opening");
-            if (this.directory.page) {
-              this.currentPage = this.directory.page!;
-            }
+
+          if (this.directory && this.directory.page) {
+            this.currentPage = this.directory.page!;
+          }
+          if (this.directory && this.directory.totalCount) {
+            this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
+          }
+          if (this.fileId && this.fileId != null && this.fileId != 0 + '' && this.directory && this.directory.data!.filter(x => x.id == parseInt(this.fileId!))[0]) {
             this.scrollToFile(this.fileId!);
           }
         }
@@ -182,9 +180,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   getFileExtension(filename: string) {
     return this.fileService.getFileExtension(filename);
   }
-  selectFile(file: FileEntry) { 
+  selectFile(file: FileEntry) {
     if (!file.isFolder && this.clearAfterSelectFile) {
-      this.selectFileEvent.emit(file); 
+      this.selectFileEvent.emit(file);
       this.showData = false;
       this.search.nativeElement.value = file.fileName;
     } else {
@@ -234,8 +232,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!text || text.trim() == '') { return; }
     const fileData = new FileData(fileId, text, '', new Date());
     const res = await this.fileService.updateFileData(this.user, fileData);
-    if (document.getElementById("fileIdTd" + fileId) != null) {
-      document.getElementById("fileIdTd" + fileId)!.innerText = text;
+    if (document.getElementById("fileIdName" + fileId) != null) {
+      document.getElementById("fileIdName" + fileId)!.innerText = text;
     }
     if (res) {
       this.notifications.push(res);
@@ -244,7 +242,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   async startEditing(fileId: number, event: MouseEvent) {
     event.stopPropagation();
-    const parent = document.getElementById("fileIdTd" + fileId)!;
+    const parent = document.getElementById("fileIdDiv" + fileId)!;
     const text = parent.getElementsByTagName("input")[0].value!;
 
     if (this.isEditing.includes(fileId) && text.trim() == '') {
@@ -343,7 +341,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   moveUpOneLevel(): string {
     const currDir = this.currentDirectory;
-    console.log("currDir: " + currDir);
     const lastSlashIndex = currDir.lastIndexOf('/');
     if (lastSlashIndex !== -1) {
       const directoryWithoutTrailingSlash = currDir.endsWith('/') ? currDir.slice(0, -1) : currDir;
@@ -385,9 +382,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   previousDirectory() {
     this.search.nativeElement.value = '';
     const target = this.moveUpOneLevel();
-    console.log("target ? " + target);
-    this.currentPage = this.defaultCurrentPage; 
-    console.log("setting currentDirectory to : " + target);
+    this.currentPage = this.defaultCurrentPage;
     this.currentDirectory = target;
     this.getDirectory();
   }
@@ -403,7 +398,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       files.forEach(x => {
         if (this.directory?.data && this.directory?.data?.filter(d => d.id == x.id).length == 0) {
           this.directory.data!.push(x);
-        }  
+        }
       });
     }
   }
