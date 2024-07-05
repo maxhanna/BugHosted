@@ -12,6 +12,7 @@ import { AppComponent } from '../app.component';
 export class TopicsComponent {
   @Input() user: User | undefined;
   @Input() parent: AppComponent | undefined;
+  @Input() isDropdown: boolean = false;
   @Output() topicAdded = new EventEmitter<Topic[]>();
   @ViewChild('newTopic') newTopic!: ElementRef<HTMLInputElement>;
   @ViewChild('addTopicButton') addTopicButton!: ElementRef<HTMLButtonElement>;
@@ -34,6 +35,10 @@ export class TopicsComponent {
       this.topicAdded.emit(this.topics);
       this.addTopicButton.nativeElement.style.visibility = "hidden"; 
     }
+  }
+  removeTopic(topic: Topic) {
+    this.topics = this.topics.filter(x => x.id != topic.id);
+    this.topicAdded.emit(this.topics);
   }
   async searchTopics(enteredValue: string) {
     this.addTopicButton.nativeElement.style.visibility = "hidden";

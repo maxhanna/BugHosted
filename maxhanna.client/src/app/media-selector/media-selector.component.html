@@ -1,5 +1,5 @@
 <div class="mediaSelectorDiv">
-  <button (click)="toggleMediaChoices()">🖼️</button>
+  <button class="mediaSelectorButton" (click)="toggleMediaChoices()">🖼️</button>
   <ng-container *ngIf="viewMediaChoicesOpen || displaySearch">
     <div id="selectMediaDiv" [ngClass]="{'open': viewMediaChoicesOpen || displaySearch}">
       <div class="mediaSelectorTitle">
@@ -56,7 +56,7 @@
           </app-file-search>
         </div>
 
-      </div> 
+      </div>
     </div>
   </ng-container>
 </div>

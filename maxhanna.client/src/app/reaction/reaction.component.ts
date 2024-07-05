@@ -10,9 +10,8 @@ import { Reaction } from '../../services/datacontracts/reaction';
 })
 export class ReactionComponent implements OnInit {
 
-  reactionsDisplay = '';
-  reactionsArray: string[] = [];
-
+  reactionsDisplay = ''; 
+  reactionCount = 0;
   showReactionChoices = false;
   showReactions = false;
   userReaction = '';
@@ -69,6 +68,7 @@ export class ReactionComponent implements OnInit {
   }
   getReactionsListDisplay() {
     if (this.currentReactions && this.currentReactions.length > 0) {
+      this.reactionCount = this.currentReactions.length;
       this.reactionsDisplay = this.currentReactions.map(x => this.replaceReactionType(x.type)).join(',');
       if (this.currentReactions.filter(x => x.user?.id).length > 0 && this.currentReactions.filter(x => x.user && this.user && x.user.id == this.user.id)[0]) {
         this.userReaction = this.currentReactions.filter(x => x.user && this.user && x.user.id == this.user.id)[0].type ?? '';  
@@ -102,5 +102,10 @@ export class ReactionComponent implements OnInit {
       return this.replaceReactionType(this.currentReactions!.filter(reaction => reaction.user?.id === this.user?.id)[0].type);
     }
     return '';
+  }
+  cancelClick(event: Event) {
+    this.showReactionChoices = false;
+    this.showReactions = false;
+    event.stopPropagation();
   }
 }

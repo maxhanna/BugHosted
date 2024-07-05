@@ -45,14 +45,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
   abortFileRequestController: AbortController | null = null;
   debounceTimer: any; 
   fS = '/';
-  upvotedCommentIds: number[] = [];
-  downvotedCommentIds: number[] = [];
+  isFullscreenMode = false;
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
   @ViewChild('fullscreenImage', { static: false }) fullscreenImage!: ElementRef;
   @ViewChild('fullscreenVideo', { static: false }) fullscreenVideo!: ElementRef;
   @ViewChild('fullscreenAudio', { static: false }) fullscreenAudio!: ElementRef;
-
+   
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
   @Input() autoplay: boolean = true;
@@ -93,7 +92,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     this.abortFileRequestController = new AbortController();
 
     let target = (currentDirectory ?? '').replace(/\\/g, "/");
-    target += (currentDirectory!.length > 0 && currentDirectory![currentDirectory!.length - 1] === this.fS) ? fileName : currentDirectory!.length > 0 ? this.fS + fileName : fileName;
+    target += (currentDirectory && currentDirectory.length > 0 && currentDirectory[currentDirectory.length - 1] === this.fS) ? fileName : currentDirectory && currentDirectory.length > 0 ? this.fS + fileName : fileName;
 
     const response = await this.fileService.getFile(target, {
       signal: this.abortFileRequestController.signal
@@ -118,6 +117,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     this.stopLoading();
   }
   expandFile(file: any) {
+    this.isFullscreenMode = true;
     (this.mediaContainer.nativeElement as HTMLMediaElement).src = '';
     const overlay = this.fullscreenOverlay.nativeElement;
     const image = this.fullscreenImage.nativeElement;
@@ -155,23 +155,26 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     (this.mediaContainer.nativeElement as HTMLMediaElement).src = this.selectedFileSrc;
 
     overlay.style.display = 'none';
+    this.isFullscreenMode = false;
   }
   getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
-     if (!contentDisposition) return '';
+    if (!contentDisposition) return '';
+    try {
+      // Match the filename* pattern first to handle UTF-8 encoding
+      const filenameStarMatch = contentDisposition.match(/filename\*=['"]?UTF-8''([^'";\s]+)['"]?/);
+      if (filenameStarMatch && filenameStarMatch[1]) {
+        const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
+        return utf8Filename.split('.').pop() || '';
+      }
 
-    // Match the filename* pattern first to handle UTF-8 encoding
-    const filenameStarMatch = contentDisposition.match(/filename\*=['"]?UTF-8''([^'";\s]+)['"]?/);
-    if (filenameStarMatch && filenameStarMatch[1]) {
-      const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
-      return utf8Filename.split('.').pop() || '';
+      // Match the filename pattern
+      const filenameMatch = contentDisposition.match(/filename=['"]?([^'";\s]+)['"]?/);
+      if (filenameMatch && filenameMatch[1]) {
+        const filename = filenameMatch[1];
+        return filename.split('.').pop() || '';
+      }
     }
-
-    // Match the filename pattern
-    const filenameMatch = contentDisposition.match(/filename=['"]?([^'";\s]+)['"]?/);
-    if (filenameMatch && filenameMatch[1]) {
-      const filename = filenameMatch[1];
-      return filename.split('.').pop() || '';
-    }
+    catch { }
 
     return '';
   }

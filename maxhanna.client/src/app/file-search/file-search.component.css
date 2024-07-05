@@ -1,19 +1,38 @@
 
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) { 
+@media only screen and (max-width: 800px) {
   .componentMain {
     width: 96vw;
-  } 
-} 
+  }
+
+  .fileNameDiv {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fileExtras {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .actionTd {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fileFolderNameSpan { 
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
 .tableDiv {
   max-height: 100px;
-  overflow:auto;
+  overflow: auto;
 }
 
 .folder {
   color: var(--secondary-font-color);
   cursor: pointer;
 }
- 
 
 .upOneFolder {
   cursor: pointer;
@@ -23,66 +42,84 @@
 }
 
 .pageContainerDiv {
-    text-align:center;
+  text-align: center;
 }
+
 .searchInput {
-    text-align:center;
+  text-align: center;
 }
+
 .typeTd {
-  width: 50px;
   text-align: center;
   color: var(--secondary-font-color);
 }
+
 .fileSizeTd {
   max-width: 100px;
   text-align: center;
   color: var(--secondary-font-color);
 }
+
 .actionTd {
-  text-align: center;
-  display: flex;
+  text-align: center; 
   color: var(--secondary-font-color);
 }
+ 
+
 .commentCountTd {
   text-align: center;
   color: var(--secondary-font-color);
 }
 
 .filters {
-    display:flex; 
-    flex-direction:column;
+  display: flex;
+  flex-direction: column;
 }
-.privateOnTop {
-  position: relative;
-  top: -10px;
-  left: 0;
-}
+ 
 .fileTypeSpan {
   position: relative;
-  top: +10px;
+  top: 10px;
   left: 0;
 }
+
 .fileNameDiv {
-    display:flex;
-    min-width: CALC(100% - 100px);
-    height:30px;
-    border-bottom: var(--main-border);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  border-bottom: var(--main-border);
 }
+.mediaViewDiv {
+  border-bottom: var(--main-border);
+}
+
 .fileFolderNameSpan {
-  width: 100%;
   cursor: pointer;
-  display: flex;  
-  align-items: center; 
+  display: flex;
+  align-items: center;
+  width: 100%;
 }
+
 .fileExtras {
   display: inline-flex;
   justify-content: flex-end;
   align-items: center;
   white-space: nowrap;
+  font-size: small;
 }
-.fileExtras div {
-    margin-left:5px;
-}
+
+  .fileExtras div {
+    margin-left: 5px;
+  }
+
 .directoryDisplayDiv {
-    border-top: var(--main-border);
+  border-top: var(--main-border);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.draggableDiv {
+  display: inline-block;
+  min-width: 100%;
+  width: 100%;
 }

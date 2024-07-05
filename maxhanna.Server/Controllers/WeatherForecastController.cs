@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
 using RestSharp;
+using System.Reflection.PortableExecutable;
 
 namespace maxhanna.Server.Controllers
 {
@@ -134,7 +135,7 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql = "SELECT ownership, location FROM maxhanna.weather_location WHERE ownership = @Owner;";
+                    string sql = "SELECT ownership, location, city FROM maxhanna.weather_location WHERE ownership = @Owner;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", user.Id);
@@ -143,7 +144,8 @@ namespace maxhanna.Server.Controllers
                             while (await rdr.ReadAsync())
                             {
                                 loc.Ownership = rdr.GetInt32(0);
-                                loc.Location = rdr.GetString(1);
+                                loc.Location = rdr.IsDBNull(rdr.GetOrdinal("location")) ? null : rdr.GetString("location");
+                                loc.City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city");
                             }
                         }
                     }
@@ -171,12 +173,13 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql = "INSERT INTO maxhanna.weather_location (ownership, location) VALUES (@Owner, @Location) " +
-                                 "ON DUPLICATE KEY UPDATE location = @Location;";
+                    string sql = "INSERT INTO maxhanna.weather_location (ownership, location, city) VALUES (@Owner, @Location, @City) " +
+                                 "ON DUPLICATE KEY UPDATE location = @Location, city = @City;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", location.user.Id);
                         cmd.Parameters.AddWithValue("@Location", location.location);
+                        cmd.Parameters.AddWithValue("@City", location.city);
                         if (await cmd.ExecuteNonQueryAsync() >= 0)
                         {
                             _logger.LogInformation("Returned OK");

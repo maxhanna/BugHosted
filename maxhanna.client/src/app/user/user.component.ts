@@ -280,10 +280,10 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
         this.parentRef!.user = tmpUser;
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
-        const ip = await this.userService.getUserIp();
+        const ip = await this.userService.getUserIp(); 
         const weatherLocation = await this.weatherService.getWeatherLocation(tmpUser) as WeatherLocation;
-        if (weatherLocation && (this.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
-          await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
+        if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
+          await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"], ip["city"]);
         }
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
 
@@ -300,10 +300,6 @@ export class UserComponent extends ChildComponent implements OnInit {
   getNewFriendRequestCount() {
     const count = this.friendRequests.filter(x => x.status == '3').length;
     return count > 0 ? `(${count})` : '';
-  }
-  isValidIpAddress(value: string): boolean {
-    const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    return ipPattern.test(value);
   }
   copyLink() {
     const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id; 

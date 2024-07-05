@@ -59,7 +59,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit() { 
-  
+    
   }
 
   ngOnDestroy() {
@@ -82,17 +82,23 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   scrollToBottomIfNeeded() {
-    setTimeout(() => {
-      if (this.chatWindow) {
-        const chatWindow = this.chatWindow.nativeElement;
-        if (!this.hasManuallyScrolled) {
-          chatWindow.scrollTop = chatWindow.scrollHeight;
-        }
-      }
-    }, 1);
+    if (this.chatWindow) {
+      const chatWindow = this.chatWindow.nativeElement;
+
+      // Using requestAnimationFrame to ensure the scroll happens after the DOM is fully painted
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (!this.hasManuallyScrolled) { 
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+          }
+          console.log("Scrolled to bottom");
+        }, 0);
+      });
+    }
   }
+
   async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
-    try {
+    try { 
       const res = await this.chatService.getMessageHistory(
         this.parentRef?.user!,
         this.currentChatUser,
@@ -106,15 +112,16 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         // Concatenate new messages that are not already in chatHistory
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
         this.chatHistory = [...this.chatHistory, ...newMessages];
-        this.pageNumber = res.currentPage;
-         this.scrollToBottomIfNeeded();
+        this.pageNumber = res.currentPage; 
+
+        this.scrollToBottomIfNeeded();
       }
     } catch { }
   }
   onScroll() {
     if (this.chatWindow) {
       const chatWindow = this.chatWindow.nativeElement;
-      const isScrolledToBottom = chatWindow.scrollHeight - chatWindow.clientHeight <= chatWindow.scrollTop + 1;
+      const isScrolledToBottom = chatWindow.scrollHeight - chatWindow.clientHeight <= chatWindow.scrollTop + 60;
       this.hasManuallyScrolled = !isScrolledToBottom;
     }
   }
@@ -161,16 +168,19 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.togglePanel();
       return;
     }
-    this.chatHistory = res.messages;
+    this.chatHistory = (res.messages as Message[]).reverse();
     this.pageNumber = res.currentPage;
     this.totalPages = res.totalPages;
     this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
-    this.scrollToBottomIfNeeded();
-    this.pollForMessages();  
+    setTimeout(() => {
+      this.scrollToBottomIfNeeded();
+      this.pollForMessages();
+    }, 410);
     this.togglePanel(); 
   }
 
   closeChat() {
+    this.hasManuallyScrolled = false;
     this.currentChatUser = null;
     this.chatHistory = [];
     this.pageNumber = 0;
@@ -186,7 +196,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       msg = this.replaceEmojisInMessage(msg);
       try {
         this.newMessage.nativeElement.value = '';
-        this.scrollToBottomIfNeeded();
         await this.chatService.sendMessage(this.parentRef?.user!, this.currentChatUser!, msg, this.attachedFiles);
         this.attachedFiles = [];
         await this.getMessageHistory();

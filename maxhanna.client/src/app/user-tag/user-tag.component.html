@@ -1,18 +1,18 @@
 <div class="avatar largeAvatar">
-  <div class="displayPicture avatar" *ngIf="user!.displayPictureFile">
-    <app-media-viewer [user]="user" 
-                      [currentDirectory]="user?.displayPictureFile?.directory"
-                      [file]="user?.displayPictureFile"
+  <div class="displayPicture avatar" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
+    <app-media-viewer [user]="user"
+                      [currentDirectory]="user.displayPictureFile.directory"
+                      [file]="user.displayPictureFile"
                       [showCommentSection]="false"
                       [displayExtraInfo]="false"
                       [displayExpander]="false">
     </app-media-viewer>
   </div>
-  <div class="avatar noAvatar" *ngIf="!user!.displayPictureFile">
+  <div class="avatar noAvatar" *ngIf="!user || !user.displayPictureFile || user.displayPictureFile.id == 0 || displayEmptyAvatar || (user && user.id == 0)">
     <span class="avatarBug noAvatar">🪲</span>
     <span class="avatarBust noAvatar">👤</span>
   </div>
-  <div class="username cursorPointer usernameProfileLink">
-    <span class="usernameSpan" (click)="viewProfile(user)">{{user?.username}}</span>
-  </div>
-</div> 
+</div>
+<div class="username cursorPointer usernameProfileLink" *ngIf="!displayEmptyAvatar">
+  <span class="usernameSpan" (click)="viewProfile(user)">{{user?.username}}</span>
+</div>

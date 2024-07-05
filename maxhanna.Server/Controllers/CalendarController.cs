@@ -35,16 +35,27 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql = 
-                        "SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar " +
-                        "WHERE Ownership = @Owner AND " +
-                            "(" +
-                                "(Date BETWEEN (@StartDate - interval 1 day) AND @EndDate) " +
-                                "OR " +
-                                "(Type = 'weekly' OR Type = 'monthly') " +
-                                "OR " +
-                                "((Type = 'annually' OR Type = 'birthday' OR Type = 'milestone') AND MONTH(Date) = MONTH(@StartDate))" +
-                            ") ";
+                    string sql =
+                        @"SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar 
+                        WHERE Ownership = @Owner AND 
+                            (
+                                (Date BETWEEN (@StartDate - interval 1 day) AND @EndDate) 
+                                OR 
+                                (Type = 'weekly' OR Type = 'monthly') 
+                                OR 
+                                ((Type = 'annually' OR Type = 'birthday' OR Type = 'milestone') AND MONTH(Date) = MONTH(@StartDate))
+                            ) 
+                        UNION 
+                        SELECT 
+                            user_id AS Id, 
+                            'birthday' AS Type, 
+                            description AS Note, 
+                            birthday AS Date, 
+                            @Owner AS Ownership FROM user_about 
+                        WHERE 
+                            user_id = @Owner 
+                            AND 
+                            MONTH(birthday) = MONTH(@StartDate);";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", user.Id);

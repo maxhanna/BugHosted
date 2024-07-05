@@ -70,6 +70,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
     if (this.fileId) {
       await this.getDirectory(undefined, parseInt(this.fileId));
+      document.querySelector('meta[name="description"]')!.setAttribute("content", this.directory!.data!.filter(x => x.id == parseInt(this.fileId!))[0]!.fileName); 
       return;
     }
 

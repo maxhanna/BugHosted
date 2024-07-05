@@ -11,6 +11,7 @@ import { ChildComponent } from '../child.component';
 export class UserTagComponent extends ChildComponent implements OnInit {
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() displayEmptyAvatar = false;
   constructor() { super(); }
   ngOnInit() {
     this.parentRef = this.inputtedParentRef;

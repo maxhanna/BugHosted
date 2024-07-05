@@ -9,10 +9,12 @@ import { StoryResponse } from './datacontracts/story-response';
   providedIn: 'root'
 })
 export class SocialService {
-  async getStories(user?: User, search?: string, profileUserId?: number, page: number = 1, pageSize: number = 10) {
+  async getStories(user?: User, search?: string, topics?: string, profileUserId?: number, page: number = 1, pageSize: number = 10) {
     var params = new URLSearchParams();
     if (search)
       params.append("search", search);
+    if (topics)
+      params.append("topics", topics);
     if (page)
       params.append("page", page + '');
     if (pageSize)

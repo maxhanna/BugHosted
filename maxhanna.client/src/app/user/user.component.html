@@ -22,10 +22,11 @@
   <div *ngIf="(user && parentRef && parentRef.user && user.id == parentRef.user.id) || !user && !parentRef?.user">
     <div>
       <div *ngIf="!parentRef!.user">
+        <app-user-tag [displayEmptyAvatar]="true"></app-user-tag>
+        <div class="bugHostedLogo">BugHosted</div>
         <div class="welcomeMessage">
-          <p>BugHosted</p>
           <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
-          <p class="welcomeTitle">Total users: {{usersCount}}</p> 
+          <p class="welcomeTitle">Total users: {{usersCount}}</p>
         </div>
         <div>
           <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
@@ -37,8 +38,8 @@
         </div>
       </div>
       <div *ngIf="parentRef!.user!" style="width:100%;text-align:center">
-        <input type="submit" value="Logout" (click)="logout()" />
-        <input type="submit" value="🔧" (click)="parentRef?.createComponent('UpdateUserSettings')" title="Update Settings" />
+        <button (click)="logout()">Logout</button>
+        <button (click)="parentRef?.createComponent('UpdateUserSettings')" title="Update Settings">🔧</button>
       </div>
     </div>
   </div>

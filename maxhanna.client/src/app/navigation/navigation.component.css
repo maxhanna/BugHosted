@@ -100,12 +100,23 @@ a {
   cursor: pointer;
   z-index: 11;
   opacity: 0;
-  transition: opacity 3s ease;
+  transition: opacity 3s ease; 
+  font-size: 20px;
+  animation: glow 1.5s infinite alternate;
 }
-
-  .toggleNavButton.visible {
-    opacity: 1;
+@keyframes glow {
+  0% {
+    text-shadow: 0 0 0px var(--secondary-font-color), 0 0 5px var(--secondary-font-color), 0 0 6px var(--secondary-font-color), 0 0 7px var(--secondary-font-color), 0 0 8px var(--secondary-font-color);
   }
+
+  100% {
+    text-shadow: 0 0 5px var(--secondary-font-color), 0 0 6px var(--secondary-font-color), 0 0 7px var(--secondary-font-color), 0 0 8px var(--secondary-font-color), 0 0 9px var(--secondary-font-color);
+  }
+}
+.toggleNavButton.visible {
+  opacity: 1;
+}
+  
 .weatherPic {
   height: 47px;
 }

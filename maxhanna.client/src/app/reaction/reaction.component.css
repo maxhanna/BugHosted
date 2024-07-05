@@ -18,7 +18,8 @@
 .myReactionDiv{
     display: inline-block;
 }
-.addReactionTitleSpan { 
+.addReactionTitleSpan {
+  font-size: small;
 } 
 .reactionChoices {
   position:relative;

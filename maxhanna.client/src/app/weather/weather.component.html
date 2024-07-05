@@ -2,7 +2,12 @@
   <div class="closeButton" (click)="remove_me('WeatherComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Weather</div>
-
+  <p class="notification">Current location :
+    <span class="cursorPointer" (click)="parentRef?.createComponent('UpdateUserSettings')">
+      {{location}}
+    </span>
+  </p>
+  <p class="notification" *ngIf="city">Closest city : {{city}}</p>
   <div class="mainTableContainer">
     <table class="mainTable">
       <thead>
@@ -52,7 +57,7 @@
             <td title="Cloud to sky %"><span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">{{ calculateAverage(day.hour, 'cloud') }}</span></td>
           </tr>
           <ng-container *ngIf="!isCollapsed(day.date)">
-            <tr *ngFor="let hour of day.hour"  [class]="{'highlight': isCurrentHour(hour.time)}">
+            <tr *ngFor="let hour of day.hour" [class]="{'highlight': isCurrentHour(hour.time)}">
               <td>{{ hour.time.split(' ')[1] }}</td>
               <td title="Temperature in Celsius">{{ hour.temp_c }}</td>
               <td title="Temperature in Fahrenheit">{{ hour.temp_f }}</td>

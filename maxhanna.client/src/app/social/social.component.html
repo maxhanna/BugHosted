@@ -6,20 +6,27 @@
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
 
+  <div *ngIf="showTopicSelector">
+    <app-topics [isDropdown]="true"
+                [user]="parentRef?.user"
+                [parent]="parent ?? parentRef"
+                (topicAdded)="onTopicAdded($event)"> 
+    </app-topics>    
+  </div>
   <div class="inputDiv">
     <textarea #story
               placeholder="Whats on your mind ?"
-              class="foodForThought"
+              class="foodForThought" 
               (focus)="focusInput()"></textarea>
     <div class="mainFileUploaderAndTopicSelectorDiv">
-      <button (click)="post()" class="createStoryButton">🗨️ Post</button>
+      <button (click)="post()">🗨️ Post</button>
 
       <app-media-selector #postMediaSelector
                           [currentDirectory]="parentRef?.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
                           [user]="parentRef?.user"
                           (selectFileEvent)="selectFile($event)"></app-media-selector>
 
-      <app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>
+      <!--<app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>-->
 
     </div>
     <div *ngIf="attachedFiles.length > 0"> Attached: <div *ngFor="let fz of attachedFiles">{{fz.fileName}}</div></div>
@@ -40,8 +47,8 @@
   <div class="mainTableDiv">
     <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
       <div class="commentVoteButtons">
-        <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">Share 📋</button>
-        <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Share Link" style="display:inline-block">Delete Story ❌</button>
+        <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">📋Share</button>
+        <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Share Link" style="display:inline-block">❌Delete</button>
       </div>
       <div class="storyTextContainer">
         <div class="avatarDiv">

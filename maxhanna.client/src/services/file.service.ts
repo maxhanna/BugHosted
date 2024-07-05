@@ -218,7 +218,10 @@ export class FileService {
     formData.append('isPublic', isPublic + "");
 
     console.log("appending userid: " + user?.id);
-    const dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
+    let dir = '';
+    try {
+      dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
+    } catch { }
     const url = `/file/upload${dir}`;
 
     const req = new HttpRequest('POST', url, formData, {

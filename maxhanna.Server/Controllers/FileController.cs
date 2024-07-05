@@ -506,7 +506,7 @@ namespace maxhanna.Server.Controllers
         {
             filePath = Path.Combine(baseTarget, WebUtility.UrlDecode(filePath) ?? "");
 
-            _logger.LogInformation($"GET /File/GetFile/{filePath}");
+            //_logger.LogInformation($"GET /File/GetFile/{filePath}");
             if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {baseTarget}"); }
 
             try
@@ -525,7 +525,7 @@ namespace maxhanna.Server.Controllers
 
                 var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
                 string contentType = GetContentType(Path.GetExtension(filePath));
-                _logger.LogInformation("returning file : " + filePath);
+                //_logger.LogInformation("returning file : " + filePath);
                 return File(fileStream, contentType, Path.GetFileName(filePath));
             }
             catch (Exception ex)
@@ -884,14 +884,17 @@ namespace maxhanna.Server.Controllers
 
                 var afterFileSize = new FileInfo(convertedFilePath).Length;
                 _logger.LogInformation($"Video to WebM conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
+                System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
+
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred during video conversion.");
-            }
-            finally
-            {
-                System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
+                if (System.IO.File.Exists(inputFilePath))
+                {
+                    convertedFilePath = inputFilePath;
+                    _logger.LogError(ex, "Error occurred during video conversion. Returning Unconverted file");
+                }
+                _logger.LogError(ex, "Error occurred during video conversion."); 
             }
 
             return convertedFilePath;

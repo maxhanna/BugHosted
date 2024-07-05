@@ -54,14 +54,27 @@
   font-size: 24px;
 }
 
+  .welcomeMessage p {
+    background-color: var(--main-bg-color);
+  }
 .welcomeTitle {
   color: var(--secondary-font-color);
   font-weight: bold;
   font-size:14px;
 }
+
 .profileControls  {
     text-align:center;
 }
 .aboutTable {
     text-align:center;
 }
+.bugHostedLogo {
+  margin-top: -39px;
+  background-color: var(--main-bg-color); 
+  width: 100%;
+  text-align: center;
+  z-index: 2;
+  position: relative;
+  font-size: 20px;
+} 

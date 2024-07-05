@@ -155,7 +155,7 @@ namespace maxhanna.Server.Controllers
                     int totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
                     if (pageNumber > totalPages) pageNumber = totalPages;
 
-                    int offset = (totalRecords - pageNumber * pageSize) < 0 ? 0 : (totalRecords - pageNumber * pageSize);
+                    int offset = (pageNumber - 1) * pageSize;
                     _logger.LogInformation($"totalPages: {totalPages} offset: {offset} totalRecords: {totalRecords}");
 
                     string sql = @"
@@ -205,7 +205,7 @@ namespace maxhanna.Server.Controllers
                     (m.sender = @User1Id AND m.receiver = @User2Id) OR 
                     (m.sender = @User2Id AND m.receiver = @User1Id)
                 ORDER BY 
-                    m.timestamp ASC
+                    m.timestamp DESC
                 LIMIT @PageSize OFFSET @PageOffset";
 
                     MySqlCommand cmd = new MySqlCommand(sql, conn);

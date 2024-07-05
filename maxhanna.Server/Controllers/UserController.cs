@@ -110,7 +110,7 @@ namespace maxhanna.Server.Controllers
                             Description = reader.IsDBNull(reader.GetOrdinal("description")) ? "" : reader.GetString("description"),
                             Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"),
                             Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
-                            Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateOnly("birthday"),
+                            Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateTime("birthday"),
                         };
 
                         // User found, return the user details
@@ -192,7 +192,7 @@ namespace maxhanna.Server.Controllers
                             Description = reader.IsDBNull(reader.GetOrdinal("description")) ? "" : reader.GetString("description"),
                             Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"),
                             Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
-                            Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateOnly("birthday"),
+                            Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateTime("birthday"),
                         };
 
                         // User found, return the user details

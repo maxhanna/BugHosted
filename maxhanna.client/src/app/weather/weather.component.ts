@@ -17,11 +17,25 @@ interface WeatherForecast {
 export class WeatherComponent extends ChildComponent implements OnInit {
   weather: WeatherResponse = new WeatherResponse();
   collapsedDays: string[] = [];
+  city?: string = undefined;
+  location?: string = undefined;
 
   constructor(private weatherService: WeatherService) { super(); }
 
   ngOnInit() {
     this.getForecasts();
+    this.getLocation();
+  }
+  async getLocation() {
+    try {
+      const res = await this.weatherService.getWeatherLocation(this.parentRef?.user!);
+      if (res && res.city) {
+        this.city = res.city;
+      }
+      if (res && res.location) {
+        this.location = res.location;
+      }
+    } catch { }
   }
   async getForecasts() {
     this.startLoading();

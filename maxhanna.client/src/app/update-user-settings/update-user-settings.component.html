@@ -2,6 +2,7 @@
   <div class="closeButton" (click)="remove_me('UpdateUserProfile')"></div>
   <div class="refreshButton" (click)="ngOnInit()"></div>
   <div class="componentTitle">Settings</div>
+  <div *ngFor="let notif of notifications" [innerHTML]="notif" (click)="notifications = [];" title="Click to clear notifications" class="notificationArea notification"></div>
 
 
   <input type="submit" value="Delete Account 🗑️" (click)="deleteUser()" title="Delete Account" />
@@ -101,15 +102,15 @@
                 <tbody>
                   <tr>
                     <td>Description:</td>
-                    <td><input type="text" placeholder="Profile description" #updatedDescription [value]="parentRef?.user?.about?.description"  /></td>
+                    <td><input type="text" placeholder="Profile description" #updatedDescription [value]="parentRef?.user?.about?.description" /></td>
                   </tr>
                   <tr>
                     <td>Birthday:</td>
-                    <td><input type="date" #updatedBirthday [value]="parentRef?.user?.about?.birthday" /></td>
+                    <td><input type="date" #updatedBirthday [value]="formatDate(parentRef?.user?.about?.birthday!)" /></td>
                   </tr>
                   <tr>
                     <td>Email:</td>
-                    <td><input type="email" #updatedEmail [value]="parentRef?.user?.about?.email"  /></td>
+                    <td><input type="text" #updatedEmail [value]="parentRef?.user?.about?.email" /></td>
                   </tr>
                   <tr>
                     <td>Phone:</td>
@@ -117,8 +118,8 @@
                   </tr>
                 </tbody>
               </table>
-              </td>
-            </tr>
+            </td>
+          </tr>
         </tbody>
 
 
@@ -132,7 +133,7 @@
           </tr>
         </thead>
         <tbody *ngIf="isMenuIconsToggled">
-          <tr> 
+          <tr>
             <td class="" colspan=3>
               <table class="mainTable">
                 <thead>
@@ -151,7 +152,7 @@
                   </tr>
                 </tbody>
               </table>
-            </td> 
+            </td>
           </tr>
         </tbody>
 

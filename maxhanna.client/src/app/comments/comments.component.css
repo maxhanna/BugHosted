@@ -88,6 +88,7 @@
 
 .commentContent {
   width: CALC(100% - 70px);
+  word-break: break-word;
 }
 
 .commentAvatar {
@@ -100,8 +101,8 @@
 }
 
 .commentSubmit {
-  min-width: 20px;
-  min-height: 20px;
+  width: 100px;
+  text-align: center;
 }
 .commentListDiv {
   margin-bottom: 10px;

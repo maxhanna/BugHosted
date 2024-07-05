@@ -1,10 +1,11 @@
-import { Component, ElementRef, Input, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, SecurityContext, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { Comment } from '../../services/datacontracts/comment';
 import { User } from '../../services/datacontracts/user';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { ChildComponent } from '../child.component';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-comments',
@@ -27,7 +28,7 @@ export class CommentsComponent extends ChildComponent {
   @Input() commentList: Comment[] = [];
   @Input() type: string = '' || "Social" || "File";
   @Input() component_id: number = 0;
-  constructor(private commentService: CommentService) {
+  constructor(private commentService: CommentService, private sanitizer: DomSanitizer) {
     super(); 
   }
 
@@ -136,5 +137,13 @@ export class CommentsComponent extends ChildComponent {
       console.error("Error downvoting comment:", error);
     }
   }
-  
+  createClickableUrls(text?: string): SafeHtml {
+    if (!text) { return ''; }
+    const urlPattern = /(https?:\/\/[^\s]+)/g;
+
+    text = text.replace(urlPattern, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
+    const sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
+
+    return sanitizedText;
+  }
 }

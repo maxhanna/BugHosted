@@ -1,6 +1,6 @@
 <div class="mediaContainerWrapperDiv">
   <!-- Fullscreen Overlay -->
-  <div #fullscreenOverlay class="fullscreen-overlay">
+  <div #fullscreenOverlay class="fullscreen-overlay" >
     <span class="close-overlay" (click)="shrink()">✖</span>
     <img #fullscreenImage class="fullscreen-media" />
     <video #fullscreenVideo class="fullscreen-media" controls [autoplay]="autoplay"></video>
@@ -10,7 +10,7 @@
   <div class="mediaContainerDiv">
     <div *ngIf="isLoading" class="loading-spinner">Loading...</div>
     <div *ngIf="!isLoading && selectedFileSrc != ''" class="mediaDiv">
-      <img #mediaContainer *ngIf="this.imageFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="image media" />
+      <img #mediaContainer *ngIf="this.imageFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="media" />
       <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
       <audio #mediaContainer
              *ngIf="this.audioFileExtensions.includes(this.selectedFileExtension)"

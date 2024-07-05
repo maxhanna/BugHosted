@@ -8,8 +8,10 @@
 
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
     <textarea [placeholder]='commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();"></textarea>
-    <button type="submit" (click)="startLoadingComment();" class="commentSubmit">🗨️</button>
+    <button (click)="startLoadingComment();" class="commentSubmit">🗨️Post</button>
     <app-media-selector [currentDirectory]="'Users/' + (inputtedParentRef?.user && inputtedParentRef?.user?.id != 0 ? inputtedParentRef?.user!.username : 'Anonymous')"
+                        [user]="inputtedParentRef?.user"
+                        [inputtedParentRef]="inputtedParentRef"
                         (selectFileEvent)="selectFile($event)"></app-media-selector>
   </div>
   <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.</div>
@@ -24,7 +26,7 @@
           </span>
         </div>
         <div class="commentContent">
-          {{ comment.commentText }}
+          <div [innerHTML]="createClickableUrls(comment.commentText)"></div>
           <div class="commentDate">{{comment.date!.toString().replace('T', ' ')}}</div>
 
           <app-reaction [commentId]="comment.id"
@@ -38,6 +40,7 @@
                               [currentDirectory]="file.directory"
                               [inputtedParentRef]="inputtedParentRef"
                               [displayExtraInfo]="false"
+                              [autoplay]="false"
                               [showCommentSection]="false"></app-media-viewer>
           </div>
         </div>

@@ -55,6 +55,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
 
   @Input() storyId: number | null = null;
+  @Input() showTopicSelector: boolean = true;
   @Input() user?: User;
   @Input() parent?: AppComponent;
 
@@ -100,6 +101,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
   async onTopicAdded(topics: Array<Topic>) {
     this.attachedTopics = topics;
+    this.searchStories(topics);
   }
 
   uploadInitiate() {
@@ -122,20 +124,26 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   } 
 
-  async searchStories() {
-    const search = this.search.nativeElement.value;
-    if (search) {
-      await this.getStories(this.currentPage, 10, search);
-    } else {
-      await this.getStories(this.currentPage, 10);
-    }
+  async searchStories(searchTopics?: Array<Topic>) {
+    this.log("searchTopics ");
+    this.log(searchTopics);
+    let search = this.search.nativeElement.value;
+    let topics = '';
+    if (searchTopics && searchTopics.length > 0) {
+      topics = topics.trim() != '' ? topics + ',' : topics;
+      searchTopics.forEach(x => { topics += topics.trim() != '' ? ',' + x.id : x.id })
+    } 
+    await this.getStories(this.currentPage, 10, search, topics); 
   }
 
-  async getStories(page: number = 1, pageSize: number = 10, keywords?: string) {
+  async getStories(page: number = 1, pageSize: number = 10, keywords?: string, topics?: string) {
+    const search = keywords ?? this.search?.nativeElement.value;
+
     if (this.user) {
       const res = await this.socialService.getStories(
         this.parentRef?.user!,
-        undefined,
+        search,
+        topics,
         this.user?.id,
         page,
         pageSize
@@ -147,10 +155,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       }
       return;
     }
-    const search = keywords ?? this.search?.nativeElement.value;
     const res = await this.socialService.getStories(
       this.parentRef?.user!,
       search,
+      topics,
       undefined,
       page,
       pageSize

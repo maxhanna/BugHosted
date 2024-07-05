@@ -9,8 +9,7 @@
 .userPanel { 
   height: CALC(100% - 60px);
   width: 0px;
-  overflow-x: hidden;
-  transition: 0.3s;
+  overflow-x: hidden; 
   z-index: 1;
 }
 
@@ -20,8 +19,7 @@
 
 
 .chatArea {
-  margin-left: 0;
-  transition: margin-left 0.3s;
+  margin-left: 0; 
   width: 100%;
 }
 
@@ -81,8 +79,13 @@
   border: var(--main-border);
   word-break:break-word;
   width: CALC(100% - 120px);
+  max-width:30vw;
 }
-
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .messageContent {
+    max-width: 99vw;
+  }
+}
 .messageSender {
   color: var(--secondary-font-color);
 }
@@ -96,10 +99,7 @@
   .messageInput input {
     min-width: CALC(100% - 200px);
   }
-
-  .messageInput button {
-    width: 42px;
-  }
+   
 
 input[type="text"] {
   touch-action: manipulation;

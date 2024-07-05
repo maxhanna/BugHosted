@@ -134,6 +134,10 @@ export class UserService {
       method: 'GET'
     }); 
     return await response.json();
+  } 
+  isValidIpAddress(value: string): boolean {
+    const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipPattern.test(value);
   }
   async updateDisplayPicture(user: User, fileId: number) {
     try {

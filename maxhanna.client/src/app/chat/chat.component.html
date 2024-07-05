@@ -88,7 +88,7 @@
       </div>
       <div class="messageInput">
         <input placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()" />
-        <button (click)="sendMessage()">🗨️</button>
+        <button (click)="sendMessage()">🗨️Send</button>
         <div>
           <app-media-selector [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user!.username : 'Anonymous')"
                               (selectFileEvent)="selectFile($event)">

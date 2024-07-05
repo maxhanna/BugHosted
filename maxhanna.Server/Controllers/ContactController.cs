@@ -90,7 +90,7 @@ namespace maxhanna.Server.Controllers
                                             Description = rdr.IsDBNull("about_description") ? "" : rdr.GetString("about_description"),
                                             Email = rdr.IsDBNull("about_email") ? "" : rdr.GetString("about_email"),
                                             Phone = rdr.IsDBNull("about_phone") ? "" : rdr.GetString("about_phone"),
-                                            Birthday = rdr.IsDBNull("about_birthday") ? null : rdr.GetDateOnly("about_birthday")
+                                            Birthday = rdr.IsDBNull("about_birthday") ? null : rdr.GetDateTime("about_birthday")
                                        }
                                     )
                                 }; 

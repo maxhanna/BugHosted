@@ -45,15 +45,7 @@
   color: var(--secondary-font-color);
   font-size: smaller;
   display: inline-block;
-}
- 
-.createStoryButton {
-  background-color: var(--main-highlight-color);
-  border: var(--main-border);
-  color: var(--main-font-color);
-  font-weight:bold;
-  font-size: 15px;
-}
+} 
 
 .metadataImage {
   max-width: 500px;

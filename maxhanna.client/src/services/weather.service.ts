@@ -42,19 +42,19 @@ export class WeatherService {
       return null;
     }
   } 
-  async updateWeatherLocation(user: User, location: string) {
+  async updateWeatherLocation(user: User, location: string, city?: string) {
     try {
       const response = await fetch(`/weatherforecast/updateweatherlocation`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, location }),
+        body: JSON.stringify({ user, location, city }),
       });
 
       return await response.text();
     } catch (error) {
       return null;
     }
-  }
+  } 
 }

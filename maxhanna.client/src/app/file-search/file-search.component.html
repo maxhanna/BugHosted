@@ -36,22 +36,23 @@
   <!-- Main Data -->
   <div class="">
     <div id="fileTable" *ngIf="!isLoading">
-        <div *ngIf="showUpFolderRow && canChangeDirectory">
-          <div (click)="previousDirectory()"
-              class="upOneFolder"
-              title="Up one folder"
-              (drop)="onDrop('...')"
-              (dragover)="onDragOver($event)"
-              colspan="4">
-            ⬆️📁...
-          </div>
+      <div *ngIf="showUpFolderRow && canChangeDirectory">
+        <div (click)="previousDirectory()"
+             class="upOneFolder"
+             title="Up one folder"
+             (drop)="onDrop('...')"
+             (dragover)="onDragOver($event)"
+             colspan="4">
+          ⬆️📁...
         </div>
-        
+      </div>
+
       <div *ngIf="directory && directory.totalCount! > 0" class="directoryDisplayDiv">
         <ng-container *ngFor="let file of directory.data; let i = index">
-          <div draggable="true"
-              (dragstart)="onDragStart($event, file.fileName)">
-            <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}" 
+          <div class="draggableDiv"
+               draggable="true"
+               (dragstart)="onDragStart($event, file.fileName)">
+            <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}"
                  (dragover)="onDragOver($event)"
                  (drop)="onDrop(file.fileName)"
                  [id]="'fileIdDiv'+file.id"
@@ -78,8 +79,7 @@
                   {{file && file.fileComments ? '🗨️' + file.fileComments.length : ''}}
                 </div>
                 <div class="typeTd" (click)="selectFile(file);" *ngIf="displayFileType">
-                  <span *ngIf="file && file.fileType"
-                        [class]="file.visibility == 'Private' ? 'fileTypeSpan' : ''">
+                  <span *ngIf="file && file.fileType">
                     {{file.fileType.toUpperCase()}}
                   </span>
                   <span [class]="file.visibility == 'Private' ? 'private':''"
@@ -93,24 +93,33 @@
                   </span>
                 </div>
                 <div class="actionTd" *ngIf="displayFileActions">
-                  <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">✏️</button>
-                  <input value="↗️"
-                         type="submit"
-                         title="Share File"
-                         *ngIf="file?.visibility?.toLowerCase() == 'private'" />
-                  <input value="❌"
-                         type="submit"
-                         (click)="this.delete(file);"
-                         *ngIf="file?.sharedWith?.includes(user?.id!+'') || file?.user?.id == user?.id!" />
+                  <button [style.display]="file?.user?.id == user?.id && !file?.isFolder ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">
+                    ✏️Edit
+                  </button>
+                  <!--<button title="Share File"
+                *ngIf="file?.visibility?.toLowerCase() == 'private'">
+          ↗️Share
+        </button>-->
+                  <button (click)="this.delete(file);"
+                          *ngIf="
+                            file?.sharedWith?.includes(user?.id!+'')
+                            || file?.user?.id == user?.id!
+                            && !(this.currentDirectory == '' && (file.fileName == 'Users' || file.fileName == 'Meme' || file.fileName == 'Roms'
+                                                                || file.fileName == 'Max'  || file.fileName == 'Pictures'  || file.fileName == 'Videos'))">
+                    ❌Delete
+                  </button>
                 </div>
-              </div> 
-            </div> 
-          </div>
-          <div *ngIf="openedFiles.includes(file.id)">
-            <div colspan="4">
-              <app-media-viewer #mediaViewerComponent [user]="user" [inputtedParentRef]="inputtedParentRef" *ngIf="viewMediaFile && openedFiles.includes(file.id)"></app-media-viewer>
+              </div>
             </div>
-          </div>
+            <div *ngIf="openedFiles.includes(file.id)" class="mediaViewDiv">
+              <app-media-viewer #mediaViewerComponent
+                                [user]="user"
+                                [file]="file"
+                                [inputtedParentRef]="inputtedParentRef"
+                                *ngIf="viewMediaFile && openedFiles.includes(file.id)">
+              </app-media-viewer>
+            </div>
+          </div> 
         </ng-container>
       </div>
     </div>

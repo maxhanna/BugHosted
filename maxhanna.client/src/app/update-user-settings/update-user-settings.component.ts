@@ -10,6 +10,7 @@ import { FileEntry } from '../../services/datacontracts/file-entry';
 import { UserAbout } from '../../services/datacontracts/user-about';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
+import { WeatherLocation } from '../../services/datacontracts/weather-location';
 
 @Component({
   selector: 'app-update-user-settings',
@@ -54,7 +55,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User');
     this.parentRef!.user = await this.userService.getUser(this.parentRef!.user!);
     console.log(this.parentRef?.user?.username + " is username! " + this.parentRef?.user?.displayPictureFile?.id + " is displayPictureId");
-    this.displayPictureViewer.file 
+//    this.displayPictureViewer.file 
   }
   async getNicehashApiKeys() {
     if (this.isNicehashApiKeysToggled) {
@@ -100,7 +101,19 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async updateWeatherLocation() {
     if (this.isWeatherLocationToggled) {
       try {
-        await this.weatherService.updateWeatherLocation((this.parentRef?.user)!, this.weatherLocationInput.nativeElement.value);
+        const inputLoc = this.weatherLocationInput.nativeElement.value;
+        if (inputLoc && inputLoc.trim() != '') {
+          await this.weatherService.updateWeatherLocation(this.parentRef!.user!, this.weatherLocationInput.nativeElement.value);
+        }
+        else
+        {
+          const ip = await this.userService.getUserIp();
+          const weatherLocation = await this.weatherService.getWeatherLocation(this.parentRef!.user!) as WeatherLocation;
+          if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
+            await this.weatherService.updateWeatherLocation(this.parentRef!.user!, ip["ip_address"], ip["city"]);
+          }
+        }
+       
         this.notifications.push("Weather location updated successfully");
       } catch {
         this.notifications.push("Error while updating weather location!");
@@ -171,5 +184,11 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
   menuIconsIncludes(title: string) {
     return this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0;
+  }
+
+  formatDate(date: Date): string {
+    if (!date) return ''; // Handle null or undefined cases
+    const isoDate = date.toISOString(); // Convert date to ISO string
+    return isoDate.substring(0, 10); // Extract YYYY-MM-DD part
   }
 }
