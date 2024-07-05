@@ -8,31 +8,39 @@ input {
   padding: 2px 5px;
   border-radius: 4px;
   background-color: var(--main-highlight-color);
-  cursor:pointer;
+  cursor: pointer;
   border: var(--main-border);
 }
-.topicSpanDiv{
-     
+
+.topicSpanDiv {
 }
+
 .addTopicButton {
-    visibility: hidden;
-    border: var(--main-border);
+  visibility: hidden;
+  border: var(--main-border);
 }
+
 .dropdownMenu {
   width: 175px;
-  max-height:200px;
+  max-height: 200px;
   overflow-y: auto;
   border: var(--main-border);
 }
+
 .dropdownMenuTopic {
-    border-bottom: var(--main-border);
-    font-size: small;
-    color: var(--secondary-font-color);
+  border-bottom: var(--main-border);
+  font-size: small;
+  color: var(--secondary-font-color);
+  height: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
+
 .removeTopicButton {
   width: 15px;
   height: 15px;
-  font-size: xx-small; 
+  font-size: xx-small;
   border: 0;
   padding: 0;
   vertical-align: middle;

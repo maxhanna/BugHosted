@@ -399,10 +399,11 @@ fieldset {
 
   .helperSpanTitle:before {
     content: 'ℹ️';
-  } 
+  }
 
 .avatar {
-  width: 50px; 
+  width: 50px;
+  max-height: 50px;
   border: var(--main-border);
   margin-left: auto;
   margin-right: auto;

@@ -168,14 +168,17 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.togglePanel();
       return;
     }
-    this.chatHistory = (res.messages as Message[]).reverse();
-    this.pageNumber = res.currentPage;
-    this.totalPages = res.totalPages;
-    this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
-    setTimeout(() => {
-      this.scrollToBottomIfNeeded();
-      this.pollForMessages();
-    }, 410);
+    if (res) {
+      this.chatHistory = (res.messages as Message[]).reverse();
+      this.pageNumber = res.currentPage;
+      this.totalPages = res.totalPages;
+      this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
+      setTimeout(() => {
+        this.scrollToBottomIfNeeded();
+        this.pollForMessages();
+      }, 410);
+    }
+    
     this.togglePanel(); 
   }
 
