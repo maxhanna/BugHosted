@@ -15,6 +15,7 @@ import { WordlerService } from '../../services/wordler.service';
 import { SocialComponent } from '../social/social.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
+import { Contact } from '../../services/datacontracts/contact';
 
 
 @Component({
@@ -41,9 +42,9 @@ export class UserComponent extends ChildComponent implements OnInit {
   isFriendRequestsExpanded = false;
   isAboutExpanded = true;
   isWordlerScoresExpanded = false;
-  isSocialDivExpanded = true;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
+  contacts: Contact[] = [];
   wordlerScores: WordlerScore[] = [];
   isMusicContainerExpanded = false;
   playListCount = 0;
@@ -52,11 +53,11 @@ export class UserComponent extends ChildComponent implements OnInit {
   wordlerStreak: number = 0;
 
   constructor(private userService: UserService,
-    private contactService: ContactService, 
+    private contactService: ContactService,
     private weatherService: WeatherService,
     private friendService: FriendService,
     private wordlerService: WordlerService,
-    private todoService: TodoService, 
+    private todoService: TodoService,
   ) { super(); }
 
   async ngOnInit() {
@@ -75,18 +76,19 @@ export class UserComponent extends ChildComponent implements OnInit {
       } else {
         this.user = this.parentRef?.user;
       }
-      
-      await this.getLoggedInUser(); 
+
+      await this.getLoggedInUser();
       await this.loadFriendData();
       await this.loadWordlerData();
-      await this.loadSongData(); 
+      await this.loadSongData();
+      await this.loadContactsData();
     }
     catch (error) { console.log((error as Error).message); }
-    this.stopLoading(); 
+    this.stopLoading();
   }
 
-  async gotPlaylistEvent(event: Array<Todo>) { 
-    this.playListCount = event.length; 
+  async gotPlaylistEvent(event: Array<Todo>) {
+    this.playListCount = event.length;
   }
   async loadSongData() {
     try {
@@ -95,6 +97,20 @@ export class UserComponent extends ChildComponent implements OnInit {
       if (res) {
         this.songPlaylist = res;
       }
+    } catch (e) { }
+  }
+  async loadContactsData() {
+    try {
+      if (this.parentRef) {
+        const res = await this.contactService.getContacts(this.parentRef.user!);
+
+        if (res) {
+          this.contacts = res;
+        }
+      }
+
+      console.log("contacts:");
+      console.log(this.contacts);
     } catch (e) { }
   }
   async loadWordlerData() {
@@ -108,17 +124,17 @@ export class UserComponent extends ChildComponent implements OnInit {
         if (wsRes) {
           this.wordlerStreak = parseInt(wsRes);
         }
-      } catch (e) { } 
+      } catch (e) { }
     }
   }
 
   async loadFriendData() {
     this.friends = await this.friendService.getFriends(this.user ?? this.parentRef?.user!);
- 
+
     if ((!this.user && this.parentRef && this.parentRef.user)
       || (this.user && this.parentRef && this.parentRef.user)) {
       const res = await this.friendService.getFriendRequests(this.user ?? this.parentRef.user);
-       this.friendRequests = res;
+      this.friendRequests = res;
     }
   }
 
@@ -156,14 +172,21 @@ export class UserComponent extends ChildComponent implements OnInit {
     return found;
   }
 
+  contactsContains(user: User) {
+    if (this.contacts.filter(x => x.user!.id == user.id).length > 0) {
+      return true;
+    }
+    return false;
+  }
+
   clearForm() {
-    
+
     this.isNicehashApiKeysToggled = false;
     this.isGeneralToggled = false;
     this.updateUserDivVisible = false;
     this.isWeatherLocationToggled = false;
     this.isMenuIconsToggled = true;
-      
+
     this.friends = [];
     this.friendRequests = [];
   }
@@ -280,7 +303,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
         this.parentRef!.user = tmpUser;
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
-        const ip = await this.userService.getUserIp(); 
+        const ip = await this.userService.getUserIp();
         const weatherLocation = await this.weatherService.getWeatherLocation(tmpUser) as WeatherLocation;
         if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
           await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"], ip["city"]);
@@ -302,7 +325,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     return count > 0 ? `(${count})` : '';
   }
   copyLink() {
-    const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id; 
+    const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;
     const link = `https://bughosted.com/${userId ? `User/${userId}` : ''}`;
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');

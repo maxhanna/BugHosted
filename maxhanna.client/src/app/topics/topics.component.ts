@@ -40,11 +40,11 @@ export class TopicsComponent {
     this.topics = this.topics.filter(x => x.id != topic.id);
     this.topicAdded.emit(this.topics);
   }
-  async searchTopics(enteredValue: string) {
+  async searchTopics(enteredValue: string, force: boolean = false) {
     this.addTopicButton.nativeElement.style.visibility = "hidden";
 
     const debouncedSearch = this.debounce(this.topicService.getTopics, 500);
-    if (enteredValue.trim() != '') {
+    if (enteredValue.trim() != '' || force) {
       const res = await debouncedSearch(enteredValue);
       this.matchingTopics = res;
 
@@ -87,5 +87,10 @@ export class TopicsComponent {
     this.newTopic.nativeElement.value = '';
     this.matchingTopics = [];
     this.addTopicButton.nativeElement.style.visibility = "hidden";
+  }
+  searchInputClick() {
+    if (this.isDropdown) {
+      this.searchTopics('', true)
+    }
   }
 }

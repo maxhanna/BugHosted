@@ -19,7 +19,9 @@ input {
     border: var(--main-border);
 }
 .dropdownMenu {
-  width: 170px;
+  width: 175px;
+  max-height:200px;
+  overflow-y: auto;
   border: var(--main-border);
 }
 .dropdownMenuTopic {

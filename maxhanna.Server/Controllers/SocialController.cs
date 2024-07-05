@@ -228,6 +228,10 @@ namespace maxhanna.Server.Controllers
         }
         private async Task FetchAndAttachTopicsAsync(List<Story> stories)
         {
+            if (stories.Count == 0)
+            {
+                return;
+            }
             var topicSql = @"
         SELECT 
             s.id AS story_id,
@@ -280,6 +284,10 @@ namespace maxhanna.Server.Controllers
         }
         private async Task FetchAndAttachReactionsAsync(List<Story> stories)
         {
+            if (stories.Count == 0)
+            {
+                return;
+            }
             var reactionSql = @"
         SELECT 
             r.id AS reaction_id,

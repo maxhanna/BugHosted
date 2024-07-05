@@ -47,7 +47,7 @@
   <div class="profileControls">
     <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">Add friend</button>
     <button *ngIf="areWeFriends(user)" (click)="removeFriend(user)">Remove friend</button>
-    <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id" (click)="addContact(user)">Add as Contact</button>
+    <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" (click)="addContact(user)">Add as Contact</button>
     <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">Share 📋</button>
   </div>
 
@@ -217,14 +217,13 @@
   <!-- SOCIAL -->
   <div class="topProfileContainer expanded" id="socialProfileContainer">
     <div>
-      <div *ngIf="user || parentRef?.user">
-        <span class="cursorPointer mainTable" (click)="expandDiv('socialProfileContainer'); isSocialDivExpanded = !isSocialDivExpanded">Stories</span>
-        <span class="smallExpander mainTable" (click)="expandDiv('socialProfileContainer'); isSocialDivExpanded = !isSocialDivExpanded">
-          {{isSocialDivExpanded ? '-' : '+'}}
-        </span>
-
-        <div class="profileStories" *ngIf="isSocialDivExpanded">
-          <app-social #socialComponent [user]="user" [parent]="parentRef" *ngIf="user && parentRef"></app-social>
+      <div *ngIf="user || parentRef?.user"> 
+        <div class="profileStories" >
+          <app-social #socialComponent
+                      [user]="user"
+                      [parent]="parentRef"
+                      [showTopicSelector]="false"
+                      *ngIf="user && parentRef"></app-social>
         </div>
       </div>
     </div>
