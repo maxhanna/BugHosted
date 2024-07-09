@@ -33,7 +33,7 @@
         <td *ngFor="let cal of calendarDays.slice(0,7)"
             (click)="getCalendarDetails(cal);"
             class="calendarDay"
-            [ngClass]="{'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
+            [class]="{'currentDay': compareDatesWithoutTime(cal.date!, currentDate), 'staticCurrentDay': compareDatesWithoutTime(cal.date!, getCurrentDate())}">
           {{ cal.date?.getDate() }}{{ convertSymbols(cal.symbols!) }}
         </td>
       </tr>

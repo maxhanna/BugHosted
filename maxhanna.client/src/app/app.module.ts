@@ -1,10 +1,11 @@
 import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
 import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
+import { BrowserModule, provideClientHydration } from '@angular/platform-browser';
 import {
   provideCharts,
   withDefaultRegisterables,
 } from 'ng2-charts';
+import { RouterModule } from '@angular/router';
 
 import { AppRoutingModule } from './app-routing.module';
 import { CalendarComponent } from './calendar/calendar.component';
@@ -20,7 +21,6 @@ import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
-import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
@@ -42,47 +42,17 @@ import { LineGraphComponent } from './line-graph/line-graph.component';
 import { ReactionComponent } from './reaction/reaction.component';
 
 @NgModule({
-  declarations: [
-    AppComponent,
-    CalendarComponent,
-    NavigationComponent,
-    FavouritesComponent,
-    WeatherComponent,
-    MiningDevicesComponent,
-    FileComponent,
-    MiningRigsComponent,
-    TodoComponent,
-    NotepadComponent,
-    MusicComponent,
-    ContactsComponent,
-    CoinWalletComponent,
-    GbcComponent,
-    UserComponent,
-    CoinWatchComponent,
-    ChatComponent,
-    UserListComponent,
-    MemeComponent,
-    SocialComponent,
-    FileUploadComponent,
-    NewsComponent,
-    TopicsComponent,
-    WordlerComponent,
-    FileSearchComponent,
-    MediaViewerComponent,
-    UpdateUserSettingsComponent,
-    CommentsComponent,
-    MediaSelectorComponent,
-    EmulationComponent,
-    UserTagComponent,
-    ReactionComponent
+  declarations: [ 
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
     LineGraphComponent,
+    RouterModule,
     AppRoutingModule],
   providers: [
     provideHttpClient(withInterceptorsFromDi()),
     provideCharts(withDefaultRegisterables()),
+    provideClientHydration(),
   ]
 })
 export class AppModule { }

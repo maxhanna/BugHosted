@@ -10,8 +10,7 @@ import { TodoComponent } from './todo/todo.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
-import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
-import { GbcComponent } from './gbc/gbc.component';
+import { CoinWalletComponent } from './coin-wallet/coin-wallet.component'; 
 import { UserComponent } from './user/user.component';
 import { User } from '../services/datacontracts/user';
 import { MenuItem } from '../services/datacontracts/menu-item';
@@ -23,7 +22,7 @@ import { NavigationComponent } from './navigation/navigation.component';
 import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { WordlerComponent } from './wordler/wordler.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
-import { EmulationComponent } from './emulation/emulation.component';
+//import { EmulationComponent } from './emulation/emulation.component';
 
 
 
@@ -55,7 +54,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🗒️", title: "Notepad", content: undefined },
     { ownership: 0, icon: "📇", title: "Contacts", content: undefined },
     /*{ ownership: 0, icon: "🎮", title: "Gameboy Color", content: undefined },*/
-    { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
+    //{ ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "💵", title: "Coin-Wallet", content: undefined },
     { ownership: 0, icon: "₿", title: "Coin-Watch", content: undefined },
@@ -78,9 +77,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Todo": TodoComponent,
     "Music": MusicComponent,
     "Notepad": NotepadComponent,
-    "Contacts": ContactsComponent,
-    "Gameboy Color": GbcComponent,
-    "Emulation": EmulationComponent,
+    "Contacts": ContactsComponent, 
+    //"Emulation": EmulationComponent,
     "Wordler": WordlerComponent,
     "News": NewsComponent,
     "Coin-Wallet": CoinWalletComponent,
