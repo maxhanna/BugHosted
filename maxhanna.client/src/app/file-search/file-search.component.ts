@@ -16,7 +16,7 @@ import { AppComponent } from '../app.component';
   templateUrl: './file-search.component.html',
   styleUrl: './file-search.component.css'
 })
-export class FileSearchComponent extends ChildComponent implements OnInit, AfterViewInit {
+export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() currentDirectory = '';
   @Input() clearAfterSelectFile = false;
   @Input() allowedFileTypes: string[] = [];
@@ -70,8 +70,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
     if (this.fileId) {
       await this.getDirectory(undefined, parseInt(this.fileId));
-      document.querySelector('meta[name="description"]')!.setAttribute("content", this.directory!.data!.filter(x => x.id == parseInt(this.fileId!))[0]!.fileName); 
-      return;
+      if (this.directory && this.directory.data) {
+        const target = this.directory.data.filter(x => x.id == parseInt(this.fileId!))[0];
+        if (target) { 
+          document.querySelector('meta[name="description"]')!.setAttribute("content", target.fileName); 
+        }
+      }
+      return; 
     }
 
     this.route.paramMap.subscribe(async params => {
@@ -82,9 +87,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       }
     });
     await this.getDirectory();
-  }
-  ngAfterViewInit() {
-  }
+  } 
   scrollToFile(fileId: string) {
     setTimeout(() => {
       const element = document.getElementById('fileIdName' + fileId);
