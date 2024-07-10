@@ -10,6 +10,7 @@ using System.Runtime.Intrinsics.Arm;
 using System.Data;
 using System.Xml.Linq;
 using System.ComponentModel.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace maxhanna.Server.Controllers
 {
@@ -499,8 +500,8 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "An error occurred while updating the Filedata.");
                 return StatusCode(500, "An error occurred while updating the Filedata.");
             }
-        } 
-         
+        }
+
         [HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
         public IActionResult GetFile([FromBody] User? user, string filePath)
         {
@@ -532,6 +533,72 @@ namespace maxhanna.Server.Controllers
             {
                 _logger.LogError(ex, "An error occurred while streaming the file.");
                 return StatusCode(500, "An error occurred while streaming the file.");
+            }
+        }
+
+
+        [HttpPost("/File/GetFileById/{fileId}", Name = "GetFileById")]
+        public async Task<IActionResult> GetFileById([FromBody] User? user, int fileId)
+        {
+            _logger.LogInformation($"GET /File/GetFileById/{fileId}");
+
+            try
+            {
+                if (fileId == 0)
+                {
+                    _logger.LogError($"File id is missing.");
+                    return BadRequest("File id is missing.");
+                }
+
+                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await connection.OpenAsync();
+
+                    var command = new MySqlCommand(
+                        "SELECT user_id, file_name, folder_path, is_public FROM maxhanna.file_uploads WHERE id = @fileId",
+                        connection);
+                    command.Parameters.AddWithValue("@fileId", fileId);
+
+                    using (var reader = await command.ExecuteReaderAsync())
+                    {
+                        if (!await reader.ReadAsync())
+                        {
+                            _logger.LogError($"File with id {fileId} not found in database.");
+                            return NotFound();
+                        }
+
+                        int userId = reader.GetInt32("user_id");
+                        string fileName = reader.GetString("file_name");
+                        string folderPath = reader.GetString("folder_path");
+                        bool isPublic = reader.GetBoolean("is_public");
+
+                        // Check if the user has permission to access the file
+                        if (!isPublic && (user == null || user.Id != userId))
+                        {
+                            _logger.LogError($"User does not have permission to access file with id {fileId}.");
+                            return Forbid();
+                        }
+
+                        // Construct the full file path
+                        string filePath = Path.Combine(folderPath, fileName);
+
+                        if (!System.IO.File.Exists(filePath))
+                        {
+                            _logger.LogError($"File not found at {filePath}");
+                            return NotFound();
+                        }
+
+                        var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                        string contentType = GetContentType(Path.GetExtension(filePath));
+
+                        return File(fileStream, contentType, fileName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while retrieving or streaming the file.");
+                return StatusCode(500, "An error occurred while retrieving or streaming the file.");
             }
         }
 
@@ -688,10 +755,10 @@ namespace maxhanna.Server.Controllers
                         }
 
                         var fileId = await InsertFileMetadata(user!, file, uploadDirectory, isPublic, convertedFilePath);
-                        var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath);
+                        var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory);
                         uploaded.Add(fileEntry);
 
-                        //_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
+                        _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
                     }
                 }
                 _logger.LogInformation($"Uploaded {uploaded.Count} files."); 
@@ -889,7 +956,11 @@ namespace maxhanna.Server.Controllers
             }
             catch (Exception ex)
             {
-                if (System.IO.File.Exists(inputFilePath))
+                if (ex.Message.Contains(" already exists. Exiting."))
+                {
+                    _logger.LogError(ex, "Converted file already exists, Returning converted file"); 
+                }
+                else if (System.IO.File.Exists(inputFilePath))
                 {
                     convertedFilePath = inputFilePath;
                     _logger.LogError(ex, "Error occurred during video conversion. Returning Unconverted file");
@@ -952,14 +1023,15 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath)
+        private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath, string uploadDirectory)
         {
             return new FileEntry
             {
                 Id = fileId,
                 FileName = Path.GetFileName(filePath),
+                Directory = uploadDirectory,
                 Visibility = isPublic ? "Public" : "Private",
-                User = user ?? new User(0, "Anonymous"),
+                User = new User(user.Id, user.Username ?? "Anonymous", null, user.DisplayPictureFile, user.About),
                 IsFolder = false, 
                 FileComments = new List<FileComment>(),
                 Date = DateTime.UtcNow,

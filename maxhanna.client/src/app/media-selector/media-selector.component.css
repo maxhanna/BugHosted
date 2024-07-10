@@ -4,7 +4,7 @@
   z-index: 1000;
   background: var(--main-bg-color-full-opacity);
   border: var(--main-border);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); 
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 330px;
   height: 370px;
   top: CALC(50% - 300px); /* Adjust as needed */
@@ -17,19 +17,19 @@
   }
 
 .smallContainerForMedia {
-  margin-bottom: 10px;
-  max-height: 10vh;
-  max-width: 10vw;
-  overflow: auto; 
+  text-align: center;
 }
-.searchContainerDiv { 
-    max-height:250px;
-    overflow:auto;
+
+.searchContainerDiv {
+  max-height: 250px;
+  overflow: auto;
 }
-.mediaSelectorTitle{
-    font-weight:bolder;
-    text-align:center;
+
+.mediaSelectorTitle {
+  font-weight: bolder;
+  text-align: center;
 }
+
 .mediaFileName {
   display: inline-block; /* or block */
   width: 10vw;
@@ -37,6 +37,7 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
 .attachmentChoiceContainer {
   display: flex;
   justify-content: center;

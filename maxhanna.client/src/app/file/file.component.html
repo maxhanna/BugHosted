@@ -40,7 +40,8 @@
     [inputtedParentRef]="parentRef"
     [maxResults]="100"
     [fileId]="fileId"
-    (currentDirectoryChangeEvent)="changeDirectoryEvent($event)">
+    (currentDirectoryChangeEvent)="changeDirectoryEvent($event)"
+    (userNotificationEvent)="uploadNotification($event);">
   </app-file-search>
    
 </div>

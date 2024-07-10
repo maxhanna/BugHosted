@@ -43,5 +43,7 @@
               [inputtedParentRef]="inputtedParentRef"
               [type]="'File'"
               [component_id]="selectedFile.id"
-              [commentList]="selectedFile.fileComments">
+              [commentList]="selectedFile.fileComments"
+              (commentAddedEvent)="commentAddedEvent($event)"
+              (commentRemovedEvent)="commentRemovedEvent($event)">
 </app-comments>

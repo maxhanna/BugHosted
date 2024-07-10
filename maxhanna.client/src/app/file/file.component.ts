@@ -59,8 +59,8 @@ export class FileComponent extends ChildComponent {
     this.showMakeDirectoryPrompt = false;
     this.isSharePanelExpanded = false;
   }
-  uploadFinished(newFiles: Array<FileEntry>) {
-    this.fileSearchComponent.handleUploadedFiles(newFiles); 
+  uploadFinished(newFiles: FileEntry[]) {
+    this.fileSearchComponent.handleUploadedFiles(newFiles.flatMap(fileArray => fileArray)); 
   }
   async shareFile(userToShareWith: User) {
     try {

@@ -1,18 +1,36 @@
 <button type="submit"
         (click)="uploadSubmitClicked()"
         title="Upload file(s)">
-  {{uploadProgress == 100 ? 'Finalizing...' : uploadProgress > 0 ? uploadProgress + '%' : uploadFileList.length > 0 ? '✅' : '⏫' + uploadButtonText}}
+  {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅' : '⏫' + uploadButtonText)}}
 </button>
-
-<button type="submit" *ngIf="uploadFileList.length > 0 && uploadProgress <= 0" (click)="cancelFileUpload()" title="Cancel upload">❌</button>
-
 <input #fileInput type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes" style="visibility: hidden; position: absolute; width:1px;" multiple />
-<span *ngIf="showPrivatePublicOption">Select file(s) visibility:</span>
-<select #folderVisibility *ngIf="showPrivatePublicOption">
-  <option [value]="true">Public</option>
-  <option [value]="false">Private</option>
-</select>
-<div class="fileListContainer" *ngIf="uploadFileList.length > 0">
+
+<div class="fileListContainer" #fileListContainer>
+
+  <div *ngIf="showPrivatePublicOption && !getOverallProgress()">
+    <span>Select file(s) visibility:</span>
+    <select #folderVisibility>
+      <option [value]="true">Public</option>
+      <option [value]="false">Private</option>
+    </select>
+  </div>
+
   Upload {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}?
-  <div *ngFor="let file of uploadFileList" class="fileListDiv"><div class="removeFileButton" (click)="removeFile(file)" title="Remove file">{{file.name}}</div></div>
+  <div class="fileListDiv"> 
+    <div *ngFor="let file of uploadFileList; let i = index">
+      <div [class]="uploadProgress[file.name] != 100 ? 'removeFileButton' : ''" (click)="removeFile(file)" title="Remove file">
+        <span>{{file.name}}</span>
+        <span *ngIf="uploadProgress[file.name]"> - {{uploadProgress[file.name] || 0}}%</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <button type="submit"
+            (click)="uploadSubmitClicked()"
+            title="Upload file(s)">
+      {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅' : '⏫' + uploadButtonText)}}
+    </button>
+    <button type="submit" *ngIf="uploadFileList.length > 0 && !isUploading" (click)="cancelFileUpload()" title="Cancel upload">❌</button>
+  </div>
 </div>

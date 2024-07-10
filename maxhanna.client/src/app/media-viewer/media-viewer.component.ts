@@ -5,8 +5,7 @@ import { FileService } from '../../services/file.service';
 import { FileComment } from '../../services/datacontracts/file-comment';
 import { User } from '../../services/datacontracts/user';
 import { AppComponent } from '../app.component';
-import { FileData } from '../../services/datacontracts/file-data';
-
+ 
 
 @Component({
   selector: 'app-media-viewer',
@@ -61,16 +60,18 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
 
-  async ngOnInit() {
-    if (this.file && this.file.fileName && this.user) {
-      await this.setFileSrc(this.file.fileName, this.currentDirectory);
+  async ngOnInit() { 
+    if (this.file && Array.isArray(this.file) && this.file.length > 0) {
+      const fileObject = this.file[0];
+      await this.setFileSrcById(fileObject.id);
+      this.selectedFile = fileObject;
+    } else if (this.file && !Array.isArray(this.file)) {
+      await this.setFileSrcById(this.file.id);
       this.selectedFile = this.file;
     }
   }
   copyLink() {
-    console.log("in compy link");
-    const link = `https://bughosted.com/${this.currentDirectory == 'Meme/' ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`;
-    console.log(link);
+    const link = `https://bughosted.com/${this.file?.directory.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`;
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {
@@ -81,20 +82,15 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     if (!user) { return alert("you must select a user!"); }
     setTimeout(() => { this.inputtedParentRef?.createComponent("User", { "user": user }); }, 1);
   }
-  async setFileSrc(fileName: string, currentDirectory?: string) {
+   
+  async setFileSrcById(fileId: number) {
     this.startLoading();
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort();
-    }
-    if (currentDirectory) {
-      this.currentDirectory = currentDirectory;
-    }
+    } 
     this.abortFileRequestController = new AbortController();
-
-    let target = (currentDirectory ?? '').replace(/\\/g, "/");
-    target += (currentDirectory && currentDirectory.length > 0 && currentDirectory[currentDirectory.length - 1] === this.fS) ? fileName : currentDirectory && currentDirectory.length > 0 ? this.fS + fileName : fileName;
-
-    const response = await this.fileService.getFile(target, {
+     
+    const response = await this.fileService.getFileById(fileId, {
       signal: this.abortFileRequestController.signal
     });
     if (!response || response == null) return;
@@ -112,8 +108,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
     reader.onloadend = () => {
       this.showThumbnail = true;
       setTimeout(() => { this.selectedFileSrc = (reader.result as string); }, 1);
-      this.selectedFileName = fileName;
-    }; 
+      //this.selectedFileName = fileName;
+    };
     this.stopLoading();
   }
   expandFile(file: any) {
@@ -207,6 +203,19 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
       this.stopLoading();
     } catch (ex) {
       console.error(ex);
+    }
+  }
+  commentAddedEvent(event: FileComment) {
+    if (this.file) {
+      if (!this.file.fileComments) {
+        this.file.fileComments = new Array<FileComment>
+      }
+      this.file.fileComments.push(event);
+    }
+  }
+  commentRemovedEvent(event: FileComment) {
+    if (this.file && this.file.fileComments) {
+      this.file.fileComments = this.file.fileComments.filter(x => x.id != event.id);
     }
   }
 }

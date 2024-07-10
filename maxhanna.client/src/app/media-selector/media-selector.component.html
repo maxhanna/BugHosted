@@ -3,25 +3,25 @@
   <ng-container *ngIf="viewMediaChoicesOpen || displaySearch">
     <div id="selectMediaDiv" [ngClass]="{'open': viewMediaChoicesOpen || displaySearch}">
       <div class="mediaSelectorTitle">
-        Select Media Files: <button class="doneButton" (click)="done()">Done</button>
+        Select Media Files: <button class="doneButton" #doneButton (click)="done()">Done</button>
       </div>
       <div *ngIf="viewMediaChoicesOpen">
         <div class="attachmentChoiceContainer" *ngIf="selectedFiles && selectedFiles.length > 0">
           <div *ngFor="let file of selectedFiles">
             <div class="smallContainerForMedia">
-              <app-media-viewer [user]="file.user"
+              <app-media-viewer [user]="user"
                                 [inputtedParentRef]="inputtedParentRef"
-                                [currentDirectory]="currentDirectory"
+                                [currentDirectory]="file.directory"
                                 [file]="file"
                                 [showCommentSection]="false"
                                 [displayExtraInfo]="false"
-                                [displayExpander]="false">
+                                [displayExpander]="false"
+                                [autoplay]="false">
               </app-media-viewer>
-            </div>
-            <div>
-              <div><span class="mediaFileName">{{file.fileName}}</span></div>
-              <div><button (click)="removeFile(file)">Remove file</button></div>
-            </div>
+              <div>
+                <div><button (click)="removeFile(file)">Remove file</button></div>
+              </div>
+            </div> 
           </div>
         </div>
         <div>
@@ -31,8 +31,7 @@
                            (userUploadFinishedEvent)="uploadFinishedEvent($event)"
                            (userUploadEvent)="uploadEvent($event)"
                            (userCancelEvent)="uploadCancelledEvent($event)"
-                           [user]="user"
-                           *ngIf="showFileUploader">
+                           [user]="user">
           </app-file-upload>
         </div>
       </div>

@@ -46,8 +46,8 @@
   width: 100%;
 }
 
-.loadingCommentOverlay {
-  width: 100%;
+.loadingCommentOverlay { 
+  text-align:center;
 }
 
 .addCommentInputDiv {

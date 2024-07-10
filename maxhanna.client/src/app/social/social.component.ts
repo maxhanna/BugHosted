@@ -29,7 +29,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   selectedAttachmentFileExtension: string | null = null;
   isEditing: number[] = [];
   isUploadInitiate = true;
-  attachedFiles: Array<FileEntry> = [];
+  attachedFiles: FileEntry[] = [];
   attachedTopics: Array<Topic> = [];
   selectedAttachment: string | undefined;
   selectedStoryId: number | undefined;
@@ -107,8 +107,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   uploadInitiate() {
 
   }
-  selectFile(files: Array<FileEntry>) {
-    this.attachedFiles = files;
+  selectFile(files: FileEntry[]) { 
+    if (files) {  
+      this.attachedFiles = files.flatMap(fileArray => fileArray); 
+    }
   }
 
   copyLink(storyId: number) {
@@ -122,7 +124,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   uploadNotification(notification: string) {
 
-  } 
+  }
 
   async searchStories(searchTopics?: Array<Topic>) {
     this.log("searchTopics ");
@@ -132,8 +134,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (searchTopics && searchTopics.length > 0) {
       topics = topics.trim() != '' ? topics + ',' : topics;
       searchTopics.forEach(x => { topics += topics.trim() != '' ? ',' + x.id : x.id })
-    } 
-    await this.getStories(this.currentPage, 10, search, topics); 
+    }
+    await this.getStories(this.currentPage, 10, search, topics);
   }
 
   async getStories(page: number = 1, pageSize: number = 10, keywords?: string, topics?: string) {
@@ -171,7 +173,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
 
   async post() {
- 
+
     const storyText = this.story.nativeElement.value!;
     if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
     const newStory: Story = {
@@ -191,7 +193,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     };
 
     this.attachedFiles = [];
-    this.attachedTopics = []; 
+    this.attachedTopics = [];
     this.mediaSelectorComponent.closeMediaSelector();
     this.story.nativeElement.value = '';
 
@@ -201,21 +203,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
   }
 
-
-  async upvoteStory(story: Story) {
-    const res = await this.socialService.upvoteStory(this.parentRef?.user!, story.id!, true);
-    if (res) {
-      story.upvotes! = res.upvotes!;
-      story.downvotes! = res.downvotes!;
-    }
-  }
-
-  async downvoteStory(story: Story) {
-    const res = await this.socialService.downvoteStory(this.parentRef?.user!, story.id!, true);
-    if (res) {
-      story.upvotes! = res.upvotes!;
-      story.downvotes! = res.downvotes!;
-    }
+  removeAttachment(fileId: number) {
+    this.attachedFiles = this.attachedFiles.filter(x => x.id != fileId);
   }
 
   extractUrl(text: string) {
@@ -233,7 +222,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     return sanitizedText;
   }
- 
+
   focusInput(): void {
     setTimeout(() => {
       this.story.nativeElement.scrollIntoView({ behavior: 'smooth' });

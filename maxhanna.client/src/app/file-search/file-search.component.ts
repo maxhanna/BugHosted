@@ -34,9 +34,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() inputtedParentRef?: AppComponent;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
+  @Output() userNotificationEvent = new EventEmitter<string>();
 
   showData = true;
-  notifications: string[] = [];
   debounceTimer: any;
   @Input() fileId: string | null = null;
 
@@ -93,38 +93,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         element.click();
       }
     }, 1000);
-  }
-  async upvoteFile(file: FileEntry) {
-    const res = await this.fileService.upvoteFile(this.user!, file.id);
-    if (res.toLowerCase().includes("error")) {
-      this.notifications.push("Error upvoting, are you logged in?");
-    } else {
-      this.notifications.push(res);
-      file.upvotes++;
-    }
-  }
-  async downvoteFile(file: FileEntry) {
-    const res = await this.fileService.downvoteFile(this.user!, file.id);
-    if (res.toLowerCase().includes("error")) {
-      this.notifications.push("Error downvoting, are you logged in?");
-    } else {
-      this.notifications.push(res);
-      file.downvotes++;
-    }
-  }
+  } 
   async delete(file: FileEntry) {
     if (confirm(`Delete : ${file.fileName} ?`)) {
       this.startLoading();
       try {
         const response = await this.fileService.deleteFile(this.user!, file);
         if (response) {
-          this.notifications.push(response);
+          this.userNotificationEvent.emit(response);
           if (response.includes("successfully")) {
             this.directory!.data = this.directory?.data!.filter(res => res.fileName != file.fileName);
           }
         }
       } catch (ex) {
-        this.notifications.push(`Failed to delete ${file.fileName}!`);
+        this.userNotificationEvent.emit(`Failed to delete ${file.fileName}!`);
       }
       this.stopLoading();
     }
@@ -171,7 +153,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           }
         }
       } catch (error) {
-        this.notifications.push((error as Error).message);
+        this.userNotificationEvent.emit((error as Error).message);
       }
 
       this.isLoading = false;
@@ -237,7 +219,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       document.getElementById("fileIdName" + fileId)!.innerText = text;
     }
     if (res) {
-      this.notifications.push(res);
+      this.userNotificationEvent.emit(res);
       this.isEditing = this.isEditing.filter(x => x != fileId);
     }
   }
@@ -278,38 +260,32 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.openedFiles = [];
       }
       this.openedFiles.push(file.id);
-
-      setTimeout(() => {
-        this.mediaViewerComponent.setFileSrc(file.fileName, this.currentDirectory);
-        this.mediaViewerComponent.selectedFile = file;
-      }, 1);
+       
       return;
     }
-    if (!confirm(`Download ${file.fileName}?`)) {
-      return;
-    }
+     
+    if (confirm(`Download ${file.fileName}?`)) { 
+      const directoryValue = this.currentDirectory;
+      let target = directoryValue.replace(/\\/g, "/");
+      target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? file.fileName : directoryValue.length > 0 ? this.fS + file.fileName : file.fileName;
 
-    const directoryValue = this.currentDirectory;
-    let target = directoryValue.replace(/\\/g, "/");
-    target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? file.fileName : directoryValue.length > 0 ? this.fS + file.fileName : file.fileName;
+      try {
+        this.startLoading();
+        const response = await this.fileService.getFile(target, undefined, this.user);
+        const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
-    try {
-      this.startLoading();
-      const response = await this.fileService.getFile(target, undefined, this.user);
-      const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
-
-      const a = document.createElement('a');
-      a.href = window.URL.createObjectURL(blob);
-      a.download = file.fileName;
-      a.id = (Math.random() * 100) + "";
-      a.click();
-
-      // Cleanup
-      window.URL.revokeObjectURL(a.href);
-      document.getElementById(a.id)?.remove();
-      this.stopLoading();
-    } catch (ex) {
-      console.error(ex);
+        const a = document.createElement('a');
+        a.href = window.URL.createObjectURL(blob);
+        a.download = file.fileName;
+        a.id = (Math.random() * 100) + "";
+        a.click();
+         
+        window.URL.revokeObjectURL(a.href);
+        document.getElementById(a.id)?.remove();
+        this.stopLoading();
+      } catch (ex) {
+        console.error(ex);
+      }
     }
   }
 
@@ -364,13 +340,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.startLoading();
       try {
         const res = await this.fileService.moveFile(this.user!, inputFile, destinationFolder);
-        this.notifications.push(res!);
+        this.userNotificationEvent.emit(res!);
         if (!res!.includes("error")) {
           this.directory!.data = this.directory!.data!.filter(x => x.fileName != this.draggedFilename);
         }
       } catch (ex) {
         console.error(ex);
-        this.notifications.push(`Failed to move ${this.draggedFilename} to ${currDir + this.destinationFilename}!`);
+        this.userNotificationEvent.emit(`Failed to move ${this.draggedFilename} to ${currDir + this.destinationFilename}!`);
       }
       this.stopLoading();
     } else {
@@ -394,11 +370,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.getDirectory();
   }
 
-  handleUploadedFiles(files: FileEntry[]) {
+  handleUploadedFiles(files: FileEntry[]) { 
+    files = files.flatMap(fileArray => fileArray);
+
     if (this.directory) {
       files.forEach(x => {
         if (this.directory?.data && this.directory?.data?.filter(d => d.id == x.id).length == 0) {
-          this.directory.data!.push(x);
+          this.directory.data!.unshift(x); 
         }
       });
     }
@@ -409,12 +387,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.totalPages = this.defaultTotalPages;
   }
   isMediaFile(fileName: string): boolean {
-    const mediaFileTypes = [
-      'jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'psd', 'raw', 'bmp', 'heif', 'heic', 'indd', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', // Image formats
-      'mp4', 'mkv', 'flv', 'avi', 'mov', 'wmv', 'avchd', 'webm', 'mpeg', 'mpg', 'm4v', '3gp', '3g2', 'f4v', 'f4p', 'f4a', 'f4b', 'vob' // Video formats
-    ];
-    const lowerCaseFileName = fileName.toLowerCase();
-    return mediaFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
+    if (fileName) {
+      const mediaFileTypes = [
+        'jpg', 'jpeg', 'png', 'gif', 'webp', 'tiff', 'tif', 'psd', 'raw', 'bmp', 'heif', 'heic', 'indd', 'jp2', 'j2k', 'jpf', 'jpx', 'jpm', 'mj2', // Image formats
+        'mp4', 'mkv', 'flv', 'avi', 'mov', 'wmv', 'avchd', 'webm', 'mpeg', 'mpg', 'm4v', '3gp', '3g2', 'f4v', 'f4p', 'f4a', 'f4b', 'vob' // Video formats
+      ];
+      const lowerCaseFileName = fileName.toLowerCase();
+      return mediaFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
+    }
+    return false;
   }
   isFile(fileName: string): boolean {
     const fileExtension = fileName.lastIndexOf('.') !== -1 ? fileName.split('.').pop() : null;

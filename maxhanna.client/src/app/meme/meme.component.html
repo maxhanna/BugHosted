@@ -25,6 +25,7 @@
                    [showPrivatePublicOption]="false"
                    [displayFileType]="false"
                    [displayFileSize]="false"
-                   [fileId]="memeId">
+                   [fileId]="memeId"
+                   (userNotificationEvent)="uploadNotification($event);">
   </app-file-search>
 </div>

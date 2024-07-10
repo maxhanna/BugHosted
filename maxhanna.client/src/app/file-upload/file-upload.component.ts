@@ -1,6 +1,6 @@
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
-import { HttpErrorResponse, HttpEventType, HttpResponse } from '@angular/common/http';
+import { HttpEventType } from '@angular/common/http';
 import { User } from '../../services/datacontracts/user';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 
@@ -22,26 +22,35 @@ export class FileUploadComponent {
   @Output() userCancelEvent = new EventEmitter<boolean>();
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('fileListContainer') fileListContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
 
   showMakeDirectoryPrompt = false;
   uploadFileList: Array<File> = [];
-  uploadProgress: number = 0;
+  uploadedFileList: FileEntry[] = [];
+  uploadProgress: { [key: string]: number } = {};
+  isUploading: boolean = false;
   constructor(private fileService: FileService) { }
 
-  uploadInitiate() { 
+  uploadInitiate() {
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
+      this.fileListContainer.nativeElement.classList.toggle("open");
       this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
       this.userUploadEvent.emit(this.uploadFileList);
     }
   }
   cancelFileUpload() {
-    this.uploadProgress = 0;
+    this.uploadProgress = {};
+    this.isUploading = false;
     this.uploadFileList = [];
     this.fileInput.nativeElement.value = '';
     this.userCancelEvent.emit(true);
+    this.fileListContainer.nativeElement.classList.toggle("open");
   }
   async uploadSubmitClicked() {
+    if (this.getOverallProgress() > 0) {
+      return;
+    }
     if (this.uploadFileList.length > 0) {
       this.upload();
     } else {
@@ -49,9 +58,10 @@ export class FileUploadComponent {
     }
   }
   removeFile(file: File) {
+    if (this.uploadProgress[file.name]) { return; }
     this.uploadFileList = this.uploadFileList.filter(f => f !== file);
     if (this.uploadFileList.length == 0) {
-      this.userCancelEvent.emit(true);
+      this.cancelFileUpload();
     }
   }
   async upload() {
@@ -61,49 +71,63 @@ export class FileUploadComponent {
     if (!files || !files.length || this.uploadFileList.length == 0) {
       return alert("No file to upload!");
     }
-
+    this.isUploading = true;
     const filesArray = Array.from(files);
 
     const isPublic = (this.showPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
-     
+
     const directoryInput = (this.currentDirectory || '').replace(/\/+$/, '');
     const fileNames = Array.from(files).map(file => file.name);
-
     if (confirm(`✅ Upload : ${directoryInput}/${fileNames.join(',')} ?`)) {
       try {
-        const formData = new FormData();
-        filesArray.forEach(file => formData.append('files', file));
+        filesArray.forEach((file, index) => {
+          const formData = new FormData();
+          formData.append('files', file);
 
-        // Use HttpClient to track the upload progress
-        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user);
-        uploadReq.subscribe((event) => {
-          if (typeof event !== 'number') {
-            if (event.type === HttpEventType.UploadProgress) {
-              this.uploadProgress = Math.round(100 * (event.loaded / event.total!));
-            }
-            else if (event.type === HttpEventType.Response) {
-              this.uploadProgress = 0;
-              const files = JSON.parse(event.body) as FileEntry[];
-              console.log("got files : " + files.length);
-              this.userUploadFinishedEvent.emit(files);
-
-              if (event.body && event.body.partialText) {
-                this.userNotificationEvent.emit(event.body.partialText);
+          const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user);
+          if (uploadReq) {
+            uploadReq.subscribe({
+              next: (event) => {
+                if (event.type === HttpEventType.UploadProgress) {
+                  this.uploadProgress[file.name] = Math.round(100 * (event.loaded / event.total!));
+                }
+                else if (event.type === HttpEventType.Response) {
+                  // Handle completion
+                  const files = JSON.parse(event.body) as FileEntry;
+                  this.uploadedFileList.push(files);
+                  this.checkIfLastFileUploaded(filesArray, this.uploadedFileList.length);
+                }
+              },
+              error: (error) => {
+                console.error(`Error uploading ${file.name}:`, error);
+                this.checkIfLastFileUploaded(filesArray, this.uploadedFileList.length);
               }
-            }
-            else if (event.type === HttpEventType.DownloadProgress) {
-              this.cancelFileUpload();
-            }
-            else if (event.type == HttpEventType.ResponseHeader) {
-              if (event.statusText) {
-                this.userNotificationEvent.emit(event.statusText);
-              }
-            }
-          }
+            });
+          } 
         });
+
       } catch (ex) {
-        this.uploadProgress = 0;
       }
     }
-  } 
+  }
+
+  private checkIfLastFileUploaded(filesArray: File[], index: number) { 
+    if (filesArray.length == index) {
+      this.userUploadFinishedEvent.emit(this.uploadedFileList);
+      this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`);
+
+      this.uploadProgress = {};
+      this.isUploading = false;
+      this.uploadFileList = [];
+      this.uploadedFileList = [];
+      this.fileInput.nativeElement.value = ''; 
+      this.fileListContainer.nativeElement.classList.toggle("open");
+    }
+  }
+
+  getOverallProgress(): number {
+    if (this.uploadFileList.length === 0) return 0;
+    const totalProgress = Object.values(this.uploadProgress).reduce((sum, progress) => sum + progress, 0);
+    return Math.round(totalProgress / this.uploadFileList.length);
+  }
 }

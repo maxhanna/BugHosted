@@ -29,7 +29,13 @@
       <!--<app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>-->
 
     </div>
-    <div *ngIf="attachedFiles.length > 0"> Attached: <div *ngFor="let fz of attachedFiles">{{fz.fileName}}</div></div>
+    <div *ngIf="attachedFiles.length > 0">
+      {{attachedFiles.length}} Attached Files:
+      <div *ngFor="let file of attachedFiles">
+        {{file.fileName}}
+        <button (click)="removeAttachment(file.id)" title="Remove attachment">❌</button> 
+      </div>
+    </div>
   </div>
   <div class="inputDiv searchInputs">
     <div class="pagination" *ngIf="totalPagesArray.length > 1">

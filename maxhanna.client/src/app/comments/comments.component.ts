@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, SecurityContext, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, SecurityContext, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { Comment } from '../../services/datacontracts/comment';
@@ -6,6 +6,7 @@ import { User } from '../../services/datacontracts/user';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { ChildComponent } from '../child.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { FileComment } from '../../services/datacontracts/file-comment';
 
 @Component({
   selector: 'app-comments',
@@ -28,8 +29,10 @@ export class CommentsComponent extends ChildComponent {
   @Input() commentList: Comment[] = [];
   @Input() type: string = '' || "Social" || "File";
   @Input() component_id: number = 0;
+  @Output() commentAddedEvent = new EventEmitter<FileComment>();
+  @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   constructor(private commentService: CommentService, private sanitizer: DomSanitizer) {
-    super(); 
+    super();
   }
 
   override viewProfile(user: User) {
@@ -38,21 +41,18 @@ export class CommentsComponent extends ChildComponent {
   }
 
   async addComment(comment: string) {
-    // Clear any existing debounce timer
+    this.showCommentLoadingOverlay = true;
     clearTimeout(this.debounceTimer);
     const commentsWithEmoji = this.replaceEmojisInMessage(comment);
-    // Set a new debounce timer
     this.debounceTimer = setTimeout(async () => {
-      // Determine the component ID based on the type
       const fileId = this.type === 'File' ? this.component_id : undefined;
       const storyId = this.type === 'Social' ? this.component_id : undefined;
+      const filesToSend = this.selectedFiles;
+      this.selectedFiles = [];
 
-      // Send the comment to the server
-      const res = await this.commentService.addComment(commentsWithEmoji, this.inputtedParentRef?.user, fileId, storyId, this.selectedFiles);
+      const res = await this.commentService.addComment(commentsWithEmoji, this.inputtedParentRef?.user, fileId, storyId, filesToSend);
 
-      // Check if the response indicates success
       if (res && res.toLowerCase().includes("success")) {
-        // Create a new Comment object
         const tmpComment = new Comment();
         tmpComment.id = parseInt(res.split(" ")[0]);
         tmpComment.user = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
@@ -62,50 +62,16 @@ export class CommentsComponent extends ChildComponent {
         tmpComment.date = new Date();
         tmpComment.fileId = fileId;
         tmpComment.storyId = storyId;
-        tmpComment.commentFiles = this.selectedFiles;
+        tmpComment.commentFiles = filesToSend;
         if (!this.commentList) {
           this.commentList = [];
-        }
-        this.commentList.unshift(tmpComment);
+        } 
+        this.commentAddedEvent.emit(tmpComment as FileComment); 
       }
-      this.selectedFiles = [];
       this.stopLoadingComment(this.component_id);
-    }, 2000);  
+    }, 2000);
   }
-  async selectFile(files: FileEntry[]) {
-    this.selectedFiles = files;
-  }
-  async startLoadingComment() {
-    const comment = this.addCommentInput.nativeElement.value;
-    if ((!comment || comment.trim() == '') && (!this.selectedFiles || this.selectedFiles.length == 0)) { return alert("Comment cannot be empty!"); }
-    this.showCommentLoadingOverlay = true;
 
-    await this.addComment(comment)
-  }
-  stopLoadingComment(fileId: number) {
-    this.showCommentLoadingOverlay = false;
-    setTimeout(() => { this.addCommentInput.nativeElement.value = ''; }, 1);
-  }
-  async upvoteComment(comment: Comment) {
-    if (!this.inputtedParentRef?.user) { return alert("You must be logged in to use this feature!"); }
-    if (this.upvotedCommentIds.includes(comment.id)) { return alert("Cannot upvote twice!"); }
-
-    try {
-      const res = await this.commentService.upvoteComment(this.inputtedParentRef?.user, comment.id);
-      if (res && res.toLowerCase().includes("success")) {
-        comment.upvotes++;
-        if (this.downvotedCommentIds.includes(comment.id)) {
-          comment.downvotes!--;
-        }
-        this.downvotedCommentIds = this.downvotedCommentIds.filter(x => x != comment.id);
-        this.upvotedCommentIds.push(comment.id);
-      } else if (res && res.toLowerCase().includes("already")){
-        alert("Cannot upvote twice!");
-      }
-    } catch (error) {
-      console.error("Error upvoting comment:", error);
-    }
-  }
   async deleteComment(comment: Comment) {
     if (!this.inputtedParentRef?.user) { return alert("You must be logged in to delete a comment!"); }
     if (!confirm("Are you sure?")) { return };
@@ -113,30 +79,28 @@ export class CommentsComponent extends ChildComponent {
     this.showCommentLoadingOverlay = true;
     const res = await this.commentService.deleteComment(this.inputtedParentRef?.user, comment.id);
     if (res && res.includes("success")) {
-      this.commentList! = this.commentList.filter(x => x.id != comment.id);
+      this.commentRemovedEvent.emit(comment as FileComment); 
     }
     this.showCommentLoadingOverlay = false;
   }
-  async downvoteComment(comment: Comment) {
-    if (!this.inputtedParentRef?.user) { return alert("You must be logged in to use this feature!"); }
-    if (this.downvotedCommentIds.includes(comment.id)) { return alert("Cannot downvote twice!"); }
 
-    try {
-      const res = await this.commentService.downvoteComment(this.inputtedParentRef?.user, comment.id);
-      if (res && res.includes("success")) {
-        comment.downvotes++;
-        if (this.upvotedCommentIds.includes(comment.id)) {
-          comment.upvotes--;
-        }
-        this.upvotedCommentIds = this.upvotedCommentIds.filter(x => x != comment.id);
-        this.downvotedCommentIds.push(comment.id);
-      } else if (res && res.toLowerCase().includes("already")) {
-        alert("Cannot upvote twice!");
-      }
-    } catch (error) {
-      console.error("Error downvoting comment:", error);
-    }
+  async selectFile(files: FileEntry[]) {
+    this.selectedFiles = files.flatMap(fileArray => fileArray);
   }
+
+  async startLoadingComment() {
+    const comment = this.addCommentInput.nativeElement.value;
+    if ((!comment || comment.trim() == '') && (!this.selectedFiles || this.selectedFiles.length == 0)) { return alert("Comment cannot be empty!"); }
+    this.showCommentLoadingOverlay = true;
+
+    await this.addComment(comment)
+  }
+
+  stopLoadingComment(fileId: number) {
+    this.showCommentLoadingOverlay = false;
+    setTimeout(() => { this.addCommentInput.nativeElement.value = ''; }, 1);
+  }
+
   createClickableUrls(text?: string): SafeHtml {
     if (!text) { return ''; }
     const urlPattern = /(https?:\/\/[^\s]+)/g;

@@ -1,4 +1,3 @@
-import { FileComment } from "./file-comment";
 import { FileData } from "./file-data";
 import { User } from "./user";
 import { Comment } from '../datacontracts/comment'
@@ -11,9 +10,7 @@ export class FileEntry {
   visibility: string;
   sharedWith: string;
   user: User;
-  isFolder: boolean;
-  upvotes: number;
-  downvotes: number;
+  isFolder: boolean; 
   fileComments: Array<Comment>;
   date: Date;
   fileData: FileData;
@@ -21,18 +18,16 @@ export class FileEntry {
   fileType: string;
   reactions?: Array<Reaction>;
 
-  constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string, user: User,
-    isFolder: boolean, upvotes: number, downvotes: number, comments: Array<Comment>, date: Date,
-    fileData: FileData, fileSize: number, fileType: string, reactions?: Array<Reaction>) {
+  constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string,
+      user: User, isFolder: boolean, comments: Array<Comment>, date: Date,
+      fileData: FileData, fileSize: number, fileType: string, reactions?: Array<Reaction>) {
     this.id = id;
     this.fileName = fileName;
     this.directory = directory;
     this.visibility = visibility;
     this.sharedWith = sharedWith;
     this.user = user;
-    this.isFolder = isFolder;
-    this.upvotes = upvotes;
-    this.downvotes = downvotes;
+    this.isFolder = isFolder; 
     this.fileComments = comments;
     this.date = date;
     this.fileData = fileData;

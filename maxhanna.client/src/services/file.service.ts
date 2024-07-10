@@ -99,6 +99,37 @@ export class FileService {
     }
   }
 
+  async getFileById(fileId: number, options?: { signal: AbortSignal }, user?: User) {
+    try {
+      const response = await fetch(`/file/getfilebyid/${encodeURIComponent(fileId)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user),
+        signal: options?.signal  // Pass the AbortSignal here
+      });
+
+      // Check if the request was aborted
+      if (options?.signal?.aborted) {
+        throw new Error('Request aborted');
+      }
+
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value: string, name: string) => {
+        headers[name] = value;
+      });
+      const blob = await response.blob();
+      return { blob, headers };
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        throw error;
+      } else {
+        return null;
+      }
+    }
+  }
+
 
   async getComments(fileId: number) {
     try {
@@ -217,7 +248,6 @@ export class FileService {
     formData.append('user', JSON.stringify(user));
     formData.append('isPublic', isPublic + "");
 
-    console.log("appending userid: " + user?.id);
     let dir = '';
     try {
       dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
@@ -296,13 +326,15 @@ export class FileService {
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() ?? '' : '';
   }
   getFileWithoutExtension(file: string) {
-    const lastPeriodIndex = file.lastIndexOf('.');
-    if (lastPeriodIndex !== -1) {
-      // Extract the name part before the last period
-      const nameWithoutExtension = file.substring(0, lastPeriodIndex);
-      return nameWithoutExtension;  // Output: my.file.name.rom.sav
-    } else { 
-      return file;
-    } 
+    if (file) {
+      const lastPeriodIndex = file.lastIndexOf('.');
+      if (lastPeriodIndex !== -1) {
+        // Extract the name part before the last period
+        const nameWithoutExtension = file.substring(0, lastPeriodIndex);
+        return nameWithoutExtension;  // Output: my.file.name.rom.sav
+      } else {
+        return file;
+      }
+    } else return '';   
   }
 }

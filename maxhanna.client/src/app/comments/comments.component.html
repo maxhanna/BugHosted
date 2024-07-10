@@ -5,7 +5,9 @@
   </span>
 </div>
 <div class="commentsInputArea">
-
+  <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
+    Loading comments...
+  </div>
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
     <textarea [placeholder]='commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();"></textarea>
     <button (click)="startLoadingComment();" class="commentSubmit">🗨️Post</button>
@@ -48,10 +50,7 @@
       <div class="actionDiv"> 
         <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id">❌</button>
       </div>
-    </div>
-    <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
-      Loading comments...
-    </div>
+    </div> 
   </div>
 </div>
 <!-- End Comments Section -->

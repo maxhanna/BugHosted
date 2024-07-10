@@ -1,4 +1,3 @@
-<div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
 <div class="filters" *ngIf="showPrivatePublicOption && showData">
   <div>
     <label>
@@ -55,11 +54,11 @@
             <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}"
                  (dragover)="onDragOver($event)"
                  (drop)="onDrop(file.fileName)"
-                 [id]="'fileIdDiv'+file.id"
-                 [attr.data-content]="file?.fileData?.givenFileName ?? file.fileName.split('.')[0]!">
+                 [id]="'fileIdDiv'+file.id" 
+                 [attr.data-content]="file?.fileData?.givenFileName ?? file?.fileName ?? ''">
               <input type="text"
                      placeholder="New file name"
-                     [value]="file?.fileData?.givenFileName ?? file.fileName.split('.')[0]!"
+                     [value]="file?.fileData?.givenFileName ?? file && file.fileName ? file.fileName.split('.')[0]! : ''"
                      [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
                      (keyup)="editFileKeyUp($event, file.id)"
                      (click)="$event.stopPropagation()"
