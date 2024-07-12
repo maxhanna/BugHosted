@@ -40,6 +40,10 @@ export class TopicsComponent {
     this.topics = this.topics.filter(x => x.id != topic.id);
     this.topicAdded.emit(this.topics);
   }
+  removeAllTopics() {
+    this.topics = [];
+    this.topicAdded.emit(this.topics);
+  }
   async searchTopics(enteredValue: string, force: boolean = false) {
     this.addTopicButton.nativeElement.style.visibility = "hidden";
 

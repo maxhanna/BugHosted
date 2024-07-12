@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { FileService } from '../../services/file.service';
@@ -12,10 +12,9 @@ import { AppComponent } from '../app.component';
   templateUrl: './media-viewer.component.html',
   styleUrl: './media-viewer.component.css'
 })
-export class MediaViewerComponent extends ChildComponent implements OnInit {
+export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private fileService: FileService) { super(); }
-  notifications: string[] = [];
-
+ 
   videoFileExtensions = [
     "mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
     "rmvb", "swf", "vob", "ts", "mts", "m2ts", "mxf", "ogv", "divx", "xvid", "dv", "drc", "f4v", "f4p",
@@ -70,13 +69,18 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
       this.selectedFile = this.file;
     }
   }
+
+  ngOnDestroy() {
+    try {
+      if (this.abortFileRequestController) {
+        this.abortFileRequestController.abort("Component is destroyed");
+      }
+    } catch (e) { }
+  }
+
   copyLink() {
     const link = `https://bughosted.com/${this.file?.directory.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`;
-    navigator.clipboard.writeText(link).then(() => {
-      this.notifications.push('Link copied to clipboard!');
-    }).catch(err => {
-      this.notifications.push('Failed to copy link!');
-    });
+    navigator.clipboard.writeText(link);
   }
   createUserProfileComponent(user?: User) {
     if (!user) { return alert("you must select a user!"); }
@@ -89,28 +93,34 @@ export class MediaViewerComponent extends ChildComponent implements OnInit {
       this.abortFileRequestController.abort();
     } 
     this.abortFileRequestController = new AbortController();
-     
-    const response = await this.fileService.getFileById(fileId, {
-      signal: this.abortFileRequestController.signal
-    });
-    if (!response || response == null) return;
-    const contentDisposition = response.headers["content-disposition"];
-    this.selectedFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
-    const type = this.fileType = this.videoFileExtensions.includes(this.selectedFileExtension)
-      ? `video/${this.selectedFileExtension}`
-      : this.audioFileExtensions.includes(this.selectedFileExtension)
-        ? `audio/${this.selectedFileExtension}`
-        : `image/${this.selectedFileExtension}`;
 
-    const blob = new Blob([response.blob], { type });
-    const reader = new FileReader();
-    reader.readAsDataURL(blob);
-    reader.onloadend = () => {
-      this.showThumbnail = true;
-      setTimeout(() => { this.selectedFileSrc = (reader.result as string); }, 1);
-      //this.selectedFileName = fileName;
-    };
-    this.stopLoading();
+    try {
+      const response = await this.fileService.getFileById(fileId, {
+        signal: this.abortFileRequestController.signal
+      });
+      if (!response || response == null) return;
+      const contentDisposition = response.headers["content-disposition"];
+      this.selectedFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
+      const type = this.fileType = this.videoFileExtensions.includes(this.selectedFileExtension)
+        ? `video/${this.selectedFileExtension}`
+        : this.audioFileExtensions.includes(this.selectedFileExtension)
+          ? `audio/${this.selectedFileExtension}`
+          : `image/${this.selectedFileExtension}`;
+
+      const blob = new Blob([response.blob], { type });
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        this.showThumbnail = true;
+        setTimeout(() => { this.selectedFileSrc = (reader.result as string); }, 1);
+      };
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        console.error(error);
+      }
+    } finally {
+      this.stopLoading();
+    }
   }
   expandFile(file: any) {
     this.isFullscreenMode = true;

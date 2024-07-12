@@ -7,7 +7,8 @@
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
 
   <div *ngIf="showTopicSelector">
-    <app-topics [isDropdown]="true"
+    <app-topics #topicComponent
+                [isDropdown]="true"
                 [user]="parentRef?.user"
                 [parent]="parent ?? parentRef"
                 (topicAdded)="onTopicAdded($event)"> 

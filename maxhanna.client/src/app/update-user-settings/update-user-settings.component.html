@@ -10,7 +10,7 @@
   <div *ngIf="parentRef!.user" style="margin-top:15px">
     <fieldset>
       <legend>Update:</legend>
-      <table class="mainTable">
+      <table class="updateTable">
 
         <!--USERNAME / PASSWORD-->
         <thead (click)="isGeneralToggled = !isGeneralToggled">
@@ -20,7 +20,7 @@
             </th>
             <th>General</th>
             <th style="text-align:right;">
-              <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled">🔄</button>
+              <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled" *ngIf="isGeneralToggled">🔄</button>
             </th>
           </tr>
         </thead>
@@ -91,7 +91,7 @@
             </th>
             <th>About You</th>
             <th style="text-align:right;">
-              <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled">🔄</button>
+              <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled" *ngIf="isAboutToggled">🔄</button>
             </th>
           </tr>
         </thead>
@@ -144,8 +144,7 @@
                 <tbody *ngIf="selectableIcons">
                   <tr *ngFor="let icon of selectableIcons" (click)="selectMenuIcon(icon.title)">
                     <td>
-                      <input type="checkbox"
-                             [checked]="menuIconsIncludes(icon.title)" />
+                      <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
                     </td>
                     <td>{{ icon.title == 'Weather' ? '☀️' : icon.icon }}</td>
                     <td>{{ icon.title }}</td>
@@ -165,7 +164,7 @@ but you can also set your own City for a more precise location."></span>
             </th>
             <th>Weather Location</th>
             <th style="text-align:right;">
-              <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled">🔄</button>
+              <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled" *ngIf="isWeatherLocationToggled">🔄</button>
             </th>
           </tr>
         </thead>
@@ -184,7 +183,7 @@ but you can also set your own City for a more precise location."></span>
             <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
             <th>Nicehash API Keys</th>
             <th style="text-align:right;">
-              <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled">🔄</button>
+              <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled" *ngIf="isNicehashApiKeysToggled">🔄</button>
             </th>
           </tr>
         </thead>

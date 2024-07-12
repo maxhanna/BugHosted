@@ -40,6 +40,7 @@ import { EmulationComponent } from './emulation/emulation.component';
 import { UserTagComponent } from './user-tag/user-tag.component';
 import { LineGraphComponent } from './line-graph/line-graph.component';
 import { ReactionComponent } from './reaction/reaction.component';
+import { ArrayComponent } from './array/array.component';
 
 @NgModule({
   declarations: [
@@ -74,7 +75,8 @@ import { ReactionComponent } from './reaction/reaction.component';
     MediaSelectorComponent,
     EmulationComponent,
     UserTagComponent,
-    ReactionComponent
+    ReactionComponent,
+    ArrayComponent
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

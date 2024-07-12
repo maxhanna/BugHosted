@@ -28,9 +28,7 @@
   margin-left:auto;
   margin-right:auto;
 }
-.mediaDiv {
-    max-width: 50vw;
-    max-height: 50vh;
+.mediaDiv { 
     display:block;
     margin-left:auto;
     margin-right:auto; 

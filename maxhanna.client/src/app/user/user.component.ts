@@ -107,10 +107,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         if (res) {
           this.contacts = res;
         }
-      }
-
-      console.log("contacts:");
-      console.log(this.contacts);
+      } 
     } catch (e) { }
   }
   async loadWordlerData() {
@@ -269,6 +266,9 @@ export class UserComponent extends ChildComponent implements OnInit {
 
           const resAddMenuItemEmulation = await this.userService.addMenuItem(tmpUser, "Emulation");
           this.notifications.push(resAddMenuItemEmulation!);
+
+          const resAddMenuItemArray = await this.userService.addMenuItem(tmpUser, "Array");
+          this.notifications.push(resAddMenuItemArray!);
 
           await this.login();
           this.parentRef?.createComponent('UpdateUserSettings');

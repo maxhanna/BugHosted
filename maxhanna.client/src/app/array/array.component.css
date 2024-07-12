@@ -1,0 +1,100 @@
+
+.rankingDiv {
+  max-height: 200px;
+  overflow: auto;
+  width: 100%;
+  text-align: left;
+}
+
+.radar {
+  z-index: 3;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  width: 100%;
+}
+
+.radarCube {
+  width: 25px;
+  height: 25px;
+  border: var(--main-border);
+  margin: 5px;
+}
+
+.userTag {
+  width: 25px !important;
+  height: 25px !important;
+  overflow: hidden;
+}
+
+.actionButtons {
+  display: flex;
+  width: 100%;
+  flex-flow: column;
+}
+
+.deathMessage {
+  width: 100%;
+  text-align: center;
+  color: var(--main-highlight-color);
+  font-size: xx-large;
+  font-weight: bolder;
+}
+
+.deathMessageDiv {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.arrayNexusNotificationDiv {
+  text-align: center;
+}
+
+.nexusIcon {
+  font-size: xx-large;
+}
+
+.gameScreen {
+  max-width: 400px;
+  height: 255px;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: wrap;
+  position: relative; 
+}
+
+.locationPicture {
+  width: 99%;
+  max-height: 275px;
+  overflow: hidden;
+  z-index: -1;
+  position: relative; 
+  bottom: 0; 
+}
+
+.heroStatsDiv {
+  width: 95%;
+  z-index: 1;
+  position: absolute;
+  bottom: 10px; 
+  left: 10px;
+}
+
+.inventoryTitle {
+  font-size: large;
+  font-weight: bold;
+  text-align: center;
+}
+.inventoryItemsDiv {
+    display:flex;
+    justify-content:center;
+    align-content:center;
+}
+.inventoryItem {
+    height:50px;
+    width:50px;
+}

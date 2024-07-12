@@ -24,6 +24,7 @@ const PROXY_CONFIG = [
       "/comment",
       "/coinvalue",
       "/reaction",
+      "/array",
     ],
     target,
     secure: false

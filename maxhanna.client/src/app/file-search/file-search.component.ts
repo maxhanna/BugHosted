@@ -36,7 +36,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
 
-  showData = true;
+  showData = true; 
   debounceTimer: any;
   @Input() fileId: string | null = null;
 
@@ -49,6 +49,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   draggedFilename: string | undefined;
   destinationFilename: string | undefined;
   fS = '/';
+  selectedSharedFile?: FileEntry = undefined;
   viewMediaFile = false;
   isEditing: number[] = [];
   openedFiles: number[] = [];
@@ -60,6 +61,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
+  @ViewChild('shareUserListDiv') shareUserListDiv!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
   constructor(private fileService: FileService, private route: ActivatedRoute) {
@@ -421,5 +423,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
+  shareFile(user: User) {
+    if (this.selectedSharedFile && this.user) {
+      this.fileService.shareFile(this.user, user, this.selectedSharedFile!.id);
+    }
+    this.selectedSharedFile = undefined;
+    this.shareUserListDiv.nativeElement.classList.toggle("open");
+  }
+  shareFileInitiate(file: FileEntry) {
+    this.selectedSharedFile = file;
+    this.shareUserListDiv.nativeElement.classList.toggle("open");
   }
 }

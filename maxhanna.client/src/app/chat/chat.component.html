@@ -46,7 +46,8 @@
                                   [inputtedParentRef]="parentRef"
                                   [displayExtraInfo]="false"
                                   [showCommentSection]="false"
-                                  [user]="parentRef?.user">
+                                  [user]="parentRef?.user"
+                                  [autoplay]="false">
                 </app-media-viewer>
               </div>
               <app-reaction [messageId]="message.id" [user]="parentRef?.user" [currentReactions]="message.reactions"></app-reaction>
@@ -63,7 +64,8 @@
                                     [inputtedParentRef]="parentRef"
                                     [displayExtraInfo]="false"
                                     [showCommentSection]="false"
-                                    [user]="parentRef?.user">
+                                    [user]="parentRef?.user"
+                                    [autoplay]="false">
                   </app-media-viewer>
                 </div>
               </div>
@@ -91,6 +93,8 @@
         <button (click)="sendMessage()">🗨️Send</button>
         <div>
           <app-media-selector [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user!.username : 'Anonymous')"
+                              [user]="parentRef?.user"
+                              [inputtedParentRef]="parentRef"
                               (selectFileEvent)="selectFile($event)">
           </app-media-selector>
         </div>

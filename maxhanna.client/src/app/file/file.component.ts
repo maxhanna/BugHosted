@@ -4,6 +4,7 @@ import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { User } from '../../services/datacontracts/user'; 
 import { FileSearchComponent } from '../file-search/file-search.component';
+import { FileData } from '../../services/datacontracts/file-data';
  
 @Component({
   selector: 'app-file',
@@ -183,8 +184,7 @@ export class FileComponent extends ChildComponent {
     let target = directoryValue.replace(/\\/g, "/");
     target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? choice : directoryValue.length > 0 ? this.fS + choice : choice;
 
-    if (confirm(`Create directory : ${target} ?`)) {
-      const headers = { "Content-Type": "application/json" };
+    if (confirm(`Create directory : ${target} ?`)) { 
       this.startLoading();
       try {
         const res = await this.fileService.createDirectory(this.parentRef?.user!, target, isPublic);
@@ -192,6 +192,10 @@ export class FileComponent extends ChildComponent {
 
         if (!res?.toLowerCase().includes("already exists")) {
           this.cancelMakeDirectoryOrFile();
+          var tmpFileEntry =
+            new FileEntry(parseInt(res!), choice, directoryValue, this.createVisibility.toLowerCase(), "",
+              this.parentRef?.user!, true, [], new Date(), 0, "", [], undefined);
+          this.uploadFinished([tmpFileEntry]);
         }
       } catch (ex) {
         console.error(ex);

@@ -39,6 +39,8 @@
         <button (click)="displaySearch = !displaySearch" *ngIf="displaySearchButton" title="Search for files">🔍Search Files</button>
         <div class="searchContainerDiv">
           <app-file-search *ngIf="displaySearch"
+                           [user]="user"
+                           [inputtedParentRef]="inputtedParentRef"
                            [currentDirectory]="currentDirectory"
                            [clearAfterSelectFile]="true"
                            [showPrivatePublicOption]="false"

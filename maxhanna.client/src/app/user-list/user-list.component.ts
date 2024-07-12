@@ -72,11 +72,12 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   async search() {
     try {
       const search = this.searchInput.nativeElement.value.trim();
-      const debouncedSearch = this.debounce(this.userService.getAllUsers, 500);
-      const res = await debouncedSearch(this.user, search);
-      if (Array.isArray(res)) {
-        this.users = res;
-      }
+      if (this.user) {
+        const res = await this.userService.getAllUsers(this.user!, search);
+        if (res) { 
+          this.users = res;
+        }
+      } 
     } catch { }
   }
 }

@@ -36,7 +36,6 @@ export class MediaSelectorComponent {
   }
 
   done() {
-    console.log("selected files :" + this.selectedFiles.length);
     this.selectFileEvent.emit(this.selectedFiles); 
     this.closeMediaSelector();
   }

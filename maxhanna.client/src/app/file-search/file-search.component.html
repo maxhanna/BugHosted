@@ -1,3 +1,7 @@
+<div class="shareUserListDiv" #shareUserListDiv>
+  <div>Share {{selectedSharedFile?.fileData?.givenFileName ?? selectedSharedFile?.fileName ?? ''}} With?</div>
+  <div class="shareUserList"><app-user-list (userClickEvent)="shareFile($event);" [user]="user!"></app-user-list></div> 
+</div>
 <div class="filters" *ngIf="showPrivatePublicOption && showData">
   <div>
     <label>
@@ -54,7 +58,7 @@
             <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}"
                  (dragover)="onDragOver($event)"
                  (drop)="onDrop(file.fileName)"
-                 [id]="'fileIdDiv'+file.id" 
+                 [id]="'fileIdDiv'+file.id"
                  [attr.data-content]="file?.fileData?.givenFileName ?? file?.fileName ?? ''">
               <input type="text"
                      placeholder="New file name"
@@ -92,13 +96,14 @@
                   </span>
                 </div>
                 <div class="actionTd" *ngIf="displayFileActions">
-                  <button [style.display]="file?.user?.id == user?.id && !file?.isFolder ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">
+                  <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">
                     ✏️Edit
                   </button>
-                  <!--<button title="Share File"
-                *ngIf="file?.visibility?.toLowerCase() == 'private'">
-          ↗️Share
-        </button>-->
+                  <button title="Share File"
+                          *ngIf="file?.visibility?.toLowerCase() == 'private'"
+                          (click)="shareFileInitiate(file)">
+                    ↗️Share
+                  </button>
                   <button (click)="this.delete(file);"
                           *ngIf="
                             file?.sharedWith?.includes(user?.id!+'')
@@ -118,7 +123,7 @@
                                 *ngIf="viewMediaFile && openedFiles.includes(file.id)">
               </app-media-viewer>
             </div>
-          </div> 
+          </div>
         </ng-container>
       </div>
     </div>

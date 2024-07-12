@@ -11,6 +11,7 @@ import { Topic } from '../../services/datacontracts/topic';
 import { AppComponent } from '../app.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { StoryResponse } from '../../services/datacontracts/story-response';
+import { TopicsComponent } from '../topics/topics.component';
 
 @Component({
   selector: 'app-social',
@@ -53,6 +54,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
+  @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
   @Input() storyId: number | null = null;
   @Input() showTopicSelector: boolean = true;
@@ -172,8 +174,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
   }
 
-  async post() {
-
+  async post() { 
     const storyText = this.story.nativeElement.value!;
     if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
     const newStory: Story = {
@@ -200,6 +201,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     const res = await this.socialService.postStory(this.parentRef?.user! ?? this.parent?.user, newStory);
     if (res) {
       await this.getStories();
+    }
+    if (this.topicComponent) { 
+      this.topicComponent.removeAllTopics();
     }
   }
 

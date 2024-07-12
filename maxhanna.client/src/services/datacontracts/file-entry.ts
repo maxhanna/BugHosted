@@ -13,14 +13,14 @@ export class FileEntry {
   isFolder: boolean; 
   fileComments: Array<Comment>;
   date: Date;
-  fileData: FileData;
+  fileData?: FileData;
   fileSize: number;
   fileType: string;
   reactions?: Array<Reaction>;
-
+    
   constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string,
-      user: User, isFolder: boolean, comments: Array<Comment>, date: Date,
-      fileData: FileData, fileSize: number, fileType: string, reactions?: Array<Reaction>) {
+    user: User, isFolder: boolean, comments: Array<Comment>, date: Date,
+    fileSize: number, fileType: string, reactions?: Array<Reaction>, fileData?: FileData) {
     this.id = id;
     this.fileName = fileName;
     this.directory = directory;

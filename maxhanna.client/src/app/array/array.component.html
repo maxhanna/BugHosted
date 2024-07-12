@@ -1,0 +1,118 @@
+<div class=componentMain>
+  <div class="closeButton" (click)="remove_me('ArrayComponent');"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">The Array</div>
+  <p class="notification">You've entered the array, {{parentRef?.user?.username ?? 'Anonymous'}}.</p>
+
+  <div *ngIf="isInventoryOpen && inventory" class="inventoryDiv">
+    <p class="inventoryTitle">Inventory</p>
+
+    <div *ngIf="inventory" class="inventoryItemsDiv"> 
+      <div *ngFor="let item of inventory.items" class="inventoryItem"> 
+        <app-media-viewer [file]="item.file"
+                          [currentDirectory]="item?.file?.directory"
+                          [inputtedParentRef]="parentRef"
+                          [displayExtraInfo]="false"
+                          [showCommentSection]="false"
+                          [user]="parentRef?.user"
+                          [autoplay]="true"
+                          [displayExpander]="false">
+        </app-media-viewer>
+      </div>
+    </div>
+
+    <button (click)="closeInventory()">Close</button>
+  </div>
+  <div class="" *ngIf="!isInventoryOpen && !isDead">
+    <div class="radar">
+      <div *ngFor="let users of radar" class="radarCube">
+        <div *ngFor="let user of users" class="userTag">
+          <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [hideName]="true"></app-user-tag>
+        </div>
+      </div>
+    </div>
+    <div *ngIf="hero && !isDead && !isInventoryOpen" class="gameScreen">
+      <div class="heroStatsDiv">
+        <p>📍: {{hero.position}}</p>
+        <p>🦸: {{hero.level}}</p>
+        <p>🧠: {{hero.experience}}</p>
+        <p>🏅: {{hero.playersKilled}}</p>
+        <p>💀: {{hero.monstersKilled}}</p>
+        <p><button (click)="showInventory()">Inventory</button></p>
+      </div>
+      <div *ngIf="hero && randomLocationPicture && !isNexusPosition(hero.position!)" class="locationPicture">
+        <app-media-viewer [file]="randomLocationPicture"
+                          [currentDirectory]="randomLocationPicture?.directory"
+                          [inputtedParentRef]="parentRef"
+                          [displayExtraInfo]="false"
+                          [showCommentSection]="false"
+                          [user]="parentRef?.user"
+                          [autoplay]="true"
+                          [displayExpander]="false">
+        </app-media-viewer>
+      </div>
+      <div *ngIf="hero && randomNexusPicture && isNexusPosition(hero.position!)" class="locationPicture">
+        <app-media-viewer [file]="randomNexusPicture"
+                          [currentDirectory]="randomNexusPicture?.directory"
+                          [inputtedParentRef]="parentRef"
+                          [displayExtraInfo]="false"
+                          [showCommentSection]="false"
+                          [user]="parentRef?.user"
+                          [autoplay]="true"
+                          [displayExpander]="false">
+        </app-media-viewer>
+      </div>
+    </div>
+  </div>
+  <div *ngIf="isDead" class="deathMessageDiv">
+    <div class="deathMessage">You have died!</div>
+    <div>Killed by :</div>
+    <div><app-user-tag [user]="graveyardHero.killer" [inputtedParentRef]="parentRef"></app-user-tag></div>
+    <div class="actionButtons">
+      <button (click)="resurrect()">Resurrect</button>
+    </div>
+  </div>
+
+  <div class="actionButtons" *ngIf="canMove && !isInventoryOpen">
+    <button (click)="move('left')">Go Left</button>
+    <button (click)="move('')">Train</button>
+    <button (click)="move('right')">Go Right</button>
+  </div>
+
+  <div *ngIf="!isDead" class="arrayNexusNotificationDiv">
+    <div *ngIf="isNexusPosition(hero.position!)">
+      <p class="usernameProfileLink notification">You have found a nexus!</p>
+      <p class="usernameProfileLink">🕯️Rest easy, no one can find you here.🕯️</p>
+    </div>
+  </div>
+
+  <div *ngIf="hideRanks" (click)="hideRanks = !hideRanks" class="usernameProfileLink rankingDiv">Show Ranks</div>
+  <div *ngIf="!hideRanks" class="rankingDiv">
+    <span class="usernameProfileLink" (click)="hideRanks = !hideRanks">Ranks</span>
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th colspan="3">Stats</th>
+        </tr>
+      </thead>
+      <tbody *ngFor="let hero of allPlayerHeros">
+        <tr *ngIf="hero && hero.level">
+          <td>
+            <app-user-tag [user]="hero.user" [inputtedParentRef]="parentRef"></app-user-tag>
+          </td>
+          <td>
+            <span title="Hero Level">🦸</span>: {{hero.level}}
+          </td>
+          <td>
+            <span title="Players Killed">🏅</span>: {{hero.playersKilled}}
+          </td>
+          <td>
+            <span title="Monsters Killed">💀</span>:{{hero.monstersKilled}}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <button (click)="copyLink()" title="Share Link">Share 📋</button>
+</div>

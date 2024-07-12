@@ -13,6 +13,6 @@
     <span class="avatarBust noAvatar">👤</span>
   </div>
 </div>
-<div class="username cursorPointer usernameProfileLink" *ngIf="!displayEmptyAvatar">
+<div class="username cursorPointer usernameProfileLink" *ngIf="!displayEmptyAvatar && !hideName">
   <span class="usernameSpan" (click)="viewProfile(user)">{{user?.username}}</span>
 </div>
