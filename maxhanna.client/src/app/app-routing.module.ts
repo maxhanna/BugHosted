@@ -9,6 +9,7 @@ const routes: Routes = [
   { path: 'File/:fileId', component: AppComponent },
   { path: 'Wordler', component: AppComponent },
   { path: 'Array', component: AppComponent },
+  { path: 'Nexus', component: AppComponent },
 ];
 
 @NgModule({

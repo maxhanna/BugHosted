@@ -1,12 +1,9 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user';
 import { UserService } from '../../services/user.service';
-import { MiningService } from '../../services/mining.service';
-import { NicehashApiKeys } from '../../services/datacontracts/nicehash-api-keys';
 import { WeatherLocation } from '../../services/datacontracts/weather-location';
 import { WeatherService } from '../../services/weather.service';
-import { MenuItem } from '../../services/datacontracts/menu-item';
 import { FriendService } from '../../services/friend.service';
 import { FriendRequest } from '../../services/datacontracts/friendship-request';
 import { ContactService } from '../../services/contact.service';
@@ -16,6 +13,7 @@ import { SocialComponent } from '../social/social.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { Contact } from '../../services/datacontracts/contact';
+import { AppComponent } from '../app.component';
 
 
 @Component({
@@ -26,6 +24,10 @@ import { Contact } from '../../services/datacontracts/contact';
 export class UserComponent extends ChildComponent implements OnInit {
   @Input() user?: User | undefined;
   @Input() userId: string | null = null;
+  @Input() loginOnly?: boolean | undefined;
+  @Input() inputtedParentRef?: AppComponent | undefined; 
+  @Output() closeUserComponentEvent = new EventEmitter<void>();
+
 
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
@@ -58,9 +60,14 @@ export class UserComponent extends ChildComponent implements OnInit {
     private friendService: FriendService,
     private wordlerService: WordlerService,
     private todoService: TodoService,
-  ) { super(); }
+  ) {
+    super(); 
+ }
 
   async ngOnInit() {
+    if (this.inputtedParentRef) { 
+      this.parentRef = this.inputtedParentRef;
+    }
     this.startLoading();
     this.usersCount = await this.userService.getUserCount();
     try {
@@ -288,13 +295,17 @@ export class UserComponent extends ChildComponent implements OnInit {
 
   async getLoggedInUser() {
     if (this.parentRef!.getCookie("user")) {
-      this.parentRef!.user = JSON.parse(this.parentRef!.getCookie("user"));
+      this.parentRef!.user = JSON.parse(this.parentRef!.getCookie("user"));  
     }
   }
 
   async login() {
-    this.parentRef!.user = undefined;
-    this.parentRef!.deleteCookie("user");
+    if (this.parentRef?.user) { 
+      this.parentRef.user = undefined;
+    }
+    if (this.parentRef) { 
+      this.parentRef.deleteCookie("user");
+    }
     const tmpLoginUser = new User(undefined, this.loginUsername.nativeElement.value, this.loginPassword.nativeElement.value);
     try {
       const tmpUser = await this.userService.getUser(tmpLoginUser);
@@ -309,7 +320,9 @@ export class UserComponent extends ChildComponent implements OnInit {
           await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"], ip["city"]);
         }
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
-
+        if (this.loginOnly) { 
+          this.closeUserComponentEvent.emit();
+        }
       } else {
         this.notifications.push("Access denied");
       }

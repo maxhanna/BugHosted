@@ -41,6 +41,7 @@ import { UserTagComponent } from './user-tag/user-tag.component';
 import { LineGraphComponent } from './line-graph/line-graph.component';
 import { ReactionComponent } from './reaction/reaction.component';
 import { ArrayComponent } from './array/array.component';
+import { NexusComponent } from './nexus/nexus.component';
 
 @NgModule({
   declarations: [
@@ -76,7 +77,8 @@ import { ArrayComponent } from './array/array.component';
     EmulationComponent,
     UserTagComponent,
     ReactionComponent,
-    ArrayComponent
+    ArrayComponent,
+    NexusComponent
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

@@ -1,13 +1,13 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="parentRef?.user || user"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">{{user ? user.username + '\'s profile' : 'Login'}}</div>
+  <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="!loginOnly && (parentRef?.user || user)"></div>
+  <div class="refreshButton" (click)="ngOnInit();" *ngIf="!loginOnly"></div>
+  <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username + '\'s profile' : 'Login'}}</div>
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
-  <div class="avatar" *ngIf="!user?.displayPictureFile && user">
+  <div class="avatar" *ngIf="!loginOnly && !user?.displayPictureFile && user">
     <span class="avatarBug">🪲</span>
     <span class="avatarBust">👤</span>
   </div>
-  <div class="avatar" *ngIf="(user && this.parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
+  <div class="avatar" *ngIf="!loginOnly && (user && this.parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
     <app-media-viewer #displayPictureViewer
                       [displayExpander]="false"
                       [displayExtraInfo]="false"
@@ -17,17 +17,23 @@
                       [user]="user">
     </app-media-viewer>
   </div>
-
   <!--LOGIN AREA-->
   <div *ngIf="(user && parentRef && parentRef.user && user.id == parentRef.user.id) || !user && !parentRef?.user">
     <div>
-      <div *ngIf="!parentRef!.user">
-        <app-user-tag [displayEmptyAvatar]="true"></app-user-tag>
-        <div class="bugHostedLogo">BugHosted</div>
-        <div class="welcomeMessage">
-          <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
-          <p class="welcomeTitle">Total users: {{usersCount}}</p>
+      <div *ngIf="!parentRef?.user">
+        <div *ngIf="!loginOnly">
+          <app-user-tag [displayEmptyAvatar]="true"></app-user-tag>
+          <div class="bugHostedLogo">BugHosted</div>
+          <div class="welcomeMessage">
+            <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
+            <p class="welcomeTitle">Total users: {{usersCount}}</p>
+          </div>
         </div>
+
+        <div *ngIf="loginOnly" class="loginOnlyInstructionDiv">
+          Remember to log in to save your progress! <span class="loginOnlyCloseButton" (click)="closeUserComponentEvent.emit();">❌</span>
+        </div>
+
         <div>
           <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
           <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" />
@@ -37,7 +43,7 @@
           <input type="submit" value="Create User" (click)="createUser()" />
         </div>
       </div>
-      <div *ngIf="parentRef!.user!" style="width:100%;text-align:center">
+      <div *ngIf="parentRef?.user" style="width:100%;text-align:center">
         <button (click)="logout()">Logout</button>
         <button (click)="parentRef?.createComponent('UpdateUserSettings')" title="Update Settings">🔧</button>
       </div>

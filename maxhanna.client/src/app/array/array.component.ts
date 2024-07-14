@@ -22,8 +22,10 @@ export class ArrayComponent extends ChildComponent implements OnInit {
   radar: User[][] = [[], [], [], [], [], [], [], [], []];
   backgroundPictureDirectory: DirectoryResults | undefined;
   nexusPictureDirectory: DirectoryResults | undefined;
+  inventoryPictureDirectory: DirectoryResults | undefined;
   randomLocationPicture: FileEntry | undefined;
   randomNexusPicture: FileEntry | undefined;
+  randomInventoryPicture: FileEntry | undefined;
   lastNexusPoint: bigint = 0n;
   itemsFound: bigint = 0n;
 
@@ -31,6 +33,7 @@ export class ArrayComponent extends ChildComponent implements OnInit {
   isDead = false;
   isInventoryOpen = false;
   canMove = true;
+  isUserComponentClosed = this.parentRef?.user ? true : false;
 
   clicksTillLadderRefresh = 0;
 
@@ -40,18 +43,22 @@ export class ArrayComponent extends ChildComponent implements OnInit {
 
   async ngOnInit() {
     if (this.parentRef && this.parentRef.user) {
-      const heroRes = await this.arrayService.getHero(this.parentRef.user);
-      if (heroRes) {
-        this.hero = heroRes;
-        this.itemsFound = this.hero.itemsFound!;
-      }
+      this.isUserComponentClosed = true;
     }
+    await this.refreshHeroData();
+  }
 
+  private async refreshHeroData() { 
+    const heroRes = await this.arrayService.getHero(this.parentRef?.user);
+    if (heroRes) {
+      this.hero = heroRes;
+      this.itemsFound = this.hero.itemsFound!;
+    }
     await this.GetGraveyardHero();
 
     this.radar = [[], [], [], [],
-    [this.parentRef?.user ?? new User(0, "Anonymous")]
-      , [], [], [], []];
+    [this.parentRef?.user ?? new User(0, "Anonymous")],
+    [], [], [], []];
 
     await this.refreshHeroLadder();
     this.refreshRadar();
@@ -70,6 +77,20 @@ export class ArrayComponent extends ChildComponent implements OnInit {
       this.nexusPictureDirectory = nexusDirectoryRes;
       this.loadRandomNexusBackground();
     }
+
+    const inventoryDirectoryRes = await this.fileService.getDirectory("Array/Inventory", "all", "all", this.parentRef?.user, undefined, 1000, undefined, undefined, ["webp"]);
+    if (inventoryDirectoryRes) {
+      this.inventoryPictureDirectory = inventoryDirectoryRes;
+      this.loadRandomInventoryBackground();
+    }
+
+
+
+    //const bossDirectoryRes = await this.fileService.getDirectory("Array/Characters/Villains", "all", "all", this.parentRef?.user, undefined, 1000, undefined, undefined, ["webp"]);
+    //if (bossDirectoryRes) {
+    //  this.bossPictureDirectory = bossDirectoryRes;
+    //  this.loadRandomInventoryBackground();
+    //}
   }
 
   private async GetGraveyardHero() {
@@ -85,14 +106,14 @@ export class ArrayComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async move(direction: string) { 
+  async move(direction: string) {
     const heroRes = await this.arrayService.move(direction, this.parentRef?.user);
     if (heroRes) {
       await this.updateHero(heroRes);
-    } 
+    }
     await this.refreshHeroLadder();
     this.refreshRadar();
-    if (direction && direction != '' && this.isNexusPosition(this.hero?.position ?? 0n) && this.lastNexusPoint != this.hero.position) { 
+    if (direction && direction != '' && this.isNexusPosition(this.hero?.position ?? 0n) && this.lastNexusPoint != this.hero.position) {
       this.loadRandomBackground();
       this.loadRandomNexusBackground();
       this.lastNexusPoint = this.hero.position!;
@@ -116,16 +137,17 @@ export class ArrayComponent extends ChildComponent implements OnInit {
       const myHeroRes = await this.arrayService.getHero(this.parentRef?.user);
       if (myHeroRes) {
         this.hero = myHeroRes;
-        if (this.hero.level) {
-          return alert(`You have killed ${heroRes.user?.username}`);
-        } else {
+        if (!this.hero.monstersKilled) {
           this.isDead = true;
           await this.GetGraveyardHero();
           return alert(`You have been slain by ${heroRes.user?.username}`);
-        } 
+        } else {
+          return alert(`You have killed ${heroRes.user?.username}`);
+        }
+
       }
     }
-    this.hero = heroRes; 
+    this.hero = heroRes;
     if (this.itemsFound != this.hero.itemsFound) {
       alert("You have found an item!");
       this.itemsFound = this.hero.itemsFound!;
@@ -209,7 +231,7 @@ export class ArrayComponent extends ChildComponent implements OnInit {
           }
         });
       }
-    } 
+    }
   }
 
   async loadRandomBackground() {
@@ -233,11 +255,22 @@ export class ArrayComponent extends ChildComponent implements OnInit {
     }
   }
 
+
+  async loadRandomInventoryBackground() {
+    if (this.inventoryPictureDirectory?.data && this.inventoryPictureDirectory.data.length > 0) {
+      const randomIndex = Math.floor(Math.random() * this.inventoryPictureDirectory.data.length);
+      this.randomInventoryPicture = undefined;
+      setTimeout(() => { this.randomInventoryPicture = this.inventoryPictureDirectory!.data![randomIndex]; }, 1);
+    } else {
+      console.log("No data or empty picture directory.");
+    }
+  }
+
   async showInventory() {
     this.isInventoryOpen = true;
     const res = await this.arrayService.getInventory(this.parentRef?.user);
     if (res) {
-      console.log("got inventory"); 
+      console.log("got inventory");
       this.inventory = res as ArrayCharacterInventory;
       console.log(this.inventory);
     }
@@ -256,5 +289,12 @@ export class ArrayComponent extends ChildComponent implements OnInit {
   copyLink() {
     const link = `https://bughosted.com/Array`;
     navigator.clipboard.writeText(link);
-  } 
+  }
+
+  async closeUserComponent() {
+    console.log("close User component");
+    await this.refreshHeroData();
+    this.isUserComponentClosed = true;
+    console.log("refreshed hero data");
+  }
 }

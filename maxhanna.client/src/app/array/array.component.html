@@ -4,32 +4,36 @@
   <div class="componentTitle">The Array</div>
   <p class="notification">You've entered the array, {{parentRef?.user?.username ?? 'Anonymous'}}.</p>
 
-  <div *ngIf="isInventoryOpen && inventory" class="inventoryDiv">
-    <p class="inventoryTitle">Inventory</p>
-
-    <div *ngIf="inventory" class="inventoryItemsDiv"> 
-      <div *ngFor="let item of inventory.items" class="inventoryItem"> 
-        <app-media-viewer [file]="item.file"
-                          [currentDirectory]="item?.file?.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
-      </div>
-    </div>
-
-    <button (click)="closeInventory()">Close</button>
+  <div *ngIf="!isUserComponentClosed"> 
+    <app-user [loginOnly]="true"  [inputtedParentRef]="parentRef" (closeUserComponentEvent)="closeUserComponent()"></app-user>
   </div>
-  <div class="" *ngIf="!isInventoryOpen && !isDead">
+  
+  <div class="" *ngIf="!isDead">
     <div class="radar">
       <div *ngFor="let users of radar" class="radarCube">
         <div *ngFor="let user of users" class="userTag">
           <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [hideName]="true"></app-user-tag>
         </div>
       </div>
+    </div>
+    <div *ngIf="isInventoryOpen && inventory" class="inventoryDiv">
+      <p class="inventoryTitle">Inventory</p>
+
+      <div *ngIf="inventory" class="inventoryItemsDiv">
+        <div *ngFor="let item of inventory.items" class="inventoryItem">
+          <app-media-viewer [file]="item.file"
+                            [currentDirectory]="item?.file?.directory"
+                            [inputtedParentRef]="parentRef"
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="parentRef?.user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+      </div>
+
+      <button (click)="closeInventory()">Close</button>
     </div>
     <div *ngIf="hero && !isDead && !isInventoryOpen" class="gameScreen">
       <div class="heroStatsDiv">
@@ -54,6 +58,17 @@
       <div *ngIf="hero && randomNexusPicture && isNexusPosition(hero.position!)" class="locationPicture">
         <app-media-viewer [file]="randomNexusPicture"
                           [currentDirectory]="randomNexusPicture?.directory"
+                          [inputtedParentRef]="parentRef"
+                          [displayExtraInfo]="false"
+                          [showCommentSection]="false"
+                          [user]="parentRef?.user"
+                          [autoplay]="true"
+                          [displayExpander]="false">
+        </app-media-viewer>
+      </div>
+      <div *ngIf="hero && randomInventoryPicture && isInventoryOpen" class="locationPicture">
+        <app-media-viewer [file]="randomInventoryPicture"
+                          [currentDirectory]="randomInventoryPicture?.directory"
                           [inputtedParentRef]="parentRef"
                           [displayExtraInfo]="false"
                           [showCommentSection]="false"

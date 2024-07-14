@@ -1,0 +1,53 @@
+<div class=componentMain>
+  <div class="closeButton" (click)="remove_me('NexusComponent');"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">Nexus</div>
+  <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
+
+  <div *ngIf="!isUserComponentClosed">
+    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (closeUserComponentEvent)="closeUserComponent()"></app-user>
+  </div>
+   
+  <div class="gamescreen">
+    <div>🪙: {{goldAmount}}</div>
+    <div class="nexus" *ngIf="nexusPicture && !isNexusOpen" (click)="openNexus()">
+      <app-media-viewer [file]="nexusPicture"
+                        [currentDirectory]="nexusPicture.directory"
+                        [inputtedParentRef]="parentRef"
+                        [displayExtraInfo]="false"
+                        [showCommentSection]="false"
+                        [user]="parentRef?.user"
+                        [autoplay]="true"
+                        [displayExpander]="false">
+      </app-media-viewer>
+    </div>
+    <div *ngIf="isNexusOpen">
+      To upgrade the Nexus:
+      <p class="notification">Build a Mine</p>
+      <p class="notification">Build a Factory</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th colspan="3">Upgrades Available:</th>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Mine</td>
+            <td>{{mineLevel == 0 ? mineLevel1Cost : mineLevel == 1 ? mineLevel2Cost : mineLevel3Cost}} Gold</td>
+            <td><button (click)="upgradeMine()" #upgradeMineButton>{{upgradeMineTimer ? upgradeMineTimer : '🔧'}}</button></td>
+          </tr>
+          <tr>
+            <td>Factory</td>
+            <td>{{factoryLevel == 0 ? factoryLevel1Cost : factoryLevel == 1 ? factoryLevel2Cost : factoryLevel3Cost}} Gold</td>
+            <td><button (click)="upgradeFactory()" #upgradeFactoryButton>{{upgradeFactoryTimer ? upgradeFactoryTimer : '🔧'}}</button></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <button (click)="closeNexus()">Back</button>
+    </div>
+  </div>
+
+  <button (click)="copyLink()" title="Share Link">Share 📋</button>
+</div>

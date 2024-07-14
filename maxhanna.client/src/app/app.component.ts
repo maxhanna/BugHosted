@@ -25,6 +25,7 @@ import { WordlerComponent } from './wordler/wordler.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
 import { EmulationComponent } from './emulation/emulation.component';
 import { ArrayComponent } from './array/array.component';
+import { NexusComponent } from './nexus/nexus.component';
 
 
 
@@ -58,6 +59,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     /*{ ownership: 0, icon: "🎮", title: "Gameboy Color", content: undefined },*/
     { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
+    { ownership: 0, icon: "🏰", title: "Nexus", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "💵", title: "Coin-Wallet", content: undefined },
     { ownership: 0, icon: "₿", title: "Coin-Watch", content: undefined },
@@ -84,6 +86,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Gameboy Color": GbcComponent,
     "Emulation": EmulationComponent,
     "Array": ArrayComponent,
+    "Nexus": NexusComponent,
     "Wordler": WordlerComponent,
     "News": NewsComponent,
     "Coin-Wallet": CoinWalletComponent,
@@ -130,6 +133,11 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Array');
+        }
+
+        if (this.router.url.includes('Nexus')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Nexus');
         }
 
         if (this.router.url.includes('File/')) {

@@ -405,8 +405,7 @@ namespace maxhanna.Server.Controllers
                 {
                     if (hero.Level < opponent.Level)
                     {
-                        _logger.LogInformation($"{hero.User.Id}'s hero has died to player {opponent.User.Id}");
-                        hero.Level = 0;
+                        _logger.LogInformation($"{hero.User.Id}'s hero has died to player {opponent.User.Id}"); 
                         hero.Experience = 0;
                         hero.Position = 0;
                         hero.MonstersKilled = 0;
@@ -428,8 +427,7 @@ namespace maxhanna.Server.Controllers
                             hero.Experience = hero.Experience - hero.Level; 
                             hero.Level++;
                         }
-                        hero.PlayersKilled++;
-                        opponent.Level = 0;
+                        hero.PlayersKilled++; 
                         opponent.Position = 0;
                         opponent.Experience = 0;
                         opponent.MonstersKilled = 0;
@@ -460,7 +458,7 @@ namespace maxhanna.Server.Controllers
 
         private async Task CheckIfItemFound(ArrayCharacter hero)
         {
-            int regularDropRate = 175;
+            int regularDropRate = 300;
             int randomNumber = new Random().Next(1, regularDropRate);
             if (randomNumber == (int)(regularDropRate / 2))
             {
@@ -468,7 +466,7 @@ namespace maxhanna.Server.Controllers
                 await RollItem(hero, "Regular");
             }
 
-            int magicDropRate = 550;
+            int magicDropRate = 2050;
             randomNumber = new Random().Next(1, magicDropRate);
             if (randomNumber == (int)(magicDropRate / 2))
             {
@@ -476,7 +474,7 @@ namespace maxhanna.Server.Controllers
                 await RollItem(hero, "Magic");
             }
 
-            int rareDropRate = 1750;
+            int rareDropRate = 10750;
             randomNumber = new Random().Next(1, rareDropRate);
             if (randomNumber == (int)(rareDropRate / 2))
             {

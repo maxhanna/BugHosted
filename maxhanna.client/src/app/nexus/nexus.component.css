@@ -1,0 +1,14 @@
+.gamescreen
+ {
+    width:350px;
+    height:275px;
+    border: var(--main-border);
+}
+.nexus {
+    position:relative;
+    top: 110px;
+    left:150px;
+    height:60px;
+    width:60px; 
+    border-radius: 50%;
+}

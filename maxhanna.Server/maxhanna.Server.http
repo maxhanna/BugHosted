@@ -123,3 +123,9 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Array/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/Nexus/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Nexus/
+Accept: application/json
+###

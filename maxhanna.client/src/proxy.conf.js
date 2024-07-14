@@ -25,6 +25,7 @@ const PROXY_CONFIG = [
       "/coinvalue",
       "/reaction",
       "/array",
+      "/nexus",
     ],
     target,
     secure: false

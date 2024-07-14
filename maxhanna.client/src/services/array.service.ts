@@ -1,8 +1,6 @@
 // user.service.ts
 import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user'; 
-import { WordlerScore } from './datacontracts/wordler-score';
-import { WordlerGuess } from './datacontracts/wordler-guess';
 import { ArrayCharacter } from './datacontracts/array-character';
 import { GraveyardHero } from './datacontracts/graveyard-hero';
 import { ArrayCharacterInventory } from './datacontracts/array-character-inventory';
