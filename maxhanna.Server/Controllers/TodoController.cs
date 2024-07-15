@@ -77,16 +77,21 @@ namespace maxhanna.Server.Controllers
             try
             {
                 conn.Open();
-                string sql = "INSERT INTO maxhanna.todo (todo, type, url, ownership) VALUES (@Todo, @Type, @Url, @Owner)";
+                string sql = @"
+                    INSERT INTO 
+                        maxhanna.todo (todo, type, url, ownership) 
+                    VALUES 
+                        (@Todo, @Type, @Url, @Owner);
+                    SELECT LAST_INSERT_ID();";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Todo", model.todo.todo);
                 cmd.Parameters.AddWithValue("@Type", model.todo.type);
                 cmd.Parameters.AddWithValue("@Url", model.todo.url);
                 cmd.Parameters.AddWithValue("@Owner", model.user.Id);
-                if (await cmd.ExecuteNonQueryAsync() > 0)
-                {
-                    _logger.LogInformation("Returned OK");
-                    return Ok();
+                var result = await cmd.ExecuteScalarAsync();
+                if (result != null)
+                { 
+                    return Ok(result);
                 }
                 else
                 {

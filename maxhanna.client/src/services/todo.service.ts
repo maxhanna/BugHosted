@@ -38,7 +38,7 @@ export class TodoService {
         body: JSON.stringify({ user: user, todo: todo }),
       });
 
-      return await response.json();
+      return await response.text();
     } catch (error) {
       return null;
     } 

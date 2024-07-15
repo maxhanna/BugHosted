@@ -5,8 +5,8 @@
 
   <fieldset *ngIf="!user">
     <legend title="Add to the music list">Add to the music list</legend>
-    <input type="text" #titleInput placeholder="Artist - Song Title" />
-    <input type="text" #urlInput placeholder="URL" />
+    <input type="text" #titleInput placeholder="Artist - Song Title" (keyup.enter)="addSong()" />
+    <input type="text" #urlInput placeholder="URL" (keyup.enter)="addSong()" />
     <input type="submit" value="💾" (click)="addSong()" />
   </fieldset>
   <div id="musicPlayerDiv">

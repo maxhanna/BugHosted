@@ -28,6 +28,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> GetBaseData([FromBody] User? user)
         { 
             _logger.LogInformation($"POST /Nexus ({user?.Id ?? 0})"); 
+
             return Ok(); 
         } 
     }

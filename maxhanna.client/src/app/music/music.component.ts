@@ -55,15 +55,20 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     const url = this.extractYouTubeVideoId(this.urlInput.nativeElement.value);
     const title = this.titleInput.nativeElement.value;
     if (!url || !title || url.trim() == "" || title.trim() == "") {
-      return alert("Title or URL cannot be empty!");
+      return alert("Title & URL cannot be empty!");
     }
     let tmpTodo = new Todo();
     tmpTodo.type = "music";
     tmpTodo.url = url.trim();
     tmpTodo.todo = title.trim(); 
 
-    await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
-    this.songs.unshift(tmpTodo);
+    const resTodo = await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
+    if (resTodo) {
+      tmpTodo.id = parseInt(resTodo); 
+      this.songs.unshift(tmpTodo);
+      this.titleInput.nativeElement.value = '';
+      this.urlInput.nativeElement.value = '';
+    }
   }
   async getSongList() {
     if (this.songPlaylist && this.songPlaylist.length > 0) {
