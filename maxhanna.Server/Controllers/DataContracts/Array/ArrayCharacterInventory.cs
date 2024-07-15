@@ -1,13 +1,13 @@
-namespace maxhanna.Server.Controllers.DataContracts
+namespace maxhanna.Server.Controllers.DataContracts.Array
 {
     public class ArrayCharacterInventory
     {
         public ArrayCharacterInventory(User? user, List<ArrayCharacterItem> items)
         {
-            this.User = user;
-            this.Items = items;
+            User = user;
+            Items = items;
         }
         public User? User { get; set; }
-        public List<ArrayCharacterItem> Items { get; set; } 
+        public List<ArrayCharacterItem> Items { get; set; }
     }
 }

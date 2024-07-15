@@ -1,5 +1,5 @@
 // user.service.ts
-import { Injectable } from '@angular/core'; 
+import { Injectable } from '@angular/core';
 import { FileEntry } from './datacontracts/file/file-entry';
 import { User } from './datacontracts/user/user';
 
@@ -7,10 +7,9 @@ import { User } from './datacontracts/user/user';
   providedIn: 'root'
 })
 export class CommentService {
- 
+
 
   async addComment(comment: string, user?: User, fileId?: number, storyId?: number, selectedFiles?: FileEntry[]) {
-    console.log("in add comment" + fileId + " " + storyId);
     if ((fileId && storyId) || (!fileId && !storyId)) {
       return;
     }
@@ -28,9 +27,9 @@ export class CommentService {
       return null;
     }
   }
-   
 
-  async deleteComment(user: User, commentId: number)  {
+
+  async deleteComment(user: User, commentId: number) {
     try {
       const response = await fetch(`/comment/deletecomment`, {
         method: 'POST',
@@ -61,7 +60,7 @@ export class CommentService {
       throw error;
     }
   }
-   
+
   async downvoteComment(user: User, commentId: number) {
     try {
       const response = await fetch(`/comment/downvotecomment`, {

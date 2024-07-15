@@ -1,4 +1,5 @@
 using maxhanna.Server.Controllers.DataContracts;
+using maxhanna.Server.Controllers.DataContracts.Array;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System;

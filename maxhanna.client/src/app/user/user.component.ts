@@ -78,7 +78,6 @@ export class UserComponent extends ChildComponent implements OnInit {
           if (this.socialComponent) {
             this.socialComponent.user = this.user;
           }
-          console.log("got this res: " + res.id + " " + res.username);
         }
       } else {
         this.user = this.parentRef?.user;
@@ -347,7 +346,6 @@ export class UserComponent extends ChildComponent implements OnInit {
     });
   }
   getFilteredFriendRequests() {
-    this.friendRequests.forEach(x => console.log("ststus" + x.status));
     return this.friendRequests.filter(x => parseInt(x.status) == 0);
   }
 

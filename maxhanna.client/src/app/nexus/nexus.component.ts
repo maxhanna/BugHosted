@@ -44,7 +44,6 @@ export class NexusComponent extends ChildComponent implements OnInit {
     if (buildingDirectoryRes) {
       this.buildingPictureDirectory = buildingDirectoryRes;
       this.nexusPicture = this.buildingPictureDirectory?.data?.filter(x => x.id == 5920)[0];
-      console.log(this.nexusPicture);
     } 
   }
 

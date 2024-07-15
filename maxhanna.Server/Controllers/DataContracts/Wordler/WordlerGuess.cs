@@ -1,4 +1,4 @@
-namespace maxhanna.Server.Controllers.DataContracts
+namespace maxhanna.Server.Controllers.DataContracts.Wordler
 {
     public class WordlerGuess
     {

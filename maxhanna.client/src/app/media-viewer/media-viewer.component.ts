@@ -93,7 +93,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.abortFileRequestController.abort();
     } 
     this.abortFileRequestController = new AbortController();
-    console.log("getting file by id : " + fileId);
     try {
       const response = await this.fileService.getFileById(fileId, {
         signal: this.abortFileRequestController.signal

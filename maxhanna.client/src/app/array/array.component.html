@@ -35,7 +35,7 @@
 
       <button (click)="closeInventory()">Close</button>
     </div>
-    <div *ngIf="hero && !isDead && !isInventoryOpen" class="gameScreen">
+    <div *ngIf="hero && !isDead && !isInventoryOpen && !isRanksExpanded" class="gameScreen">
       <div class="heroStatsDiv">
         <p>📍: {{hero.position}}</p>
         <p>🦸: {{hero.level}}</p>
@@ -88,13 +88,13 @@
     </div>
   </div>
 
-  <div class="actionButtons" *ngIf="canMove && !isInventoryOpen">
+  <div class="actionButtons" *ngIf="canMove && !isInventoryOpen && !isRanksExpanded">
     <button (click)="move('left')">Go Left</button>
     <button (click)="move('')">Train</button>
     <button (click)="move('right')">Go Right</button>
   </div>
 
-  <div *ngIf="!isDead" class="arrayNexusNotificationDiv">
+  <div *ngIf="!isDead && !isRanksExpanded" class="arrayNexusNotificationDiv">
     <div *ngIf="isNexusPosition(hero.position!)">
       <p class="usernameProfileLink notification">You have found a nexus!</p>
       <p class="usernameProfileLink">🕯️Rest easy, no one can find you here.🕯️</p>
@@ -102,8 +102,8 @@
   </div>
 
   <div *ngIf="hideRanks" (click)="hideRanks = !hideRanks" class="usernameProfileLink rankingDiv">Show Ranks</div>
-  <div *ngIf="!hideRanks" class="rankingDiv">
-    <span class="usernameProfileLink" (click)="hideRanks = !hideRanks">Ranks</span>
+  <div *ngIf="!hideRanks" class="rankingDiv" #rankingDiv>
+    <span class="usernameProfileLink" (click)="hideRanks = !hideRanks">Ranks</span> <span (click)="expandRanks()" class="ranksExpander">[{{isRanksExpanded ? 'shrink' : 'expand'}}]</span>
     <table>
       <thead>
         <tr>

@@ -291,7 +291,6 @@ export class FileService {
   }
   async moveFile(user: User, fileFrom: string, fileTo: string) {
     try {
-      console.log("from:" + fileFrom + "; to:" + fileTo);
       const response = await fetch(`/file/move?inputFile=${encodeURIComponent(fileFrom)}&destinationFolder=${encodeURIComponent(fileTo)}`, {
         method: 'POST',
         headers: {

@@ -1,12 +1,12 @@
 // user.service.ts
-import { Injectable } from '@angular/core'; 
+import { Injectable } from '@angular/core';
 import { Todo } from './datacontracts/todo';
 import { User } from './datacontracts/user/user';
 
 @Injectable({
   providedIn: 'root'
 })
-export class TodoService { 
+export class TodoService {
   async getTodo(user: User, type: string, search?: string) {
     if (!user || user.id == 0) return;
     try {
@@ -25,8 +25,8 @@ export class TodoService {
 
       return await response.json();
     } catch (error) {
-      return null; 
-    } 
+      return null;
+    }
   }
   async createTodo(user: User, todo: Todo) {
     try {
@@ -41,11 +41,10 @@ export class TodoService {
       return await response.text();
     } catch (error) {
       return null;
-    } 
+    }
   }
   async deleteTodo(user: User, id: number) {
     try {
-      console.log("in delete todo , user : " + user.username);
       const response = await fetch(`/todo/${id}`, {
         method: 'DELETE',
         headers: {

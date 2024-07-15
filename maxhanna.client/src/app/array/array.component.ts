@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { ArrayService } from '../../services/array.service'; 
 import { GraveyardHero } from '../../services/datacontracts/array/graveyard-hero';
@@ -29,13 +29,14 @@ export class ArrayComponent extends ChildComponent implements OnInit {
   lastNexusPoint: bigint = 0n;
   itemsFound: bigint = 0n;
 
+  isRanksExpanded = false;
   hideRanks = false;
   isDead = false;
   isInventoryOpen = false;
   canMove = true;
   isUserComponentClosed = this.parentRef?.user ? true : false;
 
-  clicksTillLadderRefresh = 0;
+  @ViewChild('rankingDiv') rankingDiv!: ElementRef<HTMLInputElement>; 
 
   constructor(private arrayService: ArrayService, private fileService: FileService) {
     super();
@@ -292,9 +293,16 @@ export class ArrayComponent extends ChildComponent implements OnInit {
   }
 
   async closeUserComponent() {
-    console.log("close User component");
     await this.refreshHeroData();
-    this.isUserComponentClosed = true;
-    console.log("refreshed hero data");
+    this.isUserComponentClosed = true; 
+  }
+
+  expandRanks() {
+    this.isRanksExpanded = !this.isRanksExpanded;
+    if (!this.isRanksExpanded) {
+      this.rankingDiv.nativeElement.classList.remove("expanded");
+    } else {
+      this.rankingDiv.nativeElement.classList.add("expanded");
+    }
   }
 }

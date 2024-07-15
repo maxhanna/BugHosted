@@ -5,6 +5,9 @@
   width: 100%;
   text-align: left;
 }
+.rankingDiv.expanded {
+  max-height: 600px; 
+}
 
 .radar {
   z-index: 3;
@@ -108,4 +111,8 @@
   justify-content: space-evenly;
   justify-items: center;
   flex-flow: column wrap;
+}
+.ranksExpander {
+    font-size: xx-small;
+    color: var(--secondary-font-color);
 }

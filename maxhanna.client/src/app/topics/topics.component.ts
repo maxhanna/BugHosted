@@ -86,7 +86,6 @@ export class TopicsComponent {
   selectTopic(topic: Topic) {
     if (this.topics.filter(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase()).length > 0) return; //if the topics selected already contain the topic selected, skip.
     this.topics.push(topic);
-    console.log(this.topics);
     this.topicAdded.emit(this.topics);
     this.newTopic.nativeElement.value = '';
     this.matchingTopics = [];

@@ -49,14 +49,11 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     this.chatNotifications = await this.chatService.getChatNotificationsByUser(this.user!);
   }
   private async sortUsersByNotifications() {
-    if (this.chatNotifications && this.chatNotifications.length > 0) {
-      console.log("notifications more then 1");
+    if (this.chatNotifications && this.chatNotifications.length > 0) { 
       const userNotificationCount = this.chatNotifications!.reduce((acc: { [key: number]: number }, notification) => {
         acc[notification.senderId] = (acc[notification.senderId] || 0) + 1;
         return acc;
-      }, {});
-      console.log("userNotificationCount");
-      console.log(userNotificationCount);
+      }, {});  
       this.users.sort((a, b) => {
         const countA = userNotificationCount[a.id!] || 0;
         const countB = userNotificationCount[b.id!] || 0;

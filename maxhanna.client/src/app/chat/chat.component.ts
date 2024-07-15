@@ -89,8 +89,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         setTimeout(() => {
           if (!this.hasManuallyScrolled) { 
             chatWindow.scrollTop = chatWindow.scrollHeight;
-          }
-          console.log("Scrolled to bottom");
+          } 
         }, 0);
       });
     }
