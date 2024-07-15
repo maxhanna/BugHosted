@@ -1,4 +1,6 @@
-using maxhanna.Server.Controllers.DataContracts;
+using maxhanna.Server.Controllers.DataContracts.Contacts;
+using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
@@ -76,7 +78,7 @@ namespace maxhanna.Server.Controllers
                                     Phone = rdr.IsDBNull("phone") ? "" : rdr.GetString("phone"),
                                     Birthday = rdr.IsDBNull("birthday") ? null : rdr.GetDateTime("birthday"),
                                     Notes = rdr.IsDBNull("notes") ? "" : rdr.GetString("notes"),
-                                    Email = rdr.IsDBNull("email") ? "" : rdr.GetString("email"), 
+                                    Email = rdr.IsDBNull("email") ? "" : rdr.GetString("email"),
                                     User = new User(
                                         rdr.IsDBNull("contact_user_id") ? 0 : rdr.GetInt32("contact_user_id"),
                                         rdr.IsDBNull("contact_user_name") ? "Anonymous" : rdr.GetString("contact_user_name"),
@@ -86,14 +88,15 @@ namespace maxhanna.Server.Controllers
                                             Id = rdr.IsDBNull("profile_file_id") ? 0 : rdr.GetInt32("profile_file_id"),
                                             Directory = rdr.IsDBNull("profile_file_directory") ? "" : rdr.GetString("profile_file_directory")
                                         },
-                                        new UserAbout() {
+                                        new UserAbout()
+                                        {
                                             Description = rdr.IsDBNull("about_description") ? "" : rdr.GetString("about_description"),
                                             Email = rdr.IsDBNull("about_email") ? "" : rdr.GetString("about_email"),
                                             Phone = rdr.IsDBNull("about_phone") ? "" : rdr.GetString("about_phone"),
                                             Birthday = rdr.IsDBNull("about_birthday") ? null : rdr.GetDateTime("about_birthday")
-                                       }
+                                        }
                                     )
-                                }; 
+                                };
 
                                 contacts.Add(contact);
                             }

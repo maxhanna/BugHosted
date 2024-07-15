@@ -5,8 +5,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using maxhanna.Server.Controllers.DataContracts;
 using static maxhanna.Server.Controllers.ChatController;
+using maxhanna.Server.Controllers.DataContracts.Topics;
 
 namespace maxhanna.Server.Controllers
 {

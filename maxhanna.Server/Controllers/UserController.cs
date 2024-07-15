@@ -1,10 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using System;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using maxhanna.Server.Controllers.DataContracts;
+using MySqlConnector; 
+using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Files;
 
 namespace maxhanna.Server.Controllers
 {

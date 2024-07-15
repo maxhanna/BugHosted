@@ -1,8 +1,8 @@
-using maxhanna.Server.Controllers.DataContracts;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using System.Net;
 using MySqlConnector;
+using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers
 {

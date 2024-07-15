@@ -4,7 +4,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using maxhanna.Server.Controllers.DataContracts;
+using maxhanna.Server.Controllers.DataContracts.Comments;
 
 namespace maxhanna.Server.Controllers
 {

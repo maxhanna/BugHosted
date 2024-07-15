@@ -11,6 +11,8 @@ using System.Data;
 using System.Xml.Linq;
 using System.ComponentModel.Design;
 using Microsoft.Extensions.Configuration;
+using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Users; 
 
 namespace maxhanna.Server.Controllers
 {

@@ -5,8 +5,9 @@ using Newtonsoft.Json;
 using System.Net;
 using maxhanna.Server.Controllers.Helpers;
 using System.Text.Json;
-using maxhanna.Server.Controllers.DataContracts;
 using MySqlConnector;
+using maxhanna.Server.Controllers.DataContracts.Crypto;
+using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers
 {

@@ -1,5 +1,6 @@
-using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Array;
+using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System;

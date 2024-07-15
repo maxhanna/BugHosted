@@ -1,4 +1,3 @@
-using maxhanna.Server.Controllers.DataContracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
@@ -7,6 +6,7 @@ using NewsAPI;
 using Newtonsoft.Json;
 using RestSharp;
 using NewsAPI.Constants;
+using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers
 {
