@@ -23,7 +23,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost(Name = "GetContacts")]
         public async Task<IActionResult> GetContacts([FromBody] User user)
         {
-            _logger.LogInformation($"POST /Contact (User : {user.Id}) ");
+            _logger.LogInformation($"POST /Contact (User: {user.Id}) ");
 
             string sql = @"
                 SELECT 
