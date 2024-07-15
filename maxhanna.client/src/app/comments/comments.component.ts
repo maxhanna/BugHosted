@@ -1,8 +1,7 @@
 import { Component, ElementRef, EventEmitter, Input, Output, SecurityContext, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
-import { Comment } from '../../services/datacontracts/comment'; 
-import { ChildComponent } from '../child.component';
+ import { ChildComponent } from '../child.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser'; 
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
@@ -26,7 +25,7 @@ export class CommentsComponent extends ChildComponent {
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
 
   @Input() inputtedParentRef?: AppComponent;
-  @Input() commentList: Comment[] = [];
+  @Input() commentList: FileComment[] = [];
   @Input() type: string = '' || "Social" || "File";
   @Input() component_id: number = 0;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
@@ -53,12 +52,10 @@ export class CommentsComponent extends ChildComponent {
       const res = await this.commentService.addComment(commentsWithEmoji, this.inputtedParentRef?.user, fileId, storyId, filesToSend);
 
       if (res && res.toLowerCase().includes("success")) {
-        const tmpComment = new Comment();
-        tmpComment.id = parseInt(res.split(" ")[0]);
+        const tmpComment = new FileComment(); 
+        tmpComment.id = parseInt(res.split(" ")[0]);  
         tmpComment.user = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
-        tmpComment.commentText = commentsWithEmoji;
-        tmpComment.upvotes = 0;
-        tmpComment.downvotes = 0;
+        tmpComment.commentText = commentsWithEmoji; 
         tmpComment.date = new Date();
         tmpComment.fileId = fileId;
         tmpComment.storyId = storyId;
@@ -72,7 +69,7 @@ export class CommentsComponent extends ChildComponent {
     }, 2000);
   }
 
-  async deleteComment(comment: Comment) {
+  async deleteComment(comment: FileComment) {
     if (!this.inputtedParentRef?.user) { return alert("You must be logged in to delete a comment!"); }
     if (!confirm("Are you sure?")) { return };
 

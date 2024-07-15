@@ -46,7 +46,7 @@
       </div>
       <div *ngIf="hero && randomLocationPicture && !isNexusPosition(hero.position!)" class="locationPicture">
         <app-media-viewer [file]="randomLocationPicture"
-                          [currentDirectory]="randomLocationPicture?.directory"
+                          [currentDirectory]="randomLocationPicture.directory"
                           [inputtedParentRef]="parentRef"
                           [displayExtraInfo]="false"
                           [showCommentSection]="false"
@@ -57,7 +57,7 @@
       </div>
       <div *ngIf="hero && randomNexusPicture && isNexusPosition(hero.position!)" class="locationPicture">
         <app-media-viewer [file]="randomNexusPicture"
-                          [currentDirectory]="randomNexusPicture?.directory"
+                          [currentDirectory]="randomNexusPicture.directory"
                           [inputtedParentRef]="parentRef"
                           [displayExtraInfo]="false"
                           [showCommentSection]="false"
@@ -68,7 +68,7 @@
       </div>
       <div *ngIf="hero && randomInventoryPicture && isInventoryOpen" class="locationPicture">
         <app-media-viewer [file]="randomInventoryPicture"
-                          [currentDirectory]="randomInventoryPicture?.directory"
+                          [currentDirectory]="randomInventoryPicture.directory"
                           [inputtedParentRef]="parentRef"
                           [displayExtraInfo]="false"
                           [showCommentSection]="false"

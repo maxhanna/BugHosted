@@ -1,21 +1,16 @@
+import { Reaction } from "../reactions/reaction";
 import { User } from "../user/user";
+import { FileEntry } from "./file-entry";
 
 export class FileComment {
-  constructor(id: number, fileId: number, storyId: number, user: User, commentText: string, upvotes: number, downvotes: number) {
-    this.id = id;
-    this.fileId = fileId;
-    this.storyId = storyId;
-    this.user = user;
-    this.commentText = commentText;
-    this.upvotes = upvotes;
-    this.downvotes = downvotes;
-  }
-
-  id: number;
-  fileId: number;
-  storyId: number;
-  user: User;
-  commentText: string; 
-  upvotes: number;
-  downvotes: number;
+  id!: number;
+  user!: User;
+  commentText?: string;
+  upvotes: number = 0;
+  downvotes: number = 0;
+  storyId?: number;
+  fileId?: number;
+  commentFiles?: FileEntry[];
+  date?: Date;
+  reactions?: Array<Reaction> | undefined;
 }
