@@ -4,12 +4,29 @@
   <div class="componentTitle">Nexus</div>
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
-  <div *ngIf="!isUserComponentClosed">
+  <div *ngIf="!isUserComponentClosed && (!parentRef || !parentRef.user)">
     <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (closeUserComponentEvent)="closeUserComponent()"></app-user>
   </div>
-   
-  <div class="gamescreen">
-    <div>🪙: {{goldAmount}}</div>
+  <div *ngIf="!isUserComponentClosed && parentRef && parentRef.user && isUserNew">
+    Welcome to Nexus wars.
+    <button (click)="start()">Enter the Array</button>
+  </div>
+  <div *ngIf="isMapOpen">
+
+  </div>
+  <div class="gamescreen" *ngIf="!isUserNew && !isMapOpen">
+    <div>🪙: {{goldAmount}} x: {{currentBaseLocationX}} y: {{currentBaseLocationY}}</div>
+    <div class="nexusBackground" *ngIf="nexusBackgroundPicture && !isNexusOpen">
+      <app-media-viewer [file]="nexusBackgroundPicture"
+                        [currentDirectory]="nexusBackgroundPicture.directory"
+                        [inputtedParentRef]="parentRef"
+                        [displayExtraInfo]="false"
+                        [showCommentSection]="false"
+                        [user]="parentRef?.user"
+                        [autoplay]="true"
+                        [displayExpander]="false">
+      </app-media-viewer>
+    </div>
     <div class="nexus" *ngIf="nexusPicture && !isNexusOpen" (click)="openNexus()">
       <app-media-viewer [file]="nexusPicture"
                         [currentDirectory]="nexusPicture.directory"
@@ -50,4 +67,5 @@
   </div>
 
   <button (click)="copyLink()" title="Share Link">Share 📋</button>
+  <button (click)="viewMap()" title="View Map">Map 🗺️</button>
 </div>

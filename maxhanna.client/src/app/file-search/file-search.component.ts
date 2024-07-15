@@ -376,6 +376,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   }
 
   handleUploadedFiles(files: FileEntry[]) {
+    console.log("files uiploaded");
+    console.log(files);
     files = files.flatMap(fileArray => fileArray);
 
     if (this.directory) {
