@@ -23,13 +23,9 @@
 
   <div *ngIf="allHistoricalData && allHistoricalData.length > 0">
     <app-line-graph #lineGraphComponent
-                    [data]="allHistoricalData!">
-    </app-line-graph>
-    <app-line-graph #btcLineGraphComponent
-                    [selectedCoin]="'Bitcoin'"
                     [data]="allHistoricalData!"
-                    [displayCoinSwitcher]="false">
-    </app-line-graph>
+                    [selectedCoin]="'Bitcoin'" >
+    </app-line-graph> 
   </div>
 
 

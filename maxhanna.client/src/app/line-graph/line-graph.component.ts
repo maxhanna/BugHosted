@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
  import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts'; 
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
@@ -15,7 +15,7 @@ export class LineGraphComponent implements OnInit {
   @Input() selectedCoin: string = '';
   @Input() displayCoinSwitcher: boolean = true;
   @Input() graphTitle: string = '';
-  selectedPeriod: string = '1m'; 
+  selectedPeriod: string = '1d'; 
   lineChartData: any[] = [];
   lineChartLabels: any[] = [];
   lineChartOptions: any = {
@@ -24,19 +24,25 @@ export class LineGraphComponent implements OnInit {
   };
   lineChartLegend = true;
 
+  @ViewChild('periodSelect') periodSelect!: ElementRef<HTMLSelectElement>;
+
   ngOnInit() {
     this.updateGraph(this.data);
-  }
-
-  changeGraphPeriod(period: string) {
-    this.selectedPeriod = period;
-    this.updateGraph(this.data);
-  }
+  } 
 
   getUniqueCoinNames(): string[] {
     const uniqueCoinNamesSet = new Set<string>();
-    this.data.forEach(item => uniqueCoinNamesSet.add(item.name));
+    this.data.forEach(item => {
+      if (item.name != "Bitcoin") {
+        uniqueCoinNamesSet.add(item.name)
+      }
+    });
     return Array.from(uniqueCoinNamesSet);
+  }
+
+  changeGraphPeriod(event: Event) {
+    this.selectedPeriod = (event.target as HTMLSelectElement).value;
+    this.updateGraph(this.data);
   }
 
   changeCoin(event: Event) {
@@ -46,7 +52,7 @@ export class LineGraphComponent implements OnInit {
 
   updateGraph(data: CoinValue[]) {
     this.data = data;
-    let filteredData: CoinValue[] = [];
+    let filteredData: CoinValue[] = []; 
     if (this.selectedCoin !== '') {
       filteredData = this.filterDataByPeriodAndCoin(this.selectedPeriod, this.selectedCoin);
     } else {
@@ -59,10 +65,7 @@ export class LineGraphComponent implements OnInit {
 
     // Get unique coin names from the filtered data
     const uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.name)));
-    const rootStyles = getComputedStyle(document.documentElement);
-    const primaryFontColor = rootStyles.getPropertyValue('--primary-font-color').trim();
-    const mainBackgroundColor = rootStyles.getPropertyValue('--secondary-font-color').trim();
-
+ 
     // Create datasets for each unique coin
     uniqueCoinNames.forEach(coinName => {
       const coinFilteredData = filteredData.filter(item => item.name === coinName);
@@ -104,15 +107,31 @@ export class LineGraphComponent implements OnInit {
   }
 
   private getDaysForPeriod(period: string): number {
-    switch (period) {
-      case '1d': return 1;
-      case '1m': return 30;
-      case '3m': return 90;
-      case '6m': return 180;
-      case '1y': return 365;
-      case '3y': return 1095;
-      case '5y': return 1825;
-      default: return 30; // Default to 1 month data
+    const periodRegex = /^(\d+)\s*(d|day|days|m|month|months|y|year|years)$/;
+    const match = period.trim().toLowerCase().match(periodRegex);
+
+    if (match) {
+      const value = parseInt(match[1], 10);
+      const unit = match[2];
+
+      switch (unit) {
+        case 'd':
+        case 'day':
+        case 'days':
+          return value;
+        case 'm':
+        case 'month':
+        case 'months':
+          return value * 30; // Approximate number of days in a month
+        case 'y':
+        case 'year':
+        case 'years':
+          return value * 365; // Approximate number of days in a year
+        default:
+          return 30; // Default to 1 month data
+      }
     }
+
+    return 30; // Default to 1 month data if input doesn't match
   }
 }

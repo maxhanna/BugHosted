@@ -1,18 +1,25 @@
 <!-- Placeholder for the graph -->
 <div class="graphContainer">
   <div class="graphTitle">
-    {{selectedCoin ? selectedCoin + ' to ' : ''}}{{graphTitle ? graphTitle : 'CAD$ Over Time'}} Span : {{selectedPeriod.replace('m',' month(s)').replace('y',' year(s)').replace('d',' day')}}
+    {{selectedCoin ? selectedCoin + ' to ' : ''}}{{graphTitle ? graphTitle : 'CAD$ Over Time'}} Span : {{selectedPeriod}}
   </div>
   <div class="graphOptions">
-    <button (click)="changeGraphPeriod('1d')">1 Day</button>
-    <button (click)="changeGraphPeriod('1m')">1 Month</button>
-    <button (click)="changeGraphPeriod('3m')">3 Months</button>
-    <button (click)="changeGraphPeriod('6m')">6 Months</button>
-    <button (click)="changeGraphPeriod('1y')">1 Year</button>
-    <button (click)="changeGraphPeriod('3y')">3 Years</button>
-    <button (click)="changeGraphPeriod('5y')">5 Years</button>
+    <select (change)="changeGraphPeriod($event)" #periodSelect>
+      <option value="1d">1 Day</option>
+      <option value="2d">2 Days</option>
+      <option value="5d">5 Days</option>
+      <option value="1m">1 Month</option>
+      <option value="2m">2 Months</option>
+      <option value="3m">3 Months</option>
+      <option value="6m">6 Months</option>
+      <option value="1y">1 Year</option>
+      <option value="2y">2 Years</option>
+      <option value="3y">3 Years</option>
+      <option value="5y">5 Years</option>
+    </select>
     <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher">
       <option value="">All Coins</option>
+      <option value="Bitcoin" selected>Bitcoin</option>
       <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin">{{ coin }}</option>
     </select>
   </div>
