@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user';
-import { Story } from './datacontracts/story';
+import { Story } from './datacontracts/social/story';
 import { StoryComment } from './datacontracts/story-comment';
 import { UpDownVoteCounts } from './datacontracts/up-down-vote-counts';
 import { StoryResponse } from './datacontracts/story-response';

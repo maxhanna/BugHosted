@@ -14,7 +14,7 @@ import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
 import { User } from '../services/datacontracts/user';
-import { MenuItem } from '../services/datacontracts/menu-item';
+import { MenuItem } from '../services/datacontracts/user/menu-item';
 import { ChatComponent } from './chat/chat.component';
 import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';

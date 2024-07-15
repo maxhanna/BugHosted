@@ -1,11 +1,11 @@
 import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
- import { MenuItem } from '../../services/datacontracts/menu-item';
+ import { MenuItem } from '../../services/datacontracts/user/menu-item';
 import { MiningService } from '../../services/mining.service';
 import { WeatherService } from '../../services/weather.service';
 import { UserService } from '../../services/user.service';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user';
-import { NicehashApiKeys } from '../../services/datacontracts/nicehash-api-keys';
+import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 import { UserAbout } from '../../services/datacontracts/user-about';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';

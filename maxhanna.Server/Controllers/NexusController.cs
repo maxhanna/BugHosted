@@ -24,11 +24,10 @@ namespace maxhanna.Server.Controllers
             _config = config;
         }
 
-        [HttpPost("/Nexus", Name = "GetNexusData")]
-        public async Task<IActionResult> Get([FromBody] User? user)
-        {
-            var heroUser = user ?? new User(0, "Anonymous");
-            _logger.LogInformation($"POST /Array ({heroUser.Id})"); 
+        [HttpPost("/Nexus", Name = "GetBaseData")]
+        public async Task<IActionResult> GetBaseData([FromBody] User? user)
+        { 
+            _logger.LogInformation($"POST /Nexus ({user?.Id ?? 0})"); 
             return Ok(); 
         } 
     }

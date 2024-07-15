@@ -3,7 +3,7 @@ import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Outp
 import { User } from '../../services/datacontracts/user';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file-entry';
-import { DirectoryResults } from '../../services/datacontracts/directory-results';
+import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
 import { ChildComponent } from '../child.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { FileData } from '../../services/datacontracts/file-data';

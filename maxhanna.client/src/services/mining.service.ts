@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user';
 import { MiningRig } from './datacontracts/mining-rig';
 import { MiningRigDevice } from './datacontracts/mining-rig-device';
-import { NicehashApiKeys } from './datacontracts/nicehash-api-keys';
+import { NicehashApiKeys } from './datacontracts/crypto/nicehash-api-keys';
 
 @Injectable({
   providedIn: 'root'

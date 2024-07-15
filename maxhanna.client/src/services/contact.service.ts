@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user';
-import { Contact } from './datacontracts/contact';
+import { Contact } from './datacontracts/user/contact';
 
 @Injectable({
   providedIn: 'root'

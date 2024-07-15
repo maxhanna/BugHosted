@@ -2,9 +2,9 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/co
 import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
 import { ChatService } from '../../services/chat.service';
-import { Message } from '../../services/datacontracts/message';
+import { Message } from '../../services/datacontracts/chat/message';
 import { User } from '../../services/datacontracts/user';
-import { ChatNotification } from '../../services/datacontracts/chat-notification';
+import { ChatNotification } from '../../services/datacontracts/chat/chat-notification';
 import { FileEntry } from '../../services/datacontracts/file-entry';
 
 @Component({

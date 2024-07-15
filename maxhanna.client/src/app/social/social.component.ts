@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, Input, OnInit, SecurityContext, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { Story } from '../../services/datacontracts/story';
+import { Story } from '../../services/datacontracts/social/story';
 import { StoryComment } from '../../services/datacontracts/story-comment';
 import { SocialService } from '../../services/social.service';
 import { User } from '../../services/datacontracts/user';

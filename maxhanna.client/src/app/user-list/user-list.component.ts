@@ -1,7 +1,7 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user';
-import { ChatNotification } from '../../services/datacontracts/chat-notification';
+import { ChatNotification } from '../../services/datacontracts/chat/chat-notification';
 import { ChatService } from '../../services/chat.service';
 import { ChildComponent } from '../child.component';
 

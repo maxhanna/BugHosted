@@ -12,7 +12,7 @@ import { WordlerService } from '../../services/wordler.service';
 import { SocialComponent } from '../social/social.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
-import { Contact } from '../../services/datacontracts/contact';
+import { Contact } from '../../services/datacontracts/user/contact';
 import { AppComponent } from '../app.component';
 
 

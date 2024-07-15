@@ -1,7 +1,7 @@
 // user.service.ts
 import { Injectable } from '@angular/core'; 
 import { User } from './datacontracts/user';
-import { MenuItem } from './datacontracts/menu-item';
+import { MenuItem } from './datacontracts/user/menu-item';
 import { UserAbout } from './datacontracts/user-about';
 
 @Injectable({

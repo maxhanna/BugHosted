@@ -1,8 +1,9 @@
-import { FileEntry } from "./file-entry"; 
-import { Topic } from "./topic";
-import { User } from "./user";
-import { Comment } from "../datacontracts/comment";
-import { Reaction } from "./reaction";
+import { FileEntry } from "../file/file-entry";
+import { Reaction } from "../reactions/reaction";
+import { Topic } from "../topic";
+import { User } from "../user/user";
+
+ 
 
 export class Story {
   id: number | undefined;

@@ -1,7 +1,6 @@
-import { FileData } from "./file-data";
-import { User } from "./user";
-import { Comment } from '../datacontracts/comment'
-import { Reaction } from "./reaction";
+import { Reaction } from "../reactions/reaction";
+import { User } from "../user/user";
+import { FileData } from "./file-data"; 
 
 export class FileEntry {
   id: number;

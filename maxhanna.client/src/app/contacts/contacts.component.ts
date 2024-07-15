@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { Contact } from '../../services/datacontracts/contact';
+import { Contact } from '../../services/datacontracts/user/contact';
 import { ContactService } from '../../services/contact.service';
 
 @Component({

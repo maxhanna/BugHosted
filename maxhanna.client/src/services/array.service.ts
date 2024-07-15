@@ -2,7 +2,7 @@
 import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user'; 
 import { ArrayCharacter } from './datacontracts/array-character';
-import { GraveyardHero } from './datacontracts/graveyard-hero';
+import { GraveyardHero } from './datacontracts/array/graveyard-hero';
 import { ArrayCharacterInventory } from './datacontracts/array-character-inventory';
 
 @Injectable({

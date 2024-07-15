@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file-entry';
-import { DirectoryResults } from '../../services/datacontracts/directory-results';
+import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
 import { FileService } from '../../services/file.service';
 
 @Component({
