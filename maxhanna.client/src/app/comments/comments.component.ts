@@ -1,12 +1,12 @@
 import { Component, ElementRef, EventEmitter, Input, Output, SecurityContext, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
-import { Comment } from '../../services/datacontracts/comment';
-import { User } from '../../services/datacontracts/user';
-import { FileEntry } from '../../services/datacontracts/file-entry';
+import { Comment } from '../../services/datacontracts/comment'; 
 import { ChildComponent } from '../child.component';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { FileComment } from '../../services/datacontracts/file-comment';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser'; 
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
+import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 @Component({
   selector: 'app-comments',

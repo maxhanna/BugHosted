@@ -1,11 +1,10 @@
 import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
- import { FileService } from '../../services/file.service';
-import { FileEntry } from '../../services/datacontracts/file-entry';
-import { User } from '../../services/datacontracts/user'; 
+ import { FileService } from '../../services/file.service'; 
 import { FileSearchComponent } from '../file-search/file-search.component';
-import { FileData } from '../../services/datacontracts/file-data';
- 
+import { User } from '../../services/datacontracts/user/user';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+  
 @Component({
   selector: 'app-file',
   templateUrl: './file.component.html',

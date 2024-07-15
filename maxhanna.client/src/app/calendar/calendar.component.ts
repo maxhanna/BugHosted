@@ -1,8 +1,8 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { CalendarEntry } from '../../services/datacontracts/calendar-entry';
-import { CalendarDate } from '../../services/datacontracts/calendar-date';
 import { CalendarService } from '../../services/calendar.service';
+import { CalendarDate } from '../../services/datacontracts/calendar/calendar-date';
+import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-entry';
 
 
 @Component({

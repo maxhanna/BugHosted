@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { WeatherResponse } from '../../services/datacontracts/weather-response';
+import { ChildComponent } from '../child.component'; 
 import { WeatherService } from '../../services/weather.service';
+import { WeatherResponse } from '../../services/datacontracts/weather/weather-response';
 interface WeatherForecast {
   date: string;
   temperatureC: number;

@@ -1,13 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { ArrayService } from '../../services/array.service';
-import { ArrayCharacter } from '../../services/datacontracts/array-character';
-import { User } from '../../services/datacontracts/user';
+import { ArrayService } from '../../services/array.service'; 
 import { GraveyardHero } from '../../services/datacontracts/array/graveyard-hero';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
-import { FileService } from '../../services/file.service';
-import { FileEntry } from '../../services/datacontracts/file-entry';
-import { ArrayCharacterInventory } from '../../services/datacontracts/array-character-inventory';
+import { FileService } from '../../services/file.service'; 
+import { ArrayCharacterInventory } from '../../services/datacontracts/array/array-character-inventory';
+import { ArrayCharacter } from '../../services/datacontracts/array/array-character';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-array',

@@ -1,9 +1,8 @@
 import { Component, Input, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { FileEntry } from '../../services/datacontracts/file-entry';
-import { FileComment } from '../../services/datacontracts/file-comment';
+import { ChildComponent } from '../child.component'; 
 import { ActivatedRoute } from '@angular/router'; 
 import { FileSearchComponent } from '../file-search/file-search.component';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
   selector: 'app-meme',

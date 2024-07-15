@@ -1,8 +1,8 @@
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
-import { HttpEventType } from '@angular/common/http';
-import { User } from '../../services/datacontracts/user';
-import { FileEntry } from '../../services/datacontracts/file-entry';
+import { HttpEventType } from '@angular/common/http'; 
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-file-upload',

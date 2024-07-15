@@ -1,8 +1,8 @@
 import { AfterContentChecked, AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Todo } from '../../services/datacontracts/todo';
-import { TodoService } from '../../services/todo.service';
-import { User } from '../../services/datacontracts/user';
+import { TodoService } from '../../services/todo.service'; 
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-music',

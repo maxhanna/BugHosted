@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { MiningRigDevice } from '../../services/datacontracts/mining-rig-device';
 import { MiningService } from '../../services/mining.service';
+import { MiningRigDevice } from '../../services/datacontracts/crypto/mining-rig-device';
 
 @Component({
   selector: 'app-mining-devices',

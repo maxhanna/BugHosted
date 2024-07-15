@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
-import { ReactionService } from '../../services/reaction.service';
-import { User } from '../../services/datacontracts/user';
-import { Reaction } from '../../services/datacontracts/reaction';
+import { ReactionService } from '../../services/reaction.service'; 
+import { User } from '../../services/datacontracts/user/user';
+import { Reaction } from '../../services/datacontracts/reactions/reaction';
 
 @Component({
   selector: 'app-reaction',

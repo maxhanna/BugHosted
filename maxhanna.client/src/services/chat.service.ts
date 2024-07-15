@@ -1,6 +1,5 @@
 // user.service.ts
 import { Injectable } from '@angular/core'; 
-import { NicehashApiKeys } from './datacontracts/crypto/nicehash-api-keys'; 
 import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
 

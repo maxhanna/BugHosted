@@ -1,6 +1,5 @@
-import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user';
-import { Reaction } from './datacontracts/reaction';
+import { Injectable } from '@angular/core';  
+import { Reaction } from './datacontracts/reactions/reaction';
 
 @Injectable({
   providedIn: 'root'

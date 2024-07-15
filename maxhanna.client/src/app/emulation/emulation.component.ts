@@ -1,9 +1,9 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Nostalgist } from 'nostalgist'
 import { ChildComponent } from '../child.component';
-import { RomService } from '../../services/rom.service';
-import { FileEntry } from '../../services/datacontracts/file-entry';
+import { RomService } from '../../services/rom.service'; 
 import { FileService } from '../../services/file.service';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
   selector: 'app-emulation',

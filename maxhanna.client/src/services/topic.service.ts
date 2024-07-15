@@ -1,7 +1,7 @@
 // user.service.ts
-import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user';
+import { Injectable } from '@angular/core'; 
 import { Topic } from './datacontracts/topic';
+import { User } from './datacontracts/user/user';
 
 @Injectable({
   providedIn: 'root'

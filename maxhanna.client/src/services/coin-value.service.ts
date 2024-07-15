@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { CoinValue } from './datacontracts/coin-value';
+import { HttpClient, HttpParams } from '@angular/common/http'; 
+import { CoinValue } from './datacontracts/crypto/coin-value';
  
 @Injectable({
   providedIn: 'root'

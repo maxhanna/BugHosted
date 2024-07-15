@@ -1,9 +1,9 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { UserService } from '../../services/user.service';
-import { User } from '../../services/datacontracts/user';
 import { ChatNotification } from '../../services/datacontracts/chat/chat-notification';
 import { ChatService } from '../../services/chat.service';
 import { ChildComponent } from '../child.component';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-user-list',
@@ -30,7 +30,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     this.users = await this.userService.getAllUsers(this.user!);
     await this.sortUsersByNotifications();
   }
-  async ngOnDestroy() { 
+  async ngOnDestroy() {
     clearInterval(this.chatInfoInterval);
   }
   click(value: User) {
@@ -67,17 +67,17 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
         return countB - countA;
       });
     }
-  } 
- 
+  }
+
   async search() {
     try {
       const search = this.searchInput.nativeElement.value.trim();
       if (this.user) {
         const res = await this.userService.getAllUsers(this.user!, search);
-        if (res) { 
+        if (res) {
           this.users = res;
         }
-      } 
+      }
     } catch { }
   }
 }

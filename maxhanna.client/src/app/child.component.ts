@@ -1,6 +1,6 @@
-import { Component, OnDestroy } from '@angular/core';
- import { User } from '../services/datacontracts/user';
+import { Component, OnDestroy } from '@angular/core'; 
 import { AppComponent } from './app.component';
+import { User } from '../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-child-component',

@@ -1,7 +1,8 @@
-import { Component, ElementRef, EventEmitter, Input, Output, Renderer2, ViewChild } from '@angular/core';
-import { FileEntry } from '../../services/datacontracts/file-entry';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
-import { User } from '../../services/datacontracts/user';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
+
 
 @Component({
   selector: 'app-media-selector',
@@ -15,7 +16,7 @@ export class MediaSelectorComponent {
   imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp"];
   videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
   allowedFileExtensions = this.imageFileExtensions.concat(this.videoFileExtensions);
-  selectedFiles: FileEntry[] = []; 
+  selectedFiles: FileEntry[] = [];
   @Input() inputtedParentRef?: AppComponent;
   @Input() user?: User;
   @Input() maxSelectedFiles: number = 5;
@@ -36,7 +37,7 @@ export class MediaSelectorComponent {
   }
 
   done() {
-    this.selectFileEvent.emit(this.selectedFiles); 
+    this.selectFileEvent.emit(this.selectedFiles);
     this.closeMediaSelector();
   }
 
@@ -54,7 +55,7 @@ export class MediaSelectorComponent {
 
   removeFile(file: FileEntry) {
     this.selectedFiles = this.selectedFiles.filter(x => x != file);
-    this.selectFileEvent.emit(this.selectedFiles); 
+    this.selectFileEvent.emit(this.selectedFiles);
   }
   uploadCancelledEvent(cancelled: boolean) {
     if (this.displaySearchButton) {
@@ -76,13 +77,13 @@ export class MediaSelectorComponent {
     if (this.selectedFiles.length > this.maxSelectedFiles) {
       return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
     }
-    if (files) { 
+    if (files) {
       if (this.selectedFiles) {
         this.selectedFiles = this.selectedFiles.concat(files);
       }
       else {
         this.selectedFiles = files;
-      } 
+      }
     }
 
     if (this.displaySearchButton) {
@@ -103,9 +104,9 @@ export class MediaSelectorComponent {
     this.selectedFiles = [];
     this.displaySearchButton = false;
     this.viewMediaChoicesOpen = false;
-    this.displaySearch = false; 
-    if (this.selectMediaDiv) { 
-      this.selectMediaDiv.nativeElement.classList.remove("open"); 
+    this.displaySearch = false;
+    if (this.selectMediaDiv) {
+      this.selectMediaDiv.nativeElement.classList.remove("open");
     }
   }
 }

@@ -1,11 +1,10 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { UserService } from '../../services/user.service';
+import { ChildComponent } from '../child.component'; 
 import { ChatService } from '../../services/chat.service';
-import { Message } from '../../services/datacontracts/chat/message';
-import { User } from '../../services/datacontracts/user';
-import { ChatNotification } from '../../services/datacontracts/chat/chat-notification';
-import { FileEntry } from '../../services/datacontracts/file-entry';
+import { Message } from '../../services/datacontracts/chat/message'; 
+import { ChatNotification } from '../../services/datacontracts/chat/chat-notification'; 
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-chat',

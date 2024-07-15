@@ -1,8 +1,8 @@
 import { ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { FileEntry } from '../../services/datacontracts/file-entry';
+import { ChildComponent } from '../child.component'; 
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
 import { FileService } from '../../services/file.service';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
   selector: 'app-nexus',

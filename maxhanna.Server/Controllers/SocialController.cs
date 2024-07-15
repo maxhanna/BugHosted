@@ -202,7 +202,7 @@ namespace maxhanna.Server.Controllers
                                     ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
                                 },
                                 StoryFiles = new List<FileEntry>(),
-                                StoryComments = new List<StoryComment>(),
+                                StoryComments = new List<FileComment>(),
                                 StoryTopics = new List<Topic>(),
                                 Reactions = new List<Reaction>()
                             };
@@ -578,7 +578,7 @@ namespace maxhanna.Server.Controllers
                                     string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("profileFileName")) ? null : rdr.GetString("profileFileName");
                                     FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
 
-                                    comment = new StoryComment
+                                    comment = new FileComment
                                     {
                                         Id = commentId,
                                         CommentText = commentText,

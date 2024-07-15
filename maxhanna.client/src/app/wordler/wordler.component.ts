@@ -1,9 +1,9 @@
 import { Component, ElementRef, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { WordlerService } from '../../services/wordler.service';
-import { WordlerScore } from '../../services/datacontracts/wordler-score';
-import { User } from '../../services/datacontracts/user';
-import { WordlerGuess } from '../../services/datacontracts/wordler-guess';
+import { WordlerService } from '../../services/wordler.service'; 
+import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
+import { WordlerGuess } from '../../services/datacontracts/wordler/wordler-guess';
+import { User } from '../../services/datacontracts/user/user';
 type DifficultyKey = "Easy Difficulty" | "Medium Difficulty" | "Hard Difficulty" | "Master Wordler";
 
 @Component({

@@ -1,19 +1,19 @@
 import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { User } from '../../services/datacontracts/user';
-import { UserService } from '../../services/user.service';
-import { WeatherLocation } from '../../services/datacontracts/weather-location';
+import { ChildComponent } from '../child.component'; 
+import { UserService } from '../../services/user.service'; 
 import { WeatherService } from '../../services/weather.service';
-import { FriendService } from '../../services/friend.service';
-import { FriendRequest } from '../../services/datacontracts/friendship-request';
-import { ContactService } from '../../services/contact.service';
-import { WordlerScore } from '../../services/datacontracts/wordler-score';
+import { FriendService } from '../../services/friend.service'; 
+import { ContactService } from '../../services/contact.service'; 
 import { WordlerService } from '../../services/wordler.service';
 import { SocialComponent } from '../social/social.component';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { Contact } from '../../services/datacontracts/user/contact';
 import { AppComponent } from '../app.component';
+import { User } from '../../services/datacontracts/user/user';
+import { FriendRequest } from '../../services/datacontracts/friends/friendship-request';
+import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
+import { WeatherLocation } from '../../services/datacontracts/weather/weather-location';
 
 
 @Component({

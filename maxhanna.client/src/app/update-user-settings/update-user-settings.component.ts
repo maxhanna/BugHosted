@@ -3,14 +3,14 @@ import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { MiningService } from '../../services/mining.service';
 import { WeatherService } from '../../services/weather.service';
 import { UserService } from '../../services/user.service';
-import { ChildComponent } from '../child.component';
-import { User } from '../../services/datacontracts/user';
-import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys';
-import { FileEntry } from '../../services/datacontracts/file-entry';
-import { UserAbout } from '../../services/datacontracts/user-about';
+import { ChildComponent } from '../child.component'; 
+import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys'; 
+ import { MediaViewerComponent } from '../media-viewer/media-viewer.component'; 
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { UserAbout } from '../../services/datacontracts/user/user-about';
+import { WeatherLocation } from '../../services/datacontracts/weather/weather-location';
+import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
-import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
-import { WeatherLocation } from '../../services/datacontracts/weather-location';
 
 @Component({
   selector: 'app-update-user-settings',

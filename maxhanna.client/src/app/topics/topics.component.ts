@@ -1,8 +1,8 @@
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { TopicService } from '../../services/topic.service';
-import { Topic } from '../../services/datacontracts/topic';
-import { User } from '../../services/datacontracts/user';
+import { Topic } from '../../services/datacontracts/topic'; 
 import { AppComponent } from '../app.component';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-topics',

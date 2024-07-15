@@ -3,9 +3,8 @@ import { ChildComponent } from '../child.component';
 import { util, GameBoy } from 'jsgbc';
 import { FileService } from '../../services/file.service';
 import { RomService } from '../../services/rom.service';
-import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
-import { FileEntry } from '../../services/datacontracts/file-entry';
- 
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+  
 
 @Component({
   selector: 'app-gbc',

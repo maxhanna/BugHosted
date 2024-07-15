@@ -1,8 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
-import { CoinValue } from '../../services/datacontracts/coin-value';
-import { CommonModule } from '@angular/common';
-import { BaseChartDirective } from 'ng2-charts';
-import { tick } from '@angular/core/testing';
+ import { CommonModule } from '@angular/common';
+import { BaseChartDirective } from 'ng2-charts'; 
+import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
 
 @Component({
   standalone: true,

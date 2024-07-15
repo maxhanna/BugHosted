@@ -1,14 +1,14 @@
 
-import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
-import { User } from '../../services/datacontracts/user';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
-import { FileEntry } from '../../services/datacontracts/file-entry';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
 import { ChildComponent } from '../child.component';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
-import { FileData } from '../../services/datacontracts/file-data';
 import { ActivatedRoute } from '@angular/router';
 import { AppComponent } from '../app.component';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
+import { FileData } from '../../services/datacontracts/file/file-data';
 
 
 @Component({
@@ -36,7 +36,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
 
-  showData = true; 
+  showData = true;
   debounceTimer: any;
   @Input() fileId: string | null = null;
 
@@ -74,11 +74,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       await this.getDirectory(undefined, parseInt(this.fileId));
       if (this.directory && this.directory.data) {
         const target = this.directory.data.filter(x => x.id == parseInt(this.fileId!))[0];
-        if (target) { 
-          document.querySelector('meta[name="description"]')!.setAttribute("content", target.fileName); 
+        if (target) {
+          document.querySelector('meta[name="description"]')!.setAttribute("content", target.fileName);
         }
       }
-      return; 
+      return;
     }
 
     this.route.paramMap.subscribe(async params => {
@@ -89,7 +89,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       }
     });
     await this.getDirectory();
-  } 
+  }
   scrollToFile(fileId: string) {
     setTimeout(() => {
       const element = document.getElementById('fileIdName' + fileId);
@@ -98,7 +98,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         element.click();
       }
     }, 1000);
-  } 
+  }
   async delete(file: FileEntry) {
     if (confirm(`Delete : ${file.fileName} ?`)) {
       this.startLoading();
@@ -265,11 +265,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         this.openedFiles = [];
       }
       this.openedFiles.push(file.id);
-       
+
       return;
     }
-     
-    if (confirm(`Download ${file.fileName}?`)) { 
+
+    if (confirm(`Download ${file.fileName}?`)) {
       const directoryValue = this.currentDirectory;
       let target = directoryValue.replace(/\\/g, "/");
       target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? file.fileName : directoryValue.length > 0 ? this.fS + file.fileName : file.fileName;
@@ -284,7 +284,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         a.download = file.fileName;
         a.id = (Math.random() * 100) + "";
         a.click();
-         
+
         window.URL.revokeObjectURL(a.href);
         document.getElementById(a.id)?.remove();
         this.stopLoading();
@@ -375,13 +375,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.getDirectory();
   }
 
-  handleUploadedFiles(files: FileEntry[]) { 
+  handleUploadedFiles(files: FileEntry[]) {
     files = files.flatMap(fileArray => fileArray);
 
     if (this.directory) {
       files.forEach(x => {
         if (this.directory?.data && this.directory?.data?.filter(d => d.id == x.id).length == 0) {
-          this.directory.data!.unshift(x); 
+          this.directory.data!.unshift(x);
         }
       });
     }

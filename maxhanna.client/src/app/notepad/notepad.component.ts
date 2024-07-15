@@ -1,9 +1,9 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Note } from '../../services/datacontracts/note';
-import { NotepadService } from '../../services/notepad.service';
-import { User } from '../../services/datacontracts/user';
+import { NotepadService } from '../../services/notepad.service'; 
 import { UserService } from '../../services/user.service';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-notepad',

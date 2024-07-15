@@ -1,8 +1,8 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { CoinValue } from '../../services/datacontracts/coin-value';
+import { ChildComponent } from '../child.component'; 
 import { CoinValueService } from '../../services/coin-value.service';
 import { LineGraphComponent } from '../line-graph/line-graph.component';
+import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
   
 @Component({ 
   selector: 'app-coin-watch',

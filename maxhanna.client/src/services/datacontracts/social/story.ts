@@ -1,8 +1,9 @@
+import { FileComment } from "../file/file-comment";
 import { FileEntry } from "../file/file-entry";
 import { Reaction } from "../reactions/reaction";
 import { Topic } from "../topic";
 import { User } from "../user/user";
-
+ 
  
 
 export class Story {
@@ -16,7 +17,7 @@ export class Story {
   commentsCount: number | undefined;
   metadata: MetaData | undefined;
   storyFiles: Array<FileEntry> | undefined;
-  storyComments: Array<Comment> | undefined;
+  storyComments: Array<FileComment> | undefined;
   storyTopics: Array<Topic> | undefined;
   profileUserId?: number | undefined;
   reactions?: Array<Reaction> | undefined;

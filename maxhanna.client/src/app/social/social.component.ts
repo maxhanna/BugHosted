@@ -1,17 +1,16 @@
 import { AfterViewInit, Component, ElementRef, Input, OnInit, SecurityContext, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Story } from '../../services/datacontracts/social/story';
-import { StoryComment } from '../../services/datacontracts/story-comment';
 import { SocialService } from '../../services/social.service';
-import { User } from '../../services/datacontracts/user';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { FileEntry } from '../../services/datacontracts/file-entry';
-import { FileService } from '../../services/file.service';
 import { Topic } from '../../services/datacontracts/topic';
 import { AppComponent } from '../app.component';
-import { MediaSelectorComponent } from '../media-selector/media-selector.component';
-import { StoryResponse } from '../../services/datacontracts/story-response';
 import { TopicsComponent } from '../topics/topics.component';
+import { StoryResponse } from '../../services/datacontracts/social/story-response'; 
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 @Component({
   selector: 'app-social',
@@ -22,7 +21,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   fileMetadata: any;
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
-  comments: StoryComment[] = [];
+  comments: FileComment[] = [];
   loading = false;
   showComments = false;
   revealSearchFilters = false;
@@ -109,9 +108,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   uploadInitiate() {
 
   }
-  selectFile(files: FileEntry[]) { 
-    if (files) {  
-      this.attachedFiles = files.flatMap(fileArray => fileArray); 
+  selectFile(files: FileEntry[]) {
+    if (files) {
+      this.attachedFiles = files.flatMap(fileArray => fileArray);
     }
   }
 
@@ -174,7 +173,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
   }
 
-  async post() { 
+  async post() {
     const storyText = this.story.nativeElement.value!;
     if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
     const newStory: Story = {
@@ -202,7 +201,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (res) {
       await this.getStories();
     }
-    if (this.topicComponent) { 
+    if (this.topicComponent) {
       this.topicComponent.removeAllTopics();
     }
   }
