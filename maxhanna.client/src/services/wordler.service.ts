@@ -1,8 +1,7 @@
-// user.service.ts
-import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user'; 
-import { WordlerScore } from './datacontracts/wordler-score';
-import { WordlerGuess } from './datacontracts/wordler-guess';
+import { Injectable } from '@angular/core'; 
+import { User } from './datacontracts/user/user';
+import { WordlerGuess } from './datacontracts/wordler/wordler-guess';
+import { WordlerScore } from './datacontracts/wordler/wordler-score';
 
 @Injectable({
   providedIn: 'root'

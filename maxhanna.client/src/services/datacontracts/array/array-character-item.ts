@@ -1,5 +1,5 @@
-import { FileEntry } from "./file-entry";
-import { User } from "./user";
+ import { FileEntry } from "../file/file-entry";
+import { User } from "../user/user";
 
 export class ArrayCharacterItem {
   user: User | undefined;

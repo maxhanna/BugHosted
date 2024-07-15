@@ -1,6 +1,8 @@
-import { FileEntry } from "./file-entry";
-import { Reaction } from "./reaction";
-import { User } from "./user";
+import { FileEntry } from "../file/file-entry";
+import { Reaction } from "../reactions/reaction";
+import { User } from "../user/user";
+
+ 
 
 export class Message {
   id: number;

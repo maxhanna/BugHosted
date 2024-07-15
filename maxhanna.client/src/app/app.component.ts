@@ -13,7 +13,6 @@ import { MusicComponent } from './music/music.component';
 import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { GbcComponent } from './gbc/gbc.component';
 import { UserComponent } from './user/user.component';
-import { User } from '../services/datacontracts/user';
 import { MenuItem } from '../services/datacontracts/user/menu-item';
 import { ChatComponent } from './chat/chat.component';
 import { MemeComponent } from './meme/meme.component';
@@ -26,6 +25,7 @@ import { UpdateUserSettingsComponent } from './update-user-settings/update-user-
 import { EmulationComponent } from './emulation/emulation.component';
 import { ArrayComponent } from './array/array.component';
 import { NexusComponent } from './nexus/nexus.component';
+import { User } from '../services/datacontracts/user/user';
 
 
 
@@ -40,7 +40,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild("outlet") outlet!: RouterOutlet;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
-  showMainContent: boolean = true; 
+  showMainContent: boolean = true;
 
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>();
@@ -113,7 +113,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       const memeId = parseInt(params.get('memeId')!);
       if (memeId) {
         this.createComponent("Meme", { "memeId": memeId });
-      } 
+      }
       const userId = params.get('userId'); // Do not use parseInt here
       if (userId) {
         this.createComponent("User", { "userId": parseInt(userId) }); // Parse to int only if it exists
@@ -214,7 +214,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
 
     this.VCR.clear();
-    this.componentsReferences = []; 
+    this.componentsReferences = [];
   }
 
   getCookie(name: string) {

@@ -1,10 +1,10 @@
 import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { FileEntry } from '../../services/datacontracts/file-entry';
-import { FileService } from '../../services/file.service';
-import { FileComment } from '../../services/datacontracts/file-comment';
-import { User } from '../../services/datacontracts/user';
+import { ChildComponent } from '../child.component'; 
+import { FileService } from '../../services/file.service';  
 import { AppComponent } from '../app.component';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { User } from '../../services/datacontracts/user/user';
+import { FileComment } from '../../services/datacontracts/file/file-comment';
  
 
 @Component({

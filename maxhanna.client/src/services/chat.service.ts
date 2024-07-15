@@ -1,10 +1,8 @@
 // user.service.ts
-import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user';
-import { MiningRig } from './datacontracts/mining-rig';
-import { MiningRigDevice } from './datacontracts/mining-rig-device';
-import { NicehashApiKeys } from './datacontracts/crypto/nicehash-api-keys';
-import { FileEntry } from './datacontracts/file-entry';
+import { Injectable } from '@angular/core'; 
+import { NicehashApiKeys } from './datacontracts/crypto/nicehash-api-keys'; 
+import { User } from './datacontracts/user/user';
+import { FileEntry } from './datacontracts/file/file-entry';
 
 @Injectable({
   providedIn: 'root'

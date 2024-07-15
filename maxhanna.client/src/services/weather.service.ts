@@ -1,7 +1,6 @@
-import { Injectable } from '@angular/core'; 
-import { User } from './datacontracts/user';
-import { WeatherResponse } from './datacontracts/weather-response';
-import { WeatherLocation } from './datacontracts/weather-location';
+import { Injectable } from '@angular/core';  
+import { WeatherResponse } from './datacontracts/weather/weather-response';
+import { User } from './datacontracts/user/user';
 
 @Injectable({
   providedIn: 'root'

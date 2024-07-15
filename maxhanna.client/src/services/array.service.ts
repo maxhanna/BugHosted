@@ -1,9 +1,9 @@
 // user.service.ts
-import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user'; 
-import { ArrayCharacter } from './datacontracts/array-character';
-import { GraveyardHero } from './datacontracts/array/graveyard-hero';
-import { ArrayCharacterInventory } from './datacontracts/array-character-inventory';
+import { Injectable } from '@angular/core'; 
+import { GraveyardHero } from './datacontracts/array/graveyard-hero'; 
+import { ArrayCharacter } from './datacontracts/array/array-character';
+import { User } from './datacontracts/user/user';
+import { ArrayCharacterInventory } from './datacontracts/array/array-character-inventory';
 
 @Injectable({
   providedIn: 'root'

@@ -1,9 +1,5 @@
-import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user';
-import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
-import { Observable } from 'rxjs/internal/Observable';
-import { FileComment } from './datacontracts/file-comment';
-import { FileEntry } from './datacontracts/file-entry';
+import { Injectable } from '@angular/core'; 
+import { User } from './datacontracts/user/user';
 
 @Injectable({
   providedIn: 'root'

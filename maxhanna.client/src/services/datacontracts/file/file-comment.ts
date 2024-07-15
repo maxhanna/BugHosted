@@ -1,4 +1,4 @@
-import { User } from "./user";
+import { User } from "../user/user";
 
 export class FileComment {
   constructor(id: number, fileId: number, user: User, commentText: string, upvotes: number, downvotes: number) {

@@ -1,11 +1,11 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component'; 
-import { MiningRig } from '../../services/datacontracts/mining-rig';
-import { MiningRigDevice } from '../../services/datacontracts/mining-rig-device';
-import { DailyMiningEarnings } from '../../services/datacontracts/daily-mining-earnings';
+import { ChildComponent } from '../child.component';  
  import { MiningService } from '../../services/mining.service';
-import { CoinValueService } from '../../services/coin-value.service';
-import { CoinValue } from '../../services/datacontracts/coin-value';
+import { CoinValueService } from '../../services/coin-value.service'; 
+import { DailyMiningEarnings } from '../../services/datacontracts/crypto/daily-mining-earnings';
+import { MiningRigDevice } from '../../services/datacontracts/crypto/mining-rig-device';
+import { MiningRig } from '../../services/datacontracts/crypto/mining-rig';
+import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
  
 @Component({
   selector: 'app-mining-rigs',

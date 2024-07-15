@@ -1,5 +1,4 @@
-import { User } from "./user";
-
+ 
 export class FileData {
   fileId: number;
   givenFileName: string;

@@ -1,17 +1,16 @@
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { MiningWalletResponse } from '../../services/datacontracts/mining-wallet-response';
-import { CalendarEntry } from '../../services/datacontracts/calendar-entry';
-import { MiningRig } from '../../services/datacontracts/mining-rig';
-import { CoinValue } from '../../services/datacontracts/coin-value';
-import { User } from '../../services/datacontracts/user';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';  
 import { MiningService } from '../../services/mining.service';
 import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
- import { UserService } from '../../services/user.service';
+import { UserService } from '../../services/user.service';
 import { ChatService } from '../../services/chat.service';
 import { AppComponent } from '../app.component';
 import { CoinValueService } from '../../services/coin-value.service';
 import { WordlerService } from '../../services/wordler.service';
+import { User } from '../../services/datacontracts/user/user';
+import { MiningWalletResponse } from '../../services/datacontracts/crypto/mining-wallet-response';
+import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-entry';
+import { MiningRig } from '../../services/datacontracts/crypto/mining-rig';
 
 @Component({
   selector: 'app-navigation',

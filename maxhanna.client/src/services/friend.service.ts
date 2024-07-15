@@ -1,7 +1,6 @@
-import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user';
-import { Friend } from './datacontracts/friend';
-import { FriendRequest } from './datacontracts/friendship-request';
+import { Injectable } from '@angular/core'; 
+import { User } from './datacontracts/user/user';
+import { FriendRequest } from './datacontracts/friends/friendship-request';
 
 @Injectable({
   providedIn: 'root'

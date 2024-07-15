@@ -605,7 +605,7 @@ namespace maxhanna.Server.Controllers
 
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
-                    List<MenuItem> menuItems = new List<MenuItem>();
+                    List<MenuItem> menuItems = [];
 
                     while (reader.Read())
                     {

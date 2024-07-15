@@ -1,9 +1,7 @@
 import { Component, OnInit } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { lastValueFrom } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { Currency, MiningWalletResponse } from '../../services/datacontracts/mining-wallet-response';
-import { MiningService } from '../../services/mining.service';
+import { ChildComponent } from '../child.component'; 
+ import { MiningService } from '../../services/mining.service';
+import { Currency, MiningWalletResponse } from '../../services/datacontracts/crypto/mining-wallet-response';
 
 @Component({
   selector: 'app-coin-wallet',

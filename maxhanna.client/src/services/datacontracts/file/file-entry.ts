@@ -1,5 +1,6 @@
 import { Reaction } from "../reactions/reaction";
 import { User } from "../user/user";
+import { FileComment } from "./file-comment";
 import { FileData } from "./file-data"; 
 
 export class FileEntry {
@@ -9,8 +10,8 @@ export class FileEntry {
   visibility: string;
   sharedWith: string;
   user: User;
-  isFolder: boolean; 
-  fileComments: Array<Comment>;
+  isFolder: boolean;
+  fileComments: Array<FileComment>;
   date: Date;
   fileData?: FileData;
   fileSize: number;
@@ -18,7 +19,7 @@ export class FileEntry {
   reactions?: Array<Reaction>;
     
   constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string,
-    user: User, isFolder: boolean, comments: Array<Comment>, date: Date,
+    user: User, isFolder: boolean, comments: Array<FileComment>, date: Date,
     fileSize: number, fileType: string, reactions?: Array<Reaction>, fileData?: FileData) {
     this.id = id;
     this.fileName = fileName;
