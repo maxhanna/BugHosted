@@ -25,7 +25,8 @@ export class UserComponent extends ChildComponent implements OnInit {
   @Input() user?: User | undefined;
   @Input() userId: string | null = null;
   @Input() loginOnly?: boolean | undefined;
-  @Input() inputtedParentRef?: AppComponent | undefined; 
+  @Input() inputtedParentRef?: AppComponent | undefined;
+  @Input() loginReasonMessage?: string | undefined;
   @Output() closeUserComponentEvent = new EventEmitter<void>();
 
 
@@ -277,7 +278,9 @@ export class UserComponent extends ChildComponent implements OnInit {
           this.notifications.push(resAddMenuItemArray!);
 
           await this.login();
-          this.parentRef?.createComponent('UpdateUserSettings');
+          if (!this.loginOnly) { 
+            this.parentRef?.createComponent('UpdateUserSettings');
+          }
         } else {
           this.notifications.push(`${JSON.parse(resCreateUser!)["message"]}`);
         }
@@ -299,6 +302,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
 
   async login() {
+    console.log("logging in");
     if (this.parentRef?.user) { 
       this.parentRef.user = undefined;
     }
@@ -319,7 +323,8 @@ export class UserComponent extends ChildComponent implements OnInit {
           await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"], ip["city"]);
         }
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
-        if (this.loginOnly) { 
+        if (this.loginOnly) {
+          console.log("closing emit");
           this.closeUserComponentEvent.emit();
         }
       } else {

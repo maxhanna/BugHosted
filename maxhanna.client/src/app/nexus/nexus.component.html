@@ -4,10 +4,13 @@
   <div class="componentTitle">BugWar</div>
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
-  <div *ngIf="!isUserComponentClosed && (!parentRef || !parentRef.user)">
-    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (closeUserComponentEvent)="closeUserComponent()"></app-user>
+  <div *ngIf="isUserComponentOpen">
+    <app-user [loginOnly]="true"
+              [inputtedParentRef]="parentRef"
+              (closeUserComponentEvent)="closeUserComponent()"
+              [loginReasonMessage]="'You must log in to play BugWars.'"></app-user>
   </div>
-  <div *ngIf="!isUserComponentClosed && parentRef && parentRef.user && isUserNew">
+  <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew">
     Welcome to Nexus wars.
     <button (click)="start()">Enter the Array</button>
   </div>
@@ -107,7 +110,7 @@
         <span class="levelLabel supplyDepotLevelDisplay" *ngIf="nexusBase.supplyDepotLevel > 0">{{nexusBase.supplyDepotLevel}}</span>
       </div>
     </ng-content>
-    
+
 
     <div *ngIf="isCommandCenterOpen && !isMapOpen">
       To upgrade the Command Center:
@@ -129,7 +132,7 @@
                 {{ buildingTimers[upgrade.building] ? buildingTimers[upgrade.building] : '🔧' }}
               </button>
             </td>
-          </tr> 
+          </tr>
         </tbody>
       </table>
 
@@ -143,7 +146,6 @@
       <button (click)="closeMines()">Back</button>
     </div>
   </div>
-
 
   <div class="shareMapButtonDiv">
     <button (click)="copyLink()" title="Share Link">Share 📋</button>

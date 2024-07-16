@@ -16,7 +16,7 @@ import { NexusAvailableUpgrades, UpgradeDetail } from '../../services/datacontra
 })
 export class NexusComponent extends ChildComponent implements OnInit, OnDestroy {
   notifications: string[] = [];
-  isUserComponentClosed = true;
+  isUserComponentOpen = true;
   isCommandCenterOpen = false;
   isMinesOpen = false;
   isFactoryOpen = false;
@@ -75,7 +75,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     super();
   }
 
-  async ngOnInit() {
+  async ngOnInit() { 
+    this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user);
+
     await this.loadNexusData();
 
     const picDirectoryRes = await this.fileService.getDirectory("Nexus/Assets", "all", "all", this.parentRef?.user, undefined, 1000, undefined, undefined, ["webp"]);
@@ -105,8 +107,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       await this.loadNexusData();
     }
   }
-  closeUserComponent() {
-    this.isUserComponentClosed = true;
+  async closeUserComponent() { 
+    this.isUserComponentOpen = false;
+    await this.loadNexusData();
   }
   openCommandCenter() {
     this.isCommandCenterOpen = true;
@@ -142,7 +145,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async loadNexusData(skipMap: Boolean = false) {
+    console.log("inside load nexus data");
     if (!this.parentRef || !this.parentRef.user) { return; }
+    console.log("got valid user");
     const data = await this.nexusService.getNexus(this.parentRef.user);
 
     if (data && data.nexusBase && data.nexusBase.userId != 0) {
@@ -157,7 +162,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       await this.getBuildingUpgradesInfo();
 
     } else {
-      this.isUserComponentClosed = false;
+      this.isUserComponentOpen = false;
       this.isUserNew = true;
     }
 
@@ -353,7 +358,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
   copyLink() {
-    const link = `https://bughosted.com/Nexus`;
+    const link = `https://bughosted.com/War`;
     navigator.clipboard.writeText(link);
   }
 }
