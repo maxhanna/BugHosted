@@ -1,20 +1,77 @@
-.gamescreen
- {
+.componentMain {
+  min-height: 500px;
+  display: flex;
+  flex-flow: column;
+  justify-content: flex-start;
+}
 
-    width:350px;
-    height:275px;
-    border: var(--main-border);
+.gamescreen, .map {
+  width: 350px;
+  height: 275px;
+  border: var(--main-border);
 }
-.nexus {
-    position:relative;
-    top: -200px;
-    left: 150px;
-    height:60px;
-    width:60px; 
-    border-radius: 50%;
+
+.map {
+  overflow: auto;
 }
+
+.levelLabel {
+  background-color: black;
+  position: absolute;
+}
+
+.building {
+  position: relative;
+}
+
+.buildingPicture {
+  height: 60px;
+  width: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+}
+
+.commandCenter, .commandCenterLevelDisplay {
+  top: -200px;
+  left: 150px;
+}
+
+.mines, .minesLevelDisplay {
+  top: -180px;
+  left: 195px;
+}
+
+.starport, .starportLevelDisplay {
+  top: -280px;
+  left: 105px;
+}
+
+.factory, .factoryLevelDisplay {
+  top: -373px;
+  left: 95px;
+}
+
+.supplyDepot, .supplyDepotLevelDisplay {
+  top: -418px;
+  left: 225px;
+}
+
 .nexusBackground {
   position: relative;
   top: 0px;
-  left: 0px; 
+  left: 0px;
 }
+
+.shareMapButtonDiv {
+  position: absolute;
+  bottom: 0px;
+}
+
+.mapComponentDiv {
+  display: none;
+}
+
+  .mapComponentDiv.opened {
+    display: block;
+  }

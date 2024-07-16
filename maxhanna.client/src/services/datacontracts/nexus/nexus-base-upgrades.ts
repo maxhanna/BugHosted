@@ -1,6 +1,6 @@
 export interface NexusBaseUpgrades {
   userId: number;
-  nexusUpgraded: Date;
+  commandCenterUpgraded: Date;
   minesUpgraded: Date;
   supplyDepotUpgraded: Date;
   factoryUpgraded: Date;

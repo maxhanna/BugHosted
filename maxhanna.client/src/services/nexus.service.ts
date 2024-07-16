@@ -18,14 +18,13 @@ export class NexusService {
         body: JSON.stringify(body)
       });
 
-      if (!response.ok) {
-        throw new Error(`Error fetching data: ${response.statusText}`);
+      if (!response.ok) { 
+        return await response.text();
       }
 
       return await response.json();
     } catch (error) {
       console.error(error);
-      return undefined;
     }
   }
 
@@ -33,27 +32,37 @@ export class NexusService {
     return await this.fetchData('/nexus', user);
   }
 
-  async upgradeNexus(user: User): Promise<any> {
-    return await this.fetchData('/nexus/upgradenexus', user);
+  async getMap(user: User): Promise<NexusBase[]> {
+    return await this.fetchData('/nexus/getmap', user);
   }
 
-  async upgradeMine(user: User): Promise<any> {
-    return await this.fetchData('/nexus/upgrademine', user);
+  async upgradeNexus(user: User, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradenexus', { user, nexus });
   }
 
-  async upgradeSupplyDepot(user: User): Promise<any> {
-    return await this.fetchData('/nexus/upgradesupplydepot', user);
+  async upgradeMines(user: User, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgrademines', { user, nexus });
   }
 
-  async upgradeFactory(user: User): Promise<any> {
-    return await this.fetchData('/nexus/upgradefactory', user);
+  async upgradeSupplyDepot(user: User, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradesupplydepot', { user, nexus });
   }
 
-  async upgradeStarport(user: User): Promise<any> {
-    return await this.fetchData('/nexus/upgradestarport', user);
+  async upgradeFactory(user: User, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradefactory', { user, nexus });
+  }
+
+  async upgradeStarport(user: User, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradestarport', { user, nexus });
   }
 
   async start(user: User): Promise<any> {
     return await this.fetchData('/nexus/start', user);
+  }
+  async getMinesInfo(user: User, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/getminesinfo', { user, nexus });
+  }
+  async getBuildingUpgrades(user: User, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/getbuildingupgrades', { user, nexus });
   }
 }

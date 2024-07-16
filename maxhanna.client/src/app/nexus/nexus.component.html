@@ -1,7 +1,7 @@
 <div class=componentMain>
   <div class="closeButton" (click)="remove_me('NexusComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">Nexus</div>
+  <div class="componentTitle">BugWar</div>
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
   <div *ngIf="!isUserComponentClosed && (!parentRef || !parentRef.user)">
@@ -11,12 +11,16 @@
     Welcome to Nexus wars.
     <button (click)="start()">Enter the Array</button>
   </div>
-  <div *ngIf="isMapOpen">
 
-  </div>
-  <div class="gamescreen" *ngIf="!isUserNew && !isMapOpen">
-    <div>🪙: {{goldAmount}} x: {{currentBaseLocationX}} y: {{currentBaseLocationY}}</div>
-    <div class="nexusBackground" *ngIf="nexusBackgroundPicture && !isNexusOpen">
+  <div class="gamescreen" [style.display]="!isUserNew ? 'block':'none'">
+    <div>🪙: {{ goldAmount | number:'1.2-2' }} x: {{currentBaseLocationX}} y: {{currentBaseLocationY}}</div>
+
+    <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user">
+      <app-nexus-map #mapComponent [user]="parentRef.user"></app-nexus-map>
+    </div>
+
+
+    <div class="nexusBackground" *ngIf="nexusBackgroundPicture && !isCommandCenterOpen && !isMinesOpen && !isMapOpen">
       <app-media-viewer [file]="nexusBackgroundPicture"
                         [currentDirectory]="nexusBackgroundPicture.directory"
                         [inputtedParentRef]="parentRef"
@@ -27,19 +31,86 @@
                         [displayExpander]="false">
       </app-media-viewer>
     </div>
-    <div class="nexus" *ngIf="nexusPicture && !isNexusOpen" (click)="openNexus()">
-      <app-media-viewer [file]="nexusPicture"
-                        [currentDirectory]="nexusPicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
-    <div *ngIf="isNexusOpen">
-      To upgrade the Nexus:
+    <ng-content *ngIf="!isMinesOpen && !isCommandCenterOpen && !isMapOpen && nexusBase">
+      <div class="building">
+        <div class="commandCenter buildingPicture" *ngIf="commandCenterPicture" (click)="openCommandCenter()" title="Command Center">
+          <app-media-viewer [file]="commandCenterPicture"
+                            [currentDirectory]="commandCenterPicture.directory"
+                            [inputtedParentRef]="parentRef"
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="parentRef?.user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+        <span class="levelLabel commandCenterLevelDisplay" *ngIf="nexusBase.commandCenterLevel > 0">{{nexusBase.commandCenterLevel}}</span>
+      </div>
+
+      <div class="building" [style.visibility]="displayMines ?  'visible' : 'hidden'">
+        <div class="buildingPicture mines" *ngIf="minesPicture" (click)="openMines();" title="Mines">
+          <app-media-viewer [file]="minesPicture"
+                            [currentDirectory]="minesPicture.directory"
+                            [inputtedParentRef]="parentRef"
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="parentRef?.user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+        <span class="levelLabel minesLevelDisplay" *ngIf="nexusBase.minesLevel > 0">{{nexusBase.minesLevel}}</span>
+      </div>
+
+      <div class="building" [style.visibility]="displayFactory ?  'visible' : 'hidden'">
+        <div class="buildingPicture factory" *ngIf="factoryPicture" (click)="openFactory()" title="Factory">
+          <app-media-viewer [file]="factoryPicture"
+                            [currentDirectory]="factoryPicture.directory"
+                            [inputtedParentRef]="parentRef"
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="parentRef?.user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+        <span class="levelLabel factoryLevelDisplay" *ngIf="nexusBase.factoryLevel > 0">{{nexusBase.factoryLevel}}</span>
+      </div>
+
+      <div class="building" [style.visibility]="displayStarport ?  'visible' : 'hidden'">
+        <div class="buildingPicture starport" *ngIf="starportPicture" (click)="openCommandCenter()" title="Starport">
+          <app-media-viewer [file]="starportPicture"
+                            [currentDirectory]="starportPicture.directory"
+                            [inputtedParentRef]="parentRef"
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="parentRef?.user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+        <span class="levelLabel starportLevelDisplay" *ngIf="nexusBase.starportLevel > 0">{{nexusBase.starportLevel}}</span>
+      </div>
+
+      <div class="building" [style.visibility]="displaySupplyDepot ? 'visible' : 'hidden'">
+        <div class="buildingPicture supplyDepot" *ngIf="supplyDepotPicture" (click)="openCommandCenter()" title="Supply Depot">
+          <app-media-viewer [file]="supplyDepotPicture"
+                            [currentDirectory]="supplyDepotPicture.directory"
+                            [inputtedParentRef]="parentRef"
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="parentRef?.user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+        <span class="levelLabel supplyDepotLevelDisplay" *ngIf="nexusBase.supplyDepotLevel > 0">{{nexusBase.supplyDepotLevel}}</span>
+      </div>
+    </ng-content>
+    
+
+    <div *ngIf="isCommandCenterOpen && !isMapOpen">
+      To upgrade the Command Center:
       <p class="notification">Build a Mine</p>
       <p class="notification">Build a Factory</p>
 
@@ -47,25 +118,35 @@
         <thead>
           <tr>
             <th colspan="3">Upgrades Available:</th>
+          </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Mine</td>
-            <td>{{mineLevel == 0 ? mineLevel1Cost : mineLevel == 1 ? mineLevel2Cost : mineLevel3Cost}} Gold</td>
-            <td><button (click)="upgradeMine()" #upgradeMineButton>{{upgradeMineTimer ? upgradeMineTimer : '🔧'}}</button></td>
-          </tr>
-          <tr>
-            <td>Factory</td>
-            <td>{{factoryLevel == 0 ? factoryLevel1Cost : factoryLevel == 1 ? factoryLevel2Cost : factoryLevel3Cost}} Gold</td>
-            <td><button (click)="upgradeFactory()" #upgradeFactoryButton>{{upgradeFactoryTimer ? upgradeFactoryTimer : '🔧'}}</button></td>
-          </tr>
+          <tr *ngFor="let upgrade of nexusAvailableUpgrades.upgrades">
+            <td>{{upgrade.building}}</td>
+            <td>{{upgrade.cost}} Gold</td>
+            <td>
+              <button (click)="upgradeBuilding(upgrade)" #upgradeButton>
+                {{ buildingTimers[upgrade.building] ? buildingTimers[upgrade.building] : '🔧' }}
+              </button>
+            </td>
+          </tr> 
         </tbody>
       </table>
 
-      <button (click)="closeNexus()">Back</button>
+      <button (click)="closeCommandCenter()">Back</button>
+    </div>
+    <div *ngIf="isMinesOpen && !isMapOpen">
+      To upgrade the mines:
+      <p class="notification">Reach 300 supply capacity.</p>
+
+      Current mining speed: {{miningSpeed}}
+      <button (click)="closeMines()">Back</button>
     </div>
   </div>
 
-  <button (click)="copyLink()" title="Share Link">Share 📋</button>
-  <button (click)="viewMap()" title="View Map">Map 🗺️</button>
+
+  <div class="shareMapButtonDiv">
+    <button (click)="copyLink()" title="Share Link">Share 📋</button>
+    <button (click)="viewMap()" title="View Map">Map 🗺️</button>
+  </div>
 </div>

@@ -3,8 +3,8 @@ export interface NexusBase {
   gold: number;
   coordsX: number;
   coordsY: number;
-  nexusLevel: number;
-  mineLevel: number;
+  commandCenterLevel: number;
+  minesLevel: number;
   supplyDepotLevel: number;
   factoryLevel: number;
   starportLevel: number;

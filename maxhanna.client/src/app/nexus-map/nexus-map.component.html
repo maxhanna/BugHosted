@@ -1,0 +1,20 @@
+<div class="map" *ngIf="mapData" #mapContainer>
+  <div *ngFor="let row of grid; let y = index" class="row">
+    <div *ngFor="let cell of row; let x = index" class="cell" [attr.x]="x" [attr.y]="y">
+      <span class="cell-content">
+        <span *ngIf="grid[x][y]">
+          <app-media-viewer *ngIf="nexusPicture"
+                            [file]="nexusPicture"
+                            [currentDirectory]="nexusPicture.directory" 
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </span>
+        <span class="cellWithGridLoc" *ngIf="!grid[x][y]">{{x + ',' + y}}</span>
+      </span>
+    </div>
+  </div>
+</div>

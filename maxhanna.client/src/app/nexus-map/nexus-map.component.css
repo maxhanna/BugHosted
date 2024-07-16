@@ -1,0 +1,33 @@
+.map {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  width: 350px;
+  height: 275px;
+}
+
+.row {
+  display: flex;
+}
+
+.cell {
+  width: 50px;
+  height: 50px;
+  border: var(--main-border);
+  font-size: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.cell-content {
+  display: inline-block;
+  text-align: center;
+  width: 50px;
+  height: 50px;
+  overflow: hidden;
+}
+.cellWithGridLoc {
+    font-size: xx-small;
+}

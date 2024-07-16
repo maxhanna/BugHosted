@@ -32,13 +32,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() displayReactions: boolean = true;
   @Input() canDragMove: boolean = true;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() fileId: string | null = null;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
 
   showData = true;
   debounceTimer: any;
-  @Input() fileId: string | null = null;
 
   directory: DirectoryResults | undefined;
   defaultCurrentPage = 1;

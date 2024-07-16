@@ -135,7 +135,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.createComponent('Array');
         }
 
-        if (this.router.url.includes('Nexus')) {
+        if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Nexus');
         }
