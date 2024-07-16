@@ -18,11 +18,17 @@ export class NexusService {
         body: JSON.stringify(body)
       });
 
-      if (!response.ok) { 
-        return await response.text();
+      const res = await response;
+      if (!res.ok) { 
+        return await res.text();
       }
 
-      return await response.json();
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+      } else {
+        return await response.text();
+      }
     } catch (error) {
       console.error(error);
     }

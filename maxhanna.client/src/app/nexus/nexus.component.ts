@@ -179,7 +179,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return;
     const upRes = await this.nexusService.getBuildingUpgrades(this.parentRef.user, this.nexusBase);
     if (upRes) { 
-      this.nexusAvailableUpgrades = upRes;  
+      this.nexusAvailableUpgrades = upRes;
+      console.log(this.nexusAvailableUpgrades);
     }
   }
 
@@ -270,8 +271,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.upgradeMineTimer = undefined;
       this.cd.detectChanges();
       return;
-    }
-
+    } 
     this.notifications.push(await this.nexusService.upgradeMines(this.parentRef.user, this.nexusBase));
     await this.loadNexusData(true); 
     this.upgradeMineTimer = 10;

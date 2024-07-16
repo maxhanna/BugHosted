@@ -492,10 +492,10 @@ namespace maxhanna.Server.Controllers
                 }
                 await readerUpgradeTimestamps.CloseAsync();
 
-                var durations = new Dictionary<string, int>();
-                var costs = new Dictionary<string, int>();
+                var durations = new Dictionary<string, Dictionary<int, int>>();
+                var costs = new Dictionary<string, Dictionary<int, int>>();
                 string sqlDurations = @"
-                    SELECT building_type, duration, cost
+                    SELECT building_type, building_level, duration, cost
                     FROM nexus_base_upgrade_stats
                     WHERE building_type IN (SELECT id FROM nexus_building_types WHERE type IN ('command_center', 'mines', 'supply_depot', 'factory', 'starport'))";
                 MySqlCommand cmdDurations = new MySqlCommand(sqlDurations, conn);
@@ -503,14 +503,23 @@ namespace maxhanna.Server.Controllers
                 while (await readerDurations.ReadAsync())
                 {
                     int buildingType = readerDurations.GetInt32("building_type");
+                    int level = readerDurations.GetInt32("building_level");
                     int duration = readerDurations.GetInt32("duration");
                     int cost = readerDurations.GetInt32("cost");
 
-                    string buildingName = GetBuildingNameFromTypeId(buildingType); // Function to map building_type to building name
-                    if (!string.IsNullOrEmpty(buildingName))
+                    string buildingTypeEnum = GetBuildingTypeFromTypeId(buildingType);
+                    if (!string.IsNullOrEmpty(buildingTypeEnum))
                     {
-                        durations[buildingName] = duration;
-                        costs[buildingName] = cost;
+                        if (!durations.ContainsKey(buildingTypeEnum))
+                        {
+                            durations[buildingTypeEnum] = new Dictionary<int, int>();
+                        }
+                        if (!costs.ContainsKey(buildingTypeEnum))
+                        {
+                            costs[buildingTypeEnum] = new Dictionary<int, int>();
+                        }
+                        durations[buildingTypeEnum][level] = duration;
+                        costs[buildingTypeEnum][level] = cost;
                     }
                 }
                 await readerDurations.CloseAsync();
@@ -527,14 +536,15 @@ namespace maxhanna.Server.Controllers
 
                 foreach (var (buildingName, currentLevel, lastUpgraded) in buildings)
                 {
-                    if (!lastUpgraded.HasValue)  
+                    if (!lastUpgraded.HasValue)
                     {
-                        int duration = durations.ContainsKey(buildingName) ? durations[buildingName] : 0;
-                        int cost = costs.ContainsKey(buildingName) ? costs[buildingName] : 0;
+                        int nextLevel = currentLevel + 1;
+                        int duration = durations.ContainsKey(buildingName) && durations[buildingName].ContainsKey(nextLevel) ? durations[buildingName][nextLevel] : 0;
+                        int cost = costs.ContainsKey(buildingName) && costs[buildingName].ContainsKey(nextLevel) ? costs[buildingName][nextLevel] : 0;
                         availableUpgrades.Add(new
                         {
                             Building = buildingName,
-                            NextLevel = currentLevel + 1,
+                            NextLevel = nextLevel,
                             Duration = duration,
                             Cost = cost
                         });
@@ -554,9 +564,9 @@ namespace maxhanna.Server.Controllers
         }
 
 
-        private string GetBuildingNameFromTypeId(int typeId)
+        private string GetBuildingTypeFromTypeId(int typeId)
         {
-            string buildingName = "";
+            string buildingType = "";
 
             using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
@@ -566,16 +576,16 @@ namespace maxhanna.Server.Controllers
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@TypeId", typeId);
 
-                object result = cmd.ExecuteScalar();
+                object? result = cmd.ExecuteScalar();
                 if (result != null)
                 {
-                    buildingName = result.ToString();
+                    buildingType = result.ToString() ?? "";
                 }
 
                 conn.Close();
             }
 
-            return buildingName;
+            return buildingType;
         }
 
 

@@ -1,5 +1,6 @@
 .componentMain {
   min-height: 500px;
+  height:80vh;
   display: flex;
   flex-flow: column;
   justify-content: flex-start;
@@ -7,7 +8,7 @@
 
 .gamescreen, .map {
   width: 350px;
-  height: 275px;
+  height: var(--nexus-gamescreen-height);
   border: var(--main-border);
 }
 
@@ -59,10 +60,31 @@
 
 .nexusBackground {
   position: relative;
-  top: 0px;
+  top: -18px;
   left: 0px;
+  z-index: -1;
 }
 
+.commandCenterBackground {
+  position: relative;
+  top: -140px;
+  left: 0px;
+  z-index: -1;
+  height: var(--nexus-gamescreen-height);
+  overflow: hidden;
+}
+.commandCenterScreen {
+  height: var(--nexus-gamescreen-height);
+}
+
+.minesBackground {
+  position: relative;
+  top: -108px;
+  left: 0px;
+  z-index: -1;
+  height: var(--nexus-gamescreen-height);
+  overflow: hidden;
+}
 .shareMapButtonDiv {
   position: absolute;
   bottom: 0px;
@@ -75,3 +97,8 @@
   .mapComponentDiv.opened {
     display: block;
   }
+.upgradesTableDiv {
+    max-height:200px;
+    overflow: auto;
+    max-width:99%;
+}

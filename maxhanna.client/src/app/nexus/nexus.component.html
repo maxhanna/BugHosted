@@ -112,39 +112,72 @@
     </ng-content>
 
 
-    <div *ngIf="isCommandCenterOpen && !isMapOpen">
+    <div *ngIf="isCommandCenterOpen && !isMapOpen && !isUserNew" class="commandCenterScreen">
       To upgrade the Command Center:
       <p class="notification">Build a Mine</p>
       <p class="notification">Build a Factory</p>
 
-      <table>
-        <thead>
-          <tr>
-            <th colspan="3">Upgrades Available:</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let upgrade of nexusAvailableUpgrades.upgrades">
-            <td>{{upgrade.building}}</td>
-            <td>{{upgrade.cost}} Gold</td>
-            <td>
-              <button (click)="upgradeBuilding(upgrade)" #upgradeButton>
-                {{ buildingTimers[upgrade.building] ? buildingTimers[upgrade.building] : '🔧' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
       <button (click)="closeCommandCenter()">Back</button>
+
+      <div class="commandCenterBackground" *ngIf="commandCenterPicture">
+        <app-media-viewer [file]="commandCenterPicture"
+                          [currentDirectory]="commandCenterPicture.directory"
+                          [inputtedParentRef]="parentRef"
+                          [displayExtraInfo]="false"
+                          [showCommentSection]="false"
+                          [user]="parentRef?.user"
+                          [autoplay]="true"
+                          [displayExpander]="false">
+        </app-media-viewer>
+      </div>
     </div>
-    <div *ngIf="isMinesOpen && !isMapOpen">
+
+    <div *ngIf="isMinesOpen && !isMapOpen && !isUserNew">
       To upgrade the mines:
       <p class="notification">Reach 300 supply capacity.</p>
 
       Current mining speed: {{miningSpeed}}
       <button (click)="closeMines()">Back</button>
+
+      <div class="minesBackground" *ngIf="minesPicture">
+        <app-media-viewer [file]="minesPicture"
+                          [currentDirectory]="minesPicture.directory"
+                          [inputtedParentRef]="parentRef"
+                          [displayExtraInfo]="false"
+                          [showCommentSection]="false"
+                          [user]="parentRef?.user"
+                          [autoplay]="true"
+                          [displayExpander]="false">
+        </app-media-viewer>
+      </div>
     </div>
+  </div>
+
+  <div class="upgradesTableDiv" *ngIf="isCommandCenterOpen && !isMapOpen && !isUserNew">
+    Upgrades Available:
+    <table class="mainTable">
+      <thead>
+        <tr>
+          <th>Building</th>
+          <th>Level</th>
+          <th>Cost</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let upgrade of nexusAvailableUpgrades.upgrades">
+          <td>{{upgrade.building}}</td>
+          <td>{{upgrade.nextLevel}}</td>
+          <td>{{upgrade.cost}} Gold</td>
+          <td>{{upgrade.duration}}s</td>
+          <td>
+            <button (click)="upgradeBuilding(upgrade)" #upgradeButton>
+              {{ buildingTimers[upgrade.building] ? buildingTimers[upgrade.building] : '🔧' }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
   <div class="shareMapButtonDiv">

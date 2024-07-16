@@ -14,6 +14,7 @@
   --main-font-size: 0.9vw;
   --component-max-width: 90vw;
   --component-max-height: 80vh;
+  --nexus-gamescreen-height: 275px;
 }
 
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
