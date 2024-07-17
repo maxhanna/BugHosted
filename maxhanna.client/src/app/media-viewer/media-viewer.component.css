@@ -28,7 +28,8 @@
   margin-left:auto;
   margin-right:auto;
 }
-.mediaDiv { 
+.mediaDiv {
+    background-color:transparent;
     display:block;
     margin-left:auto;
     margin-right:auto; 
@@ -52,8 +53,7 @@
 .mediaContainerDiv{
     max-height:60vh; 
     overflow:auto; 
-    object-fit:contain;
-    background-color:black; 
+    object-fit:contain; 
 }
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
   .mediaContainerDiv { 

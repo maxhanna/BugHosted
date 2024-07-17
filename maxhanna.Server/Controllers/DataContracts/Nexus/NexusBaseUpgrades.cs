@@ -1,8 +1,7 @@
 namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
     public class NexusBaseUpgrades
-    {
-        public int UserId { get; set; }
+    { 
         public int CoordsX { get; set; }
         public int CoordsY { get; set; }
         public DateTime? CommandCenterUpgraded { get; set; }

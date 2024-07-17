@@ -149,7 +149,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   checkAndClearRouterOutlet() {
     if (this.outlet) {
-      console.log("Router outlet is activated, navigating to root to clear it.");
+      //console.log("Router outlet is activated, navigating to root to clear it.");
       this.router.navigate(['/']);
       this.router.dispose();
     }

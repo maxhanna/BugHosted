@@ -34,15 +34,15 @@ export class NexusService {
     }
   }
 
-  async getNexus(user: User): Promise<{ nexusBase: NexusBase, nexusBaseUpgrades: NexusBaseUpgrades } | undefined> {
-    return await this.fetchData('/nexus', user);
+  async getNexus(user: User, nexus?: NexusBase): Promise<{ nexusBase: NexusBase, nexusBaseUpgrades: NexusBaseUpgrades } | undefined> {
+    return await this.fetchData('/nexus', { user, nexus });
   }
 
   async getMap(user: User): Promise<NexusBase[]> {
     return await this.fetchData('/nexus/getmap', user);
   }
 
-  async upgradeNexus(user: User, nexus: NexusBase): Promise<any> {
+  async upgradeCommandCenter(user: User, nexus: NexusBase): Promise<any> {
     return await this.fetchData('/nexus/upgradenexus', { user, nexus });
   }
 

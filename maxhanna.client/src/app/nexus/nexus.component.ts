@@ -8,6 +8,7 @@ import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { NexusBaseUpgrades } from '../../services/datacontracts/nexus/nexus-base-upgrades';
 import { NexusMapComponent } from '../nexus-map/nexus-map.component';
 import { NexusAvailableUpgrades, UpgradeDetail } from '../../services/datacontracts/nexus/nexus-available-upgrades';
+import { BuildingTimer } from '../../services/datacontracts/nexus/building-timer';
 
 @Component({
   selector: 'app-nexus',
@@ -24,6 +25,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   isSupplyDepotOpen = false;
   isMapOpen = false;
   isUserNew = false;
+  displayCommandCenter = false;
   displayMines = false;
   displayFactory = false;
   displayStarport = false;
@@ -34,6 +36,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   supplyDepotPicture: FileEntry | undefined;
   minesPicture: FileEntry | undefined;
   factoryPicture: FileEntry | undefined;
+  marinePicture: FileEntry | undefined;
   nexusBackgroundPicture: FileEntry | undefined;
   pictureDirectory: DirectoryResults | undefined;
   mapData?: NexusBase[] = undefined;
@@ -47,13 +50,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   upgradeStarportTimer: any | undefined;
   upgradeNexusTimer: any | undefined;
   upgradeFactoryTimer: any | undefined;
-  buildingTimers: { [key: string]: any } = {
-    'Mine': 'upgradeMineTimer',
-    'Supply Depot': 'upgradeSupplyDepotTimer',
-    'Starport': 'upgradeStarportTimer',
-    'Nexus': 'upgradeNexusTimer',
-    'Factory': 'upgradeFactoryTimer'
-  };
+  buildingTimers: { [key: string]: BuildingTimer } = {};
+
 
   currentBaseLocationX = 0;
   currentBaseLocationY = 0;
@@ -62,10 +60,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   supplyDepotLevel = 0;
   starportLevel = 0;
   factoryLevel = 0;
-  miningSpeed = 0;
+  miningSpeed = 0.0;
+  supplyCapacity = 5000;
 
-  goldIncrementInterval: any; 
-   
+  goldIncrementInterval: any;
+  supplyDepotUpgradeLevels : number[] = [];
+
   @ViewChild('upgradeMineButton') upgradeMineButton!: ElementRef<HTMLButtonElement>;
   @ViewChild('upgradeFactoryButton') upgradeFactoryButton!: ElementRef<HTMLButtonElement>;
   @ViewChild('mapComponentDiv') mapComponentDiv!: ElementRef<HTMLDivElement>;
@@ -75,8 +75,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     super();
   }
 
-  async ngOnInit() { 
-    this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user);
+  async ngOnInit() {
+    this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user); 
+    this.supplyDepotUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
+
 
     await this.loadNexusData();
 
@@ -89,9 +91,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.starportPicture = this.pictureDirectory?.data?.filter(x => x.id == 5924)[0];
       this.minesPicture = this.pictureDirectory?.data?.filter(x => x.id == 5922)[0];
       this.factoryPicture = this.pictureDirectory?.data?.filter(x => x.id == 5921)[0];
+      this.marinePicture = this.pictureDirectory?.data?.filter(x => x.id == 6041)[0];
       this.supplyDepotPicture = this.pictureDirectory?.data?.filter(x => x.id == 5952)[0];
     }
-    this.startGoldIncrement(); 
+    this.startGoldIncrement();
   }
 
   ngOnDestroy() {
@@ -107,55 +110,20 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       await this.loadNexusData();
     }
   }
-  async closeUserComponent() { 
-    this.isUserComponentOpen = false;
-    await this.loadNexusData();
-  }
-  openCommandCenter() {
-    this.isCommandCenterOpen = true;
-  }
-  closeCommandCenter() {
-    this.isCommandCenterOpen = false;
-  }
-  openMines() {
-    this.isMinesOpen = true;
-  }
-  closeMines() {
-    this.isMinesOpen = false;
-  }
-
-  openFactory() {
-    this.isFactoryOpen = true;
-  }
-  closeFactory() {
-    this.isFactoryOpen = false;
-  }
-
-  openStarport() {
-    this.isStarportOpen = true;
-  }
-  closeStarport() {
-    this.isStarportOpen = false;
-  }
-  openSupplyDepot() {
-    this.isSupplyDepotOpen = true;
-  }
-  closeSupplyDepot() {
-    this.isSupplyDepotOpen = false;
-  }
 
   async loadNexusData(skipMap: Boolean = false) {
-    console.log("inside load nexus data");
     if (!this.parentRef || !this.parentRef.user) { return; }
-    console.log("got valid user");
-    const data = await this.nexusService.getNexus(this.parentRef.user);
+    const data = await this.nexusService.getNexus(this.parentRef.user, this.nexusBase);
 
     if (data && data.nexusBase && data.nexusBase.userId != 0) {
       this.nexusBase = data.nexusBase;
       this.nexusBaseUpgrades = data.nexusBaseUpgrades;
+      console.log(this.nexusBase);
+      console.log(this.nexusBaseUpgrades);
       this.currentBaseLocationX = data.nexusBase.coordsX;
       this.currentBaseLocationY = data.nexusBase.coordsY;
       this.goldAmount = data.nexusBase.gold;
+      this.supplyCapacity = data.nexusBase.supplyDepotLevel * 5000;
 
       this.displayBuildings(this.nexusBaseUpgrades);
       await this.getMinesInfo();
@@ -166,7 +134,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.isUserNew = true;
     }
 
-    if (!skipMap) { 
+    if (!skipMap) {
       const mapRes = await this.nexusService.getMap(this.parentRef.user);
       if (mapRes) {
         this.mapData = mapRes;
@@ -175,13 +143,84 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
+   
+  private startUpgradeTimer(building: string, time: number) {
+    if (this.buildingTimers[building] || !time || isNaN(time)) {
+      return;
+    }
+    //add one second to give the server time to realise whats been built.
+    const endTime = Math.max(0, time) + 1;
+     
+    this.buildingTimers[building] = {
+      endTime: endTime,
+      timeout: setTimeout(async () => { 
+        this.notifications.push(`${building} upgrade completed!`);
+        delete this.buildingTimers[building];
+        clearInterval(interval);
+        await this.loadNexusData(true);
+        this.cd.detectChanges();
+      }, endTime * 1000)
+    };
+     
+    const interval = setInterval(async () => {
+      if (this.buildingTimers[building]) {
+        const remainingTime = this.buildingTimers[building].endTime - 1; 
+        this.buildingTimers[building].endTime = remainingTime; 
+      }
+      this.cd.detectChanges();
+    }, 1000);
+  }
+
+   
   private async getBuildingUpgradesInfo() {
     if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return;
     const upRes = await this.nexusService.getBuildingUpgrades(this.parentRef.user, this.nexusBase);
-    if (upRes) { 
-      this.nexusAvailableUpgrades = upRes;
-      console.log(this.nexusAvailableUpgrades);
+    if (upRes) {
+      this.nexusAvailableUpgrades = upRes; 
     }
+    if (this.nexusBaseUpgrades) {
+      if (this.nexusBaseUpgrades.commandCenterUpgraded && !this.buildingTimers["command_center"]) { 
+        const startTime = this.nexusBaseUpgrades.commandCenterUpgraded;
+        this.primeTheTimer(startTime, "command_center");
+      }
+      if (this.nexusBaseUpgrades.supplyDepotUpgraded && !this.buildingTimers["supply_depot"]) { 
+        const startTime = this.nexusBaseUpgrades.supplyDepotUpgraded;
+        this.primeTheTimer(startTime, "supply_depot");
+      }
+      if (this.nexusBaseUpgrades.factoryUpgraded && !this.buildingTimers["factory"]) { 
+        const startTime = this.nexusBaseUpgrades.factoryUpgraded;
+        this.primeTheTimer(startTime, "factory");
+      }
+      if (this.nexusBaseUpgrades.starportUpgraded && !this.buildingTimers["starport"]) {
+        const startTime = this.nexusBaseUpgrades.starportUpgraded;
+        this.primeTheTimer(startTime, "starport");
+      }
+      if (this.nexusBaseUpgrades.minesUpgraded && !this.buildingTimers["mines"]) {
+        const startTime = this.nexusBaseUpgrades.minesUpgraded;
+        this.primeTheTimer(startTime, "mines");
+      }
+    } else {
+      this.reinitializeBuildingTimers();
+    }   
+  }
+  private primeTheTimer(startTime: Date, type: string) {
+    const startTimeTime = new Date(startTime).getTime(); 
+    const duration = this.nexusAvailableUpgrades.upgrades.find(u => u.building === type)?.duration || 0; 
+    const utcNow = new Date().getTime(); 
+    const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000; 
+    const remainingTimeInSeconds = duration - elapsedTimeInSeconds;
+
+    if (remainingTimeInSeconds > 0) {
+      this.startUpgradeTimer(type, remainingTimeInSeconds);
+    }
+  }
+  private async reinitializeBuildingTimers() { 
+    Object.keys(this.buildingTimers).forEach(building => {
+      if (this.buildingTimers[building]) {
+        clearTimeout(this.buildingTimers[building].timeout);
+        delete this.buildingTimers[building];
+      }
+    }); 
   }
 
   private async getMinesInfo() {
@@ -192,50 +231,31 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.miningSpeed = mineRes.speed;
     }
   }
+  private displayBuildings(nexusBaseUpgrades: NexusBaseUpgrades, value?: boolean) {
+    if (value) {
+      this.displayMines = value;
+      this.displayFactory = value;
+      this.displayStarport = value;
+      this.displaySupplyDepot = value;
+      this.displayCommandCenter = value;
+      return;
+    }
 
-  private displayBuildings(nexusBaseUpgrades: NexusBaseUpgrades) {
-    if (nexusBaseUpgrades.minesUpgraded || this.nexusBase.minesLevel > 0) {
-      this.displayMines = true;
-    } else {
-      this.displayMines = false;
-    }
-    if (nexusBaseUpgrades.factoryUpgraded || this.nexusBase.factoryLevel > 0) {
-      this.displayFactory = true;
-    } else {
-      this.displayFactory = false;
-    }
-    if (nexusBaseUpgrades.starportUpgraded || this.nexusBase.starportLevel > 0) {
-      this.displayStarport = true;
-    } else {
-      this.displayStarport = false;
-    }
-    if (nexusBaseUpgrades.supplyDepotUpgraded || this.nexusBase.supplyDepotLevel > 0) {
-      this.displaySupplyDepot = true;
-    } else {
-      this.displaySupplyDepot = false;
-    }
+    // Determine display properties based on upgrades and levels
+    this.displayMines = !!(nexusBaseUpgrades.minesUpgraded || this.nexusBase.minesLevel > 0);
+    this.displayFactory = !!(nexusBaseUpgrades.factoryUpgraded || this.nexusBase.factoryLevel > 0);
+    this.displayStarport = !!(nexusBaseUpgrades.starportUpgraded || this.nexusBase.starportLevel > 0);
+    this.displaySupplyDepot = !!(nexusBaseUpgrades.supplyDepotUpgraded || this.nexusBase.supplyDepotLevel > 0);
   }
-
-  async upgradeBuilding(upgrade: UpgradeDetail) {
-    let timerKey = this.buildingTimers[upgrade.building];
-    const upgradeTime = this.nexusAvailableUpgrades.upgrades.find(u => u.building === upgrade.building)?.duration! * 1000;
-
-    if (timerKey) {
-      // Clear the existing timer if any
-      if (timerKey) {
-        clearTimeout(timerKey);
-      }
-
-      // Set the new timer (example: setting it to 60 seconds)
-      timerKey = setTimeout(() => {
-        console.log(`${upgrade.building} upgrade completed!`);
-        timerKey = undefined;
-        this.cd.detectChanges();
-      }, upgradeTime);
-
-      this.cd.detectChanges();
+  async upgradeBuilding(upgrade: UpgradeDetail, duration: number) {
+    if (this.getBuildingCountersLength() >= this.nexusBase.commandCenterLevel + 1) {
+      return alert("Upgrade your Command Center for more worker slots");
     }
-
+    if (this.buildingTimers[upgrade.building]) {
+      return alert("You must wait until the upgrade finishes");
+    }
+  
+    // Perform the upgrade action
     switch (upgrade.building) {
       case 'mines':
         await this.upgradeMines();
@@ -249,67 +269,35 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       case 'supply_depot':
         await this.upgradeSupplyDepot();
         break;
-      case 'nexus':
-        await this.upgradeNexus();
+      case 'command_center':
+        await this.upgradeCommandCenter();
+        break;
+      default:
         break;
     }
   }
 
-  async upgradeNexus(): Promise<void> {
+
+  async upgradeCommandCenter(): Promise<void> {
     if (!this.parentRef || !this.parentRef.user) { return; }
 
-    this.notifications.push(await this.nexusService.upgradeNexus(this.parentRef.user, this.nexusBase));
+    this.notifications.push(await this.nexusService.upgradeCommandCenter(this.parentRef.user, this.nexusBase));
     await this.loadNexusData(true);
   }
 
 
   async upgradeMines() {
     if (!this.parentRef || !this.parentRef.user) { return; }
-     
-    if (this.upgradeMineTimer) {
-      clearTimeout(this.upgradeMineTimer);
-      this.upgradeMineTimer = undefined;
-      this.cd.detectChanges();
-      return;
-    } 
+
     this.notifications.push(await this.nexusService.upgradeMines(this.parentRef.user, this.nexusBase));
     await this.loadNexusData(true); 
-    this.upgradeMineTimer = 10;
-    const interval = setInterval(() => {
-      if (this.upgradeMineTimer !== undefined && this.upgradeMineTimer > 0) {
-        this.upgradeMineTimer--;
-        this.cd.detectChanges();
-      } else {
-        clearInterval(interval);
-        this.notifications.push('Mine upgrade completed');
-        this.nexusBase.minesLevel++;
-      }
-    }, 1000); // Update every second
   }
 
   async upgradeFactory() {
     if (!this.parentRef || !this.parentRef.user) { return; }
-     
-    if (this.upgradeFactoryTimer) {
-      clearTimeout(this.upgradeFactoryTimer);
-      this.upgradeFactoryTimer = undefined;
-      this.cd.detectChanges();
-      return;
-    }
 
     this.notifications.push(await this.nexusService.upgradeFactory(this.parentRef.user, this.nexusBase));
     await this.loadNexusData(true);
-    this.upgradeFactoryTimer = 120; // 2 minutes in seconds
-    const interval = setInterval(() => {
-      if (this.upgradeFactoryTimer !== undefined && this.upgradeFactoryTimer > 0) {
-        this.upgradeFactoryTimer--;
-        this.cd.detectChanges();
-      } else {
-        clearInterval(interval);
-        this.notifications.push('Factory upgrade completed');
-        this.factoryLevel++;
-      }
-    }, 1000); // Update every second
   }
 
 
@@ -341,14 +329,17 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       clearInterval(this.goldIncrementInterval);
     }
 
-    const intervalTime = this.miningSpeed * 1000; 
+    const intervalTime = this.miningSpeed * 1000;
 
     if (this.miningSpeed != 0) {
       this.goldIncrementInterval = setInterval(() => {
+        if (this.goldAmount >= this.supplyCapacity) {
+          this.stopGoldIncrement();
+        } 
         this.goldAmount += 1;
         this.cd.detectChanges();
       }, intervalTime);
-    } 
+    }
   }
 
 
@@ -360,5 +351,73 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   copyLink() {
     const link = `https://bughosted.com/War`;
     navigator.clipboard.writeText(link);
+  }
+  formatTimer(allSeconds: number): string {
+    const totalSeconds = allSeconds;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${Math.ceil(seconds)}`;
+  }
+  timeredNexusUpgrades(): UpgradeDetail[] {
+    if (this.nexusAvailableUpgrades && this.nexusAvailableUpgrades.upgrades && this.nexusAvailableUpgrades.upgrades.length > 0) {
+      return this.nexusAvailableUpgrades.upgrades.filter(upgrade => this.buildingTimers[upgrade.building]);
+    } else {
+      return [];
+    }
+  }
+  activeBuildingTimers(): { building: string; endTime: number }[] {
+    const activeTimers: { building: string; endTime: number }[] = [];
+
+    for (const building in this.buildingTimers) {
+      const timer = this.buildingTimers[building];
+      if (timer.endTime) {
+        activeTimers.push({ building: building, endTime: timer.endTime });
+      }
+    }
+
+    return activeTimers;
+  }
+
+  async closeUserComponent() {
+    this.isUserComponentOpen = false;
+    await this.loadNexusData();
+  }
+  openCommandCenter() {
+    this.isCommandCenterOpen = true;
+  }
+  closeCommandCenter() {
+    this.isCommandCenterOpen = false;
+  }
+  openMines() {
+    this.isMinesOpen = true;
+  }
+  closeMines() {
+    this.isMinesOpen = false;
+  }
+
+  openFactory() { 
+    this.isFactoryOpen = true;
+  }
+  closeFactory() {
+    this.isFactoryOpen = false;
+  }
+
+  openStarport() {
+    this.isStarportOpen = true;
+  }
+  closeStarport() {
+    this.isStarportOpen = false;
+  }
+  openSupplyDepot() {
+    this.isSupplyDepotOpen = true;
+  }
+  closeSupplyDepot() {
+    this.isSupplyDepotOpen = false;
+  }
+  getBuildingCountersLength() {
+    return Object.keys(this.buildingTimers).length;
+  }
+  getValidBuildingUpgrades() {
+    return this.nexusAvailableUpgrades.upgrades.filter(x => x.cost > 0);
   }
 }

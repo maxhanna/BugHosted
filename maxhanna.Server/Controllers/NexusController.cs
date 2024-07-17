@@ -23,11 +23,11 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/Nexus", Name = "GetBaseData")]
-        public async Task<IActionResult> GetBaseData([FromBody] User user)
+        public async Task<IActionResult> GetBaseData([FromBody] NexusRequest req)
         {
-            _logger.LogInformation($"POST /Nexus ({user.Id})");
+            _logger.LogInformation($"POST /Nexus ({req.user.Id}, {req.nexus?.CoordsX}:{req.nexus?.CoordsY})");
 
-            if (user == null || user.Id == 0)
+            if (req.user == null || req.user.Id == 0)
             {
                 return BadRequest("Invalid user data.");
             }
@@ -40,16 +40,24 @@ namespace maxhanna.Server.Controllers
 
                     NexusBase nexusBase = null;
                     NexusBaseUpgrades nexusBaseUpgrades = null;
+                    if (req.nexus == null)
+                    {
+                        req.nexus = await GetUserFirstBase(req.user);
+                    } 
+                    if (req.nexus == null)
+                    {
+                        return BadRequest($"Base not found with user_id : {req.user.Id}");
+                    }
 
-                    // Start a transaction
                     MySqlTransaction transaction = await conn.BeginTransactionAsync();
 
                     try
                     {
                         // Retrieve data from nexus_bases
-                        string sqlBase = "SELECT * FROM nexus_bases WHERE user_id = @UserId";
+                        string sqlBase = "SELECT * FROM nexus_bases WHERE coords_x = @CoordsX AND coords_y = @CoordsY";
                         MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn, transaction);
-                        cmdBase.Parameters.AddWithValue("@UserId", user.Id);
+                        cmdBase.Parameters.AddWithValue("@CoordsX", req.nexus.CoordsX);
+                        cmdBase.Parameters.AddWithValue("@CoordsY", req.nexus.CoordsY);
 
                         using (var readerBase = await cmdBase.ExecuteReaderAsync())
                         {
@@ -72,43 +80,51 @@ namespace maxhanna.Server.Controllers
                             }
                         }
 
-                        if (nexusBase != null && nexusBase.Gold < 5000)
+                        if (nexusBase != null && nexusBase.Gold < (5000 * nexusBase.SupplyDepotLevel))
                         {
-                            await UpdateNexusGold(user, conn, nexusBase, transaction);
+                            await UpdateNexusGold(conn, nexusBase, transaction);
                         }
                         if (nexusBase != null)
                         {
-                            await UpdateNexusBuildings(user, conn, nexusBase, transaction);
-
+                            await UpdateNexusBuildings(conn, nexusBase, transaction);
                         }
 
-                        // Retrieve data from nexus_base_upgrades
-                        string sqlUpgrades = "SELECT * FROM nexus_base_upgrades WHERE user_id = @UserId";
-                        MySqlCommand cmdUpgrades = new MySqlCommand(sqlUpgrades, conn, transaction);
-                        cmdUpgrades.Parameters.AddWithValue("@UserId", user.Id);
-
-                        using (var readerUpgrades = await cmdUpgrades.ExecuteReaderAsync())
+                        if (nexusBase != null)
                         {
-                            if (await readerUpgrades.ReadAsync())
+                            // Retrieve data from nexus_base_upgrades
+                            string sqlUpgrades = @"
+                            SELECT * 
+                            FROM nexus_base_upgrades 
+                            WHERE 
+                                coords_x = @CoordsX 
+                            AND coords_y = @CoordsY";
+                            MySqlCommand cmdUpgrades = new MySqlCommand(sqlUpgrades, conn, transaction);
+                            cmdUpgrades.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
+                            cmdUpgrades.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
+
+                            using (var readerUpgrades = await cmdUpgrades.ExecuteReaderAsync())
                             {
-                                nexusBaseUpgrades = new NexusBaseUpgrades
+                                if (await readerUpgrades.ReadAsync())
                                 {
-                                    UserId = readerUpgrades.GetInt32("user_id"),
-                                    CoordsX = readerUpgrades.GetInt32("coords_x"),
-                                    CoordsY = readerUpgrades.GetInt32("coords_y"),
-                                    CommandCenterUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("command_center_upgraded")) ? null : readerUpgrades.GetDateTime("command_center_upgraded"),
-                                    MinesUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("mines_upgraded")) ? null : readerUpgrades.GetDateTime("mines_upgraded"),
-                                    SupplyDepotUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("supply_depot_upgraded")) ? null : readerUpgrades.GetDateTime("supply_depot_upgraded"),
-                                    FactoryUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("factory_upgraded")) ? null : readerUpgrades.GetDateTime("factory_upgraded"),
-                                    StarportUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("starport_upgraded")) ? null : readerUpgrades.GetDateTime("starport_upgraded"),
-                                };
+                                    nexusBaseUpgrades = new NexusBaseUpgrades
+                                    {
+                                        CoordsX = readerUpgrades.GetInt32("coords_x"),
+                                        CoordsY = readerUpgrades.GetInt32("coords_y"),
+                                        CommandCenterUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("command_center_upgraded")) ? null : readerUpgrades.GetDateTime("command_center_upgraded"),
+                                        MinesUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("mines_upgraded")) ? null : readerUpgrades.GetDateTime("mines_upgraded"),
+                                        SupplyDepotUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("supply_depot_upgraded")) ? null : readerUpgrades.GetDateTime("supply_depot_upgraded"),
+                                        FactoryUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("factory_upgraded")) ? null : readerUpgrades.GetDateTime("factory_upgraded"),
+                                        StarportUpgraded = readerUpgrades.IsDBNull(readerUpgrades.GetOrdinal("starport_upgraded")) ? null : readerUpgrades.GetDateTime("starport_upgraded"),
+                                    };
+                                }
                             }
                         }
+
 
                         // Commit the transaction
                         await transaction.CommitAsync();
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
                         await transaction.RollbackAsync();
                         throw;
@@ -124,8 +140,50 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        private async Task<NexusBase?> GetUserFirstBase(User user)
+        {
+            MySqlConnection conn1 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                await conn1.OpenAsync();
 
-        private async Task UpdateNexusGold(User user, MySqlConnection conn, NexusBase nexusBase, MySqlTransaction transaction)
+                // Insert new base at the available location
+                string sql = @"
+                            SELECT 
+                                user_id, coords_x, coords_y
+                            FROM 
+                                maxhanna.nexus_bases n
+                            WHERE user_id = @UserId
+                            LIMIT 1;";
+
+
+                MySqlCommand cmd = new MySqlCommand(sql, conn1);
+                cmd.Parameters.AddWithValue("@UserId", user.Id);
+
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        NexusBase tmpBase = new NexusBase();
+                        tmpBase.CoordsX = reader.IsDBNull(reader.GetOrdinal("coords_x")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_x"));
+                        tmpBase.CoordsY = reader.IsDBNull(reader.GetOrdinal("coords_y")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_y"));
+                        tmpBase.UserId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id"));
+                        return tmpBase;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"An error occurred getting first base for player {user.Id}"); 
+            }
+            finally
+            {
+                await conn1.CloseAsync();
+            }
+            return null;
+        }
+
+        private async Task UpdateNexusGold(MySqlConnection conn, NexusBase nexusBase, MySqlTransaction transaction)
         {
             if (nexusBase != null)
             {
@@ -146,20 +204,19 @@ namespace maxhanna.Server.Controllers
                     _logger.LogInformation("goldEarned " + goldEarned + "; since time elapsed: " + timeElapsed.TotalSeconds);
 
                     decimal newGoldAmount = nexusBase.Gold + goldEarned;
-                    if (newGoldAmount > 5000)
+                    if (newGoldAmount > (5000 * nexusBase.SupplyDepotLevel))
                     {
-                        newGoldAmount = 5000;
+                        newGoldAmount = (5000 * nexusBase.SupplyDepotLevel);
                     }
 
                     // Update gold in nexus_bases
                     string updateGoldSql = @"
                         UPDATE nexus_bases 
                         SET gold = @GoldEarned, updated = @Updated 
-                        WHERE user_id = @UserId AND coords_x = @CoordsX AND coords_y = @CoordsY";
+                        WHERE coords_x = @CoordsX AND coords_y = @CoordsY";
                     MySqlCommand updateGoldCmd = new MySqlCommand(updateGoldSql, conn, transaction);
                     updateGoldCmd.Parameters.AddWithValue("@GoldEarned", newGoldAmount);
-                    updateGoldCmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow);
-                    updateGoldCmd.Parameters.AddWithValue("@UserId", user.Id);
+                    updateGoldCmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow); 
                     updateGoldCmd.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                     updateGoldCmd.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
@@ -172,7 +229,7 @@ namespace maxhanna.Server.Controllers
         }
 
 
-        private async Task UpdateNexusBuildings(User user, MySqlConnection conn, NexusBase nexusBase, MySqlTransaction transaction)
+        private async Task UpdateNexusBuildings(MySqlConnection conn, NexusBase nexusBase, MySqlTransaction transaction)
         {
             if (nexusBase != null)
             {
@@ -187,9 +244,8 @@ namespace maxhanna.Server.Controllers
                 FROM 
                     nexus_base_upgrades 
                 WHERE 
-                    user_id = @UserId AND coords_x = @CoordsX AND coords_y = @CoordsY";
-                MySqlCommand cmdUpgrades = new MySqlCommand(sqlUpgrades, conn, transaction);
-                cmdUpgrades.Parameters.AddWithValue("@UserId", user.Id);
+                    coords_x = @CoordsX AND coords_y = @CoordsY";
+                MySqlCommand cmdUpgrades = new MySqlCommand(sqlUpgrades, conn, transaction); 
                 cmdUpgrades.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                 cmdUpgrades.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
@@ -219,10 +275,9 @@ namespace maxhanna.Server.Controllers
                                     SELECT duration 
                                     FROM nexus_base_upgrade_stats 
                                     WHERE building_type = (SELECT id FROM nexus_building_types WHERE type = @BuildingName) 
-                                    AND building_level = (SELECT " + levelColumn + @" FROM nexus_bases WHERE user_id = @UserId AND coords_x = @CoordsX AND coords_y = @CoordsY)";
+                                    AND building_level = (SELECT " + levelColumn + @" FROM nexus_bases WHERE coords_x = @CoordsX AND coords_y = @CoordsY)";
                                 MySqlCommand cmdUpgradeStats = new MySqlCommand(sqlUpgradeStats, conn, transaction);
                                 cmdUpgradeStats.Parameters.AddWithValue("@BuildingName", buildingName);
-                                cmdUpgradeStats.Parameters.AddWithValue("@UserId", user.Id);
                                 cmdUpgradeStats.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                                 cmdUpgradeStats.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
@@ -231,32 +286,37 @@ namespace maxhanna.Server.Controllers
                                 {
                                     _logger.LogInformation("duration result: " + durationResult);
                                     int duration = Convert.ToInt32(durationResult);
-                                    TimeSpan timeElapsed = DateTime.UtcNow - upgradeStart.Value;
+                                    TimeSpan timeElapsed = DateTime.Now - upgradeStart.Value;
                                     if (timeElapsed.TotalSeconds >= duration)
                                     {
                                         // Update the building level
                                         string updateLevelSql = @"
                                             UPDATE nexus_bases 
-                                            SET " + levelColumn + @" = " + levelColumn + @" + 1 
-                                            WHERE user_id = @UserId AND coords_x = @CoordsX AND coords_y = @CoordsY";
+                                            SET " + levelColumn + @" = " + levelColumn + @" + 1, updated = @Updated
+                                            WHERE coords_x = @CoordsX AND coords_y = @CoordsY";
                                         MySqlCommand updateLevelCmd = new MySqlCommand(updateLevelSql, conn, transaction);
-                                        updateLevelCmd.Parameters.AddWithValue("@UserId", user.Id);
+                                        updateLevelCmd.Parameters.AddWithValue("@Updated", DateTime.Now);
                                         updateLevelCmd.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                                         updateLevelCmd.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
                                         await updateLevelCmd.ExecuteNonQueryAsync();
+
+                                        if (buildingName == "mines") { nexusBase.MinesLevel++; } 
+                                        else if (buildingName == "command_center") { nexusBase.CommandCenterLevel++; } 
+                                        else if (buildingName == "supply_depot") { nexusBase.SupplyDepotLevel++; }
+                                        else if (buildingName == "factory") { nexusBase.FactoryLevel++; }
+                                        else if (buildingName == "starport") { nexusBase.StarportLevel++; }
 
                                         // Reset the upgrade start time
                                         string resetUpgradeSql = @"
                                             UPDATE nexus_base_upgrades 
                                             SET " + upgradeStartColumn + @" = NULL 
-                                            WHERE user_id = @UserId AND coords_x = @CoordsX AND coords_y = @CoordsY";
+                                            WHERE coords_x = @CoordsX AND coords_y = @CoordsY";
                                         MySqlCommand resetUpgradeCmd = new MySqlCommand(resetUpgradeSql, conn, transaction);
-                                        resetUpgradeCmd.Parameters.AddWithValue("@UserId", user.Id);
                                         resetUpgradeCmd.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                                         resetUpgradeCmd.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
                                         await resetUpgradeCmd.ExecuteNonQueryAsync();
 
-                                        _logger.LogInformation($"{buildingName} upgraded to level {levelColumn + 1} for user {user.Id}");
+                                        _logger.LogInformation($"{buildingName} upgraded to level {levelColumn + 1} for nexus {nexusBase.CoordsX}:{nexusBase.CoordsY}");
                                     }
                                 }
                             }
@@ -378,7 +438,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> GetMinesInfo([FromBody] NexusRequest request)
         {
             _logger.LogInformation($"POST /Nexus/GetMinesInfo for player {request.user.Id}");
-            var speed = 0;
+            Decimal speed = Decimal.One;
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
@@ -395,20 +455,18 @@ namespace maxhanna.Server.Controllers
                         maxhanna.nexus_bases n ON s.mines_level = n.mines_level 
                     WHERE 
                         n.coords_x = @CoordsX 
-                    AND n.coords_y = @CoordsY 
-                    AND n.user_id = @UserId";
+                    AND n.coords_y = @CoordsY";
 
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@CoordsX", request.nexus.CoordsX);
-                cmd.Parameters.AddWithValue("@CoordsY", request.nexus.CoordsY);
-                cmd.Parameters.AddWithValue("@UserId", request.user.Id);
+                cmd.Parameters.AddWithValue("@CoordsY", request.nexus.CoordsY); 
 
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     while (await reader.ReadAsync())
                     {
-                        speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetInt32(reader.GetOrdinal("speed"));
+                        speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetDecimal(reader.GetOrdinal("speed"));
                         break;
                     }
                 }
@@ -441,11 +499,16 @@ namespace maxhanna.Server.Controllers
                 await conn.OpenAsync();
 
                 string sqlCurrentLevels = @"
-                    SELECT command_center_level, mines_level, supply_depot_level, factory_level, starport_level
-                    FROM nexus_bases
-                    WHERE user_id = @UserId";
+                    SELECT 
+                        command_center_level, mines_level, supply_depot_level, factory_level, starport_level
+                    FROM 
+                        nexus_bases
+                    WHERE 
+                        coords_x = @CoordsX
+                    AND coords_y = @CoordsY";
                 MySqlCommand cmdCurrentLevels = new MySqlCommand(sqlCurrentLevels, conn);
-                cmdCurrentLevels.Parameters.AddWithValue("@UserId", request.user.Id);
+                cmdCurrentLevels.Parameters.AddWithValue("@CoordsX", request.nexus.CoordsX);
+                cmdCurrentLevels.Parameters.AddWithValue("@CoordsY", request.nexus.CoordsY);
 
                 var readerCurrentLevels = await cmdCurrentLevels.ExecuteReaderAsync();
                 if (!await readerCurrentLevels.ReadAsync())
@@ -464,9 +527,8 @@ namespace maxhanna.Server.Controllers
                 string sqlUpgradeTimestamps = @"
                     SELECT command_center_upgraded, mines_upgraded, supply_depot_upgraded, factory_upgraded, starport_upgraded
                     FROM nexus_base_upgrades
-                    WHERE user_id = @UserId AND coords_x = @CoordsX AND coords_y = @CoordsY";
+                    WHERE coords_x = @CoordsX AND coords_y = @CoordsY";
                 MySqlCommand cmdUpgradeTimestamps = new MySqlCommand(sqlUpgradeTimestamps, conn);
-                cmdUpgradeTimestamps.Parameters.AddWithValue("@UserId", request.user.Id);
                 cmdUpgradeTimestamps.Parameters.AddWithValue("@CoordsX", request.nexus.CoordsX);
                 cmdUpgradeTimestamps.Parameters.AddWithValue("@CoordsY", request.nexus.CoordsY);
 
@@ -535,20 +597,17 @@ namespace maxhanna.Server.Controllers
                 };
 
                 foreach (var (buildingName, currentLevel, lastUpgraded) in buildings)
-                {
-                    if (!lastUpgraded.HasValue)
+                { 
+                    int duration = durations.ContainsKey(buildingName) && durations[buildingName].ContainsKey(currentLevel) ? durations[buildingName][currentLevel] : 0;
+                    int cost = costs.ContainsKey(buildingName) && costs[buildingName].ContainsKey(currentLevel) ? costs[buildingName][currentLevel] : 0;
+                    availableUpgrades.Add(new
                     {
-                        int nextLevel = currentLevel + 1;
-                        int duration = durations.ContainsKey(buildingName) && durations[buildingName].ContainsKey(nextLevel) ? durations[buildingName][nextLevel] : 0;
-                        int cost = costs.ContainsKey(buildingName) && costs[buildingName].ContainsKey(nextLevel) ? costs[buildingName][nextLevel] : 0;
-                        availableUpgrades.Add(new
-                        {
-                            Building = buildingName,
-                            NextLevel = nextLevel,
-                            Duration = duration,
-                            Cost = cost
-                        });
-                    }
+                        Building = buildingName,
+                        NextLevel = currentLevel,
+                        Duration = duration,
+                        Cost = cost
+                    });
+                     
                 }
                 return Ok(new { Upgrades = availableUpgrades });
             }
@@ -618,6 +677,7 @@ namespace maxhanna.Server.Controllers
         {
             return UpgradeComponent(req.user, "supply_depot", req.nexus);
         }
+
         private async Task<IActionResult> UpgradeComponent(User user, string component, NexusBase nexus)
         {
             _logger.LogInformation($"POST /Nexus/Upgrade{component} ({user.Id})");
@@ -676,24 +736,53 @@ namespace maxhanna.Server.Controllers
                         return BadRequest("Not enough gold to upgrade.");
                     }
 
-                    // Update the nexus_base_upgrades table
-                    string insertUpgradeSql = $@"
-                        INSERT INTO nexus_base_upgrades (user_id, coords_x, coords_y, {component}_upgraded)
-                        VALUES (@UserId, @CoordsX, @CoordsY, @Timestamp)
-                        ON DUPLICATE KEY UPDATE {component}_upgraded = @Timestamp";
-                    MySqlCommand insertUpgradeCmd = new MySqlCommand(insertUpgradeSql, conn, transaction);
-                    insertUpgradeCmd.Parameters.AddWithValue("@UserId", user.Id);
-                    insertUpgradeCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
-                    insertUpgradeCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
-                    insertUpgradeCmd.Parameters.AddWithValue("@Timestamp", DateTime.UtcNow);
-                    await insertUpgradeCmd.ExecuteNonQueryAsync();
+                    // Check if a record exists in nexus_base_upgrades
+                    string selectSql = @"
+                        SELECT COUNT(*) 
+                        FROM nexus_base_upgrades 
+                        WHERE coords_x = @CoordsX AND coords_y = @CoordsY";
+                    MySqlCommand selectCmd = new MySqlCommand(selectSql, conn, transaction); 
+                    selectCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
+                    selectCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
+
+                    var exists = (long)await selectCmd.ExecuteScalarAsync() > 0;
+
+                    if (exists)
+                    {
+                        // Update the existing record
+                        string updateUpgradeSql = $@"
+                            UPDATE 
+                                nexus_base_upgrades 
+                            SET {component}_upgraded = @Timestamp 
+                            WHERE 
+                                coords_x = @CoordsX 
+                            AND coords_y = @CoordsY";
+                        MySqlCommand updateUpgradeCmd = new MySqlCommand(updateUpgradeSql, conn, transaction);
+                        updateUpgradeCmd.Parameters.AddWithValue("@Timestamp", DateTime.Now); 
+                        updateUpgradeCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
+                        updateUpgradeCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
+
+                        await updateUpgradeCmd.ExecuteNonQueryAsync();
+                    }
+                    else
+                    {
+                        // Insert a new record
+                        string insertUpgradeSql = $@"
+                            INSERT INTO nexus_base_upgrades (coords_x, coords_y, {component}_upgraded)
+                            VALUES (@CoordsX, @CoordsY, @Timestamp)";
+                        MySqlCommand insertUpgradeCmd = new MySqlCommand(insertUpgradeSql, conn, transaction);
+                        insertUpgradeCmd.Parameters.AddWithValue("@Timestamp", DateTime.Now); 
+                        insertUpgradeCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
+                        insertUpgradeCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
+
+                        await insertUpgradeCmd.ExecuteNonQueryAsync();
+                    }
 
                     // Update the nexus_bases table (subtract gold and increment level)
                     string updateBaseSql = $@"
                         UPDATE maxhanna.nexus_bases
                         SET 
-                            gold = gold - @UpgradeCost,
-                            {component}_level = {component}_level + 1
+                            gold = gold - @UpgradeCost
                         WHERE 
                             coords_x = @CoordsX
                             AND coords_y = @CoordsY
@@ -718,6 +807,7 @@ namespace maxhanna.Server.Controllers
                 }
             }
         }
+
 
     }
 }
