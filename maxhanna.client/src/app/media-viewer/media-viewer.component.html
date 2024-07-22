@@ -8,8 +8,12 @@
     <div class="shrinkMediaDiv cursorPointer" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
   <div class="mediaContainerDiv">
-    <div *ngIf="isLoading" class="loading-spinner">Loading...</div>
-    <div *ngIf="!isLoading && selectedFileSrc != ''" class="mediaDiv">
+    <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
+      <span class="clickToLoadText">Click here to load</span>
+      <span><img src="favicon.ico" /></span>
+    </div>
+    <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
+    <div *ngIf="!isLoading && autoload && selectedFileSrc != ''" class="mediaDiv">
       <img #mediaContainer *ngIf="this.imageFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="media" />
       <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
       <audio #mediaContainer

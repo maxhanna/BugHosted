@@ -163,7 +163,7 @@ namespace maxhanna.Server.Controllers
                     {
                         countCmd.Parameters.AddWithValue(param.Key, param.Value);
                     }
-                    _logger.LogInformation(countCmd.CommandText);
+                    //_logger.LogInformation(countCmd.CommandText);
 
                     totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
                 }
@@ -178,7 +178,7 @@ namespace maxhanna.Server.Controllers
                     }
 
                     _logger.LogInformation($"pageSize: {pageSize} offset: {offset}");
-                    _logger.LogInformation(cmd.CommandText);
+                    //_logger.LogInformation(cmd.CommandText);
 
                     using (var rdr = await cmd.ExecuteReaderAsync())
                     {
@@ -261,7 +261,7 @@ namespace maxhanna.Server.Controllers
                 {
                     // No need to use cmd.Parameters.AddWithValue for @storyIds because it's dynamically inserted
 
-                    _logger.LogInformation(cmd.CommandText);
+                    //_logger.LogInformation(cmd.CommandText);
 
                     using (var rdr = await cmd.ExecuteReaderAsync())
                     {
@@ -319,7 +319,7 @@ namespace maxhanna.Server.Controllers
                 {
                     // No need to use cmd.Parameters.AddWithValue for @storyIds because it's dynamically inserted
 
-                    _logger.LogInformation(cmd.CommandText);
+                    //_logger.LogInformation(cmd.CommandText);
 
                     using (var rdr = await cmd.ExecuteReaderAsync())
                     {

@@ -4,5 +4,7 @@ export interface NexusBaseUpgrades {
   minesUpgraded?: Date;
   supplyDepotUpgraded?: Date;
   factoryUpgraded?: Date;
+  engineeringBayUpgraded?: Date;
+  warehouseUpgraded?: Date;
   starportUpgraded?: Date;
 }

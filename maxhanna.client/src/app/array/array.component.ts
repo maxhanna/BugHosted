@@ -54,6 +54,10 @@ export class ArrayComponent extends ChildComponent implements OnInit {
     if (heroRes) {
       this.hero = heroRes;
       this.itemsFound = this.hero.itemsFound!;
+      if (this.hero.monstersKilled) {
+        this.isDead = false;
+        this.canMove = true;
+      }
     }
     await this.GetGraveyardHero();
 
@@ -292,7 +296,9 @@ export class ArrayComponent extends ChildComponent implements OnInit {
     navigator.clipboard.writeText(link);
   }
 
-  async closeUserComponent() {
+  async closeUserComponent(user: User) {
+    if (!this.parentRef) return;
+    this.parentRef.user = user;
     await this.refreshHeroData();
     this.isUserComponentClosed = true; 
   }

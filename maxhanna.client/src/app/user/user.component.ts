@@ -27,7 +27,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   @Input() loginOnly?: boolean | undefined;
   @Input() inputtedParentRef?: AppComponent | undefined;
   @Input() loginReasonMessage?: string | undefined;
-  @Output() closeUserComponentEvent = new EventEmitter<void>();
+  @Output() closeUserComponentEvent = new EventEmitter<User>();
 
 
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
@@ -325,7 +325,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
         if (this.loginOnly) {
           console.log("closing emit");
-          this.closeUserComponentEvent.emit();
+          this.closeUserComponentEvent.emit(tmpUser);
         }
       } else {
         this.notifications.push("Access denied");

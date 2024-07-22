@@ -47,7 +47,8 @@
                                   [displayExtraInfo]="false"
                                   [showCommentSection]="false"
                                   [user]="parentRef?.user"
-                                  [autoplay]="false">
+                                  [autoplay]="true"
+                                  [autoload]="false">
                 </app-media-viewer>
               </div>
               <app-reaction [messageId]="message.id" [user]="parentRef?.user" [currentReactions]="message.reactions"></app-reaction>
@@ -65,7 +66,8 @@
                                     [displayExtraInfo]="false"
                                     [showCommentSection]="false"
                                     [user]="parentRef?.user"
-                                    [autoplay]="false">
+                                    [autoplay]="true"
+                                    [autoload]="false">
                   </app-media-viewer>
                 </div>
               </div>

@@ -10,14 +10,18 @@
   </div>
 
   <div class="gamescreen" [style.display]="!isUserNew ? 'block':'none'">
-    <div>🪙: {{ goldAmount | number:'1.2-2' }} x: {{currentBaseLocationX}} y: {{currentBaseLocationY}}</div>
+    <div>
+      <span title="Gold" class="resourceSpan">🪙:{{ goldAmount | number:'1.2-2' }}</span>
+      <span title="Supply Capacity" class="resourceSpan" *ngIf="nexusBase && nexusBase.supply && supplyCapacity">👤:{{supplyCapacity - nexusBase.supply ?? 0}}</span>
+      <span title="Nexus location" class="resourceSpan">📍:{{'{' + currentBaseLocationX + ',' + currentBaseLocationY + '}'}}</span>
+    </div>
 
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user">
       <app-nexus-map #mapComponent [user]="parentRef.user"></app-nexus-map>
     </div>
 
 
-    <div class="nexusBackground" *ngIf="nexusBackgroundPicture && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen">
+    <div class="nexusBackground" *ngIf="nexusBackgroundPicture" [style.display]="!isMinesOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen ? 'block' : 'none' ">
       <app-media-viewer [file]="nexusBackgroundPicture"
                         [currentDirectory]="nexusBackgroundPicture.directory"
                         [inputtedParentRef]="parentRef"
@@ -28,7 +32,7 @@
                         [displayExpander]="false">
       </app-media-viewer>
     </div>
-    <ng-content *ngIf="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && nexusBase">
+    <div [style.display]="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && nexusBase ? 'block' : 'none'">
       <div class="building">
         <div class="commandCenter buildingPicture" *ngIf="commandCenterPicture" (click)="openCommandCenter()" title="Command Center">
           <app-media-viewer [file]="commandCenterPicture"
@@ -41,7 +45,7 @@
                             [displayExpander]="false">
           </app-media-viewer>
         </div>
-        <span class="levelLabel commandCenterLevelDisplay">
+        <span class="levelLabel commandCenterLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.commandCenterLevel ? nexusBase.commandCenterLevel : ''}}
           <span class="timerLabel">
             {{buildingTimers["command_center"] ? formatTimer(buildingTimers["command_center"].endTime) : ''}}
@@ -49,7 +53,7 @@
         </span>
       </div>
 
-      <div class="building" [style.visibility]="displayMines ?  'visible' : 'hidden'">
+      <div class="building" [style.display]="displayMines ?  'block' : 'none'">
         <div class="buildingPicture mines" *ngIf="minesPicture" (click)="openMines();" title="Mines">
           <app-media-viewer [file]="minesPicture"
                             [currentDirectory]="minesPicture.directory"
@@ -61,10 +65,52 @@
                             [displayExpander]="false">
           </app-media-viewer>
         </div>
-        <span class="levelLabel minesLevelDisplay">
+        <span class="levelLabel minesLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.minesLevel ? nexusBase.minesLevel : ''}}
           <span class="timerLabel">
             {{buildingTimers["mines"] ? formatTimer(buildingTimers["mines"].endTime) : ''}}
+          </span>
+        </span>
+      </div>
+
+
+      <div class="building" [style.visibility]="displayEngineeringBay ?  'visible' : 'hidden'">
+        <div class="buildingPicture engineeringBay" *ngIf="engineeringBayPicture" (click)="openEngineeringBay();" title="Engineering Bay">
+          <app-media-viewer [file]="engineeringBayPicture"
+                            [currentDirectory]="engineeringBayPicture.directory"
+                            [inputtedParentRef]="parentRef"
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="parentRef?.user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+        <span class="levelLabel engineeringBayLevelDisplay" *ngIf="nexusBase">
+          {{nexusBase.engineeringBayLevel ? nexusBase.engineeringBayLevel : ''}}
+          <span class="timerLabel">
+            {{buildingTimers["engineering_bay"] ? formatTimer(buildingTimers["engineering_bay"].endTime) : ''}}
+          </span>
+        </span>
+      </div>
+
+
+      <div class="building" [style.visibility]="displayWarehouse ?  'visible' : 'hidden'">
+        <div class="buildingPicture warehouse" *ngIf="warehousePicture" (click)="openWarehouse();" title="Warehouse">
+          <app-media-viewer [file]="warehousePicture"
+                            [currentDirectory]="warehousePicture.directory"
+                            [inputtedParentRef]="parentRef"
+                            [displayExtraInfo]="false"
+                            [showCommentSection]="false"
+                            [user]="parentRef?.user"
+                            [autoplay]="true"
+                            [displayExpander]="false">
+          </app-media-viewer>
+        </div>
+        <span class="levelLabel warehouseLevelDisplay" *ngIf="nexusBase">
+          {{nexusBase.warehouseLevel ? nexusBase.warehouseLevel : ''}}
+          <span class="timerLabel">
+            {{buildingTimers["warehouse"] ? formatTimer(buildingTimers["warehouse"].endTime) : ''}}
           </span>
         </span>
       </div>
@@ -81,7 +127,7 @@
                             [displayExpander]="false">
           </app-media-viewer>
         </div>
-        <span class="levelLabel factoryLevelDisplay">
+        <span class="levelLabel factoryLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.factoryLevel ? nexusBase.factoryLevel : ''}}
           <span class="timerLabel">
             {{buildingTimers["factory"] ? formatTimer(buildingTimers["factory"].endTime) : ''}}
@@ -101,7 +147,7 @@
                             [displayExpander]="false">
           </app-media-viewer>
         </div>
-        <span class="levelLabel starportLevelDisplay">
+        <span class="levelLabel starportLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.starportLevel ? nexusBase.starportLevel : ''}}
           <span class="timerLabel">
             {{buildingTimers["starport"] ? formatTimer(buildingTimers["starport"].endTime) : ''}}
@@ -121,17 +167,17 @@
                             [displayExpander]="false">
           </app-media-viewer>
         </div>
-        <span class="levelLabel supplyDepotLevelDisplay">
+        <span class="levelLabel supplyDepotLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.supplyDepotLevel ? nexusBase.supplyDepotLevel : ''}}
           <span class="timerLabel">
             {{buildingTimers["supply_depot"] ? formatTimer(buildingTimers["supply_depot"].endTime) : ''}}
           </span>
         </span>
       </div>
-    </ng-content>
+    </div>
 
 
-    <div class="commandCenterBackground" *ngIf="commandCenterPicture && isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && !isUserNew">
+    <div class="commandCenterBackground" *ngIf="commandCenterPicture" [style.display]="isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
       <app-media-viewer [file]="commandCenterPicture"
                         [currentDirectory]="commandCenterPicture.directory"
                         [inputtedParentRef]="parentRef"
@@ -142,20 +188,19 @@
                         [displayExpander]="false">
       </app-media-viewer>
     </div>
-    <div *ngIf="isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && !isUserNew" class="commandCenterScreen">
+    <div *ngIf="nexusBase" [style.display]="isCommandCenterOpen && !isMapOpen && !isUserNew && nexusBase ? 'block' : 'none'" class="commandCenterScreen">
       <div>
-        <p class="notification">Upgrade the Command Center to gain more worker slots.</p>
-        <p class="notification">Worker slots allow you to upgrade more buildings simultaneously. Current upgrade limit : {{nexusBase.commandCenterLevel}}</p>
-        <p>To upgrade the Command Center:</p>
-        <p class="notification">Build a Mine</p>
-        <p class="notification">Build a Factory</p>
-
+        <p class="">
+          Upgrade the Command Center to gain more worker slots.
+          Worker slots allow you to upgrade more buildings simultaneously.
+        </p>
+        <p class="upgradeProgressDisplayP">Current upgrade limit : {{nexusBase.commandCenterLevel + 1}}</p>
         <button (click)="closeCommandCenter()">Back</button>
       </div>
 
     </div>
 
-    <div class="supplyDepotBackground" *ngIf="supplyDepotPicture && isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isCommandCenterOpen && !isMapOpen && !isUserNew">
+    <div class="supplyDepotBackground" *ngIf="supplyDepotPicture" [style.display]="supplyDepotPicture && isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isCommandCenterOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
       <app-media-viewer [file]="supplyDepotPicture"
                         [currentDirectory]="supplyDepotPicture.directory"
                         [inputtedParentRef]="parentRef"
@@ -166,44 +211,94 @@
                         [displayExpander]="false">
       </app-media-viewer>
     </div>
-    <div *ngIf="isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isCommandCenterOpen && !isMapOpen && !isUserNew" class="supplyDepotScreen">
+    <div [style.display]="isSupplyDepotOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="supplyDepotScreen">
       <div>
-        <p></p>Current supply capacity : {{supplyCapacity}}🪙
-        <div class="supplyDepotLevelsDiv">
+        Current supply capacity: {{supplyCapacity}}
+        <button (click)="closeSupplyDepot()">Back</button>
+      </div>
+    </div>
+
+
+    <div class="factoryBackground" *ngIf="factoryPicture" [style.display]="factoryPicture && isFactoryOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
+      <app-media-viewer [file]="factoryPicture"
+                        [currentDirectory]="factoryPicture.directory"
+                        [inputtedParentRef]="parentRef"
+                        [displayExtraInfo]="false"
+                        [showCommentSection]="false"
+                        [user]="parentRef?.user"
+                        [autoplay]="true"
+                        [displayExpander]="false">
+      </app-media-viewer>
+    </div>
+    <div [style.display]="isFactoryOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="factoryScreen">
+      <div>
+        Units currently available:
+        <div class="unitsTableDiv">
           <table class="mainTable">
             <thead>
               <tr>
-                <th>Supply Depot Level</th>
-                <th>Capacity</th> 
+                <th>Unit</th>
+                <th>Name</th>
+                <th colspan="4">🪙</th>
               </tr>
             </thead>
-            <tbody>
-              <tr *ngFor="let i of supplyDepotUpgradeLevels">
-                <td>{{i}}</td>
-                <td>{{5000 * i}}🪙</td>
+            <tbody *ngFor="let unit of getFactoryUnits()">
+              <tr>
+                <td class="unitPictureTd">
+                  <span class="unitPicture" *ngIf="unit.picture">
+                    <app-media-viewer [file]="unit.picture"
+                                      [currentDirectory]="unit.picture.directory"
+                                      [inputtedParentRef]="parentRef"
+                                      [displayExtraInfo]="false"
+                                      [showCommentSection]="false"
+                                      [user]="parentRef?.user"
+                                      [autoplay]="true"
+                                      [displayExpander]="false">
+                    </app-media-viewer>
+                  </span>
+                </td>
+                <td class="unitPictureTd">
+                  {{ unit.unitType }}
+                </td>
+                <td class="unitSliderTd">
+                  <input type="range" class="unitSliderTd" [value]="unit.purchasedValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
+                </td>
+                <td>
+                  {{unit.purchasedValue ? unit.purchasedValue : '0'}}
+                </td>
+                <td class="unitPictureTd">
+                  <button [disabled]="!unit.purchasedValue" (click)="purchaseUnit(unit.unitId)">✔️</button>
+                </td>
+              </tr>
+              <tr *ngIf="unit.purchasedValue">
+                <td></td>
+                <td class="smallFont" colspan="3">
+                  🪙{{ unit.purchasedValue * unit.cost }}
+                  ⏱️{{ unit.purchasedValue ? formatTimer(unit.duration * ((unit.purchasedValue ?? 1) / unit.cost)) : '0' }}
+                  <span [class]="(unit.purchasedValue * unit.supply) > supplyCapacity ? 'redText' : ''">👤{{ unit.purchasedValue && unit.supply ? (unit.purchasedValue * unit.supply) : ''}}</span>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
-
-
-          <button (click)="closeSupplyDepot()">Back</button>
-        </div>
+        <button (click)="closeFactory()">Back</button>
       </div>
+    </div>
 
 
-      <div class="factoryBackground" *ngIf="factoryPicture && isFactoryOpen && !isMinesOpen && !isStarportOpen && !isSupplyDepotOpen && !isMapOpen && !isUserNew">
-        <app-media-viewer [file]="factoryPicture"
-                          [currentDirectory]="factoryPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
-      </div>
-      <div *ngIf="isFactoryOpen && !isMinesOpen && !isStarportOpen && !isSupplyDepotOpen && !isMapOpen && !isUserNew" class="factoryScreen">
+    <div class="starportBackground" *ngIf="starportPicture" [style.display]="isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
+      <app-media-viewer [file]="starportPicture"
+                        [currentDirectory]="starportPicture.directory"
+                        [inputtedParentRef]="parentRef"
+                        [displayExtraInfo]="false"
+                        [showCommentSection]="false"
+                        [user]="parentRef?.user"
+                        [autoplay]="true"
+                        [displayExpander]="false">
+      </app-media-viewer>
+    </div>
+    <div [style.display]="isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="starportScreen">
+      <div>
         <div>
           Units currently available:
           <div class="unitsTableDiv">
@@ -212,16 +307,15 @@
                 <tr>
                   <th>Unit</th>
                   <th>Name</th>
-                  <th>🪙</th>
-                  <th>Duration</th>
+                  <th colspan="4">🪙</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody *ngFor="let unit of getStarportUnits()">
                 <tr>
-                  <td>
-                    <span class="unitPicture" *ngIf="marinePicture">
-                      <app-media-viewer [file]="marinePicture"
-                                        [currentDirectory]="marinePicture.directory"
+                  <td class="unitPictureTd">
+                    <span class="unitPicture" *ngIf="unit.picture">
+                      <app-media-viewer [file]="unit.picture"
+                                        [currentDirectory]="unit.picture.directory"
                                         [inputtedParentRef]="parentRef"
                                         [displayExtraInfo]="false"
                                         [showCommentSection]="false"
@@ -231,123 +325,172 @@
                       </app-media-viewer>
                     </span>
                   </td>
-                  <td>
-                    Marine
+                  <td class="unitPictureTd">
+                    {{ unit.unitType }}
+                  </td>
+                  <td class="unitSliderTd">
+                    <input type="range" class="unitSliderTd" [value]="unit.purchasedValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
                   </td>
                   <td>
-                    0
+                    {{unit.purchasedValue ? unit.purchasedValue : '0'}}
                   </td>
-                  <td>
-                    0
+                  <td class="unitPictureTd">
+                    <button [disabled]="!unit.purchasedValue" (click)="purchaseUnit(unit.unitId)">✔️</button>
+                  </td>
+                </tr>
+                <tr *ngIf="unit.purchasedValue">
+                  <td></td>
+                  <td class="smallFont" colspan="3">
+                    🪙{{ unit.purchasedValue * unit.cost }}
+                    ⏱️{{ unit.purchasedValue ? formatTimer(unit.duration * ((unit.purchasedValue ?? 1) / unit.cost)) : '0' }}
+                    <span [class]="(unit.purchasedValue * unit.supply) > supplyCapacity ? 'redText' : ''">👤{{ unit.purchasedValue && unit.supply ? (unit.purchasedValue * unit.supply) : ''}}</span>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-
-          <div class="closeScreenButtonDiv">
-            <button (click)="closeFactory()">Back</button>
-          </div>
         </div>
-      </div>
-
-
-      <div class="starportBackground" *ngIf="starportPicture && isStarportOpen && !isFactoryOpen && !isMinesOpen && !isSupplyDepotOpen && !isMapOpen && !isUserNew">
-        <app-media-viewer [file]="starportPicture"
-                          [currentDirectory]="starportPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
-      </div>
-      <div *ngIf="isStarportOpen && !isFactoryOpen && !isMinesOpen && !isSupplyDepotOpen && !isMapOpen && !isUserNew" class="starportScreen">
-        <div>
-          Starport stuff
-          <button (click)="closeStarport()">Back</button>
-        </div>
-      </div>
-
-
-      <div class="minesBackground" *ngIf="minesPicture && isMinesOpen && !isStarportOpen && !isFactoryOpen && !isSupplyDepotOpen && !isMapOpen && !isUserNew">
-        <app-media-viewer [file]="minesPicture"
-                          [currentDirectory]="minesPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
-      </div>
-      <div *ngIf="isMinesOpen && !isStarportOpen && !isFactoryOpen && !isSupplyDepotOpen && !isMapOpen && !isUserNew" class="minesScreen">
-
-        <div>
-          To upgrade the mines:
-          <p class="notification">Reach 300 supply capacity.</p>
-
-          Current mining speed: {{miningSpeed}}
-          <button (click)="closeMines()">Back</button>
-        </div>
+        <button (click)="closeStarport()">Back</button>
       </div>
     </div>
 
-    <div class="upgradesTableDiv" *ngIf="isCommandCenterOpen && !isMapOpen && !isUserNew">
-      Upgrades Available:
-      <table class="mainTable">
-        <thead>
-          <tr>
-            <th>Building</th>
-            <th>Level</th>
-            <th>🪙</th>
-            <th>Duration</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let upgrade of getValidBuildingUpgrades()">
-            <td>{{upgrade.building}}</td>
-            <td>{{upgrade.nextLevel + 1}}</td>
-            <td>{{upgrade.cost}}</td>
-            <td>{{upgrade.duration}}s</td>
-            <td>
-              <button (click)="upgradeBuilding(upgrade, upgrade.duration)" #upgradeButton>
-                {{ buildingTimers[upgrade.building] ? formatTimer(buildingTimers[upgrade.building]?.endTime!) : '🔧' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+
+    <div class="warehouseBackground" *ngIf="warehousePicture" [style.display]="isWarehouseOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
+      <app-media-viewer [file]="warehousePicture"
+                        [currentDirectory]="warehousePicture.directory"
+                        [inputtedParentRef]="parentRef"
+                        [displayExtraInfo]="false"
+                        [showCommentSection]="false"
+                        [user]="parentRef?.user"
+                        [autoplay]="true"
+                        [displayExpander]="false">
+      </app-media-viewer>
     </div>
-
-    <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
-
-    <div class="upgradeTimersTableDiv" *ngIf="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen">
-      <ng-container *ngIf="activeBuildingTimers().length > 0">
-        <p>Upgrades in progress:</p>
-        <div *ngFor="let timer of activeBuildingTimers()">
-          <div>
-            {{ timer.building }} - Remaining time: {{ formatTimer(timer.endTime) }}
-          </div>
+    <div [style.display]="isWarehouseOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="warehouseScreen">
+      <div>
+        <p></p>Current gold capacity : {{goldCapacity}}🪙
+        <div class="warehouseLevelsDiv">
+          <table class="mainTable">
+            <thead>
+              <tr>
+                <th>Warehouse Level</th>
+                <th>Capacity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let i of warehouseUpgradeLevels">
+                <td>{{i}}</td>
+                <td>{{5000 * (i + 1)}}🪙</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </ng-container>
-      <ng-container *ngIf="activeBuildingTimers().length === 0">
-        <p>No upgrades in progress.</p>
-      </ng-container>
+        <button (click)="closeWarehouse()">Back</button>
+      </div>
     </div>
 
 
-
-    <div *ngIf="isUserComponentOpen">
-      <app-user [loginOnly]="true"
-                [inputtedParentRef]="parentRef"
-                (closeUserComponentEvent)="closeUserComponent()"
-                [loginReasonMessage]="'You must log in to fight in the Bug Wars.'"></app-user>
+    <div class="engineeringBayBackground" *ngIf="engineeringBayPicture" [style.display]="isEngineeringBayOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
+      <app-media-viewer [file]="engineeringBayPicture"
+                        [currentDirectory]="engineeringBayPicture.directory"
+                        [inputtedParentRef]="parentRef"
+                        [displayExtraInfo]="false"
+                        [showCommentSection]="false"
+                        [user]="parentRef?.user"
+                        [autoplay]="true"
+                        [displayExpander]="false">
+      </app-media-viewer>
+    </div>
+    <div [style.display]="isEngineeringBayOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="engineeringBayScreen">
+      <div>
+        Upgrade units and create a drone that converts a Command Center to your ownership.
+        <button (click)="closeEngineeringBay()">Back</button>
+      </div>
     </div>
 
-    <div class="shareMapButtonDiv">
-      <button (click)="copyLink()" title="Share Link">Share 📋</button>
-      <button (click)="viewMap()" title="View Map">Map 🗺️</button>
+
+    <div class="minesBackground" *ngIf="minesPicture" [style.display]="isMinesOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
+      <app-media-viewer [file]="minesPicture"
+                        [currentDirectory]="minesPicture.directory"
+                        [inputtedParentRef]="parentRef"
+                        [displayExtraInfo]="false"
+                        [showCommentSection]="false"
+                        [user]="parentRef?.user"
+                        [autoplay]="true"
+                        [displayExpander]="false">
+      </app-media-viewer>
+    </div>
+    <div [style.display]="isMinesOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="minesScreen"> 
+      <div>
+        Current mining speed: {{miningSpeed}}
+        <button (click)="closeMines()">Back</button>
+      </div>
     </div>
   </div>
+
+  <div class="upgradesTableDiv" [style.display]="isCommandCenterOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
+    Upgrades Available:
+    <table class="mainTable">
+      <thead>
+        <tr>
+          <th>Building</th>
+          <th>Level</th>
+          <th>🪙</th>
+          <th>Duration</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let upgrade of getValidBuildingUpgrades()">
+          <td>{{upgrade.building}}</td>
+          <td>{{upgrade.nextLevel + 1}}</td>
+          <td>{{upgrade.cost}}</td>
+          <td>{{upgrade.duration}}s</td>
+          <td>
+            <button (click)="upgradeBuilding(upgrade, upgrade.duration)" #upgradeButton>
+              {{ buildingTimers[upgrade.building] ? formatTimer(buildingTimers[upgrade.building].endTime) : '🔧' }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
+    <ng-container *ngIf="activeBuildingTimers().length > 0">
+      <p>Upgrades in progress:</p>
+      <div *ngFor="let timer of activeBuildingTimers()">
+        <p class="upgradeProgressDisplayP">
+          {{ timer.building }} - {{ formatTimer(timer.endTime) }}
+        </p>
+      </div>
+    </ng-container>
+    <ng-container *ngIf="activeBuildingTimers().length === 0">
+      <p>No upgrades in progress.</p>
+    </ng-container>
+  </div>
+
+  <div *ngIf="nexusUnits && (nexusUnits.marineTotal > 0 || nexusUnits.goliathTotal > 0 || nexusUnits.battlecruiserTotal > 0 || nexusUnits.wraithTotal > 0 || nexusUnits.siegeTankTotal > 0)">
+    <p *ngIf="nexusUnits.marineTotal > 0">Marines {{nexusUnits.marineTotal}}</p>
+    <p *ngIf="nexusUnits.goliathTotal > 0">Goliath {{nexusUnits.goliathTotal}}</p>
+    <p *ngIf="nexusUnits.siegeTankTotal > 0">Siege Tanks {{nexusUnits.siegeTankTotal}}</p>
+    <p *ngIf="nexusUnits.wraithTotal > 0">Wraith {{nexusUnits.wraithTotal}}</p>
+    <p *ngIf="nexusUnits.battlecruiserTotal > 0">Battlecruisers {{nexusUnits.battlecruiserTotal}}</p>
+  </div>
+  <div *ngIf="nexusUnits && !(nexusUnits.marineTotal > 0 || nexusUnits.goliathTotal > 0 || nexusUnits.battlecruiserTotal > 0 || nexusUnits.wraithTotal > 0 || nexusUnits.siegeTankTotal > 0)">
+    No Units
+  </div>
+
+  <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
+
+  <div *ngIf="isUserComponentOpen">
+    <app-user [loginOnly]="true"
+              [inputtedParentRef]="parentRef"
+              (closeUserComponentEvent)="closeUserComponent($event)"
+              [loginReasonMessage]="'You must log in to fight in the Bug Wars.'"></app-user>
+  </div>
+
+  <div class="shareMapButtonDiv">
+    <button (click)="copyLink()" title="Share Link">Share 📋</button>
+    <button (click)="viewMap()" title="View Map">Map 🗺️</button>
+  </div>
+</div>

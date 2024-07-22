@@ -22,18 +22,19 @@
   cursor: pointer;
 }
 
-.fullscreen-media { 
+.fullscreen-media {
   max-width: 98vw;
   object-fit: contain;
-  margin-left:auto;
-  margin-right:auto;
+  margin-left: auto;
+  margin-right: auto;
 }
+
 .mediaDiv {
-    background-color:transparent;
-    display:block;
-    margin-left:auto;
-    margin-right:auto; 
-    text-align:center;
+  background-color: transparent;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
 }
 
 .media {
@@ -45,24 +46,29 @@
   cursor: default;
   object-fit: contain;
 }
-.mediaContainerWrapperDiv{
-    width:100%;
-    display:flex;
-    justify-content:center;
+
+.mediaContainerWrapperDiv {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
-.mediaContainerDiv{
-    max-height:60vh; 
-    overflow:auto; 
-    object-fit:contain; 
+
+.mediaContainerDiv {
+  max-height: 60vh;
+  overflow: auto;
+  object-fit: contain;
 }
+
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-  .mediaContainerDiv { 
-    width: 45vh; 
+  .mediaContainerDiv {
+    width: 45vh;
   }
 }
+
 .displayExpander {
-    font-size: 8px;
+  font-size: 8px;
 }
+
 .attachmentMedia {
   display: block;
   border: var(--main-border);
@@ -70,7 +76,31 @@
   max-height: 525px;
   overflow-y: auto;
 }
+
 .audio {
-    width:220px;
-    height:25px;
+  width: 220px;
+  height: 25px;
+}
+
+.noAutoLoadDiv {
+  height: 75px;
+  width: 75px;
+  font-size: small;
+  padding: 10px;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  flex-flow: column;
+  text-align: center;
+  color: var(--secondary-font-color);
+}
+
+  .noAutoLoadDiv span {
+    position: relative;
+    left: 0px;
+    top: 0px;
+  }
+
+.clickToLoadText {
+  z-index: 2;
 }

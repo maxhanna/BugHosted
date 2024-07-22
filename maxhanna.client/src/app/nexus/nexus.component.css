@@ -63,7 +63,17 @@
   left: 225px;
 }
 
-.supplyDepotScreen, .starportScreen, .minesScreen, .factoryScreen, .commandCenterScreen {
+.warehouse, .warehouseLevelDisplay {
+  top: 8px;
+  left: 95px;
+}
+
+.engineeringBay, .engineeringBayLevelDisplay {
+  top: 90px;
+  left: 250px;
+}
+
+.supplyDepotScreen, .starportScreen, .minesScreen, .factoryScreen, .warehouseScreen, .engineeringBayScreen, .commandCenterScreen {
   position: absolute;
   top: 65px;
   left: 0px;
@@ -76,7 +86,7 @@
   justify-content:space-between;
 }
 
-.supplyDepotBackground, .starportBackground, .minesBackground, .factoryBackground, .commandCenterBackground, .nexusBackground {
+.supplyDepotBackground, .starportBackground, .warehouseBackground, .engineeringBayBackground, .minesBackground, .factoryBackground, .commandCenterBackground, .nexusBackground {
   position: absolute;
   top: 38px;
   left: 0px;
@@ -91,11 +101,11 @@
   opacity: 100% !important;
 }
 
-  .commandCenterScreen, .commandCenterBackground, .factoryScreen, .factoryBackground, .starportScreen, .starportBackground,
-  .minesScreen, .minesBackground, .supplyDepotBackground {
-    height: var(--nexus-gamescreen-height);
-    width: 100%;
-  }
+.commandCenterScreen, .commandCenterBackground, .factoryScreen, .factoryBackground, .starportScreen, .starportBackground,
+.minesScreen, .minesBackground, .supplyDepotBackground, .engineeringBayBackground, .warehouseBackground {
+  height: var(--nexus-gamescreen-height);
+  width: 100%;
+}
 
 .shareMapButtonDiv {
   position: absolute;
@@ -130,7 +140,26 @@
 .closeScreenButtonDiv {
     margin-top: 5px;
 }
-.supplyDepotLevelsDiv {
+.warehouseLevelsDiv {
     height: 165px;
     overflow:auto;
+}
+.upgradeProgressDisplayP::before {
+  content: '🔧';
+}
+.upgradeProgressDisplayP {
+    color: var(--secondary-font-color);
+}
+.resourceSpan {
+    z-index: 3;
+    font-size:small;
+    font-weight:bold;
+}
+.unitPictureTd {
+    width:50px;
+}
+.unitSliderTd { 
+}
+.redText {
+    color:red;
 }

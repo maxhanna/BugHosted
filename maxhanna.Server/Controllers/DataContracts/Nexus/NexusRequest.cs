@@ -6,10 +6,10 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
     {
         public NexusRequest(User user, NexusBase? nexus)
         {
-            this.user = user;
-            this.nexus = nexus;
+            this.User = user;
+            this.Nexus = nexus;
         }
-        public User user { get; set; }
-        public NexusBase? nexus { get; set; }
+        public User User { get; set; }
+        public NexusBase? Nexus { get; set; }
     }
 }

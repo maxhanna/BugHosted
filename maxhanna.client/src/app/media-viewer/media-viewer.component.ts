@@ -53,13 +53,15 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
   @Input() autoplay: boolean = true;
+  @Input() autoload: boolean = true;
   @Input() showCommentSection: boolean = true;
   @Input() file?: FileEntry; 
   @Input() currentDirectory?: string = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
 
-  async ngOnInit() { 
+  async ngOnInit() {
+    if (!this.autoload) return;
     if (this.file && Array.isArray(this.file) && this.file.length > 0) {
       const fileObject = this.file[0];
       await this.setFileSrcById(fileObject.id);
@@ -77,7 +79,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     } catch (e) { }
   }
-
+  forceLoad() {
+    this.autoload = true;
+    this.ngOnInit();
+  }
   copyLink() {
     const link = `https://bughosted.com/${this.file?.directory.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`;
     navigator.clipboard.writeText(link);

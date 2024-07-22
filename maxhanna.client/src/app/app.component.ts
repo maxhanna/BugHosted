@@ -105,22 +105,27 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   ngAfterViewInit() {
+    var nothingCreated = true;
     this.route.paramMap.subscribe(params => {
       const storyId = parseInt(params.get('storyId')!);
       if (storyId) {
         this.createComponent("Social", { "storyId": storyId });
+        nothingCreated = false;
       }
       const memeId = parseInt(params.get('memeId')!);
       if (memeId) {
         this.createComponent("Meme", { "memeId": memeId });
+        nothingCreated = false;
       }
-      const userId = params.get('userId'); // Do not use parseInt here
+      const userId = params.get('userId');  
       if (userId) {
-        this.createComponent("User", { "userId": parseInt(userId) }); // Parse to int only if it exists
+        this.createComponent("User", { "userId": parseInt(userId) });
+        nothingCreated = false;
       }
       const fileId = params.get('fileId');
       if (fileId) {
         this.createComponent("Files", { "fileId": fileId });
+        nothingCreated = false;
       }
     });
     this.router.events.subscribe(event => {
@@ -128,24 +133,31 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (this.router.url.includes('Wordler')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Wordler');
+          nothingCreated = false;
         }
 
         if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Array');
+          nothingCreated = false;
         }
 
         if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('War');
+          nothingCreated = false;
         }
 
         if (this.router.url.includes('File/')) {
           const fileId = this.router.url.split('File/')[1];
           this.createComponent('File', { fileId });
+          nothingCreated = false;
         }
       }
     });
+    if (nothingCreated && !this.user) {
+      this.createComponent('User'); 
+    }
   }
   checkAndClearRouterOutlet() {
     if (this.outlet) {
