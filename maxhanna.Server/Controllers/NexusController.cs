@@ -188,6 +188,10 @@ namespace maxhanna.Server.Controllers
 
         private static async Task<List<NexusUnitsPurchased>?> GetNexusUnitPurchases(MySqlConnection conn, NexusBase? nexusBase, MySqlTransaction transaction)
         {
+            if (nexusBase == null)
+            {
+                return new List<NexusUnitsPurchased>();
+            }
             var res = new List<NexusUnitsPurchased>();
             string sqlUnitPurchases = @"
                             SELECT * 
@@ -524,6 +528,10 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> GetMinesInfo([FromBody] NexusRequest request)
         {
             Console.WriteLine($"POST /Nexus/GetMinesInfo for player {request.User.Id}");
+            if (request.Nexus == null )
+            {
+                return Ok(0);
+            }
             Decimal speed = Decimal.One;
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -573,141 +581,81 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> GetUnitStats([FromBody] NexusRequest request)
         {
             Console.WriteLine($"POST /Nexus/GetUnitStats for player {request.User.Id}");
-
-            var unitStats = new List<UnitStats>();
-
-            string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
-            using (MySqlConnection conn = new MySqlConnection(connectionString))
-            {
-                try
-                {
-                    await conn.OpenAsync();
-
-                    string sql = @"
-                SELECT 
-                    nut.id as unit_id, 
-                    nut.type as unit_type, 
-                    n.unit_level, 
-                    n.duration, 
-                    n.cost,
-                    n.supply,
-                    n.ground_damage,
-                    n.air_damage,
-                    n.building_damage,
-                    n.starport_level,
-                    n.factory_level,
-                    n.engineering_bay_level
-                FROM 
-                    maxhanna.nexus_unit_stats n
-                LEFT JOIN
-                    maxhanna.nexus_unit_types nut ON nut.id = n.unit_id;";
-
-                    using (MySqlCommand cmd = new MySqlCommand(sql, conn))
-                    using (var reader = await cmd.ExecuteReaderAsync())
-                    {
-                        while (await reader.ReadAsync())
-                        {
-                            var unitStat = new UnitStats
-                            {
-                                UnitId = reader.GetInt32(reader.GetOrdinal("unit_id")),
-                                UnitType = reader.GetString(reader.GetOrdinal("unit_type")),
-                                UnitLevel = reader.GetInt32(reader.GetOrdinal("unit_level")),
-                                Duration = reader.GetInt32(reader.GetOrdinal("duration")),
-                                Cost = reader.GetInt32(reader.GetOrdinal("cost")),
-                                Supply = reader.GetInt32(reader.GetOrdinal("supply")),
-                                GroundDamage = reader.GetInt32(reader.GetOrdinal("ground_damage")),
-                                AirDamage = reader.GetInt32(reader.GetOrdinal("air_damage")),
-                                BuildingDamage = reader.GetInt32(reader.GetOrdinal("building_damage")),
-                                StarportLevel = reader.GetInt32(reader.GetOrdinal("starport_level")),
-                                EngineeringBayLevel = reader.GetInt32(reader.GetOrdinal("engineering_bay_level")),
-                                FactoryLevel = reader.GetInt32(reader.GetOrdinal("factory_level")),
-                            };
-                            unitStats.Add(unitStat);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"An error occurred while GetUnitsInfo for player {request.User.Id}");
-                    return StatusCode(500, "Internal server error");
-                }
-                finally
-                {
-                    await conn.CloseAsync();
-                }
-            }
+            List<UnitStats> unitStats = await GetUnitStatsFromDB(null);
 
             return Ok(unitStats);
         }
 
-        private async Task<List<UnitStats>> GetAllUnitStats()
+        private async Task<List<UnitStats>> GetUnitStatsFromDB(int? unitId)
         {
-            Console.WriteLine($"Getting all unit stats");
-
-            var unitStats = new List<UnitStats>();
-
-            string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
-            using (MySqlConnection conn = new MySqlConnection(connectionString))
+            List<UnitStats> unitStats = new List<UnitStats>();
+            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
                 try
                 {
                     await conn.OpenAsync();
 
-                    string sql = @"
-                SELECT 
-                    nut.id as unit_id, 
-                    nut.type as unit_type, 
-                    n.unit_level, 
-                    n.duration, 
-                    n.cost,
-                    n.supply,
-                    n.ground_damage,
-                    n.air_damage,
-                    n.building_damage,
-                    n.starport_level,
-                    n.factory_level,
-                    n.engineering_bay_level
-                FROM 
-                    maxhanna.nexus_unit_stats n
-                LEFT JOIN
-                    maxhanna.nexus_unit_types nut ON nut.id = n.unit_id;";
-
+                    string sql = $@"
+                    SELECT 
+                        nut.id as unit_id, 
+                        nut.type as unit_type, 
+                        n.unit_level, 
+                        n.duration, 
+                        n.cost,
+                        n.supply,
+                        n.ground_damage,
+                        n.air_damage,
+                        n.building_damage,
+                        n.starport_level,
+                        n.factory_level,
+                        n.engineering_bay_level
+                    FROM 
+                        maxhanna.nexus_unit_stats n
+                    LEFT JOIN
+                        maxhanna.nexus_unit_types nut ON nut.id = n.unit_id;
+                    {(unitId != null ? " WHERE nut.id = @UnitId" : "")}";
+                    
                     using (MySqlCommand cmd = new MySqlCommand(sql, conn))
-                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        while (await reader.ReadAsync())
+                        if (unitId != null)
                         {
-                            var unitStat = new UnitStats
-                            {
-                                UnitId = reader.GetInt32(reader.GetOrdinal("unit_id")),
-                                UnitType = reader.GetString(reader.GetOrdinal("unit_type")),
-                                UnitLevel = reader.GetInt32(reader.GetOrdinal("unit_level")),
-                                Duration = reader.GetInt32(reader.GetOrdinal("duration")),
-                                Cost = reader.GetInt32(reader.GetOrdinal("cost")),
-                                Supply = reader.GetInt32(reader.GetOrdinal("supply")),
-                                GroundDamage = reader.GetInt32(reader.GetOrdinal("ground_damage")),
-                                AirDamage = reader.GetInt32(reader.GetOrdinal("air_damage")),
-                                BuildingDamage = reader.GetInt32(reader.GetOrdinal("building_damage")),
-                                StarportLevel = reader.GetInt32(reader.GetOrdinal("starport_level")),
-                                EngineeringBayLevel = reader.GetInt32(reader.GetOrdinal("engineering_bay_level")),
-                                FactoryLevel = reader.GetInt32(reader.GetOrdinal("factory_level")),
-                            };
-                            unitStats.Add(unitStat);
+                            cmd.Parameters.AddWithValue("@UnitId", unitId);
                         }
-                    }
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            while (await reader.ReadAsync())
+                            {
+                                var unitStat = new UnitStats
+                                {
+                                    UnitId = reader.GetInt32(reader.GetOrdinal("unit_id")),
+                                    UnitType = reader.GetString(reader.GetOrdinal("unit_type")),
+                                    UnitLevel = reader.GetInt32(reader.GetOrdinal("unit_level")),
+                                    Duration = reader.GetInt32(reader.GetOrdinal("duration")),
+                                    Cost = reader.GetInt32(reader.GetOrdinal("cost")),
+                                    Supply = reader.GetInt32(reader.GetOrdinal("supply")),
+                                    GroundDamage = reader.GetInt32(reader.GetOrdinal("ground_damage")),
+                                    AirDamage = reader.GetInt32(reader.GetOrdinal("air_damage")),
+                                    BuildingDamage = reader.GetInt32(reader.GetOrdinal("building_damage")),
+                                    StarportLevel = reader.GetInt32(reader.GetOrdinal("starport_level")),
+                                    EngineeringBayLevel = reader.GetInt32(reader.GetOrdinal("engineering_bay_level")),
+                                    FactoryLevel = reader.GetInt32(reader.GetOrdinal("factory_level")),
+                                };
+                                unitStats.Add(unitStat);
+                            }
+                        }
+                    } 
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"An error occurred while GetAllUnitStats");
+                    _logger.LogError(ex, $"An error occurred while GetUnitStatsFromDB"); 
                 }
                 finally
                 {
                     await conn.CloseAsync();
                 }
             }
-
             return unitStats;
-        }
+        } 
 
         [HttpPost("/Nexus/PurchaseUnit", Name = "PurchaseUnit")]
         public async Task<IActionResult> PurchaseUnit([FromBody] NexusPurchaseUnitRequest request)
@@ -740,15 +688,15 @@ namespace maxhanna.Server.Controllers
                             var (currentGold, supplyCapacity) = await GetNexusGoldAndSupply(request, conn, transaction);
 
                             // Fetch unit cost and type
-                            var unitStats = await GetUnitCostAndSupply(request.UnitId, conn, transaction);
-                            if (unitStats == null)
+                            List<UnitStats> unitStats = await GetUnitStatsFromDB(request.UnitId);
+                            if (unitStats == null || unitStats.Count <= 0)
                             {
                                 return NotFound("Unit base not found.");
                             }
 
-                            int unitCost = unitStats.Cost;
-                            int unitSupply = unitStats.Supply;
-                            string unitType = unitStats.UnitType ?? "";
+                            int unitCost = unitStats[0].Cost;
+                            int unitSupply = unitStats[0].Supply;
+                            string unitType = unitStats[0].UnitType ?? "";
 
                             // Calculate new gold and supply after purchase
                             currentGold -= unitCost * request.PurchaseAmount;
@@ -791,44 +739,12 @@ namespace maxhanna.Server.Controllers
 
             return Ok();
         }
-
-        private async Task<UnitStats> GetUnitCostAndSupply(int unitId, MySqlConnection conn, MySqlTransaction transaction)
-        {
-            string sqlUnitStats = @"
-        SELECT 
-            s.cost, s.supply, u.type
-        FROM 
-            nexus_unit_stats s
-        LEFT JOIN
-            nexus_unit_types u ON u.id = s.unit_id
-        WHERE 
-            s.unit_id = @UnitId
-        LIMIT 1;";
-
-            MySqlCommand cmdStats = new MySqlCommand(sqlUnitStats, conn, transaction);
-            cmdStats.Parameters.AddWithValue("@UnitId", unitId);
-
-            using (var readerStats = await cmdStats.ExecuteReaderAsync())
-            {
-                if (await readerStats.ReadAsync())
-                {
-                    int cost = readerStats.GetInt32("cost");
-                    int supply = readerStats.GetInt32("supply");
-                    string type = readerStats.GetString("type");
-                    Console.WriteLine($"got {type} cost: {cost}, supply: {supply}");
-                    return new UnitStats { Cost = cost, Supply = supply, UnitType = type };
-                }
-                else
-                {
-                    return null; // Unit not found
-                }
-            }
-        }
+         
 
         private async Task UpdateNexusUnits(NexusBase nexus, MySqlConnection conn, MySqlTransaction transaction)
         {
             Console.WriteLine("Update Nexus Units");
-            List<UnitStats> stats = await GetAllUnitStats();
+            List<UnitStats> stats = await GetUnitStatsFromDB(null);
 
             List<NexusUnitsPurchased>? purchased = await GetNexusUnitPurchases(conn, nexus, transaction);
             if (purchased != null && stats.Count > 0)
@@ -1361,24 +1277,23 @@ namespace maxhanna.Server.Controllers
                     selectCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
                     selectCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
 
-                    var exists = (long)await selectCmd.ExecuteScalarAsync() > 0;
-
-                    if (exists)
-                    {
+                    var res = await selectCmd.ExecuteScalarAsync();
+                    if (res != null && (long)res > 0)
+                    { 
                         // Update the existing record
                         string updateUpgradeSql = $@"
-                            UPDATE 
-                                nexus_base_upgrades 
-                            SET {component}_upgraded = @Timestamp 
-                            WHERE 
-                                coords_x = @CoordsX 
-                            AND coords_y = @CoordsY";
+                        UPDATE 
+                            nexus_base_upgrades 
+                        SET {component}_upgraded = @Timestamp 
+                        WHERE 
+                            coords_x = @CoordsX 
+                        AND coords_y = @CoordsY";
                         MySqlCommand updateUpgradeCmd = new MySqlCommand(updateUpgradeSql, conn, transaction);
                         updateUpgradeCmd.Parameters.AddWithValue("@Timestamp", DateTime.Now.AddSeconds(-1));
                         updateUpgradeCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
                         updateUpgradeCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
 
-                        await updateUpgradeCmd.ExecuteNonQueryAsync();
+                        await updateUpgradeCmd.ExecuteNonQueryAsync(); 
                     }
                     else
                     {
