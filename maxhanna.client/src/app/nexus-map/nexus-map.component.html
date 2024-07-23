@@ -1,20 +1,27 @@
 <div class="map" *ngIf="mapData" #mapContainer>
   <div *ngFor="let row of grid; let y = index" class="row">
     <div *ngFor="let cell of row; let x = index" class="cell" [attr.x]="x" [attr.y]="y">
-      <span class="cell-content">
-        <span *ngIf="grid[x][y]">
-          <app-media-viewer *ngIf="nexusPicture"
-                            [file]="nexusPicture"
-                            [currentDirectory]="nexusPicture.directory" 
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="user"
-                            [autoplay]="true"
-                            [displayExpander]="false">
-          </app-media-viewer>
-        </span>
-        <span class="cellWithGridLoc" *ngIf="!grid[x][y]">{{x + ',' + y}}</span>
-      </span>
+      <div class="cell-content">
+        <div *ngIf="grid[x][y]">
+          <img [src]="nexusPictureSrc" class="cell-content">
+        </div>
+        <div *ngIf="!grid[x][y]">
+          <img [src]="mapTileSrc" class="cell-content">
+        </div>
+        <div class="cell-content-coords">{{x + ',' + y}}</div> 
+      </div>
     </div>
   </div>
+</div>
+<div>
+  X:
+  <input type="number" placeholder="0" min="0" max="grid[0].length" #mapInputX class="mapInput" />
+  Y:
+  <input type="number" placeholder="0" min="0" max="grid[0].length" #mapInputY class="mapInput" />
+  <button (click)="showMapLocation()">Show</button>
+  <button (click)="clearMapInputs()">Clear</button>
+</div>
+<div (click)="showHomeBase()">
+  Show home base.
+  <button (click)="showHomeBase()">Show</button> 
 </div>

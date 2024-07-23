@@ -11,6 +11,23 @@ import { FileEntry } from './datacontracts/file/file-entry';
 export class FileService {
   constructor(private http: HttpClient) { }
 
+  videoFileExtensions = [
+    "mp4", "mov", "avi", "wmv", "webm", "flv", "mkv", "m4v", "mpg", "mpeg", "3gp", "3g2", "asf", "rm",
+    "rmvb", "swf", "vob", "ts", "mts", "m2ts", "mxf", "ogv", "divx", "xvid", "dv", "drc", "f4v", "f4p",
+    "f4a", "f4b"
+  ];
+  audioFileExtensions = [
+    "mp3", "wav", "ogg", "flac", "aac", "aiff", "alac", "amr", "ape", "au", "dss", "gsm", "m4a", "m4b",
+    "m4p", "mid", "midi", "mpa", "mpc", "oga", "opus", "ra", "rm", "sln", "tta", "voc", "vox", "wma",
+    "wv"
+  ];
+  imageFileExtensions = [
+    "jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "heif", "heic", "ico", "psd", "raw",
+    "cr2", "nef", "orf", "sr2", "arw", "dng", "rw2", "pef", "raf", "3fr", "ari", "bay", "cap", "dcr",
+    "drf", "eip", "erf", "fff", "iiq", "k25", "kdc", "mdc", "mos", "mrw", "nrw", "obm", "orf", "pef",
+    "ptx", "r3d", "raf", "raw", "rwl", "rw2", "sr2", "srf", "srw", "x3f"
+  ];
+
   async getDirectory(dir: string, visibility: string, ownership: string, user?: User, page?: number, pageSize?: number, search?: string, fileId?: number, fileType?: Array<string>) {
     var params = new URLSearchParams(
       {
@@ -106,10 +123,9 @@ export class FileService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(user),
-        signal: options?.signal  // Pass the AbortSignal here
+        signal: options?.signal  
       });
-
-      // Check if the request was aborted
+       
       if (options?.signal?.aborted) {
         throw new Error('Request aborted');
       }
@@ -318,7 +334,30 @@ export class FileService {
     } catch (error) {
       return null;
     }
-  } 
+  }
+  async getFileSrcByFileId(fileId: number) : Promise<string> {
+    const response = await this.getFileById(fileId);
+    if (!response || response == null) return '';
+    const contentDisposition = response.headers["content-disposition"];
+    const selectedFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
+    const type = this.videoFileExtensions.includes(selectedFileExtension)
+      ? `video/${selectedFileExtension}`
+      : this.audioFileExtensions.includes(selectedFileExtension)
+        ? `audio/${selectedFileExtension}`
+        : `image/${selectedFileExtension}`;
+
+
+    const blob = new Blob([response.blob], { type });
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+    }); 
+  }
   getFileExtension(file: string) {
     if (!file) return '';
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() ?? '' : '';
@@ -334,5 +373,26 @@ export class FileService {
         return file;
       }
     } else return '';   
+  }
+  getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
+    if (!contentDisposition) return '';
+    try {
+      // Match the filename* pattern first to handle UTF-8 encoding
+      const filenameStarMatch = contentDisposition.match(/filename\*=['"]?UTF-8''([^'";\s]+)['"]?/);
+      if (filenameStarMatch && filenameStarMatch[1]) {
+        const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
+        return utf8Filename.split('.').pop() || '';
+      }
+
+      // Match the filename pattern
+      const filenameMatch = contentDisposition.match(/filename=['"]?([^'";\s]+)['"]?/);
+      if (filenameMatch && filenameMatch[1]) {
+        const filename = filenameMatch[1];
+        return filename.split('.').pop() || '';
+      }
+    }
+    catch { }
+
+    return '';
   }
 }

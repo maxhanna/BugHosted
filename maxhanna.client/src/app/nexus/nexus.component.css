@@ -127,7 +127,7 @@
 }
 
 .unitsTableDiv {
-  height: 200px;
+  height: 180px;
   overflow: auto;
   width: var(--nexus-gamescreen-width);
 }
@@ -147,8 +147,11 @@
 .upgradeProgressDisplayP::before {
   content: '🔧';
 }
-.upgradeProgressDisplayP {
-    color: var(--secondary-font-color);
+.unitProgressDisplayP:before {
+  content: '⚔️';
+}
+.upgradeProgressDisplayP, .unitProgressDisplayP {
+  color: var(--secondary-font-color);
 }
 .resourceSpan {
     z-index: 3;
@@ -162,4 +165,32 @@
 }
 .redText {
     color:red;
+}
+  .supplyUsedDiv {
+    height: 100px;
+    overflow: auto;
+    border: var(--main-border);
+    padding-left: 10px;
+    padding-right: 10px;
+    color: var(--secondary-font-color);
+  }
+.supplyInfoDiv {
+    display:flex;
+    flex-direction:row;
+    justify-content: flex-start;
+}
+.supplyExplainDiv, .supplyUsedDiv {
+  width: 45%;
+}
+.upgradeTimersTableDiv {
+    max-height:300px;
+    overflow:auto;
+}
+.gameNotification{
+  color: var(--secondary-font-color);
+  font-size:small; 
+}
+.gameNotificationDiv {
+    max-height: 50px;
+    overflow:auto;
 }

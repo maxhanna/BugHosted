@@ -1,0 +1,31 @@
+
+.unitList {
+  color: var(--secondary-font-color);
+  display: flex;
+  flex-flow: row;
+  justify-content: flex-start;
+}
+ 
+.portrait {
+  width: 50px;
+  height: 50px;
+}
+.portraitContainer {
+  position: relative; 
+}
+  .portraitContainer::before {
+    content: attr(title);
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.2);
+    color: white;
+    padding: 5px;
+    font-size: 14px;
+    z-index: 10;
+    pointer-events: none;
+    width:45px;
+    text-overflow:ellipsis;
+    overflow:hidden;
+    word-break:keep-all;
+  }

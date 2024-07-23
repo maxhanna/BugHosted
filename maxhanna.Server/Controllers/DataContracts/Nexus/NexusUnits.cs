@@ -7,6 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
         public int? MarineTotal { get; set; }
         public int? GoliathTotal { get; set; }
         public int? SiegeTankTotal { get; set; }
+        public int? ScoutTotal { get; set; }
         public int? WraithTotal { get; set; }
         public int? BattlecruiserTotal { get; set; }
     }

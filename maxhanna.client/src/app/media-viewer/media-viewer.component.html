@@ -14,10 +14,10 @@
     </div>
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
     <div *ngIf="!isLoading && autoload && selectedFileSrc != ''" class="mediaDiv">
-      <img #mediaContainer *ngIf="this.imageFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="media" />
-      <video #mediaContainer *ngIf="this.videoFileExtensions.includes(this.selectedFileExtension)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
+      <img #mediaContainer *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="media" />
+      <video #mediaContainer *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
       <audio #mediaContainer
-             *ngIf="this.audioFileExtensions.includes(this.selectedFileExtension)"
+             *ngIf="audioFileExtensionsIncludes(this.selectedFileExtension)"
              [src]="selectedFileSrc"
              controls
              preload="auto"
@@ -25,7 +25,7 @@
              class="audio media">
         Your browser does not support the audio element.
       </audio>
-      <div class="filetype" *ngIf="displayExpander && !this.audioFileExtensions.includes(this.selectedFileExtension!)">
+      <div class="filetype" *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension!)">
         <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ◻️</span>
       </div>
       <div class="filetype" *ngIf="displayExtraInfo">

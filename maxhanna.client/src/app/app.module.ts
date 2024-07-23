@@ -43,6 +43,7 @@ import { ArrayComponent } from './array/array.component';
 import { NexusComponent } from './nexus/nexus.component';
 import { MediaSelectorComponent } from './media-selector/media-selector.component';
 import { NexusMapComponent } from './nexus-map/nexus-map.component';
+import { NexusBaseUnitsComponent } from './nexus-base-units/nexus-base-units.component';
 
 @NgModule({
   declarations: [
@@ -80,7 +81,8 @@ import { NexusMapComponent } from './nexus-map/nexus-map.component';
     ReactionComponent,
     ArrayComponent,
     NexusComponent,
-    NexusMapComponent
+    NexusMapComponent,
+    NexusBaseUnitsComponent
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

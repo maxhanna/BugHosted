@@ -12,12 +12,12 @@
   <div class="gamescreen" [style.display]="!isUserNew ? 'block':'none'">
     <div>
       <span title="Gold" class="resourceSpan">🪙:{{ goldAmount | number:'1.2-2' }}</span>
-      <span title="Supply Capacity" class="resourceSpan" *ngIf="nexusBase && nexusBase.supply && supplyCapacity">👤:{{supplyCapacity - nexusBase.supply ?? 0}}</span>
+      <span title="Supply Capacity" class="resourceSpan" *ngIf="nexusBase">👤:{{calculateCurrentSupply()}}</span>
       <span title="Nexus location" class="resourceSpan">📍:{{'{' + currentBaseLocationX + ',' + currentBaseLocationY + '}'}}</span>
     </div>
 
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user">
-      <app-nexus-map #mapComponent [user]="parentRef.user"></app-nexus-map>
+      <app-nexus-map #mapComponent [user]="parentRef.user"></app-nexus-map> 
     </div>
 
 
@@ -48,7 +48,7 @@
         <span class="levelLabel commandCenterLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.commandCenterLevel ? nexusBase.commandCenterLevel : ''}}
           <span class="timerLabel">
-            {{buildingTimers["command_center"] ? formatTimer(buildingTimers["command_center"].endTime) : ''}}
+            {{getBuildingTimerForBuilding("command_center") ? formatTimer(getBuildingTimerForBuilding("command_center").endTime) : ''}}
           </span>
         </span>
       </div>
@@ -68,7 +68,7 @@
         <span class="levelLabel minesLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.minesLevel ? nexusBase.minesLevel : ''}}
           <span class="timerLabel">
-            {{buildingTimers["mines"] ? formatTimer(buildingTimers["mines"].endTime) : ''}}
+            {{getBuildingTimerForBuilding("mines") ? formatTimer(getBuildingTimerForBuilding("mines").endTime) : ''}}
           </span>
         </span>
       </div>
@@ -89,7 +89,7 @@
         <span class="levelLabel engineeringBayLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.engineeringBayLevel ? nexusBase.engineeringBayLevel : ''}}
           <span class="timerLabel">
-            {{buildingTimers["engineering_bay"] ? formatTimer(buildingTimers["engineering_bay"].endTime) : ''}}
+            {{getBuildingTimerForBuilding("engineering_bay") ? formatTimer(getBuildingTimerForBuilding("engineering_bay").endTime) : ''}}
           </span>
         </span>
       </div>
@@ -110,7 +110,7 @@
         <span class="levelLabel warehouseLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.warehouseLevel ? nexusBase.warehouseLevel : ''}}
           <span class="timerLabel">
-            {{buildingTimers["warehouse"] ? formatTimer(buildingTimers["warehouse"].endTime) : ''}}
+            {{getBuildingTimerForBuilding("warehouse") ? formatTimer(getBuildingTimerForBuilding("warehouse").endTime) : ''}}
           </span>
         </span>
       </div>
@@ -130,7 +130,7 @@
         <span class="levelLabel factoryLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.factoryLevel ? nexusBase.factoryLevel : ''}}
           <span class="timerLabel">
-            {{buildingTimers["factory"] ? formatTimer(buildingTimers["factory"].endTime) : ''}}
+            {{getBuildingTimerForBuilding("factory") ? formatTimer(getBuildingTimerForBuilding("factory").endTime) : ''}}
           </span>
         </span>
       </div>
@@ -150,7 +150,7 @@
         <span class="levelLabel starportLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.starportLevel ? nexusBase.starportLevel : ''}}
           <span class="timerLabel">
-            {{buildingTimers["starport"] ? formatTimer(buildingTimers["starport"].endTime) : ''}}
+            {{getBuildingTimerForBuilding("starport") ? formatTimer(getBuildingTimerForBuilding("starport").endTime) : ''}}
           </span>
         </span>
       </div>
@@ -170,7 +170,7 @@
         <span class="levelLabel supplyDepotLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.supplyDepotLevel ? nexusBase.supplyDepotLevel : ''}}
           <span class="timerLabel">
-            {{buildingTimers["supply_depot"] ? formatTimer(buildingTimers["supply_depot"].endTime) : ''}}
+            {{getBuildingTimerForBuilding("supply_depot") ? formatTimer(getBuildingTimerForBuilding("supply_depot").endTime) : ''}}
           </span>
         </span>
       </div>
@@ -212,8 +212,19 @@
       </app-media-viewer>
     </div>
     <div [style.display]="isSupplyDepotOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="supplyDepotScreen">
-      <div>
-        Current supply capacity: {{supplyCapacity}}
+      <div *ngIf="nexusBase">
+        <div class="supplyInfoDiv">
+          <div class="supplyExplainDiv">
+            For every supply depot level your supply capacity increases by 2500.
+            <p>Current supply capacity: {{supplyCapacity}}</p>
+            <p>Supply used: <span class="redText">{{nexusBase.supply}}</span></p>
+          </div>
+          <div class="supplyUsedDiv">
+            <div *ngFor="let unit of filterUnitsForSupplyDisplay()">
+              {{unit.unitType}}: {{getSupplyUsedPerUnit(unit.unitId)}}
+            </div>
+          </div>
+        </div>
         <button (click)="closeSupplyDepot()">Back</button>
       </div>
     </div>
@@ -232,16 +243,9 @@
     </div>
     <div [style.display]="isFactoryOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="factoryScreen">
       <div>
-        Units currently available:
+        Upgrade the Factory to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.factoryLevel ?? 0}}</span>
         <div class="unitsTableDiv">
-          <table class="mainTable">
-            <thead>
-              <tr>
-                <th>Unit</th>
-                <th>Name</th>
-                <th colspan="4">🪙</th>
-              </tr>
-            </thead>
+          <table class="mainTable"> 
             <tbody *ngFor="let unit of getFactoryUnits()">
               <tr>
                 <td class="unitPictureTd">
@@ -270,12 +274,12 @@
                   <button [disabled]="!unit.purchasedValue" (click)="purchaseUnit(unit.unitId)">✔️</button>
                 </td>
               </tr>
-              <tr *ngIf="unit.purchasedValue">
-                <td></td>
+              <tr>
+                <td></td> 
                 <td class="smallFont" colspan="3">
-                  🪙{{ unit.purchasedValue * unit.cost }}
-                  ⏱️{{ unit.purchasedValue ? formatTimer(unit.duration * ((unit.purchasedValue ?? 1) / unit.cost)) : '0' }}
-                  <span [class]="(unit.purchasedValue * unit.supply) > supplyCapacity ? 'redText' : ''">👤{{ unit.purchasedValue && unit.supply ? (unit.purchasedValue * unit.supply) : ''}}</span>
+                  🪙{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}
+                  ⏱️{{ formatTimer(unit.duration * (unit.purchasedValue ? unit.purchasedValue : 1))}}
+                  <span [class]="((unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply) > supplyCapacity ? 'redText' : ''">👤{{ unit.supply ? (unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply : ''}}</span>
                 </td>
               </tr>
             </tbody>
@@ -286,7 +290,7 @@
     </div>
 
 
-    <div class="starportBackground" *ngIf="starportPicture" [style.display]="isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
+    <div class="starportBackground" *ngIf="starportPicture && nexusBase" [style.display]="isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
       <app-media-viewer [file]="starportPicture"
                         [currentDirectory]="starportPicture.directory"
                         [inputtedParentRef]="parentRef"
@@ -300,16 +304,9 @@
     <div [style.display]="isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="starportScreen">
       <div>
         <div>
-          Units currently available:
+          Upgrade the Starport to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
           <div class="unitsTableDiv">
-            <table class="mainTable">
-              <thead>
-                <tr>
-                  <th>Unit</th>
-                  <th>Name</th>
-                  <th colspan="4">🪙</th>
-                </tr>
-              </thead>
+            <table class="mainTable"> 
               <tbody *ngFor="let unit of getStarportUnits()">
                 <tr>
                   <td class="unitPictureTd">
@@ -338,12 +335,12 @@
                     <button [disabled]="!unit.purchasedValue" (click)="purchaseUnit(unit.unitId)">✔️</button>
                   </td>
                 </tr>
-                <tr *ngIf="unit.purchasedValue">
+                <tr>
                   <td></td>
                   <td class="smallFont" colspan="3">
-                    🪙{{ unit.purchasedValue * unit.cost }}
-                    ⏱️{{ unit.purchasedValue ? formatTimer(unit.duration * ((unit.purchasedValue ?? 1) / unit.cost)) : '0' }}
-                    <span [class]="(unit.purchasedValue * unit.supply) > supplyCapacity ? 'redText' : ''">👤{{ unit.purchasedValue && unit.supply ? (unit.purchasedValue * unit.supply) : ''}}</span>
+                    🪙{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}
+                    ⏱️{{ formatTimer(unit.duration * (unit.purchasedValue ? unit.purchasedValue : 1))}}
+                    <span [class]="((unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply) > supplyCapacity ? 'redText' : ''">👤{{ unit.supply ? (unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply : ''}}</span>
                   </td>
                 </tr>
               </tbody>
@@ -420,7 +417,7 @@
                         [displayExpander]="false">
       </app-media-viewer>
     </div>
-    <div [style.display]="isMinesOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="minesScreen"> 
+    <div [style.display]="isMinesOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="minesScreen">
       <div>
         Current mining speed: {{miningSpeed}}
         <button (click)="closeMines()">Back</button>
@@ -440,7 +437,7 @@
           <th></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody *ngIf="getValidBuildingUpgrades() && getValidBuildingUpgrades()!.length > 0">
         <tr *ngFor="let upgrade of getValidBuildingUpgrades()">
           <td>{{upgrade.building}}</td>
           <td>{{upgrade.nextLevel + 1}}</td>
@@ -448,40 +445,50 @@
           <td>{{upgrade.duration}}s</td>
           <td>
             <button (click)="upgradeBuilding(upgrade, upgrade.duration)" #upgradeButton>
-              {{ buildingTimers[upgrade.building] ? formatTimer(buildingTimers[upgrade.building].endTime) : '🔧' }}
+              {{ getBuildingTimerForBuilding(upgrade.building) ? formatTimer(getBuildingTimerForBuilding(upgrade.building).endTime) : '🔧' }}
             </button>
           </td>
+        </tr>
+      </tbody>
+      <tbody *ngIf="!getValidBuildingUpgrades() || getValidBuildingUpgrades()!.length == 0">
+        <tr>
+          <td colspan="5">All buildings are maxed out on upgrades.</td>
         </tr>
       </tbody>
     </table>
   </div>
   <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
     <ng-container *ngIf="activeBuildingTimers().length > 0">
-      <p>Upgrades in progress:</p>
       <div *ngFor="let timer of activeBuildingTimers()">
-        <p class="upgradeProgressDisplayP">
-          {{ timer.building }} - {{ formatTimer(timer.endTime) }}
+        <p [class]="timer.building.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
+          {{ formatBuildingTimer(timer.building) }} - {{ formatTimer(timer.endTime) }}
         </p>
       </div>
     </ng-container>
-    <ng-container *ngIf="activeBuildingTimers().length === 0">
-      <p>No upgrades in progress.</p>
+
+    <ng-container *ngIf="activeUnitTimers().length > 0">
+      <div *ngFor="let timer of activeUnitTimers()">
+        <p [class]="timer.unit.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
+          {{ timer.unit.includes(".") ? timer.unit.substring(timer.unit.indexOf('.') + 1, timer.unit.length) : timer.unit }} - {{ formatTimer(timer.endTime) }}
+        </p>
+      </div>
     </ng-container>
   </div>
 
-  <div *ngIf="nexusUnits && (nexusUnits.marineTotal > 0 || nexusUnits.goliathTotal > 0 || nexusUnits.battlecruiserTotal > 0 || nexusUnits.wraithTotal > 0 || nexusUnits.siegeTankTotal > 0)">
-    <p *ngIf="nexusUnits.marineTotal > 0">Marines {{nexusUnits.marineTotal}}</p>
-    <p *ngIf="nexusUnits.goliathTotal > 0">Goliath {{nexusUnits.goliathTotal}}</p>
-    <p *ngIf="nexusUnits.siegeTankTotal > 0">Siege Tanks {{nexusUnits.siegeTankTotal}}</p>
-    <p *ngIf="nexusUnits.wraithTotal > 0">Wraith {{nexusUnits.wraithTotal}}</p>
-    <p *ngIf="nexusUnits.battlecruiserTotal > 0">Battlecruisers {{nexusUnits.battlecruiserTotal}}</p>
-  </div>
-  <div *ngIf="nexusUnits && !(nexusUnits.marineTotal > 0 || nexusUnits.goliathTotal > 0 || nexusUnits.battlecruiserTotal > 0 || nexusUnits.wraithTotal > 0 || nexusUnits.siegeTankTotal > 0)">
-    No Units
+  <div [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
+    <app-nexus-base-units [parentRef]="parentRef"
+                          [nexusUnits]="nexusUnits"
+                          [marinePicture]="marinePicture"
+                          [goliathPicture]="goliathPicture"
+                          [siegeTankPicture]="siegeTankPicture"
+                          [scoutPicture]="scoutPicture"
+                          [wraithPicture]="wraithPicture"
+                          [battlecruiserPicture]="battlecruiserPicture"></app-nexus-base-units>
   </div>
 
-  <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
-
+  <div class="gameNotificationDiv">
+    <div *ngFor="let notif of notifications" class="gameNotification" (click)="notifications = []" [style.display]="!isMapOpen ? 'block' : 'none'">>{{notif}}</div>
+  </div>
   <div *ngIf="isUserComponentOpen">
     <app-user [loginOnly]="true"
               [inputtedParentRef]="parentRef"

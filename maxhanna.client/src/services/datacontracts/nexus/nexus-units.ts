@@ -4,6 +4,7 @@ export interface NexusUnits {
   marineTotal: number;
   goliathTotal: number;
   siegeTankTotal: number;
+  scoutTotal: number;
   wraithTotal: number;
   battlecruiserTotal: number; 
 }

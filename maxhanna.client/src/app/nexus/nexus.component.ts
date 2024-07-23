@@ -49,8 +49,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   marinePicture: FileEntry | undefined;
   goliathPicture: FileEntry | undefined;
   siegeTankPicture: FileEntry | undefined;
+  scoutPicture: FileEntry | undefined;
   wraithPicture: FileEntry | undefined;
-  battleCruiserPicture: FileEntry | undefined;
+  battlecruiserPicture: FileEntry | undefined;
   nexusBackgroundPicture: FileEntry | undefined;
   pictureDirectory: DirectoryResults | undefined;
   mapData?: NexusBase[] = undefined;
@@ -62,6 +63,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   nexusAvailableUpgrades?: NexusAvailableUpgrades;
 
   buildingTimers: { [key: string]: BuildingTimer } = {};
+  unitTimers: { [key: string]: BuildingTimer } = {};
 
 
   currentBaseLocationX = 0;
@@ -76,16 +78,16 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   miningSpeed = 0.0;
   goldCapacity = 5000;
   supplyCapacity = 2500;
+  factoryUnitsBeingBuilt = 0;
+  starportUnitsBeingBuilt = 0;
 
   units?: UnitStats[];
-  purchasedValue = 0;
-
-  marineCost = 5;
-  marinesPurchased = 0;
-  marinesPurchasedValue = 0;
+  factoryUnitIds = [6, 7, 10];
+  starportUnitIds = [8,9, 11];
+   
 
   goldIncrementInterval: any;
-  warehouseUpgradeLevels : number[] = [];
+  warehouseUpgradeLevels: number[] = [];
 
   @ViewChild('upgradeMineButton') upgradeMineButton!: ElementRef<HTMLButtonElement>;
   @ViewChild('upgradeFactoryButton') upgradeFactoryButton!: ElementRef<HTMLButtonElement>;
@@ -110,24 +112,48 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         //console.log(this.pictureDirectory);
 
         //units
-        this.marinePicture = this.pictureDirectory?.data?.filter(x => x.id == 6041)[0];
+        this.marinePicture = this.pictureDirectory?.data?.filter(x => x.id == 6240)[0];
         if (this.units && this.marinePicture && this.units.filter(x => x.unitType == "marine")[0] && !this.units.filter(x => x.unitType == "marine")[0].picture) {
           this.units.filter(x => x.unitType == "marine")[0].picture = this.marinePicture;
         }
-        this.goliathPicture = this.pictureDirectory?.data?.filter(x => x.id == 6106)[0];
+        this.goliathPicture = this.pictureDirectory?.data?.filter(x => x.id == 6237)[0];
         if (this.units && this.goliathPicture && this.units.filter(x => x.unitType == "goliath")[0] && !this.units.filter(x => x.unitType == "goliath")[0].picture) {
           this.units.filter(x => x.unitType == "goliath")[0].picture = this.goliathPicture;
         }
+        this.siegeTankPicture = this.pictureDirectory?.data?.filter(x => x.id == 6246)[0];
+        if (this.units && this.siegeTankPicture && this.units.filter(x => x.unitType == "siege_tank")[0] && !this.units.filter(x => x.unitType == "siege_tank")[0].picture) {
+          this.units.filter(x => x.unitType == "siege_tank")[0].picture = this.siegeTankPicture;
+        } 
+        this.scoutPicture = this.pictureDirectory?.data?.filter(x => x.id == 6244)[0];
+        if (this.units && this.scoutPicture && this.units.filter(x => x.unitType == "scout")[0] && !this.units.filter(x => x.unitType == "scout")[0].picture) {
+          this.units.filter(x => x.unitType == "scout")[0].picture = this.scoutPicture;
+        }
+        this.wraithPicture = this.pictureDirectory?.data?.filter(x => x.id == 6245)[0];
+        if (this.units && this.wraithPicture && this.units.filter(x => x.unitType == "wraith")[0] && !this.units.filter(x => x.unitType == "wraith")[0].picture) {
+          this.units.filter(x => x.unitType == "wraith")[0].picture = this.wraithPicture;
+        }
+        this.battlecruiserPicture = this.pictureDirectory?.data?.filter(x => x.id == 6243)[0];
+        if (this.units && this.battlecruiserPicture && this.units.filter(x => x.unitType == "battlecruiser")[0] && !this.units.filter(x => x.unitType == "battlecruiser")[0].picture) {
+          this.units.filter(x => x.unitType == "battlecruiser")[0].picture = this.battlecruiserPicture;
+        }
 
         //buildings
-        this.nexusBackgroundPicture = this.pictureDirectory?.data?.filter(x => x.id == 5940)[0];
-        this.commandCenterPicture = this.pictureDirectory?.data?.filter(x => x.id == 5920)[0];
-        this.starportPicture = this.pictureDirectory?.data?.filter(x => x.id == 5924)[0];
-        this.minesPicture = this.pictureDirectory?.data?.filter(x => x.id == 5922)[0];
-        this.factoryPicture = this.pictureDirectory?.data?.filter(x => x.id == 5921)[0];
-        this.supplyDepotPicture = this.pictureDirectory?.data?.filter(x => x.id == 5952)[0];
-        this.warehousePicture = this.pictureDirectory?.data?.filter(x => x.id == 6110)[0];
-        this.engineeringBayPicture = this.pictureDirectory?.data?.filter(x => x.id == 6113)[0];
+        if (!this.nexusBackgroundPicture)
+          this.nexusBackgroundPicture = this.pictureDirectory?.data?.filter(x => x.id == 5940)[0];
+        if (!this.commandCenterPicture)
+          this.commandCenterPicture = this.pictureDirectory?.data?.filter(x => x.id == 5920)[0];
+        if (!this.starportPicture)
+          this.starportPicture = this.pictureDirectory?.data?.filter(x => x.id == 6241)[0];
+        if (!this.minesPicture)
+          this.minesPicture = this.pictureDirectory?.data?.filter(x => x.id == 5922)[0];
+        if (!this.factoryPicture)
+          this.factoryPicture = this.pictureDirectory?.data?.filter(x => x.id == 5921)[0];
+        if (!this.supplyDepotPicture)
+          this.supplyDepotPicture = this.pictureDirectory?.data?.filter(x => x.id == 5952)[0];
+        if (!this.warehousePicture)
+          this.warehousePicture = this.pictureDirectory?.data?.filter(x => x.id == 6110)[0];
+        if (!this.engineeringBayPicture)
+         this.engineeringBayPicture = this.pictureDirectory?.data?.filter(x => x.id == 6113)[0];
       }
     }
     
@@ -185,7 +211,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private async getUnitStats() {
-    console.log("getting unit stats");
     if (!this.parentRef || !this.parentRef.user || !this.nexusBase) {
       console.log("cant get unit stats, no base present");
       return;
@@ -194,57 +219,80 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       const res = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase);
       if (res) {
         this.units = res as UnitStats[];
-        if (this.marinePicture && this.units.filter(x => x.unitType == "marine")) {
-          this.units.filter(x => x.unitType == "marine")[0].picture = this.marinePicture;
-        }
-        if (this.goliathPicture && this.units.filter(x => x.unitType == "goliath")) {
-          this.units.filter(x => x.unitType == "goliath")[0].picture = this.goliathPicture;
-        }  
       }
     }
     if (this.nexusUnitsPurchaseList && this.nexusUnitsPurchaseList.length > 0) {
+      var count = 0;
+      this.factoryUnitsBeingBuilt = 0;
+      this.starportUnitsBeingBuilt = 0;
       this.nexusUnitsPurchaseList.forEach(x => {
+        count++;
         const startTime = x.timestamp;
-        this.primeTheTimerForUnitPurchases(startTime, x.unitIdPurchased);
+        const salt = "{"+this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} " + count + "." + x.quantityPurchased + " ";
+        if (this.factoryUnitIds.includes(x.unitIdPurchased)) {
+          this.factoryUnitsBeingBuilt++;
+        } else {
+          this.starportUnitsBeingBuilt++;
+        }
+
+        this.primeTheTimerForUnitPurchases(startTime, x.unitIdPurchased, x.quantityPurchased, salt);
       });
     }
   }
-  private startUpgradeTimer(building: string, time: number) {
-    if (this.buildingTimers[building] || !time || isNaN(time)) {
+  private startUpgradeTimer(upgrade: string, time: number, isUnit: boolean) { 
+    if (this.buildingTimers[upgrade] || this.unitTimers[upgrade] || !time || isNaN(time)) {
       return;
     }
     //add one second to give the server time to realise whats been built.
     const endTime = Math.max(0, time) + 1;
-     
-    this.buildingTimers[building] = {
-      endTime: endTime,
-      timeout: setTimeout(async () => { 
-        this.notifications.push(`${building} upgrade completed!`);
-        delete this.buildingTimers[building];
-        clearInterval(interval);
-        await this.loadNexusData(true);
+
+    if (isUnit) {
+      this.unitTimers[upgrade] = {
+        endTime: endTime,
+        timeout: setTimeout(async () => {
+          this.notifications.push(`${upgrade} completed!`);
+          delete this.unitTimers[upgrade];
+          clearInterval(interval);
+          await this.loadNexusData(true);
+          this.cd.detectChanges();
+        }, endTime * 1000)
+      };
+      const interval = setInterval(async () => {
+        if (this.unitTimers[upgrade]) {
+          const remainingTime = this.unitTimers[upgrade].endTime - 1;
+          this.unitTimers[upgrade].endTime = remainingTime;
+        }
         this.cd.detectChanges();
-      }, endTime * 1000)
-    };
-     
-    const interval = setInterval(async () => {
-      if (this.buildingTimers[building]) {
-        const remainingTime = this.buildingTimers[building].endTime - 1; 
-        this.buildingTimers[building].endTime = remainingTime; 
-      }
-      this.cd.detectChanges();
-    }, 1000);
-  }
+      }, 1000);
+    } else {
+      this.buildingTimers[upgrade] = {
+        endTime: endTime,
+        timeout: setTimeout(async () => {
+          this.notifications.push(`${upgrade} upgrade completed!`);
+          delete this.buildingTimers[upgrade];
+          clearInterval(interval);
+          await this.loadNexusData(true);
+          this.cd.detectChanges();
+        }, endTime * 1000)
+      };
+      const interval = setInterval(async () => {
+        if (this.buildingTimers[upgrade]) {
+          const remainingTime = this.buildingTimers[upgrade].endTime - 1;
+          this.buildingTimers[upgrade].endTime = remainingTime;
+        }
+        this.cd.detectChanges();
+      }, 1000);
+    }  
+  } 
 
    
   private async getBuildingUpgradesInfo() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return;
-    if (!this.nexusAvailableUpgrades) { 
-      const upRes = await this.nexusService.getBuildingUpgrades(this.parentRef.user, this.nexusBase);
-      if (upRes) {
-        this.nexusAvailableUpgrades = upRes;
-      }
+    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return; 
+    const upRes = await this.nexusService.getBuildingUpgrades(this.parentRef.user, this.nexusBase);
+    if (upRes) {
+      this.nexusAvailableUpgrades = upRes;
     }
+    
     if (this.nexusBaseUpgrades) {
       if (this.nexusBaseUpgrades.commandCenterUpgraded && !this.buildingTimers["command_center"]) { 
         const startTime = this.nexusBaseUpgrades.commandCenterUpgraded;
@@ -286,25 +334,27 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     const utcNow = new Date().getTime();
     const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
     const remainingTimeInSeconds = duration - elapsedTimeInSeconds;
+    const salt = "{" + this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} ";
 
     if (remainingTimeInSeconds > 0) {
-      this.startUpgradeTimer(type, remainingTimeInSeconds);
+      this.startUpgradeTimer(salt + type, remainingTimeInSeconds, false);
     }
   }
 
 
-  private primeTheTimerForUnitPurchases(startTime: Date, id: number) {
+  private primeTheTimerForUnitPurchases(startTime: Date, id: number, quantity: number, displayFirst: string) {
     if (!this.units) return;
-    console.log(this.units);
     const startTimeTime = new Date(startTime).getTime();
-    const duration = this.units.find(u => u.unitId === id)?.duration || 0;
-    const type = this.units.find(u => u.unitId === id)?.unitType || "";
+    const unit = this.units.find(u => u.unitId === id); 
+    const duration =  unit ? unit.duration * quantity : 0;
+    const type = displayFirst + (unit ? unit.unitType : "");
+
     const utcNow = new Date().getTime();
     const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
     const remainingTimeInSeconds = duration - elapsedTimeInSeconds;
-    console.log(`remianing time ${remainingTimeInSeconds} for ${type} with duration ${duration}`);
+
     if (remainingTimeInSeconds > 0) {
-      this.startUpgradeTimer(type, remainingTimeInSeconds);
+      this.startUpgradeTimer(type, remainingTimeInSeconds, true);
     }
   }
 
@@ -345,113 +395,37 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.displayWarehouse = !!(nexusBaseUpgrades.warehouseUpgraded || this.nexusBase.warehouseLevel > 0);
     this.displayEngineeringBay = !!(nexusBaseUpgrades.engineeringBayUpgraded || this.nexusBase.engineeringBayLevel > 0);
   }
+
   async upgradeBuilding(upgrade: UpgradeDetail, duration: number) {
     if (this.nexusBase && this.getBuildingCountersLength() >= this.nexusBase.commandCenterLevel + 1) {
       return alert("Upgrade your Command Center for more worker slots");
     }
-    if (this.buildingTimers[upgrade.building]) {
+    if (this.getBuildingTimerForBuilding(upgrade.building)) {
       return alert("You must wait until the upgrade finishes");
     }
-  
-    // Perform the upgrade action
-    switch (upgrade.building) {
-      case 'mines':
-        await this.upgradeMines();
-        break;
-      case 'starport':
-        await this.upgradeStarport();
-        break;
-      case 'factory':
-        await this.upgradeFactory();
-        break;
-      case 'engineering_bay':
-        await this.upgradeEngineeringBay();
-        break;
-      case 'warehouse':
-        await this.upgradeWarehouse();
-        break;
-      case 'supply_depot':
-        await this.upgradeSupplyDepot();
-        break;
-      case 'command_center':
-        await this.upgradeCommandCenter();
-        break;
-      default:
-        break;
+
+    const upgradeFunctionMap: { [key: string]: () => Promise<void> } = {
+      'mines': () => this.upgrade(this.nexusService.upgradeMines.bind(this.nexusService)),
+      'starport': () => this.upgrade(this.nexusService.upgradeStarport.bind(this.nexusService)),
+      'factory': () => this.upgrade(this.nexusService.upgradeFactory.bind(this.nexusService)),
+      'engineering_bay': () => this.upgrade(this.nexusService.upgradeEngineeringBay.bind(this.nexusService)),
+      'warehouse': () => this.upgrade(this.nexusService.upgradeWarehouse.bind(this.nexusService)),
+      'supply_depot': () => this.upgrade(this.nexusService.upgradeSupplyDepot.bind(this.nexusService)),
+      'command_center': () => this.upgrade(this.nexusService.upgradeCommandCenter.bind(this.nexusService))
+    };
+
+    const upgradeFunc = upgradeFunctionMap[upgrade.building];
+    if (upgradeFunc) {
+      await upgradeFunc();
     }
   }
 
-
-  async upgradeCommandCenter(): Promise<void> {
+  async upgrade(upgradeServiceFunc: (user: any, base: any) => Promise<string>): Promise<void> {
     if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { return; }
 
-    const res = await this.nexusService.upgradeCommandCenter(this.parentRef.user, this.nexusBase);
-    if (res && res.includes("Upgrading ")) {
-      this.notifications.push(res + `{${this.nexusBase.coordsX},${this.nexusBase.coordsY}}`);
-    }
-    await this.loadNexusData(true);
-  }
-
-
-  async upgradeMines() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { return; }
-
-    const res = await this.nexusService.upgradeMines(this.parentRef.user, this.nexusBase); 
-    if (res && res.includes("Upgrading ")) {
-      this.notifications.push(res + `{${this.nexusBase.coordsX},${this.nexusBase.coordsY}}`);
-    }
-    await this.loadNexusData(true);
-  }
-
-
-  async upgradeEngineeringBay() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { return; }
-
-    const res = await this.nexusService.upgradeEngineeringBay(this.parentRef.user, this.nexusBase);
-    if (res && res.includes("Upgrading ")) {
-      this.notifications.push(res + `{${this.nexusBase.coordsX},${this.nexusBase.coordsY}}`);
-    }
-    await this.loadNexusData(true);
-  }
-
-
-  async upgradeWarehouse() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { return; }
-
-    const res = await this.nexusService.upgradeWarehouse(this.parentRef.user, this.nexusBase);
-    if (res && res.includes("Upgrading ")) {
-      this.notifications.push(res + `{${this.nexusBase.coordsX},${this.nexusBase.coordsY}}`);
-    }
-    await this.loadNexusData(true);
-  }
-
-  async upgradeFactory() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { return; }
-
-    const res = await this.nexusService.upgradeFactory(this.parentRef.user, this.nexusBase);
-    if (res && res.includes("Upgrading ")) {
-      this.notifications.push(res + `{${this.nexusBase.coordsX},${this.nexusBase.coordsY}}`);
-    }
-    await this.loadNexusData(true);
-  }
-
-
-  async upgradeSupplyDepot(): Promise<void> {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { return; }
-
-    const res = await this.nexusService.upgradeSupplyDepot(this.parentRef.user, this.nexusBase); 
-    if (res && res.includes("Upgrading ")) {
-      this.notifications.push(res + `{${this.nexusBase.coordsX},${this.nexusBase.coordsY}}`);
-    }
-    await this.loadNexusData(true);
-  }
-
-  async upgradeStarport(): Promise<void> {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { return; }
-
-    const res = await this.nexusService.upgradeStarport(this.parentRef.user, this.nexusBase); 
-    if (res && res.includes("Upgrading ")) {
-      this.notifications.push(res + `{${this.nexusBase.coordsX},${this.nexusBase.coordsY}}`);
+    const res = await upgradeServiceFunc(this.parentRef.user, this.nexusBase);
+    if (res) {
+      this.notifications.push(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} ${res}`);
     }
     await this.loadNexusData(true);
   }
@@ -460,16 +434,25 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (!this.units) return; 
     var tmpUnit = this.units.filter(x => x.unitId == unitId)[0];
     if (!this.parentRef || !this.parentRef.user || !tmpUnit || !this.nexusBase) return;
+    console.log(unitId);
+    if ((this.factoryUnitIds.includes(unitId)) && this.factoryUnitsBeingBuilt >= this.nexusBase.factoryLevel) {
+      return alert("Upgrade the Factory to train more units simultaneously.");
+    } else if ((this.starportUnitIds.includes(unitId)) && this.starportUnitsBeingBuilt >= this.nexusBase.starportLevel) {
+      return alert("Upgrade the Starport to train more units simultaneously."); 
+    }
 
     const res = await this.nexusService.purchaseUnit(this.parentRef.user, this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0);
     if (res && res != '') {
       this.notifications.push(res);
     } else {
       this.notifications.push(`Purchased ${tmpUnit.purchasedValue} ${tmpUnit.unitType}`);
+      if (this.units) {
+        this.units.forEach(x => {
+          x.purchasedValue = undefined;
+        });
+      }
       await this.loadNexusData(true);
-    }
-
-
+    } 
   }
 
   async viewMap() {
@@ -501,6 +484,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
+  calculateCurrentSupply() {
+    if (!this.nexusBase) return 0;
+    return this.supplyCapacity - this.nexusBase.supply
+  }
 
   stopGoldIncrement() {
     if (this.goldIncrementInterval) {
@@ -518,20 +505,28 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds < 10 ? '0' : ''}${Math.ceil(seconds)}`;
   }
-  timeredNexusUpgrades(): UpgradeDetail[] {
-    if (this.nexusAvailableUpgrades && this.nexusAvailableUpgrades.upgrades && this.nexusAvailableUpgrades.upgrades.length > 0) {
-      return this.nexusAvailableUpgrades.upgrades.filter(upgrade => this.buildingTimers[upgrade.building]);
-    } else {
-      return [];
-    }
-  }
+
   activeBuildingTimers(): { building: string; endTime: number }[] {
     const activeTimers: { building: string; endTime: number }[] = [];
+    this.buildingTimers = Object.fromEntries(Object.entries(this.buildingTimers).sort(([, a], [, b]) => a.endTime - b.endTime));
 
     for (const building in this.buildingTimers) {
       const timer = this.buildingTimers[building];
       if (timer.endTime) {
         activeTimers.push({ building: building, endTime: timer.endTime });
+      }
+    }
+
+    return activeTimers;
+  }
+  activeUnitTimers(): { unit: string; endTime: number }[] {
+    const activeTimers: { unit: string; endTime: number }[] = []; 
+    this.unitTimers = Object.fromEntries(Object.entries(this.unitTimers).sort(([, a], [, b]) => a.endTime - b.endTime));
+
+    for (const unit in this.unitTimers) {
+      const timer = this.unitTimers[unit];
+      if (timer.endTime) {
+        activeTimers.push({ unit: unit, endTime: timer.endTime });
       }
     }
 
@@ -610,7 +605,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   maxSliderValue(unit: UnitStats): number {
     const goldTimesUnitGoldMaxCost = Math.floor(this.goldAmount / unit.cost);
-    const supplyTimesUnitGoldMaxCost = Math.floor(this.supplyCapacity / unit.supply);
+    const supplyTimesUnitGoldMaxCost = Math.floor(this.calculateCurrentSupply() / unit.supply);
 
     const maxGoldValue = Math.min(goldTimesUnitGoldMaxCost, supplyTimesUnitGoldMaxCost);
     
@@ -622,11 +617,63 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   getFactoryUnits() {
     if (!this.units) return; 
 
-    return this.units.filter(x => x.unitType == "marine" || x.unitType == "goliath").sort((a, b) => a.cost - b.cost);
+    return this.units.filter(x =>
+      this.factoryUnitIds.includes(x.unitId) 
+      && x.engineeringBayLevel <= this.nexusBase!.engineeringBayLevel
+      && x.factoryLevel <= this.nexusBase!.factoryLevel
+      && x.starportLevel <= this.nexusBase!.starportLevel
+    ).sort((a, b) => a.cost - b.cost);
   }
   getStarportUnits() {
     if (!this.units) return; 
 
-    return this.units.filter(x => x.unitType == "wraith" || x.unitType == "battlecruiser").sort((a, b) => b.cost - a.cost);
+    return this.units.filter(x =>
+      this.starportUnitIds.includes(x.unitId) 
+      && x.engineeringBayLevel <= this.nexusBase!.engineeringBayLevel
+      && x.factoryLevel <= this.nexusBase!.factoryLevel
+      && x.starportLevel <= this.nexusBase!.starportLevel
+    ).sort((a, b) => a.cost - b.cost);
+  }
+  getSupplyUsedPerUnit(unitId: number) {
+    return this.getSupplyUsed().filter(x => x.unitId == unitId)[0].supplyUsed;
+  }
+  getSupplyUsed() {
+    // Create a mapping of unit types to their respective total counts
+    const unitTypeTotals = {
+      "marine": this.nexusUnits?.marineTotal ?? 0,
+      "goliath": this.nexusUnits?.goliathTotal ?? 0,
+      "siege_tank": this.nexusUnits?.siegeTankTotal ?? 0,
+      "wraith": this.nexusUnits?.wraithTotal ?? 0,
+      "battlecruiser": this.nexusUnits?.battlecruiserTotal ?? 0
+    };
+
+    // Create a new array to store the supply used for each unit type
+    const supplyUsedPerUnit = this.units?.map(unit => {
+      const unitType = unit.unitType as keyof typeof unitTypeTotals;
+      const unitTotalCount = unitTypeTotals[unitType] || 0;
+      const supplyUsed = unit.supply * unitTotalCount;
+      return {
+        unitId: unit.unitId,
+        unitType: unit.unitType,
+        supplyUsed: supplyUsed
+      };
+    }) || [];
+
+    return supplyUsedPerUnit;
+  }
+  filterUnitsForSupplyDisplay() {
+    if (!this.units) return [];
+    return this.units.filter(x => this.getSupplyUsedPerUnit(x.unitId) > 0)
+  }
+  formatBuildingTimer(s: string) {
+    s = s.substring(s.indexOf('}') + 1, s.length).replace('_', ' ');
+    s = s.replace(/\w+/g,
+      function (w) { return w[0].toUpperCase() + w.slice(1).toLowerCase(); });
+    return s;
+  }
+  getBuildingTimerForBuilding(building: string): BuildingTimer {
+    const formatted = "{" + this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} " + this.formatBuildingTimer(building).toLowerCase().replace(" ", "_");
+
+    return this.buildingTimers[formatted];
   }
 }
