@@ -23,13 +23,13 @@ export class MiningDevicesComponent extends ChildComponent implements OnInit {
     this.stopLoading();
   }
   public async requestDeviceStateChange(device: MiningRigDevice) {
-    var requestedAction = this.isOffline(device.state!) || this.isDisabled(device.state!) ? "START" : "STOP";
+    const requestedAction = this.isOffline(device.state!) || this.isDisabled(device.state!) ? "START" : "STOP";
     if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`)) {
       try {
         this.startLoading();
         const response = await this.miningService.requestRigDeviceStateChange(this.parentRef?.user!, device);
         this.stopLoading(); 
-        var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
+        let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
         this.notifications.push(`${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}`);

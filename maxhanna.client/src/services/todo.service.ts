@@ -10,7 +10,7 @@ export class TodoService {
   async getTodo(user: User, type: string, search?: string) {
     if (!user || user.id == 0) return;
     try {
-      var params = new URLSearchParams({ type: type });
+      let params = new URLSearchParams({ type: type });
       if (search) {
         params.set("search", search);
       }

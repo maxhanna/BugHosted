@@ -8,7 +8,7 @@ import { User } from './datacontracts/user/user';
 })
 export class SocialService {
   async getStories(user?: User, search?: string, topics?: string, profileUserId?: number, page: number = 1, pageSize: number = 10) {
-    var params = new URLSearchParams();
+    let params = new URLSearchParams();
     if (search)
       params.append("search", search);
     if (topics)

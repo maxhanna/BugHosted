@@ -137,13 +137,13 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   private async setCalendarDates(now: Date) {
     await this.getCalendarEntries();
     this.calendarDays = [];
-    var tmpNow = new Date(now);
+    let tmpNow = new Date(now);
 
     const numberOfDaysInMonth = this.daysInMonth(tmpNow.getMonth() + 1, tmpNow.getFullYear());
     let dayCount = 0;
     for (let x = 0; x < this.dayCells.length; x++) {
       if (now.getDay() <= x && ++dayCount <= numberOfDaysInMonth) {
-        var symbols = new Array<string>();
+        let symbols = new Array<string>();
         this.calendarEntries.forEach(ce => {
           if (this.calendarEntriesContainsDate(ce, tmpNow)
           ) {

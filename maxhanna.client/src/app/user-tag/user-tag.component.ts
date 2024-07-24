@@ -12,6 +12,7 @@ export class UserTagComponent extends ChildComponent implements OnInit {
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
   @Input() displayEmptyAvatar = false;
+  @Input() displayOnlyName = false;
   @Input() hideName = false;
   constructor() { super(); }
   ngOnInit() {

@@ -27,7 +27,7 @@ export class NewsService {
   }
 
   async searchNews(user: User, keyword: string) {
-    var params = new URLSearchParams({ keywords: keyword });
+    const params = new URLSearchParams({ keywords: keyword });
 
     try {
       const res = await fetch(`/news?${params}`, {

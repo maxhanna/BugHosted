@@ -191,7 +191,7 @@ export class FileComponent extends ChildComponent {
 
         if (!res?.toLowerCase().includes("already exists")) {
           this.cancelMakeDirectoryOrFile();
-          var tmpFileEntry =
+          let tmpFileEntry =
             new FileEntry(parseInt(res!), choice, directoryValue, this.createVisibility.toLowerCase(), "",
               this.parentRef?.user!, true, [], new Date(), 0, "", [], undefined);
           this.uploadFinished([tmpFileEntry]);

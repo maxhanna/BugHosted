@@ -18,6 +18,7 @@ export class NexusMapComponent implements OnInit {
   selectedNexusBase?: NexusBase;
   grid: string[][] = []; 
   isAttackScreenOpen = false;
+  showAttackButton = false;
    
 
   @Input() user?: User;
@@ -69,7 +70,7 @@ export class NexusMapComponent implements OnInit {
     for (let i = 0; i < 100; i++) {
       this.grid[i] = [];
       for (let j = 0; j < 100; j++) {
-        var base = this.mapData.filter(x => x.coordsX == i && x.coordsY == j)[0];
+        let base = this.mapData.filter(x => x.coordsX == i && x.coordsY == j)[0];
         if (base) {
           this.grid[i][j] = base.commandCenterLevel + '';
         } else {
@@ -79,10 +80,16 @@ export class NexusMapComponent implements OnInit {
     } 
   }
 
-  showAttackScreen() { 
+  showAttackScreen() {
+    if (this.unitStats) {
+      this.unitStats.sort((a, b) => a.cost - b.cost);
+    }
     this.isAttackScreenOpen = true;
+    this.showAttackButton = false;
   }
-  closeAttackScreen() {
+
+  closedAttackScreen() {
+    this.showAttackButton = true;
     this.isAttackScreenOpen = false;
   }
 
@@ -108,6 +115,7 @@ export class NexusMapComponent implements OnInit {
     return this.mapTileSrc;
   }
   selectCoordinates(coordsx: number, coordsy: number) {
+    this.showAttackButton = true;
     this.isAttackScreenOpen = false;
     this.unitStats?.forEach(x => x.sentValue = undefined);
     this.selectedNexusBase = this.mapData.find(x => x.coordsX && x.coordsY && x.coordsX == coordsx && x.coordsY == coordsy);

@@ -31,7 +31,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
 
   async fetchContacts() {
     try {
-      var res = await this.contactService.getContacts(this.parentRef?.user!);
+      let res = await this.contactService.getContacts(this.parentRef?.user!);
       this.contacts = res!;
     } catch (error: any) {
       console.error('Error fetching contacts:', error);
@@ -42,10 +42,10 @@ export class ContactsComponent extends ChildComponent implements OnInit {
     const name = this.newContactName.nativeElement.value;
     if (!name) { return alert("Contact must have a name."); }
 
-    var tmpContact = new Contact();
+    let tmpContact = new Contact();
     tmpContact.name = name;
     tmpContact.phone = this.newContactPhone.nativeElement.value;
-    var jsDate = this.GetJsDate(this.newContactBirthday.nativeElement.value);
+    let jsDate = this.GetJsDate(this.newContactBirthday.nativeElement.value);
     tmpContact.birthday = jsDate;
     tmpContact.notes = this.newContactNotes.nativeElement.value;
     tmpContact.email = this.newContactEmail.nativeElement.value;
@@ -98,8 +98,8 @@ export class ContactsComponent extends ChildComponent implements OnInit {
     return formattedDate;
   }
   private GetJsDate(value: string) {
-    var dateParts = value.split("-");
-    var jsDate = new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2].slice(0, 2)));
+    let dateParts = value.split("-");
+    let jsDate = new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2].slice(0, 2)));
     return jsDate;
   }
 }

@@ -161,27 +161,27 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         setTimeout(() => {
           if (res) {
             this.guesses = res;
-            var startTime = new Date(res[0].date!).getTime() ?? 0;
-            var endTime = new Date(res[res.length - 1].date!).getTime() ?? 0;
-            var timeCumul = endTime - startTime;
+            const startTime = new Date(res[0].date!).getTime() ?? 0;
+            const endTime = new Date(res[res.length - 1].date!).getTime() ?? 0;
+            const timeCumul = endTime - startTime;
             this.elapsedTime += timeCumul;
             let skipChecks = false;
-            for (var x = 0; x < this.numberOfTries; x++) {
-              var word = '';
-              var numberOfGreens = 0;
-              for (var y = 0; y < this.selectedDifficulty; y++) {
-                if (res && res[x] && res[x].guess && res[x].guess[y]) {
+            for (let tryIndex = 0; tryIndex < this.numberOfTries; tryIndex++) {
+              let word = '';
+              let numberOfGreens = 0;
+              for (let difficultyIndex = 0; difficultyIndex < this.selectedDifficulty; difficultyIndex++) {
+                if (res && res[tryIndex] && res[tryIndex].guess && res[tryIndex].guess[difficultyIndex]) {
                   // REINSERT the guess into the inputs
-                  (document.getElementById('inputIdRow' + x + 'Letter' + y) as HTMLInputElement).value = res[x].guess[y]; 
-                  word += res[x].guess[y];
-                  (document.getElementById('inputIdRow' + x + 'Letter' + y) as HTMLInputElement).classList.add("grey");
+                  (document.getElementById('inputIdRow' + tryIndex + 'Letter' + difficultyIndex) as HTMLInputElement).value = res[tryIndex].guess[difficultyIndex]; 
+                  word += res[tryIndex].guess[difficultyIndex];
+                  (document.getElementById('inputIdRow' + tryIndex + 'Letter' + difficultyIndex) as HTMLInputElement).classList.add("grey");
                 } 
                 if (word.length == this.selectedDifficulty) {
                   this.guessAttempts.push(word);
                   this.provideFeedback(word, this.currentAttempt);
-                  for (var y = 0; y < this.selectedDifficulty; y++) {
-                    if (res && res[x] && res[x].guess && res[x].guess[y]) {
-                      if ((document.getElementById('inputIdRow' + x + 'Letter' + y) as HTMLInputElement).classList.contains("green")) {
+                  for (let yCheck = 0; yCheck < this.selectedDifficulty; yCheck++) {
+                    if (res && res[tryIndex] && res[tryIndex].guess && res[tryIndex].guess[yCheck]) {
+                      if ((document.getElementById('inputIdRow' + tryIndex + 'Letter' + yCheck) as HTMLInputElement).classList.contains("green")) {
                         numberOfGreens++;
                       }
                     }
@@ -226,10 +226,10 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
   async checkGuess(attemptIndex: number) {
     if (attemptIndex !== this.currentAttempt) return; //<--not sure what this does anymore
-    var guessLetters: string[] = [];
+    let guessLetters: string[] = [];
     const letters = document.getElementById("attemptDiv" + this.currentAttempt) as HTMLDivElement;
     const letterInputs = letters.getElementsByTagName("input");
-    for (var x = 0; x < letterInputs.length; x++) {
+    for (let x = 0; x < letterInputs.length; x++) {
       guessLetters.push(letterInputs[x].value);
     }
     const guess = guessLetters.join('');
@@ -338,8 +338,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   provideFeedback(guess: string, attemptIndex: number) { 
     const guessArray = guess.split('');
     const wordArray = this.wordToGuess.split('');
-    var correctLetters: string[] = [];
-    var halfCorrectLetters: string[] = [];
+    let correctLetters: string[] = [];
+    let halfCorrectLetters: string[] = [];
 
     guessArray.forEach((letter, index) => {
       if (letter === wordArray[index]) {
@@ -364,7 +364,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         if (button && !button.classList.contains("green")) {
           button.classList.add("yellow");
         }
-        var dupeLetterCount = wordArray.filter(x => x == letter).length;
+        const dupeLetterCount = wordArray.filter(x => x == letter).length;
         if ((halfCorrectLetters.filter(x => x == letter).length + correctLetters.filter(x => x == letter).length) < dupeLetterCount) {
           if (input) {
             input.classList.add("yellow");

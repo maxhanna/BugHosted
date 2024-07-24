@@ -9,7 +9,7 @@ import { User } from './datacontracts/user/user';
 export class CalendarService {
 
   async getCalendarEntries(user: User, startDate: Date, endDate: Date) {
-    var params = new URLSearchParams({ startDate: startDate.toISOString(), endDate: endDate.toISOString() });
+    const params = new URLSearchParams({ startDate: startDate.toISOString(), endDate: endDate.toISOString() });
     try {
       const response = await fetch(`/calendar?` + params, {
         method: 'POST',

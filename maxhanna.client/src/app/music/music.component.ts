@@ -131,12 +131,13 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
   }
   getPlaylistForYoutubeUrl(url: string): string[] {
-    var playlist = [];
-    const offset = this.songs.indexOf(this.songs.filter(x => x.url == url)[0]);
-    for (var i = offset; i < this.songs.length; i++) {
+    let playlist = [];
+    let offset = this.songs.indexOf(this.songs.filter(x => x.url == url)[0]);
+    if (offset < 0) { offset = 0; }
+    for (let i = offset; i < this.songs.length; i++) {
       playlist.push(this.trimYoutubeUrl(this.songs[i].url!));
     }
-    for (var i = 0; i < offset; i++) {
+    for (let i = 0; i < offset; i++) {
       playlist.push(this.trimYoutubeUrl(this.songs[i].url!));
     }
     return playlist;
@@ -188,8 +189,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
   }
   extractYouTubeVideoId(url: string) {
-    var youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-    var match = url.match(youtubeRegex);
+    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const match = url.match(youtubeRegex);
 
     if (match && match[1]) {
       return "https://www.youtube.com/watch?v=" + match[1];

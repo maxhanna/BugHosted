@@ -4,8 +4,8 @@
       <div class="cell-content" (click)="selectCoordinates(x, y);">
         <div *ngIf="nexusPictureSrc && mapTileSrc">
           <img [src]="grid[x][y] ? nexusPictureSrc : mapTileSrc" class="cell-content">
-        </div> 
-        <div class="cell-content-coords">{{x + ',' + y}}</div> 
+        </div>
+        <div class="cell-content-coords">{{x + ',' + y}}</div>
       </div>
     </div>
   </div>
@@ -20,29 +20,27 @@
 </div>
 <div (click)="showHomeBase()">
   Show home base.
-  <button (click)="showHomeBase()">Show</button> 
+  <button (click)="showHomeBase()">Show</button>
 </div>
 <div *ngIf="selectedNexusBase">
   <div>
-    📍:
-    {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}
-  </div>
-  <div *ngIf="selectedNexusBase.user">
-    <app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
-  </div>
-  <div>
-    <button (click)="showAttackScreen()">Attack</button>
+    <button (click)="showAttackScreen()" *ngIf="showAttackButton">Attack</button>
+    📍: {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}
+    <span *ngIf="selectedNexusBase.user">
+      User: <span style="display:inline-block;"><app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag></span>
+    </span>
   </div>
 </div>
 <div *ngIf="isAttackScreenOpen">
   <app-nexus-attack-screen [selectedNexus]="selectedNexusBase"
-                           [nexusUnits]="nexusUnits" 
-                           [unitStats]="unitStats" 
+                           [nexusUnits]="nexusUnits"
+                           [unitStats]="unitStats"
                            [marinePictureSrc]="marinePictureSrc"
                            [goliathPictureSrc]="goliathPictureSrc"
                            [siegeTankPictureSrc]="siegeTankPictureSrc"
                            [scoutPictureSrc]="scoutPictureSrc"
                            [wraithPictureSrc]="wraithPictureSrc"
-                           [battlecruiserPictureSrc]="battlecruiserPictureSrc">
+                           [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                           (closedAttackScreen)="closedAttackScreen()">
   </app-nexus-attack-screen>
 </div>

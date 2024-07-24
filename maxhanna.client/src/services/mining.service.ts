@@ -70,7 +70,7 @@ export class MiningService {
     }
   }
   async requestRigStateChange(user: User, rig: MiningRig) {
-    var requestedAction = (this.isOffline(rig.minerStatus!) || this.isStopped(rig.minerStatus!)) ? "START" : "STOP";
+    const requestedAction = (this.isOffline(rig.minerStatus!) || this.isStopped(rig.minerStatus!)) ? "START" : "STOP";
     try {
       const response = await fetch(`/mining/${rig.rigId}`, {
         method: 'POST',
@@ -86,7 +86,7 @@ export class MiningService {
     }
   }
   async requestRigDeviceStateChange(user: User, device: MiningRigDevice) {
-    var requestedAction = this.isDeviceOffline(device.state!) || this.isDeviceDisabled(device.state!) ? "START" : "STOP";
+    const requestedAction = this.isDeviceOffline(device.state!) || this.isDeviceDisabled(device.state!) ? "START" : "STOP";
     try {
       const response = await fetch(`/mining/${device.rigId}/${device.deviceId}`, {
         method: 'POST',

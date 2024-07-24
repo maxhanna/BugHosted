@@ -105,7 +105,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   ngAfterViewInit() {
-    var nothingCreated = true;
+    let nothingCreated = true;
     this.route.paramMap.subscribe(params => {
       const storyId = parseInt(params.get('storyId')!);
       if (storyId) {

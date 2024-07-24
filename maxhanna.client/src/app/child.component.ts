@@ -76,8 +76,8 @@ export class ChildComponent {
     }
   }
   sortTable(columnIndex: number, tableId: string): void {
-    var table, rows, switching, i, x, y, shouldSwitch;
-    var id = columnIndex;
+    let table, rows, switching, i, x, y, shouldSwitch;
+    let id = columnIndex;
     table = document.getElementById(tableId) as HTMLTableElement;
     switching = true;
     while (switching) {

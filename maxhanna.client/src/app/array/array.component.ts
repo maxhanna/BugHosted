@@ -212,7 +212,7 @@ export class ArrayComponent extends ChildComponent implements OnInit {
   private async refreshHeroLadder() {
     if (!this.hideRanks) {
       const heroListRes = await this.arrayService.getAllHeros();
-      var newHeroes: ArrayCharacter[] = [];
+      let newHeroes: ArrayCharacter[] = [];
       if (heroListRes) {
         heroListRes.forEach(x => {
           const matchingHero = this.allPlayerHeros.find(y => (y.user?.id ?? 0) === (x.user?.id ?? 0));

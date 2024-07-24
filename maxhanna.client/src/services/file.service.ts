@@ -29,7 +29,7 @@ export class FileService {
   ];
 
   async getDirectory(dir: string, visibility: string, ownership: string, user?: User, page?: number, pageSize?: number, search?: string, fileId?: number, fileType?: Array<string>) {
-    var params = new URLSearchParams(
+    const params = new URLSearchParams(
       {
         directory: dir,
         visibility: visibility || '',

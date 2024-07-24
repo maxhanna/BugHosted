@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, output } from '@angular/core';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
@@ -20,7 +20,9 @@ export class NexusAttackScreenComponent {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
 
-  constructor(private nexusService: NexusService) { }
+  @Output() closedAttackScreen = new EventEmitter<void>();
+
+  constructor(private nexusService: NexusService) { } 
 
   maxSliderValue(unit: UnitStats): number {
     if (unit.unitType == "marine") return this.nexusUnits?.marineTotal ?? 0;
@@ -36,6 +38,9 @@ export class NexusAttackScreenComponent {
   } 
   formatTimer(allSeconds?: number): string {
     return this.nexusService.formatTimer(allSeconds);
+  }
+  closeAttackScreen() {
+    this.closedAttackScreen.emit();
   }
 
 }

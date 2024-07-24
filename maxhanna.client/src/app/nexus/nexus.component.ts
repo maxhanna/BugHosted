@@ -182,7 +182,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   private getUnitTimers() {
     if (this.nexusUnitsPurchaseList && this.nexusUnitsPurchaseList.length > 0) {
-      var count = 0;
+      let count = 0;
       this.factoryUnitsBeingBuilt = 0;
       this.starportUnitsBeingBuilt = 0;
       this.nexusUnitsPurchaseList.forEach(x => {
@@ -393,7 +393,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async purchaseUnit(unitId: number) {
     if (!this.units) return;
-    var tmpUnit = this.units.filter(x => x.unitId == unitId)[0];
+    const tmpUnit = this.units.filter(x => x.unitId == unitId)[0];
     if (!this.parentRef || !this.parentRef.user || !tmpUnit || !this.nexusBase) return;
 
     if ((this.factoryUnitIds.includes(unitId)) && this.factoryUnitsBeingBuilt >= this.nexusBase.factoryLevel) {

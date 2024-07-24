@@ -45,14 +45,14 @@ export class MiningRigsComponent extends ChildComponent {
     this.stopLoading();
   }
   async requestRigStateChange(rig: MiningRig) {
-    var requestedAction = (this.miningService.isOffline(rig.minerStatus!) || this.miningService.isStopped(rig.minerStatus!)) ? "START" : "STOP";
+    const requestedAction = (this.miningService.isOffline(rig.minerStatus!) || this.miningService.isStopped(rig.minerStatus!)) ? "START" : "STOP";
     if (window.confirm(`Are sure you want to ${requestedAction} ${rig.rigName}?`)) {
       this.startLoading();
 
       try {
         const response = await this.miningService.requestRigStateChange(this.parentRef?.user!, rig);
 
-        var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
+        let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
         this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${rig.rigName} ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
@@ -66,15 +66,14 @@ export class MiningRigsComponent extends ChildComponent {
     }
   }
   async requestDeviceStateChange(device: MiningRigDevice) {
-    var requestedAction = this.miningService.isDeviceOffline(device.state!) || this.miningService.isDeviceDisabled(device.state!) ? "START" : "STOP";
+    const requestedAction = this.miningService.isDeviceOffline(device.state!) || this.miningService.isDeviceDisabled(device.state!) ? "START" : "STOP";
     if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`)) {
-      const headers = { 'Content-Type': 'application/json' };
       try {
         this.startLoading();
         const response = await this.miningService.requestRigDeviceStateChange(this.parentRef?.user!, device);
         this.stopLoading();
 
-        var requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
+        let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
         this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
