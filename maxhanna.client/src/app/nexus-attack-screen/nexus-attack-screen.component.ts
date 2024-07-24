@@ -10,6 +10,7 @@ import { NexusService } from '../../services/nexus.service';
   styleUrl: './nexus-attack-screen.component.css'
 })
 export class NexusAttackScreenComponent {
+  @Input() originBase?: NexusBase;
   @Input() selectedNexus?: NexusBase;
   @Input() nexusUnits?: NexusUnits;
   @Input() unitStats?: UnitStats[];
@@ -22,8 +23,40 @@ export class NexusAttackScreenComponent {
 
   @Output() closedAttackScreen = new EventEmitter<void>();
 
+
   constructor(private nexusService: NexusService) { } 
 
+  engageAttack() {
+    const attackDuration = this.calculateAttackDuration();
+    alert(this.formatTimer(attackDuration));
+  }
+
+  calculateAttackDuration(unitStat?: UnitStats) {
+    if (!this.originBase || !this.selectedNexus) return 0;
+    const selectedX = this.selectedNexus.coordsX;
+    const selectedY = this.selectedNexus.coordsY;
+    const baseX = this.originBase.coordsX;
+    const baseY = this.originBase.coordsY;
+    const distance = 1 + (Math.abs(baseX - selectedX) + Math.abs(baseY - selectedY));
+
+    if (unitStat) {
+      const unitSpeed = unitStat.speed;  
+      return distance * unitSpeed * 60;
+    } else {
+      let slowestSpeed = 0;
+      this.unitStats?.forEach(x => {
+        if (x.sentValue && x.sentValue > 0 && x.speed && (!slowestSpeed || slowestSpeed < x.speed)) {
+          slowestSpeed = x.speed; 
+        }
+      });
+      return distance * slowestSpeed * 60;
+    }
+    
+  }
+  isEngagingUnits() {
+    if (!this.unitStats) return false;
+    return this.unitStats.find(x => x.sentValue && x.sentValue > 0);
+  }
   maxSliderValue(unit: UnitStats): number {
     if (unit.unitType == "marine") return this.nexusUnits?.marineTotal ?? 0;
     if (unit.unitType == "goliath") return this.nexusUnits?.goliathTotal ?? 0;
@@ -35,12 +68,12 @@ export class NexusAttackScreenComponent {
   }
   onSliderChange(event: any, unit: UnitStats): void {
     unit.sentValue = parseInt(event.target.value);
-  } 
+  }
   formatTimer(allSeconds?: number): string {
     return this.nexusService.formatTimer(allSeconds);
   }
   closeAttackScreen() {
+    this.unitStats?.forEach(x => x.sentValue = undefined);
     this.closedAttackScreen.emit();
   }
-
 }

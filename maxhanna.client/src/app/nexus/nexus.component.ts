@@ -1,8 +1,6 @@
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
 import { FileService } from '../../services/file.service';
-import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { NexusService } from '../../services/nexus.service';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { NexusBaseUpgrades } from '../../services/datacontracts/nexus/nexus-base-upgrades';
@@ -39,7 +37,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   displayWarehouse = false;
   displayEngineeringBay = false;
 
-
   mapTileSrc?: string;
   nexusBackgroundPictureSrc?: string;
   commandCenterPictureSrc?: string;
@@ -55,19 +52,18 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   scoutPictureSrc?: string;
   wraithPictureSrc?: string;
   battlecruiserPictureSrc?: string;
-
-  pictureDirectory: DirectoryResults | undefined;
-  mapData?: NexusBase[] = undefined;
-
+   
+  mapData?: NexusBase[] = undefined; 
   nexusBase?: NexusBase;
   nexusBaseUpgrades?: NexusBaseUpgrades;
   nexusUnits?: NexusUnits;
   nexusUnitsPurchaseList?: NexusUnitsPurchased[];
   nexusAvailableUpgrades?: NexusAvailableUpgrades;
+  units?: UnitStats[];
 
   buildingTimers: { [key: string]: BuildingTimer } = {};
   unitTimers: { [key: string]: BuildingTimer } = {};
-
+  goldIncrementInterval: any;
 
   currentBaseLocationX = 0;
   currentBaseLocationY = 0;
@@ -82,14 +78,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   goldCapacity = 5000;
   supplyCapacity = 2500;
   factoryUnitsBeingBuilt = 0;
-  starportUnitsBeingBuilt = 0;
-
-  units?: UnitStats[];
+  starportUnitsBeingBuilt = 0; 
   factoryUnitIds = [6, 7, 10];
   starportUnitIds = [8, 9, 11];
-
-
-  goldIncrementInterval: any;
   warehouseUpgradeLevels: number[] = [];
 
   @ViewChild('upgradeMineButton') upgradeMineButton!: ElementRef<HTMLButtonElement>;
@@ -710,7 +701,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         });
     }
     if (!this.mapTileSrc) {
-      this.fileService.getFileSrcByFileId(6251)
+      this.fileService.getFileSrcByFileId(6254)
         .then(src => {
           this.mapTileSrc = src;
         })

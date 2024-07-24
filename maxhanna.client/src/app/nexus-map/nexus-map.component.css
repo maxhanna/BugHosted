@@ -27,19 +27,23 @@
   height: 50px;
   overflow: hidden;
 }
-  .cell-content-coords { 
-    position: relative;
-    top: -25px;
-    left: 0;   
-    background-color: rgba(0, 0, 0, 0.2); 
-    padding: 5px;
-    font-size: xx-small; 
-    pointer-events: none;
-    width: 45px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    word-break: keep-all;
-  }
+.cell-content-coords {
+  position: relative;
+  top: -13px;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  font-size: xx-small;
+  pointer-events: none;
+  width: 50px;
+  height: 10px;
+  line-height: 10px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  word-break: keep-all;
+}
 .mapInput {
   width: 40px;
+}
+.centeredDiv {
+    text-align: center;
 }

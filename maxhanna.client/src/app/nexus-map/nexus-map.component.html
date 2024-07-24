@@ -10,29 +10,26 @@
     </div>
   </div>
 </div>
-<div>
-  X:
-  <input type="number" placeholder="0" min="0" max="grid[0].length" #mapInputX class="mapInput" (keyup.enter)="showMapLocation()" />
-  Y:
-  <input type="number" placeholder="0" min="0" max="grid[0].length" #mapInputY class="mapInput" (keyup.enter)="showMapLocation()" />
-  <button (click)="showMapLocation()">Show</button>
-  <button (click)="clearMapInputs()">Clear</button>
+<div class="centeredDiv" *ngIf="!isAttackScreenOpen">
+  <button (click)="showHomeBase()" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
+
+  X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (keyup.enter)="showMapLocation()" />
+  Y: <input type="number" placeholder="0" min="0" max="99" #mapInputY class="mapInput" (keyup.enter)="showMapLocation()" />
+
+  <button (click)="showMapLocation()" *ngIf="mapInputX.value && mapInputY.value" [disabled]="!mapInputX.value || !mapInputY.value">📍:{{'{' + mapInputX.value + ',' + mapInputY.value  + '}'}}</button>
+  <button (click)="clearMapInputs()" *ngIf="mapInputX.value || mapInputY.value">Clear</button>
 </div>
-<div (click)="showHomeBase()">
-  Show home base.
-  <button (click)="showHomeBase()">Show</button>
-</div>
-<div *ngIf="selectedNexusBase">
-  <div>
-    <button (click)="showAttackScreen()" *ngIf="showAttackButton">Attack</button>
-    📍: {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}
-    <span *ngIf="selectedNexusBase.user">
-      User: <span style="display:inline-block;"><app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag></span>
-    </span>
-  </div>
+
+<div *ngIf="selectedNexusBase" class="centeredDiv">
+  <button (click)="showAttackScreen()" *ngIf="showAttackButton">Attack</button>
+  {{isAttackScreenOpen ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}
+  <span *ngIf="selectedNexusBase.user">
+    👤: <span style="display:inline-block;"><app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag></span>
+  </span>
 </div>
 <div *ngIf="isAttackScreenOpen">
-  <app-nexus-attack-screen [selectedNexus]="selectedNexusBase"
+  <app-nexus-attack-screen [originBase]="nexusBase"
+                           [selectedNexus]="selectedNexusBase"
                            [nexusUnits]="nexusUnits"
                            [unitStats]="unitStats"
                            [marinePictureSrc]="marinePictureSrc"

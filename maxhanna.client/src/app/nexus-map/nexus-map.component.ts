@@ -23,6 +23,7 @@ export class NexusMapComponent implements OnInit {
 
   @Input() user?: User;
   @Input() nexusUnits?: NexusUnits;
+  @Input() nexusBase?: NexusBase;
   @Input() nexusPictureSrc?: string;
   @Input() mapTileSrc?: string;
   @Input() marinePictureSrc: string | undefined;
@@ -38,19 +39,14 @@ export class NexusMapComponent implements OnInit {
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;
   @ViewChild('mapContainer') mapContainer!: ElementRef;
    
-  constructor(private fileService: FileService) {
-
-
-  }
+  constructor() {  }
 
   ngOnInit() {   
   }
   scrollToUserBase() {
     const userId = this.user?.id;
-    console.log("scroll to user base " + userId);  
     const userBase = this.mapData.filter(b => b.user?.id === userId)[0];
     if (userBase) {
-      console.log(userBase);
       this.scrollToCoordinates(userBase.coordsX, userBase.coordsY);
     }  
   }

@@ -7,6 +7,7 @@ export class UnitStats {
   unitLevel!: number;
   duration!: number;
   cost!: number;
+  speed!: number;
   supply!: number;
   groundDamage!: number;
   airDamage!: number;
