@@ -84,4 +84,12 @@ export class NexusService {
   async purchaseUnit(user: User, nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
     return await this.fetchData('/nexus/purchaseUnit', { User: user, Nexus: nexus, unitId, purchaseAmount });
   }
+
+  formatTimer(allSeconds?: number): string {
+    if (!allSeconds) return '';
+    const totalSeconds = allSeconds;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds < 10 ? '0' : ''}${Math.ceil(seconds)}`;
+  }
 }

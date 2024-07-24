@@ -491,8 +491,8 @@ namespace maxhanna.Server.Controllers
             {
                 while (reader.Read())
                 {
-                    string fileName = reader["file_name"].ToString();
-                    string folderPath = reader["folder_path"].ToString();
+                    string fileName = reader["file_name"].ToString() ?? "";
+                    string folderPath = reader["folder_path"].ToString() ?? "";
                     string fullPath = Path.Combine("E:/Uploads/", folderPath, fileName);
                     filePaths.Add(fullPath);
                 }

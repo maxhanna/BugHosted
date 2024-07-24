@@ -1,0 +1,28 @@
+Select units to send:
+<div class="unitsTableDiv">
+  <table class="mainTable">
+    <tbody *ngFor="let unit of unitStats">
+      <tr>
+        <td class="unitPictureTd">
+          <img [src]="unit.pictureSrc" class="unitPicture" *ngIf="unit.pictureSrc" />
+        </td>
+        <td class="unitPictureTd">
+          {{ unit.unitType }}
+        </td>
+        <td class="unitSliderTd">
+          <input type="range" class="unitSliderTd" [value]="unit.sentValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
+        </td>
+        <td>
+          {{unit.sentValue ? unit.sentValue : '0'}}
+        </td> 
+      </tr>
+      <tr>
+        <td></td>
+        <td class="smallFont" colspan="3">
+          🪙{{ ((unit.sentValue ? unit.sentValue : 1) * unit.cost) }}
+          ⏱️{{ formatTimer(unit.duration * (unit.sentValue ? unit.sentValue : 1))}} 
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div> 

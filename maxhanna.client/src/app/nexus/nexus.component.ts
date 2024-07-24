@@ -39,20 +39,23 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   displayWarehouse = false;
   displayEngineeringBay = false;
 
-  commandCenterPicture: FileEntry | undefined;
-  starportPicture: FileEntry | undefined;
-  supplyDepotPicture: FileEntry | undefined;
-  warehousePicture: FileEntry | undefined;
-  engineeringBayPicture: FileEntry | undefined;
-  minesPicture: FileEntry | undefined;
-  factoryPicture: FileEntry | undefined;
-  marinePicture: FileEntry | undefined;
-  goliathPicture: FileEntry | undefined;
-  siegeTankPicture: FileEntry | undefined;
-  scoutPicture: FileEntry | undefined;
-  wraithPicture: FileEntry | undefined;
-  battlecruiserPicture: FileEntry | undefined;
-  nexusBackgroundPicture: FileEntry | undefined;
+
+  mapTileSrc?: string;
+  nexusBackgroundPictureSrc?: string;
+  commandCenterPictureSrc?: string;
+  starportPictureSrc?: string;
+  supplyDepotPictureSrc?: string;
+  warehousePictureSrc?: string;
+  engineeringBayPictureSrc?: string;
+  minesPictureSrc?: string;
+  factoryPictureSrc?: string;
+  marinePictureSrc?: string;
+  goliathPictureSrc?: string;
+  siegeTankPictureSrc?: string;
+  scoutPictureSrc?: string;
+  wraithPictureSrc?: string;
+  battlecruiserPictureSrc?: string;
+
   pictureDirectory: DirectoryResults | undefined;
   mapData?: NexusBase[] = undefined;
 
@@ -83,8 +86,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   units?: UnitStats[];
   factoryUnitIds = [6, 7, 10];
-  starportUnitIds = [8,9, 11];
-   
+  starportUnitIds = [8, 9, 11];
+
 
   goldIncrementInterval: any;
   warehouseUpgradeLevels: number[] = [];
@@ -99,64 +102,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async ngOnInit() {
-    this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user); 
+    this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
-
+    this.loadPictureSrcs();
     await this.loadNexusData();
-
-    if (!this.pictureDirectory) {
-      const picDirectoryRes = await this.fileService.getDirectory("Nexus/Assets", "all", "all", this.parentRef?.user, undefined, 1000, undefined, undefined, ["webp"]);
-      if (picDirectoryRes) {
-        this.pictureDirectory = picDirectoryRes;
-        //console.log(this.pictureDirectory);
-
-        //units
-        this.marinePicture = this.pictureDirectory?.data?.filter(x => x.id == 6240)[0];
-        if (this.units && this.marinePicture && this.units.filter(x => x.unitType == "marine")[0] && !this.units.filter(x => x.unitType == "marine")[0].picture) {
-          this.units.filter(x => x.unitType == "marine")[0].picture = this.marinePicture;
-        }
-        this.goliathPicture = this.pictureDirectory?.data?.filter(x => x.id == 6237)[0];
-        if (this.units && this.goliathPicture && this.units.filter(x => x.unitType == "goliath")[0] && !this.units.filter(x => x.unitType == "goliath")[0].picture) {
-          this.units.filter(x => x.unitType == "goliath")[0].picture = this.goliathPicture;
-        }
-        this.siegeTankPicture = this.pictureDirectory?.data?.filter(x => x.id == 6246)[0];
-        if (this.units && this.siegeTankPicture && this.units.filter(x => x.unitType == "siege_tank")[0] && !this.units.filter(x => x.unitType == "siege_tank")[0].picture) {
-          this.units.filter(x => x.unitType == "siege_tank")[0].picture = this.siegeTankPicture;
-        } 
-        this.scoutPicture = this.pictureDirectory?.data?.filter(x => x.id == 6244)[0];
-        if (this.units && this.scoutPicture && this.units.filter(x => x.unitType == "scout")[0] && !this.units.filter(x => x.unitType == "scout")[0].picture) {
-          this.units.filter(x => x.unitType == "scout")[0].picture = this.scoutPicture;
-        }
-        this.wraithPicture = this.pictureDirectory?.data?.filter(x => x.id == 6245)[0];
-        if (this.units && this.wraithPicture && this.units.filter(x => x.unitType == "wraith")[0] && !this.units.filter(x => x.unitType == "wraith")[0].picture) {
-          this.units.filter(x => x.unitType == "wraith")[0].picture = this.wraithPicture;
-        }
-        this.battlecruiserPicture = this.pictureDirectory?.data?.filter(x => x.id == 6243)[0];
-        if (this.units && this.battlecruiserPicture && this.units.filter(x => x.unitType == "battlecruiser")[0] && !this.units.filter(x => x.unitType == "battlecruiser")[0].picture) {
-          this.units.filter(x => x.unitType == "battlecruiser")[0].picture = this.battlecruiserPicture;
-        }
-
-        //buildings
-        if (!this.nexusBackgroundPicture)
-          this.nexusBackgroundPicture = this.pictureDirectory?.data?.filter(x => x.id == 5940)[0];
-        if (!this.commandCenterPicture)
-          this.commandCenterPicture = this.pictureDirectory?.data?.filter(x => x.id == 5920)[0];
-        if (!this.starportPicture)
-          this.starportPicture = this.pictureDirectory?.data?.filter(x => x.id == 6241)[0];
-        if (!this.minesPicture)
-          this.minesPicture = this.pictureDirectory?.data?.filter(x => x.id == 5922)[0];
-        if (!this.factoryPicture)
-          this.factoryPicture = this.pictureDirectory?.data?.filter(x => x.id == 5921)[0];
-        if (!this.supplyDepotPicture)
-          this.supplyDepotPicture = this.pictureDirectory?.data?.filter(x => x.id == 5952)[0];
-        if (!this.warehousePicture)
-          this.warehousePicture = this.pictureDirectory?.data?.filter(x => x.id == 6110)[0];
-        if (!this.engineeringBayPicture)
-         this.engineeringBayPicture = this.pictureDirectory?.data?.filter(x => x.id == 6113)[0];
-      }
-    }
-    
     this.startGoldIncrement();
   }
 
@@ -178,7 +128,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (!this.parentRef || !this.parentRef.user) { return; }
     const data = await this.nexusService.getNexus(this.parentRef.user, this.nexusBase);
 
-    if (data && data.nexusBase && data.nexusBase.userId != 0) {
+    if (data && data.nexusBase && data.nexusBase.user?.id != 0) {
       this.nexusBase = data.nexusBase;
       this.nexusBaseUpgrades = data.nexusBaseUpgrades;
       this.nexusUnitsPurchaseList = data.nexusUnitsPurchasedList;
@@ -219,8 +169,18 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       const res = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase);
       if (res) {
         this.units = res as UnitStats[];
+        this.units.filter(x => x.unitType == "marine")[0].pictureSrc = this.marinePictureSrc;
+        this.units.filter(x => x.unitType == "goliath")[0].pictureSrc = this.goliathPictureSrc;
+        this.units.filter(x => x.unitType == "siege_tank")[0].pictureSrc = this.siegeTankPictureSrc;
+        this.units.filter(x => x.unitType == "scout")[0].pictureSrc = this.scoutPictureSrc;
+        this.units.filter(x => x.unitType == "wraith")[0].pictureSrc = this.wraithPictureSrc;
+        this.units.filter(x => x.unitType == "battlecruiser")[0].pictureSrc = this.battlecruiserPictureSrc;
       }
     }
+    this.getUnitTimers();
+  }
+
+  private getUnitTimers() {
     if (this.nexusUnitsPurchaseList && this.nexusUnitsPurchaseList.length > 0) {
       var count = 0;
       this.factoryUnitsBeingBuilt = 0;
@@ -228,7 +188,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.nexusUnitsPurchaseList.forEach(x => {
         count++;
         const startTime = x.timestamp;
-        const salt = "{"+this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} " + count + "." + x.quantityPurchased + " ";
+        const salt = "{" + this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} " + count + "." + x.quantityPurchased + " ";
         if (this.factoryUnitIds.includes(x.unitIdPurchased)) {
           this.factoryUnitsBeingBuilt++;
         } else {
@@ -239,7 +199,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       });
     }
   }
-  private startUpgradeTimer(upgrade: string, time: number, isUnit: boolean) { 
+
+  private startUpgradeTimer(upgrade: string, time: number, isUnit: boolean) {
     if (this.buildingTimers[upgrade] || this.unitTimers[upgrade] || !time || isNaN(time)) {
       return;
     }
@@ -282,27 +243,27 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         }
         this.cd.detectChanges();
       }, 1000);
-    }  
-  } 
+    }
+  }
 
-   
+
   private async getBuildingUpgradesInfo() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return; 
+    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return;
     const upRes = await this.nexusService.getBuildingUpgrades(this.parentRef.user, this.nexusBase);
     if (upRes) {
       this.nexusAvailableUpgrades = upRes;
     }
-    
+
     if (this.nexusBaseUpgrades) {
-      if (this.nexusBaseUpgrades.commandCenterUpgraded && !this.buildingTimers["command_center"]) { 
+      if (this.nexusBaseUpgrades.commandCenterUpgraded && !this.buildingTimers["command_center"]) {
         const startTime = this.nexusBaseUpgrades.commandCenterUpgraded;
         this.primeTheTimerForBuildingUgrades(startTime, "command_center");
       }
-      if (this.nexusBaseUpgrades.supplyDepotUpgraded && !this.buildingTimers["supply_depot"]) { 
+      if (this.nexusBaseUpgrades.supplyDepotUpgraded && !this.buildingTimers["supply_depot"]) {
         const startTime = this.nexusBaseUpgrades.supplyDepotUpgraded;
         this.primeTheTimerForBuildingUgrades(startTime, "supply_depot");
       }
-      if (this.nexusBaseUpgrades.factoryUpgraded && !this.buildingTimers["factory"]) { 
+      if (this.nexusBaseUpgrades.factoryUpgraded && !this.buildingTimers["factory"]) {
         const startTime = this.nexusBaseUpgrades.factoryUpgraded;
         this.primeTheTimerForBuildingUgrades(startTime, "factory");
       }
@@ -324,7 +285,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
     } else {
       this.reinitializeBuildingTimers();
-    }   
+    }
   }
 
   private primeTheTimerForBuildingUgrades(startTime: Date, type: string) {
@@ -345,8 +306,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   private primeTheTimerForUnitPurchases(startTime: Date, id: number, quantity: number, displayFirst: string) {
     if (!this.units) return;
     const startTimeTime = new Date(startTime).getTime();
-    const unit = this.units.find(u => u.unitId === id); 
-    const duration =  unit ? unit.duration * quantity : 0;
+    const unit = this.units.find(u => u.unitId === id);
+    const duration = unit ? unit.duration * quantity : 0;
     const type = displayFirst + (unit ? unit.unitType : "");
 
     const utcNow = new Date().getTime();
@@ -358,13 +319,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
-  private async reinitializeBuildingTimers() { 
+  private async reinitializeBuildingTimers() {
     Object.keys(this.buildingTimers).forEach(building => {
       if (this.buildingTimers[building]) {
         clearTimeout(this.buildingTimers[building].timeout);
         delete this.buildingTimers[building];
       }
-    }); 
+    });
   }
 
   private async getMinesInfo() {
@@ -431,14 +392,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async purchaseUnit(unitId: number) {
-    if (!this.units) return; 
+    if (!this.units) return;
     var tmpUnit = this.units.filter(x => x.unitId == unitId)[0];
     if (!this.parentRef || !this.parentRef.user || !tmpUnit || !this.nexusBase) return;
-    console.log(unitId);
+
     if ((this.factoryUnitIds.includes(unitId)) && this.factoryUnitsBeingBuilt >= this.nexusBase.factoryLevel) {
       return alert("Upgrade the Factory to train more units simultaneously.");
     } else if ((this.starportUnitIds.includes(unitId)) && this.starportUnitsBeingBuilt >= this.nexusBase.starportLevel) {
-      return alert("Upgrade the Starport to train more units simultaneously."); 
+      return alert("Upgrade the Starport to train more units simultaneously.");
     }
 
     const res = await this.nexusService.purchaseUnit(this.parentRef.user, this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0);
@@ -452,7 +413,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         });
       }
       await this.loadNexusData(true);
-    } 
+    }
   }
 
   async viewMap() {
@@ -477,7 +438,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.goldAmount = this.goldCapacity;
           this.stopGoldIncrement();
           return;
-        } 
+        }
         this.goldAmount += 1;
         this.cd.detectChanges();
       }, intervalTime);
@@ -498,12 +459,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     const link = `https://bughosted.com/War`;
     navigator.clipboard.writeText(link);
   }
+
   formatTimer(allSeconds?: number): string {
-    if (!allSeconds) return '';
-    const totalSeconds = allSeconds;
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${Math.ceil(seconds)}`;
+    return this.nexusService.formatTimer(allSeconds);
   }
 
   activeBuildingTimers(): { building: string; endTime: number }[] {
@@ -520,7 +478,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return activeTimers;
   }
   activeUnitTimers(): { unit: string; endTime: number }[] {
-    const activeTimers: { unit: string; endTime: number }[] = []; 
+    const activeTimers: { unit: string; endTime: number }[] = [];
     this.unitTimers = Object.fromEntries(Object.entries(this.unitTimers).sort(([, a], [, b]) => a.endTime - b.endTime));
 
     for (const unit in this.unitTimers) {
@@ -533,7 +491,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return activeTimers;
   }
 
-  async closeUserComponent(user: User) { 
+  async closeUserComponent(user: User) {
     if (!this.parentRef) return;
     this.parentRef.user = user;
     this.isUserComponentOpen = false;
@@ -552,12 +510,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.isMinesOpen = false;
   }
 
-  openFactory() { 
+  openFactory() {
     this.isFactoryOpen = true;
   }
   closeFactory() {
     this.isFactoryOpen = false;
-    if (!this.units) return;  
+    if (!this.units) return;
     this.units.forEach(x => {
       x.purchasedValue = undefined;
     });
@@ -568,7 +526,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   closeStarport() {
     this.isStarportOpen = false;
-    if (!this.units) return;  
+    if (!this.units) return;
     this.units.forEach(x => {
       x.purchasedValue = undefined;
     });
@@ -608,27 +566,27 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     const supplyTimesUnitGoldMaxCost = Math.floor(this.calculateCurrentSupply() / unit.supply);
 
     const maxGoldValue = Math.min(goldTimesUnitGoldMaxCost, supplyTimesUnitGoldMaxCost);
-    
+
     return maxGoldValue;
-  } 
+  }
   onSliderChange(event: any, unit: UnitStats): void {
     unit.purchasedValue = parseInt(event.target.value);
   }
   getFactoryUnits() {
-    if (!this.units) return; 
+    if (!this.units) return;
 
     return this.units.filter(x =>
-      this.factoryUnitIds.includes(x.unitId) 
+      this.factoryUnitIds.includes(x.unitId)
       && x.engineeringBayLevel <= this.nexusBase!.engineeringBayLevel
       && x.factoryLevel <= this.nexusBase!.factoryLevel
       && x.starportLevel <= this.nexusBase!.starportLevel
     ).sort((a, b) => a.cost - b.cost);
   }
   getStarportUnits() {
-    if (!this.units) return; 
+    if (!this.units) return;
 
     return this.units.filter(x =>
-      this.starportUnitIds.includes(x.unitId) 
+      this.starportUnitIds.includes(x.unitId)
       && x.engineeringBayLevel <= this.nexusBase!.engineeringBayLevel
       && x.factoryLevel <= this.nexusBase!.factoryLevel
       && x.starportLevel <= this.nexusBase!.starportLevel
@@ -676,4 +634,144 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     return this.buildingTimers[formatted];
   }
+
+  private loadPictureSrcs() {
+    if (!this.commandCenterPictureSrc) {
+      this.fileService.getFileSrcByFileId(5920)
+        .then(src => {
+          this.commandCenterPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.starportPictureSrc) {
+      this.fileService.getFileSrcByFileId(6241)
+        .then(src => {
+          this.starportPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.minesPictureSrc) {
+      this.fileService.getFileSrcByFileId(5922)
+        .then(src => {
+          this.minesPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.factoryPictureSrc) {
+      this.fileService.getFileSrcByFileId(5921)
+        .then(src => {
+          this.factoryPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.supplyDepotPictureSrc) {
+      this.fileService.getFileSrcByFileId(5952)
+        .then(src => {
+          this.supplyDepotPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.warehousePictureSrc) {
+      this.fileService.getFileSrcByFileId(6110)
+        .then(src => {
+          this.warehousePictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.engineeringBayPictureSrc) {
+      this.fileService.getFileSrcByFileId(6113)
+        .then(src => {
+          this.engineeringBayPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
+    if (!this.nexusBackgroundPictureSrc) {
+      this.fileService.getFileSrcByFileId(5940)
+        .then(src => {
+          this.nexusBackgroundPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.mapTileSrc) {
+      this.fileService.getFileSrcByFileId(6251)
+        .then(src => {
+          this.mapTileSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.marinePictureSrc) {
+      this.fileService.getFileSrcByFileId(6240)
+        .then(src => {
+          this.marinePictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.goliathPictureSrc) {
+      this.fileService.getFileSrcByFileId(6237)
+        .then(src => {
+          this.goliathPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.siegeTankPictureSrc) {
+      this.fileService.getFileSrcByFileId(6246)
+        .then(src => {
+          this.siegeTankPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.scoutPictureSrc) {
+      this.fileService.getFileSrcByFileId(6244)
+        .then(src => {
+          this.scoutPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.wraithPictureSrc) {
+      this.fileService.getFileSrcByFileId(6245)
+        .then(src => {
+          this.wraithPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.battlecruiserPictureSrc) {
+      this.fileService.getFileSrcByFileId(6243)
+        .then(src => {
+          this.battlecruiserPictureSrc = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+  }
+
 }

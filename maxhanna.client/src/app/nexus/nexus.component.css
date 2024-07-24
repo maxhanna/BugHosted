@@ -91,8 +91,8 @@
   top: 38px;
   left: 0px;
   z-index: -1;
-  width: 100%;
-  height: 100%;
+  width: var(--nexus-gamescreen-width);
+  height: var(--nexus-gamescreen-height);
   object-fit: cover; /* Ensures the image covers the entire parent div */
   overflow: hidden;
   opacity: 25%;
@@ -102,9 +102,9 @@
 }
 
 .commandCenterScreen, .commandCenterBackground, .factoryScreen, .factoryBackground, .starportScreen, .starportBackground,
-.minesScreen, .minesBackground, .supplyDepotBackground, .engineeringBayBackground, .warehouseBackground {
+.minesScreen, .minesBackground, .supplyDepotBackground, .engineeringBayBackground, .warehouseBackground, .nexusBackground {
   height: var(--nexus-gamescreen-height);
-  width: 100%;
+  width: var(--nexus-gamescreen-width);
 }
 
 .shareMapButtonDiv {

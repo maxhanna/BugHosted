@@ -16,6 +16,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
         public DateTime Date { get; set; }
         public string? FileType { get; set; }
         public int FileSize { get; set; }
-        public List<Reaction>? Reactions { get; set; }
+        public List<Reaction>? Reactions { get; set; } 
     }
 }

@@ -1,0 +1,6 @@
+
+.unitsTableDiv {
+  height: 180px;
+  overflow: auto;
+  width: var(--nexus-gamescreen-width);
+}

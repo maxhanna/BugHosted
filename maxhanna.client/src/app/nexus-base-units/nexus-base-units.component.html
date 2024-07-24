@@ -1,91 +1,43 @@
 
   <div *ngIf="nexusUnits && nexusHasUnits()" class="unitList">
     <div *ngIf="nexusUnits.marineTotal > 0" title="Marines" class="portraitContainer">
-      <div class="portrait" *ngIf="marinePicture">
-        <app-media-viewer [file]="marinePicture"
-                          [currentDirectory]="marinePicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
+      <img [src]="marinePictureSrc" class="portrait" *ngIf="marinePictureSrc" />
+      <div class="unitCountLabel">
+        {{nexusUnits.marineTotal}}
       </div>
-      {{nexusUnits.marineTotal}}
     </div>
     <div *ngIf="nexusUnits.goliathTotal > 0" title="Goliath" class="portraitContainer">
-      <div class="portrait" *ngIf="goliathPicture">
-        <app-media-viewer [file]="goliathPicture"
-                          [currentDirectory]="goliathPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
+      <img [src]="goliathPictureSrc" class="portrait" *ngIf="goliathPictureSrc" />
+      <div class="unitCountLabel">
+        {{nexusUnits.goliathTotal}}
       </div>
-      {{nexusUnits.goliathTotal}}
     </div>
     <div *ngIf="nexusUnits.siegeTankTotal > 0" title="Siege Tanks" class="portraitContainer">
-      <div class="portrait" *ngIf="siegeTankPicture">
-        <app-media-viewer [file]="siegeTankPicture"
-                          [currentDirectory]="siegeTankPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
+      <img [src]="siegeTankPictureSrc" class="portrait" *ngIf="siegeTankPictureSrc" />
+      <div class="unitCountLabel">
+        {{nexusUnits.siegeTankTotal}}
       </div>
-      {{nexusUnits.siegeTankTotal}}
     </div>
 
     <div *ngIf="nexusUnits.scoutTotal > 0" title="Scouts" class="portraitContainer">
-      <div class="portrait" *ngIf="scoutPicture">
-        <app-media-viewer [file]="scoutPicture"
-                          [currentDirectory]="scoutPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
+      <img [src]="scoutPictureSrc" class="portrait" *ngIf="scoutPictureSrc" />
+      <div class="unitCountLabel">
+        {{nexusUnits.scoutTotal}}
       </div>
-      {{nexusUnits.scoutTotal}}
     </div>
 
     <div *ngIf="nexusUnits.wraithTotal > 0" title="Wraith" class="portraitContainer">
-      <div class="portrait" *ngIf="wraithPicture">
-        <app-media-viewer [file]="wraithPicture"
-                          [currentDirectory]="wraithPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
+      <img [src]="wraithPictureSrc" class="portrait" *ngIf="wraithPictureSrc" /> 
+      <div class="unitCountLabel">
+        {{nexusUnits.wraithTotal}}
       </div>
-      {{nexusUnits.wraithTotal}}
     </div>
 
     <div *ngIf="nexusUnits.battlecruiserTotal > 0" title="Battlecruisers" class="portraitContainer">
-      <div class="portrait" *ngIf="battlecruiserPicture">
-        <app-media-viewer [file]="battlecruiserPicture"
-                          [currentDirectory]="battlecruiserPicture.directory"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [user]="parentRef?.user"
-                          [autoplay]="true"
-                          [displayExpander]="false">
-        </app-media-viewer>
+      <img [src]="battlecruiserPictureSrc" class="portrait" *ngIf="battlecruiserPictureSrc" /> 
+      <div class="unitCountLabel">
+        {{nexusUnits.battlecruiserTotal}}
       </div>
-      {{nexusUnits.battlecruiserTotal}}
     </div>
 
   </div>

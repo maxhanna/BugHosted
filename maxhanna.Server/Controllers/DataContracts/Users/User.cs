@@ -24,5 +24,10 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
             Id = id;
             Username = username;
         }
+        public User(int id)
+        {
+            Id = id;
+            Username = "Anonymous";
+        }
     }
 }

@@ -1,13 +1,10 @@
 <div class="map" *ngIf="mapData" #mapContainer>
   <div *ngFor="let row of grid; let y = index" class="row">
     <div *ngFor="let cell of row; let x = index" class="cell" [attr.x]="x" [attr.y]="y">
-      <div class="cell-content">
-        <div *ngIf="grid[x][y]">
-          <img [src]="nexusPictureSrc" class="cell-content">
-        </div>
-        <div *ngIf="!grid[x][y]">
-          <img [src]="mapTileSrc" class="cell-content">
-        </div>
+      <div class="cell-content" (click)="selectCoordinates(x, y);">
+        <div *ngIf="nexusPictureSrc && mapTileSrc">
+          <img [src]="grid[x][y] ? nexusPictureSrc : mapTileSrc" class="cell-content">
+        </div> 
         <div class="cell-content-coords">{{x + ',' + y}}</div> 
       </div>
     </div>
@@ -15,13 +12,37 @@
 </div>
 <div>
   X:
-  <input type="number" placeholder="0" min="0" max="grid[0].length" #mapInputX class="mapInput" />
+  <input type="number" placeholder="0" min="0" max="grid[0].length" #mapInputX class="mapInput" (keyup.enter)="showMapLocation()" />
   Y:
-  <input type="number" placeholder="0" min="0" max="grid[0].length" #mapInputY class="mapInput" />
+  <input type="number" placeholder="0" min="0" max="grid[0].length" #mapInputY class="mapInput" (keyup.enter)="showMapLocation()" />
   <button (click)="showMapLocation()">Show</button>
   <button (click)="clearMapInputs()">Clear</button>
 </div>
 <div (click)="showHomeBase()">
   Show home base.
   <button (click)="showHomeBase()">Show</button> 
+</div>
+<div *ngIf="selectedNexusBase">
+  <div>
+    📍:
+    {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}
+  </div>
+  <div *ngIf="selectedNexusBase.user">
+    <app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
+  </div>
+  <div>
+    <button (click)="showAttackScreen()">Attack</button>
+  </div>
+</div>
+<div *ngIf="isAttackScreenOpen">
+  <app-nexus-attack-screen [selectedNexus]="selectedNexusBase"
+                           [nexusUnits]="nexusUnits" 
+                           [unitStats]="unitStats" 
+                           [marinePictureSrc]="marinePictureSrc"
+                           [goliathPictureSrc]="goliathPictureSrc"
+                           [siegeTankPictureSrc]="siegeTankPictureSrc"
+                           [scoutPictureSrc]="scoutPictureSrc"
+                           [wraithPictureSrc]="wraithPictureSrc"
+                           [battlecruiserPictureSrc]="battlecruiserPictureSrc">
+  </app-nexus-attack-screen>
 </div>

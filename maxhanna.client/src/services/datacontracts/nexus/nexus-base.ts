@@ -1,5 +1,7 @@
+import { User } from "../user/user";
+
 export interface NexusBase {
-  userId: number;
+  user?: User;
   gold: number;
   supply: number;
   coordsX: number;

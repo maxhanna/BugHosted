@@ -116,7 +116,7 @@ namespace maxhanna.Server.Controllers
                         {
                             nexusBase = new NexusBase
                             {
-                                UserId = readerBase.GetInt32("user_id"),
+                                User = new User(readerBase.GetInt32("user_id"), "Anonymous"),
                                 Gold = readerBase.IsDBNull(readerBase.GetOrdinal("gold")) ? 0 : readerBase.GetDecimal("gold"),
                                 Supply = readerBase.IsDBNull(readerBase.GetOrdinal("supply")) ? 0 : readerBase.GetInt32("supply"),
                                 CoordsX = readerBase.IsDBNull(readerBase.GetOrdinal("coords_x")) ? 0 : readerBase.GetInt32("coords_x"),
@@ -329,7 +329,7 @@ namespace maxhanna.Server.Controllers
                         tmpBase = new NexusBase();
                         tmpBase.CoordsX = reader.IsDBNull(reader.GetOrdinal("coords_x")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_x"));
                         tmpBase.CoordsY = reader.IsDBNull(reader.GetOrdinal("coords_y")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_y"));
-                        tmpBase.UserId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id"));
+                        tmpBase.User = new User(reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")), "Anonymous");
                         break;
                     }
                 }
@@ -451,10 +451,10 @@ namespace maxhanna.Server.Controllers
                                 var durationResult = await cmdUpgradeStats.ExecuteScalarAsync();
                                 if (durationResult != null)
                                 {
-                                    Console.WriteLine("duration result: " + durationResult);
                                     int duration = Convert.ToInt32(durationResult);
                                     TimeSpan timeElapsed = DateTime.Now - upgradeStart.Value;
-                                    if (Math.Abs(timeElapsed.TotalSeconds - duration) <= 3)
+                                    Console.WriteLine($"duration result: {duration}, timeELapsed: {timeElapsed} : ({Math.Abs(duration - timeElapsed.TotalSeconds)})");
+                                    if (Math.Abs(duration - timeElapsed.TotalSeconds) <= 3)
                                     {
                                         Console.WriteLine($"Time elapsed expired on {buildingName}");
                                         // Update the building level
@@ -572,9 +572,13 @@ namespace maxhanna.Server.Controllers
                 // Insert new base at the available location
                 string sql = @"
                     SELECT 
-                        user_id, coords_x, coords_y
+                        n.user_id, u.username, n.coords_x, n.coords_y, udp.file_id
                     FROM 
-                        maxhanna.nexus_bases n;";
+                        maxhanna.nexus_bases n
+                    LEFT JOIN 
+                        maxhanna.users u on u.id = n.user_id
+                    LEFT JOIN 
+                        maxhanna.user_display_pictures udp on udp.user_id = n.user_id;";
 
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -583,10 +587,21 @@ namespace maxhanna.Server.Controllers
                 {
                     while (await reader.ReadAsync())
                     {
+                        FileEntry? dp = null;
+                        if (!reader.IsDBNull(reader.GetOrdinal("file_id")))
+                        {
+                            dp = new FileEntry();
+                            dp.Id = reader.GetInt32(reader.GetOrdinal("file_id"));
+                        }
                         NexusBase tmpBase = new NexusBase();
                         tmpBase.CoordsX = reader.IsDBNull(reader.GetOrdinal("coords_x")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_x"));
                         tmpBase.CoordsY = reader.IsDBNull(reader.GetOrdinal("coords_y")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_y"));
-                        tmpBase.UserId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id"));
+                        tmpBase.User = 
+                            new User(reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")),
+                                reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString(reader.GetOrdinal("username")),
+                                null,
+                                dp,
+                                null);
                         bases.Add(tmpBase);
                     }
                 }

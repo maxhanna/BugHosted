@@ -14,6 +14,7 @@ export class UnitStats {
   starportLevel!: number;
   factoryLevel!: number;
   engineeringBayLevel!: number;
-  picture?: FileEntry;
+  pictureSrc?: string;
   purchasedValue?: number;
+  sentValue?: number;
 }

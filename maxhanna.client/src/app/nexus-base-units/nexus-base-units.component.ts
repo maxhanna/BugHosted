@@ -12,12 +12,12 @@ export class NexusBaseUnitsComponent {
 
   @Input() parentRef?: AppComponent;
   @Input() nexusUnits?: NexusUnits; 
-  @Input() marinePicture: FileEntry | undefined;
-  @Input() goliathPicture: FileEntry | undefined;
-  @Input() siegeTankPicture: FileEntry | undefined;
-  @Input() scoutPicture: FileEntry | undefined;
-  @Input() wraithPicture: FileEntry | undefined;
-  @Input() battlecruiserPicture: FileEntry | undefined;
+  @Input() marinePictureSrc: string | undefined;
+  @Input() goliathPictureSrc: string | undefined;
+  @Input() siegeTankPictureSrc: string | undefined;
+  @Input() scoutPictureSrc: string | undefined;
+  @Input() wraithPictureSrc: string | undefined;
+  @Input() battlecruiserPictureSrc: string | undefined;
    
   nexusHasUnits() {
     if (!this.nexusUnits) return false;

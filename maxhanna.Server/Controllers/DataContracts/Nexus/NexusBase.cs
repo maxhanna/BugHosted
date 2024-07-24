@@ -1,8 +1,10 @@
+using maxhanna.Server.Controllers.DataContracts.Users;
+
 namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
     public class NexusBase
     {
-        public int UserId { get; set; }
+        public User? User { get; set; }
         public Decimal Gold { get; set; }
         public int Supply { get; set; }
         public int CoordsX { get; set; }

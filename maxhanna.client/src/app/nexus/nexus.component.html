@@ -17,34 +17,31 @@
     </div>
 
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user">
-      <app-nexus-map #mapComponent [user]="parentRef.user"></app-nexus-map> 
+      <app-nexus-map #mapComponent
+                     [user]="parentRef.user"
+                     [inputtedParentRef]="parentRef"
+                     [nexusUnits]="nexusUnits"
+                     [unitStats]="units"
+                     [nexusPictureSrc]="nexusBackgroundPictureSrc"
+                     [marinePictureSrc]="marinePictureSrc"
+                     [goliathPictureSrc]="goliathPictureSrc"
+                     [siegeTankPictureSrc]="siegeTankPictureSrc"
+                     [scoutPictureSrc]="scoutPictureSrc"
+                     [wraithPictureSrc]="wraithPictureSrc"
+                     [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                     [mapTileSrc]="mapTileSrc"> 
+      </app-nexus-map> 
     </div>
 
 
-    <div class="nexusBackground" *ngIf="nexusBackgroundPicture" [style.display]="!isMinesOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen ? 'block' : 'none' ">
-      <app-media-viewer [file]="nexusBackgroundPicture"
-                        [currentDirectory]="nexusBackgroundPicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
+ 
+       
+    <img [src]="nexusBackgroundPictureSrc" class="nexusBackground" *ngIf="nexusBackgroundPictureSrc" [style.display]="!isMinesOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen ? 'block' : 'none' " />
+       
+    
     <div [style.display]="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && nexusBase ? 'block' : 'none'">
-      <div class="building">
-        <div class="commandCenter buildingPicture" *ngIf="commandCenterPicture" (click)="openCommandCenter()" title="Command Center">
-          <app-media-viewer [file]="commandCenterPicture"
-                            [currentDirectory]="commandCenterPicture.directory"
-                            [inputtedParentRef]="parentRef"
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="parentRef?.user"
-                            [autoplay]="true"
-                            [displayExpander]="false">
-          </app-media-viewer>
-        </div>
+      <div class="building"> 
+        <img [src]="commandCenterPictureSrc" class="commandCenter buildingPicture" *ngIf="commandCenterPictureSrc" (click)="openCommandCenter()" title="Command Center" />
         <span class="levelLabel commandCenterLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.commandCenterLevel ? nexusBase.commandCenterLevel : ''}}
           <span class="timerLabel">
@@ -53,18 +50,8 @@
         </span>
       </div>
 
-      <div class="building" [style.display]="displayMines ?  'block' : 'none'">
-        <div class="buildingPicture mines" *ngIf="minesPicture" (click)="openMines();" title="Mines">
-          <app-media-viewer [file]="minesPicture"
-                            [currentDirectory]="minesPicture.directory"
-                            [inputtedParentRef]="parentRef"
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="parentRef?.user"
-                            [autoplay]="true"
-                            [displayExpander]="false">
-          </app-media-viewer>
-        </div>
+      <div class="building" [style.display]="displayMines ?  'block' : 'none'"> 
+        <img [src]="minesPictureSrc" class="buildingPicture mines" *ngIf="minesPictureSrc" (click)="openMines();" title="Mines" /> 
         <span class="levelLabel minesLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.minesLevel ? nexusBase.minesLevel : ''}}
           <span class="timerLabel">
@@ -75,17 +62,7 @@
 
 
       <div class="building" [style.visibility]="displayEngineeringBay ?  'visible' : 'hidden'">
-        <div class="buildingPicture engineeringBay" *ngIf="engineeringBayPicture" (click)="openEngineeringBay();" title="Engineering Bay">
-          <app-media-viewer [file]="engineeringBayPicture"
-                            [currentDirectory]="engineeringBayPicture.directory"
-                            [inputtedParentRef]="parentRef"
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="parentRef?.user"
-                            [autoplay]="true"
-                            [displayExpander]="false">
-          </app-media-viewer>
-        </div>
+        <img [src]="engineeringBayPictureSrc" class="buildingPicture engineeringBay" *ngIf="engineeringBayPictureSrc" (click)="openEngineeringBay();" title="Engineering Bay"  />
         <span class="levelLabel engineeringBayLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.engineeringBayLevel ? nexusBase.engineeringBayLevel : ''}}
           <span class="timerLabel">
@@ -95,18 +72,8 @@
       </div>
 
 
-      <div class="building" [style.visibility]="displayWarehouse ?  'visible' : 'hidden'">
-        <div class="buildingPicture warehouse" *ngIf="warehousePicture" (click)="openWarehouse();" title="Warehouse">
-          <app-media-viewer [file]="warehousePicture"
-                            [currentDirectory]="warehousePicture.directory"
-                            [inputtedParentRef]="parentRef"
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="parentRef?.user"
-                            [autoplay]="true"
-                            [displayExpander]="false">
-          </app-media-viewer>
-        </div>
+      <div class="building" [style.visibility]="displayWarehouse ?  'visible' : 'hidden'"> 
+        <img [src]="warehousePictureSrc"  class="buildingPicture warehouse" *ngIf="warehousePictureSrc" (click)="openWarehouse();" title="Warehouse" /> 
         <span class="levelLabel warehouseLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.warehouseLevel ? nexusBase.warehouseLevel : ''}}
           <span class="timerLabel">
@@ -115,18 +82,8 @@
         </span>
       </div>
 
-      <div class="building" [style.visibility]="displayFactory ?  'visible' : 'hidden'">
-        <div class="buildingPicture factory" *ngIf="factoryPicture" (click)="openFactory()" title="Factory">
-          <app-media-viewer [file]="factoryPicture"
-                            [currentDirectory]="factoryPicture.directory"
-                            [inputtedParentRef]="parentRef"
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="parentRef?.user"
-                            [autoplay]="true"
-                            [displayExpander]="false">
-          </app-media-viewer>
-        </div>
+      <div class="building" [style.visibility]="displayFactory ?  'visible' : 'hidden'"> 
+        <img [src]="factoryPictureSrc" class="buildingPicture factory" *ngIf="factoryPictureSrc" (click)="openFactory()" title="Factory" /> 
         <span class="levelLabel factoryLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.factoryLevel ? nexusBase.factoryLevel : ''}}
           <span class="timerLabel">
@@ -135,18 +92,8 @@
         </span>
       </div>
 
-      <div class="building" [style.visibility]="displayStarport ?  'visible' : 'hidden'">
-        <div class="buildingPicture starport" *ngIf="starportPicture" (click)="openStarport()" title="Starport">
-          <app-media-viewer [file]="starportPicture"
-                            [currentDirectory]="starportPicture.directory"
-                            [inputtedParentRef]="parentRef"
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="parentRef?.user"
-                            [autoplay]="true"
-                            [displayExpander]="false">
-          </app-media-viewer>
-        </div>
+      <div class="building" [style.visibility]="displayStarport ?  'visible' : 'hidden'"> 
+        <img [src]="starportPictureSrc" class="buildingPicture starport" *ngIf="starportPictureSrc" (click)="openStarport()" title="Starport" /> 
         <span class="levelLabel starportLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.starportLevel ? nexusBase.starportLevel : ''}}
           <span class="timerLabel">
@@ -155,18 +102,8 @@
         </span>
       </div>
 
-      <div class="building" [style.visibility]="displaySupplyDepot ? 'visible' : 'hidden'">
-        <div class="buildingPicture supplyDepot" *ngIf="supplyDepotPicture" (click)="openSupplyDepot()" title="Supply Depot">
-          <app-media-viewer [file]="supplyDepotPicture"
-                            [currentDirectory]="supplyDepotPicture.directory"
-                            [inputtedParentRef]="parentRef"
-                            [displayExtraInfo]="false"
-                            [showCommentSection]="false"
-                            [user]="parentRef?.user"
-                            [autoplay]="true"
-                            [displayExpander]="false">
-          </app-media-viewer>
-        </div>
+      <div class="building" [style.visibility]="displaySupplyDepot ? 'visible' : 'hidden'"> 
+        <img [src]="supplyDepotPictureSrc" class="buildingPicture supplyDepot" *ngIf="supplyDepotPictureSrc" (click)="openSupplyDepot()" title="Supply Depot" /> 
         <span class="levelLabel supplyDepotLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.supplyDepotLevel ? nexusBase.supplyDepotLevel : ''}}
           <span class="timerLabel">
@@ -177,17 +114,8 @@
     </div>
 
 
-    <div class="commandCenterBackground" *ngIf="commandCenterPicture" [style.display]="isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
-      <app-media-viewer [file]="commandCenterPicture"
-                        [currentDirectory]="commandCenterPicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
+    
+    <img [src]="commandCenterPictureSrc" class="commandCenterBackground" *ngIf="commandCenterPictureSrc" [style.display]="isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" />
     <div *ngIf="nexusBase" [style.display]="isCommandCenterOpen && !isMapOpen && !isUserNew && nexusBase ? 'block' : 'none'" class="commandCenterScreen">
       <div>
         <p class="">
@@ -200,17 +128,8 @@
 
     </div>
 
-    <div class="supplyDepotBackground" *ngIf="supplyDepotPicture" [style.display]="supplyDepotPicture && isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isCommandCenterOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
-      <app-media-viewer [file]="supplyDepotPicture"
-                        [currentDirectory]="supplyDepotPicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
+ 
+    <img [src]="supplyDepotPictureSrc" class="supplyDepotBackground" *ngIf="supplyDepotPictureSrc" [style.display]="isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isCommandCenterOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" />
     <div [style.display]="isSupplyDepotOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="supplyDepotScreen">
       <div *ngIf="nexusBase">
         <div class="supplyInfoDiv">
@@ -229,18 +148,8 @@
       </div>
     </div>
 
-
-    <div class="factoryBackground" *ngIf="factoryPicture" [style.display]="factoryPicture && isFactoryOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
-      <app-media-viewer [file]="factoryPicture"
-                        [currentDirectory]="factoryPicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
+     
+    <img [src]="factoryPictureSrc" class="factoryBackground" *ngIf="factoryPictureSrc" [style.display]="isFactoryOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" /> 
     <div [style.display]="isFactoryOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="factoryScreen">
       <div>
         Upgrade the Factory to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.factoryLevel ?? 0}}</span>
@@ -249,17 +158,7 @@
             <tbody *ngFor="let unit of getFactoryUnits()">
               <tr>
                 <td class="unitPictureTd">
-                  <span class="unitPicture" *ngIf="unit.picture">
-                    <app-media-viewer [file]="unit.picture"
-                                      [currentDirectory]="unit.picture.directory"
-                                      [inputtedParentRef]="parentRef"
-                                      [displayExtraInfo]="false"
-                                      [showCommentSection]="false"
-                                      [user]="parentRef?.user"
-                                      [autoplay]="true"
-                                      [displayExpander]="false">
-                    </app-media-viewer>
-                  </span>
+                  <img [src]="unit.pictureSrc" class="unitPicture" *ngIf="unit.pictureSrc" /> 
                 </td>
                 <td class="unitPictureTd">
                   {{ unit.unitType }}
@@ -289,18 +188,8 @@
       </div>
     </div>
 
-
-    <div class="starportBackground" *ngIf="starportPicture && nexusBase" [style.display]="isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
-      <app-media-viewer [file]="starportPicture"
-                        [currentDirectory]="starportPicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
+     
+    <img [src]="starportPictureSrc" class="starportBackground" *ngIf="starportPictureSrc && nexusBase" [style.display]="isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" /> 
     <div [style.display]="isStarportOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="starportScreen">
       <div>
         <div>
@@ -310,17 +199,7 @@
               <tbody *ngFor="let unit of getStarportUnits()">
                 <tr>
                   <td class="unitPictureTd">
-                    <span class="unitPicture" *ngIf="unit.picture">
-                      <app-media-viewer [file]="unit.picture"
-                                        [currentDirectory]="unit.picture.directory"
-                                        [inputtedParentRef]="parentRef"
-                                        [displayExtraInfo]="false"
-                                        [showCommentSection]="false"
-                                        [user]="parentRef?.user"
-                                        [autoplay]="true"
-                                        [displayExpander]="false">
-                      </app-media-viewer>
-                    </span>
+                    <img [src]="unit.pictureSrc" class="unitPicture" *ngIf="unit.pictureSrc" /> 
                   </td>
                   <td class="unitPictureTd">
                     {{ unit.unitType }}
@@ -351,18 +230,8 @@
       </div>
     </div>
 
-
-    <div class="warehouseBackground" *ngIf="warehousePicture" [style.display]="isWarehouseOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
-      <app-media-viewer [file]="warehousePicture"
-                        [currentDirectory]="warehousePicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
+     
+    <img [src]="warehousePictureSrc"  class="warehouseBackground" *ngIf="warehousePictureSrc" [style.display]="isWarehouseOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" />
     <div [style.display]="isWarehouseOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="warehouseScreen">
       <div>
         <p></p>Current gold capacity : {{goldCapacity}}🪙
@@ -386,18 +255,8 @@
       </div>
     </div>
 
-
-    <div class="engineeringBayBackground" *ngIf="engineeringBayPicture" [style.display]="isEngineeringBayOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
-      <app-media-viewer [file]="engineeringBayPicture"
-                        [currentDirectory]="engineeringBayPicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
+     
+    <img [src]="engineeringBayPictureSrc" class="engineeringBayBackground" *ngIf="engineeringBayPictureSrc" [style.display]="isEngineeringBayOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" /> 
     <div [style.display]="isEngineeringBayOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="engineeringBayScreen">
       <div>
         Upgrade units and create a drone that converts a Command Center to your ownership.
@@ -405,18 +264,8 @@
       </div>
     </div>
 
-
-    <div class="minesBackground" *ngIf="minesPicture" [style.display]="isMinesOpen && !isMapOpen && !isUserNew ? 'block' : 'none'">
-      <app-media-viewer [file]="minesPicture"
-                        [currentDirectory]="minesPicture.directory"
-                        [inputtedParentRef]="parentRef"
-                        [displayExtraInfo]="false"
-                        [showCommentSection]="false"
-                        [user]="parentRef?.user"
-                        [autoplay]="true"
-                        [displayExpander]="false">
-      </app-media-viewer>
-    </div>
+     
+    <img [src]="minesPictureSrc" class="minesBackground" *ngIf="minesPictureSrc" [style.display]="isMinesOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" /> 
     <div [style.display]="isMinesOpen && !isMapOpen && !isUserNew ? 'block' : 'none'" class="minesScreen">
       <div>
         Current mining speed: {{miningSpeed}}
@@ -478,12 +327,12 @@
   <div [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
     <app-nexus-base-units [parentRef]="parentRef"
                           [nexusUnits]="nexusUnits"
-                          [marinePicture]="marinePicture"
-                          [goliathPicture]="goliathPicture"
-                          [siegeTankPicture]="siegeTankPicture"
-                          [scoutPicture]="scoutPicture"
-                          [wraithPicture]="wraithPicture"
-                          [battlecruiserPicture]="battlecruiserPicture"></app-nexus-base-units>
+                          [marinePictureSrc]="marinePictureSrc"
+                          [goliathPictureSrc]="goliathPictureSrc"
+                          [siegeTankPictureSrc]="siegeTankPictureSrc"
+                          [scoutPictureSrc]="scoutPictureSrc"
+                          [wraithPictureSrc]="wraithPictureSrc"
+                          [battlecruiserPictureSrc]="battlecruiserPictureSrc"></app-nexus-base-units>
   </div>
 
   <div class="gameNotificationDiv">

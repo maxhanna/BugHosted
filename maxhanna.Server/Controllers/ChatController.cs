@@ -237,7 +237,7 @@ namespace maxhanna.Server.Controllers
                                 var sender = new User
                                 (
                                     Convert.ToInt32(reader["sender_id"]),
-                                    reader["sender_username"].ToString(),
+                                    reader["sender_username"].ToString() ?? "Anonymous",
                                     null,
                                     senderDisplayPicture.Id == 0 ? null : senderDisplayPicture,
                                     null
@@ -253,7 +253,7 @@ namespace maxhanna.Server.Controllers
                                 var receiver = new User
                                 (
                                     Convert.ToInt32(reader["receiver_id"]),
-                                    reader["receiver_username"].ToString(),
+                                    reader["receiver_username"].ToString() ?? "Anonymous",
                                     null,
                                     receiverDisplayPicture.Id == 0 ? null : receiverDisplayPicture,
                                     null
@@ -286,8 +286,11 @@ namespace maxhanna.Server.Controllers
                                     Timestamp = Convert.ToDateTime(reader["reaction_timestamp"]),
                                     Type = reader["type"].ToString()
                                 };
-
-                                messageMap[messageId].Reactions.Add(reaction);
+                                if (messageMap[messageId].Reactions == null)
+                                {
+                                    messageMap[messageId].Reactions = new List<Reaction>();
+                                }
+                                messageMap[messageId].Reactions!.Add(reaction);
                             }
                             // Check if file data is present and add to files list 
                             if (!reader.IsDBNull(reader.GetOrdinal("file_id")))

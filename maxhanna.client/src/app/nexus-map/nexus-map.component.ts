@@ -4,6 +4,9 @@ import { User } from '../../services/datacontracts/user/user';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { FileService } from '../../services/file.service';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
+import { AppComponent } from '../app.component';
+import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
+import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
 
 @Component({
   selector: 'app-nexus-map',
@@ -12,12 +15,23 @@ import { DirectoryResults } from '../../services/datacontracts/file/directory-re
 })
 export class NexusMapComponent implements OnInit {
   mapData: NexusBase[] = [];
-  grid: string[][] = [];
-
-  nexusPictureSrc: string | undefined; 
-  mapTileSrc: string | undefined; 
+  selectedNexusBase?: NexusBase;
+  grid: string[][] = []; 
+  isAttackScreenOpen = false;
+   
 
   @Input() user?: User;
+  @Input() nexusUnits?: NexusUnits;
+  @Input() nexusPictureSrc?: string;
+  @Input() mapTileSrc?: string;
+  @Input() marinePictureSrc: string | undefined;
+  @Input() goliathPictureSrc: string | undefined;
+  @Input() siegeTankPictureSrc: string | undefined;
+  @Input() scoutPictureSrc: string | undefined;
+  @Input() wraithPictureSrc: string | undefined;
+  @Input() battlecruiserPictureSrc: string | undefined;
+  @Input() unitStats?: UnitStats[];
+  @Input() inputtedParentRef?: AppComponent;
 
   @ViewChild('mapInputX') mapInputX!: ElementRef<HTMLInputElement>;
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;
@@ -28,33 +42,16 @@ export class NexusMapComponent implements OnInit {
 
   }
 
-  ngOnInit() {  
-    this.fileService.getFileSrcByFileId(5940)
-      .then(src => {
-        this.nexusPictureSrc = src;
-      })
-      .catch(error => {
-        console.error('Error loading map tile source:', error);
-      });
-
-    this.fileService.getFileSrcByFileId(6251)
-      .then(src => {
-        this.mapTileSrc = src;
-      })
-      .catch(error => {
-        console.error('Error loading map tile source:', error); 
-      });
+  ngOnInit() {   
   }
   scrollToUserBase() {
-    if (!this.user || !this.mapData || this.mapData.length === 0) return;
-
-    const userBase = this.mapData.find(base => base.userId === this.user?.id);
-    if (userBase && this.mapContainer) {
-      const cell = this.mapContainer.nativeElement.querySelector(`.cell[x='${userBase.coordsX}'][y='${userBase.coordsY}']`);
-      if (cell) {
-        cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      }
-    }
+    const userId = this.user?.id;
+    console.log("scroll to user base " + userId);  
+    const userBase = this.mapData.filter(b => b.user?.id === userId)[0];
+    if (userBase) {
+      console.log(userBase);
+      this.scrollToCoordinates(userBase.coordsX, userBase.coordsY);
+    }  
   }
 
   scrollToCoordinates(coordsX: number, coordsY: number) {
@@ -67,9 +64,7 @@ export class NexusMapComponent implements OnInit {
   }
 
   setMapData(nexusBases: NexusBase[]) { 
-    this.mapData = nexusBases;
-
-    if (!this.mapData) return;
+    this.mapData = nexusBases; 
      
     for (let i = 0; i < 100; i++) {
       this.grid[i] = [];
@@ -81,9 +76,14 @@ export class NexusMapComponent implements OnInit {
           this.grid[i][j] = "";
         }
       }
-    }
+    } 
+  }
 
-    this.scrollToUserBase();
+  showAttackScreen() { 
+    this.isAttackScreenOpen = true;
+  }
+  closeAttackScreen() {
+    this.isAttackScreenOpen = false;
   }
 
   clearMapInputs() {
@@ -106,5 +106,25 @@ export class NexusMapComponent implements OnInit {
   }
   getRandomEmptyMapTile() {
     return this.mapTileSrc;
+  }
+  selectCoordinates(coordsx: number, coordsy: number) {
+    this.isAttackScreenOpen = false;
+    this.unitStats?.forEach(x => x.sentValue = undefined);
+    this.selectedNexusBase = this.mapData.find(x => x.coordsX && x.coordsY && x.coordsX == coordsx && x.coordsY == coordsy);
+    if (!this.selectedNexusBase) {
+      this.selectedNexusBase = {
+        coordsX: coordsx,
+        coordsY: coordsy,
+        gold: 0,
+        supply: 0,
+        supplyDepotLevel: 0,
+        commandCenterLevel: 0,
+        minesLevel: 0,
+        engineeringBayLevel: 0,
+        factoryLevel: 0,
+        starportLevel: 0,
+        warehouseLevel: 0
+      };
+    }
   }
 }

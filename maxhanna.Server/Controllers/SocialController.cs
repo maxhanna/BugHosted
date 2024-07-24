@@ -280,6 +280,10 @@ namespace maxhanna.Server.Controllers
                             var story = stories.FirstOrDefault(s => s.Id == storyId);
                             if (story != null && topicId != 0)
                             {
+                                if (story.StoryTopics == null)
+                                {
+                                    story.StoryTopics = new List<Topic>();
+                                }
                                 story.StoryTopics.Add(topic);
                             }
                         }
@@ -342,6 +346,10 @@ namespace maxhanna.Server.Controllers
                             var story = stories.FirstOrDefault(s => s.Id == storyId);
                             if (story != null && reaction.Id != 0)
                             {
+                                if (story.Reactions == null)
+                                {
+                                    story.Reactions = new List<Reaction>();
+                                } 
                                 story.Reactions.Add(reaction);
                             }
                         }
@@ -607,12 +615,14 @@ namespace maxhanna.Server.Controllers
                                     var reactionTime = rdr.GetDateTime("reaction_time");
 
                                     // Check if the reaction already exists for the comment
-                                    var existingReaction = comment.Reactions.FirstOrDefault(r => r.Id == reactionId);
+                                    var existingReaction = comment.Reactions!.FirstOrDefault(r => r.Id == reactionId);
                                     if (existingReaction == null)
                                     {
-                                        // Fetch reaction user data
                                         User reactionUser = new User(reactionUserId, reactionUserName);
-
+                                        if (comment.Reactions == null)
+                                        {
+                                            comment.Reactions = new List<Reaction>();
+                                        }  
                                         comment.Reactions.Add(new Reaction
                                         {
                                             Id = reactionId,
