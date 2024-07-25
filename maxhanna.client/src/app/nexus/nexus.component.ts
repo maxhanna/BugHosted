@@ -1,8 +1,7 @@
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileService } from '../../services/file.service';
-import { NexusService } from '../../services/nexus.service';
-import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
+ import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { NexusBaseUpgrades } from '../../services/datacontracts/nexus/nexus-base-upgrades';
 import { NexusMapComponent } from '../nexus-map/nexus-map.component';
 import { NexusAvailableUpgrades, UpgradeDetail } from '../../services/datacontracts/nexus/nexus-available-upgrades';
@@ -11,6 +10,8 @@ import { User } from '../../services/datacontracts/user/user';
 import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { NexusUnitsPurchased } from '../../services/datacontracts/nexus/nexus-units-purchased';
+import { NexusService } from '../../services/nexus.service';
+import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
 
 @Component({
   selector: 'app-nexus',
@@ -59,10 +60,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   nexusUnits?: NexusUnits;
   nexusUnitsPurchaseList?: NexusUnitsPurchased[];
   nexusAvailableUpgrades?: NexusAvailableUpgrades;
+  nexusAttacksSent?: NexusAttackSent[];
+  nexusAttacksIncoming?: NexusAttackSent[];
   units?: UnitStats[];
 
   buildingTimers: { [key: string]: BuildingTimer } = {};
   unitTimers: { [key: string]: BuildingTimer } = {};
+  attackTimers: { [key: string]: BuildingTimer } = {};
   goldIncrementInterval: any;
 
   currentBaseLocationX = 0;
@@ -124,18 +128,21 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.nexusBaseUpgrades = data.nexusBaseUpgrades;
       this.nexusUnitsPurchaseList = data.nexusUnitsPurchasedList;
       this.nexusUnits = data.nexusUnits;
-      //console.log(this.nexusBase);
-      //console.log(this.nexusBaseUpgrades);
+      this.nexusAttacksSent = data.nexusAttacksSent;
+      this.nexusAttacksIncoming = data.nexusAttacksIncoming;
+
       this.currentBaseLocationX = data.nexusBase.coordsX;
       this.currentBaseLocationY = data.nexusBase.coordsY;
       this.goldAmount = data.nexusBase.gold;
       this.goldCapacity = (data.nexusBase.warehouseLevel + 1) * 5000;
       this.supplyCapacity = (data.nexusBase.supplyDepotLevel * 2500);
-      this.displayBuildings(this.nexusBaseUpgrades);
+      this.displayBuildings(this.nexusBaseUpgrades); 
+      this.updateAttackTimers();
+      this.updateDefenceTimers();
+
       await this.getMinesInfo();
       await this.getBuildingUpgradesInfo();
       await this.getUnitStats();
-
     } else {
       this.isUserComponentOpen = false;
       this.isUserNew = true;
@@ -160,12 +167,21 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       const res = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase);
       if (res) {
         this.units = res as UnitStats[];
-        this.units.filter(x => x.unitType == "marine")[0].pictureSrc = this.marinePictureSrc;
-        this.units.filter(x => x.unitType == "goliath")[0].pictureSrc = this.goliathPictureSrc;
-        this.units.filter(x => x.unitType == "siege_tank")[0].pictureSrc = this.siegeTankPictureSrc;
-        this.units.filter(x => x.unitType == "scout")[0].pictureSrc = this.scoutPictureSrc;
-        this.units.filter(x => x.unitType == "wraith")[0].pictureSrc = this.wraithPictureSrc;
-        this.units.filter(x => x.unitType == "battlecruiser")[0].pictureSrc = this.battlecruiserPictureSrc;
+        const unitTypes = [
+          { type: "marine", pictureSrc: this.marinePictureSrc },
+          { type: "goliath", pictureSrc: this.goliathPictureSrc },
+          { type: "siege_tank", pictureSrc: this.siegeTankPictureSrc },
+          { type: "scout", pictureSrc: this.scoutPictureSrc },
+          { type: "wraith", pictureSrc: this.wraithPictureSrc },
+          { type: "battlecruiser", pictureSrc: this.battlecruiserPictureSrc }
+        ];
+
+        unitTypes.forEach(({ type, pictureSrc }) => {
+          const unit = this.units!.find(x => x.unitType === type);
+          if (unit) {
+            unit.pictureSrc = pictureSrc;
+          }
+        });
       }
     }
     this.getUnitTimers();
@@ -190,6 +206,49 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       });
     }
   }
+
+  private updateAttackTimers() {
+    if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0 && this.nexusBase) {
+      let count = 0;
+      this.nexusAttacksSent.forEach(x => {
+
+        const startTimeTime = new Date(x.timestamp).getTime();
+
+        const utcNow = new Date().getTime();
+        const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+        const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
+        count++;
+        const coordsMatchOwnBase = (x.destinationCoordsX == this.nexusBase!.coordsX && x.destinationCoordsY == this.nexusBase!.coordsY)
+        const salt = "{" + x.originCoordsX + "," + x.originCoordsY + "} " + count + ". " + (coordsMatchOwnBase ? "Returning" : "Attacking") + " " + "{" + x.destinationCoordsX + "," + x.destinationCoordsY + "} ";
+
+        if (remainingTimeInSeconds > 0) {
+          this.startAttackTimer(salt, remainingTimeInSeconds);
+        }
+      });
+    }
+  }
+
+
+  private updateDefenceTimers() {
+    if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
+      let count = 0;
+      this.nexusAttacksIncoming.forEach(x => {
+
+        const startTimeTime = new Date(x.timestamp).getTime();
+
+        const utcNow = new Date().getTime();
+        const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+        const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
+        count++;
+        const salt = "{" + x.originCoordsX + " " + x.originCoordsY + "} " + count + ". Incoming " + "{" + x.destinationCoordsX + " " + x.destinationCoordsY + "} ";
+
+        if (remainingTimeInSeconds > 0) {
+          this.startAttackTimer(salt, remainingTimeInSeconds);
+        }
+      });
+    }
+  }
+   
 
   private startUpgradeTimer(upgrade: string, time: number, isUnit: boolean) {
     if (this.buildingTimers[upgrade] || this.unitTimers[upgrade] || !time || isNaN(time)) {
@@ -235,6 +294,33 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.cd.detectChanges();
       }, 1000);
     }
+  }
+
+
+  private startAttackTimer(upgrade: string, time: number) {
+    if (this.attackTimers[upgrade] || !time || isNaN(time)) {
+      return;
+    }
+    //add one second to give the server time to realise whats been built.
+    const endTime = Math.max(0, time) + 1;
+     
+    this.attackTimers[upgrade] = {
+      endTime: endTime,
+      timeout: setTimeout(async () => {
+        this.notifications.push(`${upgrade} completed!`);
+        delete this.attackTimers[upgrade];
+        clearInterval(interval);
+        await this.loadNexusData(true);
+        this.cd.detectChanges();
+      }, endTime * 1000)
+    };
+    const interval = setInterval(async () => {
+      if (this.attackTimers[upgrade]) {
+        const remainingTime = this.attackTimers[upgrade].endTime - 1;
+        this.attackTimers[upgrade].endTime = remainingTime;
+      }
+      this.cd.detectChanges();
+    }, 1000); 
   }
 
 
@@ -292,7 +378,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.startUpgradeTimer(salt + type, remainingTimeInSeconds, false);
     }
   }
-
+  
+   
 
   private primeTheTimerForUnitPurchases(startTime: Date, id: number, quantity: number, displayFirst: string) {
     if (!this.units) return;
@@ -324,7 +411,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     const mineRes = await this.nexusService.getMinesInfo(this.parentRef.user, this.nexusBase);
     if (mineRes) {
-      this.miningSpeed = mineRes.speed;
+      this.miningSpeed = mineRes;
     }
   }
   private displayBuildings(nexusBaseUpgrades: NexusBaseUpgrades, value?: boolean) {
@@ -384,7 +471,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async purchaseUnit(unitId: number) {
     if (!this.units) return;
-    const tmpUnit = this.units.filter(x => x.unitId == unitId)[0];
+    const tmpUnit = this.units.find(x => x.unitId == unitId);
     if (!this.parentRef || !this.parentRef.user || !tmpUnit || !this.nexusBase) return;
 
     if ((this.factoryUnitIds.includes(unitId)) && this.factoryUnitsBeingBuilt >= this.nexusBase.factoryLevel) {
@@ -474,6 +561,20 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     for (const unit in this.unitTimers) {
       const timer = this.unitTimers[unit];
+      if (timer.endTime) {
+        activeTimers.push({ unit: unit, endTime: timer.endTime });
+      }
+    }
+
+    return activeTimers;
+  }
+
+  activeAttackTimers(): { unit: string; endTime: number }[] {
+    const activeTimers: { unit: string; endTime: number }[] = [];
+    this.attackTimers = Object.fromEntries(Object.entries(this.attackTimers).sort(([, a], [, b]) => a.endTime - b.endTime));
+
+    for (const unit in this.attackTimers) {
+      const timer = this.attackTimers[unit];
       if (timer.endTime) {
         activeTimers.push({ unit: unit, endTime: timer.endTime });
       }
@@ -584,7 +685,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     ).sort((a, b) => a.cost - b.cost);
   }
   getSupplyUsedPerUnit(unitId: number) {
-    return this.getSupplyUsed().filter(x => x.unitId == unitId)[0].supplyUsed;
+    const res = this.getSupplyUsed().find(x => x.unitId == unitId);
+    if (res) {
+      return res.supplyUsed;
+    } return 0;
   }
   getSupplyUsed() {
     // Create a mapping of unit types to their respective total counts
@@ -764,5 +868,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         });
     }
   }
-
+  emittedReloadEvent() {
+    this.loadNexusData(true);
+  }
 }

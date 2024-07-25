@@ -37,9 +37,10 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     this.userClickEvent.emit(value);
   }
   getChatNotificationsByUser(userId?: number) {
-    if (userId) {
-      if (this.chatNotifications && this.chatNotifications.filter(x => x.senderId == userId)[0]) {
-        return this.chatNotifications?.filter(x => x.senderId == userId)[0].count ?? 0;
+    if (userId && this.chatNotifications) {
+      const tmpChatNotif = this.chatNotifications.find(x => x.senderId == userId);
+      if (this.chatNotifications && tmpChatNotif) {
+        return tmpChatNotif.count;
       }
     }
     return '';

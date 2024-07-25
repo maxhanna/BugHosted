@@ -2,10 +2,10 @@
   <div *ngFor="let row of grid; let y = index" class="row">
     <div *ngFor="let cell of row; let x = index" class="cell" [attr.x]="x" [attr.y]="y">
       <div class="cell-content" (click)="selectCoordinates(x, y);">
-        <div *ngIf="nexusPictureSrc && mapTileSrc">
+        <div *ngIf="nexusPictureSrc && mapTileSrc" [id]="'x' + x + ',y' + y + 'LocDiv'">
           <img [src]="grid[x][y] ? nexusPictureSrc : mapTileSrc" class="cell-content">
         </div>
-        <div class="cell-content-coords">{{x + ',' + y}}</div>
+        <div class="cell-content-coords" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'">{{x + ',' + y}}</div>
       </div>
     </div>
   </div>
@@ -28,7 +28,8 @@
   </span>
 </div>
 <div *ngIf="isAttackScreenOpen">
-  <app-nexus-attack-screen [originBase]="nexusBase"
+  <app-nexus-attack-screen [user]="user"
+                           [originBase]="nexusBase"
                            [selectedNexus]="selectedNexusBase"
                            [nexusUnits]="nexusUnits"
                            [unitStats]="unitStats"
@@ -38,6 +39,8 @@
                            [scoutPictureSrc]="scoutPictureSrc"
                            [wraithPictureSrc]="wraithPictureSrc"
                            [battlecruiserPictureSrc]="battlecruiserPictureSrc"
-                           (closedAttackScreen)="closedAttackScreen()">
+                           (closedAttackScreen)="closedAttackScreen()"
+                           (emittedReloadEvent)="emittedReloadEvent.emit()"
+                           (emittedAttackCoordinates)="emittedAttackCoordinates($event)">
   </app-nexus-attack-screen>
 </div>

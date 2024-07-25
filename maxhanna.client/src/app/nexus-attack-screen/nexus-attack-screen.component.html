@@ -21,7 +21,8 @@
         <tr *ngIf="unit.sentValue"> 
           <td class="smallFont" colspan="4">
             ⏱️ETA:{{ formatTimer(calculateAttackDuration(unit))}}
-            ⚔️Ground/Air Damage:{{ unit.groundDamage * (unit.sentValue ? unit.sentValue : 1)}}/{{ unit.airDamage * (unit.sentValue ? unit.sentValue : 1)}}
+            ⚔️:{{ unit.groundDamage * (unit.sentValue ? unit.sentValue : 1)}}
+            🚀:{{ unit.airDamage * (unit.sentValue ? unit.sentValue : 1)}}
           </td>
         </tr>
       </tbody>

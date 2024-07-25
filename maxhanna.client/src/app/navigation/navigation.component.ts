@@ -50,14 +50,23 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.clearNotifications();
   }
   clearNotifications() {
-    this._parent.navigationItems.filter(x => x.title == "MiningRigs")[0].content = '';
-    this._parent.navigationItems.filter(x => x.title == "Coin-Watch")[0].content = '';
-    this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';
-    this._parent.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = '';
-    this._parent.navigationItems.filter(x => x.title == "Calendar")[0].content = '';
-    this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = "";
-    this._parent.navigationItems.filter(x => x.title == "MiningDevices")[0].content = '';
-    this._parent.navigationItems.filter(x => x.title == "Wordler")[0].content = '';
+    const itemsToClear = [
+      "MiningRigs",
+      "Coin-Watch",
+      "Chat",
+      "Coin-Wallet",
+      "Calendar",
+      "Weather",
+      "MiningDevices",
+      "Wordler"
+    ];
+
+    itemsToClear.forEach(title => {
+      const item = this._parent.navigationItems.find(x => x.title === title);
+      if (item) {
+        item.content = '';
+      }
+    });
   }
   async getNotifications() {
     await this.getSelectedMenuItems();
@@ -78,13 +87,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this._parent.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
   }
   menuIconsIncludes(title: string) {
-    return this._parent.userSelectedNavigationItems.filter(x => x.title == title).length > 0;
+    return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }
   async getChatInfo() {
     if (!this._parent.user) {
       return;
     }
-    if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Chat")[0]) { return; }
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) { return; }
     const res = await this.chatService.getChatNotifications(this._parent.user!);
     if (res && res != 0 && res != "NaN") {
       this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = res + '';
@@ -94,7 +103,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   async getCoinWalletInfo() {
     if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Coin-Wallet")[0]) { return; }
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Coin-Wallet")) { return; }
     const res = await this.miningService.getMiningWallet(this.user!) as MiningWalletResponse;
     if (res && res.currencies) {
       const totalBalance = res.currencies.find(x => x.currency!.toUpperCase() == "BTC")!.totalBalance!;
@@ -107,7 +116,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   async getCalendarInfo() {
     if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.filter(x => x.title == "Calendar")[0]) { return; }
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
     let notificationCount = 0;
     const startDate = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
     const endDate = new Date(startDate);
@@ -120,10 +129,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
         }
       })
     }
-    this._parent.navigationItems.filter(x => x.title == "Calendar")[0].content = (notificationCount != 0 ? notificationCount + '' : '');
+    this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
   }
   async getCurrentWeatherInfo() {
-    if (!this._parent.user || !this._parent.userSelectedNavigationItems.filter(x => x.title == "Weather")[0]) { return; }
+    if (!this._parent.user || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
 
     try {
       const res = await this.weatherService.getWeather(this._parent.user!);
@@ -140,7 +149,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
   async getMiningInfo() {
     if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.filter(x => x.title.toLowerCase().includes("mining"))[0]) { return; }
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("mining"))) { return; }
     let tmpLocalProfitability = 0;
     let tmpNumberOfDevices = 0;
     let tmpNumberOfOnlineDevices = 0;
@@ -166,7 +175,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   }
   async getCoinWatchInfo(tmpLocalProfitability: number) {
-    if (!this._parent.userSelectedNavigationItems.filter(x => x.title.toLowerCase().includes("mining") || x.title == "Coin-Watch")[0]) { return; }
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("mining") || x.title == "Coin-Watch")) { return; }
     const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
     const result = res;
     if (result) {
@@ -177,10 +186,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getWordlerStreakInfo() {
-    if (!this._parent.userSelectedNavigationItems.filter(x => x.title.toLowerCase().includes("wordler"))[0]) { return; }
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
     const res = await this.wordlerService.getConsecutiveDayStreak(this._parent.user!); 
     if (res) {  
-      this._parent.navigationItems.filter(x => x.title == "Wordler")[0].content = res;
+      this._parent.navigationItems.find(x => x.title == "Wordler")!.content = res;
     }
   }
   toggleMenu() {

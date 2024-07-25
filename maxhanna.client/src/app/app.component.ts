@@ -202,14 +202,14 @@ export class AppComponent implements OnInit, AfterViewInit {
   removeComponent(key: number) {
     if (!this.VCR || this.VCR.length < 1) return;
 
-    const componentRef = this.componentsReferences.filter(
+    const componentRef = this.componentsReferences.find(
       x => x.instance.unique_key == key
-    )[0];
+    );
 
     for (let x = 0; x < this.VCR.length; x++) {
-      if ((this.VCR.get(x)) == componentRef.hostView) {
+      if ((this.VCR.get(x)) == componentRef?.hostView) {
         this.VCR.remove(x);
-        componentRef.destroy();
+        componentRef?.destroy();
       }
     }
 

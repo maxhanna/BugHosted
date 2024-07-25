@@ -34,7 +34,7 @@
   background-color: rgba(0, 0, 0, 0.2);
   font-size: xx-small;
   pointer-events: none;
-  width: 50px;
+  width: 50px;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ssssssssssssssss        
   height: 10px;
   line-height: 10px;
   text-overflow: ellipsis;
@@ -46,4 +46,7 @@
 }
 .centeredDiv {
     text-align: center;
+}
+.attacking::before {
+  content: '⚔️';
 }

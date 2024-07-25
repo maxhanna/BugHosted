@@ -146,11 +146,10 @@ fieldset {
 }
 
 .componentTitle {
-  font-family: Tahoma, Geneva, Verdana;
+  font-family: Fantasy, Tahoma, Geneva, Verdana;
   position: absolute;
   width: 100%;
-  text-align: center;
-  font-weight: bold;
+  text-align: center; 
   font-size: 25px;
   line-height: 29px;
   top: 0px;

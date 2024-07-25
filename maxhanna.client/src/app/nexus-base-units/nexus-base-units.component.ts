@@ -1,5 +1,4 @@
 import { Component, Input } from '@angular/core';
-import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { AppComponent } from '../app.component';
 
@@ -11,14 +10,14 @@ import { AppComponent } from '../app.component';
 export class NexusBaseUnitsComponent {
 
   @Input() parentRef?: AppComponent;
-  @Input() nexusUnits?: NexusUnits; 
+  @Input() nexusUnits?: NexusUnits;
   @Input() marinePictureSrc: string | undefined;
   @Input() goliathPictureSrc: string | undefined;
   @Input() siegeTankPictureSrc: string | undefined;
   @Input() scoutPictureSrc: string | undefined;
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
-   
+
   nexusHasUnits() {
     if (!this.nexusUnits) return false;
     return (this.nexusUnits.marineTotal > 0 || this.nexusUnits.goliathTotal > 0 || this.nexusUnits.battlecruiserTotal > 0 || this.nexusUnits.wraithTotal > 0 || this.nexusUnits.siegeTankTotal > 0);

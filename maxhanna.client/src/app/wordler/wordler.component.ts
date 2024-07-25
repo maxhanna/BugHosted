@@ -236,7 +236,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
 
     if (guess.length === this.selectedDifficulty) { //if the user filled the guess
-      if (this.guessAttempts.includes(guess) || this.guesses.filter(x => x.guess == guess).length > 0) {
+      if (this.guessAttempts.includes(guess) || this.guesses.some(x => x.guess == guess)) {
         this.notifications.push("The Wordler says: 'Hah! Trying again? You're as persistent as you are predictable.'");
         this.shakeCurrentAttempt();
         return;

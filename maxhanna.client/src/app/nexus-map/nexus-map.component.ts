@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { User } from '../../services/datacontracts/user/user';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -7,6 +7,7 @@ import { DirectoryResults } from '../../services/datacontracts/file/directory-re
 import { AppComponent } from '../app.component';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
+import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
 
 @Component({
   selector: 'app-nexus-map',
@@ -33,7 +34,10 @@ export class NexusMapComponent implements OnInit {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
   @Input() unitStats?: UnitStats[];
-  @Input() inputtedParentRef?: AppComponent;
+  @Input() inputtedParentRef?: AppComponent; 
+  @Input() nexusAttacksSent?: NexusAttackSent[];
+  @Input() nexusAttacksIncoming?: NexusAttackSent[];
+  @Output() emittedReloadEvent = new EventEmitter<void>();
 
   @ViewChild('mapInputX') mapInputX!: ElementRef<HTMLInputElement>;
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;
@@ -45,7 +49,7 @@ export class NexusMapComponent implements OnInit {
   }
   scrollToUserBase() {
     const userId = this.user?.id;
-    const userBase = this.mapData.filter(b => b.user?.id === userId)[0];
+    const userBase = this.mapData.find(b => b.user?.id === userId);
     if (userBase) {
       this.scrollToCoordinates(userBase.coordsX, userBase.coordsY);
     }  
@@ -66,12 +70,26 @@ export class NexusMapComponent implements OnInit {
     for (let i = 0; i < 100; i++) {
       this.grid[i] = [];
       for (let j = 0; j < 100; j++) {
-        let base = this.mapData.filter(x => x.coordsX == i && x.coordsY == j)[0];
+        let base = this.mapData.find(x => x.coordsX == i && x.coordsY == j);
         if (base) {
-          this.grid[i][j] = base.commandCenterLevel + '';
+          this.grid[i][j] = base.commandCenterLevel + '';  
         } else {
           this.grid[i][j] = "";
         }
+
+        if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.some(x => x.destinationCoordsX == i && x.destinationCoordsY == j)) {
+          setTimeout(() => {
+            if (document.getElementById("x" + i + ",y" + j + "LocCoordsDiv")) {
+              document.getElementById("x" + i + ",y" + j + "LocCoordsDiv")!.innerText = ("⚔️");
+            }
+          }, 10);
+        } else if (this.nexusAttacksSent && this.nexusAttacksSent.some(x => x.destinationCoordsX == i && x.destinationCoordsY == j)) {
+          setTimeout(() => {
+            if (document.getElementById("x" + i + ",y" + j + "LocCoordsDiv")) {
+              document.getElementById("x" + i + ",y" + j + "LocCoordsDiv")!.innerText = ("⚔️");
+            }
+          }, 10);
+        }  
       }
     } 
   }
@@ -87,6 +105,13 @@ export class NexusMapComponent implements OnInit {
   closedAttackScreen() {
     this.showAttackButton = true;
     this.isAttackScreenOpen = false;
+  }
+
+  emittedAttackCoordinates(nexus: NexusBase) {
+    console.log("x" + nexus.coordsX + ",y" + nexus.coordsY + "LocDiv");
+    if (document.getElementById("x" + nexus.coordsX + ",y" + nexus.coordsY + "LocCoordsDiv")) {
+      document.getElementById("x" + nexus.coordsX + ",y" + nexus.coordsY + "LocCoordsDiv")!.innerText += ("⚔️");  
+    }
   }
 
   clearMapInputs() {

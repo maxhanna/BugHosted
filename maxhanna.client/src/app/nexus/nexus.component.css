@@ -183,12 +183,18 @@
   width: 45%;
 }
 .upgradeTimersTableDiv {
-    max-height:300px;
-    overflow:auto;
+  max-height: 100px;
+  overflow: auto;
+  font-size:  small;
 }
-.gameNotification{
+.attackTimerDiv {
+  max-height: 100px;
+  overflow: auto;
+  font-size: small;
+}
+.gameNotification {
   color: var(--secondary-font-color);
-  font-size:small; 
+  font-size: small;
 }
 .gameNotificationDiv {
     max-height: 50px;

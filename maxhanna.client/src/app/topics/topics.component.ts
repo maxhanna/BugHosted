@@ -56,7 +56,7 @@ export class TopicsComponent {
         this.addTopicButton.nativeElement.style.visibility = "visible";
       }
       else {
-        if (this.matchingTopics.filter(x => x.topicText.toLowerCase() == enteredValue.toLowerCase()).length > 0) {
+        if (this.matchingTopics.some(x => x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
           this.addTopicButton.nativeElement.style.visibility = "hidden";
         }
         else {
@@ -84,7 +84,7 @@ export class TopicsComponent {
   }
 
   selectTopic(topic: Topic) {
-    if (this.topics.filter(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase()).length > 0) return; //if the topics selected already contain the topic selected, skip.
+    if (this.topics.some(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase())) return; //if the topics selected already contain the topic selected, skip.
     this.topics.push(topic);
     this.topicAdded.emit(this.topics);
     this.newTopic.nativeElement.value = '';

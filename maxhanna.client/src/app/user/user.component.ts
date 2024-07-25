@@ -177,7 +177,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
 
   contactsContains(user: User) {
-    if (this.contacts.filter(x => x.user!.id == user.id).length > 0) {
+    if (this.contacts.some(x => x.user!.id == user.id)) {
       return true;
     }
     return false;

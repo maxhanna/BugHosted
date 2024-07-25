@@ -3,13 +3,15 @@ import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
 import { NexusService } from '../../services/nexus.service';
-
+import { User } from '../../services/datacontracts/user/user';
+ 
 @Component({
   selector: 'app-nexus-attack-screen',
   templateUrl: './nexus-attack-screen.component.html',
   styleUrl: './nexus-attack-screen.component.css'
 })
 export class NexusAttackScreenComponent {
+  @Input() user?: User;
   @Input() originBase?: NexusBase;
   @Input() selectedNexus?: NexusBase;
   @Input() nexusUnits?: NexusUnits;
@@ -22,13 +24,19 @@ export class NexusAttackScreenComponent {
   @Input() battlecruiserPictureSrc: string | undefined;
 
   @Output() closedAttackScreen = new EventEmitter<void>();
-
+  @Output() emittedAttackCoordinates = new EventEmitter<NexusBase>();
+  @Output() emittedReloadEvent = new EventEmitter<void>();
 
   constructor(private nexusService: NexusService) { } 
 
   engageAttack() {
+    if (!this.user || !this.originBase || !this.selectedNexus || !this.unitStats) return alert("Something went wrong with the request.");
+    if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units have been selected! Please select some units and try again.");
     const attackDuration = this.calculateAttackDuration();
-    alert(this.formatTimer(attackDuration));
+    this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration);
+    this.emittedReloadEvent.emit();
+    this.closedAttackScreen.emit(); 
+    this.emittedAttackCoordinates.emit(this.selectedNexus);
   }
 
   calculateAttackDuration(unitStat?: UnitStats) {

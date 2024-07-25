@@ -70,8 +70,9 @@ export class ReactionComponent implements OnInit {
     if (this.currentReactions && this.currentReactions.length > 0) {
       this.reactionCount = this.currentReactions.length;
       this.reactionsDisplay = this.currentReactions.map(x => this.replaceReactionType(x.type)).join(',');
-      if (this.currentReactions.filter(x => x.user?.id).length > 0 && this.currentReactions.filter(x => x.user && this.user && x.user.id == this.user.id)[0]) {
-        this.userReaction = this.currentReactions.filter(x => x.user && this.user && x.user.id == this.user.id)[0].type ?? '';  
+      const foundReaction = this.currentReactions.find(x => x.user && this.user && x.user.id == this.user.id);
+      if (foundReaction) {
+        this.userReaction = foundReaction.type ?? '';  
       }
     } 
   }
@@ -99,7 +100,8 @@ export class ReactionComponent implements OnInit {
   }
   getUserReaction(): string {
     if (this.currentReactions) {
-      return this.replaceReactionType(this.currentReactions!.filter(reaction => reaction.user?.id === this.user?.id)[0].type);
+      const react = this.currentReactions.find(reaction => reaction.user?.id === this.user?.id);
+      return this.replaceReactionType(react?.type ?? "");
     }
     return '';
   }

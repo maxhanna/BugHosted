@@ -132,7 +132,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
   getPlaylistForYoutubeUrl(url: string): string[] {
     let playlist = [];
-    let offset = this.songs.indexOf(this.songs.filter(x => x.url == url)[0]);
+    let offset = this.songs.indexOf(this.songs.find(x => x.url == url)!);
     if (offset < 0) { offset = 0; }
     for (let i = offset; i < this.songs.length; i++) {
       playlist.push(this.trimYoutubeUrl(this.songs[i].url!));

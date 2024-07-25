@@ -34,7 +34,7 @@ import { AppComponent } from './app.component';
 import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 import { FileSearchComponent } from './file-search/file-search.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
-import { CommentsComponent } from './comments/comments.component'; 
+import { CommentsComponent } from './comments/comments.component';
 import { EmulationComponent } from './emulation/emulation.component';
 import { UserTagComponent } from './user-tag/user-tag.component';
 import { LineGraphComponent } from './line-graph/line-graph.component';
@@ -84,7 +84,7 @@ import { NexusAttackScreenComponent } from './nexus-attack-screen/nexus-attack-s
     NexusComponent,
     NexusMapComponent,
     NexusBaseUnitsComponent,
-    NexusAttackScreenComponent
+    NexusAttackScreenComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

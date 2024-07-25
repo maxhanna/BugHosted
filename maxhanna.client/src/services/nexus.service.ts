@@ -1,9 +1,13 @@
+
 import { Injectable } from '@angular/core';
-import { User } from './datacontracts/user/user'; 
+import { User } from './datacontracts/user/user';
 import { NexusBase } from './datacontracts/nexus/nexus-base';
 import { NexusBaseUpgrades } from './datacontracts/nexus/nexus-base-upgrades';
 import { NexusUnitsPurchased } from './datacontracts/nexus/nexus-units-purchased';
 import { NexusUnits } from './datacontracts/nexus/nexus-units';
+import { UnitStats } from './datacontracts/nexus/unit-stats';
+import { NexusAttackSent } from './datacontracts/nexus/nexus-attack-sent';
+
 
 @Injectable({
   providedIn: 'root'
@@ -21,7 +25,7 @@ export class NexusService {
       });
 
       const res = await response;
-      if (!res.ok) { 
+      if (!res.ok) {
         return await res.text();
       }
 
@@ -36,7 +40,12 @@ export class NexusService {
     }
   }
 
-  async getNexus(user: User, nexus?: NexusBase): Promise<{ nexusBase: NexusBase, nexusBaseUpgrades: NexusBaseUpgrades, nexusUnits: NexusUnits, nexusUnitsPurchasedList: NexusUnitsPurchased[] } | undefined> {
+  async getNexus(user: User, nexus?: NexusBase):
+    Promise<{
+      nexusBase: NexusBase; nexusBaseUpgrades: NexusBaseUpgrades;
+      nexusUnits: NexusUnits; nexusUnitsPurchasedList: NexusUnitsPurchased[];
+      nexusAttacksSent: NexusAttackSent[], nexusAttacksIncoming: NexusAttackSent[]
+    } | undefined> {
     return await this.fetchData('/nexus', { User: user, Nexus: nexus });
   }
 
@@ -68,7 +77,7 @@ export class NexusService {
   }
   async upgradeWarehouse(user: User, nexus: NexusBase): Promise<any> {
     return await this.fetchData('/nexus/upgradewarehouse', { User: user, Nexus: nexus });
-  } 
+  }
   async start(user: User): Promise<any> {
     return await this.fetchData('/nexus/start', user);
   }
@@ -83,6 +92,9 @@ export class NexusService {
   }
   async purchaseUnit(user: User, nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
     return await this.fetchData('/nexus/purchaseUnit', { User: user, Nexus: nexus, unitId, purchaseAmount });
+  }
+  async engage(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[], timeInSeconds: number): Promise<any> {
+    return await this.fetchData('/nexus/engage', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats, DistanceTimeInSeconds: timeInSeconds });
   }
 
   formatTimer(allSeconds?: number): string {

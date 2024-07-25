@@ -73,7 +73,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     if (this.fileId) {
       await this.getDirectory(undefined, parseInt(this.fileId));
       if (this.directory && this.directory.data) {
-        const target = this.directory.data.filter(x => x.id == parseInt(this.fileId!))[0];
+        const target = this.directory.data.find(x => x.id == parseInt(this.fileId!));
         if (target) {
           document.querySelector('meta[name="description"]')!.setAttribute("content", target.fileName);
         }
@@ -153,7 +153,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
           if (this.directory && this.directory.totalCount) {
             this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
           }
-          if (this.fileId && this.fileId != null && this.fileId != 0 + '' && this.directory && this.directory.data!.filter(x => x.id == parseInt(this.fileId!))[0]) {
+          if (this.fileId && this.fileId != null && this.fileId != 0 + '' && this.directory && this.directory.data!.find(x => x.id == parseInt(this.fileId!))) {
             this.scrollToFile(this.fileId!);
           }
         }
@@ -380,7 +380,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
     if (this.directory) {
       files.forEach(x => {
-        if (this.directory?.data && this.directory?.data?.filter(d => d.id == x.id).length == 0) {
+        if (this.directory?.data && !this.directory?.data?.some(d => d.id == x.id)) {
           this.directory.data!.unshift(x);
         }
       });

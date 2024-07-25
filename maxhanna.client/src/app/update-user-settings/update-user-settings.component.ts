@@ -170,7 +170,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async selectMenuIcon(title: string) {
-    if (this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0) {
+    if (this.parentRef!.userSelectedNavigationItems.some(x => x.title == title)) {
       this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
       this.userService.deleteMenuItem(this.parentRef?.user!, title);
       this.notifications.push(`Deleted menu item : ${title}`);
@@ -183,7 +183,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   menuIconsIncludes(title: string) {
-    return this.parentRef!.userSelectedNavigationItems.filter(x => x.title == title).length > 0;
+    return this.parentRef!.userSelectedNavigationItems.some(x => x.title == title);
   }
 
   formatDate(date: Date): string {
