@@ -5,6 +5,7 @@
   --secondary-bg-color: rgba(54, 25, 25, .2);
   --main-bg-color-full-opacity: rgba(54, 25, 25);
   --table-thead-color: rgba(54, 25, 25);
+  --main-font-family: Arial;
   --main-font-color: #00FF00;
   --main-link-color: #2a6c2d;
   --primary-font-color: var(--main-font-color);
@@ -51,7 +52,7 @@
 
 body {
   overscroll-behavior-y: none;
-  font-family: Arial;
+  font-family: var(--main-font-family), Arial; 
   background-color: black;
   color: var(--main-font-color);
   margin: 0;
@@ -434,5 +435,8 @@ fieldset {
     font-style:italic;
 }
 .smallFont {
-    font-size:small;
+  font-size: small;
+}
+.xxSmallFont {
+  font-size: xx-small;
 }

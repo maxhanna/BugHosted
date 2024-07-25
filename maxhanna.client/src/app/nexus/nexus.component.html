@@ -33,7 +33,8 @@
                      [mapTileSrc]="mapTileSrc"
                      [nexusAttacksIncoming]="nexusAttacksIncoming"
                      [nexusAttacksSent]="nexusAttacksSent"
-                     (emittedReloadEvent)="emittedReloadEvent()">
+                     (emittedReloadEvent)="emittedReloadEvent()"
+                     (closeMapEvent)="viewMap()">
       </app-nexus-map>
     </div>
 
@@ -139,8 +140,8 @@
         <div class="supplyInfoDiv">
           <div class="supplyExplainDiv">
             For every supply depot level your supply capacity increases by 2500.
-            <p>Current supply capacity: {{supplyCapacity}}</p>
-            <p>Supply used: <span class="redText">{{nexusBase.supply}}</span></p>
+            <p>Capacity: {{supplyCapacity}}</p>
+            <p>Used: <span [class]="supplyCapacity - nexusBase.supply <= 600 ? 'redText' : ''">{{nexusBase.supply}}</span></p>
           </div>
           <div class="supplyUsedDiv">
             <div *ngFor="let unit of filterUnitsForSupplyDisplay()">
@@ -171,7 +172,7 @@
                   <input type="range" class="unitSliderTd" [value]="unit.purchasedValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
                 </td>
                 <td>
-                  {{unit.purchasedValue ? unit.purchasedValue : '0'}}
+                  <input [value]="unit.purchasedValue ? unit.purchasedValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
                 </td>
                 <td class="unitPictureTd">
                   <button [disabled]="!unit.purchasedValue" (click)="purchaseUnit(unit.unitId)">✔️</button>
@@ -212,7 +213,7 @@
                     <input type="range" class="unitSliderTd" [value]="unit.purchasedValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
                   </td>
                   <td>
-                    {{unit.purchasedValue ? unit.purchasedValue : '0'}}
+                    <input [value]="unit.purchasedValue ? unit.purchasedValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
                   </td>
                   <td class="unitPictureTd">
                     <button [disabled]="!unit.purchasedValue" (click)="purchaseUnit(unit.unitId)">✔️</button>
@@ -311,8 +312,8 @@
     </table>
   </div>
 
-  <div class="upgradeTimersTableDiv"  [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
-    Movement: <span class="smallFont redText" *ngIf="!activeAttackTimers() || activeAttackTimers().length == 0">[No movement.]</span>
+  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
+    Movement: <span class="xxSmallFont redText" *ngIf="!activeAttackTimers() || activeAttackTimers().length == 0">[No movement.]</span>
     <div *ngFor="let timer of activeAttackTimers()">
       <p [class]="timer.unit.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
         {{ timer.unit.includes(".") ? timer.unit.substring(timer.unit.indexOf('.') + 1, timer.unit.length) : timer.unit }} - {{ formatTimer(timer.endTime) }}
@@ -320,34 +321,31 @@
     </div>
   </div>
 
-  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'"> 
-      Building: <span class="smallFont redText" *ngIf="!activeBuildingTimers() || activeBuildingTimers().length == 0">[No building.]</span>
-      <ng-container *ngIf="activeBuildingTimers().length > 0">
-        <div *ngFor="let timer of activeBuildingTimers()">
-          <p [class]="timer.building.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
-            {{ formatBuildingTimer(timer.building) }} - {{ formatTimer(timer.endTime) }}
-          </p>
-        </div>
-      </ng-container> 
-  </div>
-
-  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'"> 
-
-    <div>
-      Training: <span class="smallFont redText" *ngIf="!activeUnitTimers() || activeUnitTimers().length == 0">[No training.]</span>
-      <div *ngIf="activeUnitTimers().length > 0">
-        <div *ngFor="let timer of activeUnitTimers()">
-          <p [class]="timer.unit.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
-            {{ timer.unit.includes(".") ? timer.unit.substring(timer.unit.indexOf('.') + 1, timer.unit.length) : timer.unit }} - {{ formatTimer(timer.endTime) }}
-          </p>
-        </div>
+  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
+    Training: <span class="xxSmallFont redText" *ngIf="!activeUnitTimers() || activeUnitTimers().length == 0">[No training.]</span>
+    <div *ngIf="activeUnitTimers().length > 0">
+      <div *ngFor="let timer of activeUnitTimers()">
+        <p [class]="timer.unit.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
+          {{ timer.unit.includes(".") ? timer.unit.substring(timer.unit.indexOf('.') + 1, timer.unit.length) : timer.unit }} - {{ formatTimer(timer.endTime) }}
+        </p>
       </div>
     </div>
   </div>
 
+  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
+    Building: <span class="xxSmallFont redText" *ngIf="!activeBuildingTimers() || activeBuildingTimers().length == 0">[No building.]</span>
+    <ng-container *ngIf="activeBuildingTimers().length > 0">
+      <div *ngFor="let timer of activeBuildingTimers()">
+        <p [class]="timer.building.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
+          {{ formatBuildingTimer(timer.building) }} - {{ formatTimer(timer.endTime) }}
+        </p>
+      </div>
+    </ng-container>
+  </div>
+
   <div [style.display]="!isCommandCenterOpen && !isMapOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
     <app-nexus-base-units [parentRef]="parentRef"
-                          [nexusUnits]="nexusUnits"
+                          [nexusUnits]="nexusAvailableUnits"
                           [marinePictureSrc]="marinePictureSrc"
                           [goliathPictureSrc]="goliathPictureSrc"
                           [siegeTankPictureSrc]="siegeTankPictureSrc"

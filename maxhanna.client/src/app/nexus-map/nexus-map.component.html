@@ -11,7 +11,10 @@
   </div>
 </div>
 <div class="centeredDiv" *ngIf="!isAttackScreenOpen">
-  <button (click)="showHomeBase()" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
+  <div> 
+    <button (click)="closeMapEvent.emit()" title="Close Map">❌Close</button>
+    <button (click)="showHomeBase()" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
+  </div>
 
   X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (keyup.enter)="showMapLocation()" />
   Y: <input type="number" placeholder="0" min="0" max="99" #mapInputY class="mapInput" (keyup.enter)="showMapLocation()" />

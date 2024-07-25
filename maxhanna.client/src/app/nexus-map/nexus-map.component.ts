@@ -38,6 +38,7 @@ export class NexusMapComponent implements OnInit {
   @Input() nexusAttacksSent?: NexusAttackSent[];
   @Input() nexusAttacksIncoming?: NexusAttackSent[];
   @Output() emittedReloadEvent = new EventEmitter<void>();
+  @Output() closeMapEvent = new EventEmitter<void>();
 
   @ViewChild('mapInputX') mapInputX!: ElementRef<HTMLInputElement>;
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;
@@ -47,6 +48,7 @@ export class NexusMapComponent implements OnInit {
 
   ngOnInit() {   
   }
+   
   scrollToUserBase() {
     const userId = this.user?.id;
     const userBase = this.mapData.find(b => b.user?.id === userId);

@@ -161,7 +161,8 @@
 .unitPictureTd {
     width:50px;
 }
-.unitSliderTd { 
+.unitSliderTd {
+    width:120px;
 }
 .redText {
     color:red;
@@ -186,12 +187,7 @@
   max-height: 100px;
   overflow: auto;
   font-size:  small;
-}
-.attackTimerDiv {
-  max-height: 100px;
-  overflow: auto;
-  font-size: small;
-}
+} 
 .gameNotification {
   color: var(--secondary-font-color);
   font-size: small;
@@ -199,4 +195,7 @@
 .gameNotificationDiv {
     max-height: 50px;
     overflow:auto;
+}
+.unitInput {
+    width:22px;
 }

@@ -7,6 +7,7 @@ import { NexusUnitsPurchased } from './datacontracts/nexus/nexus-units-purchased
 import { NexusUnits } from './datacontracts/nexus/nexus-units';
 import { UnitStats } from './datacontracts/nexus/unit-stats';
 import { NexusAttackSent } from './datacontracts/nexus/nexus-attack-sent';
+import { NexusAvailableUpgrades } from './datacontracts/nexus/nexus-available-upgrades';
 
 
 @Injectable({
@@ -44,7 +45,8 @@ export class NexusService {
     Promise<{
       nexusBase: NexusBase; nexusBaseUpgrades: NexusBaseUpgrades;
       nexusUnits: NexusUnits; nexusUnitsPurchasedList: NexusUnitsPurchased[];
-      nexusAttacksSent: NexusAttackSent[], nexusAttacksIncoming: NexusAttackSent[]
+      nexusAttacksSent: NexusAttackSent[], nexusAttacksIncoming: NexusAttackSent[],
+      miningSpeed: number, nexusAvailableUpgrades: NexusAvailableUpgrades
     } | undefined> {
     return await this.fetchData('/nexus', { User: user, Nexus: nexus });
   }

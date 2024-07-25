@@ -58,6 +58,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   nexusBase?: NexusBase;
   nexusBaseUpgrades?: NexusBaseUpgrades;
   nexusUnits?: NexusUnits;
+  nexusAvailableUnits?: NexusUnits;
   nexusUnitsPurchaseList?: NexusUnitsPurchased[];
   nexusAvailableUpgrades?: NexusAvailableUpgrades;
   nexusAttacksSent?: NexusAttackSent[];
@@ -128,8 +129,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.nexusBaseUpgrades = data.nexusBaseUpgrades;
       this.nexusUnitsPurchaseList = data.nexusUnitsPurchasedList;
       this.nexusUnits = data.nexusUnits;
+      this.nexusAvailableUnits = data.nexusUnits;
       this.nexusAttacksSent = data.nexusAttacksSent;
       this.nexusAttacksIncoming = data.nexusAttacksIncoming;
+      this.miningSpeed = data.miningSpeed;
+      this.nexusBaseUpgrades = data.nexusBaseUpgrades;
 
       this.currentBaseLocationX = data.nexusBase.coordsX;
       this.currentBaseLocationY = data.nexusBase.coordsY;
@@ -139,8 +143,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.displayBuildings(this.nexusBaseUpgrades); 
       this.updateAttackTimers();
       this.updateDefenceTimers();
-
-      await this.getMinesInfo();
+      this.setAvailableUnits();
       await this.getBuildingUpgradesInfo();
       await this.getUnitStats();
     } else {
@@ -158,33 +161,62 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.startGoldIncrement();
   }
 
-  private async getUnitStats() {
+  private setAvailableUnits() {
+    if (!this.nexusAvailableUnits || !this.nexusBase) return
+    if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0) {
+      this.nexusAttacksSent.forEach(x => {
+        this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
+        this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
+        this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
+        this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
+        this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
+        this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
+      });
+    }
+    if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
+      this.nexusAttacksIncoming.forEach(x => {
+        if (x.originCoordsX == this.nexusBase!.coordsX && x.originCoordsY == this.nexusBase!.coordsY) { 
+          this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
+          this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
+          this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
+          this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
+          this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
+          this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
+        }
+      });
+    } 
+  }
+  private async getUnitStats(force?: boolean) {
     if (!this.parentRef || !this.parentRef.user || !this.nexusBase) {
       console.log("cant get unit stats, no base present");
       return;
     };
-    if (!this.units) {
+    if (!this.units || force) {
       const res = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase);
       if (res) {
         this.units = res as UnitStats[];
-        const unitTypes = [
+        this.assignPicturesToUnitStats();
+      }
+    }
+    this.getUnitTimers();
+  }
+
+  private assignPicturesToUnitStats() {
+      const unitTypes = [
           { type: "marine", pictureSrc: this.marinePictureSrc },
           { type: "goliath", pictureSrc: this.goliathPictureSrc },
           { type: "siege_tank", pictureSrc: this.siegeTankPictureSrc },
           { type: "scout", pictureSrc: this.scoutPictureSrc },
           { type: "wraith", pictureSrc: this.wraithPictureSrc },
           { type: "battlecruiser", pictureSrc: this.battlecruiserPictureSrc }
-        ];
+      ];
 
-        unitTypes.forEach(({ type, pictureSrc }) => {
+      unitTypes.forEach(({ type, pictureSrc }) => {
           const unit = this.units!.find(x => x.unitType === type);
           if (unit) {
-            unit.pictureSrc = pictureSrc;
+              unit.pictureSrc = pictureSrc;
           }
-        });
-      }
-    }
-    this.getUnitTimers();
+      });
   }
 
   private getUnitTimers() {
@@ -297,27 +329,27 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
 
-  private startAttackTimer(upgrade: string, time: number) {
-    if (this.attackTimers[upgrade] || !time || isNaN(time)) {
+  private startAttackTimer(attack: string, time: number) {
+    if (this.attackTimers[attack] || !time || isNaN(time)) {
       return;
     }
     //add one second to give the server time to realise whats been built.
     const endTime = Math.max(0, time) + 1;
-     
-    this.attackTimers[upgrade] = {
+    console.log(this.attackTimers);
+    this.attackTimers[attack] = {
       endTime: endTime,
       timeout: setTimeout(async () => {
-        this.notifications.push(`${upgrade} completed!`);
-        delete this.attackTimers[upgrade];
+        this.notifications.push(`${attack} completed!`);
+        delete this.attackTimers[attack];
         clearInterval(interval);
-        await this.loadNexusData(true);
+        await this.loadNexusData();
         this.cd.detectChanges();
       }, endTime * 1000)
     };
     const interval = setInterval(async () => {
-      if (this.attackTimers[upgrade]) {
-        const remainingTime = this.attackTimers[upgrade].endTime - 1;
-        this.attackTimers[upgrade].endTime = remainingTime;
+      if (this.attackTimers[attack]) {
+        const remainingTime = this.attackTimers[attack].endTime - 1;
+        this.attackTimers[attack].endTime = remainingTime;
       }
       this.cd.detectChanges();
     }, 1000); 
@@ -325,11 +357,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
 
   private async getBuildingUpgradesInfo() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return;
-    const upRes = await this.nexusService.getBuildingUpgrades(this.parentRef.user, this.nexusBase);
-    if (upRes) {
-      this.nexusAvailableUpgrades = upRes;
-    }
+    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return; 
 
     if (this.nexusBaseUpgrades) {
       if (this.nexusBaseUpgrades.commandCenterUpgraded && !this.buildingTimers["command_center"]) {
@@ -405,15 +433,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
     });
   }
-
-  private async getMinesInfo() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase || this.miningSpeed) return;
-
-    const mineRes = await this.nexusService.getMinesInfo(this.parentRef.user, this.nexusBase);
-    if (mineRes) {
-      this.miningSpeed = mineRes;
-    }
-  }
+   
   private displayBuildings(nexusBaseUpgrades: NexusBaseUpgrades, value?: boolean) {
     if (value) {
       this.displayMines = value;
@@ -652,7 +672,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       return this.nexusAvailableUpgrades.upgrades.filter(x => x.cost > 0);
     }
     else return;
-  }
+  } 
   maxSliderValue(unit: UnitStats): number {
     const goldTimesUnitGoldMaxCost = Math.floor(this.goldAmount / unit.cost);
     const supplyTimesUnitGoldMaxCost = Math.floor(this.calculateCurrentSupply() / unit.supply);
@@ -662,7 +682,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return maxGoldValue;
   }
   onSliderChange(event: any, unit: UnitStats): void {
-    unit.purchasedValue = parseInt(event.target.value);
+    const value = Math.min(this.maxSliderValue(unit) , event.target.value); 
+    unit.purchasedValue = value;
+    event.target.value = value;
   }
   getFactoryUnits() {
     if (!this.units) return;

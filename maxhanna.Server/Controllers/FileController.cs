@@ -66,7 +66,7 @@ namespace maxhanna.Server.Controllers
                 {
                     connection.Open();
                     int offset = (page - 1) * pageSize;
- 
+                    int filePosition = 0;
                     if (fileId.HasValue && page == 1)
                     {
                         _logger.LogInformation($"fetching specific fileId's: {fileId} folder path");
@@ -97,12 +97,12 @@ namespace maxhanna.Server.Controllers
                         countCommand.Parameters.AddWithValue("@fileId", fileId.Value);
                         countCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
 
-                        int filePosition = Convert.ToInt32(countCommand.ExecuteScalar());
+                        filePosition = Convert.ToInt32(countCommand.ExecuteScalar());
                         page = (filePosition / pageSize) + 1;
-                        offset = (page - 1) * pageSize;
+                        offset = ((page - 1) * pageSize) - 1;
                     }
+                    Console.WriteLine($"setting page:{page}&offset={offset}; file position is : {filePosition}, page size is : {pageSize}, folder path: {directory}");
 
-                    _logger.LogInformation($"setting page:{page}&offset={offset}");
                     string orderBy = fileId == null ? " ORDER BY f.id desc " : string.Empty;
                     var command = new MySqlCommand($@"
                         SELECT 
@@ -140,11 +140,7 @@ namespace maxhanna.Server.Controllers
                                 OR f.user_id = @userId
                                 OR FIND_IN_SET(@userId, f.shared_with) > 0
                             )
-                            {(string.IsNullOrEmpty(search) ? "" : "AND (f.file_name LIKE @search OR fd.given_file_name LIKE @search)")}
-                            {fileTypeCondition}
-                            {visibilityCondition}
-                            {ownershipCondition}
-                            {orderBy}
+                            {(string.IsNullOrEmpty(search) ? "" : "AND (f.file_name LIKE @search OR fd.given_file_name LIKE @search)")} {fileTypeCondition} {visibilityCondition} {ownershipCondition} {orderBy}
                         LIMIT
                             @pageSize OFFSET @offset;"
                     , connection);
@@ -157,6 +153,8 @@ namespace maxhanna.Server.Controllers
                     {
                         command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
                     }
+                    Console.WriteLine(command.CommandText);
+
                     //_logger.LogInformation(command.CommandText);
                     using (var reader = command.ExecuteReader())
                     {
@@ -730,7 +728,7 @@ namespace maxhanna.Server.Controllers
                         }
 
                         // Check file type and convert if necessary
-                        var convertedFilePath = filePath;
+                        var convertedFilePath = filePath; 
                         if (IsGifFile(file))
                         {
                             convertedFilePath = await ConvertGifToWebp(file, uploadDirectory);
@@ -854,15 +852,25 @@ namespace maxhanna.Server.Controllers
             }
             finally
             {
-                // Clean up: delete temporary files
-                System.IO.File.Delete(inputFilePath);
+                var beforeFileSize = new FileInfo(inputFilePath).Length;
+                var afterFileSize = new FileInfo(mp4ConvertedFilePath).Length;
+
                 if (System.IO.File.Exists(opusConvertedFilePath))
                 {
                     System.IO.File.Delete(opusConvertedFilePath);
+                } 
+                if (beforeFileSize > afterFileSize)
+                {
+                    System.IO.File.Delete(inputFilePath); 
+                } 
+                else
+                {
+                    System.IO.File.Delete(mp4ConvertedFilePath);
+                    mp4ConvertedFilePath = inputFilePath;
                 }
             }
-
             return mp4ConvertedFilePath;
+
         }
 
         private async Task<string> ConvertGifToWebp(IFormFile file, string uploadDirectory)
@@ -899,8 +907,19 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "Error occurred during GIF conversion.");
             }
             finally
-            {
-                System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
+            { 
+                var beforeFileSize = new FileInfo(inputFilePath).Length;
+                var afterFileSize = new FileInfo(convertedFilePath).Length;
+
+                if (beforeFileSize > afterFileSize)
+                {
+                    System.IO.File.Delete(inputFilePath);  
+                } else
+                {
+                    System.IO.File.Delete(convertedFilePath);
+                    convertedFilePath = inputFilePath;
+                }
+
             }
 
             return convertedFilePath;
@@ -953,7 +972,14 @@ namespace maxhanna.Server.Controllers
 
                 var afterFileSize = new FileInfo(convertedFilePath).Length;
                 _logger.LogInformation($"Video to WebM conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
-                System.IO.File.Delete(inputFilePath); // Remove the original file after conversion
+                if (beforeFileSize > afterFileSize)
+                {
+                    System.IO.File.Delete(inputFilePath);  
+                } else
+                {
+                    System.IO.File.Delete(convertedFilePath);
+                    convertedFilePath = inputFilePath;
+                }
 
             }
             catch (Exception ex)

@@ -88,6 +88,10 @@ namespace maxhanna.Server.Controllers
             List<NexusUnitsPurchased>? nexusUnitPurchasesList = await GetNexusUnitPurchases(nexusBase);
             List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase);
             List<NexusAttackSent>? nexusAttacksIncoming = await GetNexusAttacksIncoming(nexusBase, false);
+            decimal miningSpeed = await GetMiningSpeedForNexus(nexusBase);
+            var availableUpgrades = await GetBuildingUpgradeList(nexusBase);
+ 
+
             return Ok(
                 new
                 {
@@ -97,6 +101,8 @@ namespace maxhanna.Server.Controllers
                     nexusUnitsPurchasedList = nexusUnitPurchasesList ?? new List<NexusUnitsPurchased>(),
                     nexusAttacksSent,
                     nexusAttacksIncoming,
+                    miningSpeed,
+                    availableUpgrades,
                 });
         } 
 
@@ -233,8 +239,12 @@ namespace maxhanna.Server.Controllers
             return Ok(await GetMiningSpeedForNexus(request.Nexus));
         }
 
-        private async Task<decimal> GetMiningSpeedForNexus(NexusBase nexusBase)
+        private async Task<decimal> GetMiningSpeedForNexus(NexusBase? nexusBase)
         {
+            if (nexusBase  == null)
+            {
+                return 0;
+            }
             decimal speed = Decimal.One;
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
@@ -388,7 +398,16 @@ namespace maxhanna.Server.Controllers
             {
                 return NotFound("User base not found.");
             }
+            var availableUpgrades = await GetBuildingUpgradeList(request.Nexus);
 
+            return Ok(new { Upgrades = availableUpgrades });
+        }
+
+        private async Task<List<Object>> GetBuildingUpgradeList(NexusBase? nexusBase)
+        {
+            var availableUpgrades = new List<Object>();
+
+            if (nexusBase == null) return availableUpgrades; 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
@@ -409,14 +428,14 @@ namespace maxhanna.Server.Controllers
                         coords_x = @CoordsX
                     AND coords_y = @CoordsY";
                 MySqlCommand cmdCurrentLevels = new MySqlCommand(sqlCurrentLevels, conn);
-                cmdCurrentLevels.Parameters.AddWithValue("@CoordsX", request.Nexus.CoordsX);
-                cmdCurrentLevels.Parameters.AddWithValue("@CoordsY", request.Nexus.CoordsY);
+                cmdCurrentLevels.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
+                cmdCurrentLevels.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
                 var readerCurrentLevels = await cmdCurrentLevels.ExecuteReaderAsync();
                 if (!await readerCurrentLevels.ReadAsync())
                 {
                     await readerCurrentLevels.CloseAsync();
-                    return NotFound("User base not found.");
+                    return availableUpgrades;
                 }
 
                 int currentCommandCenterLevel = readerCurrentLevels.GetInt32("command_center_level");
@@ -440,8 +459,8 @@ namespace maxhanna.Server.Controllers
                     FROM nexus_base_upgrades
                     WHERE coords_x = @CoordsX AND coords_y = @CoordsY";
                 MySqlCommand cmdUpgradeTimestamps = new MySqlCommand(sqlUpgradeTimestamps, conn);
-                cmdUpgradeTimestamps.Parameters.AddWithValue("@CoordsX", request.Nexus.CoordsX);
-                cmdUpgradeTimestamps.Parameters.AddWithValue("@CoordsY", request.Nexus.CoordsY);
+                cmdUpgradeTimestamps.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
+                cmdUpgradeTimestamps.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
                 var readerUpgradeTimestamps = await cmdUpgradeTimestamps.ExecuteReaderAsync();
                 DateTime? commandCenterUpgraded = null;
@@ -511,7 +530,6 @@ namespace maxhanna.Server.Controllers
                 }
                 await readerDurations.CloseAsync();
 
-                var availableUpgrades = new List<object>();
                 var buildings = new List<(string BuildingName, int CurrentLevel, DateTime? LastUpgraded)>
                 {
                     ("command_center", currentCommandCenterLevel, commandCenterUpgraded),
@@ -534,19 +552,18 @@ namespace maxhanna.Server.Controllers
                         Duration = duration,
                         Cost = cost
                     });
-
                 }
-                return Ok(new { Upgrades = availableUpgrades });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"An error occurred while retrieving building upgrades for user {request.User.Id}");
-                return StatusCode(500, "Internal server error");
+                _logger.LogError(ex, $"An error occurred while retrieving building upgrades for {nexusBase.CoordsX},{nexusBase.CoordsY}"); 
             }
             finally
             {
                 await conn.CloseAsync();
             }
+
+            return availableUpgrades;
         }
 
         [HttpPost("/Nexus/UpgradeMines", Name = "UpgradeMines")]
