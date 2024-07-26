@@ -9,7 +9,8 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
         public int Duration { get; set; }
         public int Cost { get; set; }
         public int Supply { get; set; }
-        public Decimal Speed { get; set; } 
+        public Decimal Speed { get; set; }
+        public int GoldCarryingCapacity { get; set; }
         public int FactoryLevel { get; set; }
         public int EngineeringBayLevel { get; set; }
         public int StarportLevel { get; set; }

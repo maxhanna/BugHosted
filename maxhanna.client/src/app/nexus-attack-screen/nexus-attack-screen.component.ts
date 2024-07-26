@@ -23,24 +23,34 @@ export class NexusAttackScreenComponent {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
 
+  @Output() emittedNotifications = new EventEmitter<string>();
   @Output() closedAttackScreen = new EventEmitter<void>();
   @Output() emittedAttackCoordinates = new EventEmitter<NexusBase>();
-  @Output() emittedReloadEvent = new EventEmitter<void>();
+  @Output() emittedReloadEvent = new EventEmitter<string>();
 
   constructor(private nexusService: NexusService) { } 
 
-  engageAttack() {
+  async engageAttack() {
     if (!this.user || !this.originBase || !this.selectedNexus || !this.unitStats) return alert("Something went wrong with the request.");
     if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units have been selected! Please select some units and try again.");
     const attackDuration = this.calculateAttackDuration();
-    this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration);
-    this.emittedReloadEvent.emit();
-    this.closedAttackScreen.emit(); 
-    this.emittedAttackCoordinates.emit(this.selectedNexus);
+    console.log("attackduration : " + attackDuration);
+    if (attackDuration) {
+      const res = await this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration); 
+      if (res.includes("Attack sent")) {
+        this.emittedReloadEvent.emit("Attack sent");
+        this.closedAttackScreen.emit();
+        this.emittedAttackCoordinates.emit(this.selectedNexus); 
+      }
+      this.emittedNotifications.emit(res);
+    } 
   }
 
   calculateAttackDuration(unitStat?: UnitStats) {
-    if (!this.originBase || !this.selectedNexus) return 0;
+    if (!this.originBase || !this.selectedNexus) {
+      alert("Problem setting duration!")
+      return 0;
+    }
     const selectedX = this.selectedNexus.coordsX;
     const selectedY = this.selectedNexus.coordsY;
     const baseX = this.originBase.coordsX;
@@ -51,19 +61,26 @@ export class NexusAttackScreenComponent {
       const unitSpeed = unitStat.speed;  
       return distance * unitSpeed * 60;
     } else {
-      let slowestSpeed = 0;
-      this.unitStats?.forEach(x => {
-        if (x.sentValue && x.sentValue > 0 && x.speed && (!slowestSpeed || slowestSpeed < x.speed)) {
-          slowestSpeed = x.speed; 
+      let slowestSpeed = Infinity;
+
+      if (this.unitStats) {
+        for (const unit of this.unitStats) {
+          if (unit.sentValue && unit.sentValue > 0 && unit.speed && unit.speed < slowestSpeed) {
+            slowestSpeed = unit.speed;
+          }
         }
-      });
+      }
+       
+      if (slowestSpeed === Infinity) {
+        slowestSpeed = 0; // or handle as needed
+      } 
       return distance * slowestSpeed * 60;
     }
     
   }
   isEngagingUnits() {
     if (!this.unitStats) return false;
-    return this.unitStats.find(x => x.sentValue && x.sentValue > 0);
+    return this.unitStats.filter(x => x.sentValue && x.sentValue > 0);
   }
   maxSliderValue(unit: UnitStats): number {
     if (unit.unitType == "marine") return this.nexusUnits?.marineTotal ?? 0;
@@ -73,9 +90,11 @@ export class NexusAttackScreenComponent {
     if (unit.unitType == "wraith") return this.nexusUnits?.wraithTotal ?? 0;
     if (unit.unitType == "battlecruiser") return this.nexusUnits?.battlecruiserTotal ?? 0;
     return 0;
-  }
+  } 
   onSliderChange(event: any, unit: UnitStats): void {
-    unit.sentValue = parseInt(event.target.value);
+    const value = Math.min(this.maxSliderValue(unit), event.target.value);
+    unit.sentValue = value;
+    event.target.value = value;
   }
   formatTimer(allSeconds?: number): string {
     return this.nexusService.formatTimer(allSeconds);

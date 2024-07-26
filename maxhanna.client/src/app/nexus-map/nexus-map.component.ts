@@ -37,8 +37,9 @@ export class NexusMapComponent implements OnInit {
   @Input() inputtedParentRef?: AppComponent; 
   @Input() nexusAttacksSent?: NexusAttackSent[];
   @Input() nexusAttacksIncoming?: NexusAttackSent[];
-  @Output() emittedReloadEvent = new EventEmitter<void>();
+  @Output() emittedReloadEvent = new EventEmitter<string>();
   @Output() closeMapEvent = new EventEmitter<void>();
+  @Output() emittedNotifications = new EventEmitter<string>();
 
   @ViewChild('mapInputX') mapInputX!: ElementRef<HTMLInputElement>;
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;

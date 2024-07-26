@@ -43,7 +43,8 @@
                            [wraithPictureSrc]="wraithPictureSrc"
                            [battlecruiserPictureSrc]="battlecruiserPictureSrc"
                            (closedAttackScreen)="closedAttackScreen()"
-                           (emittedReloadEvent)="emittedReloadEvent.emit()"
+                           (emittedNotifications)="emittedNotifications.emit($event)"
+                           (emittedReloadEvent)="emittedReloadEvent.emit($event)"
                            (emittedAttackCoordinates)="emittedAttackCoordinates($event)">
   </app-nexus-attack-screen>
 </div>

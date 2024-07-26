@@ -33,7 +33,8 @@
                      [mapTileSrc]="mapTileSrc"
                      [nexusAttacksIncoming]="nexusAttacksIncoming"
                      [nexusAttacksSent]="nexusAttacksSent"
-                     (emittedReloadEvent)="emittedReloadEvent()"
+                     (emittedNotifications)="emittedNotifications($event)"
+                     (emittedReloadEvent)="emittedReloadEvent($event)"
                      (closeMapEvent)="viewMap()">
       </app-nexus-map>
     </div>

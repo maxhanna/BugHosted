@@ -890,7 +890,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         });
     }
   }
-  emittedReloadEvent() {
-    this.loadNexusData(true);
+  emittedReloadEvent(reason: string) {
+    console.log("emitted reload event " + reason);
+    this.loadNexusData(false);
+  }
+  emittedNotifications(message: string) {
+    if (!message || message.trim() == "") return;
+    this.notifications.push(message);
   }
 }

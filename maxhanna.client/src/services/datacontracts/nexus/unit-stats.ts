@@ -9,6 +9,7 @@ export class UnitStats {
   cost!: number;
   speed!: number;
   supply!: number;
+  goldCarryingCapacity!: number;
   groundDamage!: number;
   airDamage!: number;
   buildingDamage!: number;
