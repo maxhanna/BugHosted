@@ -1,9 +1,9 @@
-<ng-content *ngIf="originBase">
+<ng-content *ngIf="originBase && selectedNexus">
 
-  Select units to send from {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}}:
+  Select units to send from {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}} to {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}:
   <div class="unitsTableDiv">
     <table class="mainTable">
-      <tbody *ngFor="let unit of unitStats">
+      <tbody *ngFor="let unit of getAvailableUnitStats()">
         <tr>
           <td class="unitPictureTd">
             <img [src]="unit.pictureSrc" class="unitPicture" *ngIf="unit.pictureSrc" />
@@ -18,7 +18,7 @@
             {{unit.sentValue ? unit.sentValue : '0'}}
           </td>
         </tr>
-        <tr *ngIf="unit.sentValue"> 
+        <tr *ngIf="unit.sentValue">
           <td class="smallFont" colspan="4">
             ⏱️ETA:{{ formatTimer(calculateAttackDuration(unit))}}
             ⚔️:{{ unit.groundDamage * (unit.sentValue ? unit.sentValue : 1)}}
@@ -29,6 +29,6 @@
     </table>
   </div>
   <button (click)="closeAttackScreen()">Cancel</button>
-  <button (click)="engageAttack()" [disabled]="!isEngagingUnits()">Engage</button> 
+  <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || engagementLoading">Engage</button>
 
 </ng-content>

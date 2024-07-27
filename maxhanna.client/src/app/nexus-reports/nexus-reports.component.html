@@ -1,0 +1,63 @@
+<div *ngIf="battleReports && battleReports.battleOutcomes">
+  Total:{{battleReports.totalReports}}
+  <span *ngIf="totalPages && totalPages.length > 0">
+    <label for="pageSize">Page Size:</label>
+    <select #pageSize id="pageSize" (change)="onPageSizeChange()">
+      <option *ngFor="let size of pageSizes" [value]="size">{{ size }}</option>
+    </select>
+  </span>
+
+  <span *ngIf="totalPages && totalPages.length > 0">
+    <label for="currentPage">Current Page:</label>
+    <select #currentPage id="currentPage" (change)="onPageChange()">
+      <option *ngFor="let page of totalPages" [value]="page">{{ page }}</option>
+    </select>
+  </span>
+
+  <button (click)="nextPage()" *ngIf="totalPages && totalPages.length > 1">Next Page</button>
+
+  <div *ngFor="let report of battleReports.battleOutcomes">
+    <div>
+      <strong>Battle Report #{{report.battleId}} <button (click)="deleteReport(report)">Delete</button></strong>
+      <p><strong>Origin:</strong> ({{report.originCoordsX}}, {{report.originCoordsY}}) - User ID: {{report.originUserId}}</p>
+      <p><strong>Destination:</strong> ({{report.destinationCoordsX}}, {{report.destinationCoordsY}}) - User ID: {{report.destinationUserId}}</p>
+      <p><strong>Timestamp:</strong> {{report.timestamp}}</p>
+      <div>
+        <strong>Attacking Units:</strong>
+        <ul>
+          <li *ngFor="let unit of getUnitsArray(report.attackingUnits)">
+            {{unit.key}}: {{unit.value}}
+          </li>
+        </ul>
+      </div>
+      <div>
+        <strong>Defending Units:</strong>
+        <ul>
+          <li *ngFor="let unit of getUnitsArray(report.defendingUnits)">
+            {{unit.key}}: {{unit.value}}
+          </li>
+        </ul>
+      </div>
+      <div>
+        <strong>Attacking Losses:</strong>
+        <ul>
+          <li *ngFor="let unit of getUnitsArray(report.attackingLosses)">
+            {{unit.key}}: {{unit.value}}
+          </li>
+        </ul>
+      </div>
+      <div>
+        <strong>Defending Losses:</strong>
+        <ul>
+          <li *ngFor="let unit of getUnitsArray(report.defendingLosses)">
+            {{unit.key}}: {{unit.value}}
+          </li>
+        </ul>
+      </div>
+    </div>
+    <hr>
+  </div>
+  <div *ngIf="!battleReports || !battleReports.battleOutcomes || battleReports.battleOutcomes.length == 0">
+    No reports
+  </div>
+</div>

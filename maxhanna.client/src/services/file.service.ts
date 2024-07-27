@@ -121,6 +121,7 @@ export class FileService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'max-age=31536000'
         },
         body: JSON.stringify(user),
         signal: options?.signal  

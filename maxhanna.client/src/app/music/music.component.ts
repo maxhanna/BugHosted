@@ -32,7 +32,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     }
     this.clearInputs();
     this.reorderTable(undefined, this.orderSelect.nativeElement.value);
-    this.isMusicControlsDisplayed(false);
+    this.isMusicControlsDisplayed((this.songs && this.songs[this.songs.length - 1] && this.songs[this.songs.length - 1].url) ? true : false);
   }
   async ngAfterViewInit() {
     if (this.user) { 

@@ -6,7 +6,6 @@ export interface UpgradeDetail {
   cost: number;
 }
 
-export interface NexusAvailableUpgrades {
-  userId: number;
-  upgrades: UpgradeDetail[];
+export interface NexusAvailableUpgrades { 
+  availableUpgrades: UpgradeDetail[];
 }

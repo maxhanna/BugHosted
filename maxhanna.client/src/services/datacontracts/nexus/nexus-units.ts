@@ -7,4 +7,5 @@ export interface NexusUnits {
   scoutTotal: number;
   wraithTotal: number;
   battlecruiserTotal: number; 
+  glitcherTotal: number; 
 }

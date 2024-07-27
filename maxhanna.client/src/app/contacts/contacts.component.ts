@@ -30,11 +30,13 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   }
 
   async fetchContacts() {
-    try {
-      let res = await this.contactService.getContacts(this.parentRef?.user!);
-      this.contacts = res!;
-    } catch (error: any) {
-      console.error('Error fetching contacts:', error);
+    if (this.parentRef && this.parentRef.user) {
+      try {
+        let res = await this.contactService.getContacts(this.parentRef.user);
+        this.contacts = res!;
+      } catch (error: any) {
+        console.error('Error fetching contacts:', error);
+      }
     }
   }
 

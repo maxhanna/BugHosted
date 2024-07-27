@@ -7,7 +7,9 @@ import { NexusUnitsPurchased } from './datacontracts/nexus/nexus-units-purchased
 import { NexusUnits } from './datacontracts/nexus/nexus-units';
 import { UnitStats } from './datacontracts/nexus/unit-stats';
 import { NexusAttackSent } from './datacontracts/nexus/nexus-attack-sent';
-import { NexusAvailableUpgrades } from './datacontracts/nexus/nexus-available-upgrades';
+import { NexusAvailableUpgrades, UpgradeDetail } from './datacontracts/nexus/nexus-available-upgrades';
+import { NexusBattleOutcome } from './datacontracts/nexus/nexus-battle-outcome';
+import { NexusBattleOutcomeReports } from './datacontracts/nexus/nexus-battle-outcome-reports';
 
 
 @Injectable({
@@ -46,7 +48,7 @@ export class NexusService {
       nexusBase: NexusBase; nexusBaseUpgrades: NexusBaseUpgrades;
       nexusUnits: NexusUnits; nexusUnitsPurchasedList: NexusUnitsPurchased[];
       nexusAttacksSent: NexusAttackSent[], nexusAttacksIncoming: NexusAttackSent[],
-      miningSpeed: number, nexusAvailableUpgrades: NexusAvailableUpgrades
+      miningSpeed: number, availableUpgrades: UpgradeDetail[], battleReports: NexusBattleOutcomeReports
     } | undefined> {
     return await this.fetchData('/nexus', { User: user, Nexus: nexus });
   }
@@ -97,6 +99,12 @@ export class NexusService {
   }
   async engage(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[], timeInSeconds: number): Promise<any> {
     return await this.fetchData('/nexus/engage', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats, DistanceTimeInSeconds: Math.round(timeInSeconds) });
+  }
+  async getBattleReports(user: User, pageNumber: number, pageSize: number, targetBase?: NexusBase): Promise<NexusBattleOutcomeReports> {
+    return await this.fetchData('/nexus/getbattlereports', { User: user, PageNumber: pageNumber, PageSize: pageSize, TargetBase: targetBase });
+  }
+  async deleteReport(user: User, battleId: number): Promise<any> {
+    return await this.fetchData('/nexus/deletereport', { User: user, BattleId: battleId });
   }
 
   formatTimer(allSeconds?: number): string {

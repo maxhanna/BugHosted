@@ -16,16 +16,18 @@
     </app-file-upload>
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
-  <app-file-search [inputtedParentRef]="parentRef"
-                   [user]="parentRef?.user"
-                   [currentDirectory]="'Meme/'"
-                   [maxResults]="100"
-                   [canChangeDirectory]="false"
-                   [canDragMove]="false"
-                   [showPrivatePublicOption]="false"
-                   [displayFileType]="false"
-                   [displayFileSize]="false"
-                   [fileId]="memeId"
-                   (userNotificationEvent)="uploadNotification($event);">
-  </app-file-search>
+  <div class="memeResultsDiv">
+    <app-file-search [inputtedParentRef]="parentRef"
+                     [user]="parentRef?.user"
+                     [currentDirectory]="'Meme/'"
+                     [maxResults]="100"
+                     [canChangeDirectory]="false"
+                     [canDragMove]="false"
+                     [showPrivatePublicOption]="false"
+                     [displayFileType]="false"
+                     [displayFileSize]="false"
+                     [fileId]="memeId"
+                     (userNotificationEvent)="uploadNotification($event);">
+    </app-file-search>
+  </div>
 </div>

@@ -45,6 +45,7 @@ import { MediaSelectorComponent } from './media-selector/media-selector.componen
 import { NexusMapComponent } from './nexus-map/nexus-map.component';
 import { NexusBaseUnitsComponent } from './nexus-base-units/nexus-base-units.component';
 import { NexusAttackScreenComponent } from './nexus-attack-screen/nexus-attack-screen.component';
+import { NexusReportsComponent } from './nexus-reports/nexus-reports.component';
 
 @NgModule({
   declarations: [
@@ -85,6 +86,7 @@ import { NexusAttackScreenComponent } from './nexus-attack-screen/nexus-attack-s
     NexusMapComponent,
     NexusBaseUnitsComponent,
     NexusAttackScreenComponent,
+    NexusReportsComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

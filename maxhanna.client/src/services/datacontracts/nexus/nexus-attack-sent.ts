@@ -9,6 +9,7 @@ export interface NexusAttackSent {
   scoutTotal: number;
   wraithTotal: number;
   battlecruiserTotal: number;
+  glitcherTotal: number;
   timestamp: Date;
   duration: number;
 }

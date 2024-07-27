@@ -37,7 +37,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     this.userClickEvent.emit(value);
   }
   getChatNotificationsByUser(userId?: number) {
-    if (userId && this.chatNotifications) {
+    if (userId && this.chatNotifications && this.chatNotifications.length > 0) {
       const tmpChatNotif = this.chatNotifications.find(x => x.senderId == userId);
       if (this.chatNotifications && tmpChatNotif) {
         return tmpChatNotif.count;
@@ -47,7 +47,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async getChatInfo() {
-    this.chatNotifications = await this.chatService.getChatNotificationsByUser(this.user!);
+    if (this.user) { 
+      this.chatNotifications = await this.chatService.getChatNotificationsByUser(this.user);
+    }
   }
   private async sortUsersByNotifications() {
     if (this.chatNotifications && this.chatNotifications.length > 0) { 

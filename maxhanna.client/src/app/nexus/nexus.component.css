@@ -114,11 +114,15 @@
 
 .mapComponentDiv {
   display: none;
-}
+} 
 
-  .mapComponentDiv.opened {
-    display: block;
-  }
+.battleReportComponentDiv {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  width: var(--nexus-gamescreen-width);
+  height: var(--nexus-gamescreen-height);
+}
 
 .upgradesTableDiv {
   max-height: 500px;
@@ -185,8 +189,9 @@
 }
 .upgradeTimersTableDiv {
   max-height: 100px;
+  width: var(--nexus-gamescreen-width);
   overflow: auto;
-  font-size:  small;
+  font-size: small;
 } 
 .gameNotification {
   color: var(--secondary-font-color);
@@ -197,5 +202,5 @@
     overflow:auto;
 }
 .unitInput {
-    width:22px;
+    width:25px;
 }

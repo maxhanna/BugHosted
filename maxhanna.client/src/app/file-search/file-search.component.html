@@ -29,7 +29,7 @@
 
 <div *ngIf="showData">
   <!-- Pagination Controls -->
-  <div *ngIf="directory" class="pageContainerDiv">
+  <div *ngIf="directory && totalPages > 1" class="pageContainerDiv">
     <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
     <span>Page {{currentPage}} of {{totalPages}}</span>
     <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>

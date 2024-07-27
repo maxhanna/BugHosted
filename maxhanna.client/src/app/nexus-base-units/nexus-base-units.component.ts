@@ -17,9 +17,10 @@ export class NexusBaseUnitsComponent {
   @Input() scoutPictureSrc: string | undefined;
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
+  @Input() glitcherPictureSrc: string | undefined;
 
   nexusHasUnits() {
     if (!this.nexusUnits) return false;
-    return (this.nexusUnits.marineTotal > 0 || this.nexusUnits.goliathTotal > 0 || this.nexusUnits.battlecruiserTotal > 0 || this.nexusUnits.wraithTotal > 0 || this.nexusUnits.siegeTankTotal > 0);
+    return (this.nexusUnits.marineTotal > 0 || this.nexusUnits.goliathTotal > 0 || this.nexusUnits.battlecruiserTotal > 0 || this.nexusUnits.wraithTotal > 0 || this.nexusUnits.siegeTankTotal > 0 || this.nexusUnits.glitcherTotal > 0);
   }
 }

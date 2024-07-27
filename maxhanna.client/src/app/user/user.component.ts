@@ -27,6 +27,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   @Input() loginOnly?: boolean | undefined;
   @Input() inputtedParentRef?: AppComponent | undefined;
   @Input() loginReasonMessage?: string | undefined;
+  @Input() canClose = true;
   @Output() closeUserComponentEvent = new EventEmitter<User>();
 
 
@@ -94,6 +95,11 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.stopLoading();
   }
 
+  override remove_me(title: string) {
+    this.closeUserComponentEvent.emit();
+    super.remove_me(title);
+  }
+
   async gotPlaylistEvent(event: Array<Todo>) {
     this.playListCount = event.length;
   }
@@ -108,8 +114,8 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
   async loadContactsData() {
     try {
-      if (this.parentRef) {
-        const res = await this.contactService.getContacts(this.parentRef.user!);
+      if (this.parentRef && this.parentRef.user) {
+        const res = await this.contactService.getContacts(this.parentRef.user);
 
         if (res) {
           this.contacts = res;

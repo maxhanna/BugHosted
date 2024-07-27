@@ -1,13 +1,13 @@
-import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
+import {   Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
-import { User } from '../../services/datacontracts/user/user';
-import { FileEntry } from '../../services/datacontracts/file/file-entry';
-import { FileService } from '../../services/file.service';
-import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
+import { User } from '../../services/datacontracts/user/user'; 
 import { AppComponent } from '../app.component';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
+import { NexusReportsComponent } from '../nexus-reports/nexus-reports.component';
+import { BuildingTimer } from '../../services/datacontracts/nexus/building-timer';
+import { NexusService } from '../../services/nexus.service';
 
 @Component({
   selector: 'app-nexus-map',
@@ -20,7 +20,7 @@ export class NexusMapComponent implements OnInit {
   grid: string[][] = []; 
   isAttackScreenOpen = false;
   showAttackButton = false;
-   
+  isReportsHidden = true;
 
   @Input() user?: User;
   @Input() nexusUnits?: NexusUnits;
@@ -33,10 +33,12 @@ export class NexusMapComponent implements OnInit {
   @Input() scoutPictureSrc: string | undefined;
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
+  @Input() glitcherPictureSrc: string | undefined;
   @Input() unitStats?: UnitStats[];
   @Input() inputtedParentRef?: AppComponent; 
   @Input() nexusAttacksSent?: NexusAttackSent[];
   @Input() nexusAttacksIncoming?: NexusAttackSent[];
+  @Input() attackTimers: { [key: string]: BuildingTimer } = {}; 
   @Output() emittedReloadEvent = new EventEmitter<string>();
   @Output() closeMapEvent = new EventEmitter<void>();
   @Output() emittedNotifications = new EventEmitter<string>();
@@ -44,8 +46,10 @@ export class NexusMapComponent implements OnInit {
   @ViewChild('mapInputX') mapInputX!: ElementRef<HTMLInputElement>;
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;
   @ViewChild('mapContainer') mapContainer!: ElementRef;
+  @ViewChild(NexusReportsComponent) nexusReports!: NexusReportsComponent; 
    
-  constructor() {  }
+   
+  constructor(private nexusService: NexusService) {  }
 
   ngOnInit() {   
   }
@@ -55,7 +59,8 @@ export class NexusMapComponent implements OnInit {
     const userBase = this.mapData.find(b => b.user?.id === userId);
     if (userBase) {
       this.scrollToCoordinates(userBase.coordsX, userBase.coordsY);
-    }  
+    }
+    this.selectedNexusBase = undefined;
   }
 
   scrollToCoordinates(coordsX: number, coordsY: number) {
@@ -65,6 +70,7 @@ export class NexusMapComponent implements OnInit {
     if (cell) {
       cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     }
+    this.selectedNexusBase = undefined;
   }
 
   setMapData(nexusBases: NexusBase[]) { 
@@ -157,6 +163,42 @@ export class NexusMapComponent implements OnInit {
         starportLevel: 0,
         warehouseLevel: 0
       };
+    }
+    setTimeout(() => {
+      if (this.nexusReports && !this.isReportsHidden) {
+        this.nexusReports.loadBattleReports(this.selectedNexusBase);
+      }
+    }, 10); 
+  } 
+  getAttackTimersForCoords(coordsX: string, coordsY: string): BuildingTimer[] {
+    const targetBase = `Attacking {${coordsX},${coordsY}}`;
+    return Object.entries(this.attackTimers)
+      .filter(([key, value]) => key.includes(targetBase))
+      .map(([key, value]) => value);
+  }
+
+  formatTimer(allSeconds?: number): string {
+    return this.nexusService.formatTimer(allSeconds);
+  }
+
+  getRemainingTime(endTime: number): string {
+    const now = Date.now();
+    const remainingTime = endTime - now;
+
+    if (remainingTime <= 0) {
+      return 'Time is up!';
+    }
+
+    const hours = Math.floor(remainingTime / (1000 * 60 * 60));
+    const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
+
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+  toggleShowReports() {
+    this.isReportsHidden = !this.isReportsHidden;
+    if (!this.isReportsHidden && this.selectedNexusBase) {
+      this.nexusReports.loadBattleReports(this.selectedNexusBase);
     }
   }
 }
