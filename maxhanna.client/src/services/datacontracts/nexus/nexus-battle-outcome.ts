@@ -11,4 +11,8 @@ export interface NexusBattleOutcome {
   defendingUnits: Record<string, number>;
   attackingLosses: Record<string, number>;
   defendingLosses: Record<string, number>;
+  defenderUnitsNotInVillage: Record<string, number>;
+  defenderBuildingLevels: Record<string, number>;
+  defenderGold: number;
+  defenderGoldStolen: number; 
 }

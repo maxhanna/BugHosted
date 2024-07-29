@@ -1,4 +1,4 @@
-import {   Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, Renderer2, ViewChild } from '@angular/core';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { User } from '../../services/datacontracts/user/user'; 
 import { AppComponent } from '../app.component';
@@ -14,7 +14,7 @@ import { NexusService } from '../../services/nexus.service';
   templateUrl: './nexus-map.component.html',
   styleUrl: './nexus-map.component.css'
 })
-export class NexusMapComponent implements OnInit {
+export class NexusMapComponent {
   mapData: NexusBase[] = [];
   selectedNexusBase?: NexusBase;
   grid: string[][] = []; 
@@ -49,11 +49,8 @@ export class NexusMapComponent implements OnInit {
   @ViewChild(NexusReportsComponent) nexusReports!: NexusReportsComponent; 
    
    
-  constructor(private nexusService: NexusService) {  }
+  constructor(private nexusService: NexusService) {  } 
 
-  ngOnInit() {   
-  }
-   
   scrollToUserBase() {
     const userId = this.user?.id;
     const userBase = this.mapData.find(b => b.user?.id === userId);
@@ -145,6 +142,7 @@ export class NexusMapComponent implements OnInit {
     return this.mapTileSrc;
   }
   selectCoordinates(coordsx: number, coordsy: number) {
+    this.selectedNexusBase = undefined;
     this.showAttackButton = true;
     this.isAttackScreenOpen = false;
     this.unitStats?.forEach(x => x.sentValue = undefined);
@@ -170,10 +168,10 @@ export class NexusMapComponent implements OnInit {
       }
     }, 10); 
   } 
-  getAttackTimersForCoords(coordsX: string, coordsY: string): BuildingTimer[] {
-    const targetBase = `Attacking {${coordsX},${coordsY}}`;
+  getAttackTimersForCoords(coordsX: number, coordsY: number): BuildingTimer[] {
+    const targetBase = `{${coordsX},${coordsY}}`;  
     return Object.entries(this.attackTimers)
-      .filter(([key, value]) => key.includes(targetBase))
+      .filter(([key, value]) => key.split(".")[1].includes(targetBase))
       .map(([key, value]) => value);
   }
 

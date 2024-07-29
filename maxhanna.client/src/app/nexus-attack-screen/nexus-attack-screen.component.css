@@ -4,3 +4,7 @@
   overflow: auto;
   width: var(--nexus-gamescreen-width);
 }
+
+.unitInput {
+  width: 25px;
+}

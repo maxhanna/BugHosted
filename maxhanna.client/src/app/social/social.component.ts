@@ -82,13 +82,22 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     this.currentPage = parseInt(this.pageSelect.nativeElement.value);
     this.getStories(this.currentPage);
   }
-  scrollToStory(storyId: number): void {
-    setTimeout(() => {
-      const element = document.getElementById('storyDiv' + storyId);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 1110);
+  scrollToStory(storyId?: number): void {
+    if (storyId) {
+      setTimeout(() => {
+        const element = document.getElementById('storyDiv' + storyId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 1111);
+    } else { 
+      setTimeout(() => {
+        const element = document.getElementById('mainTableDiv')?.getElementsByClassName("storyContainer")[0]; 
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 200);
+    }
   }
   async delete(story: Story) {
     if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
@@ -100,11 +109,18 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       }
     }
   }
-  async onTopicAdded(topics: Array<Topic>) {
-    this.attachedTopics = topics;
-    this.searchStories(topics);
+  async onTopicAdded(topics?: Array<Topic>) {
+    if (topics) { 
+      this.attachedTopics = topics;
+      this.searchStories(topics);
+      this.scrollToStory();
+    }
   }
-
+  async topicClicked(topic: Topic) {
+    this.attachedTopics.push(topic);
+    this.onTopicAdded(this.attachedTopics);
+    this.scrollToStory();
+  }
   uploadInitiate() {
 
   }
@@ -127,9 +143,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   }
 
-  async searchStories(searchTopics?: Array<Topic>) {
-    this.log("searchTopics ");
-    this.log(searchTopics);
+  async searchStories(searchTopics?: Array<Topic>) { 
     let search = this.search.nativeElement.value;
     let topics = '';
     if (searchTopics && searchTopics.length > 0) {
@@ -210,10 +224,28 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     this.attachedFiles = this.attachedFiles.filter(x => x.id != fileId);
   }
 
-  extractUrl(text: string) {
+  extractUrl(text?: string) {
+    if (!text) return;
     const urlPattern = /(https?:\/\/[^\s]+)/g;
     const matches = text.match(urlPattern);
     return matches ? matches[0] : null;
+  }
+
+  goToLink(story?: Story) {
+    if (story && story.storyText) { 
+      const goodUrl = this.extractUrl(story.storyText);
+      if (goodUrl) {
+        window.open(goodUrl, '_blank');
+      }
+    }
+    else {
+      if (story && story.metadata) { 
+        const tmpUrl = story.metadata.imageUrl;
+        if (tmpUrl) {
+          window.open(tmpUrl, '_blank');
+        }
+      }
+    }
   }
 
   createClickableUrls(text?: string): SafeHtml {

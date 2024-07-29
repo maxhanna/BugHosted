@@ -41,6 +41,7 @@
         <div style="width:100%;text-align:center">
           <input type="submit" value="Login" (click)="login()" />
           <input type="submit" value="Create User" (click)="createUser()" />
+          <input type="submit" value="Guest" (click)="createUser(true)" />
         </div>
       </div>
       <div *ngIf="parentRef?.user" style="width:100%;text-align:center">

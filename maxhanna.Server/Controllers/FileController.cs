@@ -153,7 +153,7 @@ namespace maxhanna.Server.Controllers
                     {
                         command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
                     }
-                    Console.WriteLine(command.CommandText);
+                    //Console.WriteLine(command.CommandText);
 
                     //_logger.LogInformation(command.CommandText);
                     using (var reader = command.ExecuteReader())
@@ -1263,10 +1263,10 @@ namespace maxhanna.Server.Controllers
                             if (filePath.TrimEnd('/') + "/" != baseTarget.TrimEnd('/') + "/")
                             {
                                 var innerDeleteCommand = new MySqlCommand(
-                                    "DELETE FROM maxhanna.array_characters_inventory WHERE file_id IN (SELECT id FROM maxhanna.file_uploads WHERE folder_path LIKE CONCAT(@FolderPath, '%')); DELETE FROM maxhanna.file_uploads WHERE folder_path LIKE CONCAT(@FolderPath, '%')",
+                                    "DELETE FROM maxhanna.file_uploads WHERE folder_path LIKE CONCAT(@FolderPath, '%')",
                                     connection, transaction);
                                 innerDeleteCommand.Parameters.AddWithValue("@FolderPath", filePath.TrimEnd('/') + "/");
-                                _logger.LogInformation(innerDeleteCommand.CommandText);
+                                //_logger.LogInformation(innerDeleteCommand.CommandText);
                                 innerDeleteCommand.ExecuteNonQuery();
                             }
                         }

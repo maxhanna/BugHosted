@@ -1,7 +1,7 @@
 <div class=componentMain>
   <div class="closeButton" (click)="remove_me('NexusComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">War</div>
+  <div class="componentTitle">Bug Wars</div>
 
 
   <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew">
@@ -16,7 +16,7 @@
       <span title="Nexus location" class="resourceSpan">📍:{{'{' + currentBaseLocationX + ',' + currentBaseLocationY + '}'}}</span>
     </div>
 
-    <div *ngIf="parentRef && parentRef.user" [style.display]="isReportsOpen && !isMapOpen && parentRef && parentRef.user ? 'block':'none'" class="battleReportComponentDiv">
+    <div *ngIf="parentRef && parentRef.user" [style.display]="isReportsOpen && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && nexusBase ? 'block' : 'none'"  class="battleReportComponentDiv">
       <app-nexus-reports [battleReports]="battleReports" [user]="parentRef.user"></app-nexus-reports>
     </div>
 
@@ -351,38 +351,37 @@
     </table>
   </div>
 
-
-  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
-    Movement: <span class="xxSmallFont redText" *ngIf="!activeAttackTimers() || activeAttackTimers().length == 0">[No movement.]</span>
-    <div *ngFor="let timer of activeAttackTimers()">
-      <p [class]="timer.unit.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
-        {{ timer.unit.includes(".") ? timer.unit.substring(timer.unit.indexOf('.') + 1, timer.unit.length) : timer.unit }} - {{ formatTimer(timer.endTime) }}
-      </p>
-    </div>
-  </div>
-
-  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
-    Training: <span class="xxSmallFont redText" *ngIf="!activeUnitTimers() || activeUnitTimers().length == 0">[No training.]</span>
-    <div *ngIf="activeUnitTimers().length > 0">
-      <div *ngFor="let timer of activeUnitTimers()">
-        <p [class]="timer.unit.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
+  <div [style.display]="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
+    Movement:<span class="xxSmallFont redText" *ngIf="!activeAttackTimers() || activeAttackTimers().length == 0">[No movement.]</span>
+    <div class="upgradeTimersTableDiv"> 
+      <div *ngFor="let timer of activeAttackTimers()">
+        <p [class]="timer.unit.includes('Returning') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP'">
           {{ timer.unit.includes(".") ? timer.unit.substring(timer.unit.indexOf('.') + 1, timer.unit.length) : timer.unit }} - {{ formatTimer(timer.endTime) }}
         </p>
       </div>
     </div>
-  </div>
 
-  <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
-    Building: <span class="xxSmallFont redText" *ngIf="!activeBuildingTimers() || activeBuildingTimers().length == 0">[No building.]</span>
-    <ng-container *ngIf="activeBuildingTimers().length > 0">
-      <div *ngFor="let timer of activeBuildingTimers()">
-        <p [class]="timer.building.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
-          {{ formatBuildingTimer(timer.building) }} - {{ formatTimer(timer.endTime) }}
-        </p>
+    Training:<span class="xxSmallFont redText" *ngIf="!activeUnitTimers() || activeUnitTimers().length == 0">[No training.]</span>
+    <div class="upgradeTimersTableDiv"> 
+      <div *ngIf="activeUnitTimers().length > 0">
+        <div *ngFor="let timer of activeUnitTimers()">
+          <p [class]="timer.unit.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
+            {{ timer.unit.includes(".") ? timer.unit.substring(timer.unit.indexOf('.') + 1, timer.unit.length) : timer.unit }} - {{ formatTimer(timer.endTime) }}
+          </p>
+        </div>
       </div>
-    </ng-container>
+    </div>
+    Building: <span class="xxSmallFont redText" *ngIf="!activeBuildingTimers() || activeBuildingTimers().length == 0">[No building.]</span>
+    <div class="upgradeTimersTableDiv"> 
+      <ng-container *ngIf="activeBuildingTimers().length > 0">
+        <div *ngFor="let timer of activeBuildingTimers()">
+          <p [class]="timer.building.includes('.') ? 'unitProgressDisplayP' : 'upgradeProgressDisplayP'">
+            {{ formatBuildingTimer(timer.building) }} - {{ formatTimer(timer.endTime) }}
+          </p>
+        </div>
+      </ng-container>
+    </div>
   </div>
-
   <div class="upgradeTimersTableDiv" [style.display]="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
     <app-nexus-base-units [parentRef]="parentRef"
                           [nexusUnits]="nexusAvailableUnits"
@@ -398,7 +397,7 @@
   </div>
 
   <div class="gameNotificationDiv">
-    <div *ngFor="let notif of notifications" class="gameNotification" (click)="notifications = []" [style.display]="!isMapOpen && !isReportsOpen ? 'block' : 'none'">>{{notif}}</div>
+    <div *ngFor="let notif of notifications" class="gameNotification" (click)="notifications = []">>{{notif}}</div>
   </div>
   <div *ngIf="isUserComponentOpen">
     <app-user [loginOnly]="true"
@@ -410,7 +409,7 @@
 
   <div class="shareMapButtonDiv">
     <button (click)="copyLink()" title="Share Link">Share 📋</button>
-    <button (click)="toggleScreen('map')" title="View Map">Map 🗺️</button>
-    <button (click)="toggleScreen('reports')" title="View Reports">Reports 📃</button>
+    <button (click)="toggleScreen('map')" title="View Map">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>
+    <button (click)="toggleScreen('reports')" title="View Reports">{{isReportsOpen ? 'Close ' : ''}}Reports 📃</button>
   </div>
 </div>

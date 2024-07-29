@@ -18,7 +18,10 @@ builder.Services.AddSwaggerGen();
  
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<CoinValueBackgroundService>();
-
+builder.Services.AddHostedService<NexusAttackBackgroundService>();
+builder.Services.AddHostedService<NexusUpgradeBackgroundService>();
+builder.Services.AddHostedService<NexusUnitBackgroundService>();
+ 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
 
 var app = builder.Build();

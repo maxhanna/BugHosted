@@ -20,14 +20,15 @@ export class ChildComponent {
       console.log("key not found: " + componentTitle);
     }
   }
-  debounce(func: Function, wait: number) {
-    let timeout: any;
-    return function (this: any, ...args: any[]) {
-      const context = this;
+  debounce(func: (...args: any[]) => void, wait: number): (...args: any[]) => void {
+    let timeout: number | undefined;
+    return function (...args: any[]): void {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
       clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        func.apply(context, args);
-      }, wait);
+      timeout = window.setTimeout(later, wait);
     };
   }
   replaceEmojisInMessage(msg: string) {

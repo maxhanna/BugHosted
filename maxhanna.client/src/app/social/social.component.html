@@ -25,10 +25,7 @@
       <app-media-selector #postMediaSelector
                           [currentDirectory]="parentRef?.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
                           [user]="parentRef?.user"
-                          (selectFileEvent)="selectFile($event)"></app-media-selector>
-
-      <!--<app-topics [user]="parentRef?.user" [parent]="parent ?? parentRef" (topicAdded)="onTopicAdded($event)"></app-topics>-->
-
+                          (selectFileEvent)="selectFile($event)"></app-media-selector> 
     </div>
     <div *ngIf="attachedFiles.length > 0">
       {{attachedFiles.length}} Attached Files:
@@ -51,7 +48,7 @@
     </div>
   </div>
 
-  <div class="mainTableDiv">
+  <div class="mainTableDiv" id="mainTableDiv">
     <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
       <div class="commentVoteButtons">
         <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">📋Share</button>
@@ -79,7 +76,7 @@
                           [currentReactions]="story.reactions"></app-reaction>
           </div>
           <div class="storyTopics" *ngIf="story.storyTopics && story.storyTopics.length > 0">
-            Topics : <span *ngFor="let topic of story.storyTopics" class="chosenTopic">{{topic.topicText}}</span>
+            Topics : <span *ngFor="let topic of story.storyTopics" class="chosenTopic" (click)="topicComponent.selectTopic(topic)">{{topic.topicText}}</span>
           </div>
           <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
             <div class="italics attachmentTdTitle">Attachments:</div>
@@ -99,7 +96,7 @@
           <div *ngIf="story.metadata">
             <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
             <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story?.metadata?.description)"></div>
-            <div *ngIf="story.metadata.imageUrl"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
+            <div *ngIf="story.metadata.imageUrl" (click)="goToLink(story)" class="cursorPointer"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
           </div>
         </div>
 

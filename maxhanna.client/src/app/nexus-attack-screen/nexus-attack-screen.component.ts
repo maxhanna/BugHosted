@@ -126,19 +126,16 @@ export class NexusAttackScreenComponent {
       const unitSpeed = unitStat.speed;
       return distance * unitSpeed * 60;
     } else {
-      let slowestSpeed = Infinity;
+      let slowestSpeed = 0;
 
       if (this.unitStats) {
         for (const unit of this.unitStats) {
-          if (unit.sentValue && unit.sentValue > 0 && unit.speed && unit.speed < slowestSpeed) {
+          if (unit.sentValue && unit.sentValue > 0 && unit.speed && unit.speed > slowestSpeed) {
             slowestSpeed = unit.speed;
           }
         }
       }
 
-      if (slowestSpeed === Infinity) {
-        slowestSpeed = 0; // or handle as needed
-      }
       return distance * slowestSpeed * 60;
     }
 

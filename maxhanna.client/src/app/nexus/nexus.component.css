@@ -154,6 +154,9 @@
 .unitProgressDisplayP:before {
   content: '⚔️';
 }
+.defenceProgressDisplayP:before {
+  content: '🛡️';
+}
 .upgradeProgressDisplayP, .unitProgressDisplayP {
   color: var(--secondary-font-color);
 }
@@ -198,8 +201,11 @@
   font-size: small;
 }
 .gameNotificationDiv {
-    max-height: 50px;
-    overflow:auto;
+  max-height: 50px;
+  overflow: auto;
+  bottom: 0px;
+  position: absolute;
+  margin-bottom: 50px;
 }
 .unitInput {
     width:25px;

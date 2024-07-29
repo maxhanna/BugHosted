@@ -123,6 +123,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     const startRes = await this.nexusService.start(this.parentRef.user);
 
     if (startRes) {
+      if (this.nexusBase) {
+        this.nexusBase.coordsX = startRes.x;
+        this.nexusBase.coordsY = startRes.y; 
+      }
       this.isUserNew = false;
       await this.loadNexusData();
     }
@@ -151,11 +155,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.supplyCapacity = (data.nexusBase.supplyDepotLevel * 2500);
       this.displayBuildings(this.nexusBaseUpgrades); 
       this.updateAttackTimers();
-      this.updateDefenceTimers();
       this.setAvailableUnits();
       await this.getBuildingUpgradesInfo();
       await this.getUnitStats();
-    } else {
+    }
+    if (!this.nexusBase || (this.nexusBase.coordsX == 0 && this.nexusBase.coordsY == 0))
+    {
       this.isUserComponentOpen = false;
       this.isUserNew = true;
     }
@@ -252,47 +257,63 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
+
+
+
   private updateAttackTimers() {
+    this.attackTimers = {};
+
     if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0 && this.nexusBase) {
       let count = 0;
+      const uniqueAttacks = new Set<number>(); // Set to keep track of unique attacks
       this.nexusAttacksSent.forEach(x => {
-
         const startTimeTime = new Date(x.timestamp).getTime();
-
         const utcNow = new Date().getTime();
         const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
         const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
         count++;
-        const coordsMatchOwnBase = (x.destinationCoordsX == this.nexusBase!.coordsX && x.destinationCoordsY == this.nexusBase!.coordsY)
-        const salt = "{" + x.originCoordsX + "," + x.originCoordsY + "} " + count + ". " + (coordsMatchOwnBase ? "Returning" : "Attacking") + " " + "{" + x.destinationCoordsX + "," + x.destinationCoordsY + "} ";
-
-        if (remainingTimeInSeconds > 0) {
-          this.startAttackTimer(salt, remainingTimeInSeconds);
-        }
+        const coordsMatchOwnBase = (x.destinationCoordsX == this.nexusBase!.coordsX && x.destinationCoordsY == this.nexusBase!.coordsY);
+        if (!coordsMatchOwnBase) {
+          const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. ${coordsMatchOwnBase ? "Returning" : "Attacking"} {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+          if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt]) {
+            uniqueAttacks.add(remainingTimeInSeconds);
+            this.startAttackTimer(salt, remainingTimeInSeconds);
+            console.log("added attack timer: " + salt + " -> " + remainingTimeInSeconds);
+          }
+        } 
       });
-    }
-  }
 
+      console.log('updated attack timers ' + Object.keys(this.attackTimers).length); 
+    } 
+    this.updateDefenceTimers(); 
+  }
 
   private updateDefenceTimers() {
     if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
       let count = 0;
+      const uniqueDefenses = new Set<string>(); // Set to keep track of unique defenses
+
       this.nexusAttacksIncoming.forEach(x => {
-
         const startTimeTime = new Date(x.timestamp).getTime();
-
         const utcNow = new Date().getTime();
         const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
         const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
         count++;
-        const salt = "{" + x.originCoordsX + " " + x.originCoordsY + "} " + count + ". Incoming " + "{" + x.destinationCoordsX + " " + x.destinationCoordsY + "} ";
+        const returningToBase = (x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
+        const salt = returningToBase ? `{${x.originCoordsX},${x.originCoordsY}} ${count}. Returning {${x.destinationCoordsX},${x.destinationCoordsY}}` : `{${x.originCoordsX},${x.originCoordsY}} ${count}. Incoming {${x.destinationCoordsX},${x.destinationCoordsY}}`;
 
         if (remainingTimeInSeconds > 0) {
-          this.startAttackTimer(salt, remainingTimeInSeconds);
+          if (!uniqueDefenses.has(salt)) {
+            uniqueDefenses.add(salt);
+            this.startAttackTimer(salt, remainingTimeInSeconds);
+            console.log("added defence timer: " + salt + " -> " + remainingTimeInSeconds); 
+          }
         }
       });
+      console.log('updated defence timers ' + Object.keys(this.attackTimers).length); 
     }
   }
+
    
 
   private startUpgradeTimer(upgrade: string, time: number, isUnit: boolean) {
@@ -306,10 +327,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.unitTimers[upgrade] = {
         endTime: endTime,
         timeout: setTimeout(async () => {
-          this.notifications.push(`${upgrade} completed!`);
+          this.addNotification(`${upgrade} completed!`);
           delete this.unitTimers[upgrade];
           clearInterval(interval);
-          await this.loadNexusData(true);
+          this.debounceLoadNexusData = this.debounce(() => this.loadNexusData(), 1000);  
           this.cd.detectChanges();
         }, endTime * 1000)
       };
@@ -324,10 +345,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.buildingTimers[upgrade] = {
         endTime: endTime,
         timeout: setTimeout(async () => {
-          this.notifications.push(`${upgrade} upgrade completed!`);
+          this.addNotification(`${upgrade} upgrade completed!`);
           delete this.buildingTimers[upgrade];
           clearInterval(interval);
-          await this.loadNexusData(true);
+          this.debounceLoadNexusData = this.debounce(() => this.loadNexusData(), 1000);  
           this.cd.detectChanges();
         }, endTime * 1000)
       };
@@ -341,30 +362,33 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
+  debounceLoadNexusData!: () => void;
 
   private startAttackTimer(attack: string, time: number) {
     if (this.attackTimers[attack] || !time || isNaN(time)) {
       return;
     }
+     
     //add one second to give the server time to realise whats been built.
-    const endTime = Math.max(0, time) + 1;
+    const endTime = Math.max(1, time);
 
     this.attackTimers[attack] = {
       endTime: endTime,
       timeout: setTimeout(async () => {
-        this.notifications.push(`${attack} completed!`);
+        this.addNotification(`${attack} completed!`);
         delete this.attackTimers[attack];
         clearInterval(interval);
-        await this.loadNexusData();
+        //if (!attack.toLowerCase().includes("returning")) {
+        this.debounceLoadNexusData = this.debounce(() => this.loadNexusData(), 1000);
+        /*}*/
         this.cd.detectChanges();
       }, endTime * 1000)
     };
     const interval = setInterval(async () => {
-      if (this.attackTimers[attack]) {
-        const remainingTime = this.attackTimers[attack].endTime - 1;
-        this.attackTimers[attack].endTime = remainingTime;
+      if (this.attackTimers[attack]) { 
+        this.attackTimers[attack].endTime = this.attackTimers[attack].endTime - 1; // this -1 must be set to decrease timer
       }
-      this.cd.detectChanges();
+      this.cd.detectChanges(); 
     }, 1000); 
   }
 
@@ -497,7 +521,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     const res = await upgradeServiceFunc(this.parentRef.user, this.nexusBase);
     if (res) {
-      this.notifications.push(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} ${res}`);
+      this.addNotification(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} ${res}`);
     }
     await this.loadNexusData(true);
   }
@@ -515,9 +539,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     const res = await this.nexusService.purchaseUnit(this.parentRef.user, this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0);
     if (res && res != '') {
-      this.notifications.push(res);
+      this.addNotification(res);
     } else {
-      this.notifications.push(`Purchased ${tmpUnit.purchasedValue} ${tmpUnit.unitType}`);
+      this.addNotification(`Purchased ${tmpUnit.purchasedValue} ${tmpUnit.unitType}`);
       if (this.units) {
         this.units.forEach(x => {
           x.purchasedValue = undefined;
@@ -866,7 +890,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         });
     }
     if (!this.mapTileSrc) {
-      this.fileService.getFileSrcByFileId(6254)
+      this.fileService.getFileSrcByFileId(6293)
         .then(src => {
           this.mapTileSrc = src;
         })
@@ -944,21 +968,40 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   emittedNotifications(message: string) {
     if (!message || message.trim() == "") return;
-    this.notifications.push(message);
+    this.addNotification(message);
   }
   toggleScreen(screen: string, isOpen?: boolean) {
-    if (screen == "reports") {
-      this.isReportsOpen = isOpen != undefined ? isOpen : !this.isReportsOpen;
+    if (this.isMinesOpen || this.isCommandCenterOpen || this.isSupplyDepotOpen || this.isFactoryOpen || this.isMinesOpen || this.isStarportOpen || this.isWarehouseOpen || this.isEngineeringBayOpen) {
+      this.isMinesOpen = false;
+      this.isCommandCenterOpen = false;
+      this.isStarportOpen = false;
+      this.isFactoryOpen = false;
+      this.isMinesOpen = false;
+      this.isWarehouseOpen = false;
+      this.isEngineeringBayOpen = false;
+    }
+    if (screen == "reports")
+    {
       this.isMapOpen = false;
+      this.isReportsOpen = isOpen != undefined ? isOpen : !this.isReportsOpen;
     }
-    else if (screen == "map") {
-      this.viewMap(isOpen);
+    else if (screen == "map")
+    {
       this.isReportsOpen = false;
-    }
+      this.viewMap(isOpen);
+    } 
   }
   getGlitcherStats() {
     if (this.units)
       return this.units.find(x => x.unitType == "glitcher");
     else return undefined;
   }
+  addNotification(notif?: string) {
+    if (notif) { 
+      this.notifications.push(notif);
+      setTimeout(() => {
+        this.notifications.shift();
+      }, 20000);
+    }
+  } 
 }

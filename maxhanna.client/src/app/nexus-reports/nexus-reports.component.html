@@ -20,8 +20,11 @@
     <div>
       <strong>Battle Report #{{report.battleId}} <button (click)="deleteReport(report)">Delete</button></strong>
       <p><strong>Origin:</strong> ({{report.originCoordsX}}, {{report.originCoordsY}}) - User ID: {{report.originUserId}}</p>
-      <p><strong>Destination:</strong> ({{report.destinationCoordsX}}, {{report.destinationCoordsY}}) - User ID: {{report.destinationUserId}}</p>
+      <p><strong>Destination:</strong> ({{report.destinationCoordsX}}, {{report.destinationCoordsY}})<span *ngIf="report.destinationUserId"> - User ID: {{report.destinationUserId}}</span></p>
       <p><strong>Timestamp:</strong> {{report.timestamp}}</p>
+      <p><strong>Defender Gold:</strong> {{report.defenderGold}},</p>
+      <p><strong>Defender Gold Stolen:</strong> {{report.defenderGoldStolen}}</p>
+
       <div>
         <strong>Attacking Units:</strong>
         <ul>
@@ -50,6 +53,22 @@
         <strong>Defending Losses:</strong>
         <ul>
           <li *ngFor="let unit of getUnitsArray(report.defendingLosses)">
+            {{unit.key}}: {{unit.value}}
+          </li>
+        </ul>
+      </div>
+      <div>
+        <strong>Defender Buildings:</strong>
+        <ul>
+          <li *ngFor="let building of getUnitsArray(report.defenderBuildingLevels)">
+            {{building.key}}: {{building.value}}
+          </li>
+        </ul>
+      </div>
+      <div>
+        <strong>Defender Units Not In Village:</strong>
+        <ul>
+          <li *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage)">
             {{unit.key}}: {{unit.value}}
           </li>
         </ul>

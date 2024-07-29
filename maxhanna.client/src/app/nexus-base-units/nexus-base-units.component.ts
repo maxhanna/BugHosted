@@ -21,6 +21,12 @@ export class NexusBaseUnitsComponent {
 
   nexusHasUnits() {
     if (!this.nexusUnits) return false;
-    return (this.nexusUnits.marineTotal > 0 || this.nexusUnits.goliathTotal > 0 || this.nexusUnits.battlecruiserTotal > 0 || this.nexusUnits.wraithTotal > 0 || this.nexusUnits.siegeTankTotal > 0 || this.nexusUnits.glitcherTotal > 0);
+    return (this.nexusUnits.marineTotal > 0
+      || this.nexusUnits.goliathTotal > 0
+      || this.nexusUnits.scoutTotal > 0
+      || this.nexusUnits.wraithTotal > 0
+      || this.nexusUnits.siegeTankTotal > 0
+      || this.nexusUnits.battlecruiserTotal > 0
+      || this.nexusUnits.glitcherTotal > 0);
   }
 }

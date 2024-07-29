@@ -15,7 +15,7 @@
             <input type="range" class="unitSliderTd" [value]="unit.sentValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
           </td>
           <td>
-            {{unit.sentValue ? unit.sentValue : '0'}}
+            <input [value]="unit.sentValue ? unit.sentValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
           </td>
         </tr>
         <tr *ngIf="unit.sentValue">

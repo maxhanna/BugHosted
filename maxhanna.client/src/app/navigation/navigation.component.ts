@@ -90,11 +90,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }
   async getChatInfo() {
-    if (!this._parent.user) {
+    if (!this._parent || !this._parent.user) {
       return;
     }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) { return; }
-    const res = await this.chatService.getChatNotifications(this._parent.user!);
+    const res = await this.chatService.getChatNotifications(this._parent.user);
     if (res && res != 0 && res != "NaN") {
       this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = res + '';
     } else {

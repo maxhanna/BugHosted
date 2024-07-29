@@ -246,9 +246,12 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
 
 
-  async createUser() {
-    const tmpUserName = this.loginUsername.nativeElement.value;
+  async createUser(guest?: boolean) {
+    let tmpUserName = this.loginUsername.nativeElement.value;
     const tmpPassword = this.loginPassword.nativeElement.value;
+    if (guest && tmpUserName.trim() == "") {
+      tmpUserName = "Guest" + Math.random().toString().slice(2, 5); 
+    }
     if (!confirm(`Create user ${tmpUserName}?`)) { return; }
     if (tmpUserName) {
       const tmpUser = new User(undefined, tmpUserName, tmpPassword);
@@ -283,7 +286,7 @@ export class UserComponent extends ChildComponent implements OnInit {
           const resAddMenuItemArray = await this.userService.addMenuItem(tmpUser, "Array");
           this.notifications.push(resAddMenuItemArray!);
 
-          await this.login();
+          await this.login(guest ? tmpUserName : undefined);
           if (!this.loginOnly) { 
             this.parentRef?.createComponent('UpdateUserSettings');
           }
@@ -307,15 +310,19 @@ export class UserComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async login() {
-    console.log("logging in");
+  async login(guest?: string) {
+    console.log("logging in " + (guest ? " as " + guest : ""));
     if (this.parentRef?.user) { 
       this.parentRef.user = undefined;
     }
     if (this.parentRef) { 
       this.parentRef.deleteCookie("user");
     }
-    const tmpLoginUser = new User(undefined, this.loginUsername.nativeElement.value, this.loginPassword.nativeElement.value);
+    let tmpUserName = this.loginUsername.nativeElement.value;
+    if (guest) {
+      tmpUserName = guest;
+    }
+    const tmpLoginUser = new User(undefined, tmpUserName, this.loginPassword.nativeElement.value);
     try {
       const tmpUser = await this.userService.getUser(tmpLoginUser);
 

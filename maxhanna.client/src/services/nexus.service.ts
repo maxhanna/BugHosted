@@ -108,7 +108,7 @@ export class NexusService {
   }
 
   formatTimer(allSeconds?: number): string {
-    if (!allSeconds) return '';
+    if (!allSeconds && allSeconds !== 0) return '';
     const totalSeconds = allSeconds;
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;

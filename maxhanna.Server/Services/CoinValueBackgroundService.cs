@@ -33,7 +33,7 @@ namespace maxhanna.Server.Services
             {
                 _logger.LogInformation("Fetching coin values at: {time}", DateTimeOffset.Now);
                 await FetchAndStoreCoinValues();
-                 await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+                await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
             }
         }
 
