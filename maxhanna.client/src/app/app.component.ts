@@ -10,8 +10,7 @@ import { TodoComponent } from './todo/todo.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
-import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
-import { GbcComponent } from './gbc/gbc.component';
+import { CoinWalletComponent } from './coin-wallet/coin-wallet.component'; 
 import { UserComponent } from './user/user.component';
 import { MenuItem } from '../services/datacontracts/user/menu-item';
 import { ChatComponent } from './chat/chat.component';
@@ -82,8 +81,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Todo": TodoComponent,
     "Music": MusicComponent,
     "Notepad": NotepadComponent,
-    "Contacts": ContactsComponent,
-    "Gameboy Color": GbcComponent,
+    "Contacts": ContactsComponent, 
     "Emulation": EmulationComponent,
     "Array": ArrayComponent,
     "War": NexusComponent,

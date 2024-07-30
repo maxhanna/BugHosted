@@ -7,4 +7,8 @@
     <!-- Folder where production build objects will be placed -->
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist\maxhanna.client\</BuildOutputFolder>
   </PropertyGroup>
+  <ItemGroup>
+    <None Remove="src\app\gbc\**" />
+    <TypeScriptConfiguration Remove="src\app\gbc\**" />
+  </ItemGroup>
 </Project>

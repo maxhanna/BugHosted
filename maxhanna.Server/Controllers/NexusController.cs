@@ -1910,22 +1910,19 @@ namespace maxhanna.Server.Controllers
                             if (aLoss > 0) { attackerSupplyRecovered = true; }
                             if (dLoss > 0) { defenderSupplyRecovered = true; }
                             Console.WriteLine($"Attacking unit: {unitType}: {sentValue}");
-                            Console.WriteLine($"Defending unit: {unitType}: {defendingUnitValue}");
-
-                        } 
-
-                        Console.WriteLine($"attackerSupplyRecovered: {attackerSupplyRecovered}, defenderSupplyRecovered: {defenderSupplyRecovered}");
-
-                        await UpdateDefenderUnits(conn, transaction, destination, unitStats, defendingLosses);
-
+                            Console.WriteLine($"Defending unit: {unitType}: {defendingUnitValue}"); 
+                        }  
+                        Console.WriteLine($"attackerSupplyRecovered: {attackerSupplyRecovered}, defenderSupplyRecovered: {defenderSupplyRecovered}"); 
                     }
                     if (attackerSupplyRecovered)
                     {
+                        await UpdateNexusUnitsAfterAttack(conn, transaction, origin, unitStats, attackingLosses);
                         int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
                         await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
                     }
                     if (defenderSupplyRecovered)
                     {
+                        await UpdateNexusUnitsAfterAttack(conn, transaction, destination, unitStats, defendingLosses);
                         int currentSupplyUsed = await CalculateUsedNexusSupply(destination, conn, transaction);
                         await UpdateNexusSupply(destination, currentSupplyUsed, conn, transaction);
                     }
@@ -1973,7 +1970,7 @@ namespace maxhanna.Server.Controllers
                     }
                     else
                     {
-                        Console.WriteLine($"No survivors made it. Updating units..."); 
+                        Console.WriteLine($"No survivors made it..."); 
                     }
                 }
                 else
@@ -2001,37 +1998,36 @@ namespace maxhanna.Server.Controllers
             await UpdateNexusUnits(origin, marinesTotal, goliathTotal, siegeTankTotal, scoutTotal, wraithTotal, battlecruiserTotal, glitcherTotal, conn, transaction);
         }
 
-        private async Task UpdateDefenderUnits(MySqlConnection conn, MySqlTransaction transaction, NexusBase destination, Dictionary<string, (int GroundDamage, int AirDamage, int Supply)> unitStats, Dictionary<string, int?> defendingLosses)
+        private async Task UpdateNexusUnitsAfterAttack(MySqlConnection conn, MySqlTransaction transaction, NexusBase nexusBase, Dictionary<string, (int GroundDamage, int AirDamage, int Supply)> unitStats, Dictionary<string, int?> losses)
         {
-            NexusUnits? defenderHomeBaseUnits = await GetNexusUnits(destination, true, conn, transaction);
-            if (defenderHomeBaseUnits != null)
+            NexusUnits? homeBaseUnits = await GetNexusUnits(nexusBase, true, conn, transaction);
+            if (homeBaseUnits != null)
             {
                 foreach (var unitType in unitStats.Keys)
                 {
-                    string bigType = unitType;
-                    bigType = (unitType == "siege_tank" ? "SiegeTank"
+                    string bigType = (unitType == "siege_tank" ? "SiegeTank"
                         : unitType == "marine" ? "Marine"
                         : unitType == "goliath" ? "Goliath"
                         : unitType == "scout" ? "Scout"
                         : unitType == "battlecruiser" ? "Battlecruiser"
                         : "Glitcher");
-                    var prop = defenderHomeBaseUnits.GetType().GetProperty($"{bigType}Total");
+                    var prop = homeBaseUnits.GetType().GetProperty($"{bigType}Total");
                     if (prop != null)
                     {
-                        prop.SetValue(defenderHomeBaseUnits, (int)prop.GetValue(defenderHomeBaseUnits, null)! - defendingLosses[unitType]);
+                        prop.SetValue(homeBaseUnits, (int)prop.GetValue(homeBaseUnits, null)! - losses[unitType]);
                     }
                 }
-                await UpdateNexusUnits(destination,
-                    defenderHomeBaseUnits.MarineTotal ?? 0,
-                    defenderHomeBaseUnits.GoliathTotal ?? 0,
-                    defenderHomeBaseUnits.SiegeTankTotal ?? 0,
-                    defenderHomeBaseUnits.ScoutTotal ?? 0,
-                    defenderHomeBaseUnits.WraithTotal ?? 0,
-                    defenderHomeBaseUnits.BattlecruiserTotal ?? 0,
-                    defenderHomeBaseUnits.GlitcherTotal ?? 0, conn, transaction);
+                await UpdateNexusUnits(nexusBase,
+                    homeBaseUnits.MarineTotal ?? 0,
+                    homeBaseUnits.GoliathTotal ?? 0,
+                    homeBaseUnits.SiegeTankTotal ?? 0,
+                    homeBaseUnits.ScoutTotal ?? 0,
+                    homeBaseUnits.WraithTotal ?? 0,
+                    homeBaseUnits.BattlecruiserTotal ?? 0,
+                    homeBaseUnits.GlitcherTotal ?? 0, conn, transaction);
             }
         }
-
+         
         private async Task<decimal> GetGoldPlundered(MySqlConnection conn, MySqlTransaction transaction, NexusBase destination, List<UnitStats> attackingUnits, NexusUnits? defendingUnits, Dictionary<string, (int GroundDamage, int AirDamage, int Supply)> unitStats)
         {
             await UpdateNexusGold(conn, destination, transaction);

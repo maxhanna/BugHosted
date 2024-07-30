@@ -3,13 +3,14 @@ import { TopicService } from '../../services/topic.service';
 import { Topic } from '../../services/datacontracts/topic'; 
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
+import { ChildComponent } from '../child.component';
 
 @Component({
   selector: 'app-topics',
   templateUrl: './topics.component.html',
   styleUrl: './topics.component.css'
 })
-export class TopicsComponent {
+export class TopicsComponent extends ChildComponent {
   @Input() user: User | undefined;
   @Input() parent: AppComponent | undefined;
   @Input() isDropdown: boolean = false;
@@ -21,7 +22,8 @@ export class TopicsComponent {
   topics: Topic[] = [];
   matchingTopics: Topic[] = [];
 
-  constructor(private topicService: TopicService) { }
+  debounceLoadData!: () => void;
+  constructor(private topicService: TopicService) { super(); }
 
   async addTopic() {
     if (!this.user || !parent) { return alert("Must be logged in to add a topic!"); }
@@ -46,42 +48,28 @@ export class TopicsComponent {
   }
   async searchTopics(enteredValue: string, force: boolean = false) {
     this.addTopicButton.nativeElement.style.visibility = "hidden";
-
-    const debouncedSearch = this.debounce(this.topicService.getTopics, 500);
-    if (enteredValue.trim() != '' || force) {
-      const res = await debouncedSearch(enteredValue);
-      this.matchingTopics = res;
-
-      if (this.matchingTopics.length == 0) {
-        this.addTopicButton.nativeElement.style.visibility = "visible";
-      }
-      else {
-        if (this.matchingTopics.some(x => x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
-          this.addTopicButton.nativeElement.style.visibility = "hidden";
-        }
-        else {
+     
+    if (enteredValue.trim() != '' || force) {  
+      this.debounceLoadData = this.debounce(async () => {
+        this.matchingTopics = await this.topicService.getTopics(enteredValue);
+        if (this.matchingTopics.length == 0) {
           this.addTopicButton.nativeElement.style.visibility = "visible";
         }
-      }
+        else {
+          if (this.matchingTopics.some(x => x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
+            this.addTopicButton.nativeElement.style.visibility = "hidden";
+          }
+          else {
+            this.addTopicButton.nativeElement.style.visibility = "visible";
+          }
+        }
+      }, 1000);   
     }
     else
     {
       this.matchingTopics = []; // Clear the list if input is empty 
     } 
-  }
-
-  debounce(func: Function, delay: number): (...args: any[]) => Promise<Topic[]> {
-    let timeoutId: NodeJS.Timeout;
-    return (...args: any[]) => {
-      return new Promise(resolve => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(async () => {
-          const result = await func.apply(this, args);
-          resolve(result);
-        }, delay);
-      });
-    };
-  }
+  } 
 
   selectTopic(topic: Topic) {
     if (this.topics.some(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase())) return; //if the topics selected already contain the topic selected, skip.

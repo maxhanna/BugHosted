@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "chart.js": "^4.4.3",
-    "jsgbc": "^0.7.0",
     "ng2-charts": "^6.0.1",
     "nostalgist": "^0.9.2"
   }

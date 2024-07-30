@@ -33,6 +33,50 @@ export class NexusAttackScreenComponent {
 
   constructor(private nexusService: NexusService) { }
 
+  async engageAttackAllUnits() {
+    if (!this.user || !this.originBase || !this.selectedNexus || !this.nexusUnits || !this.unitStats) return alert("Something went wrong with the request.");
+    const marineTotal = this.nexusUnits.marineTotal;
+    const goliathTotal = this.nexusUnits.goliathTotal;
+    const siegeTankTotal = this.nexusUnits.siegeTankTotal;
+    const scoutTotal = this.nexusUnits.scoutTotal;
+    const wraithTotal = this.nexusUnits.wraithTotal;
+    const battlecruiserTotal = this.nexusUnits.battlecruiserTotal;
+    const glitcherTotal = this.nexusUnits.glitcherTotal;
+     this.unitStats.forEach(x => {
+      if (x.unitType == "marine") {
+        x.sentValue = marineTotal;
+      } else if (x.unitType == "goliath") {
+        x.sentValue = goliathTotal;
+      } else if (x.unitType == "siege_tank") {
+        x.sentValue = siegeTankTotal;
+      } else if (x.unitType == "scout") {
+        x.sentValue = scoutTotal;
+      } else if (x.unitType == "wraith") {
+        x.sentValue = wraithTotal;
+      } else if (x.unitType == "battlecruiser") {
+        x.sentValue = battlecruiserTotal
+      } else if (x.unitType == "glitcher") {
+        x.sentValue = glitcherTotal
+      }  
+    });
+    if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units!");
+    this.engagementLoading = true;
+
+    const attackDuration = this.calculateAttackDuration();
+    console.log("attackduration : " + attackDuration);
+    if (attackDuration) {
+      const res = await this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration);
+      if (res.includes("Attack sent")) {
+        this.emittedReloadEvent.emit("Attack sent");
+        this.closedAttackScreen.emit();
+        this.emittedAttackCoordinates.emit(this.selectedNexus);
+        this.RemoveAttackingUnitsFromAvailableUnits();
+      }
+      this.emittedNotifications.emit(res);
+    }
+    this.engagementLoading = false;
+  }
+
   async engageAttack() {
     if (!this.user || !this.originBase || !this.selectedNexus || !this.unitStats) return alert("Something went wrong with the request.");
     if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units have been selected! Please select some units and try again.");
@@ -142,7 +186,12 @@ export class NexusAttackScreenComponent {
   }
   isEngagingUnits() {
     if (!this.unitStats) return false;
-    return this.unitStats.filter(x => x.sentValue && x.sentValue > 0);
+    return this.unitStats.find(x => x.sentValue && x.sentValue > 0);
+  }
+  hasUnitsToSend() {
+    if (!this.nexusUnits) return false;
+    return this.nexusUnits.marineTotal > 0 || this.nexusUnits.goliathTotal > 0 || this.nexusUnits.siegeTankTotal > 0
+      || this.nexusUnits.scoutTotal > 0 || this.nexusUnits.wraithTotal > 0 || this.nexusUnits.battlecruiserTotal > 0 || this.nexusUnits.glitcherTotal > 0;
   }
   maxSliderValue(unit: UnitStats): number {
     if (unit.unitType == "marine") return this.nexusUnits?.marineTotal ?? 0;

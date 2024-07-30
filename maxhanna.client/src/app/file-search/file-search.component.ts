@@ -37,8 +37,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
 
-  showData = true;
-  debounceTimer: any;
+  showData = true; 
 
   directory: DirectoryResults | undefined;
   defaultCurrentPage = 1;

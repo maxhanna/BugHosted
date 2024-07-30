@@ -19,8 +19,7 @@ import { TodoComponent } from './todo/todo.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { ContactsComponent } from './contacts/contacts.component';
-import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
-import { GbcComponent } from './gbc/gbc.component';
+import { CoinWalletComponent } from './coin-wallet/coin-wallet.component'; 
 import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
@@ -61,8 +60,7 @@ import { NexusReportsComponent } from './nexus-reports/nexus-reports.component';
     NotepadComponent,
     MusicComponent,
     ContactsComponent,
-    CoinWalletComponent,
-    GbcComponent,
+    CoinWalletComponent, 
     UserComponent,
     CoinWatchComponent,
     ChatComponent,

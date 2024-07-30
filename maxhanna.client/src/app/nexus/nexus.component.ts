@@ -316,6 +316,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
    
 
+  debounceLoadNexusData = this.debounce(async () => {
+    await this.loadNexusData();
+  }, 1000);
+
   private startUpgradeTimer(upgrade: string, time: number, isUnit: boolean) {
     if (this.buildingTimers[upgrade] || this.unitTimers[upgrade] || !time || isNaN(time)) {
       return;
@@ -330,7 +334,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.addNotification(`${upgrade} completed!`);
           delete this.unitTimers[upgrade];
           clearInterval(interval);
-          this.debounceLoadNexusData = this.debounce(() => this.loadNexusData(), 1000);  
+          this.debounceLoadNexusData();  
           this.cd.detectChanges();
         }, endTime * 1000)
       };
@@ -348,7 +352,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.addNotification(`${upgrade} upgrade completed!`);
           delete this.buildingTimers[upgrade];
           clearInterval(interval);
-          this.debounceLoadNexusData = this.debounce(() => this.loadNexusData(), 1000);  
+          this.debounceLoadNexusData(); 
           this.cd.detectChanges();
         }, endTime * 1000)
       };
@@ -362,8 +366,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
-  debounceLoadNexusData!: () => void;
-
+ 
   private startAttackTimer(attack: string, time: number) {
     if (this.attackTimers[attack] || !time || isNaN(time)) {
       return;
@@ -378,9 +381,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.addNotification(`${attack} completed!`);
         delete this.attackTimers[attack];
         clearInterval(interval);
-        //if (!attack.toLowerCase().includes("returning")) {
-        this.debounceLoadNexusData = this.debounce(() => this.loadNexusData(), 1000);
-        /*}*/
+        this.debounceLoadNexusData();  
         this.cd.detectChanges();
       }, endTime * 1000)
     };

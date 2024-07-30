@@ -27,8 +27,10 @@
         </tr>
       </tbody>
     </table>
+    <div *ngIf="getAvailableUnitStats().length == 0" class="notification">No units currently in base</div>
   </div>
   <button (click)="closeAttackScreen()">Cancel</button>
-  <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || engagementLoading">Engage</button>
+  <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || engagementLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'" >Engage</button>
+  <button (click)="engageAttackAllUnits()" [disabled]="engagementLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'" >Send All Units</button>
 
 </ng-content>

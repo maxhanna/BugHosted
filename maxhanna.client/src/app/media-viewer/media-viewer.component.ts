@@ -14,9 +14,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private fileService: FileService) { super(); }
- 
   
-
   selectedFileExtension = '';
   selectedFileSrc = '';
   selectedFile: FileEntry | undefined;
@@ -25,8 +23,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   showComments = true;
   showCommentLoadingOverlay = false;
   selectedFileName = '';
-  abortFileRequestController: AbortController | null = null;
-  debounceTimer: any; 
+  abortFileRequestController: AbortController | null = null; 
   fS = '/';
   isFullscreenMode = false;
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;

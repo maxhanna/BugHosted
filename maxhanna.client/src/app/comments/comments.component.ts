@@ -13,7 +13,6 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
   styleUrl: './comments.component.css'
 })
 export class CommentsComponent extends ChildComponent {
-  debounceTimer: any;
   showComments = true;
   showCommentLoadingOverlay = false;
   upvotedCommentIds: number[] = []

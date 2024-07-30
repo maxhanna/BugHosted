@@ -45,7 +45,7 @@
                 {
                   "type": "initial",
                   "maximumWarning": "500kb",
-                  "maximumError": "1mb"
+                  "maximumError": "1.5mb"
                 },
                 {
                   "type": "anyComponentStyle",
@@ -61,33 +61,49 @@
               "sourceMap": true
             }
           },
-          "defaultConfiguration": "development"
+          "defaultConfiguration": "production"
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "maxhanna.client:build:production"
+              "buildTarget": "maxhanna.client:build:production",
+              "liveReload": false,
+              "watch": false
             },
             "development": {
-              "buildTarget": "maxhanna.client:build:development"
+              "buildTarget": "maxhanna.client:build:development",
+              "liveReload": false,
+              "watch": false
+            },
+            "test": {
+              "browserTarget": "maxhanna.client:build:development",
+              "port": 8000,
+              "host": "0.0.0.0",
+              "ssl": false,
+              "liveReload": true,
+              "watch": true
             },
             "http": {
-              "browserTarget": "maxhanna.client:build:development",
+              "browserTarget": "maxhanna.client:build:production",
               "port": 80,
               "host": "0.0.0.0",
-              "ssl": false
+              "ssl": false,
+              "liveReload": false,
+              "watch": false
             },
             "https": {
-              "browserTarget": "maxhanna.client:build:development",
+              "browserTarget": "maxhanna.client:build:production",
               "port": 443,
               "host": "0.0.0.0",
               "ssl": true,
               "sslCert": "ssl/bughosted_com.crt",
-              "sslKey": "ssl/bughosted_com.key"
+              "sslKey": "ssl/bughosted_com.key",
+              "liveReload": false,
+              "watch": false
             }
           },
-          "defaultConfiguration": "development",
+          "defaultConfiguration": "production",
           "options": {
             "proxyConfig": "src/proxy.conf.js"
           }
