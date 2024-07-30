@@ -1786,6 +1786,8 @@ namespace maxhanna.Server.Controllers
                     defendingUnits.BattlecruiserTotal = 0;
                     defendingUnits.GlitcherTotal = 0;
                 }
+                Console.WriteLine($"defence units : m:{defendingUnits.MarineTotal} g:{defendingUnits.GoliathTotal} st:{defendingUnits.SiegeTankTotal} s:{defendingUnits.ScoutTotal} w:{defendingUnits.WraithTotal} b:{defendingUnits.BattlecruiserTotal} gl:{defendingUnits.GlitcherTotal}");
+
 
                 if (origin.CoordsX != destination.CoordsX || origin.CoordsY != destination.CoordsY)
                 {
@@ -1812,7 +1814,7 @@ namespace maxhanna.Server.Controllers
                             Console.WriteLine($"Overflow detected for unit {x.UnitType}. Calculated ground damage: {totalGroundDamage}"); 
                             return 0;  
                         }
-                        Console.WriteLine($"detected sent attacking unit : {sentValue} {x.UnitType}. Regular ground damage: {unitStat.GroundDamage}; Total added ground damage : {sentValue * unitStat.GroundDamage}");
+                        Console.WriteLine($"detected sent attacking unit : {sentValue} {x.UnitType}. Regular ground damage: {unitStat.GroundDamage}; Total added ground damage : {totalGroundDamage}");
                         return sentValue * unitStat.GroundDamage;
                     });
 
@@ -1826,7 +1828,7 @@ namespace maxhanna.Server.Controllers
                             Console.WriteLine($"Overflow detected for unit {x.UnitType}. Calculated air damage: {totalAirDamage}");
                             return 0;
                         }
-                        //Console.WriteLine("got unitStats: " + unitStat);
+                        Console.WriteLine($"detected sent attacking unit : {sentValue} {x.UnitType}. Regular air damage: {unitStat.AirDamage}; Total added air damage : {totalAirDamage}");
                         return sentValue * unitStat.AirDamage;
                     });
 
@@ -1841,10 +1843,12 @@ namespace maxhanna.Server.Controllers
                                 : unitType == "marine" ? "Marine"
                                 : unitType == "goliath" ? "Goliath"
                                 : unitType == "scout" ? "Scout"
+                                : unitType == "wraith" ? "Wraith"
                                 : unitType == "battlecruiser" ? "Battlecruiser"
                                 : "Glitcher");
                             defendingGroundDamage += (defendingUnits?.GetType().GetProperty($"{bigType}Total")?.GetValue(defendingUnits, null) as int? ?? 0) * unitStats[unitType].GroundDamage;
                             defendingAirDamage += (defendingUnits?.GetType().GetProperty($"{bigType}Total")?.GetValue(defendingUnits, null) as int? ?? 0) * unitStats[unitType].AirDamage;
+                            Console.WriteLine($"calculating added {bigType} defending damage: {defendingGroundDamage} {defendingAirDamage} ... ground: {unitStats[unitType].GroundDamage}, air: {unitStats[unitType].AirDamage}");
                         }
                     }
 
@@ -1861,7 +1865,7 @@ namespace maxhanna.Server.Controllers
                     bool defenderSupplyRecovered = false;
 
                     // CALCULATE LOSSES
-                    if (defendingGroundDamage != 0 || defendingAirDamage != 0)
+                    if ((attackingGroundDamage != 0 || attackingAirDamage != 0) && !(defendingGroundDamage == 0 && defendingAirDamage ==0))
                     {
                         Console.WriteLine("Calculating losses...");
                         double groundCoeff = attackingGroundDamage / defendingGroundDamage;
@@ -1885,6 +1889,7 @@ namespace maxhanna.Server.Controllers
                                 : unitType == "marine" ? "Marine"
                                 : unitType == "goliath" ? "Goliath"
                                 : unitType == "scout" ? "Scout"
+                                : unitType == "wraith" ? "Wraith"
                                 : unitType == "battlecruiser" ? "Battlecruiser"
                                 : "Glitcher");
 
@@ -2009,6 +2014,7 @@ namespace maxhanna.Server.Controllers
                         : unitType == "marine" ? "Marine"
                         : unitType == "goliath" ? "Goliath"
                         : unitType == "scout" ? "Scout"
+                        : unitType == "wraith" ? "Wraith"
                         : unitType == "battlecruiser" ? "Battlecruiser"
                         : "Glitcher");
                     var prop = homeBaseUnits.GetType().GetProperty($"{bigType}Total");
@@ -2045,6 +2051,7 @@ namespace maxhanna.Server.Controllers
                         : unitType == "marine" ? "Marine"
                         : unitType == "goliath" ? "Goliath"
                         : unitType == "scout" ? "Scout"
+                        : unitType == "wraith" ? "Wraith"
                         : unitType == "battlecruiser" ? "Battlecruiser"
                         : "Glitcher");
                     return defendingUnits.GetType().GetProperty($"{bigType}Total")?.GetValue(defendingUnits, null) as int? ?? 0;

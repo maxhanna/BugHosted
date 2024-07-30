@@ -1002,7 +1002,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.notifications.push(notif);
       setTimeout(() => {
         this.notifications.shift();
-      }, 20000);
+      }, 9000);
     }
   } 
 }
