@@ -1,13 +1,15 @@
+using maxhanna.Server.Controllers.DataContracts.Users;
+
 namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
 
     public class NexusBattleOutcome
     {
         public int BattleId { get; set; }
-        public int? OriginUserId { get; set; }
+        public User? OriginUser { get; set; }
         public int OriginCoordsX { get; set; }
         public int OriginCoordsY { get; set; }
-        public int? DestinationUserId { get; set; }
+        public User? DestinationUser { get; set; }
         public int DestinationCoordsX { get; set; }
         public int DestinationCoordsY { get; set; }
         public DateTime Timestamp { get; set; }

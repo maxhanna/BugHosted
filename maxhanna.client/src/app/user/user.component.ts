@@ -252,6 +252,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     if (guest && tmpUserName.trim() == "") {
       tmpUserName = "Guest" + Math.random().toString().slice(2, 5); 
     }
+    if (tmpUserName.trim() == "") { return alert("Username cannot be empty!"); }
     if (!confirm(`Create user ${tmpUserName}?`)) { return; }
     if (tmpUserName) {
       const tmpUser = new User(undefined, tmpUserName, tmpPassword);

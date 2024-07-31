@@ -187,8 +187,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   async getWordlerStreakInfo() {
     if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
-    const res = await this.wordlerService.getConsecutiveDayStreak(this._parent.user!); 
-    if (res) {  
+    const res = await this.wordlerService.getTodaysDayStreak(this._parent.user!); 
+    if (res && res != "0") {  
       this._parent.navigationItems.find(x => x.title == "Wordler")!.content = res;
     }
   }

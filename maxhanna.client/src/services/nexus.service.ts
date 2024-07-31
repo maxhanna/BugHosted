@@ -107,11 +107,26 @@ export class NexusService {
     return await this.fetchData('/nexus/deletereport', { User: user, BattleId: battleId });
   }
 
+
   formatTimer(allSeconds?: number): string {
     if (!allSeconds && allSeconds !== 0) return '';
+
     const totalSeconds = allSeconds;
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${Math.ceil(seconds)}`;
+
+    const days = Math.floor(totalSeconds / (24 * 3600));
+    const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+
+    const timeParts: string[] = [];
+
+    if (days > 0) timeParts.push(`${days}d`); // Append 'd' for days
+    if (hours > 0 || days > 0) timeParts.push(`${hours}h`); // Append 'h' for hours
+    timeParts.push(`${minutes}m`); // Append 'm' for minutes
+    timeParts.push(`${seconds}s`); // Append 's' for seconds
+
+    return timeParts.join(' '); // Join with a space for better readability
   }
+
+
 }

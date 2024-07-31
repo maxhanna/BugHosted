@@ -38,6 +38,18 @@ export class NexusReportsComponent implements OnChanges {
   }
 
   getUnitsArray(units: Record<string, number>): { key: string, value: number }[] {
+    if (!units || Object.keys(units).length === 0) {
+      // Return an array of all zeros if the data is null
+      return [
+        { key: 'marine', value: 0 },
+        { key: 'goliath', value: 0 },
+        { key: 'siege_tank', value: 0 },
+        { key: 'scout', value: 0 },
+        { key: 'wraith', value: 0 },
+        { key: 'battlecruiser', value: 0 },
+        { key: 'glitcher', value: 0 }, 
+      ];
+    }
     return Object.entries(units).map(([key, value]) => ({ key, value }));
   }
 

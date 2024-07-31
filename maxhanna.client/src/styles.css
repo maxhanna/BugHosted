@@ -52,7 +52,7 @@
 
 body {
   overscroll-behavior-y: none;
-  font-family: var(--main-font-family), Arial; 
+  font-family: var(--main-font-family), Arial;
   background-color: black;
   color: var(--main-font-color);
   margin: 0;
@@ -74,20 +74,24 @@ a {
   text-decoration: none;
   font-style: italic;
 }
-a:visited {
-  color: var(--main-link-color);
-}
-a:active {
+
+  a:visited {
+    color: var(--main-link-color);
+  }
+
+  a:active {
     color: var(--secondary-font-color);
-}
-button { 
+  }
+
+button {
   background-color: var(--main-highlight-color);
-   color: var(--main-font-color);
+  color: var(--main-font-color);
   font-weight: bold;
   font-size: 12px;
-  height: 25px; 
+  height: 25px;
   text-align: center;
-} 
+}
+
 legend {
   border: var(--main-border);
   text-align: center;
@@ -192,8 +196,8 @@ fieldset {
   }
 
   .mainTableDiv {
-/*    max-width: var(--component-max-width);
-*/    overflow-x: auto;
+    /*    max-width: var(--component-max-width);
+*/ overflow-x: auto;
   }
 
   .media {
@@ -367,9 +371,11 @@ fieldset {
   .notification::before {
     content: '🪲';
   }
-  .pointer {
-      cursor: pointer;
-  }
+
+.pointer {
+  cursor: pointer;
+}
+
 .cursorPointer {
   cursor: pointer;
   text-decoration: underline;
@@ -379,10 +385,11 @@ fieldset {
   text-decoration-color: var(--secondary-font-color);
   text-shadow: 0.1px 0.1px var(--secondary-font-color);
 }
+
 .smallExpander {
-    font-size:small;
-    font-family: 'Segoe UI Symbol';
-    cursor: pointer;
+  font-size: small;
+  font-family: 'Segoe UI Symbol';
+  cursor: pointer;
 }
 
 .helperSpanTitle {
@@ -415,8 +422,8 @@ fieldset {
 .avatarBug, .avatarBust {
   display: inline;
   position: relative;
-  top: auto;  
-  left: auto;  
+  top: auto;
+  left: auto;
 }
 
 .avatarBug {
@@ -432,12 +439,23 @@ fieldset {
   left: -1px;
   z-index: 2;
 }
-.italics{
-    font-style:italic;
+
+.italics {
+  font-style: italic;
 }
+
 .smallFont {
   font-size: small;
 }
+
 .xxSmallFont {
   font-size: xx-small;
+}
+
+.capitalize {
+  text-transform: capitalize;
+}
+.invertedHighlights {
+  color: var(--secondary-font-color);
+  text-shadow: 1px 1px 2px var(--primary-font-color);
 }

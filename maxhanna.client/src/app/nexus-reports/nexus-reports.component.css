@@ -1,0 +1,32 @@
+.rotated-header {
+  display: inline-block;
+  text-transform: capitalize;
+  transform: rotate(-90deg) translateY(10px);
+  white-space: nowrap;
+  height: 30px;
+  width: 30px;
+  font-size: xx-small;
+  text-overflow: ellipsis;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+td {
+  border-bottom: 1px solid #ccc;
+  border-right: 1px solid #ccc;
+  text-align: center; /* Align text to center */
+}
+
+th {
+  width: 30px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.unitSummaryDiv {
+  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+}

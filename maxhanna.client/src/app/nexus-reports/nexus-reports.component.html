@@ -19,60 +19,111 @@
   <div *ngFor="let report of battleReports.battleOutcomes">
     <div>
       <strong>Battle Report #{{report.battleId}} <button (click)="deleteReport(report)">Delete</button></strong>
-      <p><strong>Origin:</strong> ({{report.originCoordsX}}, {{report.originCoordsY}}) - User ID: {{report.originUserId}}</p>
-      <p><strong>Destination:</strong> ({{report.destinationCoordsX}}, {{report.destinationCoordsY}})<span *ngIf="report.destinationUserId"> - User ID: {{report.destinationUserId}}</span></p>
-      <p><strong>Timestamp:</strong> {{report.timestamp}}</p>
-      <p><strong>Defender Gold:</strong> {{report.defenderGold}},</p>
-      <p><strong>Defender Gold Stolen:</strong> {{report.defenderGoldStolen}}</p>
+      <p>{{report.timestamp}}</p>
+      <p>Origin: ({{report.originCoordsX}}, {{report.originCoordsY}}) - <app-user-tag [user]="report.originUser"></app-user-tag></p>
+      <p>Destination: ({{report.destinationCoordsX}}, {{report.destinationCoordsY}})<span *ngIf="report.destinationUser"> - <app-user-tag [user]="report.destinationUser"></app-user-tag></span></p> 
+      <p>Gold Stolen:{{report.defenderGoldStolen | number:'1.2-2' }} / {{report.defenderGold | number:'1.2-2' }}</p>
 
-      <div>
-        <strong>Attacking Units:</strong>
-        <ul>
-          <li *ngFor="let unit of getUnitsArray(report.attackingUnits)">
-            {{unit.key}}: {{unit.value}}
-          </li>
-        </ul>
+      Units sent:
+      <div class="unitSummaryDiv">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <td *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
+                <span class="rotated-header unitCell">{{ unit.key }}</span>
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>⚔️:</th>
+              <ng-container *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
+                <td class="unitCell">{{ unit.value }}</td>
+              </ng-container>
+            </tr>
+            <tr>
+              <th>🛡️:</th>
+              <ng-container *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
+                <td class="unitCell">{{ report.defendingUnits[unit.key] || 0 }}</td>
+              </ng-container>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <div>
-        <strong>Defending Units:</strong>
-        <ul>
-          <li *ngFor="let unit of getUnitsArray(report.defendingUnits)">
-            {{unit.key}}: {{unit.value}}
-          </li>
-        </ul>
+
+      Losses:
+      <div class="unitSummaryDiv">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <td *ngFor="let unit of getUnitsArray(report.attackingLosses); let i = index">
+                <span class="rotated-header unitCell">{{ unit.key }}</span>
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>⚔️:</th>
+              <ng-container *ngFor="let unit of getUnitsArray(report.attackingLosses); let i = index">
+                <td class="unitCell">{{ unit.value }}</td>
+              </ng-container>
+            </tr>
+            <tr>
+              <th>🛡️:</th>
+              <ng-container *ngFor="let unit of getUnitsArray(report.defendingLosses); let i = index">
+                <td class="unitCell">{{ report.defendingLosses[unit.key] || 0 }}</td>
+              </ng-container>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <div>
-        <strong>Attacking Losses:</strong>
-        <ul>
-          <li *ngFor="let unit of getUnitsArray(report.attackingLosses)">
-            {{unit.key}}: {{unit.value}}
-          </li>
-        </ul>
+
+      Defender Buildings:
+      <div class="unitSummaryDiv" *ngIf="report.defenderBuildingLevels">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <td *ngFor="let unit of getUnitsArray(report.defenderBuildingLevels); let i = index">
+                <span class="rotated-header unitCell">{{ unit.key }}</span>
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>🏰:</th>
+              <ng-container *ngFor="let unit of getUnitsArray(report.defenderBuildingLevels); let i = index">
+                <td class="unitCell">{{ unit.value }}</td>
+              </ng-container>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <div>
-        <strong>Defending Losses:</strong>
-        <ul>
-          <li *ngFor="let unit of getUnitsArray(report.defendingLosses)">
-            {{unit.key}}: {{unit.value}}
-          </li>
-        </ul>
+
+      Defender units not in village:
+      <div class="unitSummaryDiv" *ngIf="report.defenderUnitsNotInVillage">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <td *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage); let i = index">
+                <span class="rotated-header unitCell">{{ unit.key }}</span>
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>🛡️:</th>
+              <ng-container *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage); let i = index">
+                <td class="unitCell">{{ unit.value }}</td>
+              </ng-container>
+            </tr>
+          </tbody>
+        </table>
       </div>
-      <div>
-        <strong>Defender Buildings:</strong>
-        <ul>
-          <li *ngFor="let building of getUnitsArray(report.defenderBuildingLevels)">
-            {{building.key}}: {{building.value}}
-          </li>
-        </ul>
-      </div>
-      <div>
-        <strong>Defender Units Not In Village:</strong>
-        <ul>
-          <li *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage)">
-            {{unit.key}}: {{unit.value}}
-          </li>
-        </ul>
-      </div>
+
     </div>
     <hr>
   </div>

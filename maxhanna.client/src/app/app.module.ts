@@ -45,6 +45,7 @@ import { NexusMapComponent } from './nexus-map/nexus-map.component';
 import { NexusBaseUnitsComponent } from './nexus-base-units/nexus-base-units.component';
 import { NexusAttackScreenComponent } from './nexus-attack-screen/nexus-attack-screen.component';
 import { NexusReportsComponent } from './nexus-reports/nexus-reports.component';
+import { NexusBasesComponent } from './nexus-bases/nexus-bases.component';
 
 @NgModule({
   declarations: [
@@ -85,6 +86,7 @@ import { NexusReportsComponent } from './nexus-reports/nexus-reports.component';
     NexusBaseUnitsComponent,
     NexusAttackScreenComponent,
     NexusReportsComponent,
+    NexusBasesComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

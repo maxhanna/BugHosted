@@ -1,0 +1,51 @@
+.overallDisplay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: var(--nexus-gamescreen-height);
+  overflow: auto;
+}
+
+.rotated-header {
+  display: inline-block;
+  transform: rotate(-90deg) translateY(63px);
+  transform-origin: left bottom;
+  white-space: nowrap;
+  height: 60px;
+  width: 20px;
+  text-align: right;
+  text-overflow: ellipsis;
+  font-size: xx-small;
+}
+
+table {
+  margin: auto; /* Center the table */
+  width: var(--nexus-gamescreen-width);
+  height: var(--nexus-gamescreen-height);
+  overflow-y: auto;
+  border-collapse: collapse;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 100px;
+  overflow: hidden; 
+}
+
+th,
+td {
+  overflow: auto;
+  min-width: 30px;
+}
+
+td {
+  border-top: var(--main-border);
+  border-bottom: var(--main-border);
+}
+
+tbody {
+  height: 30px !important;
+  width: 100%;
+}

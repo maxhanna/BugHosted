@@ -1,9 +1,11 @@
+import { User } from "../user/user";
+
 export interface NexusBattleOutcome {
   battleId: number;
-  originUserId: number;
+  originUser: User;
   originCoordsX: number;
   originCoordsY: number;
-  destinationUserId: number;
+  destinationUser: User;
   destinationCoordsX: number;
   destinationCoordsY: number;
   timestamp: string;

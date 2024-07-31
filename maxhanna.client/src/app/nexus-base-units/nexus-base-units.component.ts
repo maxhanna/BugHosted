@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { AppComponent } from '../app.component';
 
@@ -18,7 +18,7 @@ export class NexusBaseUnitsComponent {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
   @Input() glitcherPictureSrc: string | undefined;
-
+  @Output() toggleUnitScreen = new EventEmitter();
   nexusHasUnits() {
     if (!this.nexusUnits) return false;
     return (this.nexusUnits.marineTotal > 0

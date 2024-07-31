@@ -99,7 +99,7 @@ namespace maxhanna.Server.Controllers
 
                         filePosition = Convert.ToInt32(countCommand.ExecuteScalar());
                         page = (filePosition / pageSize) + 1;
-                        offset = ((page - 1) * pageSize) - 1;
+                        offset = Math.Max(0, ((page - 1) * pageSize) - 1);
                     }
                     Console.WriteLine($"setting page:{page}&offset={offset}; file position is : {filePosition}, page size is : {pageSize}, folder path: {directory}");
 
@@ -1090,46 +1090,47 @@ namespace maxhanna.Server.Controllers
 
                 var command = new MySqlCommand(
                     @"SELECT 
-                f.id AS fileId, 
-                f.file_name, 
-                f.is_public, 
-                f.is_folder, 
-                f.user_id, 
-                u.username AS username, 
-                f.shared_with,  
-                f.upload_date AS date, 
-                fc.id AS commentId, 
-                fc.user_id AS commentUserId, 
-                uc.username AS commentUsername,  
-                fc.comment AS commentText,  
-                fd.given_file_name,
-                fd.description,
-                fd.last_updated as file_data_updated
-            FROM 
-                maxhanna.file_uploads f   
-            LEFT JOIN 
-                maxhanna.file_data fd ON f.id = fd.file_id 
-            LEFT JOIN 
-                maxhanna.comments fc ON fc.file_id = f.id 
-            LEFT JOIN 
-                maxhanna.users u ON u.id = f.user_id 
-            LEFT JOIN 
-                maxhanna.users uc ON fc.user_id = uc.id   
-            WHERE 
-                f.file_name = @fileName 
-                AND f.folder_path = @folderPath 
-                AND (
-                    f.is_public = @isPublic OR 
-                    f.user_id = @userId OR 
-                    FIND_IN_SET(@userId, f.shared_with) > 0
-                ) 
-            GROUP BY 
-                f.id, u.username, f.file_name, fc.id, uc.username, fc.comment, fd.given_file_name, fd.description, fd.last_updated 
-            LIMIT 1;",
+                        f.id AS fileId, 
+                        f.file_name, 
+                        f.is_public, 
+                        f.is_folder, 
+                        f.user_id, 
+                        u.username AS username, 
+                        f.shared_with,  
+                        f.upload_date AS date, 
+                        fc.id AS commentId, 
+                        fc.user_id AS commentUserId, 
+                        uc.username AS commentUsername,  
+                        fc.comment AS commentText,  
+                        fd.given_file_name,
+                        fd.description,
+                        fd.last_updated as file_data_updated
+                    FROM 
+                        maxhanna.file_uploads f   
+                    LEFT JOIN 
+                        maxhanna.file_data fd ON f.id = fd.file_id 
+                    LEFT JOIN 
+                        maxhanna.comments fc ON fc.file_id = f.id 
+                    LEFT JOIN 
+                        maxhanna.users u ON u.id = f.user_id 
+                    LEFT JOIN 
+                        maxhanna.users uc ON fc.user_id = uc.id   
+                    WHERE 
+                        (f.file_name = @fileName OR f.file_name = @originalFileName)
+                        AND f.folder_path = @folderPath 
+                        AND (
+                            f.is_public = @isPublic OR 
+                            f.user_id = @userId OR 
+                            FIND_IN_SET(@userId, f.shared_with) > 0
+                        ) 
+                    GROUP BY 
+                        f.id, u.username, f.file_name, f.is_public, f.is_folder, f.user_id, fc.id, uc.username, fc.comment, fd.given_file_name, fd.description, fd.last_updated 
+                    LIMIT 1;",
                     connection);
 
                 command.Parameters.AddWithValue("@userId", userId);
                 command.Parameters.AddWithValue("@fileName", !string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName);
+                command.Parameters.AddWithValue("@originalFileName", file.FileName);
                 command.Parameters.AddWithValue("@folderPath", folderPath);
                 command.Parameters.AddWithValue("@isPublic", isPublic);
 

@@ -1,9 +1,12 @@
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using Newtonsoft.Json; 
+using Newtonsoft.Json;
+using System;
+using System.Transactions;
 
 namespace maxhanna.Server.Controllers
 {
@@ -190,7 +193,7 @@ namespace maxhanna.Server.Controllers
                 // Insert new base at the available location
                 string sql = @"
                     SELECT 
-                        n.user_id, u.username, n.coords_x, n.coords_y, udp.file_id
+                        n.user_id, u.username, n.coords_x, n.coords_y, n.command_center_level, n.engineering_bay_level, n.mines_level, n.factory_level, n.starport_level, warehouse_level, udp.file_id
                     FROM 
                         maxhanna.nexus_bases n
                     LEFT JOIN 
@@ -214,6 +217,12 @@ namespace maxhanna.Server.Controllers
                         NexusBase tmpBase = new NexusBase();
                         tmpBase.CoordsX = reader.IsDBNull(reader.GetOrdinal("coords_x")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_x"));
                         tmpBase.CoordsY = reader.IsDBNull(reader.GetOrdinal("coords_y")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_y"));
+                        tmpBase.CommandCenterLevel = reader.IsDBNull(reader.GetOrdinal("command_center_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("command_center_level"));
+                        tmpBase.MinesLevel = reader.IsDBNull(reader.GetOrdinal("mines_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("mines_level"));
+                        tmpBase.EngineeringBayLevel = reader.IsDBNull(reader.GetOrdinal("engineering_bay_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("engineering_bay_level"));
+                        tmpBase.FactoryLevel = reader.IsDBNull(reader.GetOrdinal("factory_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("factory_level"));
+                        tmpBase.StarportLevel = reader.IsDBNull(reader.GetOrdinal("starport_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("starport_level"));
+                        tmpBase.WarehouseLevel = reader.IsDBNull(reader.GetOrdinal("warehouse_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("warehouse_level"));
                         tmpBase.User =
                             new User(reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")),
                                 reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString(reader.GetOrdinal("username")),
@@ -336,52 +345,51 @@ namespace maxhanna.Server.Controllers
                         {
                             await UpdateNexusGold(conn, request.Nexus, transaction);
                             //Console.WriteLine("Updated Gold");
-
-                            // Fetch Nexus's current supply
-                            int currentSupplyUsed = await CalculateUsedNexusSupply(request.Nexus, conn, transaction);
-                            //Console.WriteLine("Got Nexus's Supply Used: " + currentSupplyUsed);
-
-                            // Fetch Nexus's current gold and supply capacity
-                            var (currentGold, supplyCapacity) = await GetNexusGoldAndSupply(request, conn, transaction);
-
-                            // Fetch unit cost and type
                             List<UnitStats> unitStats = await GetUnitStatsFromDB(request.UnitId, null);
                             if (unitStats == null || unitStats.Count <= 0)
                             {
-                                return NotFound("Unit base not found.");
+                                await transaction.CommitAsync(); 
+                                return NotFound("Unit not found.");
                             }
-                            UnitStats unit = unitStats.First(x => x.UnitId == request.UnitId);
 
+                            if (unitStats.First().UnitType == "glitcher")
+                            {
+                                NexusUnits? currentUnits = await GetNexusUnits(request.Nexus, false, conn, transaction);
+                                if (currentUnits != null && currentUnits.GlitcherTotal > 0) {
+                                    await transaction.CommitAsync();
+                                    return BadRequest("Only one glitcher allowed per base."); 
+                                }
+                            } 
+
+                            UnitStats unit = unitStats.First(x => x.UnitId == request.UnitId); 
                             int unitCost = unit.Cost;
                             int unitSupply = unit.Supply;
                             string unitType = unit.UnitType ?? "";
 
                             //Console.WriteLine($"Unit purchased: {unitType}, unitSupply: {unitSupply}, unitCost: {unitCost}, goldBefore : {currentGold} totalCost: {unitCost * request.PurchaseAmount}");
-
-                            // Calculate new gold and supply after purchase
+                            var (currentGold, supplyCapacity) = await GetNexusGoldAndSupply(request, conn, transaction);
+                            int currentSupplyUsed = await CalculateUsedNexusSupply(request.Nexus, conn, transaction);
                             currentGold -= (unitCost * request.PurchaseAmount);
                             var supplyCost = (unitSupply * request.PurchaseAmount);
                             supplyCapacity -= (supplyCost + currentSupplyUsed);
 
-                            //Console.WriteLine($"After Unit purchased: {unitType}, supplyCapacity: {supplyCapacity}, currentGold: {currentGold}, supplyCost: {supplyCost}");
+                            Console.WriteLine($"After Unit purchased: {unitType}, supplyCapacity: {supplyCapacity}, currentGold: {currentGold}, supplyCost: {supplyCost}");
 
                             if (currentGold < 0)
                             {
+                                await transaction.CommitAsync(); 
                                 return BadRequest("Not Enough Gold");
                             }
                             if (supplyCapacity < 0)
                             {
                                 await UpdateNexusSupply(request.Nexus, currentSupplyUsed, conn, transaction);
+                                await transaction.CommitAsync(); 
                                 return BadRequest("Not Enough Supply");
                             }
 
-                            // Update Nexus's gold and supply
                             await UpdateNexusGoldAndAddSupply(request.Nexus.CoordsX, request.Nexus.CoordsY, currentGold, supplyCost, conn, transaction);
-
-                            // Update Nexus's units
                             await UpdateNexusUnitPurchases(request.Nexus.CoordsX, request.Nexus.CoordsY, request.UnitId, request.PurchaseAmount, conn, transaction);
 
-                            // Commit transaction if all operations succeed
                             await transaction.CommitAsync();
                         }
                         catch (Exception ex)
@@ -493,7 +501,7 @@ namespace maxhanna.Server.Controllers
                 using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
                 {
                     try
-                    { 
+                    {
                         Console.WriteLine($@"Checking if base has enough units to send the attack.");
                         bool canSend = await DoesBaseHaveEnoughUnitsToSendAttack(req.OriginNexus, req.UnitList, true, null, null);
                         if (canSend)
@@ -966,19 +974,19 @@ namespace maxhanna.Server.Controllers
             }
             return;
         }
-        
+
 
         private async Task<bool> DoesBaseHaveEnoughUnitsToSendAttack(NexusBase originNexus, UnitStats[]? unitsSent, bool skipAttackingUnits, MySqlConnection? conn, MySqlTransaction? transaction)
         {
             NexusUnits? units = await GetNexusUnits(originNexus, true, conn, transaction);
             Console.WriteLine($"Got these units at base : m:{units?.MarineTotal} g:{units?.GoliathTotal} st:{units?.SiegeTankTotal} s:{units?.ScoutTotal} w:{units?.WraithTotal} b:{units?.BattlecruiserTotal} gl:{units?.GlitcherTotal}");
 
-            CalculateUnitsAvailableAfterSendingUnits(units, unitsSent, out int marinesTotal, out int goliathTotal, out int siegeTankTotal, 
+            CalculateUnitsAvailableAfterSendingUnits(units, unitsSent, out int marinesTotal, out int goliathTotal, out int siegeTankTotal,
                 out int scoutTotal, out int wraithTotal, out int battlecruiserTotal, out int glitcherTotal);
             Console.WriteLine($"Got these units after sending units : m:{marinesTotal} g:{goliathTotal} st:{siegeTankTotal} s:{scoutTotal} w:{wraithTotal} b:{battlecruiserTotal} gl:{glitcherTotal}");
 
             return (marinesTotal >= 0 && goliathTotal >= 0 && siegeTankTotal >= 0 && scoutTotal >= 0 && wraithTotal >= 0 && battlecruiserTotal >= 0 && glitcherTotal >= 0);
-            
+
         }
 
         private static void CalculateUnitsAvailableAfterSendingUnits(NexusUnits? playerUnits, UnitStats[]? unitsSent,
@@ -1300,15 +1308,15 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.CloseAsync();
                 }
-            } 
+            }
 
             return nexusUnits;
         }
         private List<UnitStats> AggregateUnitsSentIntoUnitStats(List<NexusAttackSent>? nexusAttackSents, List<UnitStats> unitsSent)
-        { 
+        {
             unitsSent.ForEach(x => x.SentValue = 0);
             if (nexusAttackSents == null) return unitsSent;
-             
+
             foreach (var attack in nexusAttackSents)
             {
                 if (attack.MarineTotal.HasValue)
@@ -1352,16 +1360,16 @@ namespace maxhanna.Server.Controllers
         }
 
         private async Task<NexusUnits?> GetNexusAttackingUnits(NexusBase? nexusBase, MySqlConnection? conn, MySqlTransaction? transaction)
-        {  
+        {
             List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase, conn, transaction);
-             
-            int marinesTotal = nexusAttacksSent?.Sum(x => x.MarineTotal)??0;
-            int goliathTotal = nexusAttacksSent?.Sum(x => x.GoliathTotal)??0;
-            int siegeTankTotal = nexusAttacksSent?.Sum(x => x.SiegeTankTotal)??0;
-            int scoutTotal = nexusAttacksSent?.Sum(x => x.ScoutTotal)??0;
-            int wraithTotal = nexusAttacksSent?.Sum(x => x.WraithTotal)??0;
-            int battlecruiserTotal = nexusAttacksSent?.Sum(x => x.BattlecruiserTotal)??0;
-            int glitcherTotal = nexusAttacksSent?.Sum(x => x.GlitcherTotal)??0;
+
+            int marinesTotal = nexusAttacksSent?.Sum(x => x.MarineTotal) ?? 0;
+            int goliathTotal = nexusAttacksSent?.Sum(x => x.GoliathTotal) ?? 0;
+            int siegeTankTotal = nexusAttacksSent?.Sum(x => x.SiegeTankTotal) ?? 0;
+            int scoutTotal = nexusAttacksSent?.Sum(x => x.ScoutTotal) ?? 0;
+            int wraithTotal = nexusAttacksSent?.Sum(x => x.WraithTotal) ?? 0;
+            int battlecruiserTotal = nexusAttacksSent?.Sum(x => x.BattlecruiserTotal) ?? 0;
+            int glitcherTotal = nexusAttacksSent?.Sum(x => x.GlitcherTotal) ?? 0;
             return new NexusUnits
             {
                 CoordsX = nexusBase.CoordsX,
@@ -1373,7 +1381,7 @@ namespace maxhanna.Server.Controllers
                 WraithTotal = wraithTotal,
                 BattlecruiserTotal = battlecruiserTotal,
                 GlitcherTotal = glitcherTotal
-            }; 
+            };
         }
 
 
@@ -1436,7 +1444,7 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.CloseAsync();
                 }
-            } 
+            }
             return res;
         }
 
@@ -1513,7 +1521,7 @@ namespace maxhanna.Server.Controllers
                             newGoldAmount = (5000 * (nexusBase.WarehouseLevel + 1));
                         }
                         nexusBase.Gold = newGoldAmount;
-                    } 
+                    }
                 }
                 if (miningSpeed != 0)
                 {
@@ -1528,8 +1536,8 @@ namespace maxhanna.Server.Controllers
                         { "@CoordsX", nexusBase.CoordsX },
                         { "@CoordsY", nexusBase.CoordsY },
                     };
-                    await ExecuteInsertOrUpdateOrDeleteAsync(updateGoldSql, parameters, conn, transaction); 
-                }  
+                    await ExecuteInsertOrUpdateOrDeleteAsync(updateGoldSql, parameters, conn, transaction);
+                }
             }
         }
 
@@ -1580,9 +1588,9 @@ namespace maxhanna.Server.Controllers
                             await readerUpgrades.CloseAsync();
 
                             foreach (var (buildingName, upgradeStart, upgradeStartColumn, levelColumn) in buildings)
-                            { 
+                            {
                                 if (upgradeStart.HasValue)
-                                { 
+                                {
                                     // Retrieve the duration for the current building level
                                     string sqlUpgradeStats = @"
                                     SELECT duration 
@@ -1601,8 +1609,8 @@ namespace maxhanna.Server.Controllers
                                         TimeSpan timeElapsed = DateTime.Now - upgradeStart.Value;
                                         if ((duration - timeElapsed.TotalSeconds) <= 3)
                                         {
-                                            Console.WriteLine($"Time elapsed expired on {buildingName}; duration result: {duration}, timeELapsed in seconds: {timeElapsed.TotalSeconds} : ({duration - timeElapsed.TotalSeconds})"); 
-                                             
+                                            Console.WriteLine($"Time elapsed expired on {buildingName}; duration result: {duration}, timeELapsed in seconds: {timeElapsed.TotalSeconds} : ({duration - timeElapsed.TotalSeconds})");
+
                                             // Update the building level
                                             string updateLevelSql = $@"
                                             UPDATE nexus_bases 
@@ -1667,7 +1675,7 @@ namespace maxhanna.Server.Controllers
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             await conn.OpenAsync();
 
-            MySqlTransaction transaction = await conn.BeginTransactionAsync(); 
+            MySqlTransaction transaction = await conn.BeginTransactionAsync();
 
             try
             {
@@ -1712,18 +1720,18 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task PerformAttackOrDefenceIfTimeElapsed(MySqlConnection conn, MySqlTransaction transaction, 
-            UnitStats marineStats, UnitStats goliathStats, UnitStats siegeTankStats, UnitStats scoutStats, UnitStats wraithStats, UnitStats battlecruiserStats, UnitStats glitcherStats, 
+        private async Task PerformAttackOrDefenceIfTimeElapsed(MySqlConnection conn, MySqlTransaction transaction,
+            UnitStats marineStats, UnitStats goliathStats, UnitStats siegeTankStats, UnitStats scoutStats, UnitStats wraithStats, UnitStats battlecruiserStats, UnitStats glitcherStats,
             List<NexusAttackSent> attacks, int attackIndex)
         {
             TimeSpan timeElapsed = (DateTime.Now - attacks?[attackIndex].Timestamp) ?? TimeSpan.Zero;
             //Console.WriteLine($"Checking timeElapsed: {timeElapsed.TotalSeconds}, duration: {attacks[attackIndex].Duration} : {timeElapsed.TotalSeconds - attacks[attackIndex].Duration}");
-            if (attacks == null) { attacks = new List<NexusAttackSent>(); } 
+            if (attacks == null) { attacks = new List<NexusAttackSent>(); }
             if ((timeElapsed.TotalSeconds - attacks[attackIndex].Duration) >= 0)
             {
                 Console.WriteLine($"{attacks[attackIndex].OriginCoordsX}, {attacks[attackIndex].OriginCoordsY} Attack has landed on {attacks[attackIndex].DestinationCoordsX},{attacks[attackIndex].DestinationCoordsY}!");
 
-                NexusBase origin = await GetNexusBase(attacks[attackIndex].OriginCoordsX, attacks[attackIndex].OriginCoordsY, conn, transaction) 
+                NexusBase origin = await GetNexusBase(attacks[attackIndex].OriginCoordsX, attacks[attackIndex].OriginCoordsY, conn, transaction)
                     ?? new NexusBase() { CoordsX = attacks[attackIndex].OriginCoordsX, CoordsY = attacks[attackIndex].OriginCoordsY };
 
                 NexusBase destination = await GetNexusBase(attacks[attackIndex].DestinationCoordsX, attacks[attackIndex].DestinationCoordsY, conn, transaction)
@@ -1786,7 +1794,10 @@ namespace maxhanna.Server.Controllers
                     defendingUnits.BattlecruiserTotal = 0;
                     defendingUnits.GlitcherTotal = 0;
                 }
-                Console.WriteLine($"defence units : m:{defendingUnits.MarineTotal} g:{defendingUnits.GoliathTotal} st:{defendingUnits.SiegeTankTotal} s:{defendingUnits.ScoutTotal} w:{defendingUnits.WraithTotal} b:{defendingUnits.BattlecruiserTotal} gl:{defendingUnits.GlitcherTotal}");
+                if (defendingUnits != null)
+                {
+                    Console.WriteLine($"defence units : m:{defendingUnits.MarineTotal} g:{defendingUnits.GoliathTotal} st:{defendingUnits.SiegeTankTotal} s:{defendingUnits.ScoutTotal} w:{defendingUnits.WraithTotal} b:{defendingUnits.BattlecruiserTotal} gl:{defendingUnits.GlitcherTotal}");
+                }
 
 
                 if (origin.CoordsX != destination.CoordsX || origin.CoordsY != destination.CoordsY)
@@ -1811,8 +1822,8 @@ namespace maxhanna.Server.Controllers
                         long totalGroundDamage = (long)sentValue * unitStat.GroundDamage;
                         if (totalGroundDamage > int.MaxValue || totalGroundDamage < int.MinValue)
                         {
-                            Console.WriteLine($"Overflow detected for unit {x.UnitType}. Calculated ground damage: {totalGroundDamage}"); 
-                            return 0;  
+                            Console.WriteLine($"Overflow detected for unit {x.UnitType}. Calculated ground damage: {totalGroundDamage}");
+                            return 0;
                         }
                         Console.WriteLine($"detected sent attacking unit : {sentValue} {x.UnitType}. Regular ground damage: {unitStat.GroundDamage}; Total added ground damage : {totalGroundDamage}");
                         return sentValue * unitStat.GroundDamage;
@@ -1865,7 +1876,7 @@ namespace maxhanna.Server.Controllers
                     bool defenderSupplyRecovered = false;
 
                     // CALCULATE LOSSES
-                    if ((attackingGroundDamage != 0 || attackingAirDamage != 0) && !(defendingGroundDamage == 0 && defendingAirDamage ==0))
+                    if ((attackingGroundDamage != 0 || attackingAirDamage != 0) && (defendingGroundDamage != 0 || defendingAirDamage != 0))
                     {
                         Console.WriteLine("Calculating losses...");
                         double groundCoeff = attackingGroundDamage / defendingGroundDamage;
@@ -1908,22 +1919,16 @@ namespace maxhanna.Server.Controllers
                             //Console.WriteLine($"Attack loss coeff: {attackLossCoeff}");
                             int aLoss = Math.Min(sentValue, (int)(sentValue / attackLossCoeff));
                             int dLoss = Math.Min(defendingUnitValue, (int)(defendingUnitValue * attackLossCoeff));
-                            attackingLosses[unitType] = aLoss; 
+                            attackingLosses[unitType] = aLoss;
                             defendingLosses[unitType] = dLoss;
                             //Console.WriteLine($"Attacking losses: {attackingLosses[unitType]}"); 
                             //Console.WriteLine($"Defending losses: {defendingLosses[unitType]}");\
                             if (aLoss > 0) { attackerSupplyRecovered = true; }
                             if (dLoss > 0) { defenderSupplyRecovered = true; }
                             Console.WriteLine($"Attacking unit: {unitType}: {sentValue}");
-                            Console.WriteLine($"Defending unit: {unitType}: {defendingUnitValue}"); 
-                        }  
-                        Console.WriteLine($"attackerSupplyRecovered: {attackerSupplyRecovered}, defenderSupplyRecovered: {defenderSupplyRecovered}"); 
-                    }
-                    if (attackerSupplyRecovered)
-                    {
-                        await UpdateNexusUnitsAfterAttack(conn, transaction, origin, unitStats, attackingLosses);
-                        int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
-                        await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
+                            Console.WriteLine($"Defending unit: {unitType}: {defendingUnitValue}");
+                        }
+                        Console.WriteLine($"attackerSupplyRecovered: {attackerSupplyRecovered}, defenderSupplyRecovered: {defenderSupplyRecovered}");
                     }
                     if (defenderSupplyRecovered)
                     {
@@ -1967,24 +1972,49 @@ namespace maxhanna.Server.Controllers
 
                     NexusBattleOutcome battleOutcome = await CreateBattleOutcome(attacks, attackIndex, origin, destination, defendingUnits, attackingLosses, defendingLosses, goldPlundered, conn, transaction);
                     await InsertBattleOutcome(battleOutcome, conn, transaction);
-                    destination = new NexusBase() { CoordsX = origin.CoordsX, CoordsY = origin.CoordsY };
+
+                    var foundGlitchers = attackingUnits.Find(x => x.UnitType == "glitcher" && x.SentValue > 0);
+                    if (attackingUnits != null && foundGlitchers != null)
+                    {
+                        // Glitcher was sent, and it survived. Take over the nexus and make sure the units remain there;
+                        // Since support is not implemented yet, just send the units back to base for now.
+                        await ChangeOwnership((origin.User?.Id ?? 0), destination, conn, transaction);
+
+                        attackerSupplyRecovered = true;
+                        if (attackingLosses != null && !attackingLosses.ContainsKey("glitcher"))
+                        {
+                            attackingLosses["glitcher"] = 1;
+                        }
+                        else if (attackingLosses != null)
+                        {
+                            attackingLosses["glitcher"] += 1;
+                        }
+                    }
+
+                    if (attackerSupplyRecovered)
+                    {
+                        await UpdateNexusUnitsAfterAttack(conn, transaction, origin, unitStats, attackingLosses!);
+                        int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
+                        await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
+                    }
+
                     if (attackingUnits.FirstOrDefault(x => x.SentValue > 0) != null)
                     {
                         Console.WriteLine("Sent surviving units back home.");
-                        await SendAttack(origin, destination, attackingUnits.ToArray(), attacks[attackIndex].Duration, conn, transaction);
+                        await SendAttack(origin, origin, attackingUnits.ToArray(), attacks[attackIndex].Duration, conn, transaction);
                     }
                     else
                     {
-                        Console.WriteLine($"No survivors made it..."); 
+                        Console.WriteLine($"No survivors made it...");
                     }
                 }
                 else
                 {
-                    Console.WriteLine($"Survivors made it back home..."); 
+                    Console.WriteLine($"Survivors made it back home...");
                 }
             }
         }
-         
+
 
         private async Task UpdateBaseAfterNoSurvivorsAttack(MySqlConnection conn, MySqlTransaction transaction, List<NexusAttackSent>? attacks, int attackIndex, NexusBase origin, List<UnitStats> attackingUnitsBeforeAttack)
         {
@@ -2033,11 +2063,15 @@ namespace maxhanna.Server.Controllers
                     homeBaseUnits.GlitcherTotal ?? 0, conn, transaction);
             }
         }
-         
+
         private async Task<decimal> GetGoldPlundered(MySqlConnection conn, MySqlTransaction transaction, NexusBase destination, List<UnitStats> attackingUnits, NexusUnits? defendingUnits, Dictionary<string, (int GroundDamage, int AirDamage, int Supply)> unitStats)
         {
             await UpdateNexusGold(conn, destination, transaction);
             decimal goldForGrabs = destination.Gold;
+            if (destination.MinesLevel == 0)
+            {
+                goldForGrabs = new Random().Next(0, 666);
+            }
             Console.WriteLine("destination gold : " + goldForGrabs);
             decimal goldCarryingCapacity = attackingUnits.Sum(x => x.GoldCarryingCapacity);
             decimal goldPlundered;
@@ -2074,33 +2108,62 @@ namespace maxhanna.Server.Controllers
             return goldPlundered;
         }
 
-        private async Task DeleteReport(int UserId, int BattleId)
+        private async Task ChangeOwnership(int UserId, NexusBase deadBase, MySqlConnection? conn, MySqlTransaction? transaction)
         {
             //Console.WriteLine($"Deleting Report from {UserId},{BattleId}");
             string sql = @"
-                INSERT INTO
-                    maxhanna.nexus_reports_deleted (user_id, battle_id) 
-                VALUES (@UserId, @BattleId);";
+                INSERT INTO maxhanna.nexus_bases (user_id, coords_x, coords_y, gold)
+                VALUES (@UserId, @CoordsX, @CoordsY, @Gold)
+                ON DUPLICATE KEY UPDATE user_id = @UserId;";
 
             var parameters = new Dictionary<string, object?>
              {
                  { "@UserId", UserId },
-                 { "@BattleId", BattleId }
+                 { "@CoordsX", deadBase.CoordsX },
+                 { "@CoordsY", deadBase.CoordsY },
+                 { "@Gold", 200 }
              };
 
-            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters);
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
             //Console.WriteLine($"Deleted Report from {UserId},{BattleId}");
         }
-        private async Task<NexusBattleOutcome> CreateBattleOutcome(List<NexusAttackSent> attacks, int attackIndex, NexusBase origin, NexusBase destination, 
+
+        private async Task DeleteReport(int userId, int battleId)
+        { 
+            string sql = @"
+                INSERT INTO nexus_reports_deleted (user_id, battle_id) 
+                VALUES (@UserId, @BattleId);
+
+                DELETE b
+                FROM nexus_battles b
+                LEFT JOIN nexus_reports_deleted d1 ON b.battle_id = d1.battle_id AND b.origin_user_id = d1.user_id
+                LEFT JOIN nexus_reports_deleted d2 ON b.battle_id = d2.battle_id AND b.destination_user_id = d2.user_id
+                WHERE b.battle_id = @BattleId
+                    AND ((b.origin_user_id IS NULL OR b.origin_user_id = 0 OR d1.user_id IS NOT NULL)
+                    AND  (b.destination_user_id IS NULL OR b.destination_user_id = 0 OR d2.user_id IS NOT NULL));
+
+                DELETE FROM nexus_reports_deleted
+                WHERE battle_id = @BattleId;";
+
+            var parameters = new Dictionary<string, object?>
+            {
+                { "@UserId", userId },
+                { "@BattleId", battleId }, 
+            };
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters); 
+        }
+
+
+        private async Task<NexusBattleOutcome> CreateBattleOutcome(List<NexusAttackSent> attacks, int attackIndex, NexusBase origin, NexusBase destination,
             NexusUnits? defendingUnits, Dictionary<string, int?>? attackingLosses, Dictionary<string, int?> defendingLosses, decimal goldPlundered, MySqlConnection? conn, MySqlTransaction? transaction)
         {
             NexusUnits? dunoi = await GetNexusAttackingUnits(destination, conn, transaction);
             return new NexusBattleOutcome()
             {
-                OriginUserId = origin.User?.Id,
+                OriginUser = origin.User,
                 OriginCoordsX = origin.CoordsX,
                 OriginCoordsY = origin.CoordsY,
-                DestinationUserId = destination.User?.Id,
+                DestinationUser = destination.User,
                 DestinationCoordsX = destination.CoordsX,
                 DestinationCoordsY = destination.CoordsY,
                 AttackingUnits = new Dictionary<string, int?>
@@ -2139,15 +2202,15 @@ namespace maxhanna.Server.Controllers
                 },
                 DefenderUnitsNotInVillage = new Dictionary<string, int?>
                 {
-                     
+
                     { "marine", dunoi?.MarineTotal },
                     { "goliath", dunoi?.GoliathTotal },
                     { "siege_tank", dunoi?.SiegeTankTotal },
                     { "scout", dunoi?.ScoutTotal },
                     { "wraith", dunoi?.WraithTotal },
                     { "battlecruiser", dunoi?.BattlecruiserTotal },
-                    { "glitcher", dunoi?.GlitcherTotal }, 
-                } 
+                    { "glitcher", dunoi?.GlitcherTotal },
+                }
             };
         }
 
@@ -2158,8 +2221,12 @@ namespace maxhanna.Server.Controllers
             int offset = (pageNumber - 1) * pageSize;
 
             string query = @"
-                SELECT SQL_CALC_FOUND_ROWS *
+                SELECT SQL_CALC_FOUND_ROWS b.*, au.username as attackerUsername, du.username as defenderUsername, audp.file_id as attackerDp, dudp.file_id as defenderDp
                 FROM nexus_battles b
+                LEFT JOIN maxhanna.users au ON au.id = b.origin_user_id
+                LEFT JOIN maxhanna.user_display_pictures audp ON au.id = audp.user_id
+                LEFT JOIN maxhanna.users du ON du.id = b.destination_user_id
+                LEFT JOIN maxhanna.user_display_pictures dudp ON du.id = dudp.user_id
                 WHERE 1=1";
 
             if (userId != null)
@@ -2205,13 +2272,23 @@ namespace maxhanna.Server.Controllers
                     {
                         while (await reader.ReadAsync())
                         {
+                            int? aDisplayPicId = reader.IsDBNull(reader.GetOrdinal("attackerDp")) ? null : reader.GetInt32("attackerDp");
+                            FileEntry? adpFileEntry = aDisplayPicId != null ? new FileEntry() { Id = (Int32)(aDisplayPicId) } : null;
+                            int? originUserId = reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? (int?)null : reader.GetInt32("origin_user_id");
+                            string? originUserName = reader.IsDBNull(reader.GetOrdinal("attackerUsername")) ? "Anonymous" : reader.GetString("attackerUsername");
+
+                            int? dDisplayPicId = reader.IsDBNull(reader.GetOrdinal("defenderDp")) ? null : reader.GetInt32("defenderDp");
+                            FileEntry? ddpFileEntry = dDisplayPicId != null ? new FileEntry() { Id = (Int32)(dDisplayPicId) } : null;
+                            int? defenderUserId = reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? (int?)null : reader.GetInt32("destination_user_id");
+                            string? defenderUserName = reader.IsDBNull(reader.GetOrdinal("defenderUsername")) ? "Anonymous" : reader.GetString("defenderUsername");
+
                             var battleOutcome = new NexusBattleOutcome
-                            {
+                            { 
                                 BattleId = reader.GetInt32("battle_id"),
-                                OriginUserId = reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? (int?)null : reader.GetInt32("origin_user_id"),
+                                OriginUser = new User(originUserId ?? 0, originUserName, null, adpFileEntry, null),
                                 OriginCoordsX = reader.IsDBNull(reader.GetOrdinal("origin_coords_x")) ? 0 : reader.GetInt32("origin_coords_x"),
                                 OriginCoordsY = reader.IsDBNull(reader.GetOrdinal("origin_coords_y")) ? 0 : reader.GetInt32("origin_coords_y"),
-                                DestinationUserId = reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? (int?)null : reader.GetInt32("destination_user_id"),
+                                DestinationUser = new User(defenderUserId ?? 0, defenderUserName, null, ddpFileEntry, null),
                                 DestinationCoordsX = reader.IsDBNull(reader.GetOrdinal("destination_coords_x")) ? 0 : reader.GetInt32("destination_coords_x"),
                                 DestinationCoordsY = reader.IsDBNull(reader.GetOrdinal("destination_coords_y")) ? 0 : reader.GetInt32("destination_coords_y"),
                                 Timestamp = reader.GetDateTime("timestamp"),
@@ -2255,7 +2332,7 @@ namespace maxhanna.Server.Controllers
                         }
                     }
 
-                    if (scoutsSurvivedPercentage < 0.5 || (battleOutcome.DestinationUserId != userId && battleOutcome.OriginUserId != userId))
+                    if (scoutsSurvivedPercentage < 0.5 || (battleOutcome.DestinationUser?.Id != userId && battleOutcome.OriginUser?.Id != userId))
                     {
                         // Hide defending units
                         battleOutcome.DefendingUnits = new Dictionary<string, int?>();
@@ -2317,10 +2394,10 @@ namespace maxhanna.Server.Controllers
 
             var parameters = new Dictionary<string, object?>
             {
-                { "@origin_user_id", battleOutcome.OriginUserId },
+                { "@origin_user_id", battleOutcome.OriginUser != null ? battleOutcome.OriginUser.Id : DBNull.Value },
                 { "@origin_coords_x", battleOutcome.OriginCoordsX },
                 { "@origin_coords_y", battleOutcome.OriginCoordsY },
-                { "@destination_user_id", battleOutcome.DestinationUserId },
+                { "@destination_user_id",  battleOutcome.DestinationUser != null ? battleOutcome.DestinationUser.Id : DBNull.Value },
                 { "@destination_coords_x", battleOutcome.DestinationCoordsX },
                 { "@destination_coords_y", battleOutcome.DestinationCoordsY },
                 { "@attacking_units", JsonConvert.SerializeObject(battleOutcome.AttackingUnits) },
@@ -2329,8 +2406,8 @@ namespace maxhanna.Server.Controllers
                 { "@defending_losses", JsonConvert.SerializeObject(battleOutcome.DefendingLosses) },
                 { "@defender_units_not_in_village", JsonConvert.SerializeObject(battleOutcome.DefenderUnitsNotInVillage) },
                 { "@defender_building_levels", JsonConvert.SerializeObject(battleOutcome.DefenderBuildingLevels) },
-                { "@defender_gold", battleOutcome.DefenderGold }, 
-                { "@defender_gold_stolen", battleOutcome.DefenderGoldStolen }, 
+                { "@defender_gold", battleOutcome.DefenderGold },
+                { "@defender_gold_stolen", battleOutcome.DefenderGoldStolen },
             };
 
             await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
@@ -2411,7 +2488,7 @@ namespace maxhanna.Server.Controllers
 
                 await conn.CloseAsync();
 
-            } 
+            }
         }
 
         private async Task UpdateNexusUnitPurchases(int coordsX, int coordsY, int unitId, int unitsToAdd, MySqlConnection conn, MySqlTransaction transaction)
@@ -2846,5 +2923,6 @@ namespace maxhanna.Server.Controllers
             }
             return insertedId;
         }
+     
     }
 }

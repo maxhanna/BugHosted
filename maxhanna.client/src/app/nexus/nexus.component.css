@@ -5,6 +5,7 @@
   flex-flow: column;
   justify-content: flex-start;
   overflow: hidden;
+  width: var(--nexus-gamescreen-width);
 }
 
 .gamescreen, .map {
@@ -114,6 +115,10 @@
 
 .mapComponentDiv {
   display: none;
+}
+.baseListComponentDiv {
+  height: var(--nexus-gamescreen-height);
+  width: var(--nexus-gamescreen-width);
 } 
 
 .battleReportComponentDiv {
@@ -209,4 +214,19 @@
 }
 .unitInput {
     width:25px;
+}
+.toggledUnitStatScreen {
+    display: flex;
+    justify-content:flex-start;
+    flex-flow: row wrap;
+    border-bottom: var(--main-border);
+}
+.toggledUnitStatInfoPic {
+    width: 75px; 
+    overflow: hidden;
+}
+.toggledUnitStatInfoDiv {
+  width: CALC(var(--nexus-gamescreen-width) - 75px);
+  max-height: 200px;
+  overflow: auto;
 }

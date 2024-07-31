@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileService } from '../../services/file.service';
- import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
+import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { NexusBaseUpgrades } from '../../services/datacontracts/nexus/nexus-base-upgrades';
 import { NexusMapComponent } from '../nexus-map/nexus-map.component';
 import { NexusAvailableUpgrades, UpgradeDetail } from '../../services/datacontracts/nexus/nexus-available-upgrades';
@@ -31,7 +31,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   isStarportOpen = false;
   isSupplyDepotOpen = false;
   isMapOpen = false;
+  isBasesOpen = false;
   isReportsOpen = false;
+  isMarineOpen = false;
+  isGoliathOpen = false;
+  isSiegeTankOpen = false;
+  isScoutOpen = false;
+  isWraithOpen = false;
+  isBattlecruiserOpen = false;
+  isGlitcherOpen = false;
   isUserNew = false;
   displayCommandCenter = false;
   displayMines = false;
@@ -58,7 +66,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   battlecruiserPictureSrc?: string;
   glitcherPictureSrc?: string;
 
-  mapData?: NexusBase[] = undefined; 
+  mapData?: NexusBase[] = undefined;
   nexusBase?: NexusBase;
   nexusBaseUpgrades?: NexusBaseUpgrades;
   nexusUnits?: NexusUnits;
@@ -67,7 +75,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   nexusAvailableUpgrades?: UpgradeDetail[];
   nexusAttacksSent?: NexusAttackSent[];
   nexusAttacksIncoming?: NexusAttackSent[];
-  units?: UnitStats[]; 
+  units?: UnitStats[];
   battleReports?: NexusBattleOutcomeReports;
 
   buildingTimers: { [key: string]: BuildingTimer } = {};
@@ -88,11 +96,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   goldCapacity = 5000;
   supplyCapacity = 2500;
   factoryUnitsBeingBuilt = 0;
-  starportUnitsBeingBuilt = 0; 
+  starportUnitsBeingBuilt = 0;
   factoryUnitIds = [6, 7, 10];
   starportUnitIds = [8, 9, 11];
   warehouseUpgradeLevels: number[] = [];
   glitcherStats = new UnitStats();
+  toggledUnitStat?: UnitStats;
 
 
   @ViewChild('upgradeMineButton') upgradeMineButton!: ElementRef<HTMLButtonElement>;
@@ -125,7 +134,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (startRes) {
       if (this.nexusBase) {
         this.nexusBase.coordsX = startRes.x;
-        this.nexusBase.coordsY = startRes.y; 
+        this.nexusBase.coordsY = startRes.y;
       }
       this.isUserNew = false;
       await this.loadNexusData();
@@ -134,33 +143,33 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async loadNexusData(skipMap: Boolean = false) {
     if (!this.parentRef || !this.parentRef.user) { return; }
+    this.startLoading();
     const data = await this.nexusService.getNexus(this.parentRef.user, this.nexusBase);
 
     if (data && data.nexusBase && data.nexusBase.user?.id != 0) {
       this.nexusBase = data.nexusBase;
       this.nexusBaseUpgrades = data.nexusBaseUpgrades;
       this.nexusUnitsPurchaseList = data.nexusUnitsPurchasedList;
-      this.nexusUnits = data.nexusUnits; 
+      this.nexusUnits = data.nexusUnits;
       this.nexusAvailableUnits = JSON.parse(JSON.stringify(data.nexusUnits)); //creating a deep copy wont reference the same address as nexusUnits
-      this.nexusAvailableUpgrades = data.availableUpgrades;  
+      this.nexusAvailableUpgrades = data.availableUpgrades;
       this.nexusAttacksSent = data.nexusAttacksSent;
       this.nexusAttacksIncoming = data.nexusAttacksIncoming;
       this.miningSpeed = data.miningSpeed;
       this.nexusBaseUpgrades = data.nexusBaseUpgrades;
-      this.battleReports = data.battleReports; 
+      this.battleReports = data.battleReports;
       this.currentBaseLocationX = data.nexusBase.coordsX;
       this.currentBaseLocationY = data.nexusBase.coordsY;
       this.goldAmount = data.nexusBase.gold;
       this.goldCapacity = (data.nexusBase.warehouseLevel + 1) * 5000;
       this.supplyCapacity = (data.nexusBase.supplyDepotLevel * 2500);
-      this.displayBuildings(this.nexusBaseUpgrades); 
+      this.displayBuildings(this.nexusBaseUpgrades);
       this.updateAttackTimers();
       this.setAvailableUnits();
       await this.getBuildingUpgradesInfo();
       await this.getUnitStats();
     }
-    if (!this.nexusBase || (this.nexusBase.coordsX == 0 && this.nexusBase.coordsY == 0))
-    {
+    if (!this.nexusBase || (this.nexusBase.coordsX == 0 && this.nexusBase.coordsY == 0)) {
       this.isUserComponentOpen = false;
       this.isUserNew = true;
     }
@@ -173,6 +182,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
     }
     this.startGoldIncrement();
+    this.stopLoading();
   }
 
   private setAvailableUnits() {
@@ -190,7 +200,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
       this.nexusAttacksIncoming.forEach(x => {
-        if (x.originCoordsX == this.nexusBase!.coordsX && x.originCoordsY == this.nexusBase!.coordsY) { 
+        if (x.originCoordsX == this.nexusBase!.coordsX && x.originCoordsY == this.nexusBase!.coordsY) {
           this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
           this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
           this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
@@ -200,48 +210,47 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
         }
       });
-    } 
+    }
   }
   private async getUnitStats(force?: boolean) {
     if (!this.parentRef || !this.parentRef.user || !this.nexusBase) {
       console.log("cant get unit stats, no base present");
       return;
     };
-    if (!this.units || force) {
-      const res = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase);
-      if (res) {
-        this.units = res as UnitStats[];
-        this.glitcherStats = this.units.find(x => x.unitType == "glitcher") ?? new UnitStats();
-        this.assignPicturesToUnitStats();
-      }
+    const res = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase);
+    if (res) {
+      this.units = res as UnitStats[];
+      this.glitcherStats = this.units.find(x => x.unitType == "glitcher") ?? new UnitStats();
+      this.assignPicturesToUnitStats();
     }
     this.getUnitTimers();
   }
 
   private assignPicturesToUnitStats() {
-      const unitTypes = [
-          { type: "marine", pictureSrc: this.marinePictureSrc },
-          { type: "goliath", pictureSrc: this.goliathPictureSrc },
-          { type: "siege_tank", pictureSrc: this.siegeTankPictureSrc },
-          { type: "scout", pictureSrc: this.scoutPictureSrc },
-          { type: "wraith", pictureSrc: this.wraithPictureSrc },
-          { type: "battlecruiser", pictureSrc: this.battlecruiserPictureSrc },
-          { type: "glitcher", pictureSrc: this.glitcherPictureSrc },
-      ];
+    const unitTypes = [
+      { type: "marine", pictureSrc: this.marinePictureSrc },
+      { type: "goliath", pictureSrc: this.goliathPictureSrc },
+      { type: "siege_tank", pictureSrc: this.siegeTankPictureSrc },
+      { type: "scout", pictureSrc: this.scoutPictureSrc },
+      { type: "wraith", pictureSrc: this.wraithPictureSrc },
+      { type: "battlecruiser", pictureSrc: this.battlecruiserPictureSrc },
+      { type: "glitcher", pictureSrc: this.glitcherPictureSrc },
+    ];
 
-      unitTypes.forEach(({ type, pictureSrc }) => {
-          const unit = this.units!.find(x => x.unitType === type);
-          if (unit) {
-              unit.pictureSrc = pictureSrc;
-          }
-      });
+    unitTypes.forEach(({ type, pictureSrc }) => {
+      const unit = this.units!.find(x => x.unitType === type);
+      if (unit) {
+        unit.pictureSrc = pictureSrc;
+      }
+    });
   }
 
   private getUnitTimers() {
+    this.reinitializeUnitTimers();
+    this.factoryUnitsBeingBuilt = 0;
+    this.starportUnitsBeingBuilt = 0;
     if (this.nexusUnitsPurchaseList && this.nexusUnitsPurchaseList.length > 0) {
       let count = 0;
-      this.factoryUnitsBeingBuilt = 0;
-      this.starportUnitsBeingBuilt = 0;
       this.nexusUnitsPurchaseList.forEach(x => {
         count++;
         const startTime = x.timestamp;
@@ -261,7 +270,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
 
   private updateAttackTimers() {
-    this.attackTimers = {};
+    this.reinitializeAttackTimers();
 
     if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0 && this.nexusBase) {
       let count = 0;
@@ -280,12 +289,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             this.startAttackTimer(salt, remainingTimeInSeconds);
             console.log("added attack timer: " + salt + " -> " + remainingTimeInSeconds);
           }
-        } 
+        }
       });
 
-      console.log('updated attack timers ' + Object.keys(this.attackTimers).length); 
-    } 
-    this.updateDefenceTimers(); 
+      console.log('updated attack timers ' + Object.keys(this.attackTimers).length);
+    }
+    this.updateDefenceTimers();
   }
 
   private updateDefenceTimers() {
@@ -300,21 +309,22 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
         count++;
         const returningToBase = (x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
-        const salt = returningToBase ? `{${x.originCoordsX},${x.originCoordsY}} ${count}. Returning {${x.destinationCoordsX},${x.destinationCoordsY}}` : `{${x.originCoordsX},${x.originCoordsY}} ${count}. Incoming {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+        const salt = returningToBase ? `{${x.destinationCoordsX},${x.destinationCoordsY}} ${count}. Returning {${x.originCoordsX},${x.originCoordsX}}`
+          : `{${x.destinationCoordsX},${x.destinationCoordsY}} ${count}. Incoming {${x.originCoordsX},${x.originCoordsY}}`;
 
         if (remainingTimeInSeconds > 0) {
           if (!uniqueDefenses.has(salt)) {
             uniqueDefenses.add(salt);
             this.startAttackTimer(salt, remainingTimeInSeconds);
-            console.log("added defence timer: " + salt + " -> " + remainingTimeInSeconds); 
+            console.log("added defence timer: " + salt + " -> " + remainingTimeInSeconds);
           }
         }
       });
-      console.log('updated defence timers ' + Object.keys(this.attackTimers).length); 
+      console.log('updated defence timers ' + Object.keys(this.attackTimers).length);
     }
   }
 
-   
+
 
   debounceLoadNexusData = this.debounce(async () => {
     await this.loadNexusData();
@@ -334,7 +344,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.addNotification(`${upgrade} completed!`);
           delete this.unitTimers[upgrade];
           clearInterval(interval);
-          this.debounceLoadNexusData();  
+          this.debounceLoadNexusData();
           this.cd.detectChanges();
         }, endTime * 1000)
       };
@@ -352,7 +362,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.addNotification(`${upgrade} upgrade completed!`);
           delete this.buildingTimers[upgrade];
           clearInterval(interval);
-          this.debounceLoadNexusData(); 
+          this.debounceLoadNexusData();
           this.cd.detectChanges();
         }, endTime * 1000)
       };
@@ -366,12 +376,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
- 
+
   private startAttackTimer(attack: string, time: number) {
     if (this.attackTimers[attack] || !time || isNaN(time)) {
       return;
     }
-     
+
     //add one second to give the server time to realise whats been built.
     const endTime = Math.max(1, time);
 
@@ -381,22 +391,22 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.addNotification(`${attack} completed!`);
         delete this.attackTimers[attack];
         clearInterval(interval);
-        this.debounceLoadNexusData();  
+        this.debounceLoadNexusData();
         this.cd.detectChanges();
       }, endTime * 1000)
     };
     const interval = setInterval(async () => {
-      if (this.attackTimers[attack]) { 
+      if (this.attackTimers[attack]) {
         this.attackTimers[attack].endTime = this.attackTimers[attack].endTime - 1; // this -1 must be set to decrease timer
       }
-      this.cd.detectChanges(); 
-    }, 1000); 
+      this.cd.detectChanges();
+    }, 1000);
   }
 
 
   private async getBuildingUpgradesInfo() {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return; 
-
+    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return;
+    this.reinitializeBuildingTimers();
     if (this.nexusBaseUpgrades) {
       if (this.nexusBaseUpgrades.commandCenterUpgraded && !this.buildingTimers["command_center"]) {
         const startTime = this.nexusBaseUpgrades.commandCenterUpgraded;
@@ -426,8 +436,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         const startTime = this.nexusBaseUpgrades.warehouseUpgraded;
         this.primeTheTimerForBuildingUgrades(startTime, "warehouse");
       }
-    } else {
-      this.reinitializeBuildingTimers();
     }
   }
 
@@ -444,8 +452,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.startUpgradeTimer(salt + type, remainingTimeInSeconds, false);
     }
   }
-  
-   
+
+
 
   private primeTheTimerForUnitPurchases(startTime: Date, id: number, quantity: number, displayFirst: string) {
     if (!this.units) return;
@@ -459,7 +467,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     const remainingTimeInSeconds = duration - elapsedTimeInSeconds;
 
     if (remainingTimeInSeconds > 0) {
-      this.startUpgradeTimer(type, remainingTimeInSeconds, true);
+      this.startUpgradeTimer(type, remainingTimeInSeconds + 1, true);
     }
   }
 
@@ -470,8 +478,27 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         delete this.buildingTimers[building];
       }
     });
+    this.buildingTimers = {};
   }
-   
+  private async reinitializeUnitTimers() {
+    Object.keys(this.unitTimers).forEach(building => {
+      if (this.unitTimers[building]) {
+        clearTimeout(this.unitTimers[building].timeout);
+        delete this.unitTimers[building];
+      }
+    });
+    this.unitTimers = {};
+  }
+  private async reinitializeAttackTimers() {
+    Object.keys(this.attackTimers).forEach(building => {
+      if (this.attackTimers[building]) {
+        clearTimeout(this.attackTimers[building].timeout);
+        delete this.attackTimers[building];
+      }
+    });
+    this.attackTimers = {};
+  }
+
   private displayBuildings(nexusBaseUpgrades: NexusBaseUpgrades, value?: boolean) {
     if (value) {
       this.displayMines = value;
@@ -554,10 +581,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async viewMap(force?: boolean) {
     this.isMapOpen = force != undefined ? force : !this.isMapOpen;
-    if (this.isMapOpen) {
-      setTimeout(() => { this.mapComponent.scrollToUserBase(); }, 10);
-    } 
+    if (this.isMapOpen && this.nexusBase) {
+      setTimeout(() => { if (this.nexusBase) this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY); }, 10);
+    }
   }
+
   startGoldIncrement() {
     if (this.goldIncrementInterval) {
       clearInterval(this.goldIncrementInterval);
@@ -701,7 +729,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   getValidBuildingUpgrades() {
     if (this.nexusAvailableUpgrades && this.nexusAvailableUpgrades) {
-      if (!this.nexusBase || !this.nexusBase.minesLevel) { 
+      if (!this.nexusBase || !this.nexusBase.minesLevel) {
         return this.nexusAvailableUpgrades.filter(x => x.building === "mines");
       } else {
         return this.nexusAvailableUpgrades.filter(x => x.cost > 0);
@@ -719,7 +747,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return maxGoldValue;
   }
   onSliderChange(event: any, unit: UnitStats): void {
-    const value = Math.min(this.maxSliderValue(unit) , event.target.value); 
+    const value = Math.min(this.maxSliderValue(unit), event.target.value);
     unit.purchasedValue = value;
     event.target.value = value;
   }
@@ -803,7 +831,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return totalSupplyUsed;
   }
 
-   
+
   formatBuildingTimer(s: string) {
     s = s.substring(s.indexOf('}') + 1, s.length).replace('_', ' ');
     s = s.replace(/\w+/g,
@@ -971,26 +999,42 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (!message || message.trim() == "") return;
     this.addNotification(message);
   }
-  toggleScreen(screen: string, isOpen?: boolean) {
-    if (this.isMinesOpen || this.isCommandCenterOpen || this.isSupplyDepotOpen || this.isFactoryOpen || this.isMinesOpen || this.isStarportOpen || this.isWarehouseOpen || this.isEngineeringBayOpen) {
-      this.isMinesOpen = false;
-      this.isCommandCenterOpen = false;
-      this.isStarportOpen = false;
-      this.isFactoryOpen = false;
-      this.isMinesOpen = false;
-      this.isWarehouseOpen = false;
-      this.isEngineeringBayOpen = false;
+  async emittedBaseChange(changedBase: NexusBase) {
+    if (this.nexusBase && (changedBase.coordsX != this.nexusBase.coordsX || changedBase.coordsY != this.nexusBase.coordsY)) {
+      this.nexusBase = changedBase;
+      await this.loadNexusData(true);
     }
-    if (screen == "reports")
-    {
-      this.isMapOpen = false;
+    this.isBasesOpen = false;
+  }
+  toggleScreen(screen: string, isOpen?: boolean) {
+    this.isMinesOpen = false;
+    this.isCommandCenterOpen = false;
+    this.isStarportOpen = false;
+    this.isFactoryOpen = false;
+    this.isMinesOpen = false;
+    this.isWarehouseOpen = false;
+    this.isEngineeringBayOpen = false;
+    this.isReportsOpen = false;
+    this.isMapOpen = false;
+    this.isBasesOpen = false;
+    this.toggleUnitScreen();
+
+    if (screen == "reports") {
       this.isReportsOpen = isOpen != undefined ? isOpen : !this.isReportsOpen;
     }
-    else if (screen == "map")
-    {
-      this.isReportsOpen = false;
+    else if (screen == "map") {
       this.viewMap(isOpen);
-    } 
+    }
+    else if (screen == "bases") {
+      this.isBasesOpen = isOpen != undefined ? isOpen : !this.isBasesOpen;
+    }
+  }
+  toggleUnitScreen(unit?: UnitStats, isOpen?: boolean) {
+    if (isOpen == false) {
+      this.toggledUnitStat = undefined;
+    } else {
+      this.toggledUnitStat = unit;
+    }
   }
   getGlitcherStats() {
     if (this.units)
@@ -998,11 +1042,16 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     else return undefined;
   }
   addNotification(notif?: string) {
-    if (notif) { 
+    if (notif) {
       this.notifications.push(notif);
       setTimeout(() => {
         this.notifications.shift();
       }, 9000);
     }
-  } 
+  }
+  toggleUnitScreenFromBaseUnits(unit: string) {
+    if (!this.units) return;
+    const unitStat = this.units.find(x => x.unitType == unit);
+    this.toggleUnitScreen(unitStat);
+  }
 }

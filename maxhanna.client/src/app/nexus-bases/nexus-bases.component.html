@@ -1,0 +1,26 @@
+<div class="overallDisplay">
+  <table>
+    <thead>
+      <tr>
+        <th>Coordinates</th>
+        <th><span class="rotated-header">Command Center</span></th>
+        <th><span class="rotated-header">Mines</span></th>
+        <th><span class="rotated-header">Engineering Bay</span></th>
+        <th><span class="rotated-header">Factory</span></th>
+        <th><span class="rotated-header">Starport</span></th>
+        <th><span class="rotated-header">Warehouse</span></th>
+      </tr>
+    </thead>
+    <tbody *ngFor="let base of getCurrentBases()" (click)="selectBase(base)" class="pointer">
+      <tr class="borderUnderline">
+        <td>{{'{' + base.coordsX + ',' + base.coordsY + '}'}}</td>
+        <td>{{base.commandCenterLevel}}</td>
+        <td>{{base.minesLevel}}</td>
+        <td>{{base.engineeringBayLevel}}</td>
+        <td>{{base.factoryLevel}}</td>
+        <td>{{base.starportLevel}}</td>
+        <td>{{base.warehouseLevel}}</td>
+      </tr> 
+    </tbody>
+  </table> 
+</div>

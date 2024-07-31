@@ -50,24 +50,17 @@ export class NexusMapComponent {
    
    
   constructor(private nexusService: NexusService) {  } 
-
-  scrollToUserBase() {
-    const userId = this.user?.id;
-    const userBase = this.mapData.find(b => b.user?.id === userId);
-    if (userBase) {
-      this.scrollToCoordinates(userBase.coordsX, userBase.coordsY);
-    }
-    this.selectedNexusBase = undefined;
-  }
-
-  scrollToCoordinates(coordsX: number, coordsY: number) {
+   
+  scrollToCoordinates(coordsX: number, coordsY: number, hideAttackButton?: boolean) {
     if (!this.user || !this.mapData || this.mapData.length === 0) return;
-
+    console.log("scroll to " + coordsX + coordsY);
     const cell = this.mapContainer.nativeElement.querySelector(`.cell[x='${coordsX}'][y='${coordsY}']`);
     if (cell) {
       cell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     }
-    this.selectedNexusBase = undefined;
+    if (hideAttackButton) {
+      this.selectedNexusBase = undefined; 
+    }
   }
 
   setMapData(nexusBases: NexusBase[]) { 
@@ -134,10 +127,7 @@ export class NexusMapComponent {
       return alert("Y coordinates off map.");
     }
     this.scrollToCoordinates(x, y);
-  }
-  showHomeBase() {
-    this.scrollToUserBase();
-  }
+  } 
   getRandomEmptyMapTile() {
     return this.mapTileSrc;
   }
