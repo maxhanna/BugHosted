@@ -41,11 +41,11 @@ import { ReactionComponent } from './reaction/reaction.component';
 import { ArrayComponent } from './array/array.component';
 import { NexusComponent } from './nexus/nexus.component';
 import { MediaSelectorComponent } from './media-selector/media-selector.component';
-import { NexusMapComponent } from './nexus-map/nexus-map.component';
 import { NexusBaseUnitsComponent } from './nexus-base-units/nexus-base-units.component';
 import { NexusAttackScreenComponent } from './nexus-attack-screen/nexus-attack-screen.component';
 import { NexusReportsComponent } from './nexus-reports/nexus-reports.component';
 import { NexusBasesComponent } from './nexus-bases/nexus-bases.component';
+import { NexusMapComponent } from './nexus-map/nexus-map.component';
 
 @NgModule({
   declarations: [

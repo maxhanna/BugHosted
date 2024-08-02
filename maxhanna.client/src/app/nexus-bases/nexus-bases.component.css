@@ -2,7 +2,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: var(--nexus-gamescreen-height);
+  height: CALC(var(--nexus-gamescreen-height) * 2);
   overflow: auto;
 }
 
@@ -31,7 +31,8 @@ thead th {
   top: 0;
   z-index: 10;
   height: 100px;
-  overflow: hidden; 
+  overflow: hidden;
+  background-color: var(--main-bg-color);
 }
 
 th,
@@ -48,4 +49,7 @@ td {
 tbody {
   height: 30px !important;
   width: 100%;
+}
+.highlightedBase {
+    background-color: var(--main-highlight-color);
 }

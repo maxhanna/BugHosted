@@ -8,10 +8,25 @@
   width: var(--nexus-gamescreen-width);
 }
 
-.gamescreen, .map {
-  width: var(--nexus-gamescreen-width);
+.gamescreen, .map {  
+  width: 100%;
   height: var(--nexus-gamescreen-height);
-  border: var(--main-border); 
+}
+
+.nextBaseButton {
+  position: absolute;
+  top: CALC(var(--nexus-gamescreen-height) / 2);
+  left: CALC(var(--nexus-gamescreen-width) - 25px);
+  display: block;
+  width: 25px;
+}
+
+.previousBaseButton {
+  position: absolute;
+  top: CALC(var(--nexus-gamescreen-height) / 2);
+  left: 0px;
+  display: block;
+  width: 25px;
 }
 
 .map {
@@ -19,6 +34,7 @@
 }
 
 .levelLabel {
+  width: 75px;
   position: absolute;
 }
 
@@ -82,9 +98,9 @@
   width: 100%;
   height: 245px;
   overflow: hidden;
-  display:flex;
-  flex-flow:column;
-  justify-content:space-between;
+  display: flex;
+  flex-flow: column;
+  justify-content: space-between;
 }
 
 .supplyDepotBackground, .starportBackground, .warehouseBackground, .engineeringBayBackground, .minesBackground, .factoryBackground, .commandCenterBackground, .nexusBackground {
@@ -92,12 +108,13 @@
   top: 38px;
   left: 0px;
   z-index: -1;
-  width: var(--nexus-gamescreen-width);
+  width: 100%;
   height: var(--nexus-gamescreen-height);
   object-fit: cover; /* Ensures the image covers the entire parent div */
   overflow: hidden;
   opacity: 25%;
 }
+
 .nexusBackground {
   opacity: 100% !important;
 }
@@ -105,7 +122,7 @@
 .commandCenterScreen, .commandCenterBackground, .factoryScreen, .factoryBackground, .starportScreen, .starportBackground,
 .minesScreen, .minesBackground, .supplyDepotBackground, .engineeringBayBackground, .warehouseBackground, .nexusBackground {
   height: var(--nexus-gamescreen-height);
-  width: var(--nexus-gamescreen-width);
+  width: 100%;
 }
 
 .shareMapButtonDiv {
@@ -116,10 +133,11 @@
 .mapComponentDiv {
   display: none;
 }
+
 .baseListComponentDiv {
-  height: var(--nexus-gamescreen-height);
-  width: var(--nexus-gamescreen-width);
-} 
+  height: 80vh; 
+  overflow:auto;
+}
 
 .battleReportComponentDiv {
   display: flex;
@@ -146,65 +164,81 @@
   width: 50px;
   height: 50px;
 }
+
 .closeScreenButtonDiv {
-    margin-top: 5px;
+  margin-top: 5px;
 }
+
 .warehouseLevelsDiv {
-    height: 165px;
-    overflow:auto;
+  height: 165px;
+  overflow: auto;
 }
+
 .upgradeProgressDisplayP::before {
   content: '🔧';
 }
+
 .unitProgressDisplayP:before {
   content: '⚔️';
 }
+
 .defenceProgressDisplayP:before {
   content: '🛡️';
 }
+
 .upgradeProgressDisplayP, .unitProgressDisplayP {
   color: var(--secondary-font-color);
 }
+
 .resourceSpan {
-    z-index: 3;
-    font-size:small;
-    font-weight:bold;
+  z-index: 3;
+  font-size: small;
+  font-weight: bold;
 }
+
 .unitPictureTd {
-    width:50px;
+  width: 50px;
 }
+
 .unitSliderTd {
-    width:120px;
+  width: 120px;
 }
+
 .redText {
-    color:red;
+  color: red;
 }
-  .supplyUsedDiv {
-    height: 100px;
-    overflow: auto;
-    border: var(--main-border);
-    padding-left: 10px;
-    padding-right: 10px;
-    color: var(--secondary-font-color);
-  }
+
+.supplyUsedDiv {
+  height: 100px;
+  overflow: auto;
+  border: var(--main-border);
+  padding-left: 10px;
+  padding-right: 10px;
+  color: var(--secondary-font-color);
+}
+
 .supplyInfoDiv {
-    display:flex;
-    flex-direction:row;
-    justify-content: flex-start;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
 }
+
 .supplyExplainDiv, .supplyUsedDiv {
   width: 45%;
 }
+
 .upgradeTimersTableDiv {
   max-height: 100px;
   width: var(--nexus-gamescreen-width);
   overflow: auto;
   font-size: small;
-} 
+}
+
 .gameNotification {
   color: var(--secondary-font-color);
   font-size: small;
 }
+
 .gameNotificationDiv {
   max-height: 50px;
   overflow: auto;
@@ -212,21 +246,34 @@
   position: absolute;
   margin-bottom: 50px;
 }
+
 .unitInput {
-    width:25px;
+  width: 25px;
 }
+
 .toggledUnitStatScreen {
-    display: flex;
-    justify-content:flex-start;
-    flex-flow: row wrap;
-    border-bottom: var(--main-border);
+  display: flex;
+  justify-content: flex-start;
+  flex-flow: row wrap;
+  border-bottom: var(--main-border);
 }
+
 .toggledUnitStatInfoPic {
-    width: 75px; 
-    overflow: hidden;
+  width: 75px;
+  overflow: hidden;
 }
+
 .toggledUnitStatInfoDiv {
   width: CALC(var(--nexus-gamescreen-width) - 75px);
   max-height: 200px;
+  overflow: auto;
+}
+
+.unitUpgradeDiv {
+  height: 35px;
+}
+
+.unitsUpgradesDiv {
+  max-height: 130px;
   overflow: auto;
 }

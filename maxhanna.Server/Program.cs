@@ -1,5 +1,4 @@
-using maxhanna.Server.Controllers;
-using maxhanna.Server.Controllers.Helpers;
+ 
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
 using MySqlConnector;
@@ -19,7 +18,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
 builder.Services.AddHostedService<CoinValueBackgroundService>();
 builder.Services.AddHostedService<NexusAttackBackgroundService>();
-builder.Services.AddHostedService<NexusUpgradeBackgroundService>();
+builder.Services.AddHostedService<NexusGoldUpdateBackgroundService>();
+builder.Services.AddHostedService<NexusUnitUpgradeBackgroundService>();
+builder.Services.AddHostedService<NexusBuildingUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusUnitBackgroundService>();
  
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files

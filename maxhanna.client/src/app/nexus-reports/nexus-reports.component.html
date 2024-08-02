@@ -1,133 +1,135 @@
-<div *ngIf="battleReports && battleReports.battleOutcomes">
+<div *ngIf="battleReports && battleReports.battleOutcomes && !isLoading">
   Total:{{battleReports.totalReports}}
-  <span *ngIf="totalPages && totalPages.length > 0">
+  <span *ngIf="totalPages && totalPages.length > 0 && !isLoading">
     <label for="pageSize">Page Size:</label>
     <select #pageSize id="pageSize" (change)="onPageSizeChange()">
       <option *ngFor="let size of pageSizes" [value]="size">{{ size }}</option>
     </select>
   </span>
 
-  <span *ngIf="totalPages && totalPages.length > 0">
+  <span *ngIf="totalPages && totalPages.length > 0 && !isLoading">
     <label for="currentPage">Current Page:</label>
     <select #currentPage id="currentPage" (change)="onPageChange()">
       <option *ngFor="let page of totalPages" [value]="page">{{ page }}</option>
     </select>
   </span>
 
-  <button (click)="nextPage()" *ngIf="totalPages && totalPages.length > 1">Next Page</button>
+  <button (click)="nextPage()" *ngIf="totalPages && totalPages.length > 1 && !isLoading">Next Page</button>
 
-  <div *ngFor="let report of battleReports.battleOutcomes">
-    <div>
-      <strong>Battle Report #{{report.battleId}} <button (click)="deleteReport(report)">Delete</button></strong>
-      <p>{{report.timestamp}}</p>
-      <p>Origin: ({{report.originCoordsX}}, {{report.originCoordsY}}) - <app-user-tag [user]="report.originUser"></app-user-tag></p>
-      <p>Destination: ({{report.destinationCoordsX}}, {{report.destinationCoordsY}})<span *ngIf="report.destinationUser"> - <app-user-tag [user]="report.destinationUser"></app-user-tag></span></p> 
-      <p>Gold Stolen:{{report.defenderGoldStolen | number:'1.2-2' }} / {{report.defenderGold | number:'1.2-2' }}</p>
+  <div *ngIf="!isLoading">
+    <div *ngFor="let report of battleReports.battleOutcomes">
+      <div>
+        <strong>Battle Report #{{report.battleId}} <button (click)="deleteReport(report)">Delete</button></strong>
+        <p>{{report.timestamp}}</p>
+        <p>Origin: ({{report.originCoordsX}}, {{report.originCoordsY}}) - <app-user-tag [user]="report.originUser" [displayOnlyName]="true"></app-user-tag></p>
+        <p>Destination: ({{report.destinationCoordsX}}, {{report.destinationCoordsY}})<span *ngIf="report.destinationUser"> - <app-user-tag [user]="report.destinationUser" [displayOnlyName]="true"></app-user-tag></span></p>
+        <p>Gold Stolen:{{report.defenderGoldStolen | number:'1.2-2' }} / {{report.defenderGold | number:'1.2-2' }}</p>
 
-      Units sent:
-      <div class="unitSummaryDiv">
-        <table>
-          <thead>
-            <tr>
-              <th></th>
-              <td *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
-                <span class="rotated-header unitCell">{{ unit.key }}</span>
-              </td>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th>⚔️:</th>
-              <ng-container *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
-                <td class="unitCell">{{ unit.value }}</td>
-              </ng-container>
-            </tr>
-            <tr>
-              <th>🛡️:</th>
-              <ng-container *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
-                <td class="unitCell">{{ report.defendingUnits[unit.key] || 0 }}</td>
-              </ng-container>
-            </tr>
-          </tbody>
-        </table>
+        Units sent:
+        <div class="unitSummaryDiv">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <td *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
+                  <span class="rotated-header unitCell">{{ unit.key }}</span>
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>⚔️:</th>
+                <ng-container *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
+                  <td class="unitCell">{{ unit.value }}</td>
+                </ng-container>
+              </tr>
+              <tr>
+                <th>🛡️:</th>
+                <ng-container *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
+                  <td class="unitCell">{{ report.defendingUnits[unit.key] || 0 }}</td>
+                </ng-container>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        Losses:
+        <div class="unitSummaryDiv">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <td *ngFor="let unit of getUnitsArray(report.attackingLosses); let i = index">
+                  <span class="rotated-header unitCell">{{ unit.key }}</span>
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>⚔️:</th>
+                <ng-container *ngFor="let unit of getUnitsArray(report.attackingLosses); let i = index">
+                  <td class="unitCell">{{ unit.value }}</td>
+                </ng-container>
+              </tr>
+              <tr>
+                <th>🛡️:</th>
+                <ng-container *ngFor="let unit of getUnitsArray(report.defendingLosses); let i = index">
+                  <td class="unitCell">{{ report.defendingLosses[unit.key] || 0 }}</td>
+                </ng-container>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        Defender Buildings:
+        <div class="unitSummaryDiv" *ngIf="report.defenderBuildingLevels">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <td *ngFor="let unit of getUnitsArray(report.defenderBuildingLevels); let i = index">
+                  <span class="rotated-header unitCell">{{ unit.key }}</span>
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>🏰:</th>
+                <ng-container *ngFor="let unit of getUnitsArray(report.defenderBuildingLevels); let i = index">
+                  <td class="unitCell">{{ unit.value }}</td>
+                </ng-container>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        Defender units not in village:
+        <div class="unitSummaryDiv" *ngIf="report.defenderUnitsNotInVillage">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <td *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage); let i = index">
+                  <span class="rotated-header unitCell">{{ unit.key }}</span>
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>🛡️:</th>
+                <ng-container *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage); let i = index">
+                  <td class="unitCell">{{ unit.value }}</td>
+                </ng-container>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
       </div>
-
-      Losses:
-      <div class="unitSummaryDiv">
-        <table>
-          <thead>
-            <tr>
-              <th></th>
-              <td *ngFor="let unit of getUnitsArray(report.attackingLosses); let i = index">
-                <span class="rotated-header unitCell">{{ unit.key }}</span>
-              </td>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th>⚔️:</th>
-              <ng-container *ngFor="let unit of getUnitsArray(report.attackingLosses); let i = index">
-                <td class="unitCell">{{ unit.value }}</td>
-              </ng-container>
-            </tr>
-            <tr>
-              <th>🛡️:</th>
-              <ng-container *ngFor="let unit of getUnitsArray(report.defendingLosses); let i = index">
-                <td class="unitCell">{{ report.defendingLosses[unit.key] || 0 }}</td>
-              </ng-container>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      Defender Buildings:
-      <div class="unitSummaryDiv" *ngIf="report.defenderBuildingLevels">
-        <table>
-          <thead>
-            <tr>
-              <th></th>
-              <td *ngFor="let unit of getUnitsArray(report.defenderBuildingLevels); let i = index">
-                <span class="rotated-header unitCell">{{ unit.key }}</span>
-              </td>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th>🏰:</th>
-              <ng-container *ngFor="let unit of getUnitsArray(report.defenderBuildingLevels); let i = index">
-                <td class="unitCell">{{ unit.value }}</td>
-              </ng-container>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      Defender units not in village:
-      <div class="unitSummaryDiv" *ngIf="report.defenderUnitsNotInVillage">
-        <table>
-          <thead>
-            <tr>
-              <th></th>
-              <td *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage); let i = index">
-                <span class="rotated-header unitCell">{{ unit.key }}</span>
-              </td>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th>🛡️:</th>
-              <ng-container *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage); let i = index">
-                <td class="unitCell">{{ unit.value }}</td>
-              </ng-container>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
+      <hr>
     </div>
-    <hr>
   </div>
-  <div *ngIf="!battleReports || !battleReports.battleOutcomes || battleReports.battleOutcomes.length == 0">
-    No reports
-  </div>
+</div> 
+<div *ngIf="isLoading || !battleReports || !battleReports.battleOutcomes || battleReports.battleOutcomes.length == 0">
+  {{isLoading ? 'Loading reports...' : ''}}
 </div>

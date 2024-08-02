@@ -4,9 +4,10 @@
       <div class="cell-content" (click)="selectCoordinates(x, y);">
         <div *ngIf="nexusPictureSrc && mapTileSrc" [id]="'x' + x + ',y' + y + 'LocDiv'">
           <img [src]="grid[x][y] ? nexusPictureSrc : mapTileSrc" class="cell-content" loading="lazy" decoding="asynchronous" />
-
+          <span *ngIf="grid[x][y]" class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"></span>
         </div>
-        <div class="cell-content-coords" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'">{{x + ',' + y}}</div>
+        <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'">{{x + ',' + y}}</div>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isAttackReturningOn(x, y) ? 'block' : isAttackSentOn(x, y) ? 'block': 'none'">{{isAttackReturningOn(x, y) ? '🛡️' : '⚔️'}}</span>
       </div>
     </div>
   </div>
@@ -27,11 +28,15 @@
 <div *ngIf="selectedNexusBase && !isAttackScreenOpen && mapInputX && mapInputY" class="centeredDiv">
   <button (click)="showAttackScreen()" *ngIf="showAttackButton">Attack</button>
   <button (click)="scrollToCoordinates(selectedNexusBase.coordsX, selectedNexusBase.coordsY, false)">{{isAttackScreenOpen ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}</button>
-  <span *ngIf="selectedNexusBase.user">
-    👤: <span style="display:inline-block;"><app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag></span>
-  </span>
+  <div *ngIf="selectedNexusBase.user">
+    👤:
+    <span style="display:inline-block;">
+      <app-user-tag [user]="selectedNexusBase.user" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag>
+      <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">Go to base</button>
+    </span>
+  </div>
 
-  <div > 
+  <div> 
     <ng-container *ngIf="getAttackTimersForCoords(selectedNexusBase.coordsX, selectedNexusBase.coordsY).length; else noAttacks">
       <div *ngFor="let attackTimer of getAttackTimersForCoords(selectedNexusBase.coordsX, selectedNexusBase.coordsY)">
         {{ formatTimer(attackTimer.endTime) }}
@@ -53,7 +58,7 @@
   <app-nexus-attack-screen [user]="user"
                            [originBase]="nexusBase"
                            [selectedNexus]="selectedNexusBase"
-                           [nexusUnits]="nexusUnits"
+                           [nexusAvailableUnits]="nexusAvailableUnits"
                            [unitStats]="unitStats"
                            [marinePictureSrc]="marinePictureSrc"
                            [goliathPictureSrc]="goliathPictureSrc"
@@ -65,6 +70,6 @@
                            (closedAttackScreen)="closedAttackScreen()"
                            (emittedNotifications)="emittedNotifications.emit($event)"
                            (emittedReloadEvent)="emittedReloadEvent.emit($event)"
-                           (emittedAttackCoordinates)="emittedAttackCoordinates($event)" >
+                           (emittedAttack)="emittedAttack($event)" >
   </app-nexus-attack-screen>
 </div>

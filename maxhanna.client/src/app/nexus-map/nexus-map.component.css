@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   overflow: auto;
-  width: 350px;
+  width: 100%;
   height: 275px;
 }
 
@@ -42,7 +42,12 @@
   overflow: hidden;
   word-break: keep-all;
 }
-
+.cell-content-coords-adjustedForBase {
+  top: -23px;
+}
+.attackIconSpan-adjustedForNoBase {
+  top: -60px !important;
+}
 .mapInput {
   width: 40px;
 }
@@ -56,6 +61,32 @@
 }
 
 .reportsDisplayDiv {
-  max-height: 300px;
+  max-height: 200px;
   overflow: auto;
+}
+.baseAllianceSpan {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  position: relative;
+  top: -50px;
+  right: -30px; 
+  display: block;
+}
+.myBase {
+  background-color: var(--main-font-color);
+}
+.emptyBase {
+  background-color: gray;
+}
+.enemyBase {
+  background-color: red;
+}
+.incomingIconSpan {
+  width: 10px;
+  height: 10px; 
+  position: relative;
+  top: -72px;
+  left: 4px;
+  display: block;
 }

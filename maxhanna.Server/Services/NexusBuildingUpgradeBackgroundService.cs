@@ -6,14 +6,14 @@ using System.Collections.Concurrent;
 
 namespace maxhanna.Server.Services
 {
-    public class NexusUpgradeBackgroundService : BackgroundService
+    public class NexusBuildingUpgradeBackgroundService : BackgroundService
     { 
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
         private readonly IConfiguration _config;
         private Timer _checkForNewUpgradesTimer;
 
 
-        public NexusUpgradeBackgroundService(IConfiguration config)
+        public NexusBuildingUpgradeBackgroundService(IConfiguration config)
         { 
             _config = config;
         }

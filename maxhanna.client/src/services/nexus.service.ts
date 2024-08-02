@@ -10,6 +10,7 @@ import { NexusAttackSent } from './datacontracts/nexus/nexus-attack-sent';
 import { NexusAvailableUpgrades, UpgradeDetail } from './datacontracts/nexus/nexus-available-upgrades';
 import { NexusBattleOutcome } from './datacontracts/nexus/nexus-battle-outcome';
 import { NexusBattleOutcomeReports } from './datacontracts/nexus/nexus-battle-outcome-reports';
+import { NexusUnitUpgrades } from './datacontracts/nexus/nexus-unit-upgrades';
 
 
 @Injectable({
@@ -48,7 +49,8 @@ export class NexusService {
       nexusBase: NexusBase; nexusBaseUpgrades: NexusBaseUpgrades;
       nexusUnits: NexusUnits; nexusUnitsPurchasedList: NexusUnitsPurchased[];
       nexusAttacksSent: NexusAttackSent[], nexusAttacksIncoming: NexusAttackSent[],
-      miningSpeed: number, availableUpgrades: UpgradeDetail[], battleReports: NexusBattleOutcomeReports
+      miningSpeed: number, availableUpgrades: UpgradeDetail[], battleReports: NexusBattleOutcomeReports,
+      nexusUnitUpgrades: NexusUnitUpgrades[]
     } | undefined> {
     return await this.fetchData('/nexus', { User: user, Nexus: nexus });
   }
@@ -94,6 +96,9 @@ export class NexusService {
   async getUnitStats(user: User, nexus: NexusBase): Promise<any> {
     return await this.fetchData('/nexus/getunitstats', { User: user, Nexus: nexus });
   }
+  async getUnitUpgradeStats(user: User): Promise<any> {
+    return await this.fetchData('/nexus/getunitupgradestats', { User: user });
+  }
   async purchaseUnit(user: User, nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
     return await this.fetchData('/nexus/purchaseUnit', { User: user, Nexus: nexus, unitId, purchaseAmount });
   }
@@ -105,6 +110,9 @@ export class NexusService {
   }
   async deleteReport(user: User, battleId: number): Promise<any> {
     return await this.fetchData('/nexus/deletereport', { User: user, BattleId: battleId });
+  }
+  async research(user: User, nexusBase: NexusBase, unit: UnitStats): Promise<any> {
+    return await this.fetchData('/nexus/research', { User: user, NexusBase: nexusBase, Unit: unit });
   }
 
 

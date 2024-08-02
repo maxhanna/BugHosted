@@ -10,7 +10,7 @@ import { AppComponent } from '../app.component';
 export class NexusBaseUnitsComponent {
 
   @Input() parentRef?: AppComponent;
-  @Input() nexusUnits?: NexusUnits;
+  @Input() nexusAvailableUnits?: NexusUnits;
   @Input() marinePictureSrc: string | undefined;
   @Input() goliathPictureSrc: string | undefined;
   @Input() siegeTankPictureSrc: string | undefined;
@@ -20,13 +20,13 @@ export class NexusBaseUnitsComponent {
   @Input() glitcherPictureSrc: string | undefined;
   @Output() toggleUnitScreen = new EventEmitter();
   nexusHasUnits() {
-    if (!this.nexusUnits) return false;
-    return (this.nexusUnits.marineTotal > 0
-      || this.nexusUnits.goliathTotal > 0
-      || this.nexusUnits.scoutTotal > 0
-      || this.nexusUnits.wraithTotal > 0
-      || this.nexusUnits.siegeTankTotal > 0
-      || this.nexusUnits.battlecruiserTotal > 0
-      || this.nexusUnits.glitcherTotal > 0);
+    if (!this.nexusAvailableUnits) return false;
+    return (this.nexusAvailableUnits.marineTotal > 0
+      || this.nexusAvailableUnits.goliathTotal > 0
+      || this.nexusAvailableUnits.scoutTotal > 0
+      || this.nexusAvailableUnits.wraithTotal > 0
+      || this.nexusAvailableUnits.siegeTankTotal > 0
+      || this.nexusAvailableUnits.battlecruiserTotal > 0
+      || this.nexusAvailableUnits.glitcherTotal > 0);
   }
 }

@@ -16,6 +16,13 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
         public int EngineeringBayLevel { get; set; }
         public int FactoryLevel { get; set; }
         public int StarportLevel { get; set; }
+        public int MarineLevel { get; set; }
+        public int GoliathLevel { get; set; }
+        public int SiegeTankLevel { get; set; }
+        public int ScoutLevel { get; set; }
+        public int WraithLevel { get; set; }
+        public int BattlecruiserLevel { get; set; }
+        public int GlitcherLevel { get; set; }
         public DateTime Conquered { get; set; }
         public DateTime Updated { get; set; }
     }

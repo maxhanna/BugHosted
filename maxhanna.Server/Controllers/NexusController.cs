@@ -35,87 +35,65 @@ namespace maxhanna.Server.Controllers
                 return BadRequest("Invalid user data.");
             }
 
-            if (req.Nexus == null)
+            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
-                req.Nexus = await GetUserFirstBase(req.User);
-            }
-            await UpdateNexus(req.Nexus);
-            NexusBase? nexusBase = await GetNexusBase(req.Nexus?.CoordsX, req.Nexus?.CoordsY);
-            NexusBaseUpgrades? nexusBaseUpgrades = await GetNexusBaseUpgrades(nexusBase);
-            NexusUnits? nexusUnits = await GetNexusUnits(nexusBase, false, null, null);
-            List<NexusUnitsPurchased>? nexusUnitPurchasesList = await GetNexusUnitPurchases(nexusBase);
-            List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase, null, null);
-            List<NexusAttackSent>? nexusAttacksIncoming = await GetNexusAttacksIncoming(nexusBase, false);
-            decimal miningSpeed = await GetMiningSpeedForNexus(nexusBase);
-            var availableUpgrades = await GetBuildingUpgradeList(nexusBase);
-
-            NexusBattleOutcomeReports? battleReports = null;
-            if (nexusBase != null && nexusBase.User != null)
-            {
-                battleReports = await GetAllBattleReports(nexusBase.User.Id, null, 1, 5);
-            }
-
-
-            return Ok(
-                new
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
                 {
-                    nexusBase = nexusBase ?? new NexusBase(),
-                    nexusBaseUpgrades = nexusBaseUpgrades ?? new NexusBaseUpgrades(),
-                    nexusUnits = nexusUnits ?? new NexusUnits(),
-                    nexusUnitsPurchasedList = nexusUnitPurchasesList ?? new List<NexusUnitsPurchased>(),
-                    nexusAttacksSent,
-                    nexusAttacksIncoming,
-                    miningSpeed,
-                    availableUpgrades,
-                    battleReports,
-                });
-        }
-
-        [HttpPost("UpdateNexus")]
-        public async Task UpdateNexus([FromBody] NexusBase? nexusBase)
-        {
-            nexusBase = await GetNexusBase(nexusBase?.CoordsX, nexusBase?.CoordsY);
-            //Console.WriteLine($"Got nexusBase: {nexusBase?.CoordsX ?? 0}:{nexusBase?.CoordsY ?? 0}");
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-            {
-                try
-                {
-                    await conn.OpenAsync();
-                    if (nexusBase == null)
-                    {
-                        return;
-                    }
-
-                    MySqlTransaction transaction = await conn.BeginTransactionAsync();
-
                     try
                     {
-                        if (nexusBase != null && nexusBase.Gold < (5000 * (nexusBase.WarehouseLevel + 1)))
+                        if (req.Nexus == null)
                         {
-                            await UpdateNexusGold(conn, nexusBase, transaction);
+                            req.Nexus = await GetUserFirstBase(req.User, connection, transaction);
                         }
-                        if (nexusBase != null)
+                        Console.WriteLine((req.Nexus?.Gold ?? 0) + "is before update gold!~");
+                        await RecalculateNexusGold(connection, req.Nexus, transaction);
+                        Console.WriteLine((req.Nexus?.Gold ?? 0) + "is current gold!~");
+
+                        NexusBase? nexusBase = await GetNexusBase(req.Nexus?.CoordsX, req.Nexus?.CoordsY, connection, transaction);
+                        NexusBaseUpgrades? nexusBaseUpgrades = await GetNexusBaseUpgrades(nexusBase, connection, transaction);
+                        NexusUnits? nexusUnits = await GetNexusUnits(nexusBase, false, connection, transaction);
+                        List<NexusUnitsPurchased>? nexusUnitPurchasesList = await GetNexusUnitPurchases(nexusBase, connection, transaction);
+                        List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase, false, connection, transaction);
+                        List<NexusAttackSent>? nexusAttacksIncoming = await GetNexusAttacksIncoming(nexusBase, false, false, connection, transaction);
+                        List<NexusUnitUpgrades>? nexusUnitUpgrades = await GetNexusUnitUpgrades(nexusBase, connection, transaction);
+
+                        decimal miningSpeed = await GetMiningSpeedForNexus(nexusBase, connection, transaction);
+                        var availableUpgrades = await GetBuildingUpgradeList(nexusBase, connection, transaction);
+                        NexusBattleOutcomeReports? battleReports = null;
+                        if (nexusBase != null && nexusBase.User != null)
                         {
-                            //await UpdateNexusBuildings(conn, nexusBase, transaction);
-                            //await UpdateNexusUnitTrainingCompletes(nexusBase, conn, transaction);
-                            //await UpdateNexusAttacks(nexusBase, conn, transaction);
+                            battleReports = await GetAllBattleReports(nexusBase.User.Id, nexusBase, 1, 5, connection, transaction);
                         }
-                        // Commit the transaction
+
                         await transaction.CommitAsync();
+
+                        return Ok(
+                            new
+                            {
+                                nexusBase = nexusBase ?? new NexusBase(),
+                                nexusBaseUpgrades = nexusBaseUpgrades ?? new NexusBaseUpgrades(),
+                                nexusUnits = nexusUnits ?? new NexusUnits(),
+                                nexusUnitsPurchasedList = nexusUnitPurchasesList ?? new List<NexusUnitsPurchased>(),
+                                nexusAttacksSent,
+                                nexusAttacksIncoming,
+                                miningSpeed,
+                                availableUpgrades,
+                                battleReports,
+                                nexusUnitUpgrades,
+                            });
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
                         await transaction.RollbackAsync();
-                        throw;
+                        return StatusCode(500, "Internal server error: " + ex.Message);
                     }
-
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An error occurred while processing the GET request.");
                 }
             }
         }
+
+
+
 
         [HttpPost("/Nexus/Start", Name = "Start")]
         public async Task<IActionResult> Start([FromBody] User user)
@@ -186,14 +164,17 @@ namespace maxhanna.Server.Controllers
             Console.WriteLine($"POST /Nexus/GetMap for player {user.Id}");
             List<NexusBase> bases = new List<NexusBase>();
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+
+            await conn.OpenAsync();
+            MySqlTransaction transaction = await conn.BeginTransactionAsync();
+
             try
             {
-                await conn.OpenAsync();
 
                 // Insert new base at the available location
                 string sql = @"
                     SELECT 
-                        n.user_id, u.username, n.coords_x, n.coords_y, n.command_center_level, n.engineering_bay_level, n.mines_level, n.factory_level, n.starport_level, warehouse_level, udp.file_id
+                        n.user_id, u.username, n.coords_x, n.coords_y, n.gold, n.command_center_level, n.engineering_bay_level, n.mines_level, n.factory_level, n.starport_level, warehouse_level, udp.file_id
                     FROM 
                         maxhanna.nexus_bases n
                     LEFT JOIN 
@@ -202,7 +183,7 @@ namespace maxhanna.Server.Controllers
                         maxhanna.user_display_pictures udp on udp.user_id = n.user_id;";
 
 
-                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
 
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
@@ -223,6 +204,7 @@ namespace maxhanna.Server.Controllers
                         tmpBase.FactoryLevel = reader.IsDBNull(reader.GetOrdinal("factory_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("factory_level"));
                         tmpBase.StarportLevel = reader.IsDBNull(reader.GetOrdinal("starport_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("starport_level"));
                         tmpBase.WarehouseLevel = reader.IsDBNull(reader.GetOrdinal("warehouse_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("warehouse_level"));
+                        tmpBase.Gold = reader.IsDBNull(reader.GetOrdinal("gold")) ? 0 : reader.GetDecimal(reader.GetOrdinal("gold"));
                         tmpBase.User =
                             new User(reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")),
                                 reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString(reader.GetOrdinal("username")),
@@ -230,11 +212,15 @@ namespace maxhanna.Server.Controllers
                                 dp,
                                 null);
                         bases.Add(tmpBase);
+                        //await RecalculateNexusGold(conn, tmpBase, transaction);
                     }
                 }
+
+                await transaction.CommitAsync();
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "An error occurred while starting the game for player {UserId}", user.Id);
                 return StatusCode(500, "Internal server error");
             }
@@ -242,6 +228,7 @@ namespace maxhanna.Server.Controllers
             {
                 await conn.CloseAsync();
             }
+
             return Ok(bases);
         }
 
@@ -250,7 +237,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> GetBattleReportsByUser([FromBody] BattleReportRequest request)
         {
             Console.WriteLine($"POST /Nexus/GetBattleReports for player {request.User.Id} targetBase: {request.TargetBase?.CoordsX},{request.TargetBase?.CoordsY} ");
-            var paginatedReports = await GetAllBattleReports(request.User.Id, request.TargetBase, request.PageNumber, request.PageSize);
+            var paginatedReports = await GetAllBattleReports(request.User.Id, request.TargetBase, request.PageNumber, request.PageSize, null, null);
             return Ok(paginatedReports);
         }
 
@@ -262,25 +249,38 @@ namespace maxhanna.Server.Controllers
             {
                 return Ok(0);
             }
-            return Ok(await GetMiningSpeedForNexus(request.Nexus));
+            return Ok(await GetMiningSpeedForNexus(request.Nexus, null, null));
         }
 
-        private async Task<decimal> GetMiningSpeedForNexus(NexusBase? nexusBase)
+        private async Task<decimal> GetMiningSpeedForNexus(NexusBase? nexusBase, MySqlConnection? connection, MySqlTransaction? transaction)
         {
             if (nexusBase == null)
             {
                 return 0;
             }
             decimal speed = Decimal.One;
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+
+            bool ownConnection = false;
+            bool ownTransaction = false;
+
             try
             {
-                await conn.OpenAsync();
+                if (connection == null)
+                {
+                    connection = new MySqlConnection("your-connection-string-here");
+                    await connection.OpenAsync();
+                    ownConnection = true;
+                }
 
-                // Insert new base at the available location
+                if (transaction == null)
+                {
+                    transaction = await connection.BeginTransactionAsync();
+                    ownTransaction = true;
+                }
+
                 string sql = @"
                     SELECT 
-                        s.*
+                        speed
                     FROM 
                         maxhanna.nexus_mining_speed s
                     LEFT JOIN 
@@ -289,8 +289,7 @@ namespace maxhanna.Server.Controllers
                         n.coords_x = @CoordsX 
                     AND n.coords_y = @CoordsY";
 
-
-                MySqlCommand cmd = new MySqlCommand(sql, conn);
+                MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
                 cmd.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                 cmd.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
@@ -302,14 +301,33 @@ namespace maxhanna.Server.Controllers
                         break;
                     }
                 }
+
+                if (ownTransaction)
+                {
+                    await transaction.CommitAsync();
+                }
             }
             catch (Exception ex)
             {
+                if (ownTransaction && transaction != null)
+                {
+                    await transaction.RollbackAsync();
+                }
+
                 _logger.LogError(ex, $"An error occurred while GetMinesInfo");
             }
             finally
             {
-                await conn.CloseAsync();
+                if (ownConnection && connection != null)
+                {
+                    await connection.CloseAsync();
+                    await connection.DisposeAsync();
+                }
+
+                if (ownTransaction && transaction != null)
+                {
+                    await transaction.DisposeAsync();
+                }
             }
             return speed;
         }
@@ -319,6 +337,15 @@ namespace maxhanna.Server.Controllers
         {
             Console.WriteLine($"POST /Nexus/GetUnitStats for player {request.User.Id}");
             List<UnitStats> unitStats = await GetUnitStatsFromDB(null, null);
+
+            return Ok(unitStats);
+        }
+
+        [HttpPost("/Nexus/GetUnitUpgradeStats", Name = "GetUnitUpgradeStats")]
+        public async Task<IActionResult> GetUnitUpgradeStats([FromBody] User user)
+        {
+            Console.WriteLine($"POST /Nexus/GetUnitUpgradeStats for player {user.Id}");
+            List<UnitUpgradeStats> unitStats = await GetUnitUpgradeStatsFromDB(null, null);
 
             return Ok(unitStats);
         }
@@ -343,51 +370,49 @@ namespace maxhanna.Server.Controllers
                     {
                         try
                         {
-                            await UpdateNexusGold(conn, request.Nexus, transaction);
+                            await RecalculateNexusGold(conn, request.Nexus, transaction);
                             //Console.WriteLine("Updated Gold");
                             List<UnitStats> unitStats = await GetUnitStatsFromDB(request.UnitId, null);
                             if (unitStats == null || unitStats.Count <= 0)
                             {
-                                await transaction.CommitAsync(); 
                                 return NotFound("Unit not found.");
                             }
 
                             if (unitStats.First().UnitType == "glitcher")
                             {
                                 NexusUnits? currentUnits = await GetNexusUnits(request.Nexus, false, conn, transaction);
-                                if (currentUnits != null && currentUnits.GlitcherTotal > 0) {
-                                    await transaction.CommitAsync();
-                                    return BadRequest("Only one glitcher allowed per base."); 
+                                if (currentUnits != null && currentUnits.GlitcherTotal > 0)
+                                {
+                                    return BadRequest("Only one glitcher allowed per base.");
                                 }
-                            } 
+                            }
 
-                            UnitStats unit = unitStats.First(x => x.UnitId == request.UnitId); 
+                            UnitStats unit = unitStats.First(x => x.UnitId == request.UnitId);
                             int unitCost = unit.Cost;
                             int unitSupply = unit.Supply;
                             string unitType = unit.UnitType ?? "";
 
-                            //Console.WriteLine($"Unit purchased: {unitType}, unitSupply: {unitSupply}, unitCost: {unitCost}, goldBefore : {currentGold} totalCost: {unitCost * request.PurchaseAmount}");
-                            var (currentGold, supplyCapacity) = await GetNexusGoldAndSupply(request, conn, transaction);
+                            Console.WriteLine($"Unit purchased: {unitType}, unitSupply: {unitSupply}, unitCost: {unitCost}, totalCost: {unitCost * request.PurchaseAmount}");
+                            var (currentGold, totalSupplyUsed) = await GetNexusGoldAndSupply(request.Nexus, conn, transaction);
                             int currentSupplyUsed = await CalculateUsedNexusSupply(request.Nexus, conn, transaction);
+                            Console.WriteLine($"before purchase : {unitType}, currentGold: {currentGold}, currentSupplyUsed: {currentSupplyUsed}");
+
                             currentGold -= (unitCost * request.PurchaseAmount);
                             var supplyCost = (unitSupply * request.PurchaseAmount);
-                            supplyCapacity -= (supplyCost + currentSupplyUsed);
+                            totalSupplyUsed = (supplyCost + currentSupplyUsed);
 
-                            Console.WriteLine($"After Unit purchased: {unitType}, supplyCapacity: {supplyCapacity}, currentGold: {currentGold}, supplyCost: {supplyCost}");
+                            Console.WriteLine($"After Unit purchased: {unitType}, totalSupplyUsed: {totalSupplyUsed}, currentGold: {currentGold}, supplyCost: {supplyCost}, currentSupplyUsed: {currentSupplyUsed}");
 
                             if (currentGold < 0)
                             {
-                                await transaction.CommitAsync(); 
                                 return BadRequest("Not Enough Gold");
                             }
-                            if (supplyCapacity < 0)
+                            if (totalSupplyUsed < 0)
                             {
-                                await UpdateNexusSupply(request.Nexus, currentSupplyUsed, conn, transaction);
-                                await transaction.CommitAsync(); 
                                 return BadRequest("Not Enough Supply");
                             }
-
-                            await UpdateNexusGoldAndAddSupply(request.Nexus.CoordsX, request.Nexus.CoordsY, currentGold, supplyCost, conn, transaction);
+                            await UpdateNexusGoldAndSupply(request.Nexus.CoordsX, request.Nexus.CoordsY, currentGold, totalSupplyUsed, conn, transaction);
+                            Console.WriteLine("current gold : after the update: " + currentGold);
                             await UpdateNexusUnitPurchases(request.Nexus.CoordsX, request.Nexus.CoordsY, request.UnitId, request.PurchaseAmount, conn, transaction);
 
                             await transaction.CommitAsync();
@@ -423,7 +448,7 @@ namespace maxhanna.Server.Controllers
             {
                 return NotFound("User base not found.");
             }
-            var availableUpgrades = await GetBuildingUpgradeList(request.Nexus);
+            var availableUpgrades = await GetBuildingUpgradeList(request.Nexus, null, null);
 
             return Ok(new { Upgrades = availableUpgrades });
         }
@@ -442,48 +467,142 @@ namespace maxhanna.Server.Controllers
             return Ok($"Report {request.BattleId} deleted.");
         }
 
+
+        [HttpPost("/Nexus/Research", Name = "Research")]
+        public async Task<IActionResult> Research([FromBody] NexusResearchRequest request)
+        {
+            Console.WriteLine($"POST /Nexus/Research for player ({request.User.Id})");
+
+            if (request.User == null || request.User.Id == 0)
+            {
+                return BadRequest("Invalid user data.");
+            }
+            Console.WriteLine($"Rearch info -> unitId: {request.Unit.UnitId}");
+
+            try
+            {
+                using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+
+                    using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
+                    {
+                        try
+                        {
+                            await RecalculateNexusGold(conn, request.NexusBase, transaction);
+                            NexusBase? nexus = await GetNexusBase(request.NexusBase.CoordsX, request.NexusBase.CoordsY, conn, transaction);
+
+                            // Check if Nexus base is null before proceeding
+                            if (nexus == null)
+                            {
+                                return NotFound("Nexus base not found.");
+                            }
+
+                            // Retrieve unit upgrade stats and unit stats in parallel
+                            List<UnitUpgradeStats> unitUpgradeStats = await GetUnitUpgradeStatsFromDB(conn, transaction);
+                            List<UnitStats> unitStats = await GetUnitStatsFromDB(request.Unit.UnitId, null);
+                             
+                            // Check if upgrade stats and unit stats are found
+                            if (unitUpgradeStats == null || unitUpgradeStats.Count == 0)
+                            {
+                                return NotFound("Unit upgrades not found.");
+                            }
+                            Console.WriteLine($"unitUpgradeStats length : {unitUpgradeStats.Count} unitstats length : {unitStats.Count}");
+                            // Find the upgrade unit using LINQ
+                            UnitStats upgradeUnit = unitStats[0];
+                            Console.WriteLine("Upgrade unit : " + upgradeUnit?.UnitType ?? "");
+
+                            if (unitStats == null || unitStats.Count == 0 || upgradeUnit == null)
+                            {
+                                return NotFound("Unit stats not found.");
+                            }
+
+                            // Get the unit level based on the unit type
+                            int unitLevel = upgradeUnit?.UnitType switch
+                            {
+                                "marine" => nexus.MarineLevel,
+                                "goliath" => nexus.GoliathLevel,
+                                "siege_tank" => nexus.SiegeTankLevel,
+                                "scout" => nexus.ScoutLevel,
+                                "wraith" => nexus.WraithLevel,
+                                "battlecruiser" => nexus.BattlecruiserLevel,
+                                "glitcher" => nexus.GlitcherLevel,
+                                _ => 0 // Default if the unit type does not match
+                            };
+
+
+                            //unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1
+                            nexus.Gold -= (upgradeUnit.Cost * 10 * (unitLevel + 1));
+
+                            if (nexus.Gold < 0)
+                            {
+                                return BadRequest("Not Enough Gold");
+                            }
+                            await UpdateNexusGoldAndSupply(nexus.CoordsX, nexus.CoordsY, nexus.Gold, null, conn, transaction);
+                            await ResearchUnit(nexus, upgradeUnit, conn, transaction);
+                            await transaction.CommitAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Error while purchasing units: {ex.Message}");
+                            await transaction.RollbackAsync();
+                            return BadRequest(ex.Message);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error with database connection: {ex.Message}");
+                return BadRequest("Something went wrong: " + ex.Message);
+            }
+            //substract money from unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1
+             
+            return Ok($"Research started.");
+        }
+
         [HttpPost("/Nexus/UpgradeMines", Name = "UpgradeMines")]
         public Task<IActionResult> UpgradeMines([FromBody] NexusRequest req)
         {
-            return UpgradeComponent(req.User, "mines", req.Nexus);
+            return UpgradeBuilding(req.User, "mines", req.Nexus);
         }
 
         [HttpPost("/Nexus/UpgradeFactory", Name = "UpgradeFactory")]
         public Task<IActionResult> UpgradeFactory([FromBody] NexusRequest req)
         {
-            return UpgradeComponent(req.User, "factory", req.Nexus);
+            return UpgradeBuilding(req.User, "factory", req.Nexus);
         }
 
         [HttpPost("/Nexus/UpgradeStarport", Name = "UpgradeStarport")]
         public Task<IActionResult> UpgradeStarport([FromBody] NexusRequest req)
         {
-            return UpgradeComponent(req.User, "starport", req.Nexus);
+            return UpgradeBuilding(req.User, "starport", req.Nexus);
         }
 
 
         [HttpPost("/Nexus/UpgradeEngineeringBay", Name = "UpgradeEngineeringBay")]
         public Task<IActionResult> UpgradeEngineeringBay([FromBody] NexusRequest req)
         {
-            return UpgradeComponent(req.User, "engineering_bay", req.Nexus);
+            return UpgradeBuilding(req.User, "engineering_bay", req.Nexus);
         }
 
 
         [HttpPost("/Nexus/UpgradeWarehouse", Name = "UpgradeWarehouse")]
         public Task<IActionResult> UpgradeWarehouse([FromBody] NexusRequest req)
         {
-            return UpgradeComponent(req.User, "warehouse", req.Nexus);
+            return UpgradeBuilding(req.User, "warehouse", req.Nexus);
         }
 
         [HttpPost("/Nexus/UpgradeNexus", Name = "UpgradeNexus")]
         public Task<IActionResult> UpgradeNexus([FromBody] NexusRequest req)
         {
-            return UpgradeComponent(req.User, "command_center", req.Nexus);
+            return UpgradeBuilding(req.User, "command_center", req.Nexus);
         }
 
         [HttpPost("/Nexus/UpgradeSupplyDepot", Name = "UpgradeSupplyDepot")]
         public Task<IActionResult> UpgradeSupplyDepot([FromBody] NexusRequest req)
         {
-            return UpgradeComponent(req.User, "supply_depot", req.Nexus);
+            return UpgradeBuilding(req.User, "supply_depot", req.Nexus);
         }
 
         [HttpPost("/Nexus/Engage", Name = "Engage")]
@@ -531,15 +650,13 @@ namespace maxhanna.Server.Controllers
             return Ok($"Attack sent to {"{" + req.DestinationNexus.CoordsX + "," + req.DestinationNexus.CoordsY + "}"}");
         }
 
-        private async Task<List<Object>> GetBuildingUpgradeList(NexusBase? nexusBase)
+        private async Task<List<Object>> GetBuildingUpgradeList(NexusBase? nexusBase, MySqlConnection connection, MySqlTransaction transaction)
         {
             var availableUpgrades = new List<Object>();
 
             if (nexusBase == null) return availableUpgrades;
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
-                await conn.OpenAsync();
 
                 string sqlCurrentLevels = @"
                     SELECT 
@@ -555,7 +672,7 @@ namespace maxhanna.Server.Controllers
                     WHERE 
                         coords_x = @CoordsX
                     AND coords_y = @CoordsY";
-                MySqlCommand cmdCurrentLevels = new MySqlCommand(sqlCurrentLevels, conn);
+                MySqlCommand cmdCurrentLevels = new MySqlCommand(sqlCurrentLevels, connection, transaction);
                 cmdCurrentLevels.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                 cmdCurrentLevels.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
@@ -586,7 +703,7 @@ namespace maxhanna.Server.Controllers
                         starport_upgraded
                     FROM nexus_base_upgrades
                     WHERE coords_x = @CoordsX AND coords_y = @CoordsY";
-                MySqlCommand cmdUpgradeTimestamps = new MySqlCommand(sqlUpgradeTimestamps, conn);
+                MySqlCommand cmdUpgradeTimestamps = new MySqlCommand(sqlUpgradeTimestamps, connection, transaction);
                 cmdUpgradeTimestamps.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                 cmdUpgradeTimestamps.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
@@ -632,7 +749,7 @@ namespace maxhanna.Server.Controllers
                             FROM nexus_building_types 
                             WHERE type IN ('command_center', 'mines', 'supply_depot', 'warehouse', 'engineering_bay', 'factory', 'starport')
                         )";
-                MySqlCommand cmdDurations = new MySqlCommand(sqlDurations, conn);
+                MySqlCommand cmdDurations = new MySqlCommand(sqlDurations, connection, transaction);
                 var readerDurations = await cmdDurations.ExecuteReaderAsync();
                 while (await readerDurations.ReadAsync())
                 {
@@ -685,10 +802,6 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"An error occurred while retrieving building upgrades for {nexusBase.CoordsX},{nexusBase.CoordsY}");
-            }
-            finally
-            {
-                await conn.CloseAsync();
             }
 
             return availableUpgrades;
@@ -765,8 +878,9 @@ namespace maxhanna.Server.Controllers
             await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
             //Console.WriteLine("NexusAttack deleted");
         }
-        private async Task<List<NexusAttackSent>?> GetNexusAttacksSent(NexusBase? nexusBase, MySqlConnection? conn, MySqlTransaction? transaction)
+        private async Task<List<NexusAttackSent>?> GetNexusAttacksSent(NexusBase? nexusBase, bool onlyCurrentBase, MySqlConnection? conn, MySqlTransaction? transaction)
         {
+            //Console.WriteLine($"Get nexus attacks sent. onlyCurrentBase: {onlyCurrentBase}");
             List<NexusAttackSent>? attacks = null;
             if (nexusBase == null) return attacks;
 
@@ -780,18 +894,34 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
                 }
 
-                string sql = "SELECT * FROM maxhanna.nexus_attacks_sent WHERE origin_coords_x = @OriginX AND origin_coords_y = @OriginY;";
-
+                string sql = "";
+                if (onlyCurrentBase)
+                {
+                    sql = "SELECT * FROM maxhanna.nexus_attacks_sent WHERE origin_coords_x = @OriginX AND origin_coords_y = @OriginY;"; 
+                } else
+                {
+                    sql = @"
+                        SELECT b.user_id, a.*  FROM maxhanna.nexus_attacks_sent a
+                        LEFT JOIN 
+                            maxhanna.nexus_bases b ON b.coords_x = a.origin_coords_x AND b.coords_y = a.origin_coords_y
+                        WHERE b.user_id = @UserId;";
+                }
                 using (MySqlCommand sqlCmd = new MySqlCommand(sql, conn))
                 {
                     if (transaction != null)
                     {
                         sqlCmd.Transaction = transaction;
                     }
-
-                    sqlCmd.Parameters.AddWithValue("@OriginX", nexusBase.CoordsX);
-                    sqlCmd.Parameters.AddWithValue("@OriginY", nexusBase.CoordsY);
-
+                    if (onlyCurrentBase)
+                    {
+                        sqlCmd.Parameters.AddWithValue("@OriginX", nexusBase.CoordsX);
+                        sqlCmd.Parameters.AddWithValue("@OriginY", nexusBase.CoordsY);
+                    }
+                    else
+                    {
+                        sqlCmd.Parameters.AddWithValue("@UserId", nexusBase.User?.Id ?? 0); 
+                    }
+                    //Console.WriteLine("attack sent sql : " + sqlCmd.CommandText);
                     using (var reader = await sqlCmd.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())
@@ -835,7 +965,7 @@ namespace maxhanna.Server.Controllers
 
             return attacks;
         }
-        private async Task<List<NexusAttackSent>?> GetNexusAttacksIncoming(NexusBase? nexusBase, bool withUnits, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
+        private async Task<List<NexusAttackSent>?> GetNexusAttacksIncoming(NexusBase? nexusBase, bool onlyCurrentBase, bool withUnits, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
         {
             List<NexusAttackSent>? attacks = null;
             if (nexusBase == null) return attacks;
@@ -852,8 +982,18 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
                 }
 
-                string sql = "SELECT * FROM maxhanna.nexus_attacks_sent WHERE destination_coords_x = @DestX AND destination_coords_y = @DestY;";
+                string sql = "";
+                if (onlyCurrentBase)
+                {
+                    sql = "SELECT * FROM maxhanna.nexus_attacks_sent WHERE destination_coords_x = @DestX AND destination_coords_y = @DestY;";
+                } else
+                {
+                    sql = @"SELECT b.user_id, a.*  
+                        FROM maxhanna.nexus_attacks_sent a
+                        LEFT JOIN maxhanna.nexus_bases b on b.coords_x = a.destination_coords_x AND b.coords_y = a.destination_coords_y
+                        WHERE b.user_id = @UserId";
 
+                }
                 using (MySqlCommand sqlCmd = new MySqlCommand(sql, conn))
                 {
                     if (transaction != null)
@@ -861,8 +1001,16 @@ namespace maxhanna.Server.Controllers
                         sqlCmd.Transaction = transaction;
                     }
 
-                    sqlCmd.Parameters.AddWithValue("@DestX", nexusBase.CoordsX);
-                    sqlCmd.Parameters.AddWithValue("@DestY", nexusBase.CoordsY);
+                    if(onlyCurrentBase)
+                    {
+                        sqlCmd.Parameters.AddWithValue("@DestX", nexusBase.CoordsX);
+                        sqlCmd.Parameters.AddWithValue("@DestY", nexusBase.CoordsY); 
+                    } else
+                    {
+                        sqlCmd.Parameters.AddWithValue("@UserId", nexusBase.User?.Id ?? 0); 
+                    }
+
+                    //Console.WriteLine("attacks received sql " + sqlCmd.CommandText);
 
                     using (var reader = await sqlCmd.ExecuteReaderAsync())
                     {
@@ -1117,6 +1265,63 @@ namespace maxhanna.Server.Controllers
             return unitStats;
         }
 
+
+
+        private async Task<List<UnitUpgradeStats>> GetUnitUpgradeStatsFromDB(MySqlConnection? conn = null, MySqlTransaction? transaction = null)
+        {
+            List<UnitUpgradeStats> upgradeStats = new List<UnitUpgradeStats>();
+            bool createdConnection = false;
+
+            try
+            {
+                if (conn == null)
+                {
+                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await conn.OpenAsync();
+                    createdConnection = true;
+                }
+
+                string sql = $@"
+                    SELECT 
+                        unit_level, 
+                        damage_multiplier, 
+                        duration
+                    FROM 
+                        maxhanna.nexus_unit_upgrade_stats
+                    WHERE 1=1;";
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn, transaction))
+                {
+
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            var upgradeStat = new UnitUpgradeStats
+                            {
+                                UnitLevel = reader.GetInt32(reader.GetOrdinal("unit_level")),
+                                DamageMultiplier = reader.GetDecimal(reader.GetOrdinal("damage_multiplier")),
+                                Duration = reader.GetInt32(reader.GetOrdinal("duration"))
+                            };
+                            upgradeStats.Add(upgradeStat);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"An error occurred while GetUpgradeUnitStatsFromDB");
+            }
+            finally
+            {
+                if (createdConnection && conn != null)
+                {
+                    await conn.CloseAsync();
+                }
+            }
+
+            return upgradeStats;
+        }
+
         private async Task<NexusBase?> GetNexusBase(int? coordsX, int? coordsY, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
         {
             NexusBase? nexusBase = null;
@@ -1158,6 +1363,13 @@ namespace maxhanna.Server.Controllers
                             WarehouseLevel = readerBase.IsDBNull(readerBase.GetOrdinal("warehouse_level")) ? 0 : readerBase.GetInt32("warehouse_level"),
                             FactoryLevel = readerBase.IsDBNull(readerBase.GetOrdinal("factory_level")) ? 0 : readerBase.GetInt32("factory_level"),
                             StarportLevel = readerBase.IsDBNull(readerBase.GetOrdinal("starport_level")) ? 0 : readerBase.GetInt32("starport_level"),
+                            MarineLevel = readerBase.IsDBNull(readerBase.GetOrdinal("marine_level")) ? 0 : readerBase.GetInt32("marine_level"),
+                            GoliathLevel = readerBase.IsDBNull(readerBase.GetOrdinal("goliath_level")) ? 0 : readerBase.GetInt32("goliath_level"),
+                            SiegeTankLevel = readerBase.IsDBNull(readerBase.GetOrdinal("siege_tank_level")) ? 0 : readerBase.GetInt32("siege_tank_level"),
+                            ScoutLevel = readerBase.IsDBNull(readerBase.GetOrdinal("scout_level")) ? 0 : readerBase.GetInt32("scout_level"),
+                            WraithLevel = readerBase.IsDBNull(readerBase.GetOrdinal("wraith_level")) ? 0 : readerBase.GetInt32("wraith_level"),
+                            BattlecruiserLevel = readerBase.IsDBNull(readerBase.GetOrdinal("battlecruiser_level")) ? 0 : readerBase.GetInt32("battlecruiser_level"),
+                            GlitcherLevel = readerBase.IsDBNull(readerBase.GetOrdinal("glitcher_level")) ? 0 : readerBase.GetInt32("glitcher_level"),
                             Conquered = readerBase.IsDBNull(readerBase.GetOrdinal("conquered")) ? DateTime.MinValue : readerBase.GetDateTime("conquered"),
                             Updated = readerBase.IsDBNull(readerBase.GetOrdinal("updated")) ? DateTime.MinValue : readerBase.GetDateTime("updated"),
                         };
@@ -1181,23 +1393,20 @@ namespace maxhanna.Server.Controllers
 
 
 
-        private async Task<NexusBaseUpgrades?> GetNexusBaseUpgrades(NexusBase? nexusBase)
+        private async Task<NexusBaseUpgrades?> GetNexusBaseUpgrades(NexusBase? nexusBase, MySqlConnection connection, MySqlTransaction transaction)
         {
             NexusBaseUpgrades? nexusBaseUpgrades = null;
             if (nexusBase == null) { return nexusBaseUpgrades; }
-
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
                 try
                 {
-                    await conn.OpenAsync();
                     string sqlUpgrades = @"
                             SELECT * 
                             FROM nexus_base_upgrades 
                             WHERE 
                                 coords_x = @CoordsX 
                             AND coords_y = @CoordsY";
-                    MySqlCommand cmdUpgrades = new MySqlCommand(sqlUpgrades, conn);
+                    MySqlCommand cmdUpgrades = new MySqlCommand(sqlUpgrades, connection, transaction);
                     cmdUpgrades.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
                     cmdUpgrades.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
 
@@ -1223,10 +1432,6 @@ namespace maxhanna.Server.Controllers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"An error occurred while GetNexusBaseUpgrades");
-                }
-                finally
-                {
-                    await conn.CloseAsync();
                 }
             }
 
@@ -1278,7 +1483,7 @@ namespace maxhanna.Server.Controllers
                 }
                 if (currentlyInBase && nexusUnits != null)
                 {
-                    List<NexusAttackSent>? nexusAttackSents = await GetNexusAttacksSent(nexusBase, conn, transaction);
+                    List<NexusAttackSent>? nexusAttackSents = await GetNexusAttacksSent(nexusBase, true, conn, transaction);
                     List<UnitStats> unitsSent = await GetUnitStatsFromDB(null, null, conn, transaction);
                     unitsSent = AggregateUnitsSentIntoUnitStats(nexusAttackSents, unitsSent);
 
@@ -1361,7 +1566,7 @@ namespace maxhanna.Server.Controllers
 
         private async Task<NexusUnits?> GetNexusAttackingUnits(NexusBase? nexusBase, MySqlConnection? conn, MySqlTransaction? transaction)
         {
-            List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase, conn, transaction);
+            List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase, true, conn, transaction);
 
             int marinesTotal = nexusAttacksSent?.Sum(x => x.MarineTotal) ?? 0;
             int goliathTotal = nexusAttacksSent?.Sum(x => x.GoliathTotal) ?? 0;
@@ -1449,14 +1654,13 @@ namespace maxhanna.Server.Controllers
         }
 
 
-        private async Task<NexusBase?> GetUserFirstBase(User user)
+        private async Task<NexusBase?> GetUserFirstBase(User user, MySqlConnection connection, MySqlTransaction transaction)
         {
             //Console.WriteLine($"Get User first base for user id {user.Id}");
             NexusBase? tmpBase = null;
-            MySqlConnection conn1 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+
             try
             {
-                await conn1.OpenAsync();
 
                 string sql = @"
                 SELECT 
@@ -1467,7 +1671,7 @@ namespace maxhanna.Server.Controllers
                 LIMIT 1;";
 
 
-                MySqlCommand cmd = new MySqlCommand(sql, conn1);
+                MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
                 cmd.Parameters.AddWithValue("@UserId", user.Id);
 
                 using (var reader = await cmd.ExecuteReaderAsync())
@@ -1486,36 +1690,54 @@ namespace maxhanna.Server.Controllers
             {
                 _logger.LogError(ex, $"An error occurred getting first base for player {user.Id}");
             }
-            finally
-            {
-                await conn1.CloseAsync();
-            }
             return tmpBase;
         }
 
-        private async Task UpdateNexusGold(MySqlConnection conn, NexusBase nexusBase, MySqlTransaction transaction)
+        private async Task RecalculateNexusGold(MySqlConnection conn, NexusBase? nexusBase, MySqlTransaction transaction)
         {
+            if (nexusBase == null || (nexusBase.CoordsX == 0 && nexusBase.CoordsY == 0))
+            {
+                return;
+            }
+            Console.WriteLine($"Update nexus gold : {nexusBase.CoordsX},{nexusBase.CoordsY}");
             decimal newGoldAmount = 0;
             decimal miningSpeed = 0;
             if (nexusBase != null)
             {
                 // Retrieve mining speed based on mines level
-                string sqlMiningSpeed = "SELECT speed FROM nexus_mining_speed WHERE mines_level = @MinesLevel";
+                string sqlMiningSpeed = @"
+                    SELECT s.speed, n.gold, n.updated FROM nexus_mining_speed s
+                    LEFT JOIN nexus_bases n ON n.mines_level = s.mines_level
+                    WHERE s.mines_level = n.mines_level
+                    AND coords_x = @CoordsX 
+                    AND coords_y = @CoordsY;";
                 MySqlCommand cmdMiningSpeed = new MySqlCommand(sqlMiningSpeed, conn, transaction);
-                cmdMiningSpeed.Parameters.AddWithValue("@MinesLevel", nexusBase.MinesLevel);
-
-                var miningSpeedResult = await cmdMiningSpeed.ExecuteScalarAsync();
+                cmdMiningSpeed.Parameters.AddWithValue("@CoordsX", nexusBase.CoordsX);
+                cmdMiningSpeed.Parameters.AddWithValue("@CoordsY", nexusBase.CoordsY);
+                decimal? miningSpeedResult = 0;
+                decimal currentGold = 0;
+                DateTime updated = DateTime.Now;
+                using (var reader = await cmdMiningSpeed.ExecuteReaderAsync())
+                {
+                    if (await reader.ReadAsync())
+                    {
+                        miningSpeedResult = reader.IsDBNull(reader.GetOrdinal("speed")) ? null : reader.GetDecimal("speed");
+                        currentGold = reader.IsDBNull(reader.GetOrdinal("gold")) ? 0 : reader.GetDecimal("gold");
+                        updated = reader.IsDBNull(reader.GetOrdinal("updated")) ? DateTime.Now : reader.GetDateTime("updated");
+                        Console.WriteLine($"miningSpeedResult: {miningSpeedResult}, currentGold: {currentGold}. updated: {updated}");
+                    }
+                }
                 if (miningSpeedResult != null)
                 {
                     miningSpeed = Convert.ToDecimal(miningSpeedResult);
                     if (miningSpeed != 0)
                     {
                         //Console.WriteLine($"Mining speed {miningSpeed}. Base Last Updated : {nexusBase.Updated}");
-                        TimeSpan timeElapsed = DateTime.Now - nexusBase.Updated;
+                        TimeSpan timeElapsed = DateTime.Now - updated;
                         decimal goldEarned = (decimal)(timeElapsed.TotalSeconds / (double)miningSpeed);
                         //Console.WriteLine("goldEarned " + goldEarned + "; since time elapsed: " + timeElapsed.TotalSeconds);
 
-                        newGoldAmount = nexusBase.Gold + Math.Abs(goldEarned);
+                        newGoldAmount = currentGold + Math.Abs(goldEarned);
                         if (newGoldAmount > (5000 * (nexusBase.WarehouseLevel + 1)))
                         {
                             newGoldAmount = (5000 * (nexusBase.WarehouseLevel + 1));
@@ -1537,6 +1759,39 @@ namespace maxhanna.Server.Controllers
                         { "@CoordsY", nexusBase.CoordsY },
                     };
                     await ExecuteInsertOrUpdateOrDeleteAsync(updateGoldSql, parameters, conn, transaction);
+                }
+            }
+        }
+
+
+        [HttpPost("UpdateNexusGold")]
+        public async Task UpdateNexusGold(NexusBase nexusBase)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+            MySqlTransaction transaction = await conn.BeginTransactionAsync();
+
+            if (nexusBase != null)
+            {
+                try
+                {
+                    await RecalculateNexusGold(conn, nexusBase, transaction);
+                    await transaction.CommitAsync();
+
+                }
+                catch (Exception ex)
+                {
+
+                    await transaction.RollbackAsync();
+
+                    _logger.LogError(ex, "An error occurred while updating Nexus gold.");
+                    throw;
+                }
+                finally
+                {
+
+                    await conn.CloseAsync();
+
                 }
             }
         }
@@ -1689,8 +1944,8 @@ namespace maxhanna.Server.Controllers
                 UnitStats battlecruiserStats = stats.Find(x => x.UnitType == "battlecruiser")!;
                 UnitStats glitcherStats = stats.Find(x => x.UnitType == "glitcher")!;
 
-                List<NexusAttackSent>? attacks = (await GetNexusAttacksIncoming(nexus, true, null, null)) ?? new List<NexusAttackSent>();
-                List<NexusAttackSent>? attacks2 = (await GetNexusAttacksSent(nexus, null, null)) ?? new List<NexusAttackSent>();
+                List<NexusAttackSent>? attacks = (await GetNexusAttacksIncoming(nexus, true, true, null, null)) ?? new List<NexusAttackSent>();
+                List<NexusAttackSent>? attacks2 = (await GetNexusAttacksSent(nexus, true, null, null)) ?? new List<NexusAttackSent>();
                 if (attacks == null)
                 {
                     attacks = new List<NexusAttackSent>();
@@ -1713,7 +1968,7 @@ namespace maxhanna.Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                Console.WriteLine("Error while updating attacks:" + ex.Message);
 
                 await transaction.RollbackAsync();
 
@@ -1972,8 +2227,10 @@ namespace maxhanna.Server.Controllers
 
                     NexusBattleOutcome battleOutcome = await CreateBattleOutcome(attacks, attackIndex, origin, destination, defendingUnits, attackingLosses, defendingLosses, goldPlundered, conn, transaction);
                     await InsertBattleOutcome(battleOutcome, conn, transaction);
+                    Console.WriteLine("Inserted report, now find glitchers");
+                    var foundGlitchers = attackingUnits.FirstOrDefault(x => x.UnitType == "glitcher" && x.SentValue > 0);
+                    Console.WriteLine("Fouind glitchers or not ");
 
-                    var foundGlitchers = attackingUnits.Find(x => x.UnitType == "glitcher" && x.SentValue > 0);
                     if (attackingUnits != null && foundGlitchers != null)
                     {
                         // Glitcher was sent, and it survived. Take over the nexus and make sure the units remain there;
@@ -1997,8 +2254,8 @@ namespace maxhanna.Server.Controllers
                         int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
                         await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
                     }
-
-                    if (attackingUnits.FirstOrDefault(x => x.SentValue > 0) != null)
+                    Console.WriteLine("all done, sending attack");
+                    if (attackingUnits != null && attackingUnits.FirstOrDefault(x => x.SentValue > 0) != null)
                     {
                         Console.WriteLine("Sent surviving units back home.");
                         await SendAttack(origin, origin, attackingUnits.ToArray(), attacks[attackIndex].Duration, conn, transaction);
@@ -2066,7 +2323,7 @@ namespace maxhanna.Server.Controllers
 
         private async Task<decimal> GetGoldPlundered(MySqlConnection conn, MySqlTransaction transaction, NexusBase destination, List<UnitStats> attackingUnits, NexusUnits? defendingUnits, Dictionary<string, (int GroundDamage, int AirDamage, int Supply)> unitStats)
         {
-            await UpdateNexusGold(conn, destination, transaction);
+            await RecalculateNexusGold(conn, destination, transaction);
             decimal goldForGrabs = destination.Gold;
             if (destination.MinesLevel == 0)
             {
@@ -2074,6 +2331,8 @@ namespace maxhanna.Server.Controllers
             }
             Console.WriteLine("destination gold : " + goldForGrabs);
             decimal goldCarryingCapacity = attackingUnits.Sum(x => x.GoldCarryingCapacity);
+
+            Console.WriteLine("gold carrying capacity: " + goldCarryingCapacity);
             decimal goldPlundered;
             if (defendingUnits != null)
             {
@@ -2090,12 +2349,12 @@ namespace maxhanna.Server.Controllers
                         : "Glitcher");
                     return defendingUnits.GetType().GetProperty($"{bigType}Total")?.GetValue(defendingUnits, null) as int? ?? 0;
                 });
-
+                Console.WriteLine($"totalAttackingUnits: {totalAttackingUnits}, totalDefendingUnits: {totalDefendingUnits}");
                 // Step 2: Determine the ratio
                 decimal ratio = totalAttackingUnits == 0 || totalDefendingUnits == 0
                     ? (totalAttackingUnits > totalDefendingUnits ? 1.0m : 0.0m)
                     : Math.Min((decimal)totalAttackingUnits / totalDefendingUnits, 1.0m);
-
+                Console.WriteLine("ratio : " + ratio);
                 // Step 3: Adjust goldPlundered based on the ratio
                 goldPlundered = ratio * Math.Min(goldForGrabs, goldCarryingCapacity);
             }
@@ -2129,7 +2388,7 @@ namespace maxhanna.Server.Controllers
         }
 
         private async Task DeleteReport(int userId, int battleId)
-        { 
+        {
             string sql = @"
                 INSERT INTO nexus_reports_deleted (user_id, battle_id) 
                 VALUES (@UserId, @BattleId);
@@ -2148,15 +2407,31 @@ namespace maxhanna.Server.Controllers
             var parameters = new Dictionary<string, object?>
             {
                 { "@UserId", userId },
-                { "@BattleId", battleId }, 
+                { "@BattleId", battleId },
             };
-            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters); 
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters);
+        }
+
+        private async Task ResearchUnit(NexusBase nexusBase, UnitStats unit, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+        {
+            string sql = @"
+                INSERT INTO nexus_unit_upgrades (coords_x, coords_y, unit_id_upgraded) 
+                VALUES (@CoordsX, @CoordsY, @UnitId);";
+
+            var parameters = new Dictionary<string, object?>
+            {
+                { "@CoordsX", nexusBase.CoordsX },
+                { "@CoordsY", nexusBase.CoordsY },
+                { "@UnitId", unit.UnitId },
+            };
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
         }
 
 
         private async Task<NexusBattleOutcome> CreateBattleOutcome(List<NexusAttackSent> attacks, int attackIndex, NexusBase origin, NexusBase destination,
             NexusUnits? defendingUnits, Dictionary<string, int?>? attackingLosses, Dictionary<string, int?> defendingLosses, decimal goldPlundered, MySqlConnection? conn, MySqlTransaction? transaction)
         {
+            Console.WriteLine("Create battle outcome");
             NexusUnits? dunoi = await GetNexusAttackingUnits(destination, conn, transaction);
             return new NexusBattleOutcome()
             {
@@ -2213,13 +2488,17 @@ namespace maxhanna.Server.Controllers
                 }
             };
         }
-
-
-        private async Task<NexusBattleOutcomeReports> GetAllBattleReports(int? userId, NexusBase? targetBase, int pageNumber, int pageSize)
+        private async Task<NexusBattleOutcomeReports> GetAllBattleReports(
+            int? userId,
+            NexusBase? targetBase,
+            int pageNumber,
+            int pageSize,
+            MySqlConnection? externalConnection = null,
+            MySqlTransaction? externalTransaction = null)
         {
             var battleReports = new List<NexusBattleOutcome>();
             int offset = (pageNumber - 1) * pageSize;
-
+            int totalReports = 0;
             string query = @"
                 SELECT SQL_CALC_FOUND_ROWS b.*, au.username as attackerUsername, du.username as defenderUsername, audp.file_id as attackerDp, dudp.file_id as defenderDp
                 FROM nexus_battles b
@@ -2250,11 +2529,26 @@ namespace maxhanna.Server.Controllers
                 ORDER BY b.timestamp DESC, b.battle_id DESC
                 LIMIT @PageSize OFFSET @Offset";
 
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            MySqlConnection connection = externalConnection ?? new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlTransaction transaction = externalTransaction;
+            bool needToCloseConnection = externalConnection == null;
+            bool needToCommitTransaction = externalTransaction == null;
+            //Console.WriteLine(query);
+            //Console.WriteLine(offset);
+            //Console.WriteLine(pageSize);
+            try
             {
-                await connection.OpenAsync();
+                if (needToCloseConnection)
+                {
+                    await connection.OpenAsync();
+                }
 
-                using (var command = new MySqlCommand(query, connection))
+                if (needToCommitTransaction)
+                {
+                    transaction = await connection.BeginTransactionAsync();
+                }
+
+                using (var command = new MySqlCommand(query, connection, transaction))
                 {
                     if (userId != null)
                     {
@@ -2283,7 +2577,7 @@ namespace maxhanna.Server.Controllers
                             string? defenderUserName = reader.IsDBNull(reader.GetOrdinal("defenderUsername")) ? "Anonymous" : reader.GetString("defenderUsername");
 
                             var battleOutcome = new NexusBattleOutcome
-                            { 
+                            {
                                 BattleId = reader.GetInt32("battle_id"),
                                 OriginUser = new User(originUserId ?? 0, originUserName, null, adpFileEntry, null),
                                 OriginCoordsX = reader.IsDBNull(reader.GetOrdinal("origin_coords_x")) ? 0 : reader.GetInt32("origin_coords_x"),
@@ -2323,7 +2617,7 @@ namespace maxhanna.Server.Controllers
                             FROM nexus_bases
                             WHERE coords_x = @OriginCoordsX AND coords_y = @OriginCoordsY";
 
-                        using (var scoutLevelCommand = new MySqlCommand(scoutLevelQuery, connection))
+                        using (var scoutLevelCommand = new MySqlCommand(scoutLevelQuery, connection, transaction))
                         {
                             scoutLevelCommand.Parameters.AddWithValue("@OriginCoordsX", battleOutcome.OriginCoordsX);
                             scoutLevelCommand.Parameters.AddWithValue("@OriginCoordsY", battleOutcome.OriginCoordsY);
@@ -2364,26 +2658,46 @@ namespace maxhanna.Server.Controllers
                         }
                     }
                 }
-
-                using (var totalReportsCommand = new MySqlCommand("SELECT FOUND_ROWS()", connection))
+                using (var totalReportsCommand = new MySqlCommand("SELECT FOUND_ROWS()", connection, transaction))
                 {
-                    int totalReports = Convert.ToInt32(await totalReportsCommand.ExecuteScalarAsync());
-                    return new NexusBattleOutcomeReports
-                    {
-                        BattleOutcomes = battleReports,
-                        CurrentPage = pageNumber,
-                        PageSize = pageSize,
-                        TotalReports = totalReports
-                    };
+                    totalReports = Convert.ToInt32(await totalReportsCommand.ExecuteScalarAsync());
+
                 }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Exception!:" + ex.Message);
+                if (externalTransaction == null && transaction != null)
+                {
+                    await transaction.RollbackAsync();
+                }
+            }
+            finally
+            {
+
+                if (externalTransaction == null && transaction != null)
+                {
+                    await transaction.CommitAsync();
+                }
+                if (externalConnection == null && connection != null)
+                {
+                    await connection.CloseAsync();
+                }
+            }
+            return new NexusBattleOutcomeReports
+            {
+                BattleOutcomes = battleReports,
+                CurrentPage = pageNumber,
+                PageSize = pageSize,
+                TotalReports = totalReports
+            };
         }
 
 
 
         private async Task InsertBattleOutcome(NexusBattleOutcome battleOutcome, MySqlConnection? conn, MySqlTransaction? transaction)
         {
-            //Console.WriteLine("Creating a report");
+            Console.WriteLine("Creating a report");
             string sql = @"
                 INSERT INTO nexus_battles 
                     (origin_user_id, origin_coords_x, origin_coords_y, destination_user_id, destination_coords_x, destination_coords_y, 
@@ -2413,6 +2727,69 @@ namespace maxhanna.Server.Controllers
             await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
             //Console.WriteLine($"Report created");
         }
+        [HttpPost("UpdateNexusUnitUpgradesCompletes")]
+        public async Task UpdateNexusUnitUpgradesCompletes([FromBody] NexusBase nexus)
+        {
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+            MySqlTransaction transaction = await conn.BeginTransactionAsync();
+
+            try
+            {
+                List<UnitStats> stats = await GetUnitStatsFromDB(null, null, conn, transaction);
+                List<NexusUnitUpgrades>? upgrades = await GetNexusUnitUpgrades(nexus, conn, transaction);
+
+                if (upgrades != null && stats.Count > 0)
+                {
+                    for (var x = 0; x < upgrades.Count; x++)
+                    {
+                        UnitStats stat = stats.First(stat => stat.UnitId == upgrades[x].UnitIdUpgraded);
+                        int duration = stat.Duration;
+                        int unitId = upgrades[x].UnitIdUpgraded;
+                        int unitLevel = GetUnitLevelForUnit(nexus, unitId);
+                        int upgradeDuration = await GetUpgradeDurationForUnit(unitLevel, unitId, conn, transaction);
+
+                        string unitType = stat.UnitType ?? "";
+                        TimeSpan timeElapsed = DateTime.Now - upgrades[x].Timestamp;
+                        Console.WriteLine($"Checking {nexus.CoordsX}{nexus.CoordsX} unit upgrades. timeElapsed.TotalSeconds: {timeElapsed.TotalSeconds} Duration : {duration} ({timeElapsed.TotalSeconds - duration})");
+                        if ((timeElapsed.TotalSeconds - duration) >= -3)
+                        {
+                            // Update unit level in nexus_bases table
+                            string sqlUpdate = $@"
+                                UPDATE nexus_bases 
+                                SET {unitType}_level = {unitType}_level + 1 
+                                WHERE coords_x = @CoordsX AND coords_y = @CoordsY;";
+
+                            MySqlCommand cmdUpdate = new MySqlCommand(sqlUpdate, conn, transaction);
+                            cmdUpdate.Parameters.AddWithValue("@CoordsX", upgrades[x].CoordsX);
+                            cmdUpdate.Parameters.AddWithValue("@CoordsY", upgrades[x].CoordsY);
+                            await cmdUpdate.ExecuteNonQueryAsync();
+
+                            // Delete the completed upgrade from nexus_unit_upgrades
+                            string sqlDelete = $@"
+                                DELETE FROM nexus_unit_upgrades 
+                                WHERE id = @Id;";
+
+                            MySqlCommand cmdDelete = new MySqlCommand(sqlDelete, conn, transaction);
+                            cmdDelete.Parameters.AddWithValue("@Id", upgrades[x].Id);
+                            await cmdDelete.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "An error occurred while updating Nexus unit upgrades.");
+                throw;
+            }
+            finally
+            {
+                await conn.CloseAsync();
+            }
+        }
+
 
         [HttpPost("UpdateNexusUnitTrainingCompletes")]
         public async Task UpdateNexusUnitTrainingCompletes([FromBody] NexusBase nexus)
@@ -2491,6 +2868,86 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        private int GetUnitLevelForUnit(NexusBase nexus, int unitId)
+        {
+            switch (unitId)
+            {
+                case 6:
+                    return nexus.MarineLevel;
+                case 7:
+                    return nexus.GoliathLevel;
+                case 8:
+                    return nexus.BattlecruiserLevel;
+                case 9:
+                    return nexus.WraithLevel;
+                case 10:
+                    return nexus.SiegeTankLevel;
+                case 11:
+                    return nexus.ScoutLevel;
+                case 12:
+                    return nexus.GlitcherLevel;
+                default:
+                    throw new ArgumentException($"Unknown unitId: {unitId}");
+            }
+        }
+
+        private async Task<int> GetUpgradeDurationForUnit(int unitLevel, int unitId, MySqlConnection conn, MySqlTransaction transaction)
+        {
+            string sql = @"
+                SELECT us.duration
+                FROM nexus_unit_upgrade_stats us
+                JOIN nexus_unit_stats s ON s.unit_level = us.unit_level
+                WHERE s.unit_id = @UnitId AND us.unit_level = @UnitLevel;";
+
+            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+            cmd.Parameters.AddWithValue("@UnitId", unitId);
+            cmd.Parameters.AddWithValue("@UnitLevel", unitLevel);
+
+            object result = await cmd.ExecuteScalarAsync();
+            if (result != null && int.TryParse(result.ToString(), out int duration))
+            {
+                return duration;
+            }
+            return 1; // Default duration if not found
+        }
+
+        private async Task<List<NexusUnitUpgrades>> GetNexusUnitUpgrades(NexusBase? nexus, MySqlConnection conn, MySqlTransaction transaction)
+        {
+            if (nexus == null) { return new List<NexusUnitUpgrades>(); }
+            string query = @"
+                SELECT 
+                    id, 
+                    coords_x, 
+                    coords_y, 
+                    unit_id_upgraded, 
+                    timestamp 
+                FROM 
+                    nexus_unit_upgrades 
+                WHERE 
+                    coords_x = @CoordsX AND coords_y = @CoordsY;";
+
+            MySqlCommand cmd = new MySqlCommand(query, conn, transaction);
+            cmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
+            cmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
+
+            List<NexusUnitUpgrades> upgrades = new List<NexusUnitUpgrades>();
+            using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    NexusUnitUpgrades upgrade = new NexusUnitUpgrades
+                    {
+                        Id = reader.GetInt32("id"),
+                        CoordsX = reader.GetInt32("coords_x"),
+                        CoordsY = reader.GetInt32("coords_y"),
+                        UnitIdUpgraded = reader.GetInt32("unit_id_upgraded"),
+                        Timestamp = reader.GetDateTime("timestamp")
+                    };
+                    upgrades.Add(upgrade);
+                }
+            }
+            return upgrades;
+        }
         private async Task UpdateNexusUnitPurchases(int coordsX, int coordsY, int unitId, int unitsToAdd, MySqlConnection conn, MySqlTransaction transaction)
         {
             string sqlUpdate = $@"
@@ -2506,26 +2963,65 @@ namespace maxhanna.Server.Controllers
             await cmdUpdate.ExecuteNonQueryAsync();
         }
 
-        private async Task UpdateNexusGoldAndAddSupply(int coordsX, int coordsY, int newGoldAmount, int newSupplyAmount, MySqlConnection conn, MySqlTransaction transaction)
+        private async Task UpdateNexusGoldAndSupply(
+            int coordsX,
+            int coordsY,
+            decimal? newGoldAmount,
+            int? newSupplyAmount,
+            MySqlConnection conn,
+            MySqlTransaction transaction)
         {
-            //Console.WriteLine($"UpdateNexusGoldAndSupply...");
-            string sqlUpdate = @"
-                UPDATE nexus_bases
-                SET gold = @Gold, supply = supply + @Supply
-                WHERE coords_x = @CoordsX AND coords_y = @CoordsY;";
+            // Ensure either gold or supply is provided, but not both
+            if (newGoldAmount == null && newSupplyAmount == null)
+            {
+                throw new ArgumentException("At least one of newGoldAmount or newSupplyAmount must be provided.");
+            } 
 
-            MySqlCommand cmdUpdate = new MySqlCommand(sqlUpdate, conn, transaction);
-            cmdUpdate.Parameters.AddWithValue("@Gold", newGoldAmount);
-            cmdUpdate.Parameters.AddWithValue("@Supply", newSupplyAmount);
-            cmdUpdate.Parameters.AddWithValue("@CoordsX", coordsX);
-            cmdUpdate.Parameters.AddWithValue("@CoordsY", coordsY);
-            //Console.WriteLine($"Updated nexus gold {newGoldAmount} and supply {newSupplyAmount}");
-            await cmdUpdate.ExecuteNonQueryAsync();
+            try
+            {
+                // Prepare the SQL update statement based on which parameters are provided
+                string sqlUpdate = "UPDATE nexus_bases SET ";
+                var parameters = new List<MySqlParameter>();
+
+                if (newGoldAmount != null)
+                {
+                    sqlUpdate += "gold = @Gold ";
+                    parameters.Add(new MySqlParameter("@Gold", newGoldAmount));
+                }
+
+                if (newSupplyAmount != null)
+                {
+                    if (sqlUpdate.Contains("@Gold"))
+                    {
+                        sqlUpdate += ", ";
+                    }
+                    sqlUpdate += "supply = @Supply ";
+                    parameters.Add(new MySqlParameter("@Supply", newSupplyAmount));
+                }
+
+                sqlUpdate += "WHERE coords_x = @CoordsX AND coords_y = @CoordsY;";
+                parameters.Add(new MySqlParameter("@CoordsX", coordsX));
+                parameters.Add(new MySqlParameter("@CoordsY", coordsY));
+
+                using (var cmdUpdate = new MySqlCommand(sqlUpdate, conn, transaction))
+                {
+                    // Add parameters to the command
+                    cmdUpdate.Parameters.AddRange(parameters.ToArray());
+                    Console.WriteLine(sqlUpdate);
+                    Console.WriteLine($"Updated nexus at ({coordsX}, {coordsY}) - Gold: {newGoldAmount}, Supply: {newSupplyAmount}");
+                    await cmdUpdate.ExecuteNonQueryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Exception : " + ex.Message);
+            }
         }
 
-        private async Task<(int currentGold, int supplyCapacity)> GetNexusGoldAndSupply(NexusPurchaseUnitRequest request, MySqlConnection conn, MySqlTransaction transaction)
+
+        private async Task<(decimal currentGold, int supplyCapacity)> GetNexusGoldAndSupply(NexusBase request, MySqlConnection conn, MySqlTransaction transaction)
         {
-            var res = (0, 0);
+            var res = ((decimal)0.0, 0);
             try
             {
                 string sqlCurrentLevels = @"
@@ -2540,14 +3036,14 @@ namespace maxhanna.Server.Controllers
                 using (MySqlCommand cmdLvl = new MySqlCommand(sqlCurrentLevels, conn, transaction))
                 {
                     //Console.WriteLine("creating command for levels");
-                    cmdLvl.Parameters.AddWithValue("@CoordsX", request.Nexus.CoordsX);
-                    cmdLvl.Parameters.AddWithValue("@CoordsY", request.Nexus.CoordsY);
+                    cmdLvl.Parameters.AddWithValue("@CoordsX", request.CoordsX);
+                    cmdLvl.Parameters.AddWithValue("@CoordsY", request.CoordsY);
                     using (var readerCurrentLevels = await cmdLvl.ExecuteReaderAsync())
                     {
                         if (await readerCurrentLevels.ReadAsync())
                         {
                             int supplyCapacity = readerCurrentLevels.GetInt32("supply_depot_level") * 2500;
-                            int currentGold = readerCurrentLevels.GetInt32("gold");
+                            decimal currentGold = readerCurrentLevels.GetDecimal("gold");
                             //Console.WriteLine($"Got current supplyCapacity {supplyCapacity} and currentGold: {currentGold}");
                             res = (currentGold, supplyCapacity);
                         }
@@ -2563,6 +3059,7 @@ namespace maxhanna.Server.Controllers
             return res;
         }
 
+
         private async Task<int> CalculateUsedNexusSupply(NexusBase? nexus, MySqlConnection conn, MySqlTransaction transaction)
         {
             int res = 0;
@@ -2570,97 +3067,167 @@ namespace maxhanna.Server.Controllers
             try
             {
                 string sqlCurrentSupply = @"
-                    SELECT 
-                        u.marine_total,
-                        u.goliath_total,
-                        u.siege_tank_total,
-                        u.wraith_total,
-                        u.scout_total,
-                        u.battlecruiser_total,
-                        u.glitcher_total,
-                        COALESCE(marines.supply, 0) AS marines_supply,
-                        COALESCE(goliaths.supply, 0) AS goliaths_supply,
-                        COALESCE(siege_tanks.supply, 0) AS siege_tanks_supply,
-                        COALESCE(scouts.supply, 0) AS scouts_supply,
-                        COALESCE(wraiths.supply, 0) AS wraiths_supply,
-                        COALESCE(battlecruisers.supply, 0) AS battlecruisers_supply,
-                        COALESCE(glitchers.supply, 0) AS glitchers_supply
-                    FROM 
-                        nexus_units u
-                    LEFT JOIN 
-                        (SELECT 
-                             s.unit_id, s.unit_level, s.supply
-                         FROM 
-                             nexus_unit_stats s
-                         LEFT JOIN  
-                             nexus_bases n ON s.unit_level = n.marine_level AND n.coords_x = @CoordsX AND n.coords_y = @CoordsY
-                         WHERE 
-                             s.unit_id = 6
-                        ) AS marines ON 1=1
-                    LEFT JOIN 
-                        (SELECT 
-                             s.unit_id, s.unit_level, s.supply
-                         FROM 
-                             nexus_unit_stats s
-                         LEFT JOIN  
-                             nexus_bases n ON s.unit_level = n.goliath_level AND n.coords_x = @CoordsX AND n.coords_y = @CoordsY
-                         WHERE 
-                             s.unit_id = 7
-                        ) AS goliaths ON 1=1
-                    LEFT JOIN 
-                        (SELECT 
-                             s.unit_id, s.unit_level, s.supply
-                         FROM 
-                             nexus_unit_stats s
-                         LEFT JOIN  
-                             nexus_bases n ON s.unit_level = n.battlecruiser_level AND n.coords_x = @CoordsX AND n.coords_y = @CoordsY
-                         WHERE 
-                             s.unit_id = 8
-                        ) AS battlecruisers ON 1=1
-                    LEFT JOIN 
-                        (SELECT 
-                             s.unit_id, s.unit_level, s.supply
-                         FROM 
-                             nexus_unit_stats s
-                         LEFT JOIN  
-                             nexus_bases n ON s.unit_level = n.wraith_level AND n.coords_x = @CoordsX AND n.coords_y = @CoordsY
-                         WHERE 
-                             s.unit_id = 9
-                        ) AS wraiths ON 1=1
-                    LEFT JOIN 
-                        (SELECT 
-                             s.unit_id, s.unit_level, s.supply
-                         FROM 
-                             nexus_unit_stats s
-                         LEFT JOIN  
-                             nexus_bases n ON s.unit_level = n.scout_level AND n.coords_x = @CoordsX AND n.coords_y = @CoordsY
-                         WHERE 
-                             s.unit_id = 11
-                        ) AS scouts ON 1=1
-                    LEFT JOIN 
-                        (SELECT 
-                             s.unit_id, s.unit_level, s.supply
-                         FROM 
-                             nexus_unit_stats s
-                         LEFT JOIN  
-                             nexus_bases n ON s.unit_level = n.siege_tank_level AND n.coords_x = @CoordsX AND n.coords_y = @CoordsY
-                         WHERE 
-                             s.unit_id = 10
-                        ) AS siege_tanks ON 1=1
-                    LEFT JOIN 
-                        (SELECT 
-                             s.unit_id, s.unit_level, s.supply
-                         FROM 
-                             nexus_unit_stats s
-                         LEFT JOIN  
-                             nexus_bases n ON s.unit_level = n.glitcher_level AND n.coords_x = @CoordsX AND n.coords_y = @CoordsY
-                         WHERE 
-                             s.unit_id = 12
-                        ) AS glitchers ON 1=1
-                    WHERE 
-                        u.coords_x = @CoordsX 
-                    AND u.coords_y = @CoordsY;
-";
+            SELECT 
+                u.marine_total,
+                u.goliath_total,
+                u.siege_tank_total,
+                u.wraith_total,
+                u.scout_total,
+                u.battlecruiser_total,
+                u.glitcher_total,
+                COALESCE(marines.supply, 0) AS marines_supply,
+                COALESCE(goliaths.supply, 0) AS goliaths_supply,
+                COALESCE(siege_tanks.supply, 0) AS siege_tanks_supply,
+                COALESCE(scouts.supply, 0) AS scouts_supply,
+                COALESCE(wraiths.supply, 0) AS wraiths_supply,
+                COALESCE(battlecruisers.supply, 0) AS battlecruisers_supply,
+                COALESCE(glitchers.supply, 0) AS glitchers_supply,
+                COALESCE(marine_purchased.total, 0) AS marine_purchased,
+                COALESCE(goliath_purchased.total, 0) AS goliath_purchased,
+                COALESCE(siege_tank_purchased.total, 0) AS siege_tank_purchased,
+                COALESCE(scout_purchased.total, 0) AS scout_purchased,
+                COALESCE(wraith_purchased.total, 0) AS wraith_purchased,
+                COALESCE(battlecruiser_purchased.total, 0) AS battlecruiser_purchased,
+                COALESCE(glitcher_purchased.total, 0) AS glitcher_purchased
+            FROM 
+                nexus_units u
+            LEFT JOIN 
+                (SELECT 
+                     s.unit_id, s.unit_level, s.supply
+                 FROM 
+                     nexus_unit_stats s 
+                 WHERE 
+                     s.unit_id = 6
+                ) AS marines ON 1=1
+            LEFT JOIN 
+                (SELECT 
+                     s.unit_id, s.unit_level, s.supply
+                 FROM 
+                     nexus_unit_stats s 
+                 WHERE 
+                     s.unit_id = 7
+                ) AS goliaths ON 1=1
+            LEFT JOIN 
+                (SELECT 
+                     s.unit_id, s.unit_level, s.supply
+                 FROM 
+                     nexus_unit_stats s 
+                 WHERE 
+                     s.unit_id = 8
+                ) AS battlecruisers ON 1=1
+            LEFT JOIN 
+                (SELECT 
+                     s.unit_id, s.unit_level, s.supply
+                 FROM 
+                     nexus_unit_stats s 
+                 WHERE 
+                     s.unit_id = 9
+                ) AS wraiths ON 1=1
+            LEFT JOIN 
+                (SELECT 
+                     s.unit_id, s.unit_level, s.supply
+                 FROM 
+                     nexus_unit_stats s 
+                 WHERE 
+                     s.unit_id = 11
+                ) AS scouts ON 1=1
+            LEFT JOIN 
+                (SELECT 
+                     s.unit_id, s.unit_level, s.supply
+                 FROM 
+                     nexus_unit_stats s 
+                 WHERE 
+                     s.unit_id = 10
+                ) AS siege_tanks ON 1=1 
+            LEFT JOIN 
+                (SELECT 
+                     s.unit_id, s.unit_level, s.supply
+                 FROM 
+                     nexus_unit_stats s 
+                 WHERE 
+                     s.unit_id = 12
+                ) AS glitchers ON 1=1
+            LEFT JOIN
+                (SELECT
+                    unit_id_purchased,
+                    SUM(quantity_purchased) AS total
+                FROM
+                    nexus_unit_purchases
+                WHERE
+                    coords_x = @CoordsX AND coords_y = @CoordsY
+                GROUP BY 
+                    unit_id_purchased
+                ) AS marine_purchased ON marine_purchased.unit_id_purchased = 6
+            LEFT JOIN
+                (SELECT
+                    unit_id_purchased,
+                    SUM(quantity_purchased) AS total
+                FROM
+                    nexus_unit_purchases
+                WHERE
+                    coords_x = @CoordsX AND coords_y = @CoordsY
+                GROUP BY 
+                    unit_id_purchased
+                ) AS goliath_purchased ON goliath_purchased.unit_id_purchased = 7
+            LEFT JOIN
+                (SELECT
+                    unit_id_purchased,
+                    SUM(quantity_purchased) AS total
+                FROM
+                    nexus_unit_purchases
+                WHERE
+                    coords_x = @CoordsX AND coords_y = @CoordsY
+                GROUP BY 
+                    unit_id_purchased
+                ) AS siege_tank_purchased ON siege_tank_purchased.unit_id_purchased = 10
+            LEFT JOIN
+                (SELECT
+                    unit_id_purchased,
+                    SUM(quantity_purchased) AS total
+                FROM
+                    nexus_unit_purchases
+                WHERE
+                    coords_x = @CoordsX AND coords_y = @CoordsY
+                GROUP BY 
+                    unit_id_purchased
+                ) AS scout_purchased ON scout_purchased.unit_id_purchased = 11
+            LEFT JOIN
+                (SELECT
+                    unit_id_purchased,
+                    SUM(quantity_purchased) AS total
+                FROM
+                    nexus_unit_purchases
+                WHERE
+                    coords_x = @CoordsX AND coords_y = @CoordsY
+                GROUP BY 
+                    unit_id_purchased
+                ) AS wraith_purchased ON wraith_purchased.unit_id_purchased = 9
+            LEFT JOIN
+                (SELECT
+                    unit_id_purchased,
+                    SUM(quantity_purchased) AS total
+                FROM
+                    nexus_unit_purchases
+                WHERE
+                    coords_x = @CoordsX AND coords_y = @CoordsY
+                GROUP BY 
+                    unit_id_purchased
+                ) AS battlecruiser_purchased ON battlecruiser_purchased.unit_id_purchased = 8
+            LEFT JOIN
+                (SELECT
+                    unit_id_purchased,
+                    SUM(quantity_purchased) AS total
+                FROM
+                    nexus_unit_purchases
+                WHERE
+                    coords_x = @CoordsX AND coords_y = @CoordsY
+                GROUP BY 
+                    unit_id_purchased
+                ) AS glitcher_purchased ON glitcher_purchased.unit_id_purchased = 12
+            WHERE 
+                u.coords_x = @CoordsX 
+            AND u.coords_y = @CoordsY;
+        ";
 
                 using (MySqlCommand cmdCurrentSupply = new MySqlCommand(sqlCurrentSupply, conn, transaction))
                 {
@@ -2671,45 +3238,45 @@ namespace maxhanna.Server.Controllers
                     {
                         if (!await readerCurrentSupply.ReadAsync())
                         {
+                            Console.WriteLine("Nothing to read, error?");
                             await readerCurrentSupply.CloseAsync();
                             return 0;
                         }
 
                         int marinesTotal = readerCurrentSupply.GetInt32("marine_total");
-                        int marinesSupply = readerCurrentSupply.GetInt32("marines_supply");
                         int goliathTotal = readerCurrentSupply.GetInt32("goliath_total");
-                        int goliathSupply = readerCurrentSupply.GetInt32("goliaths_supply");
                         int siegeTankTotal = readerCurrentSupply.GetInt32("siege_tank_total");
-                        int siegeTankSupply = readerCurrentSupply.GetInt32("siege_tanks_supply");
                         int scoutTotal = readerCurrentSupply.GetInt32("scout_total");
-                        int scoutSupply = readerCurrentSupply.GetInt32("scouts_supply");
                         int wraithTotal = readerCurrentSupply.GetInt32("wraith_total");
-                        int wraithSupply = readerCurrentSupply.GetInt32("wraiths_supply");
                         int battleCruiserTotal = readerCurrentSupply.GetInt32("battlecruiser_total");
-                        int battleCruiserSupply = readerCurrentSupply.GetInt32("battlecruisers_supply");
                         int glitcherTotal = readerCurrentSupply.GetInt32("glitcher_total");
+
+                        // Get the supply for each unit type
+                        int marinesSupply = readerCurrentSupply.GetInt32("marines_supply");
+                        int goliathSupply = readerCurrentSupply.GetInt32("goliaths_supply");
+                        int siegeTankSupply = readerCurrentSupply.GetInt32("siege_tanks_supply");
+                        int scoutSupply = readerCurrentSupply.GetInt32("scouts_supply");
+                        int wraithSupply = readerCurrentSupply.GetInt32("wraiths_supply");
+                        int battleCruiserSupply = readerCurrentSupply.GetInt32("battlecruisers_supply");
                         int glitcherSupply = readerCurrentSupply.GetInt32("glitchers_supply");
 
-                        marinesTotal *= marinesSupply;
-                        goliathTotal *= goliathSupply;
-                        siegeTankTotal *= siegeTankSupply;
-                        wraithTotal *= wraithSupply;
-                        scoutTotal *= scoutSupply;
-                        battleCruiserTotal *= battleCruiserSupply;
-                        glitcherTotal *= glitcherSupply;
-
-                        res = marinesTotal + goliathTotal + siegeTankTotal + scoutTotal + wraithTotal + battleCruiserTotal + glitcherTotal;
+                        // Calculate the total supply usage
+                        res = (marinesTotal + readerCurrentSupply.GetInt32("marine_purchased")) * marinesSupply +
+                              (goliathTotal + readerCurrentSupply.GetInt32("goliath_purchased")) * goliathSupply +
+                              (siegeTankTotal + readerCurrentSupply.GetInt32("siege_tank_purchased")) * siegeTankSupply +
+                              (scoutTotal + readerCurrentSupply.GetInt32("scout_purchased")) * scoutSupply +
+                              (wraithTotal + readerCurrentSupply.GetInt32("wraith_purchased")) * wraithSupply +
+                              (battleCruiserTotal + readerCurrentSupply.GetInt32("battlecruiser_purchased")) * battleCruiserSupply +
+                              (glitcherTotal + readerCurrentSupply.GetInt32("glitcher_purchased")) * glitcherSupply;
                     }
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error: {ex.Message}");
-                throw; // Rethrow or handle the exception appropriately
             }
             return res;
         }
-
         private string GetBuildingTypeFromTypeId(int typeId)
         {
             string buildingType = "";
@@ -2734,9 +3301,9 @@ namespace maxhanna.Server.Controllers
             return buildingType;
         }
 
-        private async Task<IActionResult> UpgradeComponent(User user, string component, NexusBase? nexus)
+        private async Task<IActionResult> UpgradeBuilding(User user, string component, NexusBase? nexus)
         {
-            Console.WriteLine($"UpgradeComponent - Upgrade{component} ({user.Id})");
+            Console.WriteLine($"UpgradeBuilding -> Upgrading: {component} ({user.Id})");
             if (nexus == null)
             {
                 return NotFound("Base not found.");
@@ -2750,8 +3317,21 @@ namespace maxhanna.Server.Controllers
 
                     // Start a transaction
                     MySqlTransaction transaction = await conn.BeginTransactionAsync();
-
-                    // Retrieve the upgrade cost
+                    // first check if the upgrade was already started, if it has then return an error.
+                    NexusBaseUpgrades? currentUpgrades = await GetNexusBaseUpgrades(nexus, conn, transaction);
+                    if (((component == "command_center") && (currentUpgrades != null) && (currentUpgrades.CommandCenterUpgraded != null))
+                        || ((component == "supply_depot") && (currentUpgrades != null) && (currentUpgrades.SupplyDepotUpgraded != null))
+                        || ((component == "engineering_bay") && (currentUpgrades != null) && (currentUpgrades.EngineeringBayUpgraded != null))
+                        || ((component == "warehouse") && (currentUpgrades != null) && (currentUpgrades.WarehouseUpgraded != null))
+                        || ((component == "mines") && (currentUpgrades != null) && (currentUpgrades.MinesUpgraded != null))
+                        || ((component == "factory") && (currentUpgrades != null) && (currentUpgrades.FactoryUpgraded != null))
+                        || ((component == "starport") && (currentUpgrades != null) && (currentUpgrades.StarportUpgraded != null))
+                        )
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest("Component upgrade is already queued."); 
+                    }
+                    await RecalculateNexusGold(conn, nexus, transaction);
                     string getCostSql = $@"
                         SELECT cost 
                         FROM nexus_base_upgrade_stats 
@@ -2790,7 +3370,7 @@ namespace maxhanna.Server.Controllers
                         return NotFound("Base not found.");
                     }
                     int currentGold = Convert.ToInt32(goldResult);
-
+                    Console.WriteLine("Got current gold : " + currentGold);
                     if (currentGold < upgradeCost)
                     {
                         await transaction.RollbackAsync();
@@ -2923,6 +3503,6 @@ namespace maxhanna.Server.Controllers
             }
             return insertedId;
         }
-     
+
     }
 }

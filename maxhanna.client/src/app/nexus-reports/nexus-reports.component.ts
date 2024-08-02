@@ -4,23 +4,24 @@ import { User } from '../../services/datacontracts/user/user';
 import { NexusService } from '../../services/nexus.service';
 import { NexusBattleOutcomeReports } from '../../services/datacontracts/nexus/nexus-battle-outcome-reports';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
+import { ChildComponent } from '../child.component';
 
 @Component({
   selector: 'app-nexus-reports',
   templateUrl: './nexus-reports.component.html',
   styleUrl: './nexus-reports.component.css'
 })
-export class NexusReportsComponent implements OnChanges {
+export class NexusReportsComponent extends ChildComponent implements OnChanges {
   @Input() battleReports?: NexusBattleOutcomeReports;
   @Input() user?: User;
+  @Input() targetBase?: NexusBase;
 
   pageSizes: number[] = [5, 10, 20, 50];
   totalPages: number[] = [1];
-  targetBase?: NexusBase;
 
   @ViewChild('pageSize') pageSize!: ElementRef<HTMLSelectElement>;
   @ViewChild('currentPage') currentPage!: ElementRef<HTMLSelectElement>;
-  constructor(private nexusService: NexusService) { }
+  constructor(private nexusService: NexusService) { super(); }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['battleReports'] && this.battleReports) {
@@ -72,8 +73,10 @@ export class NexusReportsComponent implements OnChanges {
     if (targetBase) {
       this.targetBase = targetBase;
     }
-
+    this.startLoading();
     this.battleReports = await this.nexusService.getBattleReports(this.user, +currentPage, +pageSize, targetBase);
+    this.stopLoading();
+
     if (this.battleReports) {
       this.totalPages = Array.from({ length: Math.round(this.battleReports.totalReports / pageSize) }, (_, i) => i + 1);
     }
