@@ -62,9 +62,11 @@
   font-weight: bold;
   font-size:14px;
 }
-
-.profileControls  {
-    text-align:center;
+.moreInfoTitle {
+    font-size: xx-small;
+}
+.profileControls {
+  text-align: center;
 }
 .aboutTable {
     text-align:center;
@@ -85,4 +87,7 @@
     display: flex;
     justify-content: space-between;
     align-content: center;
+}
+.loginDiv {
+    text-align:center;
 }

@@ -21,8 +21,8 @@ export class TopicsComponent extends ChildComponent {
   
   topics: Topic[] = [];
   matchingTopics: Topic[] = [];
+  private searchTimer: any;
 
-  debounceLoadData!: () => void;
   constructor(private topicService: TopicService) { super(); }
 
   async addTopic() {
@@ -46,29 +46,31 @@ export class TopicsComponent extends ChildComponent {
     this.topics = [];
     this.topicAdded.emit(this.topics);
   }
+
+
   async searchTopics(enteredValue: string, force: boolean = false) {
-    this.addTopicButton.nativeElement.style.visibility = "hidden";
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+    }
      
-    if (enteredValue.trim() != '' || force) {  
-      this.debounceLoadData = this.debounce(async () => {
+    this.searchTimer = setTimeout(async () => {
+      this.addTopicButton.nativeElement.style.visibility = "hidden";
+
+      if (enteredValue.trim() != '' || force) {
         this.matchingTopics = await this.topicService.getTopics(enteredValue);
         if (this.matchingTopics.length == 0) {
           this.addTopicButton.nativeElement.style.visibility = "visible";
-        }
-        else {
+        } else {
           if (this.matchingTopics.some(x => x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
             this.addTopicButton.nativeElement.style.visibility = "hidden";
-          }
-          else {
+          } else {
             this.addTopicButton.nativeElement.style.visibility = "visible";
           }
         }
-      }, 1000);   
-    }
-    else
-    {
-      this.matchingTopics = []; // Clear the list if input is empty 
-    } 
+      } else {
+        this.matchingTopics = [];
+      }
+    }, 300);
   } 
 
   selectTopic(topic: Topic) {

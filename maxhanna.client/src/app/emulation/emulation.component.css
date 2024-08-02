@@ -24,7 +24,7 @@
 .gameboy {
   margin-left: -2px;
   overflow: hidden;
-  width: 380px;
+  width: 100%;
   height: 565px;
   border-radius: 20px;
   padding-top: 10px;
@@ -38,7 +38,7 @@
 
 .screen-area {
   height: 325px;
-  width: 380px;
+  width: 100%;
   image-rendering: pixelated;
   display: block; 
   background-color: black;

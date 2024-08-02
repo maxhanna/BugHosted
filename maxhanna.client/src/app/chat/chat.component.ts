@@ -1,10 +1,11 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component'; 
 import { ChatService } from '../../services/chat.service';
 import { Message } from '../../services/datacontracts/chat/message'; 
 import { ChatNotification } from '../../services/datacontracts/chat/chat-notification'; 
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-chat',
@@ -21,7 +22,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('chatWindow') chatWindow!: ElementRef;
   hasManuallyScrolled = false;
   private pollingInterval: any;
- 
+
+  @Input() selectedUser?: User;
+  @Input() inputtedParentRef?: AppComponent;
+  @Output() closeChatEvent = new EventEmitter<void>();
+
   notifications: ChatNotification[] = [];
   emojiMap: { [key: string]: string } =
   {
@@ -57,8 +62,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     super();
   }
 
-  async ngOnInit() { 
-    
+  async ngOnInit() {
+    if (this.selectedUser) {
+      if (this.inputtedParentRef) {
+        this.parentRef = this.inputtedParentRef;
+      }
+      console.log("on init");
+      await this.openChat(this.selectedUser);
+    }
   }
 
   ngOnDestroy() {
@@ -148,18 +159,22 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   async openChat(user: User | null) {
     if (!user) { return; }
     this.startLoading();
-
+    console.log("loading messages");
     this.isPanelExpanded = true;
     this.chatHistory = [];
     this.currentChatUser = user;
     if (this.notifications) {
       const numberOfNotifs = this.notifications.filter(x => x.senderId == user.id).length;
-      const numberOfNotifTotal = parseInt(this.parentRef!.navigationItems.filter(x => x.title == "Chat")[0].content!) ?? 0;
-      const grantTotal = numberOfNotifTotal - numberOfNotifs;
-      this.notifications = this.notifications.filter(x => x.senderId != user.id);
-      this.parentRef!.navigationItems.filter(x => x.title == "Chat")[0].content = (grantTotal == 0 || !grantTotal ? '' : grantTotal + '');
+      if (this.parentRef && this.parentRef.navigationItems) {
+        const numberOfNotifTotal = parseInt(this.parentRef.navigationItems.filter(x => x.title == "Chat")[0].content!) ?? 0;
+        const grantTotal = numberOfNotifTotal - numberOfNotifs;
+        this.notifications = this.notifications.filter(x => x.senderId != user.id);
+        this.parentRef!.navigationItems.filter(x => x.title == "Chat")[0].content = (grantTotal == 0 || !grantTotal ? '' : grantTotal + '');
+      } 
     }
     const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser, undefined, this.pageSize);
+    console.log("got res : ");
+    console.log(res);
     this.stopLoading(); 
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];
@@ -167,6 +182,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return;
     }
     if (res) {
+      console.log("got chat history");
       this.chatHistory = (res.messages as Message[]).reverse();
       this.pageNumber = res.currentPage;
       this.totalPages = res.totalPages;
@@ -181,6 +197,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   closeChat() {
+    this.closeChatEvent.emit();
     this.hasManuallyScrolled = false;
     this.currentChatUser = null;
     this.chatHistory = [];

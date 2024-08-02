@@ -42,42 +42,60 @@ export class CommentsComponent extends ChildComponent {
     this.showCommentLoadingOverlay = true;
     clearTimeout(this.debounceTimer);
     const commentsWithEmoji = this.replaceEmojisInMessage(comment);
+
+    const fileId = this.type === 'File' ? this.component_id : undefined;
+    const storyId = this.type === 'Social' ? this.component_id : undefined;
+    const filesToSend = this.selectedFiles;
+    this.selectedFiles = [];
+    const currentDate = new Date();
+    const tmpComment = new FileComment();
+    tmpComment.user = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
+    tmpComment.commentText = commentsWithEmoji;
+    tmpComment.date = currentDate;
+    tmpComment.fileId = fileId;
+    tmpComment.storyId = storyId;
+    tmpComment.commentFiles = filesToSend;
+
+    if (!this.commentList) { this.commentList = []; }
+    this.commentList.push(tmpComment);
+
+
     this.debounceTimer = setTimeout(async () => {
-      const fileId = this.type === 'File' ? this.component_id : undefined;
-      const storyId = this.type === 'Social' ? this.component_id : undefined;
-      const filesToSend = this.selectedFiles;
-      this.selectedFiles = [];
-
-      const res = await this.commentService.addComment(commentsWithEmoji, this.inputtedParentRef?.user, fileId, storyId, filesToSend);
-
-      if (res && res.toLowerCase().includes("success")) {
-        const tmpComment = new FileComment(); 
-        tmpComment.id = parseInt(res.split(" ")[0]);  
-        tmpComment.user = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
-        tmpComment.commentText = commentsWithEmoji; 
-        tmpComment.date = new Date();
-        tmpComment.fileId = fileId;
-        tmpComment.storyId = storyId;
-        tmpComment.commentFiles = filesToSend;
-        if (!this.commentList) {
-          this.commentList = [];
-        } 
-        this.commentAddedEvent.emit(tmpComment as FileComment); 
-      }
+      this.commentAddedEvent.emit(tmpComment as FileComment);
+      this.addAsyncComment(tmpComment, currentDate); 
       this.stopLoadingComment(this.component_id);
     }, 2000);
   }
 
+  async addAsyncComment(comment: FileComment, currentDate: Date) {
+    const res = await this.commentService.addComment(comment.commentText ?? "", this.inputtedParentRef?.user, comment.fileId, comment.storyId, comment.commentFiles);
+
+    if (res && res.toLowerCase().includes("success")) {
+      if (!this.commentList) {
+        this.commentList = [];
+      }
+      if (this.commentList.find(x => x.date == currentDate)) {
+        this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
+      }  
+
+    }
+  }
   async deleteComment(comment: FileComment) {
-    if (!this.inputtedParentRef?.user) { return alert("You must be logged in to delete a comment!"); }
     if (!confirm("Are you sure?")) { return };
 
     this.showCommentLoadingOverlay = true;
+    this.commentList = this.commentList.filter(x => x.id != comment.id);
+    this.deleteCommentAsync(comment); 
+    this.showCommentLoadingOverlay = false;
+  }
+
+  async deleteCommentAsync(comment: FileComment) {
+    if (!this.inputtedParentRef?.user) { return alert("You must be logged in to delete a comment!"); }
+
     const res = await this.commentService.deleteComment(this.inputtedParentRef?.user, comment.id);
     if (res && res.includes("success")) {
-      this.commentRemovedEvent.emit(comment as FileComment); 
+      this.commentRemovedEvent.emit(comment as FileComment);
     }
-    this.showCommentLoadingOverlay = false;
   }
 
   async selectFile(files: FileEntry[]) {
@@ -89,7 +107,7 @@ export class CommentsComponent extends ChildComponent {
     if ((!comment || comment.trim() == '') && (!this.selectedFiles || this.selectedFiles.length == 0)) { return alert("Comment cannot be empty!"); }
     this.showCommentLoadingOverlay = true;
 
-    await this.addComment(comment)
+    this.addComment(comment)
   }
 
   stopLoadingComment(fileId: number) {

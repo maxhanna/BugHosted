@@ -1,7 +1,7 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!loginOnly"></div>
-  <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username + '\'s profile' : 'Login'}}</div>
+  <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
   <div class="avatar" *ngIf="!loginOnly && !user?.displayPictureFile && user">
     <span class="avatarBug">🪲</span>
@@ -27,6 +27,95 @@
           <div class="welcomeMessage">
             <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
             <p class="welcomeTitle">Total users: {{usersCount}}</p>
+            <p class="moreInfoTitle welcomeTitle" (click)="isAboutOpen = !isAboutOpen">Click here for more information</p>
+            <div *ngIf="isAboutOpen" class="aboutSiteDiv">
+              <p class="notification">Welcome to Bug Hosted</p>
+
+
+              Play games together!
+              <app-media-viewer [fileId]="6373"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+
+              Interact with users
+              <app-media-viewer [fileId]="6374"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+
+
+              Social Media platform
+
+              <app-media-viewer [fileId]="6375"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+
+              Memes
+
+              <app-media-viewer [fileId]="6376"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+
+
+              Shared Filesystem
+
+              <app-media-viewer [fileId]="6380"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+
+              Cryptocurrency Tools
+
+              <app-media-viewer [fileId]="6377"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+
+              <app-media-viewer [fileId]="6378"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              Music and self organization tools
+
+              <app-media-viewer [fileId]="6379"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              Calendar
+              <app-media-viewer [fileId]="6381"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              Todo
+              <app-media-viewer [fileId]="6382"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              And more! All available for free in our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>!
+            </div>
           </div>
         </div>
 
@@ -34,14 +123,14 @@
           {{loginReasonMessage ? loginReasonMessage : "Remember to log in to save your progress!"}}
         </div>
 
-        <div>
+        <div class="loginDiv">
           <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
-          <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" />
-        </div>
-        <div style="width:100%;text-align:center">
-          <input type="submit" value="Login" (click)="login()" />
-          <input type="submit" value="Create User" (click)="createUser()" />
-          <input type="submit" value="Guest" (click)="createUser(true)" />
+          <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" /> 
+          <div>
+            <input type="submit" value="Login" (click)="login()" />
+            <input type="submit" value="Create User" (click)="createUser()" />
+            <input type="submit" value="Guest" (click)="createUser(true)" />
+          </div>
         </div>
       </div>
       <div *ngIf="parentRef?.user" style="width:100%;text-align:center">
@@ -55,171 +144,177 @@
     <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">Add friend</button>
     <button *ngIf="areWeFriends(user)" (click)="removeFriend(user)">Remove friend</button>
     <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" (click)="addContact(user)">Add as Contact</button>
-    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">Share 📋</button>
+    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">Share Profile 📋</button>
+    <button *ngIf="user" (click)="openChat()">Chat</button> 
+    <button *ngIf="user" (click)="isMoreInfoOpen = !isMoreInfoOpen">Info</button> 
   </div>
 
   <!-- ABOUT -->
-  <div class="topProfileContainer" id="aboutContainer">
-    <div *ngIf="user || parentRef?.user" class="aboutContainer">
-      <span class="cursorPointer mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">About</span>
-      <span class="smallExpander mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">
-        {{isAboutExpanded ? '-' : '+'}}
-      </span>
-      <div class="mainTableDiv" *ngIf="isAboutExpanded">
-        <table class="mainTable aboutTable" *ngIf="user?.about && (user?.about?.description || user?.about?.birthday || user?.about?.email || user?.about?.phone || wordlerStreak > 0)"> 
-          <tbody>
-            <tr *ngIf="user?.about?.description">
-              <td colspan="2" title=Description>
-                {{user?.about?.description}}
-              </td>
-            </tr>
-            <tr *ngIf="user?.about?.email">
-              <td colspan="2" title="Email">
-                {{user?.about?.email}}
-              </td>
-            </tr>
-            <tr *ngIf="user?.about?.birthday"> 
-              <td title="Birthday" colspan="2">
-                {{user?.about?.birthday}}
-              </td>
-            </tr>
-            <tr *ngIf="user?.about?.phone"> 
-              <td title="Phone Number" colspan="2">
-                {{user?.about?.phone}}
-              </td>
-            </tr>
-            <tr *ngIf="wordlerStreak > 0"> 
-              <td title="Wordler Streak" colspan="2">
-                Current Wordler streak: {{wordlerStreak}} consecutive days.
-              </td>
-            </tr>
-          </tbody>
-         </table>
+  <div [style.display]="isMoreInfoOpen ? 'block' : 'none'">
+    
+    <div class="topProfileContainer" id="aboutContainer">
+      <div *ngIf="user || parentRef?.user" class="aboutContainer">
+        <span class="cursorPointer mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">About</span>
+        <span class="smallExpander mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">
+          {{isAboutExpanded ? '-' : '+'}}
+        </span>
+        <div class="mainTableDiv" *ngIf="isAboutExpanded">
+          <table class="mainTable aboutTable" *ngIf="user?.about && (user?.about?.description || user?.about?.birthday || user?.about?.email || user?.about?.phone || wordlerStreak > 0)">
+            <tbody>
+              <tr *ngIf="user?.about?.description">
+                <td colspan="2" title=Description>
+                  {{user?.about?.description}}
+                </td>
+              </tr>
+              <tr *ngIf="user?.about?.email">
+                <td colspan="2" title="Email">
+                  {{user?.about?.email}}
+                </td>
+              </tr>
+              <tr *ngIf="user?.about?.birthday">
+                <td title="Birthday" colspan="2">
+                  {{user?.about?.birthday}}
+                </td>
+              </tr>
+              <tr *ngIf="user?.about?.phone">
+                <td title="Phone Number" colspan="2">
+                  {{user?.about?.phone}}
+                </td>
+              </tr>
+              <tr *ngIf="wordlerStreak > 0">
+                <td title="Wordler Streak" colspan="2">
+                  Current Wordler streak: {{wordlerStreak}} consecutive days.
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </div>
     </div>
-  </div>
-  <!-- FRIENDS -->
-  <div class="topProfileContainer" id="friendsProfileContainer" (click)="expandDiv('friendsProfileContainer'); isFriendsExpanded = !isFriendsExpanded">
-    <div *ngIf="user || parentRef?.user" class="friendsContainer">
-      <span class="cursorPointer mainTable">Friends</span>
-      <span class="smallExpander mainTable">
-        {{friends ? '('+friends.length+')' : '(0)'}}{{isFriendsExpanded ? '-' : '+'}}
-      </span>
-      <div class="mainTableDiv" *ngIf="isFriendsExpanded">
-        <table class="mainTable" *ngIf="friends">
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let friend of friends">
-              <td (click)="viewProfile(friend)" class="usernameProfileLink cursorPointer">{{friend.username}}</td>
-              <td>
-                <button title="Remove Friend"
-                        (click)="removeFriend(friend)">
-                  ❌
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div *ngIf="isLoading && (!friends)">Loading friends list...</div>
-        <div *ngIf="!isLoading && (!friends)">Friends list is empty.</div>
+    <!-- FRIENDS -->
+    <div class="topProfileContainer" id="friendsProfileContainer" (click)="expandDiv('friendsProfileContainer'); isFriendsExpanded = !isFriendsExpanded">
+      <div *ngIf="user || parentRef?.user" class="friendsContainer">
+        <span class="cursorPointer mainTable">Friends</span>
+        <span class="smallExpander mainTable">
+          {{friends ? '('+friends.length+')' : '(0)'}}{{isFriendsExpanded ? '-' : '+'}}
+        </span>
+        <div class="mainTableDiv" *ngIf="isFriendsExpanded">
+          <table class="mainTable" *ngIf="friends">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let friend of friends">
+                <td (click)="viewProfile(friend)" class="usernameProfileLink cursorPointer">{{friend.username}}</td>
+                <td>
+                  <button title="Remove Friend"
+                          (click)="removeFriend(friend)">
+                    ❌
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="isLoading && (!friends)">Loading friends list...</div>
+          <div *ngIf="!isLoading && (!friends)">Friends list is empty.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRIEND REQUESTS -->
+    <div class="topProfileContainer" id="friendRequestProfileContainer" (click)="expandDiv('friendRequestProfileContainer'); isFriendRequestsExpanded = !isFriendRequestsExpanded">
+      <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)">
+        <span class="cursorPointer mainTable">Friend Requests</span>
+        <span class="smallExpander mainTable">
+          {{getNewFriendRequestCount()}}{{isFriendRequestsExpanded ? '-' : '+'}}
+        </span>
+
+        <div class="mainTableDiv" *ngIf="isFriendRequestsExpanded">
+          <table class="mainTable" *ngIf="friendRequests.length > 0">
+            <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let request of getFilteredFriendRequests()">
+                <td><span (click)="viewProfile(request.sender)" class="usernameProfileLink cursorPointer">{{request.sender.username}}</span></td>
+                <td><span (click)="viewProfile(request.receiver)" class="usernameProfileLink cursorPointer">{{request.receiver.username}}</span></td>
+                <td>{{request.createdAt}}</td>
+                <td>{{request.updatedAt}}</td>
+                <td>{{request.status == 1 + '' ? 'Accepted' : request.status == 2 + '' ? 'Rejected' : 'Pending'}}</td>
+                <td>
+                  <button title="Accept Friendship"
+                          (click)="acceptFriendshipRequest(request)"
+                          *ngIf="request.sender.username != parentRef?.user?.username
+                      && (request.status != 2 + '' && request.status != 1 + '')">
+                    ✅
+                  </button>
+                  <button title="Deny Friendship"
+                          (click)="denyFriendshipRequest(request)"
+                          *ngIf="request.status != 1 + ''">
+                    ❌
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="!isLoading && (!friendRequests || friendRequests.length == 0)">No friendship requests.</div>
+        <div *ngIf="isLoading">Loading friendship requests...</div>
+      </div>
+    </div>
+
+    <!-- WORDLER SCORES-->
+    <div class="topProfileContainer" id="wordlerScoresProfileContainer" (click)="expandDiv('wordlerScoresProfileContainer'); isWordlerScoresExpanded = !isWordlerScoresExpanded">
+      <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
+        <span class="cursorPointer mainTable">Wordler Scores</span>
+        <span class="smallExpander mainTable">
+          {{'('+wordlerScores.length+')'}}{{isWordlerScoresExpanded ? '-' : '+'}}
+        </span>
+
+        <div *ngIf="wordlerScores.length > 0 && isWordlerScoresExpanded" class="mainTableDiv">
+          <table *ngIf="wordlerScores && wordlerScores.length > 0" class="mainTable" id="scoreTable">
+            <thead>
+              <tr>
+                <th (click)="sortTable(1, 'scoreTable')">Score</th>
+                <th (click)="sortTable(2, 'scoreTable')">Time</th>
+                <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
+                <th (click)="sortTable(3, 'scoreTable')">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let score of wordlerScores">
+                <td>{{score.score + 1}}</td>
+                <td>{{score.time}}</td>
+                <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
+                <td>{{score.submitted!.toString().replace('T', ' ')}}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading && isWordlerScoresExpanded">No Worlder scores yet!</div>
+      </div>
+    </div>
+
+    <!-- MUSIC -->
+    <div class="topProfileContainer" id="musicProfileContainer">
+      <div *ngIf="user || parentRef?.user" class="">
+        <span class="cursorPointer mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">Music Playlist</span>
+        <span class="smallExpander mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">
+          {{'('+(playListCount || songPlaylist.length)+')'}}{{isMusicContainerExpanded ? '-' : '+'}}
+        </span>
+        <div style="width:100%;height:100px;overflow:auto;" *ngIf="isMusicContainerExpanded">
+          <app-music *ngIf="isMusicContainerExpanded"
+                     [user]="user"
+                     [songPlaylist]="songPlaylist"
+                     [smallPlayer]="true"
+                     (gotPlaylistEvent)="gotPlaylistEvent($event)">
+          </app-music>
+        </div>
       </div>
     </div>
   </div>
-
-  <!-- FRIEND REQUESTS -->
-  <div class="topProfileContainer" id="friendRequestProfileContainer" (click)="expandDiv('friendRequestProfileContainer'); isFriendRequestsExpanded = !isFriendRequestsExpanded">
-    <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)">
-      <span class="cursorPointer mainTable">Friend Requests</span>
-      <span class="smallExpander mainTable">
-        {{getNewFriendRequestCount()}}{{isFriendRequestsExpanded ? '-' : '+'}}
-      </span>
-
-      <div class="mainTableDiv" *ngIf="isFriendRequestsExpanded">
-        <table class="mainTable" *ngIf="friendRequests.length > 0">
-          <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr *ngFor="let request of getFilteredFriendRequests()">
-              <td><span (click)="viewProfile(request.sender)" class="usernameProfileLink cursorPointer">{{request.sender.username}}</span></td>
-              <td><span (click)="viewProfile(request.receiver)" class="usernameProfileLink cursorPointer">{{request.receiver.username}}</span></td>
-              <td>{{request.createdAt}}</td>
-              <td>{{request.updatedAt}}</td>
-              <td>{{request.status == 1 + '' ? 'Accepted' : request.status == 2 + '' ? 'Rejected' : 'Pending'}}</td>
-              <td>
-                <button title="Accept Friendship"
-                        (click)="acceptFriendshipRequest(request)"
-                        *ngIf="request.sender.username != parentRef?.user?.username
-                        && (request.status != 2 + '' && request.status != 1 + '')">
-                  ✅
-                </button>
-                <button title="Deny Friendship"
-                        (click)="denyFriendshipRequest(request)"
-                        *ngIf="request.status != 1 + ''">
-                  ❌
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div *ngIf="!isLoading && (!friendRequests || friendRequests.length == 0)">No friendship requests.</div>
-      <div *ngIf="isLoading">Loading friendship requests...</div>
-    </div>
-  </div>
-
-  <!-- WORDLER SCORES-->
-  <div class="topProfileContainer" id="wordlerScoresProfileContainer" (click)="expandDiv('wordlerScoresProfileContainer'); isWordlerScoresExpanded = !isWordlerScoresExpanded">
-    <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
-      <span class="cursorPointer mainTable">Wordler Scores</span>
-      <span class="smallExpander mainTable">
-        {{'('+wordlerScores.length+')'}}{{isWordlerScoresExpanded ? '-' : '+'}}
-      </span>
-
-      <div *ngIf="wordlerScores.length > 0 && isWordlerScoresExpanded" class="mainTableDiv">
-        <table *ngIf="wordlerScores && wordlerScores.length > 0" class="mainTable" id="scoreTable">
-          <thead>
-            <tr>
-              <th (click)="sortTable(1, 'scoreTable')">Score</th>
-              <th (click)="sortTable(2, 'scoreTable')">Time</th>
-              <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
-              <th (click)="sortTable(3, 'scoreTable')">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let score of wordlerScores">
-              <td>{{score.score + 1}}</td>
-              <td>{{score.time}}</td>
-              <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
-              <td>{{score.submitted!.toString().replace('T', ' ')}}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading && isWordlerScoresExpanded">No Worlder scores yet!</div>
-    </div>
-  </div>
-
-  <!-- MUSIC -->
-  <div class="topProfileContainer" id="musicProfileContainer">
-    <div *ngIf="user || parentRef?.user" class="">
-      <span class="cursorPointer mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">Music Playlist</span>
-      <span class="smallExpander mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">
-        {{'('+(playListCount || songPlaylist.length)+')'}}{{isMusicContainerExpanded ? '-' : '+'}}
-      </span>
-      <div style="width:100%;height:100px;overflow:auto;" *ngIf="isMusicContainerExpanded">
-        <app-music *ngIf="isMusicContainerExpanded"
-                   [user]="user"
-                   [songPlaylist]="songPlaylist"
-                   [smallPlayer]="true"
-                   (gotPlaylistEvent)="gotPlaylistEvent($event)">
-        </app-music>
-      </div>
-    </div>
-  </div>
+  
 
   <!-- SOCIAL -->
   <div class="topProfileContainer expanded" id="socialProfileContainer">

@@ -5,7 +5,7 @@
   flex-flow: column;
   justify-content: flex-start;
   overflow: hidden;
-  width: var(--nexus-gamescreen-width);
+  width: 99vw;
 }
 
 .gamescreen, .map {  
@@ -16,7 +16,7 @@
 .nextBaseButton {
   position: absolute;
   top: CALC(var(--nexus-gamescreen-height) / 2);
-  left: CALC(var(--nexus-gamescreen-width) - 25px);
+  left: CALC(100% - 25px);
   display: block;
   width: 25px;
 }

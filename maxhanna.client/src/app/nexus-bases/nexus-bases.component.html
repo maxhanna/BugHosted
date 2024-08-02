@@ -3,6 +3,7 @@
     <thead>
       <tr>
         <th></th>
+        <th></th>
         <th><span class="rotated-header">Command Center</span></th>
         <th><span class="rotated-header">Mines</span></th>
         <th><span class="rotated-header">Engineering Bay</span></th>
@@ -13,8 +14,9 @@
         <th><span class="rotated-header">Incoming</span></th>
       </tr>
     </thead>
-    <tbody *ngFor="let base of getCurrentBases()" (click)="selectBase(base)" class="pointer">
+    <tbody *ngFor="let base of getCurrentBases(); let i = index;" (click)="selectBase(base)" class="pointer">
       <tr [class]="'borderUnderline smallFont ' +  ((nexusBase && base.coordsX == nexusBase.coordsX && base.coordsY  == nexusBase.coordsY) ? 'highlightedBase' : '')">
+        <td>{{i}}</td>
         <td>{{'{' + base.coordsX + ',' + base.coordsY + '}'}}</td>
         <td>{{base.commandCenterLevel}}</td>
         <td>{{base.minesLevel}}</td>

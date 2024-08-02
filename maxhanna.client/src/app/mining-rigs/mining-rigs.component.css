@@ -3,11 +3,10 @@
   .componentMain {
     max-width: 90vw !important;
   }
-  .miningStatusTable {
-    max-width: 80vw !important;
+  .miningStatusTable { 
     overflow: auto; 
   }
-} 
+}
 
 
 .deviceTable {
@@ -121,18 +120,19 @@
     padding: 3px;
   }
 
-  .deviceListDiv {
-    display: inline-block;
-    vertical-align: top;
-    margin: 12px;
-    color: var(--secondary-font-color);
-    font-family: Arial, Helvetica, sans-serif;
-    border-collapse: collapse;
-    max-height: 700px !important;
-    overflow-y: auto;
-    border: var(--main-border);
-    border-radius: 5px;
-  }
+.deviceListDiv {
+  display: inline-block;
+  vertical-align: top;
+  margin: 12px;
+  color: var(--secondary-font-color);
+  font-family: Arial, Helvetica, sans-serif;
+  border-collapse: collapse;
+  max-height: 700px !important;
+  overflow-y: auto;
+  border: var(--main-border);
+  border-radius: 5px;
+  max-width: 88vw !important;
+}
 
   .currentProfitabilitySpan {
     /*text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);*/

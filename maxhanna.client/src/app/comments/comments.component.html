@@ -49,7 +49,7 @@
         </div>
       </div>
       <div class="actionDiv"> 
-        <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id">❌</button>
+        <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id && comment.id">❌</button>
       </div>
     </div> 
   </div>

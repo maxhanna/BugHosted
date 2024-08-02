@@ -1,12 +1,19 @@
-
+.componentMain {
+  max-width: 400px;
+}
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .componentMain {
+    max-width: 90vw !important;
+  }
+}
 .rankingDiv {
-  max-height: 200px;
+  max-height: 135px;
   overflow: auto;
   width: 100%;
   text-align: left;
 }
 .rankingDiv.expanded {
-  max-height: 600px; 
+  max-height: 550px; 
 }
 
 .radar {
@@ -60,8 +67,7 @@
   font-size: xx-large;
 }
 
-.gameScreen {
-  max-width: 400px;
+.gameScreen { 
   height: 255px;
   display: flex;
   justify-content: center;

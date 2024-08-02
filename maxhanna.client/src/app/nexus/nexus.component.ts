@@ -174,9 +174,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.displayBuildings(this.nexusBaseUpgrades);
       this.updateAttackTimers(true);
       this.setAvailableUnits();
-      await this.getBuildingUpgradesInfo();
-      await this.getUnitStats();
-      await this.updateUnitResearchTimers();
+      this.getBuildingUpgradesInfo();
+      this.getUnitStats();
+      this.updateUnitResearchTimers();
     }
     if (!this.nexusBase || (this.nexusBase.coordsX == 0 && this.nexusBase.coordsY == 0)) {
       this.isUserComponentOpen = false;
@@ -209,7 +209,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     } else {
       this.nexusBase = affectedMapData[0];
     }
-    await this.loadNexusData(false);
+    this.loadNexusData(true);
   }
 
   async previousBase() {
@@ -226,7 +226,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     } else {
       this.nexusBase = affectedMapData[affectedMapData.length - 1];
     }
-    await this.loadNexusData(false);
+    this.loadNexusData(true);
   }
 
 
@@ -263,12 +263,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       console.log("cant get unit stats, no base present");
       return;
     };
-    const res = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase);
-    if (res) {
-      this.units = res as UnitStats[];
-      this.glitcherStats = this.units.find(x => x.unitType == "glitcher") ?? new UnitStats();
-      this.assignPicturesToUnitStats();
-    }
+    this.units = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase); 
+    this.glitcherStats = this.units?.find(x => x.unitType == "glitcher") ?? new UnitStats();
+    this.assignPicturesToUnitStats(); 
     this.getUnitTimers();
   }
 
@@ -547,7 +544,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
 
-  private async getBuildingUpgradesInfo() {
+  private getBuildingUpgradesInfo() {
     if (!this.parentRef || !this.parentRef.user || !this.nexusBase) return;
     this.reinitializeBuildingTimers();
     if (this.nexusBaseUpgrades) {
@@ -707,7 +704,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         switch (upgrade.building) {
           case 'mines':
             upgradeCost = this.nexusAvailableUpgrades?.find(x => x.building == "mines")?.cost ?? 0
-            this.nexusBaseUpgrades.minesUpgraded = new Date();
+            this.nexusBaseUpgrades.minesUpgraded = new Date(); 
             this.nexusService.upgradeMines(this.parentRef.user, this.nexusBase);
             break;
           case 'starport':
@@ -745,6 +742,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             return;
         }
 
+        this.displayBuildings(this.nexusBaseUpgrades);
         this.nexusBase.gold -= upgradeCost; 
         this.addNotification(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} Upgrading ${upgrade.building}`);
         this.getBuildingUpgradesInfo();
@@ -1341,7 +1339,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   async emittedBaseChange(changedBase: NexusBase) {
     if (this.nexusBase && (changedBase.coordsX != this.nexusBase.coordsX || changedBase.coordsY != this.nexusBase.coordsY)) {
       this.nexusBase = changedBase;
-      await this.loadNexusData(false);
+      this.loadNexusData(true);
     }
     this.isBasesOpen = false;
   }

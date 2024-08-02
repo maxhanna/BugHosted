@@ -38,6 +38,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() autoload: boolean = true;
   @Input() showCommentSection: boolean = true;
   @Input() file?: FileEntry;
+  @Input() fileId?: number;
   @Input() fileSrc?: string; 
   @Input() currentDirectory?: string = '';
   @Input() user?: User;
@@ -50,7 +51,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
     if (this.selectedFileSrc) return;
     if (!this.autoload) return;
-    if (this.file && Array.isArray(this.file) && this.file.length > 0) {
+    if (this.fileId) {
+      this.selectedFile = {
+        id: this.fileId,
+      } as FileEntry;
+      await this.setFileSrcById(this.selectedFile.id); 
+    }
+    else if (this.file && Array.isArray(this.file) && this.file.length > 0) {
       const fileObject = this.file[0];
       await this.setFileSrcById(fileObject.id);
       this.selectedFile = fileObject;

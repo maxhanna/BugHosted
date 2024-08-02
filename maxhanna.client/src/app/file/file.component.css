@@ -1,6 +1,13 @@
 .componentMain {
     width:700px;
 }
+
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .componentMain {
+    max-width: 90vw !important;
+  }
+}
+
 .folder {
   color: black;
   cursor: pointer;

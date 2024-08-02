@@ -1,9 +1,16 @@
 .componentMain {
     width:370px;
 }
+
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .componentMain {
+    max-width: 90vw !important;
+  } 
+}
+
 .calendarTable {
   border-collapse: collapse;
-  width:370px;
+  width:100%;
 }
 
   .calendarTable td {
@@ -80,12 +87,7 @@
 
       .calendarMonthTable td:not(:nth-child(2)) a {
         color: var(--secondary-font-color);
-      }
-
-.saveEntryFieldset {
-  max-width: 340px;
-
-}
+      } 
 .saveEntryFieldset input{
     display:inline-block;
 }

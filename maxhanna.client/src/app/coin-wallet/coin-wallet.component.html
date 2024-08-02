@@ -2,46 +2,47 @@
   <div class="closeButton" (click)="remove_me('CoinWalletComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Coin Wallet</div>
-
-  <table *ngIf="wallet">
-    <thead>
-      <tr>
-        <th>Currency</th>
-        <th>Total Balance</th>
-        <th>Available</th>
-        <th>Debt</th>
-        <th>Pending</th>
-        <th title="Fiat rate">CAD</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody>
-      <ng-container *ngIf="wallet.total">
+  <div class="wallet">
+    <table *ngIf="wallet">
+      <thead>
         <tr>
-          <td>Total {{ wallet.total.currency }}</td>
-          <td>{{ wallet.total.totalBalance }}</td>
-          <td>{{ wallet.total.available }}</td>
-          <td>{{ roundToEightDecimalPlaces(wallet.total.debt!) }}</td>
-          <td>{{ roundToEightDecimalPlaces(wallet.total.pending!) }}</td>
-          <td>{{ multiplyValues(wallet.total.available, btcFiatConversion) }}$</td>
-          <td></td>
+          <th>Currency</th>
+          <th>Total Balance</th>
+          <th>Available</th>
+          <th>Debt</th>
+          <th>Pending</th>
+          <th title="Fiat rate">CAD</th>
+          <th>Status</th>
         </tr>
-      </ng-container>
-      <ng-container *ngFor="let currency of wallet.currencies">
-        <tr *ngIf="currency.status === 'ACTIVE'">
-          <td>{{ currency.currency }}</td>
-          <td>{{ currency.totalBalance }}</td>
-          <td>{{ currency.available }}</td>
-          <td>{{ roundToEightDecimalPlaces(currency.debt!) }}</td>
-          <td>{{ roundToEightDecimalPlaces(currency.pending!) }}</td>
-          <td>{{ calculateTotalValue(currency).toFixed(2) }}$</td>
-          <td>{{ currency.status }}</td>
-        </tr>
-      </ng-container>
-    </tbody>
-  </table>
-  <div *ngIf="!wallet">
-    No coin wallet detected, Enter your Nicehash API key in the user settings to get one.
-    <div>In the future, we plan on having our own crypto wallets and an exchange for goods and coins; no middle man, just direct person to person coin trading!</div>
-  </div>
+      </thead>
+      <tbody>
+        <ng-container *ngIf="wallet.total">
+          <tr>
+            <td>Total {{ wallet.total.currency }}</td>
+            <td>{{ wallet.total.totalBalance }}</td>
+            <td>{{ wallet.total.available }}</td>
+            <td>{{ roundToEightDecimalPlaces(wallet.total.debt!) }}</td>
+            <td>{{ roundToEightDecimalPlaces(wallet.total.pending!) }}</td>
+            <td>{{ multiplyValues(wallet.total.available, btcFiatConversion) }}$</td>
+            <td></td>
+          </tr>
+        </ng-container>
+        <ng-container *ngFor="let currency of wallet.currencies">
+          <tr *ngIf="currency.status === 'ACTIVE'">
+            <td>{{ currency.currency }}</td>
+            <td>{{ currency.totalBalance }}</td>
+            <td>{{ currency.available }}</td>
+            <td>{{ roundToEightDecimalPlaces(currency.debt!) }}</td>
+            <td>{{ roundToEightDecimalPlaces(currency.pending!) }}</td>
+            <td>{{ calculateTotalValue(currency).toFixed(2) }}$</td>
+            <td>{{ currency.status }}</td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+    <div *ngIf="!wallet">
+      No coin wallet detected, Enter your Nicehash API key in the user settings to get one.
+      <div>In the future, we plan on having our own crypto wallets and an exchange for goods and coins; no middle man, just direct person to person coin trading!</div>
+    </div>
+  </div> 
 </div>

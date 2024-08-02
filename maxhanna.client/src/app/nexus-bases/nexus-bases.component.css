@@ -8,19 +8,20 @@
 
 .rotated-header {
   display: inline-block;
-  transform: rotate(-90deg) translateY(63px);
+  transform: rotate(-90deg) translateY(56px) translateX(-5px);
   transform-origin: left bottom;
   white-space: nowrap;
   height: 60px;
   width: 20px;
   text-align: right;
   text-overflow: ellipsis;
-  font-size: xx-small;
+  font-size: x-small;
+  font-weight: 100;
 }
 
 table {
   margin: auto; /* Center the table */
-  width: var(--nexus-gamescreen-width);
+  width: 100%;
   height: var(--nexus-gamescreen-height);
   overflow-y: auto;
   border-collapse: collapse;
@@ -28,17 +29,16 @@ table {
 
 thead th {
   position: sticky;
-  top: 0;
-  z-index: 10;
-  height: 100px;
+  top: 0; 
+  height: 85px;
   overflow: hidden;
   background-color: var(--main-bg-color);
 }
 
 th,
 td {
-  overflow: auto;
-  min-width: 30px;
+  overflow: auto; 
+  font-size: small;
 }
 
 td {
@@ -52,4 +52,4 @@ tbody {
 }
 .highlightedBase {
     background-color: var(--main-highlight-color);
-}
+} 

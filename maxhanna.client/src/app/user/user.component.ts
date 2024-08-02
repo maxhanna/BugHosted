@@ -46,6 +46,8 @@ export class UserComponent extends ChildComponent implements OnInit {
   isFriendRequestsExpanded = false;
   isAboutExpanded = true;
   isWordlerScoresExpanded = false;
+  isAboutOpen = false;
+  isMoreInfoOpen = false;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   contacts: Contact[] = [];
@@ -358,11 +360,16 @@ export class UserComponent extends ChildComponent implements OnInit {
   copyLink() {
     const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;
     const link = `https://bughosted.com/${userId ? `User/${userId}` : ''}`;
-    navigator.clipboard.writeText(link).then(() => {
-      this.notifications.push('Link copied to clipboard!');
-    }).catch(err => {
+    try {
+      navigator.clipboard.writeText(link).then(() => {
+        this.notifications.push('Link copied to clipboard!');
+      }).catch(err => {
+        this.notifications.push('Failed to copy link!');
+      });
+    }
+    catch  {
       this.notifications.push('Failed to copy link!');
-    });
+    }
   }
   getFilteredFriendRequests() {
     return this.friendRequests.filter(x => parseInt(x.status) == 0);
@@ -373,5 +380,8 @@ export class UserComponent extends ChildComponent implements OnInit {
       return false;
     }
     return this.friends.some(x => x.id === other.id);
+  } 
+  openChat() {
+    this.parentRef?.createComponent("Chat", { selectedUser: this.user });
   }
 }

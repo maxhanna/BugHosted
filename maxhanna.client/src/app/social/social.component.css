@@ -1,7 +1,12 @@
 .componentMain {
-  max-width: 865px;
+  max-width: 865px; 
 }
- 
+
+@media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
+  .componentMain {
+    width: 99vw; 
+  }
+}
 
 .inputDiv {
   margin-left: auto;

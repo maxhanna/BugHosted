@@ -36,7 +36,7 @@
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
-              ({{ formatTimestamp(message.timestamp) }})
+              {{ formatTimestamp(message.timestamp) }}
             </div>
             <div class="messageContent">
               {{ message.content }}
@@ -79,7 +79,7 @@
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
-              ({{ formatTimestamp(message.timestamp) }})
+              {{ formatTimestamp(message.timestamp) }}
             </div>
           </ng-container>
         </div>
