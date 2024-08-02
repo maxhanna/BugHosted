@@ -5,8 +5,16 @@
   flex-flow: column;
   justify-content: flex-start;
   overflow: hidden;
-  width: 99vw;
+  width: 400px;
 }
+
+
+@media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
+  .componentMain {
+    width: 98vw;
+  }
+}
+
 
 .gamescreen, .map {  
   width: 100%;
@@ -156,7 +164,7 @@
 .unitsTableDiv {
   height: 180px;
   overflow: auto;
-  width: var(--nexus-gamescreen-width);
+  width: 100%;
 }
 
 .unitPicture {
@@ -277,3 +285,29 @@
   max-height: 130px;
   overflow: auto;
 }
+.upgradeDisplayTable {
+    width:100%;
+}
+.unitResearches {
+  display: flex;
+  flex-flow: row wrap; 
+}
+  .unitResearches .unitUpgradeDiv {
+    width: 48%;
+    height:50px;
+    display:flex;
+    justify-content: center;
+  }
+
+    .unitResearches .unitUpgradeDiv div {
+      display: block;
+      width: 100%;
+    }
+
+      .unitResearches .unitUpgradeDiv div p {
+        width: 100%;
+        line-height: 3px;
+      }
+      .unitUpgradeDivContainer{
+          border: var(--main-border);
+      }

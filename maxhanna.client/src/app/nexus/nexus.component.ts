@@ -1289,8 +1289,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       glitcher: 'glitcherLevel'
     };
 
-    this.unitsWithoutGlitcher = this.units.filter(x => x.unitType !== 'glitcher');
-
+    this.unitsWithoutGlitcher = this.units.filter(x => x.unitType !== 'glitcher' && x.factoryLevel <= (this.nexusBase?.factoryLevel ?? 0)
+      && x.starportLevel <= (this.nexusBase?.starportLevel ?? 0) && x.engineeringBayLevel <= (this.nexusBase?.engineeringBayLevel ?? 0)); 
+    
     let updatedUnits = this.unitsWithoutGlitcher.map(unit => {
       const unitLevelKey = unitLevelMapping[unit.unitType];
       return {

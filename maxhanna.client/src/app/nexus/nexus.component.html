@@ -204,7 +204,7 @@
         <div *ngIf="calculateCurrentSupply() == 0">Upgrade the Supply Depot to train more units.</div>
 
         <div class="unitsTableDiv">
-          <table class="mainTable">
+          <table class="upgradeDisplayTable">
             <tbody *ngFor="let unit of getFactoryUnits()">
               <tr>
                 <td class="unitPictureTd" (click)="toggleUnitScreen(unit, true)">
@@ -219,6 +219,9 @@
                 <td>
                   <input [value]="unit.purchasedValue ? unit.purchasedValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
                 </td>
+                <td class="unitPictureTd" (click)="unit.purchasedValue = maxSliderValue(unit)">
+                  ({{maxSliderValue(unit)}})
+                </td> 
                 <td class="unitPictureTd">
                   <button [disabled]="!unit.purchasedValue || isLoading || (nexusBase && nexusBase.gold < unit.cost)" (click)="purchaseUnit(unit.unitId)">✔️</button>
                 </td>
@@ -253,7 +256,7 @@
           <div *ngIf="calculateCurrentSupply() == 0">Upgrade the Supply Depot to train more units.</div>
 
           <div class="unitsTableDiv">
-            <table class="mainTable">
+            <table class="upgradeDisplayTable">
               <tbody *ngFor="let unit of getStarportUnits()">
                 <tr>
                   <td class="unitPictureTd" (click)="toggleUnitScreen(unit, true)">
@@ -267,6 +270,9 @@
                   </td>
                   <td>
                     <input [value]="unit.purchasedValue ? unit.purchasedValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
+                  </td>
+                  <td class="unitPictureTd" (click)="unit.purchasedValue = maxSliderValue(unit)">
+                    ({{maxSliderValue(unit)}})
                   </td>
                   <td class="unitPictureTd">
                     <button [disabled]="!unit.purchasedValue || isLoading || (nexusBase && nexusBase.gold < unit.cost)" (click)="purchaseUnit(unit.unitId)">✔️</button>
@@ -326,17 +332,21 @@
         <p>Current upgrade limit: {{getEngineerBayUpgradeLimit()}}</p>
       <div class="unitsUpgradesDiv">
         <div class="unitsUpgradesDiv">
-          <div *ngFor="let unit of unitsWithoutGlitcher ? unitsWithoutGlitcher : getUnitsWithoutGlitcher()" class="unitUpgradeDiv capitalize xxSmallFont gameNotification">
-            <img [src]="unit.pictureSrc" class="unitUpgradeDiv" loading="lazy" decoding="asynchronous" />
-            <span>{{unit.unitType}}</span>
-            <span> Level : {{unit.unitLevel}}</span>
-            <span> Cost : {{unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1)}}</span>
-            <button [disabled]="isLoading" (click)="research(unit)" *ngIf="unit.unitLevel < 3">{{researchTimers[unit.unitType] ? formatTimer(researchTimers[unit.unitType].endTime) : 'Upgrade'}}</button>
+          <div class="unitResearches">
+            <div *ngFor="let unit of unitsWithoutGlitcher ? unitsWithoutGlitcher : getUnitsWithoutGlitcher()" class="unitUpgradeDiv capitalize xxSmallFont gameNotification unitUpgradeDivContainer">
+              <img [src]="unit.pictureSrc" loading="lazy" class="unitPicture" decoding="asynchronous" />
+              <div class="unitUpgradeDiv">
+                <p>Level: {{unit.unitLevel}}</p>  
+                <p>🪙: {{unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1)}}</p>
+              </div>
+              <button [disabled]="isLoading" (click)="research(unit)" *ngIf="unit.unitLevel < 3">{{researchTimers[unit.unitType] ? formatTimer(researchTimers[unit.unitType].endTime) : '🔧'}}</button>
+            </div>
           </div>
+          
 
           <div class=""
                *ngIf="glitcherStats && nexusBase && (nexusBase.factoryLevel >= glitcherStats.factoryLevel) && (nexusBase.starportLevel >= glitcherStats.starportLevel) && (nexusBase.engineeringBayLevel >= glitcherStats.engineeringBayLevel)">
-            <table class="mainTable">
+            <table class="upgradeDisplayTable">
               <tbody>
                 <tr>
                   <td class="unitPictureTd" (click)="toggleUnitScreen(glitcherStats, true)">
@@ -350,6 +360,9 @@
                   </td>
                   <td>
                     <input [value]="glitcherStats.purchasedValue ? glitcherStats.purchasedValue : '0'" (keyup)="onSliderChange($event, glitcherStats)" class="unitInput" />
+                  </td> 
+                  <td class="unitPictureTd" (click)="glitcherStats.purchasedValue = maxSliderValue(glitcherStats)">
+                    ({{maxSliderValue(glitcherStats)}})
                   </td>
                   <td class="unitPictureTd">
                     <button [disabled]="!glitcherStats.purchasedValue || isLoading || (nexusBase && nexusBase.gold < glitcherStats.cost)" (click)="purchaseUnit(glitcherStats.unitId)">✔️</button>
