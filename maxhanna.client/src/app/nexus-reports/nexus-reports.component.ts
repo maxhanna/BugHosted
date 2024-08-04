@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnChanges, OnInit, SimpleChanges, ViewChild } from '@angular/core';
 import { NexusBattleOutcome } from '../../services/datacontracts/nexus/nexus-battle-outcome';
 import { User } from '../../services/datacontracts/user/user';
 import { NexusService } from '../../services/nexus.service';
@@ -11,7 +11,7 @@ import { ChildComponent } from '../child.component';
   templateUrl: './nexus-reports.component.html',
   styleUrl: './nexus-reports.component.css'
 })
-export class NexusReportsComponent extends ChildComponent implements OnChanges {
+export class NexusReportsComponent extends ChildComponent implements OnInit, OnChanges {
   @Input() battleReports?: NexusBattleOutcomeReports;
   @Input() user?: User;
   @Input() targetBase?: NexusBase;
@@ -22,6 +22,12 @@ export class NexusReportsComponent extends ChildComponent implements OnChanges {
   @ViewChild('pageSize') pageSize!: ElementRef<HTMLSelectElement>;
   @ViewChild('currentPage') currentPage!: ElementRef<HTMLSelectElement>;
   constructor(private nexusService: NexusService) { super(); }
+
+  ngOnInit() {
+    
+    this.loadBattleReports(this.targetBase);
+    
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['battleReports'] && this.battleReports) {

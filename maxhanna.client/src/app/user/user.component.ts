@@ -260,13 +260,14 @@ export class UserComponent extends ChildComponent implements OnInit {
       const tmpUser = new User(undefined, tmpUserName, tmpPassword);
       try {
         const resCreateUser = await this.userService.createUser(tmpUser);
-        if (resCreateUser && !resCreateUser.includes("Error")) {
+        if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
           tmpUser.id = parseInt(resCreateUser!);
           this.notifications.push("Successfully added user");
-
-          const ip = await this.userService.getUserIp();
-          const resUpdateWeather = await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
-          this.notifications.push(resUpdateWeather!);
+          try { 
+            this.updateWeatherInBackground(tmpUser);
+          } catch {
+            this.notifications.push("No weather data can be fetched"); 
+          }
 
           const resAddMenuItemSocial = await this.userService.addMenuItem(tmpUser, "Social");
           this.notifications.push(resAddMenuItemSocial + '');
@@ -333,11 +334,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
         this.parentRef!.user = tmpUser;
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
-        const ip = await this.userService.getUserIp();
-        const weatherLocation = await this.weatherService.getWeatherLocation(tmpUser) as WeatherLocation;
-        if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
-          await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"], ip["city"]);
-        }
+        this.updateWeatherInBackground(tmpUser, true);
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
         if (this.loginOnly) {
           console.log("closing emit");
@@ -383,5 +380,20 @@ export class UserComponent extends ChildComponent implements OnInit {
   } 
   openChat() {
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
+  }
+  async updateWeatherInBackground(tmpUser: User, withCity?: boolean) {
+    if (!withCity) { 
+      const ip = await this.userService.getUserIp();
+      const res = await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
+      if (res) {
+        this.notifications.push(res);
+      }
+    } else {
+      const ip = await this.userService.getUserIp();
+      const weatherLocation = await this.weatherService.getWeatherLocation(tmpUser) as WeatherLocation;
+      if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
+        await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"], ip["city"]);
+      }
+    }
   }
 }

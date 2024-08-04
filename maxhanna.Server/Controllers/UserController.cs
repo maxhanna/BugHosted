@@ -58,7 +58,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost(Name = "GetUser")]
         public async Task<IActionResult> GetUser([FromBody] User user)
         {
-            _logger.LogInformation($"POST /User with username: {user.Username}");
+            _logger.LogInformation($"POST /GetUser with username: {user.Username}");
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {

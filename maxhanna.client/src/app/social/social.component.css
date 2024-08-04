@@ -4,7 +4,8 @@
 
 @media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
   .componentMain {
-    width: 98vw; 
+    min-width: 90vw;
+    max-width: 98vw;
   }
 }
 
@@ -13,10 +14,14 @@
   margin-right: auto;
   width: 90%;  
 }
+.storyInputDiv{
+    display: flex;
+    flex-flow: column wrap;
+}
 
-  .inputDiv input[type=text] {
-    height: 20px;
-  }
+.inputDiv input[type=text] {
+  height: 20px;
+}
 
 .foodForThought {
   min-width: 200px;

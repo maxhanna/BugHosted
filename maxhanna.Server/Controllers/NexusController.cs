@@ -56,16 +56,7 @@ namespace maxhanna.Server.Controllers
                         List<NexusUnitsPurchased>? nexusUnitPurchasesList = await GetNexusUnitPurchases(nexusBase, connection, transaction);
                         List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase, false, connection, transaction);
                         List<NexusAttackSent>? nexusAttacksIncoming = await GetNexusAttacksIncoming(nexusBase, false, false, connection, transaction);
-                        List<NexusUnitUpgrades>? nexusUnitUpgrades = await GetNexusUnitUpgrades(nexusBase, connection, transaction);
-
-                        decimal miningSpeed = await GetMiningSpeedForNexus(nexusBase, connection, transaction);
-                        var availableUpgrades = await GetBuildingUpgradeList(nexusBase, connection, transaction);
-                        NexusBattleOutcomeReports? battleReports = null;
-                        if (nexusBase != null && nexusBase.User != null)
-                        {
-                            battleReports = await GetAllBattleReports(nexusBase.User.Id, nexusBase, 1, 5, connection, transaction);
-                        }
-
+                        List<NexusUnitUpgrades>? nexusUnitUpgrades = await GetNexusUnitUpgrades(nexusBase, connection, transaction);                        
                         await transaction.CommitAsync();
 
                         return Ok(
@@ -76,10 +67,7 @@ namespace maxhanna.Server.Controllers
                                 nexusUnits = nexusUnits ?? new NexusUnits(),
                                 nexusUnitsPurchasedList = nexusUnitPurchasesList ?? new List<NexusUnitsPurchased>(),
                                 nexusAttacksSent,
-                                nexusAttacksIncoming,
-                                miningSpeed,
-                                availableUpgrades,
-                                battleReports,
+                                nexusAttacksIncoming, 
                                 nexusUnitUpgrades,
                             });
                     }
@@ -90,6 +78,88 @@ namespace maxhanna.Server.Controllers
                     }
                 }
             }
+        }
+
+
+        [HttpPost("/Nexus/GetAllBuildingUpgradesList", Name = "GetAllBuildingUpgradesList")]
+        public async Task<IActionResult> GetAllBuildingUpgradesList()
+        {
+            Console.WriteLine($"POST /Nexus/GetAllBuildingUpgradesList");
+
+
+            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+
+                        var availableUpgrades = await GetAllBuildingUpgradeList(connection, transaction);
+
+                        await transaction.CommitAsync();
+                        return Ok(availableUpgrades);
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "Internal server error: " + ex.Message);
+                    }
+                }
+            }
+        }
+
+
+        [HttpPost("/Nexus/GetAllMiningSpeeds", Name = "GetAllMiningSpeeds")]
+        public async Task<IActionResult> GetAllMiningSpeeds()
+        {
+            Console.WriteLine($"POST /Nexus/GetAllMiningSpeeds"); 
+            List<NexusMiningSpeed> speeds = new List<NexusMiningSpeed>();
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+
+            await conn.OpenAsync();
+            MySqlTransaction transaction = await conn.BeginTransactionAsync();
+
+            try
+            {
+
+                // Insert new base at the available location
+                string sql = @"
+                    SELECT id, mines_level, speed 
+                    FROM 
+                        maxhanna.nexus_mining_speed;";
+
+
+                MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                         
+                        NexusMiningSpeed tmpMiningSpeed = new NexusMiningSpeed();
+                        tmpMiningSpeed.Id = reader.IsDBNull(reader.GetOrdinal("id")) ? 0 : reader.GetInt32(reader.GetOrdinal("id")); 
+                        tmpMiningSpeed.MinesLevel = reader.IsDBNull(reader.GetOrdinal("mines_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("mines_level")); 
+                        tmpMiningSpeed.Speed = reader.IsDBNull(reader.GetOrdinal("speed")) ? 0 : reader.GetDecimal(reader.GetOrdinal("speed")); 
+                        speeds.Add(tmpMiningSpeed);
+                        //await RecalculateNexusGold(conn, tmpBase, transaction);
+                    }
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "An error occurred getting mining speeds");
+                return StatusCode(500, "Internal server error");
+            }
+            finally
+            {
+                await conn.CloseAsync();
+            }
+
+            return Ok(speeds);
         }
 
 
@@ -802,6 +872,88 @@ namespace maxhanna.Server.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"An error occurred while retrieving building upgrades for {nexusBase.CoordsX},{nexusBase.CoordsY}");
+            }
+
+            return availableUpgrades;
+        }
+
+
+        private async Task<List<Object>> GetAllBuildingUpgradeList(MySqlConnection connection, MySqlTransaction transaction)
+        {
+            var availableUpgrades = new List<Object>();
+
+            try
+            { 
+                var durations = new Dictionary<string, Dictionary<int, int>>();
+                var costs = new Dictionary<string, Dictionary<int, int>>();
+                string sqlDurations = @"
+                    SELECT 
+                        building_type, building_level, duration, cost
+                    FROM 
+                        nexus_base_upgrade_stats
+                    WHERE 
+                        building_type 
+                        IN (
+                            SELECT id 
+                            FROM nexus_building_types 
+                            WHERE type IN ('command_center', 'mines', 'supply_depot', 'warehouse', 'engineering_bay', 'factory', 'starport')
+                        )";
+                MySqlCommand cmdDurations = new MySqlCommand(sqlDurations, connection, transaction);
+                var readerDurations = await cmdDurations.ExecuteReaderAsync();
+                while (await readerDurations.ReadAsync())
+                {
+                    int buildingType = readerDurations.GetInt32("building_type");
+                    int level = readerDurations.GetInt32("building_level");
+                    int duration = readerDurations.GetInt32("duration");
+                    int cost = readerDurations.GetInt32("cost");
+
+                    string buildingTypeEnum = GetBuildingTypeFromTypeId(buildingType);
+                    if (!string.IsNullOrEmpty(buildingTypeEnum))
+                    {
+                        if (!durations.ContainsKey(buildingTypeEnum))
+                        {
+                            durations[buildingTypeEnum] = new Dictionary<int, int>();
+                        }
+                        if (!costs.ContainsKey(buildingTypeEnum))
+                        {
+                            costs[buildingTypeEnum] = new Dictionary<int, int>();
+                        }
+                        durations[buildingTypeEnum][level] = duration;
+                        costs[buildingTypeEnum][level] = cost;
+                    }
+                }
+                await readerDurations.CloseAsync();
+
+                var buildings = new List<string>
+                {
+                    "command_center",
+                    "mines",
+                    "supply_depot",
+                    "warehouse",
+                    "engineering_bay",
+                    "factory",
+                    "starport"
+                };
+
+                foreach (string buildingName in buildings)
+                {
+                    foreach(int buildingLevel in durations[buildingName].Keys)
+                    {
+                        int duration = durations[buildingName][buildingLevel];
+                        int cost = costs[buildingName][buildingLevel];
+                        availableUpgrades.Add(new
+                        {
+                            Building = buildingName,
+                            NextLevel = buildingLevel,
+                            Duration = duration,
+                            Cost = cost
+                        });
+                    } 
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"An error occurred while retrieving building upgrades");
             }
 
             return availableUpgrades;

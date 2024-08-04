@@ -51,16 +51,18 @@ namespace maxhanna.Server.Controllers
 
             var response = client.Execute(request, Method.Get);
             var content = response.Content;
-
-            var weatherForecast = JsonConvert.DeserializeObject<WeatherForecast>(content!);
-
-            // Cache the new weather data
-            if (weatherForecast != null)
+            if (content != null)
             {
-                await CacheWeatherData(weatherForecast, weatherLocation);
-            }
+                var weatherForecast = JsonConvert.DeserializeObject<WeatherForecast>(content!);
 
-            return weatherForecast!;
+                // Cache the new weather data
+                if (weatherForecast != null)
+                {
+                    await CacheWeatherData(weatherForecast, weatherLocation);
+                }
+                return weatherForecast!;
+            }
+            else return new WeatherForecast(); 
         }
 
         private async Task<WeatherForecast?> GetCachedWeather(string location)

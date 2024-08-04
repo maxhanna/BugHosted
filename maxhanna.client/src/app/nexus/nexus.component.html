@@ -10,18 +10,18 @@
   </div>
 
   <div class="gamescreen" [style.display]="!isUserNew ? 'block':'none'">
-    <div  [style.display]="!isReportsOpen && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && nexusBase ? 'block' : 'none'">
+    <div  [style.display]="numberOfPersonalBases > 1 && !isReportsOpen && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && nexusBase ? 'block' : 'none'">
       <button class="previousBaseButton" (click)="previousBase()" [disabled]="isLoading">⩤</button>
       <button class="nextBaseButton" (click)="nextBase()" [disabled]="isLoading">⩥</button>
     </div>
     <div *ngIf="!isReportsOpen && !isMapOpen && !isBasesOpen">
       <span title="Gold" class="resourceSpan">🪙:{{ (nexusBase && nexusBase.gold ? nexusBase.gold : '0') | number:'1.0-2' }}</span>
       <span title="Supply Capacity" class="resourceSpan" *ngIf="nexusBase">👤:{{calculateCurrentSupply()}}</span>
-      <span title="Nexus location" class="resourceSpan">📍:{{'{' + currentBaseLocationX + ',' + currentBaseLocationY + '}'}}</span>
+      <span title="Nexus location" class="resourceSpan" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</span>
     </div>
 
     <div *ngIf="parentRef && parentRef.user" [style.display]="isReportsOpen && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && nexusBase ? 'block' : 'none'" class="battleReportComponentDiv">
-      <app-nexus-reports [battleReports]="battleReports" [user]="parentRef.user" *ngIf="isReportsOpen"></app-nexus-reports>
+      <app-nexus-reports [targetBase]="nexusBase" [user]="parentRef.user" *ngIf="isReportsOpen"></app-nexus-reports>
     </div>
 
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user" [style.display]="isMapOpen ? 'block':'none'">
@@ -410,20 +410,20 @@
           <th></th>
         </tr>
       </thead>
-      <tbody *ngIf="getValidBuildingUpgrades().length > 0">
-        <tr *ngFor="let upgrade of getValidBuildingUpgrades()">
+      <tbody>
+        <tr *ngFor="let upgrade of (currentValidAvailableUpgrades ? currentValidAvailableUpgrades : getValidBuildingUpgrades())">
           <td>{{upgrade.building}}</td>
           <td>{{upgrade.nextLevel + 1}}</td>
           <td>{{upgrade.cost}}</td>
-          <td>{{upgrade.duration}}s</td>
+          <td>{{formatTimer(upgrade.duration)}}</td>
           <td>
-            <button [disabled]="isLoading || (nexusBase && nexusBase.gold < upgrade.cost)" (click)="upgradeBuilding(upgrade, upgrade.duration)" #upgradeButton>
-              {{ getBuildingTimerForBuilding(upgrade.building) ? formatTimer(getBuildingTimerForBuilding(upgrade.building).endTime) : '🔧' }}
+            <button [disabled]="isLoading" (click)="upgradeBuilding(upgrade, upgrade.duration)" #upgradeButton>
+              {{ getBuildingTimerForBuilding(upgrade.building) ? formatTimer(getBuildingTimerForBuilding(upgrade.building).endTime) : (nexusBase && nexusBase.gold < upgrade.cost) ? '⛔' :  '🔧' }}
             </button>
           </td>
         </tr>
       </tbody>
-      <tbody *ngIf="getValidBuildingUpgrades().length === 0">
+      <tbody *ngIf="!currentValidAvailableUpgrades || currentValidAvailableUpgrades.length == 0">
         <tr>
           <td colspan="5">All buildings are maxed out on upgrades.</td>
         </tr>

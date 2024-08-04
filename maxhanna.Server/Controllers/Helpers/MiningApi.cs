@@ -103,26 +103,37 @@ namespace maxhanna.Server.Controllers.Helpers
 
         public string get(Dictionary<string,string> apiKeys, string url, bool auth)
         {
-            var client = new RestSharp.RestClient(this.urlRoot);
-            var request = new RestSharp.RestRequest(url);
-            string orgId = apiKeys["orgId"];
-            string apiKey = apiKeys["apiKey"];
-            string apiSecret = apiKeys["apiSecret"];
-            if (auth)
+            try
             {
-                string time = getTime(apiKeys)!;
-                string nonce = Guid.NewGuid().ToString();
-                string digest = HashBySegments(apiSecret, apiKey, time, nonce, orgId, "GET", getPath(url), getQuery(url)!, null);
+                var client = new RestSharp.RestClient(this.urlRoot);
+                var request = new RestSharp.RestRequest(url);
+                string orgId = apiKeys["orgId"];
+                string apiKey = apiKeys["apiKey"];
+                string apiSecret = apiKeys["apiSecret"];
+                if (auth)
+                {
+                    string time = getTime(apiKeys)!;
+                    if (string.IsNullOrEmpty(time))
+                    {
+                        return "";
+                    }
+                    string nonce = Guid.NewGuid().ToString();
+                    string digest = HashBySegments(apiSecret, apiKey, time, nonce, orgId, "GET", getPath(url), getQuery(url)!, null);
 
-                request.AddHeader("X-Time", time);
-                request.AddHeader("X-Nonce", nonce);
-                request.AddHeader("X-Auth", apiKey + ":" + digest);
-                request.AddHeader("X-Organization-Id", orgId);
+                    request.AddHeader("X-Time", time);
+                    request.AddHeader("X-Nonce", nonce);
+                    request.AddHeader("X-Auth", apiKey + ":" + digest);
+                    request.AddHeader("X-Organization-Id", orgId);
+                }
+
+                var response = client.Execute(request, Method.Get);
+                var content = response.Content;
+                return content!;
             }
-
-            var response = client.Execute(request, Method.Get);
-            var content = response.Content;
-            return content!;
+            catch (Exception ex)
+            {
+                return "";
+            }
         }
 
         public string post(Dictionary<string, string> apiKeys, string url, string payload, bool requestId)

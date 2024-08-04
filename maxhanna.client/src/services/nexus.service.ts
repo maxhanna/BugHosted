@@ -11,6 +11,7 @@ import { NexusAvailableUpgrades, UpgradeDetail } from './datacontracts/nexus/nex
 import { NexusBattleOutcome } from './datacontracts/nexus/nexus-battle-outcome';
 import { NexusBattleOutcomeReports } from './datacontracts/nexus/nexus-battle-outcome-reports';
 import { NexusUnitUpgrades } from './datacontracts/nexus/nexus-unit-upgrades';
+import { MiningSpeed } from './datacontracts/nexus/mining-speed';
 
 
 @Injectable({
@@ -49,7 +50,6 @@ export class NexusService {
       nexusBase: NexusBase; nexusBaseUpgrades: NexusBaseUpgrades;
       nexusUnits: NexusUnits; nexusUnitsPurchasedList: NexusUnitsPurchased[];
       nexusAttacksSent: NexusAttackSent[], nexusAttacksIncoming: NexusAttackSent[],
-      miningSpeed: number, availableUpgrades: UpgradeDetail[], battleReports: NexusBattleOutcomeReports,
       nexusUnitUpgrades: NexusUnitUpgrades[]
     } | undefined> {
     return await this.fetchData('/nexus', { User: user, Nexus: nexus });
@@ -113,6 +113,12 @@ export class NexusService {
   }
   async research(user: User, nexusBase: NexusBase, unit: UnitStats): Promise<any> {
     return await this.fetchData('/nexus/research', { User: user, NexusBase: nexusBase, Unit: unit });
+  }
+  async getAllBuildingUpgradesList(): Promise<UpgradeDetail[]> {
+    return await this.fetchData('/nexus/getallbuildingupgradeslist', {});
+  }
+  async getMiningSpeeds(): Promise<MiningSpeed[]> {
+    return await this.fetchData('/nexus/getallminingspeeds', {});
   }
 
 

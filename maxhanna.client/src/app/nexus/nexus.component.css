@@ -234,10 +234,12 @@
 .supplyExplainDiv, .supplyUsedDiv {
   width: 45%;
 }
-
+.upgradesTableDiv {
+  width: 100%;
+}
 .upgradeTimersTableDiv {
   max-height: 100px;
-  width: var(--nexus-gamescreen-width);
+  width: 100%;
   overflow: auto;
   font-size: small;
 }
