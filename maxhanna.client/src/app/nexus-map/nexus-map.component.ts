@@ -22,6 +22,7 @@ export class NexusMapComponent {
   isAttackScreenOpen = false;
   showAttackButton = false;
   isReportsHidden = true;
+  randomRotations: number[][] = [];
 
   @Input() user?: User;
   @Input() nexusAvailableUnits?: NexusUnits;
@@ -90,7 +91,19 @@ export class NexusMapComponent {
         }
       }
     }
+    this.generateRandomRotations();
   }
+  generateRandomRotations() {
+    const possibleRotations = [0, 180, 270];
+    for (let y = 0; y < this.grid.length; y++) {
+      this.randomRotations[y] = [];
+      for (let x = 0; x < this.grid[y].length; x++) { 
+        const randomIndex = Math.floor(Math.random() * possibleRotations.length);
+        this.randomRotations[y][x] = possibleRotations[randomIndex];
+      }
+    }
+  }
+   
 
   showAttackScreen() {
     if (this.unitStats) {
@@ -162,6 +175,7 @@ export class NexusMapComponent {
         this.nexusReports.loadBattleReports(this.selectedNexusBase);
       }
     }, 10);
+     
   }
   getAttackTimersForCoords(coordsX: number, coordsY: number): AttackTimer[] {
     const targetBase = `{${coordsX},${coordsY}}`;
@@ -230,5 +244,5 @@ export class NexusMapComponent {
     );
 
     return relevantAttack;
-  }
+  } 
 }
