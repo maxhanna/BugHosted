@@ -101,9 +101,11 @@ namespace maxhanna.Server.Services
                 }
 
                 string sqlBase =
-                    @"SELECT * FROM maxhanna.nexus_bases n
-                      LEFT JOIN maxhanna.nexus_attacks_sent a ON a.origin_coords_x = n.coords_x AND a.origin_coords_y = n.coords_y
-                      WHERE a.id = @AttackId;";
+                    @"
+                    SELECT * FROM maxhanna.nexus_bases n
+                    LEFT JOIN maxhanna.nexus_attacks_sent a ON a.origin_coords_x = n.coords_x AND a.origin_coords_y = n.coords_y
+                    LEFT JOIN maxhanna.nexus_attacks_sent b ON b.destination_coords_x = n.coords_x AND b.destination_coords_y = n.coords_y
+                    WHERE a.id = @AttackId or b.id = @AttackId;";
 
                 using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn, transaction))
                 {

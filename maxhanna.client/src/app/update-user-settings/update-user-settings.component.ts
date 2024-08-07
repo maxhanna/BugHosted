@@ -11,6 +11,7 @@ import { UserAbout } from '../../services/datacontracts/user/user-about';
 import { WeatherLocation } from '../../services/datacontracts/weather/weather-location';
 import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-update-user-settings',
@@ -23,12 +24,16 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isMenuIconsToggled = false;
   isWeatherLocationToggled = false;
   isDisplayPictureToggled = false;
-  isAboutToggled = false;
+  isAboutToggled = false; 
   selectableIcons: MenuItem[] = [];
   notifications: string[] = [];
   isNicehashApiKeysToggled: any;
   nhApiKeys?: NicehashApiKeys;
-  displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile; 
+  displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
+
+  @Input() inputtedParentRef?: AppComponent;
+  @Input() showOnlySelectableMenuItems? = true;
+  @Input() areSelectableMenuItemsExplained? = true;
 
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
@@ -41,7 +46,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('updatedPhone') updatedPhone!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedBirthday') updatedBirthday!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedDescription') updatedDescription!: ElementRef<HTMLInputElement>;
-
+ 
   @ViewChild(MediaSelectorComponent) displayPictureSelector!: MediaSelectorComponent;
   @ViewChild(MediaViewerComponent) displayPictureViewer!: MediaViewerComponent;
 
@@ -52,7 +57,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async ngOnInit() {
     console.log(this.parentRef?.user?.username + " is username! ");
 
-    this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User');
+    this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User' && x.title !== 'UpdateUserSettings');
     this.parentRef!.user = await this.userService.getUser(this.parentRef!.user!);
     console.log(this.parentRef?.user?.username + " is username! " + this.parentRef?.user?.displayPictureFile?.id + " is displayPictureId");
 //    this.displayPictureViewer.file 
@@ -163,6 +168,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     } else { return alert("You must be logged in first!"); }
   }
   async getMenuIcons() {
+    console.log("getmenuIcons yeee");
+    this.isMenuIconsToggled = !this.isMenuIconsToggled;
+
     if (this.isMenuIconsToggled) {
       const response = await this.userService.getUserMenu(this.parentRef?.user!);
       this.parentRef!.userSelectedNavigationItems = response;
@@ -170,6 +178,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async selectMenuIcon(title: string) {
+    if (this.parentRef?.isModalOpen) { 
+      return event?.preventDefault();
+    }
     if (this.parentRef!.userSelectedNavigationItems.some(x => x.title == title)) {
       this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
       this.userService.deleteMenuItem(this.parentRef?.user!, title);
@@ -177,18 +188,28 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
     } else {
       this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user!.id!, title));
-      this.userService.addMenuItem(this.parentRef?.user!, title);
+      if (this.parentRef && this.parentRef.user) {
+        this.userService.addMenuItem(this.parentRef.user, title);
+      }
       this.notifications.push(`Added menu item : ${title}`);
     }
   }
 
   menuIconsIncludes(title: string) {
-    return this.parentRef!.userSelectedNavigationItems.some(x => x.title == title);
+    return this.parentRef!.userSelectedNavigationItems.some(x => x.title == title) || this.inputtedParentRef?.userSelectedNavigationItems.some(x => x.title == title);
   }
 
   formatDate(date: Date): string {
-    if (!date) return ''; // Handle null or undefined cases
+    if (!date || !(date instanceof Date)) return ''; // Handle null or undefined cases
     const isoDate = date.toISOString(); // Convert date to ISO string
     return isoDate.substring(0, 10); // Extract YYYY-MM-DD part
+  }
+  menuInformationZoom(id: string) {
+    if (document.getElementById(id) && this.parentRef) {
+      const element = document.getElementById(id);
+      if (this.parentRef && element) {
+        this.parentRef.setModalBody(element.innerHTML); 
+      }
+    } 
   }
 }

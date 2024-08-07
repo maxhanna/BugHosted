@@ -135,7 +135,7 @@
       </div>
       <div *ngIf="parentRef?.user" style="width:100%;text-align:center">
         <button (click)="logout()">Logout</button>
-        <button (click)="parentRef?.createComponent('UpdateUserSettings')" title="Update Settings">🔧</button>
+        <button (click)="parentRef?.createComponent('UpdateUserSettings', {showOnlySelectableMenuItems : false, areSelectableMenuItemsExplained: false})" title="Update Settings">⚙️ Settings</button>
       </div>
     </div>
   </div>
@@ -144,9 +144,9 @@
     <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">Add friend</button>
     <button *ngIf="areWeFriends(user)" (click)="removeFriend(user)">Remove friend</button>
     <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" (click)="addContact(user)">Add as Contact</button>
-    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">Share Profile 📋</button>
-    <button *ngIf="user" (click)="openChat()">Chat</button> 
-    <button *ngIf="user" (click)="isMoreInfoOpen = !isMoreInfoOpen">Info</button> 
+    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">📋 Share Profile</button>
+    <button *ngIf="user" (click)="openChat()">🗨️ Chat</button> 
+    <button *ngIf="user" (click)="isMoreInfoOpen = !isMoreInfoOpen">ℹ️ Info</button> 
   </div>
 
   <!-- ABOUT -->

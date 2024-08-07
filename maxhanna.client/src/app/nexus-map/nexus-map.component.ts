@@ -26,7 +26,9 @@ export class NexusMapComponent {
   @Input() user?: User;
   @Input() nexusAvailableUnits?: NexusUnits;
   @Input() nexusBase?: NexusBase;
-  @Input() nexusPictureSrc?: string;
+  @Input() lvl1Src?: string;
+  @Input() lvl2Src?: string;
+  @Input() lvl3Src?: string;
   @Input() mapTileSrc?: string;
   @Input() marinePictureSrc: string | undefined;
   @Input() goliathPictureSrc: string | undefined;
@@ -65,6 +67,14 @@ export class NexusMapComponent {
     }
   }
 
+  getSrcForBase(baseLvl: string) {
+    const num = parseInt(baseLvl);
+    if (num) {
+      return num >= 35 ? this.lvl3Src : num > 20 ? this.lvl2Src : this.lvl1Src;
+    }
+    return;
+  }
+
   setMapData(nexusBases: NexusBase[]) {
     this.mapData = nexusBases;
 
@@ -73,7 +83,8 @@ export class NexusMapComponent {
       for (let j = 0; j < 100; j++) {
         let base = this.mapData.find(x => x.coordsX == i && x.coordsY == j);
         if (base) {
-          this.grid[i][j] = base.commandCenterLevel + '';
+          this.grid[i][j] = base.commandCenterLevel + base.minesLevel + base.warehouseLevel + base.factoryLevel + base.starportLevel + base.engineeringBayLevel
+            + base.marineLevel + base.goliathLevel + base.siegeTankLevel + base.scoutLevel + base.wraithLevel + base.battlecruiserLevel + base.glitcherLevel + '';
         } else {
           this.grid[i][j] = "";
         }
@@ -197,10 +208,10 @@ export class NexusMapComponent {
   isAttackSentOn(x: number, y: number) {
     if (!this.nexusAttacksSent) return false;
     //console.log(this.nexusAttacksSent);
-    const relevantAttack = this.nexusAttacksSent.find(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y);
+    const relevantAttack = this.nexusAttacksSent.find(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y );
     if (relevantAttack) return true;
     if (!this.nexusAttacksIncoming) return false;
-    const relevantDefence = this.nexusAttacksIncoming.find(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y);
+    const relevantDefence = this.nexusAttacksIncoming.find(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y && nb.originUserId != this.user?.id);
     if (relevantDefence) return true;
 
     return false;

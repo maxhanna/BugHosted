@@ -79,8 +79,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.ngOnInit();
   }
   copyLink() {
-    const link = `https://bughosted.com/${this.file?.directory.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`;
-    navigator.clipboard.writeText(link);
+    const link = `https://bughosted.com/${this.file?.directory.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`; 
+    try {
+      navigator.clipboard.writeText(link);
+    } catch {
+      console.log("Error: Unable to share link!");
+    }
   }
   createUserProfileComponent(user?: User) {
     if (!user) { return alert("you must select a user!"); }

@@ -25,7 +25,7 @@
         <td>{{base.starportLevel}}</td>
         <td>{{base.warehouseLevel}}</td>
         <td>{{base.gold | number:'1.2-2'}}</td>
-        <td>{{getAttacksForBase(base.coordsX, base.coordsY).length}}</td>
+        <td [class]="getAttacksForBase(base.coordsX, base.coordsY).length > 0 ? 'redText' : ''">{{getAttacksForBase(base.coordsX, base.coordsY).length}}</td>
       </tr>
     </tbody>
   </table> 

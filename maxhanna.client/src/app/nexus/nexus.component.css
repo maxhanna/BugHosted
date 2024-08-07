@@ -16,9 +16,10 @@
 }
 
 
-.gamescreen, .map {  
+.gamescreen, .map {
   width: 100%;
   height: var(--nexus-gamescreen-height);
+  z-index: 1;
 }
 
 .nextBaseButton {
@@ -27,6 +28,7 @@
   left: CALC(100% - 25px);
   display: block;
   width: 25px;
+  z-index:5;
 }
 
 .previousBaseButton {
@@ -35,6 +37,7 @@
   left: 0px;
   display: block;
   width: 25px;
+  z-index: 5;
 }
 
 .map {
@@ -56,21 +59,21 @@
 }
 
 .buildingPicture {
-  height: 60px;
-  width: 60px;
+  max-height: 65px;
+  max-width: 77px;
   border-radius: 50%;
   overflow: hidden;
   position: absolute;
 }
 
 .commandCenter, .commandCenterLevelDisplay {
-  top: 50px;
-  left: 150px;
+  top: 45px;
+  left: 170px;
 }
 
 .mines, .minesLevelDisplay {
-  top: 130px;
-  left: 195px;
+  top: 156px;
+  left: 230px;
 }
 
 .starport, .starportLevelDisplay {
@@ -79,23 +82,23 @@
 }
 
 .factory, .factoryLevelDisplay {
-  top: 73px;
-  left: 35px;
+  top: 68px;
+  left: 53px;
 }
 
 .supplyDepot, .supplyDepotLevelDisplay {
-  top: 18px;
-  left: 225px;
+  top: 16px;
+  left: 275px;
 }
 
 .warehouse, .warehouseLevelDisplay {
-  top: 8px;
-  left: 95px;
+  top: 11px;
+  left: 106px;
 }
 
 .engineeringBay, .engineeringBayLevelDisplay {
   top: 90px;
-  left: 250px;
+  left: 290px;
 }
 
 .supplyDepotScreen, .starportScreen, .minesScreen, .factoryScreen, .warehouseScreen, .engineeringBayScreen, .commandCenterScreen {
@@ -151,8 +154,8 @@
   display: flex;
   flex-direction: column;
   overflow: auto;
-  width: var(--nexus-gamescreen-width);
-  height: var(--nexus-gamescreen-height);
+  width: 100%;
+  height: 75vh;
 }
 
 .upgradesTableDiv {
@@ -210,11 +213,7 @@
 
 .unitSliderTd {
   width: 120px;
-}
-
-.redText {
-  color: red;
-}
+} 
 
 .supplyUsedDiv {
   height: 100px;
@@ -310,6 +309,13 @@
         width: 100%;
         line-height: 3px;
       }
+      .unitUpgradeDiv button{
+          height:100%;
+      }
       .unitUpgradeDivContainer{
           border: var(--main-border);
       }
+
+.highlightBg {
+
+}

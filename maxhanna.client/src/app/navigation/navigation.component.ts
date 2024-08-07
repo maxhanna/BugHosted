@@ -27,6 +27,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private coinWalletInfoInterval: any;
   private wordlerInfoInterval: any;
 
+  navbarCollapsed: boolean = false; 
+
   @Input() user?: User;
 
   constructor(public _parent: AppComponent,
@@ -39,6 +41,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private chatService: ChatService) {
   }
   async ngOnInit() {
+    await this.getSelectedMenuItems();
     this.getNotifications();
   }
   ngOnDestroy() { // Clear intervals when component is destroyed to prevent memory leaks
@@ -69,7 +72,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
   }
   async getNotifications() {
-    await this.getSelectedMenuItems();
+    if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
+    
     this.getCurrentWeatherInfo();
     this.getMiningInfo();
     this.getCalendarInfo();
@@ -84,9 +88,26 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
   }
   async getSelectedMenuItems() {
-    this._parent.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
+    if (!this._parent || !this.user) {
+      this._parent.userSelectedNavigationItems = [
+        { ownership: 0, icon: "📕", title: "Close Menu", content: '' },
+        { ownership: 0, icon: "🌍", title: "Social", content: undefined },
+        { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
+        { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
+        { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
+        { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
+        { ownership: 0, icon: "🏰", title: "War", content: undefined }, 
+        { ownership: 0, icon: "👤", title: "User", content: undefined }, 
+      ]; 
+    } else { 
+      this._parent.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
+    }
   }
   menuIconsIncludes(title: string) {
+    if (!this._parent) {
+      console.log("no parent returning false");
+      return false;
+    } 
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }
   async getChatInfo() {
@@ -195,7 +216,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   toggleMenu() {
     this.toggleNavButton.nativeElement.style.display = "block";
     this.toggleNavButton.nativeElement.classList.toggle('visible');
-    this.navbar.nativeElement.classList.toggle('collapsed');
+    this.navbar.nativeElement.classList.toggle('collapsedNavbar');
 
     const currText = this.toggleNavButton.nativeElement.innerText;
 
@@ -209,10 +230,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   goTo(event: any) {
+    const title = event.target.getAttribute('title');
     if (event.target.getAttribute("title")?.toLowerCase() == "close menu") {
       this.toggleMenu();
+    } else if (title == "UpdateUserSettings") {
+      this._parent.createComponent(title, { inputtedParentRef: this._parent });
     } else {
-      this._parent.createComponent(event.target.getAttribute('title'));
+      this._parent.createComponent(title);
     }
     event.stopPropagation();
   }
@@ -220,5 +244,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
     // Logic to determine if an item should be displayed
     const alwaysDisplay = ['Close Menu', 'User', 'Meme', 'Social', 'Wordler', 'Emulation', 'Files'];
     return this.menuIconsIncludes(title) || alwaysDisplay.includes(title);
-  } 
+  }
+  minimizeNav() {
+    if (this.navbar) {
+      this.navbar.nativeElement.classList.add('collapsed');
+      this.navbarCollapsed = true;
+    }
+  }
+  maximizeNav() {
+    if (this.navbar) {
+      this.navbar.nativeElement.classList.remove('collapsed');
+      this.navbarCollapsed = false;
+      if (this.toggleNavButton.nativeElement.style.display == "block") {
+        this.toggleMenu(); 
+      }
+    }
+  }
 }

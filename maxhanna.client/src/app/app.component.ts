@@ -25,6 +25,7 @@ import { EmulationComponent } from './emulation/emulation.component';
 import { ArrayComponent } from './array/array.component';
 import { NexusComponent } from './nexus/nexus.component';
 import { User } from '../services/datacontracts/user/user';
+import { ModalComponent } from './modal/modal.component';
 
 
 
@@ -39,38 +40,42 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild("viewContainerRef", { read: ViewContainerRef }) VCR!: ViewContainerRef;
   @ViewChild("outlet") outlet!: RouterOutlet;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
-  showMainContent: boolean = true;
+  @ViewChild(ModalComponent) modalComponent!: ModalComponent;
+  showMainContent = true;
+  isModalOpen = false;
 
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>();
   navigationItems: MenuItem[] = [
     { ownership: 0, icon: "📕", title: "Close Menu", content: '' },
-    { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
+    { ownership: 0, icon: "🌍", title: "Social", content: undefined },
+    { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
+    { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
+    { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
+    { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
+    { ownership: 0, icon: "🪖", title: "War", content: undefined },
+    { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
+    { ownership: 0, icon: "📁", title: "Files", content: undefined },
     { ownership: 0, icon: "📅", title: "Calendar", content: undefined },
-    { ownership: 0, icon: "⛏️", title: "MiningDevices", content: undefined },
-    { ownership: 0, icon: "🖥️", title: "MiningRigs", content: undefined },
     { ownership: 0, icon: "☀️", title: "Weather", content: '' },
     { ownership: 0, icon: "✔️", title: "Todo", content: undefined },
     { ownership: 0, icon: "🎼", title: "Music", content: undefined },
-    { ownership: 0, icon: "📁", title: "Files", content: undefined },
     { ownership: 0, icon: "🗒️", title: "Notepad", content: undefined },
     { ownership: 0, icon: "📇", title: "Contacts", content: undefined },
     /*{ ownership: 0, icon: "🎮", title: "Gameboy Color", content: undefined },*/
-    { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
-    { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
-    { ownership: 0, icon: "🏰", title: "War", content: undefined },
-    { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
-    { ownership: 0, icon: "💵", title: "Coin-Wallet", content: undefined },
-    { ownership: 0, icon: "₿", title: "Coin-Watch", content: undefined },
     { ownership: 0, icon: "📰", title: "News", content: undefined },
-    { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
-    { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
-    { ownership: 0, icon: "🌍", title: "Social", content: undefined },
+    { ownership: 0, icon: "₿", title: "Coin-Watch", content: undefined },
+    { ownership: 0, icon: "💵", title: "Coin-Wallet", content: undefined },
+    { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
+    { ownership: 0, icon: "⛏️", title: "MiningDevices", content: undefined },
+    { ownership: 0, icon: "🖥️", title: "MiningRigs", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
+    { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
   ];
 
 
   private componentMap: { [key: string]: any; } = {
+    "Navigation": NavigationComponent,
     "Favourites": FavouritesComponent,
     "Coin-Watch": CoinWatchComponent,
     "Calendar": CalendarComponent,
@@ -146,8 +151,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
 
     if (!this.user && this.componentsReferences.length == 0) {
-      this.createComponent('User'); 
-    }
+      this.createComponent('User');
+    } 
   }
   checkAndClearRouterOutlet() {
     if (this.outlet) {
@@ -157,6 +162,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   createComponent(componentType: string, inputs?: { [key: string]: any; }) {
+    this.navigationComponent.minimizeNav();
     if (!componentType || componentType.trim() === "") {
       console.log("returning null due to invalid componentType");
       return null;
@@ -206,6 +212,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.componentsReferences = this.componentsReferences.filter(
       x => x.instance.unique_key !== key
     );
+    this.navigationComponent.maximizeNav(); 
   }
 
   removeAllComponents() {
@@ -217,6 +224,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     this.VCR.clear();
     this.componentsReferences = [];
+
   }
 
   getCookie(name: string) {
@@ -250,8 +258,21 @@ export class AppComponent implements OnInit, AfterViewInit {
   clearAllNotifications() {
     this.navigationComponent.clearNotifications();
     this.navigationComponent.ngOnInit();
+  } 
+  openModal() {
+    this.isModalOpen = true;
   }
-  getNotifications() {
-    this.navigationComponent.getNotifications();
+
+  closeModal() {
+    this.isModalOpen = false;
+  }
+  setModalBody(msg: any) {
+    console.log("set modal body in parent");
+    if (!this.isModalOpen) {
+      this.isModalOpen = true;
+    } 
+    setTimeout(() => {
+      this.modalComponent.setModalBody(msg);
+    }, 100); 
   }
 }

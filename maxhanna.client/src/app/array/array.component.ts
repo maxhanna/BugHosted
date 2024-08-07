@@ -293,7 +293,12 @@ export class ArrayComponent extends ChildComponent implements OnInit {
 
   copyLink() {
     const link = `https://bughosted.com/Array`;
-    navigator.clipboard.writeText(link);
+
+    try {
+      navigator.clipboard.writeText(link); 
+    } catch {
+      console.log("Error: Unable to share link!");
+    }
   }
 
   async closeUserComponent(user: User) {

@@ -10,7 +10,7 @@
   </div>
 
   <div class="gamescreen" [style.display]="!isUserNew ? 'block':'none'">
-    <div  [style.display]="numberOfPersonalBases > 1 && !isReportsOpen && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && nexusBase ? 'block' : 'none'">
+    <div  [style.display]="numberOfPersonalBases > 1 && !isReportsOpen   && !isBasesOpen && nexusBase ? 'block' : 'none'">
       <button class="previousBaseButton" (click)="previousBase()" [disabled]="isLoading">⩤</button>
       <button class="nextBaseButton" (click)="nextBase()" [disabled]="isLoading">⩥</button>
     </div>
@@ -20,7 +20,10 @@
       <span title="Nexus location" class="resourceSpan" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</span>
     </div>
 
-    <div *ngIf="parentRef && parentRef.user" [style.display]="isReportsOpen && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && nexusBase ? 'block' : 'none'" class="battleReportComponentDiv">
+    <div *ngIf="parentRef && parentRef.user"
+         [style.display]="isReportsOpen && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen
+         && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && nexusBase ? 'block' : 'none'"
+         class="battleReportComponentDiv">
       <app-nexus-reports [targetBase]="nexusBase" [user]="parentRef.user" *ngIf="isReportsOpen"></app-nexus-reports>
     </div>
 
@@ -31,7 +34,9 @@
                      [nexusBase]="nexusBase"
                      [nexusAvailableUnits]="nexusAvailableUnits"
                      [unitStats]="units"
-                     [nexusPictureSrc]="nexusBackgroundPictureSrc"
+                     [lvl1Src]="nexusLevel1Src"
+                     [lvl2Src]="nexusLevel2Src"
+                     [lvl3Src]="nexusLevel3Src"
                      [marinePictureSrc]="marinePictureSrc"
                      [goliathPictureSrc]="goliathPictureSrc"
                      [siegeTankPictureSrc]="siegeTankPictureSrc"
@@ -56,8 +61,7 @@
                        [mapData]="mapData"
                        [nexusBase]="nexusBase"
                        [user]="parentRef.user"
-                       [attacksIncoming]="nexusAttacksIncoming"
-                       [attacksSent]="nexusAttacksSent"
+                       [attacksIncoming]="nexusAttacksIncoming" 
                        (emittedBaseChange)="emittedBaseChange($event)"
                        (emittedNotifications)="emittedNotifications($event)">
       </app-nexus-bases>
@@ -75,7 +79,7 @@
     <div [style.display]="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen
          && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && nexusBase ? 'block' : 'none'">
       <div class="building">
-        <img [src]="commandCenterPictureSrc" class="commandCenter buildingPicture" *ngIf="commandCenterPictureSrc" (click)="openCommandCenter()" title="Command Center" loading="lazy" decoding="asynchronous" />
+        <img [src]="(nexusBase.commandCenterLevel > 4 ? cclvl3Src : nexusBase.commandCenterLevel > 2 ? cclvl2Src : cclvl1Src)" class="commandCenter buildingPicture" *ngIf="nexusBase && cclvl1Src && cclvl2Src && cclvl3Src" (click)="openCommandCenter()" title="Command Center" loading="lazy" decoding="asynchronous" />
         <span class="levelLabel commandCenterLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.commandCenterLevel ? nexusBase.commandCenterLevel : ''}}
           <span class="timerLabel">
@@ -85,7 +89,9 @@
       </div>
 
       <div class="building" [style.display]="displayMines ?  'block' : 'none'">
-        <img [src]="minesPictureSrc" class="buildingPicture mines" *ngIf="minesPictureSrc" (click)="openMines();" title="Mines" loading="lazy" decoding="asynchronous" />
+        <img [src]="nexusBase.minesLevel < 3 ? mineslvl1Src : nexusBase.minesLevel < 4 ? mineslvl2Src : mineslvl3Src"
+             class="buildingPicture mines"
+             *ngIf="nexusBase && mineslvl1Src && mineslvl2Src && mineslvl3Src" (click)="openMines();" title="Mines" loading="lazy" decoding="asynchronous" />
         <span class="levelLabel minesLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.minesLevel ? nexusBase.minesLevel : ''}}
           <span class="timerLabel">
@@ -96,7 +102,9 @@
 
 
       <div class="building" [style.visibility]="displayEngineeringBay ?  'visible' : 'hidden'">
-        <img [src]="engineeringBayPictureSrc" class="buildingPicture engineeringBay" *ngIf="engineeringBayPictureSrc" (click)="openEngineeringBay();" title="Engineering Bay" loading="lazy" decoding="asynchronous" />
+        <img [src]="nexusBase.engineeringBayLevel < 3 ? eblvl1Src : nexusBase.engineeringBayLevel < 4 ? eblvl2Src : eblvl3Src"
+             class="buildingPicture engineeringBay"
+             *ngIf="nexusBase && eblvl1Src && eblvl2Src && eblvl3Src" (click)="openEngineeringBay();" title="Engineering Bay" loading="lazy" decoding="asynchronous" />
         <span class="levelLabel engineeringBayLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.engineeringBayLevel ? nexusBase.engineeringBayLevel : ''}}
           <span class="timerLabel">
@@ -107,7 +115,9 @@
 
 
       <div class="building" [style.visibility]="displayWarehouse ?  'visible' : 'hidden'">
-        <img [src]="warehousePictureSrc" class="buildingPicture warehouse" *ngIf="warehousePictureSrc" (click)="openWarehouse();" title="Warehouse" loading="lazy" decoding="asynchronous" />
+        <img [src]="nexusBase.warehouseLevel < 3 ? whlvl1Src : nexusBase.warehouseLevel < 4 ? whlvl2Src : whlvl3Src"
+             class="buildingPicture warehouse"
+             *ngIf="nexusBase && whlvl1Src && whlvl2Src && whlvl3Src" (click)="openWarehouse();" title="Warehouse" loading="lazy" decoding="asynchronous" />
         <span class="levelLabel warehouseLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.warehouseLevel ? nexusBase.warehouseLevel : ''}}
           <span class="timerLabel">
@@ -117,7 +127,9 @@
       </div>
 
       <div class="building" [style.visibility]="displayFactory ?  'visible' : 'hidden'">
-        <img [src]="factoryPictureSrc" class="buildingPicture factory" *ngIf="factoryPictureSrc" (click)="openFactory()" title="Factory" loading="lazy" decoding="asynchronous" />
+        <img [src]="nexusBase.factoryLevel < 3 ? flvl1Src : nexusBase.factoryLevel < 4 ? flvl2Src : flvl3Src"
+             class="buildingPicture factory"
+             *ngIf="nexusBase && flvl1Src && flvl2Src && flvl3Src" (click)="openFactory()" title="Factory" loading="lazy" decoding="asynchronous" />
         <span class="levelLabel factoryLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.factoryLevel ? nexusBase.factoryLevel : ''}}
           <span class="timerLabel">
@@ -127,7 +139,9 @@
       </div>
 
       <div class="building" [style.visibility]="displayStarport ?  'visible' : 'hidden'">
-        <img [src]="starportPictureSrc" class="buildingPicture starport" *ngIf="starportPictureSrc" (click)="openStarport()" title="Starport" loading="lazy" decoding="asynchronous" />
+        <img [src]="nexusBase.starportLevel < 3 ? splvl1Src : nexusBase.starportLevel < 4 ? splvl2Src : splvl3Src"
+             class="buildingPicture starport"
+             *ngIf="nexusBase && splvl1Src && splvl2Src && splvl3Src" (click)="openStarport()" title="Starport" loading="lazy" decoding="asynchronous" />
         <span class="levelLabel starportLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.starportLevel ? nexusBase.starportLevel : ''}}
           <span class="timerLabel">
@@ -137,7 +151,9 @@
       </div>
 
       <div class="building" [style.visibility]="displaySupplyDepot ? 'visible' : 'hidden'">
-        <img [src]="supplyDepotPictureSrc" class="buildingPicture supplyDepot" *ngIf="supplyDepotPictureSrc" (click)="openSupplyDepot()" title="Supply Depot" loading="lazy" decoding="asynchronous" />
+        <img [src]="nexusBase.supplyDepotLevel < 3 ? sdlvl1Src : nexusBase.supplyDepotLevel < 4 ? sdlvl2Src : sdlvl3Src"
+             class="buildingPicture supplyDepot"
+             *ngIf="nexusBase && sdlvl1Src && sdlvl2Src && sdlvl3Src" (click)="openSupplyDepot()" title="Supply Depot" loading="lazy" decoding="asynchronous" />
         <span class="levelLabel supplyDepotLevelDisplay" *ngIf="nexusBase">
           {{nexusBase.supplyDepotLevel ? nexusBase.supplyDepotLevel : ''}}
           <span class="timerLabel">
@@ -149,9 +165,9 @@
 
 
 
-    <img [src]="commandCenterPictureSrc"
+    <img [src]="nexusBase.commandCenterLevel < 3 ? cclvl1Src : nexusBase.commandCenterLevel < 4 ? cclvl2Src : cclvl3Src"
          class="commandCenterBackground"
-         *ngIf="commandCenterPictureSrc"
+         *ngIf="cclvl1Src && cclvl2Src && cclvl3Src && nexusBase"
          [style.display]="isCommandCenterOpen ? 'block' : 'none'"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="nexusBase" [style.display]="isCommandCenterOpen ? 'block' : 'none'" class="commandCenterScreen">
@@ -167,9 +183,9 @@
     </div>
 
 
-    <img [src]="supplyDepotPictureSrc"
+    <img [src]="nexusBase.supplyDepotLevel < 3 ? sdlvl1Src : nexusBase.supplyDepotLevel < 4 ? sdlvl2Src : sdlvl3Src"
          class="supplyDepotBackground"
-         *ngIf="supplyDepotPictureSrc"
+         *ngIf="sdlvl1Src && sdlvl2Src && sdlvl3Src && nexusBase"
          [style.display]="isSupplyDepotOpen ? 'block' : 'none'"
          loading="lazy" decoding="asynchronous" />
     <div [style.display]="isSupplyDepotOpen ? 'block' : 'none'" class="supplyDepotScreen">
@@ -191,9 +207,9 @@
     </div>
 
 
-    <img [src]="factoryPictureSrc"
+    <img [src]="nexusBase.factoryLevel < 3 ? flvl1Src : nexusBase.factoryLevel < 4 ? flvl2Src : flvl3Src"
          class="factoryBackground"
-         *ngIf="factoryPictureSrc"
+         *ngIf="flvl1Src && flvl2Src && flvl3Src && nexusBase"
          [style.display]="isFactoryOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
     <div [style.display]="isFactoryOpen ? 'block' : 'none'" class="factoryScreen">
       <div>
@@ -210,7 +226,7 @@
                 <td class="unitPictureTd" (click)="toggleUnitScreen(unit, true)">
                   <img [src]="unit.pictureSrc" class="unitPicture" *ngIf="unit.pictureSrc" loading="lazy" decoding="asynchronous" />
                 </td>
-                <td class="unitPictureTd capitalize">
+                <td class="unitPictureTd capitalize smallFont invertedHighlights">
                   {{ unit.unitType.replace('_', ' ') }}
                 </td>
                 <td class="unitSliderTd">
@@ -219,8 +235,8 @@
                 <td>
                   <input [value]="unit.purchasedValue ? unit.purchasedValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
                 </td>
-                <td class="unitPictureTd" (click)="unit.purchasedValue = maxSliderValue(unit)">
-                  ({{maxSliderValue(unit)}})
+                <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer" (click)="unit.purchasedValue = maxSliderValue(unit)">
+                  {{maxSliderValue(unit)}}
                 </td> 
                 <td class="unitPictureTd">
                   <button [disabled]="!unit.purchasedValue || isLoading || (nexusBase && nexusBase.gold < unit.cost)" (click)="purchaseUnit(unit.unitId)">✔️</button>
@@ -242,9 +258,9 @@
     </div>
 
 
-    <img [src]="starportPictureSrc"
+    <img [src]="nexusBase.starportLevel < 3 ? splvl1Src : nexusBase.starportLevel < 4 ? splvl2Src : splvl3Src"
          class="starportBackground"
-         *ngIf="starportPictureSrc"
+          *ngIf="splvl1Src && splvl2Src && splvl3Src && nexusBase"
          [style.display]="isStarportOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
     <div [style.display]="isStarportOpen ? 'block' : 'none'" class="starportScreen">
       <div>
@@ -262,7 +278,7 @@
                   <td class="unitPictureTd" (click)="toggleUnitScreen(unit, true)">
                     <img [src]="unit.pictureSrc" class="unitPicture" *ngIf="unit.pictureSrc" loading="lazy" decoding="asynchronous" />
                   </td>
-                  <td class="unitPictureTd capitalize">
+                  <td class="unitPictureTd capitalize smallFont invertedHighlights">
                     {{ unit.unitType.replace('_', ' ') }}
                   </td>
                   <td class="unitSliderTd">
@@ -271,8 +287,8 @@
                   <td>
                     <input [value]="unit.purchasedValue ? unit.purchasedValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
                   </td>
-                  <td class="unitPictureTd" (click)="unit.purchasedValue = maxSliderValue(unit)">
-                    ({{maxSliderValue(unit)}})
+                  <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer" (click)="unit.purchasedValue = maxSliderValue(unit)">
+                    {{maxSliderValue(unit)}}
                   </td>
                   <td class="unitPictureTd">
                     <button [disabled]="!unit.purchasedValue || isLoading || (nexusBase && nexusBase.gold < unit.cost)" (click)="purchaseUnit(unit.unitId)">✔️</button>
@@ -295,9 +311,9 @@
     </div>
 
 
-    <img [src]="warehousePictureSrc"
+    <img  [src]="nexusBase.warehouseLevel < 3 ? whlvl1Src : nexusBase.warehouseLevel < 4 ? whlvl2Src : whlvl3Src"
          class="warehouseBackground"
-         *ngIf="warehousePictureSrc"
+          *ngIf="whlvl1Src && whlvl2Src && whlvl3Src && nexusBase"
          [style.display]="isWarehouseOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
     <div [style.display]="isWarehouseOpen ? 'block' : 'none'" class="warehouseScreen">
       <div>
@@ -311,7 +327,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let i of warehouseUpgradeLevels">
+              <tr *ngFor="let i of warehouseUpgradeLevels" [class]="i == nexusBase?.warehouseLevel ? 'highlightBg' : ''">
                 <td>{{i}}</td>
                 <td>{{5000 * (i + 1)}}🪙</td>
               </tr>
@@ -323,9 +339,9 @@
     </div>
 
 
-    <img [src]="engineeringBayPictureSrc"
+    <img [src]="nexusBase.engineeringBayLevel < 3 ? eblvl1Src : nexusBase.engineeringBayLevel < 4 ? eblvl2Src : eblvl3Src"
          class="engineeringBayBackground"
-         *ngIf="engineeringBayPictureSrc"
+          *ngIf="eblvl1Src && eblvl2Src && eblvl3Src && nexusBase"
          [style.display]="isEngineeringBayOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
     <div [style.display]="isEngineeringBayOpen ? 'block' : 'none'" class="engineeringBayScreen"> 
         Upgrade units and create a drone that converts a Command Center to your ownership.
@@ -352,7 +368,7 @@
                   <td class="unitPictureTd" (click)="toggleUnitScreen(glitcherStats, true)">
                     <img [src]="glitcherStats.pictureSrc" class="unitPicture" *ngIf="glitcherStats.pictureSrc" loading="lazy" decoding="asynchronous" />
                   </td>
-                  <td class="unitPictureTd capitalize">
+                  <td class="unitPictureTd capitalize smallFont invertedHighlights">
                     {{ glitcherStats.unitType }}
                   </td>
                   <td class="unitSliderTd">
@@ -361,8 +377,8 @@
                   <td>
                     <input [value]="glitcherStats.purchasedValue ? glitcherStats.purchasedValue : '0'" (keyup)="onSliderChange($event, glitcherStats)" class="unitInput" />
                   </td> 
-                  <td class="unitPictureTd" (click)="glitcherStats.purchasedValue = maxSliderValue(glitcherStats)">
-                    ({{maxSliderValue(glitcherStats)}})
+                  <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer" (click)="glitcherStats.purchasedValue = maxSliderValue(glitcherStats)">
+                    {{maxSliderValue(glitcherStats)}}
                   </td>
                   <td class="unitPictureTd">
                     <button [disabled]="!glitcherStats.purchasedValue || isLoading || (nexusBase && nexusBase.gold < glitcherStats.cost)" (click)="purchaseUnit(glitcherStats.unitId)">✔️</button>
@@ -385,9 +401,9 @@
     </div>
 
 
-    <img [src]="minesPictureSrc"
+    <img [src]="nexusBase.minesLevel < 3 ? mineslvl1Src : nexusBase.minesLevel < 4 ? mineslvl2Src : mineslvl3Src"
          class="minesBackground"
-         *ngIf="minesPictureSrc"
+         *ngIf="mineslvl1Src && mineslvl2Src && mineslvl3Src && nexusBase"
          [style.display]="isMinesOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
     <div [style.display]="isMinesOpen ? 'block' : 'none'" class="minesScreen">
       <div>
@@ -463,7 +479,7 @@
     Movement:<span class="xxSmallFont redText" *ngIf="!activeAttackTimers() || activeAttackTimers().length == 0">[No movement.]</span>
     <div class="upgradeTimersTableDiv">
       <div *ngFor="let timer of activeAttackTimers()">
-        <p [class]="(timer.unit.includes('Returning') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
+        <p [class]="(timer.unit.includes('Returning') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
           {{ formatBuildingTimer(timer.unit)   }} {{ formatTimer(timer.endTime) }}
         </p>
       </div>
@@ -531,7 +547,7 @@
     <button (click)="copyLink()" title="Share Link">Share 📋</button>
     <span *ngIf="!isUserNew && parentRef && parentRef.user">
       <button (click)="toggleScreen('map', !isMapOpen)" title="View Map">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>
-      <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports">{{isReportsOpen ? 'Close ' : ''}}Reports 📃</button>
+      <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
       <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases">{{isBasesOpen ? 'Close ' : ''}}Bases 📃</button>
     </span>
   </div>

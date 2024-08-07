@@ -162,19 +162,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     console.log("loading messages");
     this.isPanelExpanded = true;
     this.chatHistory = [];
-    this.currentChatUser = user;
-    if (this.notifications) {
-      const numberOfNotifs = this.notifications.filter(x => x.senderId == user.id).length;
-      if (this.parentRef && this.parentRef.navigationItems) {
-        const numberOfNotifTotal = parseInt(this.parentRef.navigationItems.filter(x => x.title == "Chat")[0].content!) ?? 0;
-        const grantTotal = numberOfNotifTotal - numberOfNotifs;
-        this.notifications = this.notifications.filter(x => x.senderId != user.id);
-        this.parentRef!.navigationItems.filter(x => x.title == "Chat")[0].content = (grantTotal == 0 || !grantTotal ? '' : grantTotal + '');
-      } 
-    }
+    this.currentChatUser = user; 
     const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser, undefined, this.pageSize);
-    console.log("got res : ");
-    console.log(res);
+
+    this.getChatNotifications();
     this.stopLoading(); 
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];
@@ -182,7 +173,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return;
     }
     if (res) {
-      console.log("got chat history");
       this.chatHistory = (res.messages as Message[]).reverse();
       this.pageNumber = res.currentPage;
       this.totalPages = res.totalPages;
@@ -194,6 +184,28 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     
     this.togglePanel(); 
+  }
+
+  async getChatNotifications() { 
+    if (this.parentRef?.user || this.inputtedParentRef?.user) {
+      const res = await this.chatService.getChatNotifications(this.parentRef && this.parentRef.user ? this.parentRef.user : this.inputtedParentRef!.user!);
+      console.log(res);
+      console.log("thats chat notifs");
+      if (res && res != 0 && res != "NaN") {
+        if (this.parentRef) {
+          this.parentRef.navigationItems.filter(x => x.title == "Chat")[0].content = res + '';
+        } else {
+          this.inputtedParentRef!.navigationItems.filter(x => x.title == "Chat")[0].content = res + ''; 
+        }
+      } else {
+        if (this.parentRef) {
+          this.parentRef.navigationItems.filter(x => x.title == "Chat")[0].content = '';
+        } else {
+          this.inputtedParentRef!.navigationItems.filter(x => x.title == "Chat")[0].content = '';
+        }
+      } 
+    }
+    
   }
 
   closeChat() {

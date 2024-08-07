@@ -1,12 +1,10 @@
 <router-outlet #outlet>
   <div id="loadingDiv"><div id="loadingBar"></div></div>
   <app-navigation [user]="user"></app-navigation>
-
+  <app-modal *ngIf="isModalOpen" (close)="closeModal()" #modalComponent></app-modal>
 
   <div class="componentContainer">
     <ng-template #viewContainerRef>
     </ng-template>
-  </div>
-  <div class="routerOutletContainer">
   </div>
 </router-outlet>

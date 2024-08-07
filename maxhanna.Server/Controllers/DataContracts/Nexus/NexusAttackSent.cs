@@ -4,8 +4,10 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
     { 
         public int OriginCoordsX { get; set; }
         public int OriginCoordsY { get; set; }
+        public int? OriginUserId { get; set; }
         public int DestinationCoordsX { get; set; }
         public int DestinationCoordsY { get; set; }
+        public int? DestinationUserId { get; set; }
         public int? MarineTotal { get; set; }
         public int? GoliathTotal { get; set; }
         public int? SiegeTankTotal { get; set; }

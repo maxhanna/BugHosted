@@ -1,5 +1,13 @@
-.componentMain{
-    width: 50vw;
+.componentMain {
+  min-width: 500px;
+  max-width: 50vw;
+} 
+
+@media only screen and (min-device-width: 0px) and (max-device-width: 700px) {
+  .componentMain {
+    width: 98vw;
+    min-width: 98vw;
+  }
 }
 .helperSpanTitle {
   display: inline-block;
@@ -18,10 +26,55 @@
 
   .helperSpanTitle:before {
     content: 'ℹ️';
-  }
-.updateTable{
-    width:100%;
-}
+  } 
 .updateTable th, td {
     text-align:left;
+}
+.noWidth {
+    width: 0%;
+}
+.menuItemExplain {
+  max-width: 100px;
+  height: 35px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow:ellipsis;
+} 
+.menuIconTable tr {
+    height: 30px;
+}
+  .menuIconTable tr:nth-child(even) {
+    background-color: var(--main-bg-color-full-opacity);
+  }
+.settingsDiv {
+  margin-top: 15px;
+  max-height: 78vh; 
+  overflow: auto;
+} 
+
+.helperSpanTitle {
+  display: inline-block;
+  width: 10.5px;
+  height: 10.5px;
+  line-height: 10.5px;
+  text-align: center;
+  font-size: small;
+  border-radius: 50%;
+  border: var(--main-border);
+  background-color: var(--main-bg-color);
+  color: var(--primary-font-color);
+  position: relative;
+  cursor: pointer;
+}
+
+  .helperSpanTitle:before {
+    content: 'ℹ️';
+  }
+
+.menuInfoDiv {
+  height: 15px;
+  white-space: nowrap;
+  max-width:150px;
+  overflow:hidden;
+  text-overflow: ellipsis;
 }

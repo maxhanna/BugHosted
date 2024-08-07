@@ -204,15 +204,18 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
 
   logout() {
-    this.parentRef!.deleteCookie("user");
-    this.parentRef!.clearAllNotifications();
-    this.parentRef!.removeAllComponents();
+    if (this.parentRef) {
+      this.parentRef.userSelectedNavigationItems = [];
+      this.parentRef.deleteCookie("user");
+      this.parentRef.clearAllNotifications();
+      this.parentRef.user = undefined; 
+    }
     this.clearForm();
-    this.notifications.push("Logged out successfully");
     this.wordlerScores = [];
     this.friendRequests = [];
     this.friends = [];
-    this.parentRef!.user = undefined;
+    this.user = undefined;
+    this.notifications.push("Logged out successfully");
   }
 
 
@@ -273,10 +276,7 @@ export class UserComponent extends ChildComponent implements OnInit {
           this.notifications.push(resAddMenuItemSocial + '');
 
           const resAddMenuItemMeme = await this.userService.addMenuItem(tmpUser, "Meme");
-          this.notifications.push(resAddMenuItemMeme!);
-
-          const resAddMenuItemChat = await this.userService.addMenuItem(tmpUser, "Chat");
-          this.notifications.push(resAddMenuItemChat!);
+          this.notifications.push(resAddMenuItemMeme!); 
 
           const resAddMenuItemWordler = await this.userService.addMenuItem(tmpUser, "Wordler");
           this.notifications.push(resAddMenuItemWordler!);
@@ -379,6 +379,9 @@ export class UserComponent extends ChildComponent implements OnInit {
     return this.friends.some(x => x.id === other.id);
   } 
   openChat() {
+    if (!this.parentRef || !this.parentRef.user) {
+      return alert("Please log in to chat.");
+    }
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
   }
   async updateWeatherInBackground(tmpUser: User, withCity?: boolean) {

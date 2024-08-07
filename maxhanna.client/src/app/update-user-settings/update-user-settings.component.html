@@ -1,19 +1,19 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('UpdateUserProfile')"></div>
   <div class="refreshButton" (click)="ngOnInit()"></div>
-  <div class="componentTitle">Settings</div>
+  <div class="componentTitle">{{!showOnlySelectableMenuItems ? 'Settings' : 'Select Your Apps'}}</div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" (click)="notifications = [];" title="Click to clear notifications" class="notificationArea notification"></div>
 
 
-  <input type="submit" value="Delete Account 🗑️" (click)="deleteUser()" title="Delete Account" />
-
-  <div *ngIf="parentRef!.user" style="margin-top:15px">
+  <input type="submit" value="Delete Account 🗑️" (click)="deleteUser()" title="Delete Account" *ngIf="!showOnlySelectableMenuItems" />
+ 
+  <div *ngIf="parentRef!.user" class="settingsDiv">
     <fieldset>
-      <legend>Update:</legend>
+      <legend *ngIf="!showOnlySelectableMenuItems">Update:</legend>
       <table class="updateTable">
 
         <!--USERNAME / PASSWORD-->
-        <thead (click)="isGeneralToggled = !isGeneralToggled">
+        <thead (click)="isGeneralToggled = !isGeneralToggled" *ngIf="!showOnlySelectableMenuItems">
           <tr>
             <th>
               <span class="helperSpanTitle" title="Change your username or password."></span>
@@ -37,7 +37,7 @@
 
 
         <!--Display Picture-->
-        <thead (click)="isDisplayPictureToggled = !isDisplayPictureToggled">
+        <thead (click)="isDisplayPictureToggled = !isDisplayPictureToggled" *ngIf="!showOnlySelectableMenuItems">
           <tr>
             <th>
               <span class="helperSpanTitle" title="Change your display picture"></span>
@@ -84,7 +84,7 @@
 
 
         <!--ABOUT-->
-        <thead (click)="isAboutToggled = !isAboutToggled">
+        <thead (click)="isAboutToggled = !isAboutToggled" *ngIf="!showOnlySelectableMenuItems">
           <tr>
             <th>
               <span class="helperSpanTitle" title="Your contact information."></span>
@@ -124,30 +124,101 @@
 
 
         <!-- Menu Icons -->
-        <thead (click)="isMenuIconsToggled = !isMenuIconsToggled; getMenuIcons()">
-          <tr>
+        <thead (click)="getMenuIcons()">
+          <tr *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled">
             <th>
               <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
             </th>
             <th colspan="2">Selectable Menu Items</th>
           </tr>
         </thead>
-        <tbody *ngIf="isMenuIconsToggled">
+        <tbody *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled">
           <tr>
-            <td class="" colspan=3>
-              <table class="mainTable">
-                <thead>
+            <td class="menuIconTableContainer" colspan=3>
+              <table class="menuIconTable">
+                <thead *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled">
                   <tr>
                     <th colspan="3">Menu Item</th>
                   </tr>
                 </thead>
                 <tbody *ngIf="selectableIcons">
-                  <tr *ngFor="let icon of selectableIcons" (click)="selectMenuIcon(icon.title)">
+                  <tr *ngFor="let icon of selectableIcons">
                     <td>
-                      <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
+                      <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" (click)="selectMenuIcon(icon.title)" />
                     </td>
-                    <td>{{ icon.title == 'Weather' ? '☀️' : icon.icon }}</td>
-                    <td>{{ icon.title }}</td>
+                    <td (click)="selectMenuIcon(icon.title)" class="pointer">{{ icon.title == 'Weather' ? '☀️' : icon.icon }}{{ icon.title }}</td>
+                    <td *ngIf="showOnlySelectableMenuItems" [id]="icon.title+'td'">
+                      <div *ngIf="icon.title == 'War'" [id]="icon.title+'tddiv'"  >
+                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                          <div>"Bug Wars" is a real-time strategy, massively multiplayer online game set in the near future.</div>
+                          <div>As foreseen, AI has turned against humanity, and our mission is now to survive.</div>
+                          <div  >
+                            <app-media-viewer [fileId]="6495"
+                                              [inputtedParentRef]="parentRef"
+                                              [displayExtraInfo]="false"
+                                              [showCommentSection]="false"
+                                              [displayExpander]="false">
+                            </app-media-viewer>
+                          </div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Calendar'" [id]="icon.title+'tddiv'" >
+                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                          The Calendar helps you remember important things. Dont forget.
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Social'" [id]="icon.title+'tddiv'" >
+                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                          Social platform.
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Meme'" [id]="icon.title+'tddiv'" >
+                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                          Share memes, use them in chat, on the socials or even as a display picture!
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Wordler'" [id]="icon.title+'tddiv'"  >
+                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                          Can you defeat the Wordler? A word guessing game inspired from the NY Times website!
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Chat'" [id]="icon.title+'tddiv'" >
+                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                          <div>Chat system to connect you with your friends or groups of friends. Still under construction.</div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'" >
+                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')" >
+                          The Array transports users down a seemingly infinite array. 
+                          The further you go down the array, the more experience you gain.
+                          Find items to make you stronger!
+                          Fight other players for glory!
+                          
+                            <app-media-viewer [fileId]="6493"
+                                              [inputtedParentRef]="parentRef"
+                                              [displayExtraInfo]="false"
+                                              [showCommentSection]="false"
+                                              [displayExpander]="false">
+                            </app-media-viewer>
+                          
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Emulation'" [id]="icon.title+'tddiv'" >
+                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                          <div>Our "Nostalgist" emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super Nintendo, Sega and more!</div>
+                          <div>Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our servers.</div>
+                          <div>You may now restart from anywhere with any device! (Supports joysticks and fullscreen mode!)</div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                    </td> 
                   </tr>
                 </tbody>
               </table>
@@ -156,7 +227,7 @@
         </tbody>
 
         <!--Weather-->
-        <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()">
+        <thead (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()" *ngIf="!showOnlySelectableMenuItems">
           <tr>
             <th>
               <span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
@@ -178,7 +249,7 @@ but you can also set your own City for a more precise location."></span>
 
 
         <!--Nicehash API-->
-        <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()">
+        <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlySelectableMenuItems">
           <tr>
             <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
             <th>Nicehash API Keys</th>
@@ -205,7 +276,7 @@ but you can also set your own City for a more precise location."></span>
           </tr>
         </tbody>
       </table>
-      <button (click)="parentRef?.createComponent('User');">Close</button>
+      <button (click)="!showOnlySelectableMenuItems ? parentRef?.createComponent('User') : remove_me('UpdateUserProfile')">Close</button>
     </fieldset>
   </div>
 </div> 

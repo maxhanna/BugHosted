@@ -696,7 +696,7 @@ namespace maxhanna.Server.Controllers
                         if (canSend)
                         {
                             Console.WriteLine("Sending the attack...");
-                            await SendAttack(req.OriginNexus, req.DestinationNexus, req.UnitList, req.DistanceTimeInSeconds, conn, transaction);
+                            await SendAttack(req.OriginNexus, req.DestinationNexus, req.OriginNexus.User, req.OriginNexus.User, req.UnitList, req.DistanceTimeInSeconds, conn, transaction);
                         }
                         else
                         {
@@ -958,7 +958,7 @@ namespace maxhanna.Server.Controllers
 
             return availableUpgrades;
         }
-        private async Task SendAttack(NexusBase OriginNexus, NexusBase DestinationNexus, UnitStats[] UnitList, int DistanceTimeInSeconds, MySqlConnection? conn, MySqlTransaction? transaction)
+        private async Task SendAttack(NexusBase OriginNexus, NexusBase DestinationNexus, User? from, User? to, UnitStats[] UnitList, int DistanceTimeInSeconds, MySqlConnection? conn, MySqlTransaction? transaction)
         {
             //Console.WriteLine("SendAttack...");
             if (OriginNexus == null || DestinationNexus == null) return;
@@ -975,16 +975,18 @@ namespace maxhanna.Server.Controllers
             string sql = @"
                 INSERT INTO 
                     maxhanna.nexus_attacks_sent 
-                    (origin_coords_x, origin_coords_y, destination_coords_x, destination_coords_y, marine_total, goliath_total, siege_tank_total, scout_total, wraith_total, battlecruiser_total, glitcher_total, duration)
+                    (origin_coords_x, origin_coords_y, origin_user_id, destination_coords_x, destination_coords_y, destination_user_id, marine_total, goliath_total, siege_tank_total, scout_total, wraith_total, battlecruiser_total, glitcher_total, duration)
                 VALUES
-                    (@OriginX, @OriginY, @DestinationX, @DestinationY, @Marine, @Goliath, @SiegeTank, @Scout, @Wraith, @Battlecruiser, @Glitcher, @Duration);";
+                    (@OriginX, @OriginY, @OriginUserId, @DestinationX, @DestinationY, @DestinationUserId, @Marine, @Goliath, @SiegeTank, @Scout, @Wraith, @Battlecruiser, @Glitcher, @Duration);";
 
             var parameters = new Dictionary<string, object?>
             {
                 { "@OriginX", OriginNexus.CoordsX },
                 { "@OriginY", OriginNexus.CoordsY },
+                { "@OriginUserId", from?.Id },
                 { "@DestinationX", DestinationNexus.CoordsX },
                 { "@DestinationY", DestinationNexus.CoordsY },
+                { "@DestinationUserId", to?.Id },
                 { "@Duration", DistanceTimeInSeconds },
                 { "@Marine", marinesSent },
                 { "@Goliath", goliathSent },
@@ -1087,8 +1089,10 @@ namespace maxhanna.Server.Controllers
                             {
                                 OriginCoordsX = reader.GetInt32(reader.GetOrdinal("origin_coords_x")),
                                 OriginCoordsY = reader.GetInt32(reader.GetOrdinal("origin_coords_y")),
+                                OriginUserId = reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? null : reader.GetInt32("origin_user_id"),
                                 DestinationCoordsX = reader.GetInt32(reader.GetOrdinal("destination_coords_x")),
                                 DestinationCoordsY = reader.GetInt32(reader.GetOrdinal("destination_coords_y")),
+                                DestinationUserId = reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? null : reader.GetInt32("destination_user_id"),
                                 MarineTotal = reader.IsDBNull(reader.GetOrdinal("marine_total")) ? null : reader.GetInt32("marine_total"),
                                 GoliathTotal = reader.IsDBNull(reader.GetOrdinal("goliath_total")) ? null : reader.GetInt32("goliath_total"),
                                 SiegeTankTotal = reader.IsDBNull(reader.GetOrdinal("siege_tank_total")) ? null : reader.GetInt32("siege_tank_total"),
@@ -1122,7 +1126,7 @@ namespace maxhanna.Server.Controllers
             List<NexusAttackSent>? attacks = null;
             if (nexusBase == null) return attacks;
 
-            //Console.WriteLine($"GetNexusAttacksIncoming {nexusBase.CoordsX}, {nexusBase.CoordsY}");
+            Console.WriteLine($"GetNexusAttacksIncoming {nexusBase.CoordsX}, {nexusBase.CoordsY}");
 
             bool passedInConn = conn != null;
 
@@ -1177,8 +1181,10 @@ namespace maxhanna.Server.Controllers
                             {
                                 OriginCoordsX = reader.GetInt32(reader.GetOrdinal("origin_coords_x")),
                                 OriginCoordsY = reader.GetInt32(reader.GetOrdinal("origin_coords_y")),
+                                OriginUserId = reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? null : reader.GetInt32("origin_user_id"),
                                 DestinationCoordsX = reader.GetInt32(reader.GetOrdinal("destination_coords_x")),
                                 DestinationCoordsY = reader.GetInt32(reader.GetOrdinal("destination_coords_y")),
+                                DestinationUserId = reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? null : reader.GetInt32("destination_user_id"),
                                 Duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? 0 : reader.GetInt32("duration"),
                                 Timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp")) ? DateTime.Now : reader.GetDateTime("timestamp"),
                             };
@@ -2077,7 +2083,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("UpdateNexusAttacks")]
         public async Task UpdateNexusAttacks([FromBody] NexusBase nexus)
         {
-            //Console.WriteLine("Update Nexus Attacks");
+            Console.WriteLine($"Update Nexus Attacks for {nexus.CoordsX},{nexus.CoordsY}");
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             await conn.OpenAsync();
@@ -2104,14 +2110,15 @@ namespace maxhanna.Server.Controllers
                 }
                 attacks = attacks.Concat(attacks2).ToList();
 
-                //Console.WriteLine(" Attacks Count: " + attacks.Count);
+                Console.WriteLine(" Attacks Count: " + attacks.Count);
 
 
                 if (attacks != null && attacks.Count > 0)
                 {
+                    List<UnitUpgradeStats> upgradeStats = await GetUnitUpgradeStatsFromDB(conn, transaction);
                     for (var attackIndex = 0; attackIndex < attacks.Count; attackIndex++)
                     {
-                        await PerformAttackOrDefenceIfTimeElapsed(conn, transaction, marineStats, goliathStats, siegeTankStats, scoutStats, wraithStats, battlecruiserStats, glitcherStats, attacks, attackIndex);
+                        await PerformAttackOrDefenceIfTimeElapsed(conn, transaction, marineStats, goliathStats, siegeTankStats, scoutStats, wraithStats, battlecruiserStats, glitcherStats, attacks, attackIndex, upgradeStats);
                     }
                     await transaction.CommitAsync();
 
@@ -2129,10 +2136,10 @@ namespace maxhanna.Server.Controllers
 
         private async Task PerformAttackOrDefenceIfTimeElapsed(MySqlConnection conn, MySqlTransaction transaction,
             UnitStats marineStats, UnitStats goliathStats, UnitStats siegeTankStats, UnitStats scoutStats, UnitStats wraithStats, UnitStats battlecruiserStats, UnitStats glitcherStats,
-            List<NexusAttackSent> attacks, int attackIndex)
+            List<NexusAttackSent> attacks, int attackIndex, List<UnitUpgradeStats> unitUpgradeStats)
         {
             TimeSpan timeElapsed = (DateTime.Now - attacks?[attackIndex].Timestamp) ?? TimeSpan.Zero;
-            //Console.WriteLine($"Checking timeElapsed: {timeElapsed.TotalSeconds}, duration: {attacks[attackIndex].Duration} : {timeElapsed.TotalSeconds - attacks[attackIndex].Duration}");
+            Console.WriteLine($"Checking timeElapsed: {timeElapsed.TotalSeconds}, duration: {attacks[attackIndex].Duration} : {timeElapsed.TotalSeconds - attacks[attackIndex].Duration}");
             if (attacks == null) { attacks = new List<NexusAttackSent>(); }
             if ((timeElapsed.TotalSeconds - attacks[attackIndex].Duration) >= 0)
             {
@@ -2209,46 +2216,73 @@ namespace maxhanna.Server.Controllers
 
                 if (origin.CoordsX != destination.CoordsX || origin.CoordsY != destination.CoordsY)
                 {
-
+                    var unitTypeToPropertyMap = new Dictionary<string, string>
+                    {
+                        { "marine", "MarineTotal" },
+                        { "goliath", "GoliathTotal" },
+                        { "siege_tank", "SiegeTankTotal" },
+                        { "scout", "ScoutTotal" },
+                        { "wraith", "WraithTotal" },
+                        { "battlecruiser", "BattlecruiserTotal" },
+                        { "glitcher", "GlitcherTotal" }
+                    };
+                    var attackerUnitTypeToLevelMap = new Dictionary<string, Func<int>>
+                    {
+                        { "marine", () => origin.MarineLevel },
+                        { "goliath", () => origin.GoliathLevel },
+                        { "siege_tank", () => origin.SiegeTankLevel },
+                        { "scout", () => origin.ScoutLevel },
+                        { "wraith", () => origin.WraithLevel },
+                        { "battlecruiser", () => origin.BattlecruiserLevel },
+                        { "glitcher", () => origin.GlitcherLevel }
+                    };
+                    var defenderUnitTypeToLevelMap = new Dictionary<string, Func<int>>
+                    {
+                        { "marine", () => destination.MarineLevel },
+                        { "goliath", () => destination.GoliathLevel },
+                        { "siege_tank", () => destination.SiegeTankLevel },
+                        { "scout", () => destination.ScoutLevel },
+                        { "wraith", () => destination.WraithLevel },
+                        { "battlecruiser", () => destination.BattlecruiserLevel },
+                        { "glitcher", () => destination.GlitcherLevel }
+                    };
                     //CALCULATE DAMAGE  
-                    var unitStats = new Dictionary<string, (int GroundDamage, int AirDamage, int Supply)>
+                    var unitStats = new Dictionary<string, UnitStats>
                                 {
-                                    { "marine", (marineStats.GroundDamage, marineStats.AirDamage, marineStats.Supply) },
-                                    { "goliath", (goliathStats.GroundDamage, goliathStats.AirDamage, goliathStats.Supply) },
-                                    { "siege_tank", (siegeTankStats.GroundDamage, siegeTankStats.AirDamage, siegeTankStats.Supply) },
-                                    { "scout", (scoutStats.GroundDamage, scoutStats.AirDamage, scoutStats.Supply) },
-                                    { "wraith", (wraithStats.GroundDamage, wraithStats.AirDamage, wraithStats.Supply) },
-                                    { "battlecruiser", (battlecruiserStats.GroundDamage, battlecruiserStats.AirDamage, battlecruiserStats.Supply) },
-                                    { "glitcher", (glitcherStats.GroundDamage, glitcherStats.AirDamage, glitcherStats.Supply) },
+                                    { "marine", marineStats },
+                                    { "goliath", goliathStats },
+                                    { "siege_tank", siegeTankStats },
+                                    { "scout", scoutStats },
+                                    { "wraith", wraithStats },
+                                    { "battlecruiser", battlecruiserStats },
+                                    { "glitcher", glitcherStats },
                                 };
-
-                    int attackingGroundDamage = attackingUnits.Sum(x =>
+                    
+                    int CalculateDamage(Func<UnitStats, decimal> damageSelector, Dictionary<string, Func<int>> unitTypeToLevelMap)
                     {
-                        var sentValue = x.SentValue ?? 0; // Default to 0 if SentValue is null
-                        var unitStat = unitStats.FirstOrDefault(y => x.UnitType == y.Key).Value;
-                        long totalGroundDamage = (long)sentValue * unitStat.GroundDamage;
-                        if (totalGroundDamage > int.MaxValue || totalGroundDamage < int.MinValue)
+                        return attackingUnits.Sum(x =>
                         {
-                            Console.WriteLine($"Overflow detected for unit {x.UnitType}. Calculated ground damage: {totalGroundDamage}");
-                            return 0;
-                        }
-                        Console.WriteLine($"detected sent attacking unit : {sentValue} {x.UnitType}. Regular ground damage: {unitStat.GroundDamage}; Total added ground damage : {totalGroundDamage}");
-                        return sentValue * unitStat.GroundDamage;
-                    });
+                            var sentValue = x.SentValue ?? 0; // Default to 0 if SentValue is null
+                            var unitStat = unitStats.FirstOrDefault(y => x.UnitType == y.Key).Value;
+                            int unitLevel = unitTypeToLevelMap.TryGetValue(x.UnitType ?? "", out var getLevel) ? getLevel() : 0;
 
-                    int attackingAirDamage = attackingUnits.Sum(x =>
-                    {
-                        var sentValue = x.SentValue ?? 0; // Default to 0 if SentValue is null
-                        var unitStat = unitStats.FirstOrDefault(y => x.UnitType == y.Key).Value;
-                        long totalAirDamage = (long)sentValue * unitStat.AirDamage;
-                        if (totalAirDamage > int.MaxValue || totalAirDamage < int.MinValue)
-                        {
-                            Console.WriteLine($"Overflow detected for unit {x.UnitType}. Calculated air damage: {totalAirDamage}");
-                            return 0;
-                        }
-                        Console.WriteLine($"detected sent attacking unit : {sentValue} {x.UnitType}. Regular air damage: {unitStat.AirDamage}; Total added air damage : {totalAirDamage}");
-                        return sentValue * unitStat.AirDamage;
-                    });
+                            decimal damageMultiplier = unitUpgradeStats.FirstOrDefault(u => u.UnitLevel == unitLevel)?.DamageMultiplier ?? 1;
+                            decimal selectedDamage = damageSelector(unitStat);
+                            decimal totalDamage = (decimal)sentValue * (selectedDamage * damageMultiplier);
+
+                            if (totalDamage > int.MaxValue || totalDamage < int.MinValue)
+                            {
+                                Console.WriteLine($"Overflow detected for unit {x.UnitType}. Calculated damage: {totalDamage}");
+                                return 0;
+                            }
+
+                            Console.WriteLine($"Detected sent attacking unit: {sentValue} {x.UnitType}. Regular damage: {selectedDamage}; Total added damage: {totalDamage}");
+                            return (int)totalDamage;
+                        });
+                    }
+
+                    int attackingGroundDamage = CalculateDamage(unitStat => unitStat.GroundDamage, attackerUnitTypeToLevelMap);
+                    int attackingAirDamage = CalculateDamage(unitStat => unitStat.AirDamage, attackerUnitTypeToLevelMap);
 
                     double defendingGroundDamage = (defendingUnits?.ScoutTotal * unitStats["scout"].GroundDamage) ?? 0.0001;
                     double defendingAirDamage = (defendingUnits?.ScoutTotal * unitStats["scout"].AirDamage) ?? 0.0001;
@@ -2256,17 +2290,18 @@ namespace maxhanna.Server.Controllers
                     {
                         if (!scoutAttack && unitType != "scout") // Skip scout since it's already calculated
                         {
-                            string bigType = unitType;
-                            bigType = (unitType == "siege_tank" ? "SiegeTank"
-                                : unitType == "marine" ? "Marine"
-                                : unitType == "goliath" ? "Goliath"
-                                : unitType == "scout" ? "Scout"
-                                : unitType == "wraith" ? "Wraith"
-                                : unitType == "battlecruiser" ? "Battlecruiser"
-                                : "Glitcher");
-                            defendingGroundDamage += (defendingUnits?.GetType().GetProperty($"{bigType}Total")?.GetValue(defendingUnits, null) as int? ?? 0) * unitStats[unitType].GroundDamage;
-                            defendingAirDamage += (defendingUnits?.GetType().GetProperty($"{bigType}Total")?.GetValue(defendingUnits, null) as int? ?? 0) * unitStats[unitType].AirDamage;
-                            Console.WriteLine($"calculating added {bigType} defending damage: {defendingGroundDamage} {defendingAirDamage} ... ground: {unitStats[unitType].GroundDamage}, air: {unitStats[unitType].AirDamage}");
+                            if (unitTypeToPropertyMap.TryGetValue(unitType, out var propertyName) &&
+                                defenderUnitTypeToLevelMap.TryGetValue(unitType, out var getLevel))
+                            {
+                                var totalUnits = defendingUnits?.GetType().GetProperty(propertyName)?.GetValue(defendingUnits, null) as int? ?? 0;
+                                int unitLevel = getLevel();
+                                decimal damageMultiplier = unitUpgradeStats.FirstOrDefault(u => u.UnitLevel == unitLevel)?.DamageMultiplier ?? 1;
+
+                                defendingGroundDamage += totalUnits * (unitStats[unitType].GroundDamage * (double)damageMultiplier);
+                                defendingAirDamage += totalUnits * (unitStats[unitType].AirDamage * (double)damageMultiplier);
+
+                                Console.WriteLine($"Calculating added {unitType} defending damage: {defendingGroundDamage} {defendingAirDamage} ... ground: {unitStats[unitType].GroundDamage}, air: {unitStats[unitType].AirDamage}, multiplier: {damageMultiplier}");
+                            }
                         }
                     }
 
@@ -2398,6 +2433,11 @@ namespace maxhanna.Server.Controllers
                         {
                             attackingLosses["glitcher"] += 1;
                         }
+                        else if (attackingLosses == null)
+                        {
+                            attackingLosses = new Dictionary<string, int?>();
+                            attackingLosses["glitcher"] = 1;
+                        }
                     }
 
                     if (attackerSupplyRecovered)
@@ -2410,7 +2450,7 @@ namespace maxhanna.Server.Controllers
                     if (attackingUnits != null && attackingUnits.FirstOrDefault(x => x.SentValue > 0) != null)
                     {
                         Console.WriteLine("Sent surviving units back home.");
-                        await SendAttack(origin, origin, attackingUnits.ToArray(), attacks[attackIndex].Duration, conn, transaction);
+                        await SendAttack(destination, origin, origin.User, origin.User, attackingUnits.ToArray(), attacks[attackIndex].Duration, conn, transaction);
                     }
                     else
                     {
@@ -2421,7 +2461,7 @@ namespace maxhanna.Server.Controllers
                 {
                     Console.WriteLine($"Survivors made it back home...");
                 }
-            }
+            }  
         }
 
 
@@ -2442,7 +2482,7 @@ namespace maxhanna.Server.Controllers
             await UpdateNexusUnits(origin, marinesTotal, goliathTotal, siegeTankTotal, scoutTotal, wraithTotal, battlecruiserTotal, glitcherTotal, conn, transaction);
         }
 
-        private async Task UpdateNexusUnitsAfterAttack(MySqlConnection conn, MySqlTransaction transaction, NexusBase nexusBase, Dictionary<string, (int GroundDamage, int AirDamage, int Supply)> unitStats, Dictionary<string, int?> losses)
+        private async Task UpdateNexusUnitsAfterAttack(MySqlConnection conn, MySqlTransaction transaction, NexusBase nexusBase, Dictionary<string, UnitStats> unitStats, Dictionary<string, int?> losses)
         {
             NexusUnits? homeBaseUnits = await GetNexusUnits(nexusBase, true, conn, transaction);
             if (homeBaseUnits != null)
@@ -2473,7 +2513,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<decimal> GetGoldPlundered(MySqlConnection conn, MySqlTransaction transaction, NexusBase destination, List<UnitStats> attackingUnits, NexusUnits? defendingUnits, Dictionary<string, (int GroundDamage, int AirDamage, int Supply)> unitStats)
+        private async Task<decimal> GetGoldPlundered(MySqlConnection conn, MySqlTransaction transaction, NexusBase destination, List<UnitStats> attackingUnits, NexusUnits? defendingUnits, Dictionary<string, UnitStats> unitStats)
         {
             await RecalculateNexusGold(conn, destination, transaction);
             decimal goldForGrabs = destination.Gold;
@@ -3215,7 +3255,7 @@ namespace maxhanna.Server.Controllers
         private async Task<int> CalculateUsedNexusSupply(NexusBase? nexus, MySqlConnection conn, MySqlTransaction transaction)
         {
             int res = 0;
-            if (nexus == null) return res;
+            if (nexus == null || nexus.User == null ||nexus.User?.Id == 0) return res;
             try
             {
                 string sqlCurrentSupply = @"
@@ -3389,8 +3429,7 @@ namespace maxhanna.Server.Controllers
                     using (var readerCurrentSupply = await cmdCurrentSupply.ExecuteReaderAsync())
                     {
                         if (!await readerCurrentSupply.ReadAsync())
-                        {
-                            Console.WriteLine("Nothing to read, error?");
+                        { 
                             await readerCurrentSupply.CloseAsync();
                             return 0;
                         }

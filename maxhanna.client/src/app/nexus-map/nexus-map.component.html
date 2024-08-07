@@ -2,11 +2,11 @@
   <div *ngFor="let row of grid; let y = index" class="row">
     <div *ngFor="let cell of row; let x = index" class="cell" [attr.x]="x" [attr.y]="y">
       <div class="cell-content" (click)="selectCoordinates(x, y);">
-        <div *ngIf="nexusPictureSrc && mapTileSrc" [id]="'x' + x + ',y' + y + 'LocDiv'">
-          <img [src]="grid[x][y] ? nexusPictureSrc : mapTileSrc" class="cell-content" loading="lazy" decoding="asynchronous" />
+        <div *ngIf="lvl1Src && lvl2Src && lvl3Src && mapTileSrc" [id]="'x' + x + ',y' + y + 'LocDiv'">
+          <img [src]="grid[x][y] ? getSrcForBase(grid[x][y]) : mapTileSrc" class="cell-content" loading="lazy" decoding="asynchronous" />
           <span *ngIf="grid[x][y]" class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"></span>
         </div>
-        <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'">{{x + ',' + y}}</div>
+        <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'">{{x + ',' + y + ' ' + grid[x][y]}}</div>
         <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isAttackReturningOn(x, y) ? 'block' : isAttackSentOn(x, y) ? 'block': 'none'">{{isAttackReturningOn(x, y) ? '🛡️' : '⚔️'}}</span>
       </div>
     </div>
@@ -48,7 +48,7 @@
   </div>
 
   <div>
-    <button (click)="toggleShowReports()">{{ isReportsHidden ? 'Show' : 'Hide' }} Reports</button>
+    <button (click)="toggleShowReports()">{{ isReportsHidden ? 'Show' : 'Hide' }} Data</button>
     <div class="reportsDisplayDiv" [style.display]="isReportsHidden ? 'none' : 'block'">
       <app-nexus-reports [user]="user" #nexusReports></app-nexus-reports>
     </div>

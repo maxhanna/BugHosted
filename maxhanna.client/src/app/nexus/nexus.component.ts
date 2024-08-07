@@ -55,6 +55,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   displayEngineeringBay = false;
 
   mapTileSrc?: string;
+  nexusLevel1Src?: string;
+  nexusLevel2Src?: string;
+  nexusLevel3Src?: string;
   nexusBackgroundPictureSrc?: string;
   commandCenterPictureSrc?: string;
   starportPictureSrc?: string;
@@ -63,6 +66,29 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   engineeringBayPictureSrc?: string;
   minesPictureSrc?: string;
   factoryPictureSrc?: string;
+
+  cclvl1Src?: string;
+  cclvl2Src?: string;
+  cclvl3Src?: string;
+  splvl1Src?: string;
+  splvl2Src?: string;
+  splvl3Src?: string;
+  sdlvl1Src?: string; 
+  sdlvl2Src?: string;
+  sdlvl3Src?: string;
+  whlvl1Src?: string;
+  whlvl2Src?: string;
+  whlvl3Src?: string; 
+  eblvl1Src?: string; 
+  eblvl2Src?: string;
+  eblvl3Src?: string; 
+  mineslvl1Src?: string; 
+  mineslvl2Src?: string;
+  mineslvl3Src?: string; 
+  flvl1Src?: string; 
+  flvl2Src?: string;
+  flvl3Src?: string; 
+
   marinePictureSrc?: string;
   goliathPictureSrc?: string;
   siegeTankPictureSrc?: string;
@@ -212,8 +238,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (!affectedMapData || affectedMapData.length === 0) return;
 
     const index = affectedMapData.findIndex(x => x.coordsX === this.nexusBase?.coordsX && x.coordsY === this.nexusBase?.coordsY);
-    console.log(index);
-
+ 
     if (index !== -1 && affectedMapData[index + 1]) {
       this.nexusBase = affectedMapData[index + 1];
     } else {
@@ -229,8 +254,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (!affectedMapData || affectedMapData.length === 0) return;
 
     const index = affectedMapData.findIndex(x => x.coordsX === this.nexusBase?.coordsX && x.coordsY === this.nexusBase?.coordsY);
-    console.log(index);
-
+ 
     if (index !== -1 && affectedMapData[index - 1]) {
       this.nexusBase = affectedMapData[index - 1];
     } else {
@@ -388,7 +412,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
       let count = 0;
       const uniqueDefenses = new Set<string>(); // Set to keep track of unique defenses
-      const relevantAttacksReceived = this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY); 
+      const relevantAttacksReceived = this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY && x.originUserId != this.parentRef?.user?.id); 
       relevantAttacksReceived.forEach(x => {
         const startTimeTime = new Date(x.timestamp).getTime();
         const utcNow = new Date().getTime();
@@ -473,7 +497,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             } else if (buildingType == "engineering_bay") {
               this.nexusBase.engineeringBayLevel++;
             } else if (buildingType == "mines") {
-              this.nexusBase.minesLevel++; 
+              this.nexusBase.minesLevel++;
+              this.getMiningSpeedsAndSetMiningSpeed()
               this.startGoldIncrement();
             } else if (buildingType == "warehouse") {
               this.nexusBase.warehouseLevel++;
@@ -519,8 +544,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       endTime: endTime,
       timeout: setTimeout(async () => {
         this.addNotification(`${attack} completed!`);
-        delete this.attackTimers[attack];
         clearInterval(this.attackTimers[attack].interval);
+        clearTimeout(this.attackTimers[attack].timeout); 
+        delete this.attackTimers[attack];
         this.debounceLoadNexusData();
       }, endTime * 1000),
       interval: setInterval(() => {
@@ -543,8 +569,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       endTime: endTime,
       timeout: setTimeout(async () => {
         this.addNotification(`${research} research completed!`);
-        delete this.researchTimers[research];
         clearInterval(this.researchTimers[research].interval);
+        clearTimeout(this.researchTimers[research].timeout);
+        delete this.researchTimers[research];
         const unitId = this.getUnitIdFromType(research);
         this.nexusUnitUpgrades?.filter(x => x.unitIdUpgraded == unitId);  
       }, endTime * 1000),
@@ -646,8 +673,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   private async reinitializeBuildingTimers() {
     Object.keys(this.buildingTimers).forEach(building => {
-      if (this.buildingTimers[building]) {
-        console.log("clearing : " + this.buildingTimers[building]);
+      if (this.buildingTimers[building]) { 
         clearInterval(this.buildingTimers[building].interval);
         clearTimeout(this.buildingTimers[building].timeout);
         delete this.buildingTimers[building];
@@ -657,8 +683,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   private async reinitializeUnitTimers() {
     Object.keys(this.unitTimers).forEach(unit => {
-      if (this.unitTimers[unit]) {
-        console.log("clearing : " + this.unitTimers[unit]);
+      if (this.unitTimers[unit]) { 
         clearInterval(this.unitTimers[unit].interval);
         clearTimeout(this.unitTimers[unit].timeout);
         delete this.unitTimers[unit];
@@ -668,8 +693,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   private async reinitializeAttackTimers() {
     Object.keys(this.attackTimers).forEach(attack => {
-      if (this.attackTimers[attack]) {
-        console.log("clearing : " + this.attackTimers[attack]);
+      if (this.attackTimers[attack]) { 
         clearInterval(this.attackTimers[attack].interval);
         clearTimeout(this.attackTimers[attack].timeout);
         delete this.attackTimers[attack];
@@ -871,9 +895,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.stopLoading(); 
   }
 
-  async viewMap(force?: boolean) {
+  async viewMap(force?: boolean, dontScroll: boolean = false) {
     this.isMapOpen = force != undefined ? force : !this.isMapOpen;
-    if (this.isMapOpen && this.nexusBase) {
+    if (this.isMapOpen && this.nexusBase && !dontScroll) {
       setTimeout(() => { if (this.nexusBase) this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY); }, 10);
     }
   }
@@ -904,7 +928,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   copyLink() {
     const link = `https://bughosted.com/War`;
-    navigator.clipboard.writeText(link);
+    try {
+      navigator.clipboard.writeText(link);
+      this.addNotification("Link copied to clipboard!");
+    } catch {
+      this.addNotification("Error: Unable to share link!");
+    }
   }
 
   formatTimer(allSeconds?: number): string {
@@ -1162,6 +1191,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     return s;
   }
+  getXCoordsFromTimer(s: string) {
+    console.log("getting x coords from timer");
+    console.log(s);
+    console.log(parseInt(s.substring(s.indexOf('{') + 1, s.indexOf(','))))
+    return parseInt(s.substring(s.indexOf('{') + 1, s.indexOf(',')));
+  }
+  getYCoordsFromTimer(s: string) {
+    return parseInt(s.substring(s.indexOf(',') + 1, s.indexOf('}')));
+  }
   getBuildingTimerForBuilding(building: string) {
     const formatted = "{" + this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} " + this.formatBuildingTimer(building).toLowerCase().replace(" ", "_");
 
@@ -1169,64 +1207,203 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private loadPictureSrcs() {
-    if (!this.commandCenterPictureSrc) {
-      this.fileService.getFileSrcByFileId(5920)
+    
+    if (!this.cclvl1Src) {
+      this.fileService.getFileSrcByFileId(6546)
         .then(src => {
-          this.commandCenterPictureSrc = src;
+          this.cclvl1Src = src; 
         })
         .catch(error => {
           console.error('Error loading map tile source:', error);
         });
     }
-    if (!this.starportPictureSrc) {
-      this.fileService.getFileSrcByFileId(6241)
+    if (!this.cclvl2Src) {
+      this.fileService.getFileSrcByFileId(6547)
         .then(src => {
-          this.starportPictureSrc = src;
+          this.cclvl2Src = src; 
         })
         .catch(error => {
           console.error('Error loading map tile source:', error);
         });
     }
-    if (!this.minesPictureSrc) {
-      this.fileService.getFileSrcByFileId(5922)
+    if (!this.cclvl3Src) {
+      this.fileService.getFileSrcByFileId(6544)
         .then(src => {
-          this.minesPictureSrc = src;
+          this.cclvl3Src = src;
         })
         .catch(error => {
           console.error('Error loading map tile source:', error);
         });
     }
-    if (!this.factoryPictureSrc) {
-      this.fileService.getFileSrcByFileId(5921)
+ 
+    if (!this.splvl1Src) {
+      this.fileService.getFileSrcByFileId(6567)
         .then(src => {
-          this.factoryPictureSrc = src;
+          this.splvl1Src = src;
         })
         .catch(error => {
           console.error('Error loading map tile source:', error);
         });
     }
-    if (!this.supplyDepotPictureSrc) {
-      this.fileService.getFileSrcByFileId(5952)
+    if (!this.splvl2Src) {
+      this.fileService.getFileSrcByFileId(6565)
         .then(src => {
-          this.supplyDepotPictureSrc = src;
+          this.splvl2Src = src;
         })
         .catch(error => {
           console.error('Error loading map tile source:', error);
         });
     }
-    if (!this.warehousePictureSrc) {
-      this.fileService.getFileSrcByFileId(6110)
+    if (!this.splvl3Src) {
+      this.fileService.getFileSrcByFileId(6566)
         .then(src => {
-          this.warehousePictureSrc = src;
+          this.splvl3Src = src;
         })
         .catch(error => {
           console.error('Error loading map tile source:', error);
         });
     }
-    if (!this.engineeringBayPictureSrc) {
-      this.fileService.getFileSrcByFileId(6113)
+ 
+    if (!this.mineslvl1Src) {
+      this.fileService.getFileSrcByFileId(6551)
         .then(src => {
-          this.engineeringBayPictureSrc = src;
+          this.mineslvl1Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.mineslvl2Src) {
+      this.fileService.getFileSrcByFileId(6549)
+        .then(src => {
+          this.mineslvl2Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.mineslvl3Src) {
+      this.fileService.getFileSrcByFileId(6553)
+        .then(src => {
+          this.mineslvl3Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
+  
+    if (!this.flvl1Src) {
+      this.fileService.getFileSrcByFileId(6550)
+        .then(src => {
+          this.flvl1Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.flvl2Src) {
+      this.fileService.getFileSrcByFileId(6554)
+        .then(src => {
+          this.flvl2Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.flvl3Src) {
+      this.fileService.getFileSrcByFileId(6552)
+        .then(src => {
+          this.flvl3Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+ 
+    if (!this.sdlvl1Src) {
+      this.fileService.getFileSrcByFileId(6555)
+        .then(src => {
+          this.sdlvl1Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
+    if (!this.sdlvl2Src) {
+      this.fileService.getFileSrcByFileId(6557)
+        .then(src => {
+          this.sdlvl2Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
+    if (!this.sdlvl3Src) {
+      this.fileService.getFileSrcByFileId(6559)
+        .then(src => {
+          this.sdlvl3Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+     
+
+    if (!this.whlvl1Src) {
+      this.fileService.getFileSrcByFileId(6562)
+        .then(src => {
+          this.whlvl1Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.whlvl2Src) {
+      this.fileService.getFileSrcByFileId(6563)
+        .then(src => {
+          this.whlvl2Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+    if (!this.whlvl3Src) {
+      this.fileService.getFileSrcByFileId(6564)
+        .then(src => {
+          this.whlvl3Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+     
+    if (!this.eblvl1Src) {
+      this.fileService.getFileSrcByFileId(6545)
+        .then(src => {
+          this.eblvl1Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
+    if (!this.eblvl2Src) {
+      this.fileService.getFileSrcByFileId(6548)
+        .then(src => {
+          this.eblvl2Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
+    if (!this.eblvl3Src) {
+      this.fileService.getFileSrcByFileId(6543)
+        .then(src => {
+          this.eblvl3Src = src;
         })
         .catch(error => {
           console.error('Error loading map tile source:', error);
@@ -1234,7 +1411,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
 
     if (!this.nexusBackgroundPictureSrc) {
-      this.fileService.getFileSrcByFileId(5940)
+      this.fileService.getFileSrcByFileId(6556)
         .then(src => {
           this.nexusBackgroundPictureSrc = src;
         })
@@ -1242,6 +1419,37 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           console.error('Error loading map tile source:', error);
         });
     }
+
+    if (!this.nexusLevel1Src) {
+      this.fileService.getFileSrcByFileId(6570)
+        .then(src => {
+          this.nexusLevel1Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
+    if (!this.nexusLevel2Src) {
+      this.fileService.getFileSrcByFileId(6569)
+        .then(src => {
+          this.nexusLevel2Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
+    if (!this.nexusLevel3Src) {
+      this.fileService.getFileSrcByFileId(6568)
+        .then(src => {
+          this.nexusLevel3Src = src;
+        })
+        .catch(error => {
+          console.error('Error loading map tile source:', error);
+        });
+    }
+
     if (!this.mapTileSrc) {
       this.fileService.getFileSrcByFileId(6293)
         .then(src => {
@@ -1410,6 +1618,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   getUnitIdFromType(type: string) {
     return type == "marine" ? 6 : type == "goliath" ? 7 : type == "battlecruiser" ? 8 : type == "wraith" ? 9 : type == "siege_tank" ? 10 : type == "scout" ? 11 : type == "glitcher" ? 12 : 0;
+  }
+  openMapAndScrollTo(timer: string) {
+    const x = this.getXCoordsFromTimer(this.formatBuildingTimer(timer));
+    const y = this.getYCoordsFromTimer(this.formatBuildingTimer(timer));
+    this.viewMap(true, true);
+    this.mapComponent.selectCoordinates(x, y);
+    setTimeout(() => { this.mapComponent.scrollToCoordinates(this.mapComponent.selectedNexusBase!.coordsX, this.mapComponent.selectedNexusBase!.coordsY); }, 10); 
   }
   async emittedGoToBaseEvent(nexusBase?: NexusBase) {
     console.log("emitted go to base");

@@ -35,30 +35,40 @@ namespace maxhanna.Server.Services
 
         private async Task LoadAndScheduleExistingNexus()
         {
+
             using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
                 await conn.OpenAsync();
-
-                string query = @"
-                SELECT 
-                    coords_x, coords_y, updated
-                FROM 
-                    nexus_bases
-                WHERE
-                    mines_level > 0 
-                AND updated < DATE_SUB(NOW(), INTERVAL 10 MINUTE);";
-
-                MySqlCommand cmd = new MySqlCommand(query, conn);
-                using (var reader = await cmd.ExecuteReaderAsync())
+                using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
                 {
-                    while (await reader.ReadAsync())
+                    var coordsList = new List<(int coordsX, int coordsY)>();
+
+                    string query = @"
+                        SELECT 
+                            coords_x, coords_y, updated
+                        FROM 
+                            nexus_bases
+                        WHERE
+                            mines_level > 0 
+                        AND updated < DATE_SUB(NOW(), INTERVAL 10 MINUTE);";
+
+                    MySqlCommand cmd = new MySqlCommand(query, conn, transaction);
+                    using (var reader = await cmd.ExecuteReaderAsync())
                     {
-                        int coordsX = reader.GetInt32("coords_x");
-                        int coordsY = reader.GetInt32("coords_y");
-                        //Console.WriteLine("got these coords from back end ");
-                        ProcessNexusGold(coordsX,coordsY);
-                        
+                        while (await reader.ReadAsync())
+                        {
+                            int coordsX = reader.GetInt32("coords_x");
+                            int coordsY = reader.GetInt32("coords_y");
+                            coordsList.Add((coordsX, coordsY));  
+
+                        }
                     }
+
+                    foreach (var (x, y) in coordsList.ToArray())
+                    { 
+                        await ProcessNexusGold(x, y, conn, transaction);
+                    }
+                    await transaction.CommitAsync();
                 }
             }
         }
@@ -138,49 +148,40 @@ namespace maxhanna.Server.Services
             return tmpBase;
         }
 
-        public async void ProcessNexusGold(int coordsX, int coordsY)
+        public async Task ProcessNexusGold(int coordsX, int coordsY, MySqlConnection conn, MySqlTransaction transaction)
         {
             //Console.WriteLine($"Processing ProcessNexusGold with coords: {coordsX},{coordsY}");
 
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            try
             {
-                await conn.OpenAsync();
-                using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
+                // Load the NexusBase and pass it to UpdateNexusAttacks
+                NexusBase nexus = await GetNexusBaseByCoords(coordsX,coordsY, conn, transaction);
+                if (nexus != null)
                 {
-                    try
-                    {
-                        // Load the NexusBase and pass it to UpdateNexusAttacks
-                        NexusBase nexus = await GetNexusBaseByCoords(coordsX,coordsY, conn, transaction);
-                        if (nexus != null)
-                        {
-                            var serviceCollection = new ServiceCollection();
-                            ConfigureServices(serviceCollection);
-                            var serviceProvider = serviceCollection.BuildServiceProvider();
+                    var serviceCollection = new ServiceCollection();
+                    ConfigureServices(serviceCollection);
+                    var serviceProvider = serviceCollection.BuildServiceProvider();
 
-                            // Create the logger
-                            var logger = serviceProvider.GetRequiredService<ILogger<NexusController>>();
+                    // Create the logger
+                    var logger = serviceProvider.GetRequiredService<ILogger<NexusController>>();
 
-                            // Create the configuration
-                            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+                    // Create the configuration
+                    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
 
-                            // Instantiate the NexusController with the logger and configuration
-                            var nexusController = new NexusController(logger, configuration);
-                            Console.WriteLine($"Updating gold automatically for nexus: {nexus.CoordsX}{nexus.CoordsY}");
-                            await nexusController.UpdateNexusGold(nexus);
-                        }
-                        else
-                        {
-                            Console.WriteLine($"No NexusBase found with coords: {coordsX},{coordsY}"); 
-                        }
-                        await transaction.CommitAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex.Message); 
-                        await transaction.RollbackAsync();
-                    }
+                    // Instantiate the NexusController with the logger and configuration
+                    var nexusController = new NexusController(logger, configuration);
+                    Console.WriteLine($"Updating gold automatically for nexus: {nexus.CoordsX}{nexus.CoordsY}");
+                    await nexusController.UpdateNexusGold(nexus);
                 }
+                else
+                {
+                    Console.WriteLine($"No NexusBase found with coords: {coordsX},{coordsY}"); 
+                } 
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);  
+            } 
         }
 
 

@@ -1,34 +1,31 @@
-<button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>
-<div #navbar id="navbar">
+<button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button> 
+<div #navbar id="navbar" *ngIf="_parent && _parent.navigationItems && _parent.navigationItems.length > 0">
+
   <ng-container *ngFor="let item of _parent.navigationItems">
-    <div *ngIf="(menuIconsIncludes(item.title) && user)
-         || item.title === 'Close Menu'
-         || item.title === 'User'
-         || item.title === 'Meme'
-         || item.title === 'Social'
-         || item.title === 'Wordler'
-         || item.title === 'Array' 
-         || item.title === 'War' 
-         || item.title === 'Emulation'
-         || item.title === 'Files'" class="navLinkDiv">
-        <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
-          <span (click)="goTo($event)" [title]="item.title">{{item.content! || ''}}</span> 
-        </span>
-        <ng-container *ngIf="item.title === 'Weather'; else otherItems">
-          <ng-container *ngIf="item.icon !== '☀️';">
-            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
-            <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" *ngIf="item.icon" />
-            <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="!item.icon">☀️</a> 
-          </ng-container>
-          <ng-template #defaultWeatherIcon *ngIf="item.icon == '☀️'">
-            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
-            <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
-          </ng-template>
+    <div *ngIf="(menuIconsIncludes(item.title))
+         || (navbarCollapsed && item.title === 'Close Menu')
+         || item.title === 'User' 
+         || (!navbarCollapsed && item.title === 'UpdateUserSettings')" class="navLinkDiv">
+      <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
+        <span (click)="goTo($event)" [title]="item.title">{{item.content! || ''}}</span>
+      </span>
+      <ng-container *ngIf="item.title === 'Weather'; else otherItems">
+        <ng-container *ngIf="item.icon !== '☀️';">
+          <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+          <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" *ngIf="item.icon" />
+          <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
         </ng-container>
-        <ng-template #otherItems>
+        <ng-template #defaultWeatherIcon *ngIf="item.icon == '☀️'">
           <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
           <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
         </ng-template>
+      </ng-container>
+      <ng-template #otherItems>
+        <span class="navLinkText" (click)="goTo($event)" [title]="item.title" *ngIf="item.title != 'UpdateUserSettings'">{{item.title}}</span>
+        <span class="navLinkText" (click)="goTo($event)" [title]="item.title" *ngIf="item.title == 'UpdateUserSettings'">Add/Remove</span>
+        <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a> 
+      </ng-template>
+       
     </div>
   </ng-container>
 </div>
