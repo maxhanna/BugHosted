@@ -288,7 +288,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     
       let count = 0;
       this.nexusDefencesIncoming.forEach(x => {
-        if (!x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY) {
+        if (!x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase?.coordsY) {
+          console.log(`${x.destinationCoordsX} == ${this.nexusBase?.coordsX} && ${x.destinationCoordsY} == ${this.nexusBase?.coordsY}`);
           const startTimeTime = new Date(x.timestamp).getTime();
           const utcNow = new Date().getTime();
           const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
@@ -323,7 +324,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
           const timeDuration = x.duration;
 
-          if (this.nexusBase) {
+          if (this.nexusBase && x.originCoordsX == this.nexusBase.coordsX && x.originCoordsY == this.nexusBase.coordsY) {
             const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
             console.log(x);
             console.log(remainingTimeInSeconds);
@@ -342,11 +343,26 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   } 
 
   private setAvailableUnits() {
-    if (!this.nexusAvailableUnits || !this.nexusBase) return
+    if (!this.nexusBase) return
+    console.log("setavilunits");
+    console.log(this.nexusUnits);
+    if (!this.nexusAvailableUnits) {
+      this.nexusAvailableUnits = {
+        coordsX: this.nexusBase.coordsX,
+        coordsY: this.nexusBase.coordsY,
+        marineTotal: 0,
+        goliathTotal: 0,
+        siegeTankTotal: 0,
+        scoutTotal: 0,
+        wraithTotal: 0,
+        battlecruiserTotal: 0,
+        glitcherTotal: 0
+      } as NexusUnits;
+    }
 
-    console.log(`NAU : ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal}
-      ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
+    console.log(`NAU : ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal} ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
     console.log(this.nexusUnitsOutsideOfBase);
+    console.log(this.nexusAttacksSent);
     if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0 && this.nexusAttacksSent.some(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY)) {
       if (!this.nexusUnitsOutsideOfBase) {
         this.nexusUnitsOutsideOfBase = {
@@ -379,9 +395,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.nexusUnitsOutsideOfBase!.battlecruiserTotal += x.battlecruiserTotal;
         this.nexusUnitsOutsideOfBase!.glitcherTotal += x.glitcherTotal;
       });
-      console.log(`NAU after attacks sent : ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal}
-      ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
+      console.log(`NAU after attacks sent : ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal} ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
       console.log(this.nexusUnitsOutsideOfBase);
+      console.log(this.nexusAttacksIncoming);
     }
     if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
       this.nexusAttacksIncoming.forEach(x => {
@@ -396,11 +412,19 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         }
       });
     }
-    console.log(`NAU after attacks incoming: ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal}
-      ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
+
+    // Filter out units with the same ID in nexusDefencesIncoming and nexusDefencesSent
+    const filteredDefencesIncoming = this.nexusDefencesIncoming?.filter(x =>
+      !this.nexusDefencesSent?.some(y => y.id === x.id)
+    ) || [];
+     
+
+    console.log(`NAU after attacks incoming: ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal} ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
     console.log(this.nexusUnitsOutsideOfBase);
-    if (this.nexusBase && this.nexusDefencesIncoming && !this.nexusExternalSupportUnits
-      && this.nexusDefencesIncoming.some(x => x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
+    console.log(filteredDefencesIncoming);
+    console.log(this.nexusDefencesSent);
+    if (this.nexusBase && filteredDefencesIncoming && !this.nexusExternalSupportUnits
+      && filteredDefencesIncoming.some(x => x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
         && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
       this.nexusExternalSupportUnits = {
         coordsX: this.nexusBase.coordsX,
@@ -413,7 +437,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         battlecruiserTotal: 0,
         glitcherTotal: 0
       } as NexusUnits;
-      this.nexusDefencesIncoming.forEach(x => {
+      filteredDefencesIncoming.forEach(x => {
         if (x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY) {
           this.nexusExternalSupportUnits!.marineTotal += x.marineTotal;
           this.nexusExternalSupportUnits!.goliathTotal += x.goliathTotal;
@@ -454,6 +478,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
           this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
           this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
+
           this.nexusUnitsOutsideOfBase!.marineTotal += x.marineTotal;
           this.nexusUnitsOutsideOfBase!.goliathTotal += x.goliathTotal;
           this.nexusUnitsOutsideOfBase!.siegeTankTotal += x.siegeTankTotal;
@@ -465,8 +490,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       });
     }
 
-    console.log(`NAU after nexus defences sent: ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal}
-      ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
+    console.log(`NAU after nexus defences sent: ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal} ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
  
     if (this.nexusUnitsOutsideOfBase && this.nexusUnitsOutsideOfBase.marineTotal <= 0
       && this.nexusUnitsOutsideOfBase.siegeTankTotal <= 0 && this.nexusUnitsOutsideOfBase.goliathTotal <= 0 
@@ -594,8 +618,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   private updateAttackDefenceTimers() {
     if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
       let count = 0;
-      const uniqueDefenses = new Set<string>(); // Set to keep track of unique defenses
-      const relevantAttacksReceived = this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY && x.originUserId != this.parentRef?.user?.id);
+      const uniqueDefenses = new Set<string>(); 
+      const relevantAttacksReceived =
+        this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
+          && x.originUser?.id != this.parentRef?.user?.id);
+
       relevantAttacksReceived.forEach(x => {
         const startTimeTime = new Date(x.timestamp).getTime();
         const utcNow = new Date().getTime();
@@ -615,14 +642,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       });
     }
   }
-
-
-
-  debounceLoadNexusData = this.debounce(async () => {
-    await this.loadNexusData();
-  }, 1000);
-
-
 
   private startUpgradeTimer(upgrade: string, time: number, isUnit: boolean) {
     if ((isUnit && this.unitTimers[upgrade]) || (!isUnit && this.buildingTimers[upgrade]) || !time || isNaN(time)) {
@@ -750,9 +769,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.defenceTimers[defence] || !time || isNaN(time)) {
       return;
     }
-    console.log("starting defence timer");
-    console.log(defence);
-    console.log(time);
+    //console.log("starting defence timer");
+    //console.log(defence);
+    //console.log(time);
 
     const endTime = Math.max(1, time);
     const timer = {
@@ -917,7 +936,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.attackTimers = {};
   }
 
-  private async reinitializeDefenceTimers() {
+  private async reinitializeDefenceTimers() { 
     Object.keys(this.defenceTimers).forEach(defence => {
       if (this.defenceTimers[defence]) {
         clearInterval(this.defenceTimers[defence].interval);
@@ -926,6 +945,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
     });
     this.defenceTimers = {};
+    console.log("reinitialized! ");
+    console.log(this.defenceTimers);
   }
 
   private async reinitializeResearchTimers() {
@@ -1931,11 +1952,20 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   async emittedDefenceReturned(def: NexusAttackSent) {
     console.log("emitted defence return : ");
     console.log(def);
-    if (this.nexusDefencesIncoming) {
-      console.log("found defence sent? " + this.nexusDefencesIncoming.find(x => x.id == def.id)?.id);
+    if (this.nexusDefencesIncoming && this.nexusDefencesIncoming.some(x => x.id == def.id)) {
+      console.log("found defence incoming? " + this.nexusDefencesIncoming.find(x => x.id == def.id)?.id);
       this.nexusDefencesIncoming.find(x => x.id == def.id)!.timestamp = new Date();
       this.nexusDefencesIncoming.find(x => x.id == def.id)!.arrived = false;
     } 
+    if (this.nexusDefencesSent && this.nexusDefencesSent.some(x => x.id == def.id)) {
+      console.log("found defence sent? " + this.nexusDefencesSent.find(x => x.id == def.id)?.id);
+      this.nexusDefencesSent.find(x => x.id == def.id)!.timestamp = new Date();
+      this.nexusDefencesSent.find(x => x.id == def.id)!.arrived = false;
+    } 
     this.updateDefenceTimers(); 
-  } 
+  }
+
+  debounceLoadNexusData = this.debounce(async () => {
+    await this.loadNexusData();
+  }, 1000);
 }

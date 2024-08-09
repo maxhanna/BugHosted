@@ -207,10 +207,10 @@ export class NexusAttackScreenComponent extends ChildComponent {
       return {
         originCoordsX: this.originBase.coordsX,
         originCoordsY: this.originBase.coordsY,
-        originUserId: this.originBase.user?.id,
+        originUser: this.originBase.user,
         destinationCoordsX: this.selectedNexus.coordsX,
         destinationCoordsY: this.selectedNexus.coordsY,
-        destinationUserId: this.selectedNexus.user?.id,
+        destinationUser: this.selectedNexus.user,
         marineTotal: marineCount,
         goliathTotal: goliathCount,
         siegeTankTotal: siegeTankCount,

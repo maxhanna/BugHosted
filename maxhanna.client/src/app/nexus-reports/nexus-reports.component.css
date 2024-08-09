@@ -1,3 +1,11 @@
+.battleReportDiv {
+  border: var(--main-border);
+  margin-left: 5px;
+  margin-right: 5px;
+  margin-bottom: 15px;
+  margin-top: 10px;
+}
+
 .rotated-header {
   display: inline-block;
   text-transform: capitalize;
@@ -14,9 +22,7 @@ table {
   border-collapse: collapse;
 }
 
-td {
-  border-bottom: 1px solid #ccc;
-  border-right: 1px solid #ccc;
+td { 
   text-align: center; /* Align text to center */
 
 }
@@ -25,10 +31,45 @@ th {
   width: 30px;
   overflow: hidden;
   text-overflow: ellipsis;
-} 
+}
+
 
 .unitSummaryDiv {
   margin-top: 15px;
   display: flex;
+  min-height: 85px;
   justify-content: center;
+  align-items: flex-end;
+}
+
+.mainInfoSection {
+  width: 100%;
+  text-align: center;
+  font-size: small;
+  border-top: var(--main-border);
+  margin-bottom: 2px;
+  display: block;
+  background-color: var(--main-bg-color);
+  text-shadow: 0.1px 0.1px 2px black;
+  text-decoration-color: var(--primary-font-color);
+}
+.reportsCenterDisplay {
+  margin-top: -20px;
+  width: 100%;
+  text-align: center;
+}
+.reportTimestampSpan {
+    font-size:small;
+    color: var(--secondary-font-color);
+}
+.reportHeader {
+  display: flex;
+  justify-content: space-between;
+}
+.reportTitleDiv {
+  position: relative;
+  top: -26px;
+  left: CALC(50% - 25px);
+  text-align: center;
+  width: 50px;
 }

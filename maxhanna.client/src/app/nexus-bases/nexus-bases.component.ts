@@ -31,7 +31,7 @@ export class NexusBasesComponent {
   getAttacksForBase(coordsX: number, coordsY: number): NexusAttackSent[] {
     if (this.attacksIncoming && this.attacksMap && Object.keys(this.attacksMap).length == 0) {
       this.attacksMap = {};
-      const pertinentAttacks = this.attacksIncoming.filter(x => x.destinationUserId == this.user?.id && x.originUserId != this.user?.id);
+      const pertinentAttacks = this.attacksIncoming.filter(x => x.destinationUser?.id == this.user?.id && x.originUser?.id != this.user?.id);
       for (let attack of pertinentAttacks) {
         const key = `${attack.destinationCoordsX},${attack.destinationCoordsY}`;
         if (!this.attacksMap[key]) {

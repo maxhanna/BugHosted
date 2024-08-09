@@ -24,7 +24,12 @@
          [style.display]="isReportsOpen && !isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen
          && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && nexusBase ? 'block' : 'none'"
          class="battleReportComponentDiv">
-      <app-nexus-reports [targetBase]="nexusBase" [user]="parentRef.user" *ngIf="isReportsOpen"></app-nexus-reports>
+      <app-nexus-reports
+        [targetBase]="nexusBase"
+        [user]="parentRef.user" 
+        (openMapEmitter)="emittedOpenMapAndScrollTo($event)"
+        *ngIf="isReportsOpen"> 
+      </app-nexus-reports>
     </div>
 
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user" [style.display]="isMapOpen ? 'block':'none'">
@@ -326,7 +331,7 @@
          *ngIf="whlvl1Src && whlvl2Src && whlvl3Src && nexusBase"
          [style.display]="isWarehouseOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
     <div [style.display]="isWarehouseOpen ? 'flex' : 'none'" class="warehouseScreen">
-      Current gold capacity : {{goldCapacity}}🪙
+      🪙 Current gold capacity : {{goldCapacity}}🪙
       <div class="warehouseLevelsDiv">
         <table class="mainTable">
           <thead>
@@ -415,7 +420,7 @@
     <div [style.display]="isMinesOpen ? 'flex' : 'none'" class="minesScreen">
       <div>
         <div>Upgrade the mines to increase mining efficiency.</div> 
-        <div>Current mining speed: <span class="gameNotification">1 Gold per {{miningSpeed}} second(s)</span>.</div>
+        <div>🪙 Current mining speed: <span class="gameNotification">1 Gold per {{miningSpeed}} second(s)</span>.</div>
       </div>
       <div><button (click)="closeMines()">Back</button></div>
     </div>
@@ -464,10 +469,10 @@
         <div class="gameNotification">Ground damage : {{toggledUnitStat.groundDamage}}</div>
         <div class="gameNotification">Air damage : {{toggledUnitStat.airDamage}}</div>
         <div class="gameNotification">Training duration time: {{formatTimer(toggledUnitStat.duration)}}</div>
-        <div class="gameNotification">Cost per unit: {{toggledUnitStat.cost}}</div>
+        <div class="gameNotification">🪙 per unit: {{toggledUnitStat.cost}}</div>
         <div class="gameNotification">Travel speed: {{toggledUnitStat.speed}}</div>
         <div class="gameNotification">Supply cost: {{toggledUnitStat.supply}}</div>
-        <div class="gameNotification">Gold carrying capacity: {{toggledUnitStat.goldCarryingCapacity}}</div>
+        <div class="gameNotification">🪙 carrying capacity: {{toggledUnitStat.goldCarryingCapacity}}</div>
         <div class="gameNotification">Required Factory level: {{toggledUnitStat.factoryLevel}}</div>
         <div class="gameNotification">Required Starport level: {{toggledUnitStat.starportLevel}}</div>
         <div class="gameNotification">Required Engineering Bay level: {{toggledUnitStat.engineeringBayLevel}}</div>
@@ -486,10 +491,10 @@
     <span *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="mainInfoSection">Movement:</span>
     <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0">
       <div class="upgradeTimersTableDiv">
-        <div *ngFor="let timer of activeAttackTimers()" [class]="(timer.unit.includes('Returning') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
+        <div *ngFor="let timer of activeAttackTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
           {{ formatBuildingTimer(timer.unit)   }} {{ formatTimer(timer.endTime) }}
         </div>
-        <div *ngFor="let timer of activeDefenceTimers()" [class]="(timer.unit.includes('Supporting') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
+        <div *ngFor="let timer of activeDefenceTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
           {{ formatBuildingTimer(timer.unit)   }} {{ formatTimer(timer.endTime) }}
         </div>
       </div>
@@ -585,7 +590,7 @@
     <span *ngIf="!isUserNew && parentRef && parentRef.user">
       <button (click)="toggleScreen('map', !isMapOpen)" title="View Map">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>
       <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
-      <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases">{{isBasesOpen ? 'Close ' : ''}}Bases 📃</button>
+      <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
       <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
     </span>
   </div>

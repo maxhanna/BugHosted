@@ -45,17 +45,27 @@ export class NexusSupportScreenComponent implements OnInit {
 
   groupDefencesByBase() {
     const defences = [...this.nexusDefencesIncoming ?? [], ...this.nexusDefencesSent ?? []];
+    const addedDefenceIds = new Set<number>();
 
     this.groupedDefences = defences.reduce((grouped, defence) => {
-      const key = `${defence.destinationUserId}-${defence.destinationCoordsX},${defence.destinationCoordsY}`;
+      if (addedDefenceIds.has(defence.id)) {
+        return grouped; // Skip this defence if it's already been added
+      }
+
+      const key = `${defence.destinationUser?.id},${defence.destinationUser?.username}-${defence.destinationCoordsX},${defence.destinationCoordsY}`;
       if (!grouped[key]) {
         grouped[key] = [];
       }
       grouped[key].push(defence);
+      addedDefenceIds.add(defence.id);
+
       return grouped;
     }, {} as GroupedDefences);
   }
-  getTmpUserForUserId(id?: number) {
-    return new User(id ?? 0, undefined, undefined, undefined, undefined);
+  getTmpUserForUserId(idstr?: string) {
+    if (!idstr) return new User(0, "Anonymous", undefined, undefined, undefined);
+    const id = parseInt(idstr.split(",")[0]);
+    const username = idstr.split(",")[1];
+    return new User(id, username, undefined, undefined, undefined);
   }
 }

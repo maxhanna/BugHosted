@@ -699,7 +699,7 @@ namespace maxhanna.Server.Controllers
                         if (canSend)
                         {
                             Console.WriteLine("Sending the attack...");
-                            await SendAttack(req.OriginNexus, req.DestinationNexus, req.OriginNexus.User, req.OriginNexus.User, req.UnitList, req.DistanceTimeInSeconds, conn, transaction);
+                            await SendAttack(req.OriginNexus, req.DestinationNexus, req.OriginNexus.User, req.DestinationNexus.User, req.UnitList, req.DistanceTimeInSeconds, conn, transaction);
                         }
                         else
                         {
@@ -1259,12 +1259,24 @@ namespace maxhanna.Server.Controllers
                 string sql = "";
                 if (onlyCurrentBase)
                 {
-                    sql = "SELECT * FROM maxhanna.nexus_attacks_sent WHERE origin_coords_x = @OriginX AND origin_coords_y = @OriginY;";
+                    sql = @"
+                        SELECT a.*, ou.username as origin_username, du.username as destination_username, oudp.file_id as origin_file_id, dudp.file_id as destination_file_id
+                        FROM maxhanna.nexus_attacks_sent a 
+                        LEFT JOIN maxhanna.users ou on ou.id = a.origin_user_id
+                        LEFT JOIN maxhanna.user_display_pictures oudp on oudp.user_id = a.origin_user_id
+                        LEFT JOIN maxhanna.users du on du.id = a.destination_user_id
+                        LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id 
+                        WHERE origin_coords_x = @OriginX AND origin_coords_y = @OriginY;";
                 }
                 else
                 {
                     sql = @"
-                        SELECT * FROM maxhanna.nexus_attacks_sent a 
+                        SELECT a.*, ou.username as origin_username, du.username as destination_username, oudp.file_id as origin_file_id, dudp.file_id as destination_file_id
+                        FROM maxhanna.nexus_attacks_sent a 
+                        LEFT JOIN maxhanna.users ou on ou.id = a.origin_user_id
+                        LEFT JOIN maxhanna.user_display_pictures oudp on oudp.user_id = a.origin_user_id
+                        LEFT JOIN maxhanna.users du on du.id = a.destination_user_id
+                        LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id 
                         WHERE origin_user_id = @UserId;";
                 }
                 using (MySqlCommand sqlCmd = new MySqlCommand(sql, conn))
@@ -1291,16 +1303,34 @@ namespace maxhanna.Server.Controllers
                             {
                                 attacks = new List<NexusAttackSent>();
                             }
-
+                            var originDisplayPicture = new FileEntry
+                            {
+                                Id = reader.IsDBNull(reader.GetOrdinal("origin_file_id")) ? 0 : reader.GetInt32("origin_file_id")
+                            };
+                            var destinationDisplayPicture = new FileEntry
+                            {
+                                Id = reader.IsDBNull(reader.GetOrdinal("destination_file_id")) ? 0 : reader.GetInt32("destination_file_id")
+                            };
                             attacks.Add(new NexusAttackSent
                             {
                                 Id = reader.GetInt32(reader.GetOrdinal("id")),
                                 OriginCoordsX = reader.GetInt32(reader.GetOrdinal("origin_coords_x")),
                                 OriginCoordsY = reader.GetInt32(reader.GetOrdinal("origin_coords_y")),
-                                OriginUserId = reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? null : reader.GetInt32("origin_user_id"),
+                                OriginUser =
+                                    new User(reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? 0 : reader.GetInt32("origin_user_id"),
+                                        reader.IsDBNull(reader.GetOrdinal("origin_username")) ? "Anonymous" : reader.GetString("origin_username"),
+                                        null,
+                                        originDisplayPicture,
+                                        null),
+
                                 DestinationCoordsX = reader.GetInt32(reader.GetOrdinal("destination_coords_x")),
                                 DestinationCoordsY = reader.GetInt32(reader.GetOrdinal("destination_coords_y")),
-                                DestinationUserId = reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? null : reader.GetInt32("destination_user_id"),
+                                DestinationUser =
+                                    new User(reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? 0 : reader.GetInt32("destination_user_id"),
+                                        reader.IsDBNull(reader.GetOrdinal("destination_username")) ? "Anonymous" : reader.GetString("destination_username"),
+                                        null,
+                                        destinationDisplayPicture,
+                                        null),
                                 MarineTotal = reader.IsDBNull(reader.GetOrdinal("marine_total")) ? null : reader.GetInt32("marine_total"),
                                 GoliathTotal = reader.IsDBNull(reader.GetOrdinal("goliath_total")) ? null : reader.GetInt32("goliath_total"),
                                 SiegeTankTotal = reader.IsDBNull(reader.GetOrdinal("siege_tank_total")) ? null : reader.GetInt32("siege_tank_total"),
@@ -1349,12 +1379,25 @@ namespace maxhanna.Server.Controllers
                 string sql = "";
                 if (onlyCurrentBase)
                 {
-                    sql = "SELECT * FROM maxhanna.nexus_defences_sent WHERE origin_coords_x = @OriginX AND origin_coords_y = @OriginY;";
+                    sql = @"
+                        SELECT a.*, ou.username as origin_username, du.username as destination_username, oudp.file_id as origin_file_id, dudp.file_id as destination_file_id
+                        FROM maxhanna.nexus_defences_sent a 
+                        LEFT JOIN maxhanna.users ou on ou.id = a.origin_user_id
+                        LEFT JOIN maxhanna.user_display_pictures oudp on oudp.user_id = a.origin_user_id
+                        LEFT JOIN maxhanna.users du on du.id = a.destination_user_id
+                        LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id 
+                        WHERE origin_coords_x = @OriginX AND origin_coords_y = @OriginY;";
                 }
                 else
                 {
                     sql = @"
-                        SELECT * FROM maxhanna.nexus_defences_sent WHERE origin_user_id = @UserId;";
+                        SELECT a.*, ou.username as origin_username, du.username as destination_username, oudp.file_id as origin_file_id, dudp.file_id as destination_file_id
+                        FROM maxhanna.nexus_defences_sent a 
+                        LEFT JOIN maxhanna.users ou on ou.id = a.origin_user_id
+                        LEFT JOIN maxhanna.user_display_pictures oudp on oudp.user_id = a.origin_user_id
+                        LEFT JOIN maxhanna.users du on du.id = a.destination_user_id
+                        LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id 
+                        WHERE origin_user_id = @UserId;";
                 }
                 using (MySqlCommand sqlCmd = new MySqlCommand(sql, conn))
                 {
@@ -1380,16 +1423,34 @@ namespace maxhanna.Server.Controllers
                             {
                                 attacks = new List<NexusAttackSent>();
                             }
-
+                            var originDisplayPicture = new FileEntry
+                            {
+                                Id = reader.IsDBNull(reader.GetOrdinal("origin_file_id")) ? 0 : reader.GetInt32("origin_file_id")
+                            };
+                            var destinationDisplayPicture = new FileEntry
+                            {
+                                Id = reader.IsDBNull(reader.GetOrdinal("destination_file_id")) ? 0 : reader.GetInt32("destination_file_id")
+                            }; 
                             attacks.Add(new NexusAttackSent
                             {
                                 Id = reader.GetInt32(reader.GetOrdinal("id")),
                                 OriginCoordsX = reader.GetInt32(reader.GetOrdinal("origin_coords_x")),
                                 OriginCoordsY = reader.GetInt32(reader.GetOrdinal("origin_coords_y")),
-                                OriginUserId = reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? null : reader.GetInt32("origin_user_id"),
+                                OriginUser =
+                                    new User(reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? 0 : reader.GetInt32("origin_user_id"),
+                                        reader.IsDBNull(reader.GetOrdinal("origin_username")) ? "Anonymous" : reader.GetString("origin_username"),
+                                        null,
+                                        originDisplayPicture,
+                                        null),
+
                                 DestinationCoordsX = reader.GetInt32(reader.GetOrdinal("destination_coords_x")),
                                 DestinationCoordsY = reader.GetInt32(reader.GetOrdinal("destination_coords_y")),
-                                DestinationUserId = reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? null : reader.GetInt32("destination_user_id"),
+                                DestinationUser =
+                                    new User(reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? 0 : reader.GetInt32("destination_user_id"),
+                                        reader.IsDBNull(reader.GetOrdinal("destination_username")) ? "Anonymous" : reader.GetString("destination_username"),
+                                        null,
+                                        destinationDisplayPicture,
+                                        null),
                                 MarineTotal = reader.IsDBNull(reader.GetOrdinal("marine_total")) ? null : reader.GetInt32("marine_total"),
                                 GoliathTotal = reader.IsDBNull(reader.GetOrdinal("goliath_total")) ? null : reader.GetInt32("goliath_total"),
                                 SiegeTankTotal = reader.IsDBNull(reader.GetOrdinal("siege_tank_total")) ? null : reader.GetInt32("siege_tank_total"),
@@ -1439,12 +1500,25 @@ namespace maxhanna.Server.Controllers
                 string sql = "";
                 if (onlyCurrentBase)
                 {
-                    sql = "SELECT * FROM maxhanna.nexus_attacks_sent WHERE destination_coords_x = @DestX AND destination_coords_y = @DestY;";
+                    sql = @"
+                        SELECT a.*, ou.username as origin_username, du.username as destination_username, oudp.file_id as origin_file_id, dudp.file_id as destination_file_id
+                        FROM maxhanna.nexus_attacks_sent a 
+                        LEFT JOIN maxhanna.users ou on ou.id = a.origin_user_id
+                        LEFT JOIN maxhanna.user_display_pictures oudp on oudp.user_id = a.origin_user_id
+                        LEFT JOIN maxhanna.users du on du.id = a.destination_user_id
+                        LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id
+                        WHERE a.destination_coords_x = @DestX 
+                        AND a.destination_coords_y = @DestY;";
                 }
                 else
                 {
-                    sql = @"SELECT *  
+                    sql = @"
+                        SELECT a.*, ou.username as origin_username, du.username as destination_username, oudp.file_id as origin_file_id, dudp.file_id as destination_file_id
                         FROM maxhanna.nexus_attacks_sent a 
+                        LEFT JOIN maxhanna.users ou on ou.id = a.origin_user_id
+                        LEFT JOIN maxhanna.user_display_pictures oudp on oudp.user_id = a.origin_user_id
+                        LEFT JOIN maxhanna.users du on du.id = a.destination_user_id
+                        LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id
                         WHERE destination_user_id = @UserId"; 
                 }
                 using (MySqlCommand sqlCmd = new MySqlCommand(sql, conn))
@@ -1474,16 +1548,35 @@ namespace maxhanna.Server.Controllers
                             {
                                 attacks = new List<NexusAttackSent>();
                             }
+                            var originDisplayPicture = new FileEntry
+                            {
+                                Id = reader.IsDBNull(reader.GetOrdinal("origin_file_id")) ? 0 : reader.GetInt32("origin_file_id")
+                            };
+                            var destinationDisplayPicture = new FileEntry
+                            {
+                                Id = reader.IsDBNull(reader.GetOrdinal("destination_file_id")) ? 0 : reader.GetInt32("destination_file_id")
+                            };
 
                             var attack = new NexusAttackSent
                             {
                                 Id = reader.GetInt32(reader.GetOrdinal("id")),
                                 OriginCoordsX = reader.GetInt32(reader.GetOrdinal("origin_coords_x")),
                                 OriginCoordsY = reader.GetInt32(reader.GetOrdinal("origin_coords_y")),
-                                OriginUserId = reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? null : reader.GetInt32("origin_user_id"),
+                                OriginUser =
+                                    new User(reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? 0 : reader.GetInt32("origin_user_id"),
+                                        reader.IsDBNull(reader.GetOrdinal("origin_username")) ? "Anonymous" : reader.GetString("origin_username"), 
+                                        null, 
+                                        originDisplayPicture, 
+                                        null),
+
                                 DestinationCoordsX = reader.GetInt32(reader.GetOrdinal("destination_coords_x")),
                                 DestinationCoordsY = reader.GetInt32(reader.GetOrdinal("destination_coords_y")),
-                                DestinationUserId = reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? null : reader.GetInt32("destination_user_id"),
+                                DestinationUser =
+                                    new User(reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? 0 : reader.GetInt32("destination_user_id"),
+                                        reader.IsDBNull(reader.GetOrdinal("destination_username")) ? "Anonymous" : reader.GetString("destination_username"),
+                                        null,
+                                        destinationDisplayPicture,
+                                        null),
                                 Duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? 0 : reader.GetInt32("duration"),
                                 Timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp")) ? DateTime.Now : reader.GetDateTime("timestamp"),
                             };
@@ -1540,12 +1633,24 @@ namespace maxhanna.Server.Controllers
                 string sql = "";
                 if (onlyCurrentBase)
                 {
-                    sql = "SELECT * FROM maxhanna.nexus_defences_sent WHERE destination_coords_x = @DestX AND destination_coords_y = @DestY;";
+                    sql = @"
+                        SELECT a.*, ou.username as origin_username, du.username as destination_username, oudp.file_id as origin_file_id, dudp.file_id as destination_file_id
+                        FROM maxhanna.nexus_defences_sent a 
+                        LEFT JOIN maxhanna.users ou on ou.id = a.origin_user_id
+                        LEFT JOIN maxhanna.user_display_pictures oudp on oudp.user_id = a.origin_user_id
+                        LEFT JOIN maxhanna.users du on du.id = a.destination_user_id
+                        LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id 
+                        WHERE destination_coords_x = @DestX AND destination_coords_y = @DestY;";
                 }
                 else
                 {
-                    sql = @"SELECT *
-                        FROM maxhanna.nexus_defences_sent  
+                    sql = @"
+                        SELECT a.*, ou.username as origin_username, du.username as destination_username, oudp.file_id as origin_file_id, dudp.file_id as destination_file_id
+                        FROM maxhanna.nexus_defences_sent a 
+                        LEFT JOIN maxhanna.users ou on ou.id = a.origin_user_id
+                        LEFT JOIN maxhanna.user_display_pictures oudp on oudp.user_id = a.origin_user_id
+                        LEFT JOIN maxhanna.users du on du.id = a.destination_user_id
+                        LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id 
                         WHERE destination_user_id = @UserId";
 
                 }
@@ -1577,15 +1682,35 @@ namespace maxhanna.Server.Controllers
                                 attacks = new List<NexusAttackSent>();
                             }
 
+                            var originDisplayPicture = new FileEntry
+                            {
+                                Id = reader.IsDBNull(reader.GetOrdinal("origin_file_id")) ? 0 : reader.GetInt32("origin_file_id")
+                            };
+                            var destinationDisplayPicture = new FileEntry
+                            {
+                                Id = reader.IsDBNull(reader.GetOrdinal("destination_file_id")) ? 0 : reader.GetInt32("destination_file_id")
+                            };
+
                             var attack = new NexusAttackSent
                             {
                                 Id = reader.GetInt32(reader.GetOrdinal("id")),
                                 OriginCoordsX = reader.GetInt32(reader.GetOrdinal("origin_coords_x")),
                                 OriginCoordsY = reader.GetInt32(reader.GetOrdinal("origin_coords_y")),
-                                OriginUserId = reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? null : reader.GetInt32("origin_user_id"),
+                                OriginUser =
+                                    new User(reader.IsDBNull(reader.GetOrdinal("origin_user_id")) ? 0 : reader.GetInt32("origin_user_id"),
+                                        reader.IsDBNull(reader.GetOrdinal("origin_username")) ? "Anonymous" : reader.GetString("origin_username"),
+                                        null,
+                                        originDisplayPicture,
+                                        null),
+
                                 DestinationCoordsX = reader.GetInt32(reader.GetOrdinal("destination_coords_x")),
                                 DestinationCoordsY = reader.GetInt32(reader.GetOrdinal("destination_coords_y")),
-                                DestinationUserId = reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? null : reader.GetInt32("destination_user_id"), 
+                                DestinationUser =
+                                    new User(reader.IsDBNull(reader.GetOrdinal("destination_user_id")) ? 0 : reader.GetInt32("destination_user_id"),
+                                        reader.IsDBNull(reader.GetOrdinal("destination_username")) ? "Anonymous" : reader.GetString("destination_username"),
+                                        null,
+                                        destinationDisplayPicture,
+                                        null),
                                 Duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? 0 : reader.GetInt32("duration"),
                                 Timestamp = reader.IsDBNull(reader.GetOrdinal("timestamp")) ? DateTime.Now : reader.GetDateTime("timestamp"),
                                 Arrived = reader.IsDBNull(reader.GetOrdinal("arrived")) ? false : reader.GetBoolean("arrived"), 
@@ -2280,6 +2405,7 @@ namespace maxhanna.Server.Controllers
             Console.WriteLine($"Update nexus gold : {nexusBase.CoordsX},{nexusBase.CoordsY}");
             decimal newGoldAmount = 0;
             decimal miningSpeed = 0;
+            decimal goldEarned = 0;
             if (nexusBase != null)
             {
                 // Retrieve mining speed based on mines level
@@ -2312,10 +2438,10 @@ namespace maxhanna.Server.Controllers
                     {
                         Console.WriteLine($"Mining speed {miningSpeed}. Base Last Updated : {updated}");
                         TimeSpan timeElapsed = DateTime.Now - updated;
-                        decimal goldEarned = (decimal)(timeElapsed.TotalSeconds / (double)miningSpeed);
+                        goldEarned = (decimal)(timeElapsed.TotalSeconds / (double)miningSpeed);
                         Console.WriteLine("goldEarned " + goldEarned + "; since time elapsed: " + timeElapsed.TotalSeconds);
 
-                        newGoldAmount = currentGold + Math.Abs(goldEarned);
+                        newGoldAmount = currentGold + (goldEarned <= 0 ? 0 : goldEarned);
                         if (newGoldAmount > (5000 * (nexusBase.WarehouseLevel + 1)))
                         {
                             newGoldAmount = (5000 * (nexusBase.WarehouseLevel + 1));
@@ -2323,7 +2449,7 @@ namespace maxhanna.Server.Controllers
                         nexusBase.Gold = newGoldAmount;
                     }
                 }
-                if (miningSpeed != 0)
+                if (miningSpeed != 0 && goldEarned >= 0)
                 {
                     string updateGoldSql = @"
                         UPDATE nexus_bases 

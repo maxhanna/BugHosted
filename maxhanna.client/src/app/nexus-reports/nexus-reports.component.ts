@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnChanges, OnInit, SimpleChanges, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { NexusBattleOutcome } from '../../services/datacontracts/nexus/nexus-battle-outcome';
 import { User } from '../../services/datacontracts/user/user';
 import { NexusService } from '../../services/nexus.service';
@@ -15,7 +15,8 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   @Input() battleReports?: NexusBattleOutcomeReports;
   @Input() user?: User;
   @Input() targetBase?: NexusBase;
-
+  @Output() openMapEmitter = new EventEmitter<string>;
+   
   pageSizes: number[] = [5, 10, 20, 50];
   totalPages: number[] = [1];
 

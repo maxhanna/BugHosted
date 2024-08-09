@@ -1,25 +1,29 @@
-<div *ngIf="groupedDefences && getObjectKeys(groupedDefences).length > 0">
+<div *ngIf="groupedDefences && getObjectKeys(groupedDefences).length > 0; else noDefences">
   <div *ngFor="let key of getObjectKeys(groupedDefences)" class="defencesTableDiv">
-    <div class="mainInfoSection">Player : {{ key.split('-')[0] }} Coordinates: <span class="invertedHighlights cursorPointer" (click)="openMapEmitter.emit(key.split('-')[1])">{{ key.split('-')[1] }}</span></div>
+    <div class="mainInfoSection">
+      Player :
+      <app-user-tag [user]="getTmpUserForUserId(key.split('-')[0])" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag>
+      Coordinates: <span class="invertedHighlights cursorPointer" (click)="openMapEmitter.emit(key.split('-')[1])">{{ key.split('-')[1] }}</span>
+    </div>
     <table>
       <thead>
         <tr>
-          <th><span class="rotated-header unitCell">Origin Coordinates</span></th>
-          <th><span class="rotated-header unitCell">Origin User ID</span></th>
-          <th><span class="rotated-header unitCell">Marine Total</span></th>
-          <th><span class="rotated-header unitCell">Goliath Total</span></th>
-          <th><span class="rotated-header unitCell">Siege Tank Total</span></th>
-          <th><span class="rotated-header unitCell">Scout Total</span></th>
-          <th><span class="rotated-header unitCell">Wraith Total</span></th>
-          <th><span class="rotated-header unitCell">Battlecruiser Total</span></th>
-          <th><span class="rotated-header unitCell">Glitcher Total</span></th>
+          <th><span class="rotated-header unitCell">Origin</span></th>
+          <th><span class="rotated-header unitCell">User</span></th>
+          <th><span class="rotated-header unitCell">Marine</span></th>
+          <th><span class="rotated-header unitCell">Goliath</span></th>
+          <th><span class="rotated-header unitCell">Siege Tank</span></th>
+          <th><span class="rotated-header unitCell">Scout</span></th>
+          <th><span class="rotated-header unitCell">Wraith</span></th>
+          <th><span class="rotated-header unitCell">Battlecruiser</span></th>
+          <th><span class="rotated-header unitCell">Glitcher</span></th>
           <th><span class="rotated-header unitCell">Arrived</span></th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let defence of groupedDefences[key]">
           <td (click)="openMapEmitter.emit(defence.originCoordsX + ',' + defence.originCoordsY)" class="cursorPointer invertedHighlights">{{defence.originCoordsX}},{{defence.originCoordsY}}</td>
-          <td><app-user-tag [user]="getTmpUserForUserId(defence.originUserId)" [inputtedParentRef]="inputtedParentRef"></app-user-tag></td>
+          <td><app-user-tag [user]="defence.originUser" [inputtedParentRef]="inputtedParentRef" [displayOnlyAvatar]="true"></app-user-tag></td>
           <td [class]="defence.marineTotal > 0 ? '' : 'greyText'">{{defence.marineTotal}}</td>
           <td [class]="defence.goliathTotal > 0 ? '' : 'greyText'">{{defence.goliathTotal}}</td>
           <td [class]="defence.siegeTankTotal > 0 ? '' : 'greyText'">{{defence.siegeTankTotal}}</td>
@@ -33,3 +37,7 @@
     </table>
   </div>
 </div>
+<ng-template #noDefences>
+  <div class="gameNotification">No support to show.</div>
+  <div>You can send support by opening the map, selecting coordinates to send defence to then press the "Defend" button.</div>
+</ng-template>

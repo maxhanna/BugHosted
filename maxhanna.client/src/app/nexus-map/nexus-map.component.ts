@@ -134,10 +134,8 @@ export class NexusMapComponent {
   }
 
   emittedAttack(attack: NexusAttackSent) {
-    this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence } as AttackEventPayload);
-    //console.log(this.nexusAttacksSent);
-    console.log(this.nexusDefencesSent?.filter(x => x.arrived == false));
-    //setTimeout(() => { console.log(this.attackTimers); }, 10)
+    this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence } as AttackEventPayload); 
+    console.log(this.nexusDefencesSent?.filter(x => x.arrived == false)); 
   }
 
   clearMapInputs() {
@@ -270,17 +268,14 @@ export class NexusMapComponent {
     return "emptyBase";
   }
   isAttackSentOn(x: number, y: number) {
-    if (!this.nexusAttacksSent && !this.nexusDefencesSent) return false;
-    //console.log("is attack sent on");
-    //console.log(this.nexusAttacksSent);
-
+    if (!this.nexusAttacksSent && !this.nexusDefencesSent) return false; 
     if (this.nexusAttacksSent) {
       const relevantAttack = this.nexusAttacksSent.find(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y);
       if (relevantAttack) return true;
     }
     
     if (this.nexusAttacksIncoming) { 
-      return this.nexusAttacksIncoming.some(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y && nb.originUserId != this.user?.id); 
+      return this.nexusAttacksIncoming.some(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y && nb.originUser?.id != this.user?.id); 
     }
 
     return false;
@@ -309,13 +304,7 @@ export class NexusMapComponent {
     let relevantDefence = undefined; 
     relevantDefence = this.nexusDefencesSent.find(
       nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y && nb.arrived == false
-    ) as NexusAttackSent;
-    if (relevantDefence) {
-      //console.log("fouind relevant def");
-      //console.log(relevantDefence);
-
-    }
-    //console.log("iosDefenceSentOn " + x + y);
+    ) as NexusAttackSent; 
     return relevantDefence;
   }
 }

@@ -8,10 +8,10 @@
                       [displayExpander]="false">
     </app-media-viewer>
   </div>
-  <div class="avatar noAvatar" *ngIf="!user || !user.displayPictureFile || user.displayPictureFile.id == 0 || displayEmptyAvatar || (user && user.id == 0)">
+  <div class="avatar noAvatar" *ngIf="!displayOnlyAvatar && (!user || !user.displayPictureFile || user.displayPictureFile.id == 0 || displayEmptyAvatar || (user && user.id == 0))">
     <span class="avatarBug noAvatar">🪲</span>
     <span class="avatarBust noAvatar">👤</span>
   </div>
 </div> 
-<span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username cursorPointer usernameProfileLink'" (click)="viewProfile(user)"  *ngIf="!displayEmptyAvatar && !hideName">{{user?.username}}</span>
+<span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username cursorPointer usernameProfileLink'" (click)="viewProfile(user)"  *ngIf="!displayOnlyAvatar && !displayEmptyAvatar && !hideName">{{user?.username}}</span>
  
