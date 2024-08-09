@@ -1,75 +1,35 @@
-<div *ngIf="nexusDefencesIncoming">
-  Defences Incoming
-  <table>
-    <thead>
-      <tr>
-        <th><span class="rotated-header unitCell">Origin Coordinates</span></th>
-        <th><span class="rotated-header unitCell">Origin User ID</span></th>
-        <th><span class="rotated-header unitCell">Destination Coordinates</span></th>
-        <th><span class="rotated-header unitCell">Destination User ID</span></th>
-        <th><span class="rotated-header unitCell">Marine Total</span></th>
-        <th><span class="rotated-header unitCell">Goliath Total</span></th>
-        <th><span class="rotated-header unitCell">Siege Tank Total</span></th>
-        <th><span class="rotated-header unitCell">Scout Total</span></th>
-        <th><span class="rotated-header unitCell">Wraith Total</span></th>
-        <th><span class="rotated-header unitCell">Battlecruiser Total</span></th>
-        <th><span class="rotated-header unitCell">Glitcher Total</span></th>
-        <th><span class="rotated-header unitCell">Arrived</span></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let defence of nexusDefencesIncoming">
-        <td>{{defence.originCoordsX}},{{defence.originCoordsY}}</td>
-        <td>{{defence.originUserId}}</td>
-        <td>{{defence.destinationCoordsX}},{{defence.destinationCoordsY}}</td>
-        <td>{{defence.destinationUserId}}</td>
-        <td>{{defence.marineTotal}}</td>
-        <td>{{defence.goliathTotal}}</td>
-        <td>{{defence.siegeTankTotal}}</td>
-        <td>{{defence.scoutTotal}}</td>
-        <td>{{defence.wraithTotal}}</td>
-        <td>{{defence.battlecruiserTotal}}</td>
-        <td>{{defence.glitcherTotal}}</td>
-        <td><button (click)="sendBack(defence)">{{defence.arrived ? '🔙' : '⛔'}}</button></td>
-      </tr>
-    </tbody>
-  </table>
+<div *ngIf="groupedDefences && getObjectKeys(groupedDefences).length > 0">
+  <div *ngFor="let key of getObjectKeys(groupedDefences)" class="defencesTableDiv">
+    <div class="mainInfoSection">Player : {{ key.split('-')[0] }} Coordinates: {{ key.split('-')[1] }}</div>
+    <table>
+      <thead>
+        <tr>
+          <th><span class="rotated-header unitCell">Origin Coordinates</span></th>
+          <th><span class="rotated-header unitCell">Origin User ID</span></th>
+          <th><span class="rotated-header unitCell">Marine Total</span></th>
+          <th><span class="rotated-header unitCell">Goliath Total</span></th>
+          <th><span class="rotated-header unitCell">Siege Tank Total</span></th>
+          <th><span class="rotated-header unitCell">Scout Total</span></th>
+          <th><span class="rotated-header unitCell">Wraith Total</span></th>
+          <th><span class="rotated-header unitCell">Battlecruiser Total</span></th>
+          <th><span class="rotated-header unitCell">Glitcher Total</span></th>
+          <th><span class="rotated-header unitCell">Arrived</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let defence of groupedDefences[key]">
+          <td (click)="openMapEmitter.emit(defence.originCoordsX + ',' + defence.originCoordsY)" class="cursorPointer">{{defence.originCoordsX}},{{defence.originCoordsY}}</td>
+          <td>{{defence.originUserId}}</td>
+          <td [class]="defence.marineTotal > 0 ? '' : 'greyText'">{{defence.marineTotal}}</td>
+          <td [class]="defence.goliathTotal > 0 ? '' : 'greyText'">{{defence.goliathTotal}}</td>
+          <td [class]="defence.siegeTankTotal > 0 ? '' : 'greyText'">{{defence.siegeTankTotal}}</td>
+          <td [class]="defence.scoutTotal > 0 ? '' : 'greyText'">{{defence.scoutTotal}}</td>
+          <td [class]="defence.wraithTotal > 0 ? '' : 'greyText'">{{defence.wraithTotal}}</td>
+          <td [class]="defence.battlecruiserTotal > 0 ? '' : 'greyText'">{{defence.battlecruiserTotal}}</td>
+          <td [class]="defence.glitcherTotal > 0 ? '' : 'greyText'">{{defence.glitcherTotal}}</td>
+          <td><button (click)="sendBack(defence)">{{defence.arrived ? '🔙' : '⛔'}}</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
-
-<div *ngIf="nexusDefencesSent">
-  Defences Sent
-  <table>
-    <thead>
-      <tr>
-        <th><span class="rotated-header unitCell">Origin Coordinates</span></th>
-        <th><span class="rotated-header unitCell">Origin User ID</span></th>
-        <th><span class="rotated-header unitCell">Destination Coordinates</span></th>
-        <th><span class="rotated-header unitCell">Destination User ID</span></th>
-        <th><span class="rotated-header unitCell">Marine Total</span></th>
-        <th><span class="rotated-header unitCell">Goliath Total</span></th>
-        <th><span class="rotated-header unitCell">Siege Tank Total</span></th>
-        <th><span class="rotated-header unitCell">Scout Total</span></th>
-        <th><span class="rotated-header unitCell">Wraith Total</span></th>
-        <th><span class="rotated-header unitCell">Battlecruiser Total</span></th>
-        <th><span class="rotated-header unitCell">Glitcher Total</span></th>
-        <th><span class="rotated-header unitCell">Arrived</span></th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let defence of nexusDefencesSent">
-        <td>{{defence.originCoordsX}},{{defence.originCoordsY}}</td>
-        <td>{{defence.originUserId}}</td>
-        <td>{{defence.destinationCoordsX}},{{defence.destinationCoordsY}}</td>
-        <td>{{defence.destinationUserId}}</td>
-        <td>{{defence.marineTotal}}</td>
-        <td>{{defence.goliathTotal}}</td>
-        <td>{{defence.siegeTankTotal}}</td>
-        <td>{{defence.scoutTotal}}</td>
-        <td>{{defence.wraithTotal}}</td>
-        <td>{{defence.battlecruiserTotal}}</td>
-        <td>{{defence.glitcherTotal}}</td>
-        <td><button (click)="sendBack(defence)">{{defence.arrived ? '🔙' : '⛔'}}</button></td>
-      </tr>
-    </tbody>
-  </table>
-</div> 

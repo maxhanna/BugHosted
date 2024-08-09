@@ -1,10 +1,10 @@
 .rotated-header {
   display: inline-block;
   text-transform: capitalize;
-  transform: rotate(-90deg) translateY(10px);
+  transform: rotate(-90deg) translateY(36px) translateX(-25px);
   white-space: nowrap;
-  height: 30px;
-  width: 30px;
+  height: 75px;
+  width: 25px;
   font-size: xx-small;
   text-overflow: ellipsis;
   color: var(--secondary-font-color);
@@ -33,4 +33,25 @@ th {
 button {
   width: 40px;
   background-color: var(--main-font-color);
+}
+.defencesTableDiv {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.greyText {
+    color:grey;
+}
+
+.mainInfoSection {
+  width: 100%;
+  text-align: center;
+  font-size: small;
+  border-top: var(--main-border);
+  margin-bottom: 2px;
+  display: block;
+  background-color: var(--main-bg-color);
+  text-shadow: 0.1px 0.1px 2px black;
+  text-decoration-color: var(--primary-font-color);
 }

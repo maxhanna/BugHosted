@@ -1887,6 +1887,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.mapComponent.selectCoordinates(x, y);
     setTimeout(() => { this.mapComponent.scrollToCoordinates(this.mapComponent.selectedNexusBase!.coordsX, this.mapComponent.selectedNexusBase!.coordsY); }, 10);
   }
+  emittedOpenMapAndScrollTo(coords: string) {
+    const x = parseInt(coords.split(',')[0]);
+    const y = parseInt(coords.split(',')[1]);
+    this.toggleScreen("map", true);
+    this.mapComponent.selectCoordinates(x, y);
+    setTimeout(() => { this.mapComponent.scrollToCoordinates(this.mapComponent.selectedNexusBase!.coordsX, this.mapComponent.selectedNexusBase!.coordsY); }, 10);
+  }
   async emittedGoToBaseEvent(nexusBase?: NexusBase) {
     console.log("emitted go to base");
     this.nexusBase = nexusBase;
