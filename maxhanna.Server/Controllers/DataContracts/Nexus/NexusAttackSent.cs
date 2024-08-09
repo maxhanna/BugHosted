@@ -2,6 +2,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
     public class NexusAttackSent
     { 
+        public int Id { get; set; }
         public int OriginCoordsX { get; set; }
         public int OriginCoordsY { get; set; }
         public int? OriginUserId { get; set; }
@@ -17,5 +18,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
         public int? GlitcherTotal { get; set; }
         public int Duration { get; set; }
         public DateTime Timestamp{ get; set; }
+        public bool? Arrived { get; set; }
     }
 }

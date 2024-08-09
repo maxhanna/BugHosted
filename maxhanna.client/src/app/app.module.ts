@@ -47,6 +47,7 @@ import { NexusReportsComponent } from './nexus-reports/nexus-reports.component';
 import { NexusBasesComponent } from './nexus-bases/nexus-bases.component';
 import { NexusMapComponent } from './nexus-map/nexus-map.component';
 import { ModalComponent } from './modal/modal.component';
+import { NexusSupportScreenComponent } from './nexus-support-screen/nexus-support-screen.component';
 
 @NgModule({
   declarations: [
@@ -89,6 +90,7 @@ import { ModalComponent } from './modal/modal.component';
     NexusReportsComponent,
     NexusBasesComponent,
     ModalComponent,
+    NexusSupportScreenComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

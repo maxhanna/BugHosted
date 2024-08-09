@@ -17,6 +17,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Input() originBase?: NexusBase;
   @Input() selectedNexus?: NexusBase;
   @Input() nexusAvailableUnits?: NexusUnits;
+  @Input() nexusUnitsOutsideOfBase?: NexusUnits;
   @Input() unitStats?: UnitStats[];
   @Input() marinePictureSrc: string | undefined;
   @Input() goliathPictureSrc: string | undefined;
@@ -25,6 +26,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
   @Input() glitcherPictureSrc: string | undefined;
+  @Input() isSendingDefence: boolean = false;
 
   @Output() emittedNotifications = new EventEmitter<string>();
   @Output() closedAttackScreen = new EventEmitter<void>();
@@ -70,16 +72,19 @@ export class NexusAttackScreenComponent extends ChildComponent {
     this.startLoading();
 
     const attackDuration = this.calculateAttackDuration();
-    console.log("attackduration : " + attackDuration);
     if (attackDuration) {
-      this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration);
+      if (this.isSendingDefence) {
+        this.nexusService.defend(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration); 
+      } else { 
+        this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration);
+      }
        
       //this.emittedReloadEvent.emit("Attack sent");
       this.closedAttackScreen.emit();
       this.RemoveAttackingUnitsFromAvailableUnits();
       const nexusAttack = this.createNexusAttack(attackDuration);
       this.emittedAttack.emit(nexusAttack);
-      this.emittedNotifications.emit(`Attack sent on {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}`);
+      this.emittedNotifications.emit(`Sending ${this.isSendingDefence ? 'Defence' : 'Attack'} ${this.isSendingDefence ? 'to' : 'on'} {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}`);
     }
     this.stopLoading();
   }
@@ -111,30 +116,50 @@ export class NexusAttackScreenComponent extends ChildComponent {
     } 
   }
   private RemoveAttackingUnitsFromAvailableUnits() {
-    if (this.nexusAvailableUnits && this.unitStats) {
+    if (this.nexusAvailableUnits && this.unitStats && this.originBase) {
+      if (!this.nexusUnitsOutsideOfBase) {
+        this.nexusUnitsOutsideOfBase = {
+          coordsX: this.originBase.coordsX,
+          coordsY: this.originBase.coordsY,
+          marineTotal: 0,
+          goliathTotal: 0,
+          siegeTankTotal: 0,
+          scoutTotal: 0,
+          wraithTotal: 0,
+          battlecruiserTotal: 0,
+          glitcherTotal: 0
+        } as NexusUnits;
+      }
       this.unitStats.forEach(unit => {
         if (unit.sentValue) {
           switch (unit.unitType) {
             case "marine":
               this.nexusAvailableUnits!.marineTotal -= unit.sentValue;
+              this.nexusUnitsOutsideOfBase!.marineTotal += unit.sentValue;
               break;
             case "goliath":
               this.nexusAvailableUnits!.goliathTotal -= unit.sentValue;
+              this.nexusUnitsOutsideOfBase!.goliathTotal += unit.sentValue;
               break;
             case "siege_tank":
               this.nexusAvailableUnits!.siegeTankTotal -= unit.sentValue;
+              this.nexusUnitsOutsideOfBase!.siegeTankTotal += unit.sentValue;
               break;
             case "scout":
               this.nexusAvailableUnits!.scoutTotal -= unit.sentValue;
+              this.nexusUnitsOutsideOfBase!.scoutTotal += unit.sentValue;
               break;
             case "wraith":
               this.nexusAvailableUnits!.wraithTotal -= unit.sentValue;
+              this.nexusUnitsOutsideOfBase!.wraithTotal += unit.sentValue;
               break;
             case "battlecruiser":
               this.nexusAvailableUnits!.battlecruiserTotal -= unit.sentValue;
+              this.nexusUnitsOutsideOfBase!.battlecruiserTotal += unit.sentValue;
               break;
             case "glitcher":
               this.nexusAvailableUnits!.glitcherTotal -= unit.sentValue;
+              this.nexusUnitsOutsideOfBase!.glitcherTotal += unit.sentValue;
               break;
           }
         }
@@ -194,7 +219,8 @@ export class NexusAttackScreenComponent extends ChildComponent {
         battlecruiserTotal: battlecruiserCount,
         glitcherTotal: glitcherCount,
         timestamp: new Date(),
-        duration: duration
+        duration: duration,
+        arrived: false
       } as NexusAttackSent;
     }
     return undefined;

@@ -14,21 +14,23 @@ table {
   border-collapse: collapse;
 }
 
-td {
-  border-bottom: 1px solid #ccc;
-  border-right: 1px solid #ccc;
-  text-align: center; /* Align text to center */
-
+td { 
+  text-align: center; 
+  font-size:small;
 }
-
-th {
-  width: 30px;
+th,td {
+    width:5px;
+}
+th { 
   overflow: hidden;
   text-overflow: ellipsis;
 } 
-
 .unitSummaryDiv {
   margin-top: 15px;
   display: flex;
   justify-content: center;
+}
+button {
+  width: 40px;
+  background-color: var(--main-font-color);
 }

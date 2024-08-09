@@ -26,6 +26,7 @@
   width: 50px;
   height: 50px;
   overflow: hidden;
+  background-color: #150f0f;
 }
 
 .cell-content-coords {
@@ -46,7 +47,7 @@
   top: -23px;
 }
 .attackIconSpan-adjustedForNoBase {
-  top: -60px !important;
+  top: -50px !important;
 }
 .mapInput {
   width: 40px;

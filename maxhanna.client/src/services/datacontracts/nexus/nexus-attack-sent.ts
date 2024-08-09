@@ -1,4 +1,5 @@
 export interface NexusAttackSent {
+  id: number;
   originCoordsX: number;
   originCoordsY: number;
   originUserId?: number;
@@ -14,4 +15,5 @@ export interface NexusAttackSent {
   glitcherTotal: number;
   timestamp: Date;
   duration: number;
+  arrived?: boolean;
 }

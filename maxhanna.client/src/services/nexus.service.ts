@@ -49,7 +49,8 @@ export class NexusService {
     Promise<{
       nexusBase: NexusBase; nexusBaseUpgrades: NexusBaseUpgrades;
       nexusUnits: NexusUnits; nexusUnitsPurchasedList: NexusUnitsPurchased[];
-      nexusAttacksSent: NexusAttackSent[], nexusAttacksIncoming: NexusAttackSent[],
+      nexusAttacksSent: NexusAttackSent[], nexusDefencesSent: NexusAttackSent[],
+      nexusAttacksIncoming: NexusAttackSent[], nexusDefencesIncoming: NexusAttackSent[],
       nexusUnitUpgrades: NexusUnitUpgrades[]
     } | undefined> {
     return await this.fetchData('/nexus', { User: user, Nexus: nexus });
@@ -104,6 +105,12 @@ export class NexusService {
   }
   async engage(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[], timeInSeconds: number): Promise<any> {
     return await this.fetchData('/nexus/engage', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats, DistanceTimeInSeconds: Math.round(timeInSeconds) });
+  }
+  async defend(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[], timeInSeconds: number): Promise<any> {
+    return await this.fetchData('/nexus/defend', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats, DistanceTimeInSeconds: Math.round(timeInSeconds) });
+  }
+  async returnDefence(user: User, defenceId: number): Promise<any> {
+    return await this.fetchData('/nexus/returndefence', { User: user, DefenceId: defenceId });
   }
   async getBattleReports(user: User, pageNumber: number, pageSize: number, targetBase?: NexusBase): Promise<NexusBattleOutcomeReports> {
     return await this.fetchData('/nexus/getbattlereports', { User: user, PageNumber: pageNumber, PageSize: pageSize, TargetBase: targetBase });

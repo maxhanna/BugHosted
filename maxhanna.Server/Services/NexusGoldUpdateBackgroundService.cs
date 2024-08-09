@@ -170,7 +170,7 @@ namespace maxhanna.Server.Services
 
                     // Instantiate the NexusController with the logger and configuration
                     var nexusController = new NexusController(logger, configuration);
-                    Console.WriteLine($"Updating gold automatically for nexus: {nexus.CoordsX}{nexus.CoordsY}");
+                    //Console.WriteLine($"Updating gold automatically for nexus: {nexus.CoordsX}{nexus.CoordsY}");
                     await nexusController.UpdateNexusGold(nexus);
                 }
                 else
