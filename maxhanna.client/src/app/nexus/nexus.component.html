@@ -14,10 +14,10 @@
       <button class="previousBaseButton" (click)="previousBase()" [disabled]="isLoading">⩤</button>
       <button class="nextBaseButton" (click)="nextBase()" [disabled]="isLoading">⩥</button>
     </div>
-    <div *ngIf="!isReportsOpen && !isMapOpen && !isBasesOpen && !isSupportOpen" class="resourceDiv">
+    <div *ngIf="!isReportsOpen && !isMapOpen && !isBasesOpen && !isSupportOpen && !isUserNew && nexusBase" class="resourceDiv">
       <span title="Gold" class="resourceSpan">🪙:{{ (nexusBase && nexusBase.gold ? nexusBase.gold : '0') | number:'1.0-2' }}</span>
-      <span title="Supply Capacity" class="resourceSpan" *ngIf="nexusBase">👤:{{calculateCurrentSupply()}}</span>
-      <span title="Nexus location" class="resourceSpan" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</span>
+      <span title="Supply Capacity" class="resourceSpan" *ngIf="nexusBase">🥩:{{calculateCurrentSupply()}}</span>
+      <span title="Nexus location" class="resourceSpan" *ngIf="nexusBase">📍:<span class="invertedHighlights">{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</span></span>
     </div>
 
     <div *ngIf="parentRef && parentRef.user"
@@ -77,6 +77,7 @@
                               class="baseListComponentDiv"
                               [style.display]="isSupportOpen ? 'block':'none'"
                               [user]="parentRef.user"
+                              [inputtedParentRef]="parentRef"
                               [nexusDefencesIncoming]="nexusDefencesIncoming"
                               [nexusDefencesSent]="nexusDefencesSent"
                               (defenceReturnedEmitter)="emittedDefenceReturned($event)"
@@ -207,8 +208,8 @@
       <div class="supplyInfoDiv">
         <div class="supplyExplainDiv">
           For every supply depot level your supply capacity increases by 2500.
-          <p class="gameNotification">👤 Capacity: {{supplyCapacity}}</p>
-          <p class="gameNotification" *ngIf="nexusBase">👤 Used: <span [class]="supplyCapacity - nexusBase.supply <= 600 ? 'redText' : ''">{{nexusBase.supply}}</span></p>
+          <p class="gameNotification">🥩 Capacity: {{supplyCapacity}}</p>
+          <p class="gameNotification" *ngIf="nexusBase">🥩 Used: <span [class]="supplyCapacity - nexusBase.supply <= 600 ? 'redText' : ''">{{nexusBase.supply}}</span></p>
         </div>
         <div class="supplyUsedDiv">
           <div *ngFor="let unit of units">
@@ -260,7 +261,7 @@
               <td class="smallFont" colspan="3">
                 🪙{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}
                 ⏱️{{ formatTimer(unit.duration * (unit.purchasedValue ? unit.purchasedValue : 1))}}
-                <span [class]="((unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply) > supplyCapacity ? 'redText' : ''">👤{{ unit.supply ? (unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply : ''}}</span>
+                <span [class]="((unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply) > supplyCapacity ? 'redText' : ''">🥩{{ unit.supply ? (unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply : ''}}</span>
               </td>
             </tr>
           </tbody>
@@ -310,7 +311,7 @@
               <td class="smallFont" colspan="3">
                 🪙{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}
                 ⏱️{{ formatTimer(unit.duration * (unit.purchasedValue ? unit.purchasedValue : 1))}}
-                <span [class]="((unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply) > supplyCapacity ? 'redText' : ''">👤{{ unit.supply ? (unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply : ''}}</span>
+                <span [class]="((unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply) > supplyCapacity ? 'redText' : ''">🥩{{ unit.supply ? (unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply : ''}}</span>
               </td>
             </tr>
           </tbody>
@@ -395,7 +396,7 @@
                   <td class="smallFont" colspan="3">
                     🪙{{ ((glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.cost) }}
                     ⏱️{{ formatTimer(glitcherStats.duration * (glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1))}}
-                    <span [class]="((glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.supply) > supplyCapacity ? 'redText' : ''">👤{{ glitcherStats.supply ? (glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.supply : ''}}</span>
+                    <span [class]="((glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.supply) > supplyCapacity ? 'redText' : ''">🥩{{ glitcherStats.supply ? (glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.supply : ''}}</span>
                   </td>
                 </tr>
               </tbody>

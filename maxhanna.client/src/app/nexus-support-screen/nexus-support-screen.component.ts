@@ -4,6 +4,7 @@ import { NexusService } from '../../services/nexus.service';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { User } from '../../services/datacontracts/user/user';
 import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
+import { AppComponent } from '../app.component';
 type GroupedDefences = {
   [key: string]: NexusAttackSent[];
 };
@@ -15,7 +16,8 @@ type GroupedDefences = {
 export class NexusSupportScreenComponent implements OnInit {
   @Input() nexusDefencesIncoming?: NexusAttackSent[];
   @Input() nexusDefencesSent?: NexusAttackSent[];
-  @Input() user?: User; 
+  @Input() user?: User;
+  @Input() inputtedParentRef?: AppComponent; 
   @Output() defenceReturnedEmitter = new EventEmitter<NexusAttackSent>;
   @Output() openMapEmitter = new EventEmitter<string>;
   groupedDefences: GroupedDefences = {};
@@ -52,5 +54,8 @@ export class NexusSupportScreenComponent implements OnInit {
       grouped[key].push(defence);
       return grouped;
     }, {} as GroupedDefences);
+  }
+  getTmpUserForUserId(id?: number) {
+    return new User(id ?? 0, undefined, undefined, undefined, undefined);
   }
 }

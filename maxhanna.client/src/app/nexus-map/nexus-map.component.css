@@ -34,17 +34,19 @@
   top: -13px;
   left: 0;
   background-color: rgba(0, 0, 0, 0.2);
-  font-size: xx-small;
+  font-size: small;
   pointer-events: none;
   width: 50px;
-  height: 10px;
-  line-height: 10px;
+  height: 12px;
+  line-height: 13px;
   text-overflow: ellipsis;
   overflow: hidden;
   word-break: keep-all;
+  color: var(--secondary-font-color);
+  text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
 }
 .cell-content-coords-adjustedForBase {
-  top: -23px;
+  top: -27px;
 }
 .attackIconSpan-adjustedForNoBase {
   top: -50px !important;

@@ -53,7 +53,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
     { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
-    { ownership: 0, icon: "🪖", title: "War", content: undefined },
+    { ownership: 0, icon: "🪖", title: "Bug-Wars", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "📁", title: "Files", content: undefined },
     { ownership: 0, icon: "📅", title: "Calendar", content: undefined },
@@ -89,7 +89,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Contacts": ContactsComponent, 
     "Emulation": EmulationComponent,
     "Array": ArrayComponent,
-    "War": NexusComponent,
+    "Bug-Wars": NexusComponent,
     "Wordler": WordlerComponent,
     "News": NewsComponent,
     "Coin-Wallet": CoinWalletComponent,
@@ -140,7 +140,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
         if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();
-          this.createComponent('War');
+          this.createComponent('Bug-Wars');
         }
 
         if (this.router.url.includes('File/')) {

@@ -21,7 +21,7 @@
 <div class="centeredDiv" [style.display]="!isAttackScreenOpen ? 'block':'none'">
   <div> 
     <!--<button (click)="closeMapEvent.emit()" title="Close Map">❌Close</button>-->
-    <button (click)="scrollToCoordinates(nexusBase.coordsX, nexusBase.coordsY, false)" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
+    <button (click)="scrollToCoordinates(nexusBase.coordsX, nexusBase.coordsY, false)" *ngIf="nexusBase" class="invertedHighlights">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
   </div>
 
   X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (keyup.enter)="showMapLocation()" />
@@ -34,7 +34,7 @@
 <div *ngIf="selectedNexusBase && !isAttackScreenOpen && mapInputX && mapInputY" class="centeredDiv">
   <button (click)="showAttackScreen(false)" *ngIf="showAttackButton">Attack</button>
   <button (click)="showAttackScreen(true)" *ngIf="showAttackButton">Defend</button>
-  <button (click)="scrollToCoordinates(selectedNexusBase.coordsX, selectedNexusBase.coordsY, false)">{{isAttackScreenOpen ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}</button>
+  <button (click)="scrollToCoordinates(selectedNexusBase.coordsX, selectedNexusBase.coordsY, false)" class="invertedHighlights">{{isAttackScreenOpen ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}</button>
   <div *ngIf="selectedNexusBase.user">
     👤:
     <span style="display:inline-block;">

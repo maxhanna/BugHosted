@@ -452,9 +452,12 @@ fieldset {
 }
 .invertedHighlights {
   color: var(--secondary-font-color);
-  text-shadow: 1px 1px 2px var(--primary-font-color);
+  text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
 }
 
 .redText {
   color: red;
 } 
+.greyText {
+    color:grey;
+}

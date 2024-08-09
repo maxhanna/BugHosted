@@ -148,11 +148,11 @@
                     </td>
                     <td (click)="selectMenuIcon(icon.title)" class="pointer">{{ icon.title == 'Weather' ? '☀️' : icon.icon }}{{ icon.title }}</td>
                     <td *ngIf="showOnlySelectableMenuItems" [id]="icon.title+'td'">
-                      <div *ngIf="icon.title == 'War'" [id]="icon.title+'tddiv'"  >
-                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                      <div *ngIf="icon.title == 'Bug-Wars'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
                           <div>"Bug Wars" is a real-time strategy, massively multiplayer online game set in the near future.</div>
                           <div>As foreseen, AI has turned against humanity, and our mission is now to survive.</div>
-                          <div  >
+                          <div>
                             <app-media-viewer [fileId]="6495"
                                               [inputtedParentRef]="parentRef"
                                               [displayExtraInfo]="false"
@@ -163,55 +163,128 @@
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
-                      <div *ngIf="icon.title == 'Calendar'" [id]="icon.title+'tddiv'" >
-                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                      <div *ngIf="icon.title == 'Files'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>
+                            a Filesystem which is the backbone of the Memes/Social/Chat section.
+                            <div>Anything publicly available in the filesystem can be used as an attachment anywhere on the site or shared publicly off-site for free!</div>
+                          </div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Weather'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>
+                            Get up to date weather information based on a location you supply or the automatically found location based on your IP-Address!
+                          </div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Todo'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>
+                            A todo list to keep yourself reminded of everything todo. Create your own lists and save reminders to it!
+                          </div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Music'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>
+                            A muic list to keep track of your favourite youtube songs! Once added, the songs are displayed on your profile page!
+                            <div>
+                              <app-media-viewer [fileId]="6379"
+                                                [inputtedParentRef]="parentRef"
+                                                [displayExtraInfo]="false"
+                                                [showCommentSection]="false"
+                                                [displayExpander]="false">
+                              </app-media-viewer>
+                            </div>
+                          </div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Coin-Watch'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>
+                            Coin Watch keeps track of crypto prices for the most popular coins.
+                            <div>
+                              <app-media-viewer [fileId]="6378"
+                                                [inputtedParentRef]="parentRef"
+                                                [displayExtraInfo]="false"
+                                                [showCommentSection]="false"
+                                                [displayExpander]="false">
+                              </app-media-viewer>
+                            </div>
+                          </div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Notepad'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>
+                            Jot down notes and share them with others.
+                          </div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Contacts'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>
+                            Add your friends as contacts! Simply go to a person's profile page and click Add as Contact to keep track of friends' contact information and profiles.
+                          </div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Calendar'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
                           The Calendar helps you remember important things. Dont forget.
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
-                      <div *ngIf="icon.title == 'Social'" [id]="icon.title+'tddiv'" >
-                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                      <div *ngIf="icon.title == 'Social'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
                           Social platform.
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
-                      <div *ngIf="icon.title == 'Meme'" [id]="icon.title+'tddiv'" >
-                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                      <div *ngIf="icon.title == 'Meme'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
                           Share memes, use them in chat, on the socials or even as a display picture!
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
-                      <div *ngIf="icon.title == 'Wordler'" [id]="icon.title+'tddiv'"  >
-                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                      <div *ngIf="icon.title == 'Wordler'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
                           Can you defeat the Wordler? A word guessing game inspired from the NY Times website!
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
-                      <div *ngIf="icon.title == 'Chat'" [id]="icon.title+'tddiv'" >
-                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                      <div *ngIf="icon.title == 'Chat'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
                           <div>Chat system to connect you with your friends or groups of friends. Still under construction.</div>
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
-                      <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'" >
-                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')" >
-                          The Array transports users down a seemingly infinite array. 
+                      <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          The Array transports users down a seemingly infinite array.
                           The further you go down the array, the more experience you gain.
                           Find items to make you stronger!
                           Fight other players for glory!
-                          
-                            <app-media-viewer [fileId]="6493"
-                                              [inputtedParentRef]="parentRef"
-                                              [displayExtraInfo]="false"
-                                              [showCommentSection]="false"
-                                              [displayExpander]="false">
-                            </app-media-viewer>
-                          
+
+                          <app-media-viewer [fileId]="6493"
+                                            [inputtedParentRef]="parentRef"
+                                            [displayExtraInfo]="false"
+                                            [showCommentSection]="false"
+                                            [displayExpander]="false">
+                          </app-media-viewer>
+
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
-                      <div *ngIf="icon.title == 'Emulation'" [id]="icon.title+'tddiv'" >
-                        <div [id]="icon.title+'tddivdiv'"  (click)="menuInformationZoom(icon.title+'td')">
+                      <div *ngIf="icon.title == 'Emulation'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
                           <div>Our "Nostalgist" emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super Nintendo, Sega and more!</div>
                           <div>Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our servers.</div>
                           <div>You may now restart from anywhere with any device! (Supports joysticks and fullscreen mode!)</div>

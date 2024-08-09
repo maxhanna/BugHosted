@@ -1,6 +1,6 @@
 <div *ngIf="groupedDefences && getObjectKeys(groupedDefences).length > 0">
   <div *ngFor="let key of getObjectKeys(groupedDefences)" class="defencesTableDiv">
-    <div class="mainInfoSection">Player : {{ key.split('-')[0] }} Coordinates: {{ key.split('-')[1] }}</div>
+    <div class="mainInfoSection">Player : {{ key.split('-')[0] }} Coordinates: <span class="invertedHighlights cursorPointer" (click)="openMapEmitter.emit(key.split('-')[1])">{{ key.split('-')[1] }}</span></div>
     <table>
       <thead>
         <tr>
@@ -18,8 +18,8 @@
       </thead>
       <tbody>
         <tr *ngFor="let defence of groupedDefences[key]">
-          <td (click)="openMapEmitter.emit(defence.originCoordsX + ',' + defence.originCoordsY)" class="cursorPointer">{{defence.originCoordsX}},{{defence.originCoordsY}}</td>
-          <td>{{defence.originUserId}}</td>
+          <td (click)="openMapEmitter.emit(defence.originCoordsX + ',' + defence.originCoordsY)" class="cursorPointer invertedHighlights">{{defence.originCoordsX}},{{defence.originCoordsY}}</td>
+          <td><app-user-tag [user]="getTmpUserForUserId(defence.originUserId)" [inputtedParentRef]="inputtedParentRef"></app-user-tag></td>
           <td [class]="defence.marineTotal > 0 ? '' : 'greyText'">{{defence.marineTotal}}</td>
           <td [class]="defence.goliathTotal > 0 ? '' : 'greyText'">{{defence.goliathTotal}}</td>
           <td [class]="defence.siegeTankTotal > 0 ? '' : 'greyText'">{{defence.siegeTankTotal}}</td>
