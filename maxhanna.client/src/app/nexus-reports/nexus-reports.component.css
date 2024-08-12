@@ -73,3 +73,7 @@ th {
   text-align: center;
   width: 50px;
 }
+.pageControls{
+    display:flex;
+    justify-content:space-between;
+}

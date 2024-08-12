@@ -287,8 +287,9 @@ export class UserComponent extends ChildComponent implements OnInit {
           const resAddMenuItemEmulation = await this.userService.addMenuItem(tmpUser, "Emulation");
           this.notifications.push(resAddMenuItemEmulation!);
 
-          const resAddMenuItemArray = await this.userService.addMenuItem(tmpUser, "Array");
-          this.notifications.push(resAddMenuItemArray!);
+          const resAddMenuItemBugWars = await this.userService.addMenuItem(tmpUser, "Bug-Wars");
+          this.notifications.push(resAddMenuItemBugWars!);
+           
 
           await this.login(guest ? tmpUserName : undefined);
           if (!this.loginOnly) { 

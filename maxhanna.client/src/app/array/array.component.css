@@ -77,7 +77,7 @@
 }
 
 .locationPicture {
-  width: 99%;
+  width: 98vw;
   max-height: 275px;
   overflow: hidden;
   z-index: -1;

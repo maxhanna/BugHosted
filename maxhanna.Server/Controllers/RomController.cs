@@ -144,10 +144,10 @@ namespace maxhanna.Server.Controllers
                     return BadRequest("File path is missing.");
                 }
 
-                if (filePath.Contains(".sav") || filePath.Contains(".srm"))
+                if (user != null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
                 {
                     string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
-                    string newFilename = filenameWithoutExtension + "_" + user!.Id + Path.GetExtension(filePath).Replace("\\", "/");
+                    string newFilename = filenameWithoutExtension + "_" + user.Id + Path.GetExtension(filePath).Replace("\\", "/");
                     string userSpecificPath = Path.Combine(baseTarget, newFilename).Replace("\\", "/");
 
                     if (System.IO.File.Exists(userSpecificPath))
@@ -161,6 +161,9 @@ namespace maxhanna.Server.Controllers
                     }
                     _logger.LogInformation($"File path changed . New FilePath: " + filePath);
                 }
+                else if (user == null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
+                    return BadRequest("Must be logged in to access save files!");
+
                 _logger.LogInformation($"Filestreaming FilePath: " + filePath);
 
                 var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);

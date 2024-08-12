@@ -94,9 +94,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
         { ownership: 0, icon: "🌍", title: "Social", content: undefined },
         { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
         { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
-        { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
-        { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
-        { ownership: 0, icon: "🏰", title: "Bug-Wars", content: undefined }, 
+        { ownership: 0, icon: "🎮", title: "Emulation", content: undefined }, 
+        { ownership: 0, icon: "🪖", title: "Bug-Wars", content: undefined }, 
         { ownership: 0, icon: "👤", title: "User", content: undefined }, 
       ]; 
     } else { 

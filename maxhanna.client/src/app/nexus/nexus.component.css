@@ -15,7 +15,18 @@
   }
 }
 
-
+.bugWarsInfo {
+  display: flex;
+  flex-flow: column wrap;
+  justify-content: flex-start; 
+  height: 605px;
+  overflow: auto;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  text-align: center;
+  font-size: large;
+  font-weight: bolder;
+}
 .gamescreen, .map {
   width: 100%;
   height: var(--nexus-gamescreen-height);
@@ -79,8 +90,8 @@
   left: 158px;
 }
 .commandCenterLevelDisplay {
-  top: 37px;
-  left: 222px;
+  top: 45px;
+  left: 175px;
 }
 .mines, .minesLevelDisplay {
   top: 160px;
@@ -160,10 +171,17 @@
 .shareMapButtonDiv {
   position: absolute;
   bottom: 0px;
+  width: 100%;
 }
-
+  .shareMapButtonDiv button {
+      width:20%;
+      height:35px;
+      font-size: x-small;
+  }
+   
 .mapComponentDiv {
   display: none;
+  max-height:500px;
 }
 
 .baseListComponentDiv {
@@ -227,20 +245,7 @@
   color: var(--secondary-font-color);
 }
 
-.resourceSpan {
-  z-index: 3;
-  font-size: small;
-  font-weight: bold;
-}
-
-.unitPictureTd {
-  width: 50px;
-}
-
-.unitSliderTd {
-  max-width: 120px;
-} 
-
+ 
 .supplyUsedDiv {
   height: 120px;
   overflow: auto;
@@ -272,7 +277,9 @@
   overflow: auto;
   font-size: small;
 }
-
+.unitPurchaseTableDiv {
+    display: flex;
+}
 .gameNotification {
   color: var(--secondary-font-color);
   font-size: small;
@@ -318,8 +325,7 @@
   width: CALC(100% - 77px);
   max-height: 200px;
   overflow: auto;
-}
-
+} 
 .unitUpgradeDiv {
   height: 35px;
 }
@@ -330,6 +336,9 @@
 }
 .upgradeDisplayTable {
     max-width:100%;
+}
+.upgradeButton {
+  width: 65px;
 }
 .unitResearches {
   display: flex;
@@ -374,4 +383,27 @@
   text-shadow: 0.1px 0.1px 2px black;
   text-decoration-color: var(--primary-font-color);
   box-shadow: 0px 0px 5px black;
+}
+.unitSliderTd {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 16px; 
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+
+.unitSliderTd:hover {
+  opacity: 1;
+}
+
+.resourceSpan {
+  z-index: 3;
+  font-size: small;
+  font-weight: bold;
+}
+
+.unitPictureTd {
+  width: 50px;
 }

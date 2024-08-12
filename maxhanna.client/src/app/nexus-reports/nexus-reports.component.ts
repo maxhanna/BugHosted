@@ -33,16 +33,22 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   ngOnChanges(changes: SimpleChanges) {
     if (changes['battleReports'] && this.battleReports) {
       this.FixCurrentPageDropdownValues();
+      this.pageSize.nativeElement.value = this.battleReports.pageSize + '';
     }
   }
 
   private FixCurrentPageDropdownValues() {
+    console.log("FixCurrentPageDropdownValues");
     if (!this.battleReports) return;
-    let tmpPageSize = 5;
-    if (this.pageSize && this.pageSize.nativeElement.value) {
-      tmpPageSize = parseInt(this.pageSize.nativeElement.value);
-    }
+    let tmpPageSize = this.battleReports.pageSize;
+    console.log("tmpPageSize:" + tmpPageSize);
+    console.log("this.battleReports.totalReports:" + this.battleReports.totalReports);
     this.totalPages = Array.from({ length: Math.ceil(this.battleReports.totalReports / tmpPageSize) }, (_, i) => i + 1);
+    setTimeout(() => {
+      if (this.pageSize) {
+        this.pageSize.nativeElement.selectedIndex = this.pageSizes.indexOf(tmpPageSize);
+      }
+    }, 1); 
   }
 
   getUnitsArray(units: Record<string, number>): { key: string, value: number }[] {
@@ -68,6 +74,7 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     if (index !== -1) {
       this.battleReports!.battleOutcomes.splice(index, 1);
     }
+    this.battleReports.totalReports--;
     await this.nexusService.deleteReport(this.user, report.battleId);
   }
 
@@ -107,8 +114,9 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   async nextPage() {
     if (!this.user) return;
     const pageSize = parseInt(this.pageSize.nativeElement.value);
-    const currentPage = this.currentPage.nativeElement.value;
-    this.battleReports = await this.nexusService.getBattleReports(this.user, +currentPage, +pageSize);
+    this.currentPage.nativeElement.value = parseInt(this.currentPage.nativeElement.value) + 1 + "";
+    let currentPage = parseInt(this.currentPage.nativeElement.value);
+    this.battleReports = await this.nexusService.getBattleReports(this.user, currentPage, pageSize, this.targetBase);
     if (this.battleReports) {
       this.totalPages = Array.from({ length: Math.round(this.battleReports.totalReports / pageSize) }, (_, i) => i + 1);
     }

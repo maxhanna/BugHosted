@@ -27,6 +27,9 @@ export class NexusMapComponent {
   randomRotations: number[][] = [];
   randomMap: number[][] = [];
 
+  attackTimers: { [key: string]: AttackTimer } = {};
+  defenceTimers: { [key: string]: AttackTimer } = {};
+
   @Input() user?: User;
   @Input() nexusAvailableUnits?: NexusUnits;
   @Input() nexusUnitsOutsideOfBase?: NexusUnits;
@@ -50,8 +53,7 @@ export class NexusMapComponent {
   @Input() nexusDefencesSent?: NexusAttackSent[];
   @Input() nexusAttacksIncoming?: NexusAttackSent[];
   @Input() nexusDefencesIncoming?: NexusAttackSent[];
-  @Input() attackTimers: { [key: string]: AttackTimer; } = {};
-  @Input() defenceTimers: { [key: string]: AttackTimer; } = {};
+
   @Output() emittedReloadEvent = new EventEmitter<string>();
   @Output() closeMapEvent = new EventEmitter<void>();
   @Output() emittedNotifications = new EventEmitter<string>();
@@ -75,6 +77,10 @@ export class NexusMapComponent {
     if (hideAttackButton) {
       this.selectedNexusBase = undefined;
     }
+  }
+
+  scrollToCoordinatesByString(coordsX: string, coordsY: string, hideAttackButton?: boolean) {
+    this.scrollToCoordinates(parseInt(coordsX), parseInt(coordsY), hideAttackButton);
   }
 
   getSrcForBase(baseLvl: string) {
@@ -135,6 +141,8 @@ export class NexusMapComponent {
 
   emittedAttack(attack: NexusAttackSent) {
     this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence } as AttackEventPayload); 
+    this.updateAttackTimers();
+    this.updateDefenceTimers();
     console.log(this.nexusDefencesSent?.filter(x => x.arrived == false)); 
   }
 
@@ -213,22 +221,15 @@ export class NexusMapComponent {
         this.nexusReports.loadBattleReports(this.selectedNexusBase);
       }
     }, 10);
-     
+    this.updateAttackTimers();
+    this.updateDefenceTimers();
   }
-  getAttackTimersForCoords(coordsX: number, coordsY: number): AttackTimer[] {
-    const targetBase = `{${coordsX},${coordsY}}`;
-    //console.log("get attack timers for " + targetBase);
-    //console.log(this.attackTimers);
-    return Object.entries(this.attackTimers)
-      .filter(([key, value]) => key.split(".")[1] && key.split(".")[1].includes(targetBase))
+  getAttackTimersForCoords(coordsX: number, coordsY: number): AttackTimer[] { 
+    return Object.entries(this.attackTimers) 
       .map(([key, value]) => value);
   }
-  getDefenceTimersForCoords(coordsX: number, coordsY: number): AttackTimer[] {
-    const targetBase = `{${coordsX},${coordsY}}`;
-    //console.log("get defence timers for " + targetBase);
-    //console.log(this.defenceTimers);
-    return Object.entries(this.defenceTimers)
-      .filter(([key, value]) => key.split(".")[1] && key.split(".")[1].includes(targetBase))
+  getDefenceTimersForCoords(coordsX: number, coordsY: number): AttackTimer[] { 
+    return Object.entries(this.defenceTimers) 
       .map(([key, value]) => value);
   }
 
@@ -307,4 +308,191 @@ export class NexusMapComponent {
     ) as NexusAttackSent; 
     return relevantDefence;
   }
+
+  private async reinitializeAttackTimers() {
+    Object.keys(this.attackTimers).forEach(attack => {
+      if (this.attackTimers[attack]) {
+        clearInterval(this.attackTimers[attack].interval);
+        clearTimeout(this.attackTimers[attack].timeout);
+        delete this.attackTimers[attack];
+      }
+    });
+    this.attackTimers = {}; 
+  }
+
+  private async reinitializeDefenceTimers() {
+    Object.keys(this.defenceTimers).forEach(defence => {
+      if (this.defenceTimers[defence]) {
+        clearInterval(this.defenceTimers[defence].interval);
+        clearTimeout(this.defenceTimers[defence].timeout);
+        delete this.defenceTimers[defence];
+      }
+    });
+    this.defenceTimers = {}; 
+  }
+  private startAttackTimer(attack: string, time: number) {
+    if (this.attackTimers[attack] || !time || isNaN(time)) {
+      return;
+    } 
+    const endTime = Math.max(1, time);
+    const timer = {
+      key: attack,
+      endTime: endTime,
+      timeout: setTimeout(async () => {
+        //console.log("clearing timeout")
+        clearInterval(this.attackTimers[attack].interval);
+        clearTimeout(this.attackTimers[attack].timeout);
+        delete this.attackTimers[attack]; 
+      }, endTime * 1000),
+      interval: setInterval(() => {
+        if (this.attackTimers[attack]) {
+          this.attackTimers[attack].endTime--;
+        //  console.log(this.attackTimers[attack].endTime);
+        } 
+      }, 1000)
+    };
+
+    this.attackTimers[attack] = timer;
+  }
+
+
+  private startDefenceTimer(defence: string, time: number) {
+    if (this.defenceTimers[defence] || !time || isNaN(time)) {
+      return;
+    } 
+    const endTime = Math.max(1, time);
+    const timer = {
+      key: defence,
+      endTime: endTime,
+      timeout: setTimeout(async () => { 
+        clearInterval(this.defenceTimers[defence].interval);
+        clearTimeout(this.defenceTimers[defence].timeout);
+        delete this.defenceTimers[defence]; 
+      }, endTime * 1000),
+      interval: setInterval(() => {
+        if (this.defenceTimers[defence]) {
+          this.defenceTimers[defence].endTime--;
+        }
+      }, 1000)
+    };
+
+    this.defenceTimers[defence] = timer;
+  }
+
+  private updateAttackTimers(forceUpdateDefenceTimers?: boolean) {
+    this.reinitializeAttackTimers();
+
+    if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0 && this.nexusBase) {
+      let count = 0;
+      const uniqueAttacks = new Set<number>(); // Set to keep track of unique attacks
+      const relevantAttacksSent = this.nexusAttacksSent.filter(x => x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY);
+      //console.log(this.nexusAttacksSent);
+      relevantAttacksSent.forEach(x => {
+        const startTimeTime = new Date(x.timestamp).getTime();
+        const utcNow = new Date().getTime();
+        const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+        const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
+        count++; 
+        const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. Attacking {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+        if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
+          uniqueAttacks.add(remainingTimeInSeconds);
+          this.startAttackTimer(salt, remainingTimeInSeconds);
+        }
+      });
+    }
+    if (forceUpdateDefenceTimers) {
+      this.updateAttackDefenceTimers();
+    }
+  }
+
+  private updateAttackDefenceTimers() {
+    if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
+      let count = 0;
+      const uniqueDefenses = new Set<string>();
+      const relevantAttacksReceived =
+        this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY
+          && x.originUser?.id != this.inputtedParentRef?.user?.id);
+
+      relevantAttacksReceived.forEach(x => {
+        const startTimeTime = new Date(x.timestamp).getTime();
+        const utcNow = new Date().getTime();
+        const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+        const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
+        count++; 
+        const salt = `{${x.destinationCoordsX},${x.destinationCoordsY}} ${count}. Incoming {${x.originCoordsX},${x.originCoordsY}}`;
+
+        if (remainingTimeInSeconds > 0) {
+          if (!uniqueDefenses.has(salt)) {
+            uniqueDefenses.add(salt);
+            this.startAttackTimer(salt, remainingTimeInSeconds);
+          }
+        }
+      });
+    }
+  }
+
+  private updateDefenceTimers() { 
+    this.reinitializeDefenceTimers();
+    if (this.nexusBase && this.nexusDefencesIncoming
+      && this.nexusDefencesIncoming.some(x => !x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY
+        && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
+      //console.log("getting defences incoming timers");
+
+      let count = 0;
+      this.nexusDefencesIncoming.forEach(x => {
+        if (!x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase?.coordsY) {
+          //console.log(`${x.destinationCoordsX} == ${this.selectedNexusBase?.coordsX} && ${x.destinationCoordsY} == ${this.selectedNexusBase?.coordsY}`);
+          const startTimeTime = new Date(x.timestamp).getTime();
+          const utcNow = new Date().getTime();
+          const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+          const timeDuration = x.duration;
+
+          if (this.nexusBase) {
+            const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
+            //console.log(x);
+            //console.log(remainingTimeInSeconds); 
+            /*console.log(salt);*/
+            if (remainingTimeInSeconds > 0) {
+              let salt = "";
+              if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
+                salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+              } else {
+                salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+              }
+              this.startDefenceTimer(salt, remainingTimeInSeconds);
+            }
+          }
+        }
+      });
+    }
+
+    if (this.selectedNexusBase && this.nexusDefencesSent
+      && this.nexusDefencesSent.some(x => x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)) {
+      console.log("getting defences sent timers");
+
+      let count = 0;
+      this.nexusDefencesSent.forEach(x => {
+        if (!x.arrived) {
+          const startTimeTime = new Date(x.timestamp).getTime();
+          const utcNow = new Date().getTime();
+          const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+          const timeDuration = x.duration;
+
+          if (this.selectedNexusBase && x.originCoordsX == this.selectedNexusBase.coordsX && x.originCoordsY == this.selectedNexusBase.coordsY) {
+            const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
+            console.log(x);
+            console.log(remainingTimeInSeconds);
+            let salt = "";
+            if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
+              salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+            } else {
+              salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+            }
+            /*console.log(salt);*/
+            this.startDefenceTimer(salt, remainingTimeInSeconds);
+          }
+        }
+      });
+    }
+  } 
 }

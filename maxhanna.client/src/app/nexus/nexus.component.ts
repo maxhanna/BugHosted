@@ -149,7 +149,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async ngOnInit() {
-    //this.isUserNew = (!this.parentRef || !this.parentRef.user);
+    this.isUserNew = (!this.parentRef || !this.parentRef.user);
     this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
@@ -279,17 +279,17 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.loadNexusData(true);
   }
   private updateDefenceTimers() {
-    console.log("getDefenceTimers");
+    //console.log("getDefenceTimers");
     this.reinitializeDefenceTimers();
     if (this.nexusBase && this.nexusDefencesIncoming
       && this.nexusDefencesIncoming.some(x => !x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
         && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
       //console.log("getting defences incoming timers");
-    
+
       let count = 0;
       this.nexusDefencesIncoming.forEach(x => {
         if (!x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase?.coordsY) {
-          console.log(`${x.destinationCoordsX} == ${this.nexusBase?.coordsX} && ${x.destinationCoordsY} == ${this.nexusBase?.coordsY}`);
+          //console.log(`${x.destinationCoordsX} == ${this.nexusBase?.coordsX} && ${x.destinationCoordsY} == ${this.nexusBase?.coordsY}`);
           const startTimeTime = new Date(x.timestamp).getTime();
           const utcNow = new Date().getTime();
           const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
@@ -311,10 +311,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         }
       });
     }
-      
+
     if (this.nexusBase && this.nexusDefencesSent
       && this.nexusDefencesSent.some(x => x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)) {
-      console.log("getting defences sent timers");
+      //console.log("getting defences sent timers");
 
       let count = 0;
       this.nexusDefencesSent.forEach(x => {
@@ -326,8 +326,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
           if (this.nexusBase && x.originCoordsX == this.nexusBase.coordsX && x.originCoordsY == this.nexusBase.coordsY) {
             const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
-            console.log(x);
-            console.log(remainingTimeInSeconds);
+            //console.log(x);
+            //console.log(remainingTimeInSeconds);
             let salt = "";
             if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
               salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
@@ -339,46 +339,71 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           }
         }
       });
-    }  
-  } 
+    }
+  }
 
   private setAvailableUnits() {
     if (!this.nexusBase) return
-    console.log("setavilunits");
-    console.log(this.nexusUnits);
-    if (!this.nexusAvailableUnits) {
-      this.nexusAvailableUnits = {
-        coordsX: this.nexusBase.coordsX,
-        coordsY: this.nexusBase.coordsY,
-        marineTotal: 0,
-        goliathTotal: 0,
-        siegeTankTotal: 0,
-        scoutTotal: 0,
-        wraithTotal: 0,
-        battlecruiserTotal: 0,
-        glitcherTotal: 0
-      } as NexusUnits;
-    }
+    //console.log("setavilunits");  
+    const filteredAttacks = this.nexusAttacksSent?.filter(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
+    filteredAttacks?.forEach(x => {
+      this.reinitializeNexusUnitsByType("nexusAvailableUnits");
+      this.reinitializeNexusUnitsByType("nexusUnitsOutsideOfBase");
+      this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
+      this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
+      this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
+      this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
+      this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
+      this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
+      this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
 
-    console.log(`NAU : ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal} ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
-    console.log(this.nexusUnitsOutsideOfBase);
-    console.log(this.nexusAttacksSent);
-    if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0 && this.nexusAttacksSent.some(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY)) {
-      if (!this.nexusUnitsOutsideOfBase) {
-        this.nexusUnitsOutsideOfBase = {
-          coordsX: this.nexusBase.coordsX,
-          coordsY: this.nexusBase.coordsY,
-          marineTotal: 0,
-          goliathTotal: 0,
-          siegeTankTotal: 0,
-          scoutTotal: 0,
-          wraithTotal: 0,
-          battlecruiserTotal: 0,
-          glitcherTotal: 0
-        } as NexusUnits;
+      this.nexusUnitsOutsideOfBase!.marineTotal += x.marineTotal;
+      this.nexusUnitsOutsideOfBase!.goliathTotal += x.goliathTotal;
+      this.nexusUnitsOutsideOfBase!.siegeTankTotal += x.siegeTankTotal;
+      this.nexusUnitsOutsideOfBase!.scoutTotal += x.scoutTotal;
+      this.nexusUnitsOutsideOfBase!.wraithTotal += x.wraithTotal;
+      this.nexusUnitsOutsideOfBase!.battlecruiserTotal += x.battlecruiserTotal;
+      this.nexusUnitsOutsideOfBase!.glitcherTotal += x.glitcherTotal;
+    });
+
+
+    this.nexusAttacksIncoming?.forEach(x => {
+      if (x.originCoordsX == this.nexusBase!.coordsX && x.originCoordsY == this.nexusBase!.coordsY) {
+        this.reinitializeNexusUnitsByType("nexusAvailableUnits");
+        this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
+        this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
+        this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
+        this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
+        this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
+        this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
+        this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
       }
-      const filteredAttacks = this.nexusAttacksSent.filter(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY );
-      filteredAttacks.forEach(x => {
+    });
+
+    // Filter out units with the same ID in nexusDefencesIncoming and nexusDefencesSent
+    const filteredDefencesIncoming = this.nexusDefencesIncoming?.filter(x =>
+      !this.nexusDefencesSent?.some(y => y.id === x.id)
+    ) || [];
+
+    filteredDefencesIncoming.forEach(x => {
+      if (x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY) {
+        this.reinitializeNexusUnitsByType("nexusExternalSupportUnits");
+        this.nexusExternalSupportUnits!.marineTotal += x.marineTotal;
+        this.nexusExternalSupportUnits!.goliathTotal += x.goliathTotal;
+        this.nexusExternalSupportUnits!.siegeTankTotal += x.siegeTankTotal;
+        this.nexusExternalSupportUnits!.scoutTotal += x.scoutTotal;
+        this.nexusExternalSupportUnits!.wraithTotal += x.wraithTotal;
+        this.nexusExternalSupportUnits!.battlecruiserTotal += x.battlecruiserTotal;
+        this.nexusExternalSupportUnits!.glitcherTotal += x.glitcherTotal;
+      }
+    });
+
+
+
+    this.nexusDefencesSent?.forEach(x => {
+      if (x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase?.coordsY) {
+        this.reinitializeNexusUnitsByType("nexusAvailableUnits");
+        this.reinitializeNexusUnitsByType("nexusUnitsOutsideOfBase");
         this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
         this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
         this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
@@ -394,68 +419,57 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.nexusUnitsOutsideOfBase!.wraithTotal += x.wraithTotal;
         this.nexusUnitsOutsideOfBase!.battlecruiserTotal += x.battlecruiserTotal;
         this.nexusUnitsOutsideOfBase!.glitcherTotal += x.glitcherTotal;
-      });
-      console.log(`NAU after attacks sent : ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal} ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
-      console.log(this.nexusUnitsOutsideOfBase);
-      console.log(this.nexusAttacksIncoming);
-    }
-    if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
-      this.nexusAttacksIncoming.forEach(x => {
-        if (x.originCoordsX == this.nexusBase!.coordsX && x.originCoordsY == this.nexusBase!.coordsY) {
-          this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
-          this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
-          this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
-          this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
-          this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
-          this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
-          this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
-        }
-      });
-    }
+      }
+    });
 
-    // Filter out units with the same ID in nexusDefencesIncoming and nexusDefencesSent
-    const filteredDefencesIncoming = this.nexusDefencesIncoming?.filter(x =>
-      !this.nexusDefencesSent?.some(y => y.id === x.id)
-    ) || [];
-     
 
-    console.log(`NAU after attacks incoming: ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal} ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
-    console.log(this.nexusUnitsOutsideOfBase);
-    console.log(filteredDefencesIncoming);
-    console.log(this.nexusDefencesSent);
-    if (this.nexusBase && filteredDefencesIncoming && !this.nexusExternalSupportUnits
-      && filteredDefencesIncoming.some(x => x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
-        && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
-      this.nexusExternalSupportUnits = {
-        coordsX: this.nexusBase.coordsX,
-        coordsY: this.nexusBase.coordsY,
-        marineTotal: 0,
-        goliathTotal: 0,
-        siegeTankTotal: 0,
-        scoutTotal: 0,
-        wraithTotal: 0,
-        battlecruiserTotal: 0,
-        glitcherTotal: 0
-      } as NexusUnits;
-      filteredDefencesIncoming.forEach(x => {
-        if (x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY) {
-          this.nexusExternalSupportUnits!.marineTotal += x.marineTotal;
-          this.nexusExternalSupportUnits!.goliathTotal += x.goliathTotal;
-          this.nexusExternalSupportUnits!.siegeTankTotal += x.siegeTankTotal;
-          this.nexusExternalSupportUnits!.scoutTotal += x.scoutTotal;
-          this.nexusExternalSupportUnits!.wraithTotal += x.wraithTotal;
-          this.nexusExternalSupportUnits!.battlecruiserTotal += x.battlecruiserTotal;
-          this.nexusExternalSupportUnits!.glitcherTotal += x.glitcherTotal; 
-        }
-      });
+    if (this.nexusUnitsOutsideOfBase && this.nexusUnitsOutsideOfBase.marineTotal <= 0
+      && this.nexusUnitsOutsideOfBase.siegeTankTotal <= 0 && this.nexusUnitsOutsideOfBase.goliathTotal <= 0
+      && this.nexusUnitsOutsideOfBase.scoutTotal <= 0 && this.nexusUnitsOutsideOfBase.wraithTotal <= 0
+      && this.nexusUnitsOutsideOfBase.battlecruiserTotal <= 0 && this.nexusUnitsOutsideOfBase.glitcherTotal <= 0) {
+      this.nexusUnitsOutsideOfBase = undefined;
     }
+    if (this.nexusAvailableUnits && this.nexusAvailableUnits.marineTotal <= 0
+      && this.nexusAvailableUnits.siegeTankTotal <= 0 && this.nexusAvailableUnits.goliathTotal <= 0
+      && this.nexusAvailableUnits.scoutTotal <= 0 && this.nexusAvailableUnits.wraithTotal <= 0
+      && this.nexusAvailableUnits.battlecruiserTotal <= 0 && this.nexusAvailableUnits.glitcherTotal <= 0) {
+      this.nexusAvailableUnits = undefined;
+    }
+  }
 
-    if (this.nexusBase && this.nexusDefencesSent   
-      && this.nexusDefencesSent.some(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase?.coordsY
-        && x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))
-    {
-      if (!this.nexusUnitsOutsideOfBase) {
-        this.nexusUnitsOutsideOfBase = {
+  reinitializeNexusUnitsByType(type: string, unit?: string, qty?: string, noCommit?: boolean) {
+    if (type == "nexusAvailableUnits") {
+      if (noCommit && this.nexusBase) {
+        return {
+          coordsX: this.nexusBase.coordsX,
+          coordsY: this.nexusBase.coordsY,
+          marineTotal: (unit == "marine" && qty ? parseInt(qty) : 0),
+          goliathTotal: (unit == "goliath" && qty ? parseInt(qty) : 0),
+          siegeTankTotal: (unit == "siege_tank" && qty ? parseInt(qty) : 0),
+          scoutTotal: (unit == "scout" && qty ? parseInt(qty) : 0),
+          wraithTotal: (unit == "wraith" && qty ? parseInt(qty) : 0),
+          battlecruiserTotal: (unit == "battlecruiser" && qty ? parseInt(qty) : 0),
+          glitcherTotal: (unit == "glitcher" && qty ? parseInt(qty) : 0)
+        } as NexusUnits;
+      }
+      else if (!this.nexusAvailableUnits && this.nexusBase) {
+        return this.nexusAvailableUnits = {
+          coordsX: this.nexusBase.coordsX,
+          coordsY: this.nexusBase.coordsY,
+          marineTotal: (unit == "marine" && qty ? parseInt(qty) : 0),
+          goliathTotal: (unit == "goliath" && qty ? parseInt(qty) : 0),
+          siegeTankTotal: (unit == "siege_tank" && qty ? parseInt(qty) : 0),
+          scoutTotal: (unit == "scout" && qty ? parseInt(qty) : 0),
+          wraithTotal: (unit == "wraith" && qty ? parseInt(qty) : 0),
+          battlecruiserTotal: (unit == "battlecruiser" && qty ? parseInt(qty) : 0),
+          glitcherTotal: (unit == "glitcher" && qty ? parseInt(qty) : 0)
+        } as NexusUnits;
+
+      }
+    }
+    else if (type == "nexusUnitsOutsideOfBase") {
+      if (!this.nexusUnitsOutsideOfBase && this.nexusBase) {
+        return this.nexusUnitsOutsideOfBase = {
           coordsX: this.nexusBase.coordsX,
           coordsY: this.nexusBase.coordsY,
           marineTotal: 0,
@@ -467,39 +481,23 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           glitcherTotal: 0
         } as NexusUnits;
       }
-
-      this.nexusDefencesSent.forEach(x => {
-        //console.log(x);
-        if (x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase?.coordsY) {
-          this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
-          this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
-          this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
-          this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
-          this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
-          this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
-          this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
-
-          this.nexusUnitsOutsideOfBase!.marineTotal += x.marineTotal;
-          this.nexusUnitsOutsideOfBase!.goliathTotal += x.goliathTotal;
-          this.nexusUnitsOutsideOfBase!.siegeTankTotal += x.siegeTankTotal;
-          this.nexusUnitsOutsideOfBase!.scoutTotal += x.scoutTotal;
-          this.nexusUnitsOutsideOfBase!.wraithTotal += x.wraithTotal;
-          this.nexusUnitsOutsideOfBase!.battlecruiserTotal += x.battlecruiserTotal;
-          this.nexusUnitsOutsideOfBase!.glitcherTotal += x.glitcherTotal;
-        } 
-      });
     }
-
-    console.log(`NAU after nexus defences sent: ${this.nexusAvailableUnits.marineTotal} ${this.nexusAvailableUnits.goliathTotal} ${this.nexusAvailableUnits.siegeTankTotal} ${this.nexusAvailableUnits.scoutTotal} ${this.nexusAvailableUnits.wraithTotal} ${this.nexusAvailableUnits.battlecruiserTotal} ${this.nexusAvailableUnits.glitcherTotal}`);
- 
-    if (this.nexusUnitsOutsideOfBase && this.nexusUnitsOutsideOfBase.marineTotal <= 0
-      && this.nexusUnitsOutsideOfBase.siegeTankTotal <= 0 && this.nexusUnitsOutsideOfBase.goliathTotal <= 0 
-      && this.nexusUnitsOutsideOfBase.scoutTotal <= 0 && this.nexusUnitsOutsideOfBase.wraithTotal <= 0
-      && this.nexusUnitsOutsideOfBase.battlecruiserTotal <= 0 && this.nexusUnitsOutsideOfBase.glitcherTotal <= 0)
-    {
-      this.nexusUnitsOutsideOfBase = undefined;
+    else if (type == "nexusExternalSupportUnits") {
+      if (!this.nexusExternalSupportUnits && this.nexusBase) {
+        return this.nexusExternalSupportUnits = {
+          coordsX: this.nexusBase.coordsX,
+          coordsY: this.nexusBase.coordsY,
+          marineTotal: 0,
+          goliathTotal: 0,
+          siegeTankTotal: 0,
+          scoutTotal: 0,
+          wraithTotal: 0,
+          battlecruiserTotal: 0,
+          glitcherTotal: 0
+        } as NexusUnits;
+      }
     }
-
+    return;
   }
   private async getUnitStats(force?: boolean) {
     if (!this.parentRef || !this.parentRef.user || !this.nexusBase) {
@@ -607,7 +605,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt]) {
           uniqueAttacks.add(remainingTimeInSeconds);
           this.startAttackTimer(salt, remainingTimeInSeconds);
-        } 
+        }
       });
     }
     if (forceUpdateDefenceTimers) {
@@ -618,7 +616,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   private updateAttackDefenceTimers() {
     if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
       let count = 0;
-      const uniqueDefenses = new Set<string>(); 
+      const uniqueDefenses = new Set<string>();
       const relevantAttacksReceived =
         this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
           && x.originUser?.id != this.parentRef?.user?.id);
@@ -660,14 +658,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.nexusUnits = {} as NexusUnits;
         }
         if (!this.nexusAvailableUnits) {
-          this.nexusAvailableUnits = {} as NexusUnits;
+          this.nexusAvailableUnits = this.reinitializeNexusUnitsByType("nexusAvailableUnits");
         }
-        if (isUnit) {
+        if (isUnit && this.nexusAvailableUnits) {
           delete this.unitTimers[upgrade];
           const subs = upgrade.split('.')[1];
           const count = parseInt(subs.split(' ')[0]);
           const unitType = subs.split(' ')[1];
-          console.log("count: " + count + "; unitType:" + unitType);
+          //console.log("count: " + count + "; unitType:" + unitType);
           if (unitType.includes("marine")) {
             this.nexusUnits.marineTotal += count;
             this.nexusAvailableUnits.marineTotal += count;
@@ -706,6 +704,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
               this.nexusBase.warehouseLevel++;
             } else if (buildingType == "supply_depot") {
               this.nexusBase.supplyDepotLevel++;
+              this.supplyCapacity = (this.nexusBase.supplyDepotLevel * 2500);
             } else if (buildingType == "factory") {
               this.nexusBase.factoryLevel++;
             } else if (buildingType == "starport") {
@@ -740,12 +739,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.attackTimers[attack] || !time || isNaN(time)) {
       return;
     }
-    console.log("starting attack timer");
-    console.log(attack);
-    console.log(time);
+    //console.log("starting attack timer");
+    //console.log(attack);
+    //console.log(time);
 
     const endTime = Math.max(1, time);
     const timer = {
+      key: attack,
       endTime: endTime,
       timeout: setTimeout(async () => {
         this.addNotification(`${attack} completed!`);
@@ -775,6 +775,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     const endTime = Math.max(1, time);
     const timer = {
+      key: defence,
       endTime: endTime,
       timeout: setTimeout(async () => {
         this.addNotification(`${defence} completed!`);
@@ -797,9 +798,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.researchTimers[research] || !time || isNaN(time)) {
       return;
     }
-    console.log(research);
+    //console.log(research);
     const endTime = Math.max(1, time);
     const timer = {
+      key: research,
       endTime: endTime,
       timeout: setTimeout(async () => {
         this.addNotification(`${research} research completed!`);
@@ -936,7 +938,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.attackTimers = {};
   }
 
-  private async reinitializeDefenceTimers() { 
+  private async reinitializeDefenceTimers() {
     Object.keys(this.defenceTimers).forEach(defence => {
       if (this.defenceTimers[defence]) {
         clearInterval(this.defenceTimers[defence].interval);
@@ -945,8 +947,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
     });
     this.defenceTimers = {};
-    console.log("reinitialized! ");
-    console.log(this.defenceTimers);
+    //console.log("reinitialized! ");
+    //console.log(this.defenceTimers);
   }
 
   private async reinitializeResearchTimers() {
@@ -1107,6 +1109,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
 
     const totalCost = tmpUnit.purchasedValue * tmpUnit.cost;
+    const totalSupplyCost = tmpUnit.purchasedValue * tmpUnit.supply;
     if ((this.nexusBase.gold - totalCost) < 0) {
       this.addNotification(`Not enough gold to buy ${tmpUnit.purchasedValue} ${tmpUnit.unitType}.`);
     }
@@ -1115,6 +1118,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     else {
       this.nexusBase.gold -= totalCost;
+      this.nexusBase.supply += totalSupplyCost;
+      this.calculateCurrentSupply();
       this.addNotification(`Purchased ${tmpUnit.purchasedValue} ${tmpUnit.unitType}.`);
       const purchasedUnit = {
         coords_x: this.nexusBase.coordsX,
@@ -1165,7 +1170,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   calculateCurrentSupply() {
     if (!this.nexusBase) return 0;
-    return this.supplyCapacity - this.nexusBase.supply
+    return (this.nexusBase.supplyDepotLevel * 2500) - this.nexusBase.supply
   }
 
   stopGoldIncrement() {
@@ -1451,9 +1456,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return s;
   }
   getXCoordsFromTimer(s: string) {
-    console.log("getting x coords from timer");
-    console.log(s);
-    console.log(parseInt(s.substring(s.indexOf('{') + 1, s.indexOf(','))))
     return parseInt(s.substring(s.indexOf('{') + 1, s.indexOf(',')));
   }
   getYCoordsFromTimer(s: string) {
@@ -1680,7 +1682,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
 
     if (!this.nexusLevel1Src) {
-      this.fileService.getFileSrcByFileId(6570)
+      this.fileService.getFileSrcByFileId(6631)
         .then(src => {
           this.nexusLevel1Src = src;
         })
@@ -1690,7 +1692,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
 
     if (!this.nexusLevel2Src) {
-      this.fileService.getFileSrcByFileId(6569)
+      this.fileService.getFileSrcByFileId(6632)
         .then(src => {
           this.nexusLevel2Src = src;
         })
@@ -1700,7 +1702,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
 
     if (!this.nexusLevel3Src) {
-      this.fileService.getFileSrcByFileId(6568)
+      this.fileService.getFileSrcByFileId(6630)
         .then(src => {
           this.nexusLevel3Src = src;
         })
@@ -1709,7 +1711,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         });
     }
 
-    if (!this.mapTileSrc) { 
+    if (!this.mapTileSrc) {
       this.fileService.getFileSrcByFileId(6293)
         .then(src => {
           this.mapTileSrc = src;
@@ -1916,13 +1918,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     setTimeout(() => { this.mapComponent.scrollToCoordinates(this.mapComponent.selectedNexusBase!.coordsX, this.mapComponent.selectedNexusBase!.coordsY); }, 10);
   }
   async emittedGoToBaseEvent(nexusBase?: NexusBase) {
-    console.log("emitted go to base");
     this.nexusBase = nexusBase;
     await this.loadNexusData(true);
     this.toggleScreen("map", false);
   }
   emittedReloadEvent(reason: string) {
-    console.log("emitted reload event " + reason);
     this.loadNexusData(false);
   }
   emittedNotifications(message: string) {
@@ -1945,27 +1945,24 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.updateDefenceTimers();
     } else {
       if (!this.nexusAttacksSent) { this.nexusAttacksSent = []; }
-      this.nexusAttacksSent.push(attackPayload.attack); 
+      this.nexusAttacksSent.push(attackPayload.attack);
       this.updateAttackTimers(false);
     }
   }
   async emittedDefenceReturned(def: NexusAttackSent) {
-    console.log("emitted defence return : ");
-    console.log(def);
+
     if (this.nexusDefencesIncoming && this.nexusDefencesIncoming.some(x => x.id == def.id)) {
-      console.log("found defence incoming? " + this.nexusDefencesIncoming.find(x => x.id == def.id)?.id);
       this.nexusDefencesIncoming.find(x => x.id == def.id)!.timestamp = new Date();
       this.nexusDefencesIncoming.find(x => x.id == def.id)!.arrived = false;
-    } 
+    }
     if (this.nexusDefencesSent && this.nexusDefencesSent.some(x => x.id == def.id)) {
-      console.log("found defence sent? " + this.nexusDefencesSent.find(x => x.id == def.id)?.id);
       this.nexusDefencesSent.find(x => x.id == def.id)!.timestamp = new Date();
       this.nexusDefencesSent.find(x => x.id == def.id)!.arrived = false;
-    } 
-    this.updateDefenceTimers(); 
+    }
+    this.updateDefenceTimers();
   }
 
   debounceLoadNexusData = this.debounce(async () => {
-    await this.loadNexusData();
+    this.loadNexusData();
   }, 1000);
 }

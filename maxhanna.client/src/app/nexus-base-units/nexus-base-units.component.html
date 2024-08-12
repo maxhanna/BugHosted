@@ -1,46 +1,45 @@
-
 <div *ngIf="nexusAvailableUnits && nexusHasUnits()" class="unitList">
-  <div *ngIf="nexusAvailableUnits.marineTotal > 0" title="Marines" class="portraitContainer">
+  <div *ngIf="nexusAvailableUnits.marineTotal > 0 && !showOnlyGoliath && !showOnlySiegeTank && !showOnlyScout && !showOnlyWraith && !showOnlyBattlecruiser && !showOnlyGlitcher" [title]="marineTitle ?? ''" class="portraitContainer">
     <img [src]="marinePictureSrc" class="portrait" *ngIf="marinePictureSrc" (click)="toggleUnitScreen.emit('marine')" />
     <div class="unitCountLabel">
       {{nexusAvailableUnits.marineTotal}}
     </div>
   </div>
-  <div *ngIf="nexusAvailableUnits.goliathTotal > 0" title="Goliath" class="portraitContainer">
+  <div *ngIf="nexusAvailableUnits.goliathTotal > 0 && !showOnlyMarine && !showOnlySiegeTank && !showOnlyScout && !showOnlyWraith && !showOnlyBattlecruiser && !showOnlyGlitcher" [title]="goliathTitle ?? ''" class="portraitContainer">
     <img [src]="goliathPictureSrc" class="portrait" *ngIf="goliathPictureSrc" (click)="toggleUnitScreen.emit('goliath')"  />
     <div class="unitCountLabel">
       {{nexusAvailableUnits.goliathTotal}}
     </div>
   </div>
-  <div *ngIf="nexusAvailableUnits.siegeTankTotal > 0" title="Siege Tanks" class="portraitContainer">
+  <div *ngIf="nexusAvailableUnits.siegeTankTotal > 0 && !showOnlyMarine && !showOnlyGoliath && !showOnlyScout && !showOnlyWraith && !showOnlyBattlecruiser && !showOnlyGlitcher" [title]="siegeTankTitle ?? ''" class="portraitContainer">
     <img [src]="siegeTankPictureSrc" class="portrait" *ngIf="siegeTankPictureSrc" (click)="toggleUnitScreen.emit('siege_tank')"  />
     <div class="unitCountLabel">
       {{nexusAvailableUnits.siegeTankTotal}}
     </div>
   </div>
 
-  <div *ngIf="nexusAvailableUnits.scoutTotal > 0" title="Scouts" class="portraitContainer">
+  <div *ngIf="nexusAvailableUnits.scoutTotal > 0 && !showOnlyGoliath && !showOnlySiegeTank && !showOnlyMarine && !showOnlyWraith && !showOnlyBattlecruiser && !showOnlyGlitcher"  [title]="scoutTitle ?? ''" class="portraitContainer">
     <img [src]="scoutPictureSrc" class="portrait" *ngIf="scoutPictureSrc" (click)="toggleUnitScreen.emit('scout')" />
     <div class="unitCountLabel">
       {{nexusAvailableUnits.scoutTotal}}
     </div>
   </div>
 
-  <div *ngIf="nexusAvailableUnits.wraithTotal > 0" title="Wraith" class="portraitContainer">
+  <div *ngIf="nexusAvailableUnits.wraithTotal > 0 && !showOnlyGoliath && !showOnlySiegeTank && !showOnlyScout && !showOnlyMarine && !showOnlyBattlecruiser && !showOnlyGlitcher" [title]="wraithTitle ?? ''" class="portraitContainer">
     <img [src]="wraithPictureSrc" class="portrait" *ngIf="wraithPictureSrc" (click)="toggleUnitScreen.emit('wraith')"  />
     <div class="unitCountLabel">
       {{nexusAvailableUnits.wraithTotal}}
     </div>
   </div>
 
-  <div *ngIf="nexusAvailableUnits.battlecruiserTotal > 0" title="Battlecruisers" class="portraitContainer">
+  <div *ngIf="nexusAvailableUnits.battlecruiserTotal > 0 && !showOnlyGoliath && !showOnlySiegeTank && !showOnlyScout && !showOnlyWraith && !showOnlyMarine && !showOnlyGlitcher"  [title]="battlecruiserTitle ?? ''" class="portraitContainer">
     <img [src]="battlecruiserPictureSrc" class="portrait" *ngIf="battlecruiserPictureSrc" (click)="toggleUnitScreen.emit('battlecruiser')"  />
     <div class="unitCountLabel">
       {{nexusAvailableUnits.battlecruiserTotal}}
     </div>
   </div>
 
-  <div *ngIf="nexusAvailableUnits.glitcherTotal > 0" title="Glitcher" class="portraitContainer">
+  <div *ngIf="nexusAvailableUnits.glitcherTotal > 0 && !showOnlyGoliath && !showOnlySiegeTank && !showOnlyScout && !showOnlyWraith && !showOnlyBattlecruiser && !showOnlyMarine" [title]="glitcherTitle ?? ''" class="portraitContainer">
     <img [src]="glitcherPictureSrc" class="portrait" *ngIf="glitcherPictureSrc" (click)="toggleUnitScreen.emit('glitcher')"  />
     <div class="unitCountLabel">
       {{nexusAvailableUnits.glitcherTotal}}

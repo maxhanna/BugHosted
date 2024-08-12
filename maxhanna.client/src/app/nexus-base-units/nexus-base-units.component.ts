@@ -18,8 +18,22 @@ export class NexusBaseUnitsComponent {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
   @Input() glitcherPictureSrc: string | undefined;
+  @Input() marineTitle: string | undefined;
+  @Input() goliathTitle: string | undefined;
+  @Input() siegeTankTitle: string | undefined;
+  @Input() scoutTitle: string | undefined;
+  @Input() wraithTitle: string | undefined;
+  @Input() battlecruiserTitle: string | undefined;
+  @Input() glitcherTitle: string | undefined;
+  @Input() showOnlyMarine?: boolean = false 
+  @Input() showOnlyGoliath?: boolean = false 
+  @Input() showOnlySiegeTank?: boolean = false 
+  @Input() showOnlyWraith?: boolean = false 
+  @Input() showOnlyScout?: boolean = false 
+  @Input() showOnlyBattlecruiser?: boolean = false 
+  @Input() showOnlyGlitcher?: boolean = false 
   @Output() toggleUnitScreen = new EventEmitter();
-  nexusHasUnits() {
+  nexusHasUnits() { 
     if (!this.nexusAvailableUnits) return false;
     return (this.nexusAvailableUnits.marineTotal > 0
       || this.nexusAvailableUnits.goliathTotal > 0

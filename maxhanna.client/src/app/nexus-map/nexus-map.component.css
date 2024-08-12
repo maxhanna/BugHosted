@@ -92,4 +92,8 @@
   top: -72px;
   left: 4px;
   display: block;
-} 
+}
+.attackDefenceTimers {
+    max-height: 150px;
+    overflow: auto;
+}

@@ -142,11 +142,11 @@ export class NexusService {
     const timeParts: string[] = [];
 
     if (days > 0) timeParts.push(`${days}d`); // Append 'd' for days
-    if (hours > 0 || days > 0) timeParts.push(`${hours}h`); // Append 'h' for hours
-    timeParts.push(`${minutes}m`); // Append 'm' for minutes
-    timeParts.push(`${seconds}s`); // Append 's' for seconds
+    if (hours > 0 || days > 0) timeParts.push(`${hours}`); // Append 'h' for hours
+    timeParts.push(`${String(minutes).padStart(2, '0') }`); // Append 'm' for minutes
+    timeParts.push(`${String(seconds).padStart(2, '0') }`); // Append 's' for seconds
 
-    return timeParts.join(' '); // Join with a space for better readability
+    return timeParts.join(':'); // Join with a space for better readability
   }
 
 

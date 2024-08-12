@@ -21,16 +21,15 @@
     position: absolute;
     top: 0;
     left: 0;
-    background-color: rgba(0, 0, 0, 0.2);
-    color: white;
-    padding: 5px;
-    font-size: xx-small;
+    background-color: rgba(0, 0, 0, 0.4);
+    color: var(--main-font-color); 
+    font-size: 11px;
     z-index: 10;
     pointer-events: none;
-    width:40px;
-    text-overflow:ellipsis;
-    overflow:hidden;
-    word-break:keep-all;
+    width: 50px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    word-break: keep-all;
   }
 .unitCountLabel {
   position: absolute;
