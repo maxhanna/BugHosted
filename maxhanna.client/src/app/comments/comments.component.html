@@ -4,7 +4,7 @@
     Comments ({{commentList ? commentList.length : '0'}}) <span class="smallExpander">{{showComments ? '-' : '+'}}</span>
   </span>
 </div>
-<div class="commentsInputArea">
+<div class="commentsInputArea" *ngIf="showComments">
   <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
     Loading comments...
   </div>

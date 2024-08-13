@@ -55,15 +55,38 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.selectedFile = {
         id: this.fileId,
       } as FileEntry;
-      await this.setFileSrcById(this.selectedFile.id); 
+
+      if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value
+        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {
+        console.log("setting file Src for file id" + this.fileId);
+        this.selectedFileSrc = this.parentRef?.pictureSrcs[this.fileId].value ?? this.inputtedParentRef!.pictureSrcs[this.fileId].value;
+        return;
+      } else {
+        await this.setFileSrcById(this.selectedFile.id);
+      }
+
     }
     else if (this.file && Array.isArray(this.file) && this.file.length > 0) {
       const fileObject = this.file[0];
-      await this.setFileSrcById(fileObject.id);
-      this.selectedFile = fileObject;
+      if (this.parentRef && this.parentRef.pictureSrcs[fileObject.id] && this.parentRef.pictureSrcs[fileObject.id].value
+        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[fileObject.id] && this.inputtedParentRef.pictureSrcs[fileObject.id].value) {
+        console.log("setting file Src for file id" + this.fileId);
+        this.selectedFileSrc = this.parentRef?.pictureSrcs[fileObject.id].value ?? this.inputtedParentRef!.pictureSrcs[fileObject.id].value;
+        return;
+      } else {
+        await this.setFileSrcById(fileObject.id);
+        this.selectedFile = fileObject;
+      } 
     } else if (this.file && !Array.isArray(this.file)) {
-      await this.setFileSrcById(this.file.id);
-      this.selectedFile = this.file;
+      if (this.parentRef && this.parentRef.pictureSrcs[this.file.id] && this.parentRef.pictureSrcs[this.file.id].value
+        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.file.id] && this.inputtedParentRef.pictureSrcs[this.file.id].value) {
+        console.log("setting file Src for file id" + this.fileId);
+        this.selectedFileSrc = this.parentRef?.pictureSrcs[this.file.id].value ?? this.inputtedParentRef!.pictureSrcs[this.file.id].value;
+        return;
+      } else {
+        await this.setFileSrcById(this.file.id);
+        this.selectedFile = this.file;
+      } 
     }
   }
 
@@ -93,6 +116,24 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
    
   async setFileSrcById(fileId: number) {
     if (this.selectedFileSrc) return;
+    console.log(this.parentRef?.pictureSrcs);
+    console.log(this.inputtedParentRef?.pictureSrcs);
+    if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+      console.log("getting already set file Src for file id" + fileId);
+      this.showThumbnail = true; 
+      this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
+      this.fileType = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
+      this.selectedFileExtension = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
+      return;
+    }
+    else if (this.inputtedParentRef && this.inputtedParentRef.pictureSrcs && this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+      console.log("getting already set file Src for file id" + fileId);
+      this.showThumbnail = true;
+      this.selectedFileSrc = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
+      this.fileType = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
+      this.selectedFileExtension = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
+      return;
+    }
     this.startLoading();
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort();
@@ -116,8 +157,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = () => {
-        this.showThumbnail = true;
-        setTimeout(() => { this.selectedFileSrc = (reader.result as string); }, 1);
+        this.showThumbnail = true; 
+        this.selectedFileSrc = (reader.result as string);
+        if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+          console.log("adding file src to parentRef.pictureSrcs " + fileId);
+          this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
+        }
+        else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+          console.log("adding file src to inputtedParentRef.pictureSrcs " + fileId);  
+          this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
+        } 
       };
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {

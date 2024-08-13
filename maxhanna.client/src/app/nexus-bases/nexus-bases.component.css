@@ -2,7 +2,6 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: CALC(var(--nexus-gamescreen-height) * 2);
   overflow: auto;
 }
 
@@ -20,7 +19,7 @@
 }
 
 table {
-  margin: auto; /* Center the table */
+  margin: auto; 
   width: 100%;
   height: var(--nexus-gamescreen-height);
   overflow-y: auto;

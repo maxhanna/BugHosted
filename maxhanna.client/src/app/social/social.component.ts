@@ -68,7 +68,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (this.parent) {
       this.parentRef = this.parent;
     }
-    await this.getStories();
+    await this.getStories(); 
     if (this.storyId) {
       this.scrollToStory(this.storyId);
     }
@@ -153,12 +153,13 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     await this.getStories(this.currentPage, 10, search, topics);
   }
 
-  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string) {
+  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string) { 
+    this.startLoading();
     const search = keywords ?? this.search?.nativeElement.value;
 
     if (this.user) {
       const res = await this.socialService.getStories(
-        this.parentRef?.user!,
+        this.parentRef?.user,
         search,
         topics,
         this.user?.id,
@@ -170,10 +171,11 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         this.totalPages = this.storyResponse.pageCount;
         this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
       }
+      this.stopLoading();
       return;
     }
     const res = await this.socialService.getStories(
-      this.parentRef?.user!,
+      this.parentRef?.user,
       search,
       topics,
       undefined,
@@ -185,9 +187,11 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.totalPages = this.storyResponse.pageCount;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
     }
+    this.stopLoading();
   }
 
   async post() {
+    this.startLoading();
     const storyText = this.story.nativeElement.value!;
     if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
     const newStory: Story = {
@@ -213,11 +217,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     const res = await this.socialService.postStory(this.parentRef?.user! ?? this.parent?.user, newStory);
     if (res) {
-      await this.getStories();
+      this.getStories();
     }
     if (this.topicComponent) {
       this.topicComponent.removeAllTopics();
     }
+    this.stopLoading();
   }
 
   removeAttachment(fileId: number) {

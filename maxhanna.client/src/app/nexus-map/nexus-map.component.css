@@ -97,3 +97,7 @@
     max-height: 150px;
     overflow: auto;
 }
+.topMapCoords {
+    display: flex;
+    justify-content: space-between;
+}

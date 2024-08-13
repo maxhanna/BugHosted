@@ -43,6 +43,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
   showMainContent = true;
   isModalOpen = false;
+  pictureSrcs: { key: string, value: string, type: string, extension: string }[] = [];
+  created: boolean = false; // Global variable accessible throughout the component
 
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>();
@@ -107,52 +109,44 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.user = JSON.parse(this.getCookie("user"));
     }
   }
-  ngAfterViewInit() {
-    this.route.paramMap.subscribe(params => {
-      const storyId = parseInt(params.get('storyId')!);
-      if (storyId) {
-        this.createComponent("Social", { "storyId": storyId });
-      }
-      const memeId = parseInt(params.get('memeId')!);
-      if (memeId) {
-        this.createComponent("Meme", { "memeId": memeId });
-      }
-      const userId = params.get('userId');  
-      if (userId) {
-        this.createComponent("User", { "userId": parseInt(userId) });
-      }
-      const fileId = params.get('fileId');
-      if (fileId) {
-        this.createComponent("Files", { "fileId": fileId });
-      }
-    });
+  ngAfterViewInit() { 
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
-        if (this.router.url.includes('Wordler')) {
-          this.checkAndClearRouterOutlet();
-          this.createComponent('Wordler');
+        if (this.router.url.includes('Memes')) {
+          this.checkAndClearRouterOutlet(); 
+          const memeId = this.router.url.toLowerCase().split('memes/')[1];  
+          this.createComponent("Meme", { "memeId": memeId });
         }
-
+        if (this.router.url.includes('Social')) {
+          this.checkAndClearRouterOutlet(); 
+          const storyId = this.router.url.toLowerCase().split('social/')[1];  
+          this.createComponent("Social", { "storyId": storyId });
+        }
+        if (this.router.url.includes('User')) {
+          this.checkAndClearRouterOutlet();
+          const userId = this.router.url.toLowerCase().split('user/')[1];  
+          this.createComponent("User", { "userId": userId });
+        }
+        if (this.router.url.includes('File')) {
+          this.checkAndClearRouterOutlet();
+          const fileId = this.router.url.toLowerCase().split('file/')[1]; 
+          this.createComponent("Files", { "fileId": fileId });
+        }
         if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Array');
         }
-
         if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Bug-Wars');
         }
-
-        if (this.router.url.includes('File/')) {
-          const fileId = this.router.url.split('File/')[1];
-          this.createComponent('File', { fileId });
+        if (this.router.url.includes('Wordler')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Wordler');
         }
       }
-    });
-
-    if (!this.user && this.componentsReferences.length == 0) {
-      this.createComponent('User');
-    } 
+    }); 
+    this.createComponent('User'); 
   }
   checkAndClearRouterOutlet() {
     if (this.outlet) {

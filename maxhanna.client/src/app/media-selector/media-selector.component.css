@@ -48,3 +48,6 @@
   margin-right: auto;
   gap: 15px;
 }
+.mediaSelectorButton {
+    width: 75px;
+}

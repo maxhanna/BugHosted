@@ -57,7 +57,7 @@
       <div class="storyTextContainer">
         <div class="avatarDiv">
           <div class="usernameProfileLink">
-            <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef"></app-user-tag>
+            <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
           </div>
           <div class="storyDate">
             <div class="datePart">

@@ -2,6 +2,7 @@
   <div class="displayPicture avatar" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
     <app-media-viewer [user]="user"
                       [currentDirectory]="user.displayPictureFile.directory"
+                      [inputtedParentRef]="inputtedParentRef"
                       [file]="user.displayPictureFile"
                       [showCommentSection]="false"
                       [displayExtraInfo]="false"

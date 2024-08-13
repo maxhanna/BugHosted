@@ -154,7 +154,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
     this.loadPictureSrcs();
-    await this.loadNexusData();
+    this.loadNexusData();
     this.startGoldIncrement();
   }
 
@@ -694,21 +694,42 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             const buildingType = upgrade.split(' ')[2];
             if (buildingType == "command_center") {
               this.nexusBase.commandCenterLevel++;
+              if (this.nexusBaseUpgrades) {
+                this.nexusBaseUpgrades.commandCenterUpgraded = undefined; 
+              }
             } else if (buildingType == "engineering_bay") {
               this.nexusBase.engineeringBayLevel++;
+              if (this.nexusBaseUpgrades) {
+                this.nexusBaseUpgrades.engineeringBayUpgraded = undefined;
+              }
             } else if (buildingType == "mines") {
               this.nexusBase.minesLevel++;
               this.getMiningSpeedsAndSetMiningSpeed()
               this.startGoldIncrement();
+              if (this.nexusBaseUpgrades) {
+                this.nexusBaseUpgrades.minesUpgraded = undefined;
+              }
             } else if (buildingType == "warehouse") {
               this.nexusBase.warehouseLevel++;
+              if (this.nexusBaseUpgrades) {
+                this.nexusBaseUpgrades.warehouseUpgraded = undefined;
+              }
             } else if (buildingType == "supply_depot") {
               this.nexusBase.supplyDepotLevel++;
               this.supplyCapacity = (this.nexusBase.supplyDepotLevel * 2500);
+              if (this.nexusBaseUpgrades) {
+                this.nexusBaseUpgrades.supplyDepotUpgraded = undefined;
+              }
             } else if (buildingType == "factory") {
               this.nexusBase.factoryLevel++;
+              if (this.nexusBaseUpgrades) {
+                this.nexusBaseUpgrades.factoryUpgraded = undefined;
+              }
             } else if (buildingType == "starport") {
               this.nexusBase.starportLevel++;
+              if (this.nexusBaseUpgrades) {
+                this.nexusBaseUpgrades.starportUpgraded = undefined;
+              }
             }
 
             this.currentValidAvailableUpgrades = undefined;
@@ -1262,9 +1283,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async closeUserComponent(user: User) {
     if (!this.parentRef) return;
+    console.log(user);
     this.parentRef.user = user;
     this.isUserComponentOpen = false;
     await this.loadNexusData();
+    if (this.numberOfPersonalBases == 0) {
+      this.isUserNew = true;
+    } else {
+      this.isUserNew = false
+    }
   }
   openCommandCenter() {
     this.isCommandCenterOpen = true;

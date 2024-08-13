@@ -78,6 +78,8 @@
 }
 .profileControls {
   text-align: center;
+  display: flex;
+  justify-content: center;
 }
 .aboutTable {
     text-align:center;
