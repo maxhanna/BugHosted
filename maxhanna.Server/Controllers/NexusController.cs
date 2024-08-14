@@ -45,14 +45,13 @@ namespace maxhanna.Server.Controllers
                     {
                         if (req.Nexus == null)
                         {
-                            req.Nexus = await GetUserFirstBase(req.User, connection, transaction);
-                            req.Nexus = await GetNexusBase(req.Nexus?.CoordsX, req.Nexus?.CoordsY, connection, transaction);
+                            req.Nexus = await GetUserFirstBase(req.User, connection, transaction); 
                         } 
                         await RecalculateNexusGold(connection, req.Nexus, transaction); 
 
                         NexusBase? nexusBase = await GetNexusBase(req.Nexus?.CoordsX, req.Nexus?.CoordsY, connection, transaction);
                         NexusBaseUpgrades? nexusBaseUpgrades = await GetNexusBaseUpgrades(nexusBase, connection, transaction);
-                        NexusUnits? nexusUnits = await GetNexusUnits(nexusBase, false, connection, transaction);
+                        //NexusUnits? nexusUnits = await GetNexusUnits(nexusBase, false, connection, transaction);
                         List<NexusUnitsPurchased>? nexusUnitPurchasesList = await GetNexusUnitPurchases(nexusBase, connection, transaction);
                         List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase, false, connection, transaction);
                         List<NexusAttackSent>? nexusAttacksIncoming = await GetNexusAttacksIncoming(nexusBase, false, false, connection, transaction);
@@ -66,7 +65,7 @@ namespace maxhanna.Server.Controllers
                             {
                                 nexusBase = nexusBase ?? new NexusBase(),
                                 nexusBaseUpgrades = nexusBaseUpgrades ?? new NexusBaseUpgrades(),
-                                nexusUnits = nexusUnits ?? new NexusUnits(),
+                                //nexusUnits = nexusUnits ?? new NexusUnits(),
                                 nexusUnitsPurchasedList = nexusUnitPurchasesList ?? new List<NexusUnitsPurchased>(),
                                 nexusAttacksSent,
                                 nexusDefencesSent,
@@ -103,6 +102,33 @@ namespace maxhanna.Server.Controllers
 
                         await transaction.CommitAsync();
                         return Ok(availableUpgrades);
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "Internal server error: " + ex.Message);
+                    }
+                }
+            }
+        }
+
+        [HttpPost("/Nexus/GetAllBasesUnits", Name = "GetAllBasesUnits")]
+        public async Task<IActionResult> GetAllBasesUnits([FromBody] User? user)
+        {
+            Console.WriteLine($"POST /Nexus/GetAllBasesUnits for user: {user?.Id ?? 0}");
+
+
+            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await connection.OpenAsync();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    { 
+                        var availableUnits = await GetAllBasesUnitsList(user ?? new User(0, "Anonymous"), connection, transaction);
+
+                        await transaction.CommitAsync();
+                        return Ok(availableUnits);
                     }
                     catch (Exception ex)
                     {
@@ -1017,7 +1043,7 @@ namespace maxhanna.Server.Controllers
             var availableUpgrades = new List<Object>();
 
             try
-            { 
+            {
                 var durations = new Dictionary<string, Dictionary<int, int>>();
                 var costs = new Dictionary<string, Dictionary<int, int>>();
                 string sqlDurations = @"
@@ -1071,7 +1097,7 @@ namespace maxhanna.Server.Controllers
 
                 foreach (string buildingName in buildings)
                 {
-                    foreach(int buildingLevel in durations[buildingName].Keys)
+                    foreach (int buildingLevel in durations[buildingName].Keys)
                     {
                         int duration = durations[buildingName][buildingLevel];
                         int cost = costs[buildingName][buildingLevel];
@@ -1082,7 +1108,7 @@ namespace maxhanna.Server.Controllers
                             Duration = duration,
                             Cost = cost
                         });
-                    } 
+                    }
                 }
             }
             catch (Exception ex)
@@ -1091,6 +1117,64 @@ namespace maxhanna.Server.Controllers
             }
 
             return availableUpgrades;
+        }
+
+
+
+        private async Task<List<NexusUnits>> GetAllBasesUnitsList(User user, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            var availableUnits = new List<NexusUnits>(); 
+            try
+            { 
+                string sqlBaseUnits = @"
+                    SELECT 
+	                    nu.coords_x, nu.coords_y, nu.marine_total, nu.goliath_total, nu.siege_tank_total, nu.scout_total, 
+	                    nu.wraith_total, nu.battlecruiser_total, nu.glitcher_total  
+                    FROM 
+	                    nexus_units nu
+                    INNER JOIN 
+	                    nexus_bases nb 
+                    ON 
+	                    nu.coords_x = nb.coords_x AND nu.coords_y = nb.coords_y
+                    WHERE 
+	                    nb.user_id = @UserId;";
+                MySqlCommand cmd = new MySqlCommand(sqlBaseUnits, connection, transaction);
+                cmd.Parameters.AddWithValue("@UserId", user.Id);
+                var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+
+                    int coordsX = reader.GetInt32("coords_x");
+                    int coordsY = reader.GetInt32("coords_y");
+                    int marineTotal = reader.GetInt32("marine_total");
+                    int goliathTotal = reader.GetInt32("goliath_total");
+                    int siegeTankTotal = reader.GetInt32("siege_tank_total");
+                    int scoutTotal = reader.GetInt32("scout_total");
+                    int wraithTotal = reader.GetInt32("wraith_total");
+                    int battlecruiserTotal = reader.GetInt32("battlecruiser_total");
+                    int glitcherTotal = reader.GetInt32("glitcher_total");
+                    availableUnits.Add(
+                        new NexusUnits() { 
+                            CoordsX = coordsX,
+                            CoordsY = coordsY, 
+                            MarineTotal = marineTotal, 
+                            GoliathTotal = goliathTotal, 
+                            SiegeTankTotal = siegeTankTotal, 
+                            ScoutTotal = scoutTotal, 
+                            WraithTotal = wraithTotal, 
+                            BattlecruiserTotal = battlecruiserTotal, 
+                            GlitcherTotal = glitcherTotal 
+                        }
+                    ); 
+                }
+                await reader.CloseAsync(); 
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"An error occurred while retrieving building upgrades");
+            }
+
+            return availableUnits;
         }
         private async Task SendAttack(NexusBase OriginNexus, NexusBase DestinationNexus, User? from, User? to, UnitStats[] UnitList, int DistanceTimeInSeconds, MySqlConnection? conn, MySqlTransaction? transaction)
         {
@@ -2578,6 +2662,7 @@ namespace maxhanna.Server.Controllers
                 decimal? miningSpeedResult = 0;
                 decimal currentGold = 0;
                 DateTime updated = DateTime.Now;
+
                 using (var reader = await cmdMiningSpeed.ExecuteReaderAsync())
                 {
                     if (await reader.ReadAsync())
@@ -3251,7 +3336,7 @@ namespace maxhanna.Server.Controllers
                     await InsertBattleOutcome(battleOutcome, conn, transaction);
                     Console.WriteLine("Inserted report, now find glitchers");
                     var foundGlitchers = attackingUnits.FirstOrDefault(x => x.UnitType == "glitcher" && x.SentValue > 0);
-                    Console.WriteLine("Fouind glitchers or not ");
+                    Console.WriteLine("Found glitchers or not ");
 
                     if (attackingUnits != null && foundGlitchers != null)
                     {
@@ -3273,6 +3358,7 @@ namespace maxhanna.Server.Controllers
                             attackingLosses = new Dictionary<string, int?>();
                             attackingLosses["glitcher"] = 1;
                         }
+                        attackingUnits.Where(x => x.UnitType == "glitcher").First().SentValue = 0;
                     }
 
                     if (attackerSupplyRecovered)
@@ -4486,11 +4572,12 @@ namespace maxhanna.Server.Controllers
                         )
                     {
                         await transaction.RollbackAsync();
-                        return BadRequest("Component upgrade is already queued."); 
+                        return BadRequest("Component upgrade is already queued.");
                     }
+                  
                     await RecalculateNexusGold(conn, nexus, transaction);
                     string getCostSql = $@"
-                        SELECT cost 
+                        SELECT cost, building_level
                         FROM nexus_base_upgrade_stats 
                         WHERE building_type = (SELECT id FROM nexus_building_types WHERE LOWER(type) = @Component)
                           AND building_level = (SELECT {component}_level FROM nexus_bases WHERE coords_x = @CoordsX AND coords_y = @CoordsY AND user_id = @UserId)
@@ -4501,13 +4588,43 @@ namespace maxhanna.Server.Controllers
                     getCostCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
                     getCostCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
 
-                    var costResult = await getCostCmd.ExecuteScalarAsync();
-                    if (costResult == null)
+                    int cost = 0;
+                    int level = 0;
+                    int maxLevel = 0;
+                    using (var reader = await getCostCmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+
+                            cost = reader.IsDBNull(reader.GetOrdinal("cost")) ? 0 : reader.GetInt32(reader.GetOrdinal("cost"));
+                            level = reader.IsDBNull(reader.GetOrdinal("building_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("building_level"));
+                        }
+                    }
+                    if (cost == 0)
                     {
                         await transaction.RollbackAsync();
-                        return BadRequest("Invalid component or upgrade level.");
+                        return BadRequest("Server error: Invalid cost found for upgrade.");
                     }
-                    int upgradeCost = Convert.ToInt32(costResult);
+
+                    string getMaxUpgradeLevelSql = @"
+                        SELECT MAX(building_level)
+                        FROM nexus_base_upgrade_stats 
+                        WHERE building_type = (SELECT id FROM nexus_building_types WHERE LOWER(type) = @Component)
+                        LIMIT 1;";
+                    MySqlCommand getMaxUpgradeLevelCmd = new MySqlCommand(getMaxUpgradeLevelSql, conn, transaction);
+                    getMaxUpgradeLevelCmd.Parameters.AddWithValue("@Component", component); 
+                    var maxLevelResult = await getMaxUpgradeLevelCmd.ExecuteScalarAsync();
+                    if (maxLevelResult == null)
+                    {
+                        await transaction.RollbackAsync();
+                        return NotFound("Max upgrade level not found.");
+                    }
+                    maxLevel = Convert.ToInt32(maxLevelResult); 
+                    if (cost == 0 || level > maxLevel)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest("Invalid upgrade level.");
+                    } 
 
                     // Retrieve the current gold amount
                     string getGoldSql = @"
@@ -4518,8 +4635,7 @@ namespace maxhanna.Server.Controllers
                     MySqlCommand getGoldCmd = new MySqlCommand(getGoldSql, conn, transaction);
                     getGoldCmd.Parameters.AddWithValue("@UserId", user.Id);
                     getGoldCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
-                    getGoldCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
-
+                    getGoldCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY); 
                     var goldResult = await getGoldCmd.ExecuteScalarAsync();
                     if (goldResult == null)
                     {
@@ -4528,7 +4644,7 @@ namespace maxhanna.Server.Controllers
                     }
                     int currentGold = Convert.ToInt32(goldResult);
                     Console.WriteLine("Got current gold : " + currentGold);
-                    if (currentGold < upgradeCost)
+                    if (currentGold < cost)
                     {
                         await transaction.RollbackAsync();
                         return BadRequest("Not enough gold to upgrade.");
@@ -4590,7 +4706,7 @@ namespace maxhanna.Server.Controllers
                     updateBaseCmd.Parameters.AddWithValue("@UserId", user.Id);
                     updateBaseCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
                     updateBaseCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
-                    updateBaseCmd.Parameters.AddWithValue("@UpgradeCost", upgradeCost);
+                    updateBaseCmd.Parameters.AddWithValue("@UpgradeCost", cost);
 
                     await updateBaseCmd.ExecuteNonQueryAsync();
                     await transaction.CommitAsync();

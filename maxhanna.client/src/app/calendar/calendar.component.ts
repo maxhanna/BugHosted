@@ -42,7 +42,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     'Monthly': '📆',
     'Annually': '🎇',
     'Daily': '⏰',
-    'Milestone': '🏆',
+    'Milestone': '📀',
     'Anniversary': '🌹',
   };
 

@@ -52,3 +52,18 @@ tbody {
 .highlightedBase {
     background-color: var(--main-highlight-color);
 } 
+.goldText {
+    color: gold;
+}
+.unitsListTd {
+    text-align: center;
+}
+.baseUnitCountSpan {
+  margin-left: 5px;
+  margin-right: 5px;
+  font-size: x-small;
+}
+
+.gameNotification {
+  color: var(--secondary-font-color);
+}

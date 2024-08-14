@@ -48,7 +48,7 @@ export class NexusService {
   async getNexus(user: User, nexus?: NexusBase):
     Promise<{
       nexusBase: NexusBase; nexusBaseUpgrades: NexusBaseUpgrades;
-      nexusUnits: NexusUnits; nexusUnitsPurchasedList: NexusUnitsPurchased[];
+      nexusUnitsPurchasedList: NexusUnitsPurchased[];
       nexusAttacksSent: NexusAttackSent[], nexusDefencesSent: NexusAttackSent[],
       nexusAttacksIncoming: NexusAttackSent[], nexusDefencesIncoming: NexusAttackSent[],
       nexusUnitUpgrades: NexusUnitUpgrades[]
@@ -98,7 +98,7 @@ export class NexusService {
     return await this.fetchData('/nexus/getunitstats', { User: user, Nexus: nexus });
   }
   async getUnitUpgradeStats(user: User): Promise<any> {
-    return await this.fetchData('/nexus/getunitupgradestats', { User: user });
+    return await this.fetchData('/nexus/getunitupgradestats', user);
   }
   async purchaseUnit(user: User, nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
     return await this.fetchData('/nexus/purchaseUnit', { User: user, Nexus: nexus, unitId, purchaseAmount });
@@ -123,6 +123,9 @@ export class NexusService {
   }
   async getAllBuildingUpgradesList(): Promise<UpgradeDetail[]> {
     return await this.fetchData('/nexus/getallbuildingupgradeslist', {});
+  }
+  async getAllBasesUnits(user?: User): Promise<NexusUnits[]> {
+    return await this.fetchData('/nexus/getallbasesunits', user);
   }
   async getMiningSpeeds(): Promise<MiningSpeed[]> {
     return await this.fetchData('/nexus/getallminingspeeds', {});

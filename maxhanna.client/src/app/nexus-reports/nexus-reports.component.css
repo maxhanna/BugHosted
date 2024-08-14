@@ -22,9 +22,8 @@ table {
   border-collapse: collapse;
 }
 
-td { 
+td {
   text-align: center; /* Align text to center */
-
 }
 
 th {
@@ -53,19 +52,23 @@ th {
   text-shadow: 0.1px 0.1px 2px black;
   text-decoration-color: var(--primary-font-color);
 }
+
 .reportsCenterDisplay {
   margin-top: -20px;
   width: 100%;
   text-align: center;
 }
+
 .reportTimestampSpan {
-    font-size:small;
-    color: var(--secondary-font-color);
+  font-size: small;
+  color: var(--secondary-font-color);
 }
+
 .reportHeader {
   display: flex;
   justify-content: space-between;
 }
+
 .reportTitleDiv {
   position: relative;
   top: -26px;
@@ -73,10 +76,16 @@ th {
   text-align: center;
   width: 50px;
 }
-.pageControls{
-    display:flex;
-    justify-content:space-between;
+
+.pageControls {
+  display: flex;
+  justify-content: space-between;
 }
+
 .greyText {
-    color:grey;
+  color: grey;
+}
+
+.goldText {
+  color: gold;
 }

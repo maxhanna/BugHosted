@@ -153,40 +153,27 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     await this.getStories(this.currentPage, 10, search, topics);
   }
 
-  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string) { 
+  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string) {
     this.startLoading();
-    const search = keywords ?? this.search?.nativeElement.value;
 
-    if (this.user) {
-      const res = await this.socialService.getStories(
-        this.parentRef?.user,
-        search,
-        topics,
-        this.user?.id,
-        page,
-        pageSize
-      );
-      if (res) {
-        this.storyResponse = res;
-        this.totalPages = this.storyResponse.pageCount;
-        this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
-      }
-      this.stopLoading();
-      return;
-    }
+    const search = keywords ?? this.search?.nativeElement.value;
+    const userId = this.user?.id;
+
     const res = await this.socialService.getStories(
       this.parentRef?.user,
       search,
       topics,
-      undefined,
+      userId,
       page,
       pageSize
     );
+
     if (res) {
       this.storyResponse = res;
       this.totalPages = this.storyResponse.pageCount;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
     }
+
     this.stopLoading();
   }
 

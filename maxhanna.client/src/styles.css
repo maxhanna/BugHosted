@@ -1,7 +1,7 @@
 /* You can add global styles to this file, and also import other style files */
 :root {
   --main-bg-color: rgba(54, 25, 25, .5);
-  --main-highlight-color: rgba(105, 105, 105, .2);
+  --main-highlight-color: rgba(105, 105, 105, .65);
   --secondary-bg-color: rgba(54, 25, 25, .2);
   --main-bg-color-full-opacity: rgba(54, 25, 25);
   --table-thead-color: rgba(54, 25, 25);
@@ -90,6 +90,7 @@ button {
   font-size: 12px;
   height: 25px;
   text-align: center;
+  text-shadow: 1.2px 1.1px 1.1px black;
 }
 
 legend {

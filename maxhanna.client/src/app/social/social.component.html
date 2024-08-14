@@ -48,25 +48,23 @@
     </div>
   </div>
 
-  <div class="mainTableDiv" id="mainTableDiv">
+  <div class="mainTableDiv" id="mainTableDiv" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
     <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
-      <div class="commentVoteButtons">
-        <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">📋Share</button>
-        <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Share Link" style="display:inline-block">❌Delete</button>
+      <div class="storyHeader">
+        <div class="storyDate"> 
+          {{ story.date?.toString()?.split('T') ? story.date?.toString()!.split('T')[0] : '' }} {{ story.date?.toString()!.split('T').length > 0 ? story.date?.toString()!.split('T')[1] : '' }} 
+        </div>
+        <div class="commentVoteButtons">
+          <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">📋Share</button>
+          <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Share Link" style="display:inline-block">❌Delete</button>
+        </div>
       </div>
+      
       <div class="storyTextContainer">
         <div class="avatarDiv">
           <div class="usernameProfileLink">
             <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
-          </div>
-          <div class="storyDate">
-            <div class="datePart">
-              {{ story.date?.toString()?.split('T') ? story.date?.toString()!.split('T')[0] : '' }}
-            </div>
-            <div class="timePart">
-              {{ story.date?.toString()!.split('T').length > 0 ? story.date?.toString()!.split('T')[1] : '' }}
-            </div>
-          </div>
+          </div> 
         </div>
         <div class="storyContentDiv">
           <div class="storyUserDetails">
@@ -76,7 +74,7 @@
                           [currentReactions]="story.reactions"></app-reaction>
           </div>
           <div class="storyTopics" *ngIf="story.storyTopics && story.storyTopics.length > 0">
-            Topics : <span *ngFor="let topic of story.storyTopics" class="chosenTopic" (click)="topicComponent.selectTopic(topic)">{{topic.topicText}}</span>
+            Topics : <span *ngFor="let topic of story.storyTopics" class="matchingTopic" (click)="topicComponent.selectTopic(topic)">{{topic.topicText}}</span>
           </div>
           <div *ngIf="story.storyFiles && story.storyFiles.length > 0">
             <div class="italics attachmentTdTitle">Attachments:</div>

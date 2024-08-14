@@ -323,7 +323,7 @@
 
 .toggledUnitStatInfoDiv {
   width: CALC(100% - 77px);
-  max-height: 200px;
+  max-height: 210px;
   overflow: auto;
 } 
 .unitUpgradeDiv {
@@ -406,4 +406,11 @@
 
 .unitPictureTd {
   width: 50px;
+}
+
+.goldText {
+    color: gold;
+}
+.unitStatUnitTitle {
+    font-weight:bolder;
 }

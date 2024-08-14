@@ -17,6 +17,7 @@
 .storyInputDiv{
     display: flex;
     flex-flow: column wrap;
+    padding:5px;
 }
 
 .inputDiv input[type=text] {
@@ -51,12 +52,6 @@
 }
  
  
-.storyDate {
-  color: var(--secondary-font-color);
-  font-size: smaller;
-  display: inline-block;
-} 
-
 .metadataImage {
   max-width: 500px;
   max-height: 500px;
@@ -137,21 +132,12 @@
 }
 .matchingTopic {
   display: inline-block;
-  padding: 5px 10px;
+  padding: 0px 5px;
   border-radius: 4px;
   background-color: var(--main-highlight-color);
   cursor: pointer;
   border: var(--main-border);
-}
-.chosenTopic 
-{
-  display: inline-block;
-  padding: 5px 10px;
-  border-radius: 4px;
-  background-color: var(--main-highlight-color);
-  cursor: pointer;
-  border: var(--main-border);
-}
+} 
 .mainFileUploaderAndTopicSelectorDiv {
     display: flex;
     justify-content: flex-start;
@@ -190,3 +176,14 @@
 .mainTableDiv {
     border: var(--main-border);
 }
+.storyHeader {
+    display:flex;
+    justify-content:space-between;
+}
+
+.storyDate {
+  color: var(--secondary-font-color);
+  font-size: smaller;
+  display: inline-block;
+  width: 300px;
+} 

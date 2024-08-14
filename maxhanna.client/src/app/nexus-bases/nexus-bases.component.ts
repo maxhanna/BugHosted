@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { User } from '../../services/datacontracts/user/user';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
+import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 
 @Component({
   selector: 'app-nexus-bases',
@@ -12,6 +13,7 @@ export class NexusBasesComponent {
 
   @Input() user: User | undefined; 
   @Input() nexusBase: NexusBase | undefined;
+  @Input() allNexusUnits: NexusUnits[] | undefined;
   @Input() mapData: NexusBase[] | undefined;
   @Input() attacksIncoming: NexusAttackSent[] | undefined;   
   @Output() emittedNotifications = new EventEmitter<string>();
@@ -36,13 +38,16 @@ export class NexusBasesComponent {
         const key = `${attack.destinationCoordsX},${attack.destinationCoordsY}`;
         if (!this.attacksMap[key]) {
           this.attacksMap[key] = [];
-        } 
+        }
         this.attacksMap[key].push(attack);
       }
-     
+
     }
     const key = `${coordsX},${coordsY}`;
     //console.log(this.attacksMap[key]);
     return this.attacksMap[key] || [];
+  }
+  getUnitsForBase(coordsX: number, coordsY: number) {
+    return this.allNexusUnits?.find(x => x.coordsX == coordsX && x.coordsY == coordsY) ?? undefined;
   }
 }

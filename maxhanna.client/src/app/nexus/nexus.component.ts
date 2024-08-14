@@ -103,6 +103,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   mapData?: NexusBase[] = undefined;
   nexusBase?: NexusBase;
   nexusBaseUpgrades?: NexusBaseUpgrades;
+  allNexusUnits?: NexusUnits[];
   nexusUnits?: NexusUnits;
   nexusAvailableUnits?: NexusUnits;
   nexusExternalSupportUnits?: NexusUnits;
@@ -186,7 +187,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.nexusBase = data.nexusBase;
       this.nexusBaseUpgrades = data.nexusBaseUpgrades;
       this.nexusUnitsPurchaseList = data.nexusUnitsPurchasedList;
-      this.nexusUnits = data.nexusUnits;
       this.nexusAttacksSent = data.nexusAttacksSent;
       this.nexusDefencesSent = data.nexusDefencesSent;
       this.nexusUnitUpgrades = data.nexusUnitUpgrades;
@@ -197,9 +197,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.goldCapacity = (data.nexusBase.warehouseLevel + 1) * 5000;
       this.supplyCapacity = (data.nexusBase.supplyDepotLevel * 2500);
 
-      this.nexusAvailableUnits = data.nexusUnits
-        && (data.nexusUnits.marineTotal > 0 || data.nexusUnits.siegeTankTotal > 0 || data.nexusUnits.goliathTotal > 0 || data.nexusUnits.scoutTotal > 0
-          || data.nexusUnits.wraithTotal > 0 || data.nexusUnits.battlecruiserTotal > 0 || data.nexusUnits.glitcherTotal > 0) ? JSON.parse(JSON.stringify(data.nexusUnits)) : undefined; //creating a deep copy wont reference the same address as nexusUnits
+      await this.getNexusUnits();
+
+      this.nexusAvailableUnits = this.nexusUnits
+        && (this.nexusUnits.marineTotal > 0 || this.nexusUnits.siegeTankTotal > 0 || this.nexusUnits.goliathTotal > 0 || this.nexusUnits.scoutTotal > 0
+          || this.nexusUnits.wraithTotal > 0 || this.nexusUnits.battlecruiserTotal > 0 || this.nexusUnits.glitcherTotal > 0) ? JSON.parse(JSON.stringify(this.nexusUnits)) : undefined; //creating a deep copy wont reference the same address as nexusUnits
       this.nexusUnitsOutsideOfBase = undefined;
       this.nexusExternalSupportUnits = undefined;
       this.currentValidAvailableUpgrades = undefined;
@@ -236,6 +238,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     if (this.miningSpeeds) {
       this.miningSpeed = this.miningSpeeds.find(x => x.minesLevel == this.nexusBase?.minesLevel)?.speed ?? 0;
+    }
+  }
+  async getNexusUnits() {
+    if (!this.allNexusUnits) {
+      this.allNexusUnits = await this.nexusService.getAllBasesUnits(this.parentRef?.user);
+
+    }
+    if (this.nexusBase) {
+      this.nexusUnits = this.allNexusUnits.find(x => this.nexusBase && x.coordsX == this.nexusBase.coordsX && x.coordsY == this.nexusBase.coordsY);
     }
   }
   async getAvailableBuildingUpgrades() {
@@ -509,7 +520,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.glitcherStats = this.units?.find(x => x.unitType == "glitcher") ?? new UnitStats();
       this.assignPicturesToUnitStats();
     }
-
+    this.units?.forEach(x => {
+      if (this.nexusBase) {
+        x.unitLevel = (x.unitType == "marine" ? this.nexusBase.marineLevel : x.unitType == "goliath" ? this.nexusBase.goliathLevel : x.unitType == "siege_tank"
+          ? this.nexusBase.siegeTankLevel : x.unitType == "scout" ? this.nexusBase.scoutLevel : x.unitType == "wraith"
+            ? this.nexusBase.wraithLevel : x.unitType == "battlecruiser" ? this.nexusBase.battlecruiserLevel : this.nexusBase.glitcherLevel);
+      }
+    });
     this.getUnitTimers();
   }
 
@@ -574,14 +591,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         const utcNow = new Date().getTime();
         const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
         const unitTimeDuration = this.units!.find(unit => unit && unit.unitId == x.unitIdUpgraded)!.duration;
-        type UnitType = "marine" | "goliath" | "battlecruiser" | "wraith" | "siegeTank" | "scout" | "glitcher";
 
         if (foundUnit && foundUnit.unitType && this.nexusBase) {
           const levelKey = `${foundUnit.unitType != "siege_tank" ? foundUnit.unitType : "siegeTank"}Level` as keyof NexusBase;
           const foundUnitLevel = this.nexusBase[levelKey];
           const upgradeMultiplyer = this.unitUpgradeStats!.find(level => level && level.unitLevel == foundUnitLevel)!.duration;
           const remainingTimeInSeconds = (unitTimeDuration * upgradeMultiplyer) - elapsedTimeInSeconds;
-          this.startUnitResearchTimer(foundUnit?.unitType ?? "?", remainingTimeInSeconds);
+          this.startUnitResearchTimer(`${foundUnit?.unitType} level ${foundUnitLevel}` ?? "?", remainingTimeInSeconds);
         }
       });
     }
@@ -688,6 +704,16 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             this.nexusUnits.glitcherTotal += count;
             this.nexusAvailableUnits.glitcherTotal += count;
           }
+          if (this.allNexusUnits && this.nexusBase) {
+            let index = this.allNexusUnits.findIndex(unit =>
+              this.nexusBase &&
+              unit.coordsX === this.nexusBase.coordsX &&
+              unit.coordsY === this.nexusBase.coordsY
+            );
+            if (index !== -1) {
+              this.allNexusUnits[index] = this.nexusUnits;
+            }
+          }
         } else {
           delete this.buildingTimers[upgrade];
           if (this.nexusBase) {
@@ -695,7 +721,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             if (buildingType == "command_center") {
               this.nexusBase.commandCenterLevel++;
               if (this.nexusBaseUpgrades) {
-                this.nexusBaseUpgrades.commandCenterUpgraded = undefined; 
+                this.nexusBaseUpgrades.commandCenterUpgraded = undefined;
               }
             } else if (buildingType == "engineering_bay") {
               this.nexusBase.engineeringBayLevel++;

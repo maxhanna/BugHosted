@@ -41,7 +41,7 @@
       <button class="nextBaseButton" (click)="nextBase()" [disabled]="isLoading">⩥</button>
     </div>
     <div *ngIf="!isReportsOpen && !isMapOpen && !isBasesOpen && !isSupportOpen && !isUserNew && nexusBase" class="resourceDiv">
-      <span title="Gold" class="resourceSpan">🪙:{{ (nexusBase && nexusBase.gold ? nexusBase.gold : '0') | number:'1.0-2' }}</span>
+      <span title="Gold" class="resourceSpan goldText">📀:{{ (nexusBase && nexusBase.gold ? nexusBase.gold : '0') | number:'1.0-2' }}</span>
       <span title="Supply Capacity" class="resourceSpan" *ngIf="nexusBase">🥩:{{calculateCurrentSupply()}}</span>
       <span title="Nexus location" class="resourceSpan" *ngIf="nexusBase">📍:<span class="invertedHighlights">{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</span></span>
     </div>
@@ -94,6 +94,7 @@
                      [style.display]="isBasesOpen ? 'block':'none'"
                      [mapData]="mapData"
                      [nexusBase]="nexusBase"
+                     [allNexusUnits]="allNexusUnits"
                      [user]="parentRef.user"
                      [attacksIncoming]="nexusAttacksIncoming"
                      (emittedBaseChange)="emittedBaseChange($event)"
@@ -286,7 +287,7 @@
             <tr>
               <td></td>
               <td class="smallFont" colspan="3">
-                🪙{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}
+                <span class="goldText">📀{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}</span>
                 ⏱️{{ formatTimer(unit.duration * (unit.purchasedValue ? unit.purchasedValue : 1))}}
                 <span [class]="((unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply) > supplyCapacity ? 'redText' : ''">🥩{{ unit.supply ? (unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply : ''}}</span>
               </td>
@@ -336,7 +337,7 @@
             <tr>
               <td></td>
               <td class="smallFont" colspan="3">
-                🪙{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}
+                <span class="goldText">📀{{ ((unit.purchasedValue ? unit.purchasedValue : 1) * unit.cost) }}</span>
                 ⏱️{{ formatTimer(unit.duration * (unit.purchasedValue ? unit.purchasedValue : 1))}}
                 <span [class]="((unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply) > supplyCapacity ? 'redText' : ''">🥩{{ unit.supply ? (unit.purchasedValue ? unit.purchasedValue : 1) * unit.supply : ''}}</span>
               </td>
@@ -353,7 +354,7 @@
          *ngIf="whlvl1Src && whlvl2Src && whlvl3Src && nexusBase"
          [style.display]="isWarehouseOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
     <div [style.display]="isWarehouseOpen ? 'flex' : 'none'" class="warehouseScreen">
-      🪙 Current gold capacity : {{goldCapacity}}🪙
+      📀 Current gold capacity : <span class="goldText">{{goldCapacity}}📀</span>
       <div class="warehouseLevelsDiv">
         <table class="mainTable">
           <thead>
@@ -365,7 +366,7 @@
           <tbody>
             <tr *ngFor="let i of warehouseUpgradeLevels" [class]="i == nexusBase?.warehouseLevel ? 'highlightBg' : ''">
               <td>{{i}}</td>
-              <td>{{5000 * (i + 1)}}🪙</td>
+              <td>{{5000 * (i + 1)}}📀</td>
             </tr>
           </tbody>
         </table>
@@ -388,9 +389,11 @@
               <img [src]="unit.pictureSrc" loading="lazy" class="unitPicture" decoding="asynchronous" />
               <div class="unitUpgradeDiv">
                 <p class="usernameProfileLink">Level: {{unit.unitLevel}}</p>
-                <p class="usernameProfileLink">🪙: {{unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1)}}</p>
+                <p class="usernameProfileLink goldText">📀: {{unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1)}}</p>
               </div>
-              <button [disabled]="isLoading" (click)="research(unit)" *ngIf="unit.unitLevel < 3">{{researchTimers[unit.unitType] ? formatTimer(researchTimers[unit.unitType].endTime) : '🔧'}}</button>
+              <button [disabled]="isLoading" (click)="research(unit)" *ngIf="unit.unitLevel < 3">
+                {{ researchTimers[unit.unitType + " level " + unit.unitLevel] ? formatTimer(researchTimers[unit.unitType + " level " + unit.unitLevel].endTime) : (nexusBase && (unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1)) > nexusBase.gold) ? '⛔' : '🔧'}}
+              </button>
             </div>
           </div>
 
@@ -421,7 +424,7 @@
                 <tr>
                   <td></td>
                   <td class="smallFont" colspan="3">
-                    🪙{{ ((glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.cost) }}
+                    <span class="goldText">📀{{ ((glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.cost) }}</span>
                     ⏱️{{ formatTimer(glitcherStats.duration * (glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1))}}
                     <span [class]="((glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.supply) > supplyCapacity ? 'redText' : ''">🥩{{ glitcherStats.supply ? (glitcherStats.purchasedValue ? glitcherStats.purchasedValue : 1) * glitcherStats.supply : ''}}</span>
                   </td>
@@ -442,7 +445,7 @@
     <div [style.display]="isMinesOpen ? 'flex' : 'none'" class="minesScreen">
       <div>
         <div>Upgrade the mines to increase mining efficiency.</div>
-        <div>🪙 Current mining speed: <span class="gameNotification">1 Gold per {{miningSpeed}} second(s)</span>.</div>
+        <div>📀 Current mining speed: <span class="gameNotification"><span class="goldText">1 📀</span> per {{miningSpeed}} second(s)</span>.</div>
       </div>
       <div><button (click)="closeMines()">Back</button></div>
     </div>
@@ -456,16 +459,16 @@
         <tr>
           <th>Building</th>
           <th>Level</th>
-          <th>🪙</th>
+          <th>📀</th>
           <th>Duration</th>
           <th></th>
         </tr>
       </thead>
       <tbody *ngIf="currentValidAvailableUpgrades && currentValidAvailableUpgrades.length > 0 ? currentValidAvailableUpgrades : getValidBuildingUpgrades().length > 0 ? currentValidAvailableUpgrades : false">
         <tr *ngFor="let upgrade of (currentValidAvailableUpgrades ? currentValidAvailableUpgrades : getValidBuildingUpgrades())">
-          <td>{{upgrade.building}}</td>
+          <td class="capitalize">{{upgrade.building.replace('_', ' ')}}</td>
           <td>{{upgrade.nextLevel + 1}}</td>
-          <td>{{upgrade.cost}}</td>
+          <td class="goldText">{{upgrade.cost}}</td>
           <td>{{formatTimer(upgrade.duration)}}</td>
           <td>
             <button [disabled]="isLoading" (click)="upgradeBuilding(upgrade, upgrade.duration)" #upgradeButton class="upgradeButton">
@@ -485,19 +488,19 @@
 
   <div [style.display]="toggledUnitStat ? 'block' : 'none'">
     <div class="toggledUnitStatScreen" *ngIf="toggledUnitStat">
-      <div class="toggledUnitStatInfoDiv smallFont">
-        <div class="usernameProfileLink capitalize">{{toggledUnitStat.unitType.replace('_', ' ')}}</div>
-        <div class="gameNotification">Unit level: {{toggledUnitStat.unitLevel}}</div>
-        <div class="gameNotification">Ground damage : {{toggledUnitStat.groundDamage}}</div>
-        <div class="gameNotification">Air damage : {{toggledUnitStat.airDamage}}</div>
-        <div class="gameNotification">Training duration time: {{formatTimer(toggledUnitStat.duration)}}</div>
-        <div class="gameNotification">🪙 per unit: {{toggledUnitStat.cost}}</div>
-        <div class="gameNotification">Travel speed: {{toggledUnitStat.speed}}</div>
-        <div class="gameNotification">Supply cost: {{toggledUnitStat.supply}}</div>
-        <div class="gameNotification">carrying capacity: {{toggledUnitStat.goldCarryingCapacity}}🪙</div>
-        <div class="gameNotification">Required Factory level: {{toggledUnitStat.factoryLevel}}</div>
-        <div class="gameNotification">Required Starport level: {{toggledUnitStat.starportLevel}}</div>
-        <div class="gameNotification">Required Engineering Bay level: {{toggledUnitStat.engineeringBayLevel}}</div>
+      <div class="toggledUnitStatInfoDiv">
+        <div class="usernameProfileLink capitalize unitStatUnitTitle">{{toggledUnitStat.unitType.replace('_', ' ')}}</div>
+        <div class="gameNotification">🧬Unit reasearch level: {{toggledUnitStat.unitLevel}}</div>
+        <div class="gameNotification">⚔️Ground damage : {{toggledUnitStat.groundDamage}}</div>
+        <div class="gameNotification">🚀Air damage : {{toggledUnitStat.airDamage}}</div>
+        <div class="gameNotification">🥩Supply cost: {{toggledUnitStat.supply}}</div>
+        <div class="gameNotification">📀Cost per unit: <span class="goldText">{{toggledUnitStat.cost}}</span></div>
+        <div class="gameNotification">📀Carrying capacity: <span class="goldText">{{toggledUnitStat.goldCarryingCapacity}}</span></div>
+        <div class="gameNotification">⏱️Training duration time: {{formatTimer(toggledUnitStat.duration)}}</div>
+        <div class="gameNotification">⏱️Travel speed: {{toggledUnitStat.speed}}</div>
+        <div class="gameNotification">🏰Factory level req.: {{toggledUnitStat.factoryLevel}}</div>
+        <div class="gameNotification">🏰Starport level req.: {{toggledUnitStat.starportLevel}}</div>
+        <div class="gameNotification">🏰Engineering Bay level req.: {{toggledUnitStat.engineeringBayLevel}}</div>
       </div>
       <div class="toggledUnitStatInfoPic">
         <img class="toggledUnitStatInfoPicImg"
