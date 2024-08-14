@@ -48,7 +48,12 @@ namespace maxhanna.Server.Controllers
 
                 var user = JsonConvert.DeserializeObject<User>(Request.Form["user"]!);
                 var files = Request.Form.Files; // Get all uploaded files
+                if (user == null || user.Id == 0)
+                {
+                    _logger.LogWarning($"Invalid user! Returning null.");
+                    return BadRequest("No user logged in.");
 
+                }
                 if (files == null || files.Count == 0)
                 {
                     _logger.LogError($"No File Uploaded!");

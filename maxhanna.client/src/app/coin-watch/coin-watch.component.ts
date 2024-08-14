@@ -19,11 +19,13 @@ export class CoinWatchComponent extends ChildComponent implements OnInit {
   constructor(private coinValueService: CoinValueService) { super(); }
 
   async ngOnInit() {
+    this.startLoading();
     try {
       this.data = await this.coinValueService.getLatestCoinValues();
       this.allHistoricalData = await this.coinValueService.getAllCoinValues(); 
     } catch (error) {
       console.error('Error fetching coin values:', error);
     }
+    this.stopLoading();
   }
 }

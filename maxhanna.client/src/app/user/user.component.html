@@ -127,26 +127,26 @@
           <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
           <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" /> 
           <div>
-            <input type="submit" value="Login" (click)="login()" />
+            <input type="submit" value="🔑 Login" (click)="login()" />
             <input type="submit" value="Create User" (click)="createUser()" />
             <input type="submit" value="Guest" (click)="createUser(true)" />
           </div>
         </div>
       </div>
       <div *ngIf="parentRef?.user" style="width:100%;text-align:center">
-        <button (click)="logout()">Logout</button>
+        <button (click)="logout()">🔑 Logout</button>
         <button (click)="parentRef?.createComponent('UpdateUserSettings', {showOnlySelectableMenuItems : false, areSelectableMenuItemsExplained: false})" title="Update Settings">⚙️ Settings</button>
       </div>
     </div>
   </div>
 
   <div class="profileControls">
-    <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">Add friend</button>
-    <button *ngIf="areWeFriends(user)" (click)="removeFriend(user)">Remove friend</button>
-    <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" (click)="addContact(user)">Add as Contact</button>
-    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">📋 Share Profile</button>
-    <button *ngIf="user" (click)="openChat()">🗨️ Chat</button> 
-    <button *ngIf="user" (click)="isMoreInfoOpen = !isMoreInfoOpen">ℹ️ Info</button> 
+    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">📋 Share Profile</button> 
+    <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">👤 Add friend</button>
+    <button *ngIf="areWeFriends(user)" (click)="removeFriend(user)">👤 Remove friend</button>
+    <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" (click)="addContact(user)">👤 Add as Contact</button>
+    <button *ngIf="user" (click)="openChat()">🗨️ Chat</button>
+    <button *ngIf="user" (click)="isMoreInfoOpen = !isMoreInfoOpen">ℹ️ User Info</button>
   </div>
 
   <!-- ABOUT -->

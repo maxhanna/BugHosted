@@ -31,8 +31,8 @@
 }
 
 .storyContainer {
-  border: var(--main-border);
-  margin-top: 5px;
+  border-bottom: var(--main-border);
+  margin-bottom: 5px;
   overflow: hidden;
 }
 
@@ -166,10 +166,10 @@
 }
 
 
-.storyTextContainer { 
-  display:flex;
-  justify-content:flex-start;
-
+.storyTextContainer {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 15px;
 }
 .storyContentDiv {
   width: CALC(100% - 75px);
@@ -186,4 +186,7 @@
     text-align:right;
     display:inline;
     margin-top:5px;
+}
+.mainTableDiv {
+    border: var(--main-border);
 }

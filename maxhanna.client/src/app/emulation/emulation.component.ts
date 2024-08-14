@@ -1,7 +1,7 @@
 import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Nostalgist } from 'nostalgist'
 import { ChildComponent } from '../child.component';
-import { RomService } from '../../services/rom.service'; 
+import { RomService } from '../../services/rom.service';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
@@ -57,8 +57,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   gameboyFileTypes: string[] = Object.entries(this.coreMapping)
     .filter(([key, value]) => key.includes('gb'))
     .map(([key, value]) => key);
-  oldNintendoDisplay = '';
+  oldCanvasWidth = 0;
+  oldCanvasHeight = 0;
   oldSpeakerDisplay = '';
+
 
   autosaveInterval: any;
   autosaveIntervalTime: number = 60000; // 1 minute in milliseconds
@@ -90,7 +92,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       console.log("key not found: " + componentTitle);
     }
   }
-  async ngOnDestroy() { 
+  async ngOnDestroy() {
     await this.clearAutosave();
     this.nostalgist?.exit();
     this.nostalgist = undefined;
@@ -114,7 +116,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     await this.romService.uploadRomFile(this.parentRef?.user!, formData);
   }
   async stopEmulator() {
-    if (this.selectedRomName != '' && confirm("Save game?")) { this.saveState(); }
+    if (this.selectedRomName != '' && this.parentRef && this.parentRef.user) {
+      if (confirm("Save game?")) { this.saveState(); }
+    }
     await this.clearAutosave();
     await this.nostalgist?.getEmulator().exit();
     this.isSearchVisible = true;
@@ -124,20 +128,20 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   async loadState() {
     const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
     const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
- 
+
     await this.nostalgist?.loadState(saveStateResponse!);
   }
   async loadRom(file: FileEntry) {
- 
+
     this.startLoading();
-     this.isSearchVisible = false; 
+    this.isSearchVisible = false;
     const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName) + ".sav";
     this.selectedRomName = file.fileName;
     const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
- 
+
     const response = await this.romService.getRomFile(file.fileName, this.parentRef?.user);
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
- 
+
     const style = {
       backgroundColor: 'black',
       zIndex: '1',
@@ -155,7 +159,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       runEmulatorManually: true
     });
 
-    await this.nostalgist.launchEmulator(); 
+    await this.nostalgist.launchEmulator();
     this.stopLoading();
 
     this.setupAutosave();
@@ -393,8 +397,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
 
     if (!this.isFullScreen) {
-      this.oldNintendoDisplay = nintendo.style.display;
-      nintendo.style.display = 'none';
+      this.canvas.nativeElement
 
       if (this.onMobile()) {
         await elem.requestFullscreen();
@@ -402,10 +405,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
         await canvas!.requestFullscreen();
       }
     } else {
-      nintendo.style.display = this.oldNintendoDisplay;
 
       if (document.exitFullscreen) {
         document.exitFullscreen();
+
       }
     }
   }

@@ -116,10 +116,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
    
   async setFileSrcById(fileId: number) {
     if (this.selectedFileSrc) return;
-    console.log(this.parentRef?.pictureSrcs);
-    console.log(this.inputtedParentRef?.pictureSrcs);
+    //console.log(this.parentRef?.pictureSrcs);
+    //console.log(this.inputtedParentRef?.pictureSrcs);
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      console.log("getting already set file Src for file id" + fileId);
+      //console.log("getting already set file Src for file id" + fileId);
       this.showThumbnail = true; 
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
@@ -127,7 +127,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
     else if (this.inputtedParentRef && this.inputtedParentRef.pictureSrcs && this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      console.log("getting already set file Src for file id" + fileId);
+      //console.log("getting already set file Src for file id" + fileId);
       this.showThumbnail = true;
       this.selectedFileSrc = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;

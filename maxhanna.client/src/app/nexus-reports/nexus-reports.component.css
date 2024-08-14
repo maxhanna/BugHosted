@@ -77,3 +77,6 @@ th {
     display:flex;
     justify-content:space-between;
 }
+.greyText {
+    color:grey;
+}

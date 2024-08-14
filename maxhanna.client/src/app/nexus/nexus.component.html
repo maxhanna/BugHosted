@@ -587,8 +587,7 @@
       <div *ngIf="activeResearchTimers().length > 0">
         <span class="mainInfoSection">Research:</span>
         <div class="upgradeTimersTableDiv">
-          <div *ngIf="activeResearchTimers().length > 0">
-            ac
+          <div *ngIf="activeResearchTimers().length > 0"> 
             <div *ngFor="let timer of activeResearchTimers()" class="researchDisplayP capitalize">
               {{formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }}
             </div>

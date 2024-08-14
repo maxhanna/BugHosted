@@ -262,7 +262,19 @@
                       </div>
                       <div *ngIf="icon.title == 'Chat'" [id]="icon.title+'tddiv'">
                         <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>Chat system to connect you with your friends or groups of friends. Still under construction.</div>
+                          <div>Still under construction. Chat system to connect you with your friends or groups of friends.</div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Favourites'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>Still under construction.</div>
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Coin-Wallet'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                          <div>Still under construction. Connect to various APIS to show your cryptocurrency wallet balance. Currently supports Nicehash API (and all nicehash wallets associated).</div>
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>

@@ -48,13 +48,13 @@
             <tr>
               <th>⚔️:</th>
               <ng-container *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
-                <td class="unitCell">{{ unit.value }}</td>
+                <td [class]="'unitCell ' + (unit.value == 0 ? ' greyText' : '')">{{ unit.value }}</td>
               </ng-container>
             </tr>
             <tr>
               <th>🛡️:</th>
               <ng-container *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
-                <td class="unitCell">{{ report.defendingUnits[unit.key] || 0 }}</td>
+                <td [class]="'unitCell ' + (report.defendingUnits[unit.key] == 0 ? ' greyText' : '')">{{ report.defendingUnits[unit.key] || 0 }}</td>
               </ng-container>
             </tr>
           </tbody>
@@ -78,13 +78,13 @@
             <tr>
               <th>⚔️:</th>
               <ng-container *ngFor="let unit of getUnitsArray(report.attackingLosses); let i = index">
-                <td class="unitCell">{{ unit.value }}</td>
+                <td [class]="'unitCell ' + (unit.value == 0 ? ' greyText' : '')">{{ unit.value }}</td>
               </ng-container>
             </tr>
             <tr>
               <th>🛡️:</th>
               <ng-container *ngFor="let unit of getUnitsArray(report.defendingLosses); let i = index">
-                <td class="unitCell">{{ report.defendingLosses[unit.key] || 0 }}</td>
+                <td [class]="'unitCell ' + (report.defendingLosses[unit.key] == 0 ? ' greyText' : '')">{{ report.defendingLosses[unit.key] || 0 }}</td>
               </ng-container>
             </tr>
           </tbody>

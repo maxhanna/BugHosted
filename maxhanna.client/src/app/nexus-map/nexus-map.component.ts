@@ -68,6 +68,21 @@ export class NexusMapComponent {
 
   constructor(private nexusService: NexusService) { }
 
+  zoomOut() {
+    const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
+    mapElement.style.transform = `scale(${0.5}) translateX(-50%) translateY(-50%)`;
+    mapElement.style.width = "200%";
+    mapElement.style.height = "90vh";
+    mapElement.style.overflow = "auto";
+    (document.getElementsByClassName('zoomInButtonDiv')[0] as HTMLDivElement).style.display = "block";
+  }
+  zoomIn() {
+    const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
+    mapElement.style.transform = ``;
+    mapElement.style.width = "";
+    mapElement.style.height = ""; 
+    (document.getElementsByClassName('zoomInButtonDiv')[0] as HTMLDivElement).style.display = "none";
+  }
   scrollToCoordinates(coordsX: number, coordsY: number, hideAttackButton?: boolean) {
     if (!this.user || !this.mapData || this.mapData.length === 0) return;
     const cell = this.mapContainer.nativeElement.querySelector(`.cell[x='${coordsX}'][y='${coordsY}']`);

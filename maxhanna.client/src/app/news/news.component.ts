@@ -22,6 +22,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
   }
 
   async loadNews(data?: ArticlesResult) {
+    this.startLoading();
     try {
       if (data) {
         this.newsArticles = data;
@@ -35,6 +36,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
     } catch {
       this.notifications.push("Error fetching news data");
     }
+    this.stopLoading();
   }
 
   openSource(url: string) {

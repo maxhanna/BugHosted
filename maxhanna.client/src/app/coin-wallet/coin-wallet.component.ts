@@ -15,9 +15,11 @@ export class CoinWalletComponent extends ChildComponent implements OnInit {
     super();
   }
   async ngOnInit() {
+    this.startLoading();
     const res = await this.miningService.getMiningWallet(this.parentRef?.user!);
     this.wallet = res;
     this.btcFiatConversion = this.wallet!.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate!;
+    this.stopLoading();
   }
   calculateTotalValue(currency: Currency): number {
     if (currency && currency.fiatRate && currency.totalBalance) {

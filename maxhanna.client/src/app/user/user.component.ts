@@ -91,7 +91,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       await this.loadFriendData();
       await this.loadWordlerData();
       await this.loadSongData();
-      await this.loadContactsData();
+      await this.loadContactsData(); 
     }
     catch (error) { console.log((error as Error).message); }
     this.stopLoading();
@@ -203,9 +203,12 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.friendRequests = [];
   }
 
-  logout() {
+  async logout() {
     if (this.parentRef) {
-      this.parentRef.userSelectedNavigationItems = [];
+      console.log("filtering out menu items");
+      console.log(this.parentRef.navigationItems);
+      this.parentRef.navigationItems = this.parentRef.navigationItems.filter(x => x.title == "chat" || x.title == "meme" || x.title == "emulation" || x.title == "social" || x.title == "bug-wars" || x.title == "user" || x.title == "close menu");
+      this.parentRef.userSelectedNavigationItems = this.parentRef.userSelectedNavigationItems.filter(x => x.title == "Chat" || x.title == "Meme" || x.title == "Emulation" || x.title == "Social" || x.title == "Bug-Wars" || x.title == "User" || x.title == "Close Menu");
       this.parentRef.deleteCookie("user");
       this.parentRef.clearAllNotifications();
       this.parentRef.user = undefined; 
@@ -215,7 +218,10 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.friendRequests = [];
     this.friends = [];
     this.user = undefined;
-    this.notifications.push("Logged out successfully");
+    this.notifications.push("Logged out successfully, refresh in 3 seconds.");
+    setTimeout(() => {
+      window.location = window.location;
+    }, 3000);
   }
 
 
@@ -335,8 +341,10 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
         this.parentRef!.user = tmpUser;
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
-        this.updateWeatherInBackground(tmpUser, true);
+        this.updateWeatherInBackground(tmpUser, true); 
+         
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
+
         if (this.loginOnly) {
           console.log("closing emit");
           this.closeUserComponentEvent.emit(tmpUser);
