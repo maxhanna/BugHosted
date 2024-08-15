@@ -28,7 +28,7 @@
       <div class="reportsCenterDisplay">
         <div><span (click)="openMapEmitter.emit(report.originCoordsX + ',' + report.originCoordsY)" class="invertedHighlights cursorPointer">({{report.originCoordsX}},{{report.originCoordsY}})</span> - <app-user-tag [user]="report.originUser" [displayOnlyName]="true"></app-user-tag></div>
         <div>VS <span (click)="openMapEmitter.emit(report.destinationCoordsX + ',' + report.destinationCoordsY)" class="invertedHighlights cursorPointer">({{report.destinationCoordsX}},{{report.destinationCoordsY}})</span><span *ngIf="report.destinationUser"> - <app-user-tag [user]="report.destinationUser" [displayOnlyName]="true"></app-user-tag></span></div>
-        <div class="reportTimestampSpan">📀 Stolen: <span [class]="report.defenderGoldStolen && report.defenderGoldStolen > 0 ? 'goldText' : 'greyText'">{{report.defenderGoldStolen ?? 0 | number:'1.2-2' }}</span> / <span [class]="report.defenderGold && report.defenderGold > 0 ? 'goldText' : 'greyText'">{{report.defenderGold ?? 0 | number:'1.2-2' }}</span></div>
+        <div class="reportTimestampSpan">📀 Stolen: <span [class]="report.defenderGoldStolen && report.defenderGoldStolen > 0 ? 'goldText' : 'greyText'">{{report.defenderGoldStolen | number:'1.2-2' }}</span> / <span [class]="report.defenderGold && report.defenderGold > 0 ? 'goldText' : 'greyText'">{{report.defenderGold | number:'1.2-2' }}</span></div>
       </div>
 
       <div class="mainInfoSection">

@@ -130,6 +130,12 @@ export class NexusService {
   async getMiningSpeeds(): Promise<MiningSpeed[]> {
     return await this.fetchData('/nexus/getallminingspeeds', {});
   }
+  async upgradeAll(building: string, user?: User): Promise<NexusBase[]> {
+    return await this.fetchData('/nexus/upgradeall', { User: user, Upgrade: building });
+  }
+  async massPurchase(unit: string, user?: User): Promise<NexusBase[]> {
+    return await this.fetchData('/nexus/masspurchase', { User: user, Upgrade: unit });
+  } 
 
 
   formatTimer(allSeconds?: number): string {

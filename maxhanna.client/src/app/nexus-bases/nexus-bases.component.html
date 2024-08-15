@@ -1,4 +1,5 @@
-<div class="overallDisplay">
+
+<div class="overallDisplay"> 
   <table>
     <thead>
       <tr>
@@ -27,7 +28,7 @@
         <td class="goldText">{{base.gold | number:'1.2-2'}}</td>
         <td [class]="getAttacksForBase(base.coordsX, base.coordsY).length > 0 ? 'redText' : 'greyText'">{{getAttacksForBase(base.coordsX, base.coordsY).length}}</td>
       </tr>
-      <tr>
+      <tr [class]="'borderUnderline smallFont ' +  ((nexusBase && base.coordsX == nexusBase.coordsX && base.coordsY  == nexusBase.coordsY) ? 'highlightedBase' : '')">
         <td colspan="10" class="unitsListTd">
           <span [class]="'baseUnitCountSpan ' + (getUnitsForBase(base.coordsX, base.coordsY)?.marineTotal  ? 'gameNotification' : 'greyText')">M:{{getUnitsForBase(base.coordsX, base.coordsY)?.marineTotal ?? 0}}</span>
           <span [class]="'baseUnitCountSpan ' + (getUnitsForBase(base.coordsX, base.coordsY)?.goliathTotal  ? 'gameNotification' : 'greyText')">G:{{getUnitsForBase(base.coordsX, base.coordsY)?.goliathTotal ?? 0}}</span>
@@ -40,4 +41,23 @@
       </tr>
     </tbody>
   </table> 
+</div>
+<div>
+  <select #commandSelector (change)="selectCommand()">
+    <option selected disabled>Send a command to all your bases</option>
+    <option>Upgrade Command Center</option>
+    <option>Upgrade Mines</option>
+    <option>Upgrade Supply Depot</option>
+    <option>Upgrade Warehouse</option>
+    <option>Upgrade Engineering Bay</option>
+    <option>Upgrade Factory</option>
+    <option>Upgrade Starport</option>
+    <option>Build Marines</option>
+    <option>Build Goliath</option>
+    <option>Build Siege Tanks</option>
+    <option>Build Scouts</option>
+    <option>Build Wraith</option>
+    <option>Build Battlecruisers</option>
+    <option>Build Glitcher</option>
+  </select>
 </div>

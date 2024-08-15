@@ -98,7 +98,8 @@
                      [user]="parentRef.user"
                      [attacksIncoming]="nexusAttacksIncoming"
                      (emittedBaseChange)="emittedBaseChange($event)"
-                     (emittedNotifications)="emittedNotifications($event)">
+                     (emittedNotifications)="emittedNotifications($event)"
+                     (emittedUpgrade)="emittedUpgrade($event)">
     </app-nexus-bases>
 
     <app-nexus-support-screen *ngIf="parentRef && parentRef.user && nexusBase"
@@ -471,7 +472,7 @@
           <td class="goldText">{{upgrade.cost}}</td>
           <td>{{formatTimer(upgrade.duration)}}</td>
           <td>
-            <button [disabled]="isLoading" (click)="upgradeBuilding(upgrade, upgrade.duration)" #upgradeButton class="upgradeButton">
+            <button [disabled]="isLoading" (click)="upgradeBuilding(upgrade.building)" #upgradeButton class="upgradeButton">
               {{ getBuildingTimerForBuilding(upgrade.building) ? formatTimer(getBuildingTimerForBuilding(upgrade.building).endTime) : ((nexusBase && nexusBase.gold < upgrade.cost) || (this.nexusBase && this.getBuildingCountersLength() >= this.nexusBase.commandCenterLevel + 1)) ? '⛔' :  '🔧' }}
             </button>
           </td>
@@ -590,7 +591,7 @@
       <div *ngIf="activeResearchTimers().length > 0">
         <span class="mainInfoSection">Research:</span>
         <div class="upgradeTimersTableDiv">
-          <div *ngIf="activeResearchTimers().length > 0"> 
+          <div *ngIf="activeResearchTimers().length > 0">
             <div *ngFor="let timer of activeResearchTimers()" class="researchDisplayP capitalize">
               {{formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }}
             </div>
@@ -652,9 +653,6 @@
         </app-nexus-base-units>
       </div>
     </div>
-    <div class="gameNotificationDiv">
-      <div *ngFor="let notif of notifications" class="gameNotification" (click)="notifications = []">>{{notif}}</div>
-    </div>
   </div>
   <div *ngIf="numberOfPersonalBases == 1 && nexusBase && nexusBase.minesLevel == 0 && (!nexusBaseUpgrades || !nexusBaseUpgrades.minesUpgraded)">
     <span class="invertedHighlights">WELCOME TO THE BUG WARS, COMMANDER.</span>
@@ -670,9 +668,10 @@
     <div class="invertedHighlights">You now have a choice!</div>
     <div class="notification">Build a factory to train units or keep upgrading other buildings.</div>
     <div class="notification">It is recommended you take a look at the map (click on the button below) to get acquainted with your surroundings.</div>
+  </div> 
+  <div class="gameNotificationDiv">
+    <div *ngFor="let notif of notifications" class="gameNotification" (click)="notifications = []">>{{notif}}</div>
   </div>
-
-
   <div class="shareMapButtonDiv">
     <button (click)="copyLink()" title="Share Link">Share 📋</button>
     <button (click)="toggleScreen('map', !isMapOpen)" title="View Map" *ngIf="!isUserNew && parentRef && parentRef.user">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>

@@ -1,4 +1,10 @@
+table thead th {
+  position: sticky;
+  top: 0;
+}
+
 .overallDisplay {
+  height: 66vh;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -19,7 +25,7 @@
 }
 
 table {
-  margin: auto; 
+  margin: auto;
   width: 100%;
   height: var(--nexus-gamescreen-height);
   overflow-y: auto;
@@ -28,7 +34,7 @@ table {
 
 thead th {
   position: sticky;
-  top: 0; 
+  top: 0;
   height: 85px;
   overflow: hidden;
   background-color: var(--main-bg-color);
@@ -36,7 +42,7 @@ thead th {
 
 th,
 td {
-  overflow: auto; 
+  overflow: auto;
   font-size: small;
 }
 
@@ -49,15 +55,19 @@ tbody {
   height: 30px !important;
   width: 100%;
 }
+
 .highlightedBase {
-    background-color: var(--main-highlight-color);
-} 
+  background-color: var(--main-highlight-color);
+}
+
 .goldText {
-    color: gold;
+  color: gold;
 }
+
 .unitsListTd {
-    text-align: center;
+  text-align: center;
 }
+
 .baseUnitCountSpan {
   margin-left: 5px;
   margin-right: 5px;

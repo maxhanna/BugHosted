@@ -1030,12 +1030,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.displayEngineeringBay = !!(nexusBaseUpgrades.engineeringBayUpgraded || this.nexusBase.engineeringBayLevel > 0);
   }
 
-  async upgradeBuilding(upgrade: UpgradeDetail, duration: number) {
+  async upgradeBuilding(upgrade: string) {
     if (this.parentRef && this.parentRef.user && this.nexusBase && this.nexusAvailableUpgrades) {
 
       if (this.getBuildingCountersLength() >= this.nexusBase.commandCenterLevel + 1) {
         return alert("Upgrade your Command Center for more worker slots");
-      } else if (this.getBuildingTimerForBuilding(upgrade.building)) {
+      } else if (this.getBuildingTimerForBuilding(upgrade)) {
         return alert("You must wait until the upgrade finishes");
       }
 
@@ -1054,7 +1054,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
 
       try {
-        switch (upgrade.building) {
+        switch (upgrade) {
           case 'mines':
             upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "mines" && x.nextLevel == this.nexusBase.minesLevel)?.cost ?? 0
             if (!this.isUpgradeAffordable(upgradeCost, upgrade)) {
@@ -1121,7 +1121,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         if (this.mapData && this.nexusBase) {
           this.mapData.find(x => x.coordsX == this.nexusBase!.coordsX && x.coordsY == this.nexusBase!.coordsY)!.gold = this.nexusBase.gold;
         }
-        this.addNotification(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} Upgrading ${upgrade.building}`);
+        this.addNotification(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} Upgrading ${upgrade}`);
         this.getBuildingUpgradesInfo();
 
       } catch (error) {
@@ -1134,9 +1134,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
-  private isUpgradeAffordable(upgradeCost: number, upgrade: UpgradeDetail) {
+  private isUpgradeAffordable(upgradeCost: number, upgrade: string) {
     if (this.nexusBase && (this.nexusBase.gold - upgradeCost) < 0) {
-      this.addNotification(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} Not enough gold to upgrade ${upgrade.building}`);
+      this.addNotification(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} Not enough gold to upgrade ${upgrade}`);
       return false;
     } else if (!this.nexusBase) return false;
     return true;
@@ -2013,6 +2013,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.nexusDefencesSent.find(x => x.id == def.id)!.arrived = false;
     }
     this.updateDefenceTimers();
+  }
+  async emittedUpgrade(res: [upgrades: NexusBase[], upgrade: string]) {
+    this.loadNexusData();
+    this.addNotification(`${res[1]} in ${res[0].length} bases!`);
   }
 
   debounceLoadNexusData = this.debounce(async () => {
