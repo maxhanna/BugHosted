@@ -26,6 +26,7 @@ import { ArrayComponent } from './array/array.component';
 import { NexusComponent } from './nexus/nexus.component';
 import { User } from '../services/datacontracts/user/user';
 import { ModalComponent } from './modal/modal.component';
+import { NotificationsComponent } from './notifications/notifications.component';
 
 
 
@@ -71,6 +72,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
     { ownership: 0, icon: "⛏️", title: "MiningDevices", content: undefined },
     { ownership: 0, icon: "🖥️", title: "MiningRigs", content: undefined },
+    { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
   ];
@@ -99,6 +101,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Chat": ChatComponent,
     "Social": SocialComponent,
     "Meme": MemeComponent,
+    "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];

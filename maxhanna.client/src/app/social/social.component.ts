@@ -109,6 +109,29 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       }
     }
   }
+  async edit(story: Story) {
+    if (document.getElementById('storyText' + story.id)) {
+      if ((document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display != "block") {
+        (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "block";
+        (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "block";
+        (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "none";
+      } else { 
+        (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "none";
+        (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "none";
+        (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "block";
+      }
+    }
+  }
+  async editStory(story: Story) {
+    const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
+    story.storyText = message;
+    if (document.getElementById('storyText' + story.id) && this.parentRef && this.parentRef.user) { 
+      this.socialService.editStory(this.parentRef.user, story);
+      (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "none";
+      (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "none";
+      (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "block";
+    }
+  }
   async onTopicAdded(topics?: Array<Topic>) {
     if (topics) { 
       this.attachedTopics = topics;

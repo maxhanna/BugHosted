@@ -1,0 +1,11 @@
+.componentMain {
+    min-width: 300px;
+    max-width:98vw;
+}
+div {
+  margin-bottom: 10px;
+}
+
+hr {
+  border-top: 1px solid #ccc;
+}

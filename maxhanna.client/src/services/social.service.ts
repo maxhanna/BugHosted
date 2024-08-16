@@ -75,6 +75,25 @@ export class SocialService {
       console.error('Error deleting story:', error);
       return 'Error deleting story';
     }
+  }
+  async editStory(user: User, story: Story) {
+    try {
+      const res = await fetch('/social/edit-story', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, story }),
+      });
+
+      if (!res.ok) {
+        return 'Error editing story';
+      }
+      return 'Story editing successfully';
+    } catch (error) {
+      console.error('Error editing story:', error);
+      return 'Error editing story';
+    }
   } 
   async getMetadata(user: User, url: string) {
     try {

@@ -28,7 +28,10 @@
           </span>
         </div>
         <div class="commentContent">
-          <div [innerHTML]="createClickableUrls(comment.commentText)"></div>
+          <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id"></div>
+          <textarea [style.display]="'none'" [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea> 
+          <button [style.display]="'none'" [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)">✏️Edit</button>
+
           <div class="commentDate">{{comment.date!.toString().replace('T', ' ')}}</div>
 
           <app-reaction [commentId]="comment.id"
@@ -50,6 +53,7 @@
       </div>
       <div class="actionDiv"> 
         <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id && comment.id">❌</button>
+        <button (click)="editComment(comment)" title="Edit Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id && comment.id">✏️</button>
       </div>
     </div> 
   </div>

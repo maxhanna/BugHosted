@@ -1,0 +1,30 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me('Notifications');"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="componentTitle">Notifications</div>
+
+  <div>You have {{notifications && notifications.length}} notifications</div>
+
+  <div *ngFor="let notification of notifications">
+    <div>
+      <strong>User:</strong> {{ notification.user?.username }}
+    </div>
+    <div>
+      <strong>From User:</strong> {{ notification.fromUser?.username }}
+    </div>
+    <div *ngIf="notification.fileId" (click)="goToFileId(notification.fileId)">
+      <strong>File ID:</strong> {{ notification.fileId }}
+    </div>
+    <div *ngIf="notification.storyId" (click)="goToStoryId(notification.storyId)">
+      <strong>Story ID:</strong> {{ notification.storyId }}
+    </div>
+    <div>
+      <strong>Text:</strong> {{ notification.text }}
+    </div>
+    <div>
+      <strong>Date:</strong> {{ notification.date | date: 'short' }}
+    </div>
+    <hr>
+  </div>
+
+</div>

@@ -115,6 +115,29 @@ export class CommentsComponent extends ChildComponent {
     setTimeout(() => { this.addCommentInput.nativeElement.value = ''; }, 1);
   }
 
+  editComment(comment: FileComment) {
+    if (document.getElementById('commentText' + comment.id)) {
+      if ((document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display != "block") {
+        (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display = "block";
+        (document.getElementById('commentTextEditConfirmButton' + comment.id) as HTMLTextAreaElement).style.display = "block";
+        (document.getElementById('commentText' + comment.id) as HTMLDivElement).style.display = "none";
+      } else { 
+        (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display = "none";
+        (document.getElementById('commentTextEditConfirmButton' + comment.id) as HTMLTextAreaElement).style.display = "none";
+        (document.getElementById('commentText' + comment.id) as HTMLDivElement).style.display = "block";
+      }
+    }
+  } 
+  async confirmEditComment(comment: FileComment) { 
+    const message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value; 
+    if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
+      this.commentService.editComment(this.inputtedParentRef.user, comment.id, message);
+      (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display = "none";
+      (document.getElementById('commentTextEditConfirmButton' + comment.id) as HTMLTextAreaElement).style.display = "none";
+      (document.getElementById('commentText' + comment.id) as HTMLDivElement).style.display = "block";
+      (document.getElementById('commentText' + comment.id) as HTMLDivElement).innerHTML = this.createClickableUrls(message).toString();
+    }
+  }
   createClickableUrls(text?: string): SafeHtml {
     if (!text) { return ''; }
     const urlPattern = /(https?:\/\/[^\s]+)/g;

@@ -787,7 +787,47 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "An error occurred while deleting story.");
                 return StatusCode(500, "An error occurred while deleting story.");
             }
-        } 
+        }
+
+
+        [HttpPost("/Social/Edit-Story", Name = "EditStory")]
+        public async Task<IActionResult> EditStory([FromBody] StoryRequest request)
+        {
+            _logger.LogInformation($"POST /Social/Edit-Story for user: {request.user?.Id} with storyId: {request.story.Id}");
+
+            try
+            {
+                string sql = @"UPDATE stories SET story_text = @Text WHERE user_id = @UserId AND id = @StoryId;";
+
+                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+
+                    using (var cmd = new MySqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@UserId", request.user?.Id ?? 0);
+                        cmd.Parameters.AddWithValue("@StoryId", request.story.Id);
+                        cmd.Parameters.AddWithValue("@Text", request.story.StoryText);
+
+                        int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+                        if (rowsAffected == 1)
+                        {
+                            return Ok("Story edited successfully.");
+                        }
+                        else
+                        {
+                            return StatusCode(500, "Failed to edited story.");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while deleting story.");
+                return StatusCode(500, "An error occurred while deleting story.");
+            }
+        }
 
         [HttpPost("/Social/GetMetadata")]
         public async Task<IActionResult> GetMetadata([FromBody] MetadataRequest request, int? storyId)

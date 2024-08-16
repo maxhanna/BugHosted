@@ -129,3 +129,6 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Nexus/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/Notification/
+Accept: application/json
+###

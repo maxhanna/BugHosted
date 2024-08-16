@@ -53,13 +53,25 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
 
                     string sql;
+                    string notificationSql;
+                    int insertedId = 0;
                     if (request.FileId != null)
                     {
                         sql = "INSERT INTO maxhanna.comments (user_id, file_id, comment) VALUES (@user_id, @file_id, @comment); SELECT LAST_INSERT_ID();";
+                        notificationSql =
+                            @"INSERT INTO maxhanna.notifications
+                                (user_id, from_user_id, file_id, text)
+                            VALUES
+                                ((SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id), @user_id, @file_id, @comment);";
                     }
                     else if (request.StoryId != null)
                     {
                         sql = "INSERT INTO maxhanna.comments (user_id, story_id, comment) VALUES (@user_id, @story_id, @comment); SELECT LAST_INSERT_ID();";
+                        notificationSql =
+                            @"INSERT INTO maxhanna.notifications
+                                (user_id, from_user_id, story_id, text)
+                            VALUES
+                                ((SELECT user_id FROM maxhanna.stories WHERE id = @story_id), @user_id, @story_id, @comment);";
                     }
                     else
                     {
@@ -80,14 +92,13 @@ namespace maxhanna.Server.Controllers
                             cmd.Parameters.AddWithValue("@story_id", request.StoryId);
                         }
 
-                        int insertedId = 0;
                         using (var reader = await cmd.ExecuteReaderAsync())
                         {
                             if (await reader.ReadAsync())
                             {
                                 insertedId = reader.GetInt32(0);
                                 _logger.LogInformation("inserted comment : " + insertedId);
-                            } 
+                            }
                         }
                         if (insertedId != 0 && request.SelectedFiles != null && request.SelectedFiles.Count > 0)
                         {
@@ -105,9 +116,29 @@ namespace maxhanna.Server.Controllers
                                     }
                                 }
                             }
-                        } 
-                        return Ok($"{insertedId} Comment Successfully Added"); 
+                        }
                     }
+
+
+                    using (var cmd = new MySqlCommand(notificationSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
+                        cmd.Parameters.AddWithValue("@comment", request.Comment);
+
+                        if (request.FileId != null)
+                        {
+                            cmd.Parameters.AddWithValue("@file_id", request.FileId);
+                        }
+                        else
+                        {
+                            cmd.Parameters.AddWithValue("@story_id", request.StoryId);
+                        }
+
+                        await cmd.ExecuteNonQueryAsync();
+                          
+                    }
+
+                    return Ok($"{insertedId} Comment Successfully Added");
                 }
             }
             catch (Exception ex)
@@ -122,7 +153,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> DeleteComment([FromBody] DeleteCommentRequest request)
         {
             _logger.LogInformation($"POST /Comment (for user {request.User?.Id})");
-            
+
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {
@@ -148,6 +179,38 @@ namespace maxhanna.Server.Controllers
             }
             return Ok("Comment successfully deleted");
         } 
+
+        [HttpPost("/Comment/EditComment", Name = "EditComment")]
+        public async Task<IActionResult> EditComment([FromBody] EditCommentRequest request)
+        {
+            _logger.LogInformation($"POST /Comment/EditComment (for user {request.User?.Id})");
+
+            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            try
+            {
+                await conn.OpenAsync();
+                string sql = "UPDATE maxhanna.comments SET comment = @Text WHERE id = @comment_id AND user_id = @user_id";
+
+                using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@comment_id", request.CommentId);
+                    cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
+                    cmd.Parameters.AddWithValue("@Text", request.Text);
+
+                    await cmd.ExecuteNonQueryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while processing the GET request.");
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+            finally
+            {
+                conn.Close();
+            }
+            return Ok("Comment successfully edited");
+        }
 
     }
 }

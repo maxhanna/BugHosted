@@ -1148,7 +1148,7 @@ namespace maxhanna.Server.Controllers
                         var tmpBase = new NexusBase
                         {
                             User = new User(reader.GetInt32("user_id"), "Anonymous"),
-                            Gold = reader.GetDecimal("updatedGold"),
+                            Gold = reader.GetDecimal("updatedGold"), 
                             Supply = reader.GetInt32("supply"),
                             CoordsX = reader.GetInt32("coords_x"),
                             CoordsY = reader.GetInt32("coords_y"),
@@ -1301,13 +1301,15 @@ namespace maxhanna.Server.Controllers
                         ) * (SELECT supply FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit)) AS supplyCost 
                     FROM 
                         nexus_bases b 
+                    LEFT JOIN 
+                        nexus_units u ON b.coords_x = u.coords_x AND b.coords_y = u.coords_y
                     WHERE 
                         b.user_id = @UserId
                         AND b.gold > (SELECT cost FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
                         AND b.factory_level >= (SELECT factory_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
                         AND b.starport_level >= (SELECT starport_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
-                        AND b.engineering_bay_level >= (SELECT engineering_bay_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit));";
-
+                        AND b.engineering_bay_level >= (SELECT engineering_bay_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
+                        AND (@Unit != 'glitcher' OR u.glitcher_total = 0);";
                 MySqlCommand cmdSql = new MySqlCommand(sql, connection, transaction);
                 cmdSql.Parameters.AddWithValue("@UserId", user?.Id ?? 0);
                 cmdSql.Parameters.AddWithValue("@Unit", unit);

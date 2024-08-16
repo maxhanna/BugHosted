@@ -45,6 +45,23 @@ export class CommentService {
     }
   }
 
+
+  async editComment(user: User, commentId: number, text: string) {
+    try {
+      const response = await fetch(`/comment/editcomment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, commentId, text }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+
   async upvoteComment(user: User, commentId: number) {
     try {
       const response = await fetch(`/comment/upvotecomment`, {

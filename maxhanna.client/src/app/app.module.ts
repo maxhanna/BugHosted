@@ -48,6 +48,7 @@ import { NexusBasesComponent } from './nexus-bases/nexus-bases.component';
 import { NexusMapComponent } from './nexus-map/nexus-map.component';
 import { ModalComponent } from './modal/modal.component';
 import { NexusSupportScreenComponent } from './nexus-support-screen/nexus-support-screen.component';
+import { NotificationsComponent } from './notifications/notifications.component';
 
 @NgModule({
   declarations: [
@@ -91,6 +92,7 @@ import { NexusSupportScreenComponent } from './nexus-support-screen/nexus-suppor
     NexusBasesComponent,
     ModalComponent,
     NexusSupportScreenComponent,
+    NotificationsComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

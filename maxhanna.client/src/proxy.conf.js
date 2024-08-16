@@ -26,6 +26,7 @@ const PROXY_CONFIG = [
       "/reaction",
       "/array",
       "/nexus",
+      "/notification",
     ],
     target,
     secure: false

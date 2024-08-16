@@ -69,13 +69,17 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
 
   async deleteReport(report: NexusBattleOutcome) {
     if (!this.user || !this.battleReports) return;
-    if (!confirm("Are you sure you wish to permanently delete this report?")) return;
+
     const index = this.battleReports!.battleOutcomes.findIndex(x => x.battleId === report.battleId);
     if (index !== -1) {
       this.battleReports!.battleOutcomes.splice(index, 1);
     }
     this.battleReports.totalReports--;
-    await this.nexusService.deleteReport(this.user, report.battleId);
+    this.nexusService.deleteReport(this.user, report.battleId);
+
+    if (this.battleReports!.battleOutcomes.length == 0) {
+      this.loadBattleReports(this.targetBase);
+    }
   }
 
 

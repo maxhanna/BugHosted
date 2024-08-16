@@ -38,11 +38,10 @@ a {
 
 .navbarNotificationSpan {
   position: relative;
-  top: 47px;
-  left: 1px;
-  color: var(--primary-font-color);
-  background-color: #000000a6;
-  text-shadow: -1.1px 1.1px 1px var(--main-bg-color-full-opacity);
+  top: 50px;
+  left: 1px; 
+  background-color: black;
+  text-shadow: 1.2px 1.1px 1.1px black;
   font-weight: bolder;
   width: 50px;
   height: 0px !important;
