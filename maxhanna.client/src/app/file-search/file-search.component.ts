@@ -38,6 +38,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Output() userNotificationEvent = new EventEmitter<string>();
 
   showData = true; 
+  showShareUserList = false;
 
   directory: DirectoryResults | undefined;
   defaultCurrentPage = 1;
@@ -431,6 +432,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.shareUserListDiv.nativeElement.classList.toggle("open");
   }
   shareFileInitiate(file: FileEntry) {
+    this.showShareUserList = true;
     this.selectedSharedFile = file;
     this.shareUserListDiv.nativeElement.classList.toggle("open");
   }

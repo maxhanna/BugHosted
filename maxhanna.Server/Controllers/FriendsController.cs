@@ -136,7 +136,7 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("/Friend/Request", Name = "SendFriendRequest")]
         public async Task<IActionResult> SendFriendRequest([FromBody] FriendshipRequest request)
-        {
+        { 
             if (request.Sender == null || request.Receiver == null)
             {
                 return BadRequest("Invalid friendship request.");
@@ -169,12 +169,9 @@ namespace maxhanna.Server.Controllers
                     if (result != null)
                     {
                         // Update the existing friend request
-                        int requestId = Convert.ToInt32(result);
-                        string updateQuery = "UPDATE friend_requests SET status = @status, updated_at = NOW() WHERE id = @requestId";
-                        var updateCommand = new MySqlCommand(updateQuery, connection);
-                        updateCommand.Parameters.AddWithValue("@status", "Accepted");
-                        updateCommand.Parameters.AddWithValue("@requestId", requestId);
-                        await updateCommand.ExecuteNonQueryAsync();
+                        int requestId = Convert.ToInt32(result); 
+                        await AddFriend(request.Sender, request.Receiver, connection); 
+                        return Ok("Friend request was already received by this user. Added user as a friend.");
                     }
                     else
                     {
@@ -184,9 +181,23 @@ namespace maxhanna.Server.Controllers
                         insertCommand.Parameters.AddWithValue("@senderId", request.Sender.Id);
                         insertCommand.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
                         insertCommand.Parameters.AddWithValue("@status", "Pending");
-                        await insertCommand.ExecuteNonQueryAsync();
+                        await insertCommand.ExecuteNonQueryAsync(); 
                     }
-                }
+
+                    string notificationSql =
+                    @"INSERT INTO maxhanna.notifications
+                        (user_id, from_user_id, user_profile_id, text)
+                    VALUES
+                        (@receiverId, @senderId, @senderId, 'Friend request');";
+
+                    using (var cmd = new MySqlCommand(notificationSql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@senderId", request.Sender.Id);
+                        cmd.Parameters.AddWithValue("@receiverId", request.Receiver.Id); 
+
+                        await cmd.ExecuteNonQueryAsync(); 
+                    }
+                } 
 
                 return Ok("Friend request sent successfully.");
             }
@@ -213,54 +224,7 @@ namespace maxhanna.Server.Controllers
                 using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await connection.OpenAsync();
-
-                    // Check if the friendship request exists and is pending
-                    string checkRequestQuery = "SELECT id FROM friend_requests WHERE sender_id = @senderId AND receiver_id = @receiverId AND status = 'Pending'";
-                    using (var checkRequestCommand = new MySqlCommand(checkRequestQuery, connection))
-                    {
-                        checkRequestCommand.Parameters.AddWithValue("@senderId", request.Sender.Id);
-                        checkRequestCommand.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
-                        object? result = await checkRequestCommand.ExecuteScalarAsync();
-                        if (result == null)
-                        {
-                            return BadRequest("No pending friend request found from this user.");
-                        }
-
-                        int requestId = Convert.ToInt32(result);
-
-                        // Check if the friendship already exists in either direction
-                        string checkFriendQuery = @"
-                            SELECT COUNT(*) FROM friends 
-                            WHERE (user_id = @userId AND friend_id = @friendId) 
-                               OR (user_id = @friendId AND friend_id = @userId)";
-                        using (var checkFriendCommand = new MySqlCommand(checkFriendQuery, connection))
-                        {
-                            checkFriendCommand.Parameters.AddWithValue("@userId", request.Sender.Id);
-                            checkFriendCommand.Parameters.AddWithValue("@friendId", request.Receiver.Id);
-                            int friendCount = Convert.ToInt32(await checkFriendCommand.ExecuteScalarAsync());
-                            if (friendCount > 0)
-                            {
-                                return BadRequest("You are already friends with this user.");
-                            }
-                        }
-
-                        // Update the status of the friendship request to accepted
-                        string updateRequestQuery = "UPDATE friend_requests SET status = 'Accepted', updated_at = NOW() WHERE id = @requestId";
-                        using (var updateRequestCommand = new MySqlCommand(updateRequestQuery, connection))
-                        {
-                            updateRequestCommand.Parameters.AddWithValue("@requestId", requestId);
-                            await updateRequestCommand.ExecuteNonQueryAsync();
-                        }
-
-                        // Add a new entry in the friends table for the accepted friendship
-                        string insertFriendQuery = "INSERT INTO friends (user_id, friend_id) VALUES (@userId, @friendId), (@friendId, @userId)";
-                        using (var insertFriendCommand = new MySqlCommand(insertFriendQuery, connection))
-                        {
-                            insertFriendCommand.Parameters.AddWithValue("@userId", request.Sender.Id);
-                            insertFriendCommand.Parameters.AddWithValue("@friendId", request.Receiver.Id);
-                            await insertFriendCommand.ExecuteNonQueryAsync();
-                        }
-                    }
+                    await AddFriend(request.Sender, request.Receiver, connection);
                 }
 
                 return Ok("Friend request accepted successfully.");
@@ -269,6 +233,54 @@ namespace maxhanna.Server.Controllers
             {
                 _logger.LogError(ex, "An error occurred while accepting the friend request.");
                 return StatusCode(500, "An error occurred while accepting the friend request.");
+            }
+        }
+
+        private async Task AddFriend(User sender, User receiver, MySqlConnection connection)
+        {
+
+            // Check if the friendship request exists and is pending
+            string checkRequestQuery = "SELECT id FROM friend_requests WHERE (sender_id = @senderId AND receiver_id = @receiverId OR receiver_id = @senderId AND sender_id = @receiverId) AND status = 'Pending'";
+            using (var checkRequestCommand = new MySqlCommand(checkRequestQuery, connection))
+            {
+                checkRequestCommand.Parameters.AddWithValue("@senderId", sender.Id);
+                checkRequestCommand.Parameters.AddWithValue("@receiverId", receiver.Id);
+                object? result = await checkRequestCommand.ExecuteScalarAsync();
+
+                int requestId = Convert.ToInt32(result);
+                // Update the status of the friendship request to accepted
+                string updateRequestQuery = "UPDATE friend_requests SET status = 'Accepted', updated_at = NOW() WHERE id = @requestId";
+                using (var updateRequestCommand = new MySqlCommand(updateRequestQuery, connection))
+                {
+                    updateRequestCommand.Parameters.AddWithValue("@requestId", requestId);
+                    await updateRequestCommand.ExecuteNonQueryAsync();
+                }
+
+                int friendCount = 0; 
+                // Check if the friendship already exists in either direction
+                string checkFriendQuery = @"
+                            SELECT COUNT(*) FROM friends 
+                            WHERE (user_id = @userId AND friend_id = @friendId) 
+                               OR (user_id = @friendId AND friend_id = @userId)";
+                using (var checkFriendCommand = new MySqlCommand(checkFriendQuery, connection))
+                {
+                    checkFriendCommand.Parameters.AddWithValue("@userId", sender.Id);
+                    checkFriendCommand.Parameters.AddWithValue("@friendId", receiver.Id);
+                    friendCount = Convert.ToInt32(await checkFriendCommand.ExecuteScalarAsync());
+                     
+                }
+
+                if (friendCount == 0)
+                {
+                    // Add a new entry in the friends table for the accepted friendship
+                    string insertFriendQuery = "INSERT INTO friends (user_id, friend_id) VALUES (@userId, @friendId), (@friendId, @userId)";
+                    using (var insertFriendCommand = new MySqlCommand(insertFriendQuery, connection))
+                    {
+                        insertFriendCommand.Parameters.AddWithValue("@userId", sender.Id);
+                        insertFriendCommand.Parameters.AddWithValue("@friendId", receiver.Id);
+                        await insertFriendCommand.ExecuteNonQueryAsync();
+                    }
+                } 
             }
         }
 

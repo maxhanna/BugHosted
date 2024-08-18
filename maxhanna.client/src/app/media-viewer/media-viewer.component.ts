@@ -248,20 +248,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } catch (ex) {
       console.error(ex);
     }
-  }
-  commentAddedEvent(event: FileComment) {
-    if (this.file) {
-      if (!this.file.fileComments) {
-        this.file.fileComments = new Array<FileComment>
-      }
-      this.file.fileComments.push(event);
-    }
-  }
-  commentRemovedEvent(event: FileComment) {
-    if (this.file && this.file.fileComments) {
-      this.file.fileComments = this.file.fileComments.filter(x => x.id != event.id);
-    }
-  }
+  }  
   videoFileExtensionsIncludes(ext: string) {
     return this.fileService.videoFileExtensions.includes(ext);
   }

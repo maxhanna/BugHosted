@@ -88,7 +88,7 @@ button {
   color: var(--main-font-color);
   font-weight: bold;
   font-size: 12px;
-  height: 25px;
+  min-height: 25px;
   text-align: center;
   text-shadow: 1.2px 1.1px 1.1px black;
 }

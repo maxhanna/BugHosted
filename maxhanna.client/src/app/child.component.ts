@@ -14,6 +14,7 @@ export class ChildComponent {
   debounceTimer: any;
    
   remove_me(componentTitle: string) {
+    console.log("remove me !");
     this.isLoading = false;
     if (this.parentRef && this.unique_key) {
       this.parentRef.removeComponent(this.unique_key);

@@ -39,6 +39,7 @@ export class CommentsComponent extends ChildComponent {
   }
 
   async addComment(comment: string) {
+    console.log("adding comment " + comment);
     this.showCommentLoadingOverlay = true;
     clearTimeout(this.debounceTimer);
     const commentsWithEmoji = this.replaceEmojisInMessage(comment);

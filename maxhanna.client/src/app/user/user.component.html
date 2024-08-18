@@ -209,10 +209,10 @@
             <tbody>
               <tr *ngFor="let friend of friends">
                 <td (click)="viewProfile(friend)" class="usernameProfileLink cursorPointer">{{friend.username}}</td>
-                <td>
+                <td style="width:0%">
                   <button title="Remove Friend"
                           (click)="removeFriend(friend)">
-                    ❌
+                    Delete Friend❌
                   </button>
                 </td>
               </tr>
@@ -233,7 +233,7 @@
         </span>
 
         <div class="mainTableDiv" *ngIf="isFriendRequestsExpanded">
-          <table class="mainTable" *ngIf="friendRequests.length > 0">
+          <table class="mainTable" *ngIf="hasFriendRequests()">
             <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
               <tr *ngFor="let request of getFilteredFriendRequests()">
@@ -247,20 +247,20 @@
                           (click)="acceptFriendshipRequest(request)"
                           *ngIf="request.sender.username != parentRef?.user?.username
                       && (request.status != 2 + '' && request.status != 1 + '')">
-                    ✅
+                    ✅Accept Friend Request
                   </button>
                   <button title="Deny Friendship"
                           (click)="denyFriendshipRequest(request)"
                           *ngIf="request.status != 1 + ''">
-                    ❌
+                    ❌Deny Friend Request
                   </button>
                 </td>
               </tr>
             </tbody>
           </table>
+          <div *ngIf="!isLoading && !hasFriendRequests()">No friendship requests.</div>
+          <div *ngIf="isLoading">Loading friendship requests...</div>
         </div>
-        <div *ngIf="!isLoading && (!friendRequests || friendRequests.length == 0)">No friendship requests.</div>
-        <div *ngIf="isLoading">Loading friendship requests...</div>
       </div>
     </div>
 

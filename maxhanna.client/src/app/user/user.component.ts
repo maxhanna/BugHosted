@@ -295,7 +295,10 @@ export class UserComponent extends ChildComponent implements OnInit {
 
           const resAddMenuItemBugWars = await this.userService.addMenuItem(tmpUser, "Bug-Wars");
           this.notifications.push(resAddMenuItemBugWars!);
-           
+
+          const resAddMenuItemNotifications = await this.userService.addMenuItem(tmpUser, "Notifications");
+          this.notifications.push(resAddMenuItemNotifications!);
+
 
           await this.login(guest ? tmpUserName : undefined);
           if (!this.loginOnly) { 
@@ -362,6 +365,9 @@ export class UserComponent extends ChildComponent implements OnInit {
   getNewFriendRequestCount() {
     const count = this.friendRequests.filter(x => x.status == '3').length;
     return count > 0 ? `(${count})` : '';
+  }
+  hasFriendRequests() {
+    return this.friendRequests.find(x => x.status == '3') ? true : false;
   }
   copyLink() {
     const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;

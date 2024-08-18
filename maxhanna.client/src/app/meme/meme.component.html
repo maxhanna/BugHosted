@@ -2,6 +2,14 @@
   <div class="closeButton" (click)="remove_me('MemeComponent')"></div>
   <!--<div class="refreshButton" (click)="ngOnInit()"></div>-->
   <div class="componentTitle">Meme</div>
+
+  <div class="notifications">
+    <app-notifications [minimalInterface]="true"
+                   [inputtedParentRef]="parentRef">
+    </app-notifications>
+  </div>
+  
+
   <div class="fileUploadInputs">
     <app-file-upload [currentDirectory]="'Meme'"
                      [user]="parentRef?.user"

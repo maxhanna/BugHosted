@@ -4,6 +4,8 @@ using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Chat;
  using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
+using System.Reflection;
+using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -144,10 +146,10 @@ namespace maxhanna.Server.Controllers
 
                     // Get the total number of messages
                     string countSql = @"
-                SELECT COUNT(*)
-                FROM maxhanna.messages m
-                WHERE (m.sender = @User1Id AND m.receiver = @User2Id) OR 
-                      (m.sender = @User2Id AND m.receiver = @User1Id)";
+                    SELECT COUNT(*)
+                    FROM maxhanna.messages m
+                    WHERE (m.sender = @User1Id AND m.receiver = @User2Id) OR 
+                            (m.sender = @User2Id AND m.receiver = @User1Id)";
 
                     MySqlCommand countCmd = new MySqlCommand(countSql, conn);
                     countCmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
@@ -162,54 +164,54 @@ namespace maxhanna.Server.Controllers
                     _logger.LogInformation($"totalPages: {totalPages} offset: {offset} totalRecords: {totalRecords}");
 
                     string sql = @"
-                SELECT 
-                    m.*, 
-                    su.id AS sender_id, 
-                    su.username AS sender_username,
-                    sudpfu.id as senderPicId, 
-                    sudpfu.folder_path as senderPicFolderPath,
-                    sudpfu.file_name as senderPicFileName,
-                    ru.id AS receiver_id, 
-                    ru.username AS receiver_username, 
-                    rudpfu.id as receiverPicId, 
-                    rudpfu.folder_path as receiverPicFolderPath,
-                    rudpfu.file_name as receiverPicFileName,
-                    r.id AS reaction_id,
-                    r.user_id AS reaction_user_id,
-                    reactionuser.username AS reaction_username,
-                    r.timestamp AS reaction_timestamp,
-                    r.type, 
-                    f.id as file_id,
-                    f.file_name as file_name,
-                    f.folder_path as folder_path
-                FROM 
-                    maxhanna.messages m
-                JOIN 
-                    maxhanna.users su ON m.sender = su.id
-                LEFT JOIN 
-                    maxhanna.user_display_pictures sudp ON sudp.user_id = su.id
-                LEFT JOIN 
-                    maxhanna.file_uploads sudpfu ON sudp.file_id = sudpfu.id
-                JOIN 
-                    maxhanna.users AS ru ON m.receiver = ru.id
-                LEFT JOIN 
-                    maxhanna.user_display_pictures AS rudp ON rudp.user_id = ru.id
-                LEFT JOIN 
-                    maxhanna.file_uploads AS rudpfu ON rudp.file_id = rudpfu.id
-                LEFT JOIN 
-                    maxhanna.reactions AS r ON m.id = r.message_id
-                LEFT JOIN 
-                    maxhanna.users AS reactionuser ON reactionuser.id = r.user_id
-                LEFT JOIN
-                    maxhanna.message_files mf ON m.id = mf.message_id
-                LEFT JOIN
-                    maxhanna.file_uploads f ON mf.file_id = f.id
-                WHERE 
-                    (m.sender = @User1Id AND m.receiver = @User2Id) OR 
-                    (m.sender = @User2Id AND m.receiver = @User1Id)
-                ORDER BY 
-                    m.timestamp DESC
-                LIMIT @PageSize OFFSET @PageOffset";
+                        SELECT 
+                            m.*, 
+                            su.id AS sender_id, 
+                            su.username AS sender_username,
+                            sudpfu.id as senderPicId, 
+                            sudpfu.folder_path as senderPicFolderPath,
+                            sudpfu.file_name as senderPicFileName,
+                            ru.id AS receiver_id, 
+                            ru.username AS receiver_username, 
+                            rudpfu.id as receiverPicId, 
+                            rudpfu.folder_path as receiverPicFolderPath,
+                            rudpfu.file_name as receiverPicFileName,
+                            r.id AS reaction_id,
+                            r.user_id AS reaction_user_id,
+                            reactionuser.username AS reaction_username,
+                            r.timestamp AS reaction_timestamp,
+                            r.type, 
+                            f.id as file_id,
+                            f.file_name as file_name,
+                            f.folder_path as folder_path
+                        FROM 
+                            maxhanna.messages m
+                        JOIN 
+                            maxhanna.users su ON m.sender = su.id
+                        LEFT JOIN 
+                            maxhanna.user_display_pictures sudp ON sudp.user_id = su.id
+                        LEFT JOIN 
+                            maxhanna.file_uploads sudpfu ON sudp.file_id = sudpfu.id
+                        JOIN 
+                            maxhanna.users AS ru ON m.receiver = ru.id
+                        LEFT JOIN 
+                            maxhanna.user_display_pictures AS rudp ON rudp.user_id = ru.id
+                        LEFT JOIN 
+                            maxhanna.file_uploads AS rudpfu ON rudp.file_id = rudpfu.id
+                        LEFT JOIN 
+                            maxhanna.reactions AS r ON m.id = r.message_id
+                        LEFT JOIN 
+                            maxhanna.users AS reactionuser ON reactionuser.id = r.user_id
+                        LEFT JOIN
+                            maxhanna.message_files mf ON m.id = mf.message_id
+                        LEFT JOIN
+                            maxhanna.file_uploads f ON mf.file_id = f.id
+                        WHERE 
+                            (m.sender = @User1Id AND m.receiver = @User2Id) OR 
+                            (m.sender = @User2Id AND m.receiver = @User1Id)
+                        ORDER BY 
+                            m.timestamp DESC
+                        LIMIT @PageSize OFFSET @PageOffset";
 
                     MySqlCommand cmd = new MySqlCommand(sql, conn);
                     cmd.Parameters.AddWithValue("@User1Id", request.user1.Id);
@@ -377,6 +379,63 @@ namespace maxhanna.Server.Controllers
                 conn.Open();
 
                 string sql = "INSERT INTO maxhanna.messages (sender, receiver, content) VALUES (@Sender, @Receiver, @Content)";
+                string checkSql = @"
+                    SELECT COUNT(*) 
+                    FROM maxhanna.notifications
+                    WHERE user_id = @Receiver
+                      AND from_user_id = @Sender
+                      AND chat_user_id = @Receiver
+                      AND date >= NOW() - INTERVAL 2 MINUTE;
+                ";
+                string updateNotificationSql = @"
+                    UPDATE maxhanna.notifications
+                    SET text = CONCAT(text, @Content)
+                    WHERE user_id = @Receiver
+                      AND from_user_id = @Sender
+                      AND chat_user_id = @Receiver
+                      AND date >= NOW() - INTERVAL 2 MINUTE;
+                ";
+
+                string insertNotificationSql = @"
+                    INSERT INTO maxhanna.notifications
+                        (user_id, from_user_id, chat_user_id, text)
+                    VALUES
+                        (@Receiver, @Sender, @Receiver, @Content);
+                ";
+
+                using (var checkCommand = new MySqlCommand(checkSql, conn))
+                {
+                    checkCommand.Parameters.AddWithValue("@Sender", request.Sender!.Id);
+                    checkCommand.Parameters.AddWithValue("@Receiver", request.Receiver.Id);
+                    checkCommand.Parameters.AddWithValue("@Content", request.Content);
+
+                    var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
+
+                    if (count > 0)
+                    {  
+                        using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
+                        { 
+                                updateCommand.Parameters.AddWithValue("@Sender", request.Sender!.Id);
+                                updateCommand.Parameters.AddWithValue("@Receiver", request.Receiver.Id);
+                                updateCommand.Parameters.AddWithValue("@Content", request.Content);
+
+                                await updateCommand.ExecuteNonQueryAsync();
+                        }
+                    }
+                    else
+                    { 
+
+                        using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
+                        {
+                            insertCommand.Parameters.AddWithValue("@Sender", request.Sender!.Id);
+                            insertCommand.Parameters.AddWithValue("@Receiver", request.Receiver.Id);
+                            insertCommand.Parameters.AddWithValue("@Content", request.Content);
+
+                            await insertCommand.ExecuteNonQueryAsync();
+                        }
+                    }
+                }
+
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Sender", request.Sender!.Id);

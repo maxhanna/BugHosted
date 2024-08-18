@@ -9,3 +9,34 @@ div {
 hr {
   border-top: 1px solid #ccc;
 }
+.minimalInterfaceComponent {
+  background-color: var(--main-bg-color-full-opacity);
+  position: fixed;
+  width: 300px;
+  height: 350px;
+  overflow: auto;
+  top: CALC(50% - 175px);
+  left: CALC(50% - 150px);
+  z-index: 10;
+  border: var(--main-border);
+}
+
+.notificationsDisplay {
+    display: flex;
+    flex-flow:column wrap;
+    justify-content: space-between;
+}
+.notificationsList {
+  padding: 10px;
+  max-height: 245px;
+  overflow: auto;
+  width: 270px;
+}
+.notificationListItem {
+
+}
+.notificationText {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}

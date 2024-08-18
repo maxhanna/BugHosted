@@ -50,7 +50,7 @@ namespace maxhanna.Server.Services
                             nexus_bases
                         WHERE
                             mines_level > 0 
-                        AND updated < DATE_SUB(NOW(), INTERVAL 2 MINUTE);";
+                        AND updated < DATE_SUB(NOW(), INTERVAL 5 MINUTE);";
 
                     MySqlCommand cmd = new MySqlCommand(query, conn, transaction);
                     using (var reader = await cmd.ExecuteReaderAsync())

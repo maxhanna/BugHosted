@@ -1,6 +1,6 @@
 <div class="shareUserListDiv" #shareUserListDiv>
   <div>Share {{selectedSharedFile?.fileData?.givenFileName ?? selectedSharedFile?.fileName ?? ''}} With?</div>
-  <div class="shareUserList"><app-user-list (userClickEvent)="shareFile($event);" [user]="user!"></app-user-list></div> 
+  <div class="shareUserList"><app-user-list (userClickEvent)="shareFile($event);" [user]="user!" *ngIf="showShareUserList"></app-user-list></div> 
 </div>
 <div class="filters" *ngIf="showPrivatePublicOption && showData">
   <div>
@@ -61,8 +61,8 @@
                  [id]="'fileIdDiv'+file.id"
                  [attr.data-content]="file?.fileData?.givenFileName ?? file?.fileName ?? ''">
               <input type="text"
-                     placeholder="New file name"
-                     [value]="file?.fileData?.givenFileName ?? file && file.fileName ? file.fileName.split('.')[0]! : ''"
+                     [placeholder]="file?.fileData?.givenFileName ?? file && file.fileName ? file.fileName.split('.')[0]! : 'New file name'"
+                     [value]=""
                      [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
                      (keyup)="editFileKeyUp($event, file.id)"
                      (click)="$event.stopPropagation()"

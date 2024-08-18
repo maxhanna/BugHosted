@@ -186,4 +186,8 @@
   font-size: smaller;
   display: inline-block;
   width: 300px;
-} 
+}
+.topicAndNotificationDiv {
+    display: flex;
+    justify-content: space-between;
+}

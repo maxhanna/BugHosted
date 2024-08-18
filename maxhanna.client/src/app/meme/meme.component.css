@@ -7,15 +7,22 @@ button {
   height: 90vh;
 }
 
+.notifications {
+  position: absolute;
+  top: 30px;
+  right: 0px;
+}
+
 .memeResultsDiv {
-    max-height: CALC(90vh - 120px);
-    overflow:auto;
+  max-height: CALC(90vh - 120px);
+  overflow: auto;
 }
 
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-    .componentMain {
-        width:99vw;
-    }
+  .componentMain {
+    width: 99vw;
+  }
+
   .mainTable input {
     max-width: 80% !important;
     word-wrap: break-word;
@@ -58,10 +65,10 @@ button {
   align-items: center;
 }
 /* Adjust the appearance of the vote button */
-.vote-button { 
-  min-width: 50px; 
-  cursor: pointer; 
-} 
+.vote-button {
+  min-width: 50px;
+  cursor: pointer;
+}
 
 .memeImage, .memeVideo {
   width: 100%;
@@ -130,7 +137,7 @@ button {
   top: 0;
   right: 0;
 }
- 
+
 .bottomInputs {
   width: 100%;
   text-align: center;
@@ -166,7 +173,7 @@ button {
   align-items: center;
   flex-direction: column;
 }
- 
+
 
 .close-overlay {
   position: absolute;
@@ -176,9 +183,10 @@ button {
   color: white;
   cursor: pointer;
 }
+
 .fullscreen-media {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  background-color: red; 
+  background-color: red;
 }

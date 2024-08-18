@@ -11,6 +11,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { MiningWalletResponse } from '../../services/datacontracts/crypto/mining-wallet-response';
 import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-entry';
 import { MiningRig } from '../../services/datacontracts/crypto/mining-rig';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-navigation',
@@ -21,7 +22,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   @ViewChild('navbar') navbar!: ElementRef<HTMLElement>;
   @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>;
 
-  private chatInfoInterval: any;
+  private notificationInfoInterval: any;
   private miningInfoInterval: any;
   private calendarInfoInterval: any;
   private coinWalletInfoInterval: any;
@@ -38,25 +39,25 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private coinValueService: CoinValueService,
     private userService: UserService,
     private wordlerService: WordlerService,
-    private chatService: ChatService) {
+    private notificationService: NotificationService) {
   }
   async ngOnInit() {
     await this.getSelectedMenuItems();
     this.getNotifications();
   }
-  ngOnDestroy() { // Clear intervals when component is destroyed to prevent memory leaks
-    clearInterval(this.chatInfoInterval);
+  ngOnDestroy() {  
     clearInterval(this.miningInfoInterval);
     clearInterval(this.calendarInfoInterval);
     clearInterval(this.coinWalletInfoInterval);
     clearInterval(this.wordlerInfoInterval);
+    clearInterval(this.notificationInfoInterval);
     this.clearNotifications();
   }
   clearNotifications() {
     const itemsToClear = [
       "MiningRigs",
       "Coin-Watch",
-      "Chat",
+      "Notification",
       "Coin-Wallet",
       "Calendar",
       "Weather",
@@ -78,10 +79,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.getMiningInfo();
     this.getCalendarInfo();
     this.getCoinWalletInfo();
-    this.getChatInfo();
+    this.getNotificationInfo();
     this.getWordlerStreakInfo();
 
-    this.chatInfoInterval = setInterval(() => this.getChatInfo(), 60 * 1000); // every minute
+    this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 60 * 1000); // every minute
     this.miningInfoInterval = setInterval(() => this.getMiningInfo(), 20 * 60 * 1000); // every 20 minutes
     this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes
     this.coinWalletInfoInterval = setInterval(() => this.getCoinWalletInfo(), 60 * 60 * 1000); // every hour
@@ -95,7 +96,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
         { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
         { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
         { ownership: 0, icon: "🎮", title: "Emulation", content: undefined }, 
-        { ownership: 0, icon: "🪖", title: "Bug-Wars", content: undefined }, 
+        { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
+        { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
         { ownership: 0, icon: "👤", title: "User", content: undefined }, 
       ]; 
     } else { 
@@ -110,16 +112,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } 
     return this._parent.userSelectedNavigationItems.some(x => x.title == title);
   }
-  async getChatInfo() {
+  async getNotificationInfo() {
     if (!this._parent || !this._parent.user) {
       return;
     }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) { return; }
-    const res = await this.chatService.getChatNotifications(this._parent.user);
-    if (res && res != 0 && res != "NaN") {
-      this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = res + '';
+    const res = await this.notificationService.getNotifications(this._parent.user);
+    if (res) {
+      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.length + '';
     } else {
-      this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = '';
+      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = '';
     }
   }
   async getCoinWalletInfo() {

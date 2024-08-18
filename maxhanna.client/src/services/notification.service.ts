@@ -36,6 +36,9 @@ export class NotificationService {
   }
   async getNotifications(user: User): Promise<UserNotification[]> {
     return await this.fetchData('/notification', user);
+  }
+  async deleteNotification(user: User, notificationId?: number): Promise<string> {
+    return await this.fetchData('/notification/delete', { User: user, NotificationId: notificationId });
   }  
 
 }
