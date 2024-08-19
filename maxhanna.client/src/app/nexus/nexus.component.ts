@@ -152,7 +152,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async ngOnInit() {
-    this.isUserNew = (!this.parentRef || !this.parentRef.user);
+    this.isUserNew = true;
     this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
@@ -217,9 +217,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.getAvailableBuildingUpgrades();
       this.getMiningSpeedsAndSetMiningSpeed();
     }
-    if (!this.nexusBase || (this.nexusBase.coordsX == 0 && this.nexusBase.coordsY == 0)) {
+    if (this.nexusBase) {
       this.isUserComponentOpen = false;
-      this.isUserNew = true;
+      this.isUserNew = false;
     }
 
     if (!skipMap || !this.mapData) {

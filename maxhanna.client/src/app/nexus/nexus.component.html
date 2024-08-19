@@ -3,7 +3,7 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Bug Wars</div>
 
-  <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew">
+  <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading">
     Welcome to Nexus wars.
     <button (click)="start()">Enter the fight</button>
   </div>
@@ -658,21 +658,24 @@
       </div>
     </div>
   </div>
-  <div *ngIf="numberOfPersonalBases == 1 && nexusBase && nexusBase.minesLevel == 0 && (!nexusBaseUpgrades || !nexusBaseUpgrades.minesUpgraded)">
-    <span class="invertedHighlights">WELCOME TO THE BUG WARS, COMMANDER.</span>
-    <div class="notification">Start off by building a mines.</div>
-    <div class="notification">Click on the Command Center to build or upgrade buildings.</div>
+  <div *ngIf="numberOfPersonalBases == 1 && nexusBase && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen">
+    <div *ngIf="nexusBase.minesLevel == 0 && (!nexusBaseUpgrades || !nexusBaseUpgrades.minesUpgraded)">
+      <span class="invertedHighlights">WELCOME TO THE BUG WARS, COMMANDER.</span>
+      <div class="notification">Start off by building a mines.</div>
+      <div class="notification">Click on the Command Center to build or upgrade buildings.</div>
+    </div>
+    <div *ngIf="nexusBase.minesLevel == 0 && nexusBaseUpgrades && nexusBaseUpgrades.minesUpgraded">
+      <div class="invertedHighlights">Congrats! You built your first mines.</div>
+      <div class="notification">This building generates gold every second.</div>
+      <div class="notification">Lets wait until this building completes...</div>
+    </div>
+    <div *ngIf="nexusBase.minesLevel == 1 && (nexusBaseUpgrades && !nexusBaseUpgrades.minesUpgraded && !nexusBaseUpgrades.factoryUpgraded && !nexusBaseUpgrades.starportUpgraded && !nexusBaseUpgrades.commandCenterUpgraded && !nexusBaseUpgrades.engineeringBayUpgraded && !nexusBaseUpgrades.warehouseUpgraded) && (!(nexusBase.factoryLevel > 0) && !(nexusBase.starportLevel > 0) && !(nexusBase.commandCenterLevel > 1) && !(nexusBase.engineeringBayLevel > 0) && !(nexusBase.supplyDepotLevel > 0) && !(nexusBase.warehouseLevel > 0))">
+      <div class="invertedHighlights">You now have a choice!</div>
+      <div class="notification">Build a factory to train units or keep upgrading other buildings.</div>
+      <div class="notification">It is recommended you take a look at the map (click on the button below) to get acquainted with your surroundings.</div>
+    </div>
   </div>
-  <div *ngIf="numberOfPersonalBases == 1 && nexusBase && nexusBase.minesLevel == 0 && nexusBaseUpgrades && nexusBaseUpgrades.minesUpgraded">
-    <div class="invertedHighlights">Congrats! You built your first mines.</div>
-    <div class="notification">This building generates gold every second.</div>
-    <div class="notification">Lets wait until this building completes...</div>
-  </div>
-  <div *ngIf="numberOfPersonalBases == 1 && nexusBase && nexusBase.minesLevel == 1 && (nexusBaseUpgrades && !nexusBaseUpgrades.minesUpgraded && !nexusBaseUpgrades.factoryUpgraded && !nexusBaseUpgrades.starportUpgraded && !nexusBaseUpgrades.commandCenterUpgraded && !nexusBaseUpgrades.engineeringBayUpgraded && !nexusBaseUpgrades.warehouseUpgraded) && (!(nexusBase.factoryLevel > 0) && !(nexusBase.starportLevel > 0) && !(nexusBase.commandCenterLevel > 1) && !(nexusBase.engineeringBayLevel > 0) && !(nexusBase.supplyDepotLevel > 0) && !(nexusBase.warehouseLevel > 0))">
-    <div class="invertedHighlights">You now have a choice!</div>
-    <div class="notification">Build a factory to train units or keep upgrading other buildings.</div>
-    <div class="notification">It is recommended you take a look at the map (click on the button below) to get acquainted with your surroundings.</div>
-  </div> 
+  
   <div class="gameNotificationDiv">
     <div *ngFor="let notif of notifications" class="gameNotification" (click)="notifications = []">>{{notif}}</div>
   </div>
@@ -682,5 +685,8 @@
     <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports" *ngIf="!isUserNew && parentRef && parentRef.user">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
     <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases" *ngIf="!isUserNew && parentRef && parentRef.user">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
     <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support" *ngIf="!isUserNew && parentRef && parentRef.user">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
+  </div>
+  <div *ngIf="!isLoading && !nexusBase && !isUserNew">
+    Server is down.
   </div>
 </div>

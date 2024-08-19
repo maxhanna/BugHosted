@@ -26,8 +26,8 @@ export class NexusBasesComponent extends ChildComponent {
 
   attacksMap: { [key: string]: NexusAttackSent[] } = {};
 
-  getCurrentBases() {
-    if (this.mapData && this.nexusBase && this.attacksIncoming) { 
+  getCurrentBases() { 
+    if (this.mapData && this.nexusBase) { 
       const data = this.mapData
         .filter(x => x.user?.id === this.user?.id);
       data.sort((a, b) => {
@@ -48,7 +48,7 @@ export class NexusBasesComponent extends ChildComponent {
         return 0;
       });
       return data;
-    } else {
+    } else { 
       return [];
     }
   }
