@@ -194,45 +194,52 @@ namespace maxhanna.Server.Services
         public async void ProcessPurchase(int purchaseId)
         {
             Console.WriteLine($"Processing purchase with ID: {purchaseId}");
-
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            try
             {
-                await conn.OpenAsync();
-                using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
+                using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
-                    try
+                    await conn.OpenAsync();
+                    using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
                     {
-                        // Load the NexusBase and pass it to UpdateNexusAttacks
-                        NexusBase nexus = await GetNexusBaseByPurchaseId(purchaseId, conn, transaction);
-                        if (nexus != null)
+                        try
                         {
-                            var serviceCollection = new ServiceCollection();
-                            ConfigureServices(serviceCollection);
-                            var serviceProvider = serviceCollection.BuildServiceProvider();
+                            // Load the NexusBase and pass it to UpdateNexusAttacks
+                            NexusBase nexus = await GetNexusBaseByPurchaseId(purchaseId, conn, transaction);
+                            if (nexus != null)
+                            {
+                                var serviceCollection = new ServiceCollection();
+                                ConfigureServices(serviceCollection);
+                                var serviceProvider = serviceCollection.BuildServiceProvider();
 
-                            // Create the logger
-                            var logger = serviceProvider.GetRequiredService<ILogger<NexusController>>();
+                                // Create the logger
+                                var logger = serviceProvider.GetRequiredService<ILogger<NexusController>>();
 
-                            // Create the configuration
-                            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+                                // Create the configuration
+                                var configuration = serviceProvider.GetRequiredService<IConfiguration>();
 
-                            // Instantiate the NexusController with the logger and configuration
-                            var nexusController = new NexusController(logger, configuration);
-                            await nexusController.UpdateNexusUnitTrainingCompletes(nexus);
+                                // Instantiate the NexusController with the logger and configuration
+                                var nexusController = new NexusController(logger, configuration);
+                                await nexusController.UpdateNexusUnitTrainingCompletes(nexus);
+                            }
+                            else
+                            {
+                                Console.WriteLine($"No NexusBase found for attack ID: {purchaseId}");
+                            }
+                            await transaction.CommitAsync();
                         }
-                        else
+                        catch (Exception ex)
                         {
-                            Console.WriteLine($"No NexusBase found for attack ID: {purchaseId}"); 
+                            Console.WriteLine(ex.Message);
+                            await transaction.RollbackAsync();
                         }
-                        await transaction.CommitAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex.Message); 
-                        await transaction.RollbackAsync();
                     }
                 }
+            } 
+            catch(Exception ex)
+            {
+                Console.WriteLine("Error processing purchase! " + ex.Message);
             }
+            
         }
 
 

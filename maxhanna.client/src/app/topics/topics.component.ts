@@ -18,7 +18,7 @@ export class TopicsComponent extends ChildComponent {
   @ViewChild('newTopic') newTopic!: ElementRef<HTMLInputElement>;
   @ViewChild('addTopicButton') addTopicButton!: ElementRef<HTMLButtonElement>;
 
-  
+  showAddTopicButton = false;
   topics: Topic[] = [];
   matchingTopics: Topic[] = [];
   private searchTimer: any;
@@ -54,21 +54,30 @@ export class TopicsComponent extends ChildComponent {
     }
      
     this.searchTimer = setTimeout(async () => {
-      this.addTopicButton.nativeElement.style.visibility = "hidden";
-
+      if (this.addTopicButton) {
+        this.addTopicButton.nativeElement.style.visibility = "hidden"; 
+      }
+      console.log("enteredValue : " + enteredValue);
+      console.log("force? : " + force);
       if (enteredValue.trim() != '' || force) {
         this.matchingTopics = await this.topicService.getTopics(enteredValue);
-        if (this.matchingTopics.length == 0) {
-          this.addTopicButton.nativeElement.style.visibility = "visible";
+        if (enteredValue.trim() == '') {
+          this.showAddTopicButton = false; 
+        } 
+        if (this.matchingTopics.length == 0 && enteredValue.trim() != '') {
+          this.showAddTopicButton = true; 
+          setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
         } else {
-          if (this.matchingTopics.some(x => x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
-            this.addTopicButton.nativeElement.style.visibility = "hidden";
-          } else {
-            this.addTopicButton.nativeElement.style.visibility = "visible";
+          if (this.matchingTopics.some(x => x.topicText != '' && x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
+            this.addTopicButton.nativeElement.style.visibility = "hidden"; 
+          } else if (enteredValue.trim() != '') {
+            this.showAddTopicButton = true;
+            setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
           }
         }
       } else {
         this.matchingTopics = [];
+        this.showAddTopicButton = false;
       }
     }, 300);
   } 
@@ -83,7 +92,16 @@ export class TopicsComponent extends ChildComponent {
   }
   searchInputClick() {
     if (this.isDropdown) {
-      this.searchTopics('', true)
+      if (this.newTopic && this.newTopic.nativeElement.value.trim() != '') { 
+        this.searchTopics(this.newTopic.nativeElement.value.trim(), true);
+      } else {
+        this.searchTopics('', true);
+        this.showAddTopicButton = false;
+      }
     }
+  }
+  cancelSearch() {
+    this.matchingTopics = [];
+    this.showAddTopicButton = false; 
   }
 }

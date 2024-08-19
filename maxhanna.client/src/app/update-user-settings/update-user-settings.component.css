@@ -26,7 +26,10 @@
 
   .helperSpanTitle:before {
     content: 'ℹ️';
-  } 
+  }
+  .updateTable{
+      width: 100%;
+  }
 .updateTable th, td {
     text-align:left;
 }
@@ -77,4 +80,10 @@
   max-width:150px;
   overflow:hidden;
   text-overflow: ellipsis;
+}
+.ellipsis { 
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width:200px;
 }

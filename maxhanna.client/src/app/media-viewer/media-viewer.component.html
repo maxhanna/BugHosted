@@ -9,7 +9,7 @@
   </div>
   <div class="mediaContainerDiv">
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
-      <span class="clickToLoadText">Click here to load</span>
+      <span class="clickToLoadText">Click here to load media</span>
       <span><img src="favicon.ico" /></span>
     </div>
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>

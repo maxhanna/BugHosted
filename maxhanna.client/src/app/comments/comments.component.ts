@@ -142,9 +142,18 @@ export class CommentsComponent extends ChildComponent {
   createClickableUrls(text?: string): SafeHtml {
     if (!text) { return ''; }
     const urlPattern = /(https?:\/\/[^\s]+)/g;
+    const urlPattern2 = /(Https?:\/\/[^\s]+)/g;
+    const urlPattern3 = /(http?:\/\/[^\s]+)/g;
+    const urlPattern4 = /(Http?:\/\/[^\s]+)/g;
 
     text = text.replace(urlPattern, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
-    const sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
+    let sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';  
+    text = text.replace(urlPattern2, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
+    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
+    text = text.replace(urlPattern3, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
+    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
+    text = text.replace(urlPattern4, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
+    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
 
     return sanitizedText;
   }

@@ -26,7 +26,7 @@
           <div class="bugHostedLogo">BugHosted</div>
           <div class="welcomeMessage">
             <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
-            <p class="welcomeTitle">Total users: {{usersCount}}</p>
+            <p class="welcomeTitle">Total users: <span [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount && !isLoading ? usersCount : !usersCount && !isLoading ? 'Server is down!' : 'Unknown Error'}}</span></p>
             <p class="moreInfoTitle welcomeTitle" (click)="isAboutOpen = !isAboutOpen">Click here for more information</p>
             <div *ngIf="isAboutOpen" class="aboutSiteDiv">
               <p class="notification">Welcome to Bug Hosted</p>
@@ -128,8 +128,8 @@
           <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" /> 
           <div>
             <input type="submit" value="🔑 Login" (click)="login()" />
-            <input type="submit" value="Create User" (click)="createUser()" />
-            <input type="submit" value="Guest" (click)="createUser(true)" />
+            <input type="submit" value="👤➕ Create User" (click)="createUser()" />
+            <input type="submit" value="👤➕ Guest" (click)="createUser(true)" />
           </div>
         </div>
       </div>

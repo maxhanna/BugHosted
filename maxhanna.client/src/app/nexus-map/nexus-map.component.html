@@ -11,7 +11,8 @@
           <span *ngIf="grid[x][y]" class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"></span>
         </div>
         <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'" [style.display]="grid[x][y] ? 'block' : 'none'">{{x + ',' + y + ' '}}</div>
-        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isDefenceSentOn(x,y) ? 'block' : isAttackReturningOn(x, y) ? 'block' : 'none'">🛡️</span>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isAttackReturningOn(x, y) ? 'block' : 'none'">↩</span>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isDefenceSentOn(x,y) ? 'block' : 'none'">🛡️</span>
         <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isAttackSentOn(x, y) ? 'block': 'none'">⚔️</span>
       </div>
     </div>

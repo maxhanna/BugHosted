@@ -54,6 +54,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   displaySupplyDepot = false;
   displayWarehouse = false;
   displayEngineeringBay = false;
+  showMoreWarehouseInfo = false;
 
   mapTileSrc?: string;
   mapTileSrc2?: string;
@@ -127,6 +128,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   researchTimers: { [key: string]: ResearchTimer } = {};
   goldIncrementInterval: any;
 
+  attacksIncomingCount = 0;
   numberOfPersonalBases = 0;
   miningSpeed = 0.0;
   goldCapacity = 5000;
@@ -354,7 +356,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private setAvailableUnits() {
-    if (!this.nexusBase) return
+    if (!this.nexusBase) return;
+    
     //console.log("setavilunits");  
     const filteredAttacks = this.nexusAttacksSent?.filter(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
     filteredAttacks?.forEach(x => {
@@ -377,7 +380,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.nexusUnitsOutsideOfBase!.glitcherTotal += x.glitcherTotal;
     });
 
-
+    this.attacksIncomingCount = 0;
     this.nexusAttacksIncoming?.forEach(x => {
       if (x.originCoordsX == this.nexusBase!.coordsX && x.originCoordsY == this.nexusBase!.coordsY) {
         this.reinitializeNexusUnitsByType("nexusAvailableUnits");
@@ -388,6 +391,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
         this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
         this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
+      } else if (x.originCoordsX != x.destinationCoordsX && x.originCoordsY != x.destinationCoordsY) {
+        this.attacksIncomingCount++;
       }
     });
 
@@ -646,7 +651,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         const returningToBase = (x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
         const salt = returningToBase ? `{${x.destinationCoordsX},${x.destinationCoordsY}} ${count}. Returning {${x.originCoordsX},${x.originCoordsY}}`
           : `{${x.destinationCoordsX},${x.destinationCoordsY}} ${count}. Incoming {${x.originCoordsX},${x.originCoordsY}}`;
-
         if (remainingTimeInSeconds > 0) {
           if (!uniqueDefenses.has(salt)) {
             uniqueDefenses.add(salt);
@@ -670,13 +674,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       timeout: setTimeout(async () => {
 
         this.addNotification(`${upgrade} ${isUnit ? '' : 'upgrade '}completed!`);
-        if (!this.nexusUnits) {
+        if (isUnit && !this.nexusUnits) {
           this.nexusUnits = {} as NexusUnits;
         }
-        if (!this.nexusAvailableUnits) {
+        if (isUnit && !this.nexusAvailableUnits) {
           this.nexusAvailableUnits = this.reinitializeNexusUnitsByType("nexusAvailableUnits");
         }
-        if (isUnit && this.nexusAvailableUnits) {
+        if (isUnit && this.nexusAvailableUnits && this.nexusUnits) {
           delete this.unitTimers[upgrade];
           const subs = upgrade.split('.')[1];
           const count = parseInt(subs.split(' ')[0]);
@@ -1212,12 +1216,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       if (this.miningSpeed && this.nexusBase && (this.nexusBase.gold < this.goldCapacity)) {
         this.nexusBase.gold++;
       }
+      if (this.nexusBase && this.nexusBase.gold >= this.goldCapacity) {
+        this.stopGoldIncrement();
+      }
     }, intervalTime);
   }
 
   calculateCurrentSupply() {
     if (!this.nexusBase) return 0;
-    return (this.nexusBase.supplyDepotLevel * 2500) - this.nexusBase.supply
+    return (this.nexusBase.supplyDepotLevel * 2500) - this.nexusBase.supply;
   }
 
   stopGoldIncrement() {
@@ -2015,10 +2022,34 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.updateDefenceTimers();
   }
   async emittedUpgrade(res: [upgrades: NexusBase[], upgrade: string]) {
-    this.loadNexusData();
+    if (this.mapData && res[0]) {
+      this.mapData = this.mapData.map(base => {
+        const upgradedBase = res[0].find(upgrade =>
+          upgrade.coordsX === base.coordsX && upgrade.coordsY === base.coordsY
+        );
+        return upgradedBase ? upgradedBase : base;
+      });
+    }
     this.addNotification(`${res[1]} in ${res[0].length} bases!`);
   }
-
+  goToBuilding(building: string) {
+    this.isCommandCenterOpen = false;
+    if (building == "command_center") {
+      this.isCommandCenterOpen = true;
+    } else if (building == "supply_depot") {
+      this.isSupplyDepotOpen = true;
+    } else if (building == "warehouse") {
+      this.isWarehouseOpen = true;
+    } else if (building == "engineering_bay") {
+      this.isEngineeringBayOpen = true;
+    } else if (building == "factory") {
+      this.isFactoryOpen = true;
+    } else if (building == "starport") {
+      this.isStarportOpen = true;
+    } else if (building == "mines") {
+      this.isMinesOpen = true;
+    }
+  }
   debounceLoadNexusData = this.debounce(async () => {
     this.loadNexusData();
   }, 1000);

@@ -8,17 +8,26 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index:100;
 }
 
 .modal {
-  background: white;
+  background-color: var(--main-bg-color-full-opacity);
   padding: 20px;
   border-radius: 8px;
   width: 300px;
-  max-width: 80%;
+  max-height:500px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 101;
+  position:fixed;
+  left:CALC(50% - 150px);
+  top: CALC(50% - 250px);
+  overflow:auto;
 }
-
+.modal-body {
+  max-height: 470px;
+  overflow: auto;
+}
 .modal-header,
 .modal-footer {
   display: flex;

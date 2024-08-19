@@ -36,6 +36,7 @@
   </div>
 
   <div class="gamescreen" [style.display]="!isUserNew ? 'block':'none'">
+    <div [style.display]="!isReportsOpen && !isSupportOpen && !isBasesOpen && !isMapOpen && nexusBase ? 'block' : 'none'" class="attacksIncomingCount" *ngIf="attacksIncomingCount > 0" (click)="toggleScreen('bases', !isBasesOpen)">{{attacksIncomingCount}}⚔️</div>
     <div [style.display]="numberOfPersonalBases > 1 && !isReportsOpen && !isSupportOpen && !isBasesOpen && nexusBase ? 'block' : 'none'">
       <button class="previousBaseButton" (click)="previousBase()" [disabled]="isLoading">⩤</button>
       <button class="nextBaseButton" (click)="nextBase()" [disabled]="isLoading">⩥</button>
@@ -355,22 +356,30 @@
          *ngIf="whlvl1Src && whlvl2Src && whlvl3Src && nexusBase"
          [style.display]="isWarehouseOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
     <div [style.display]="isWarehouseOpen ? 'flex' : 'none'" class="warehouseScreen">
-      📀 Current gold capacity : <span class="goldText">{{goldCapacity}}📀</span>
-      <div class="warehouseLevelsDiv">
-        <table class="mainTable">
-          <thead>
-            <tr>
-              <th>Warehouse Level</th>
-              <th>Capacity</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let i of warehouseUpgradeLevels" [class]="i == nexusBase?.warehouseLevel ? 'highlightBg' : ''">
-              <td>{{i}}</td>
-              <td>{{5000 * (i + 1)}}📀</td>
-            </tr>
-          </tbody>
-        </table>
+      <div>
+        📀 Current gold capacity : <span class="goldText">{{goldCapacity}}📀</span>
+      </div>
+      <div class="showMoreInfoWarehouseDiv">
+        <div (click)="showMoreWarehouseInfo = !showMoreWarehouseInfo" class="cursorPointer">{{showMoreWarehouseInfo ? 'Hide' : 'More'}} info</div>
+        <div class="warehouseLevelsDiv" *ngIf="showMoreWarehouseInfo">
+          <table class="mainTable">
+            <thead>
+              <tr>
+                <th>Warehouse Level</th>
+                <th>Capacity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let i of warehouseUpgradeLevels" [class]="i == nexusBase?.warehouseLevel ? 'highlightBg' : ''">
+                <td>Level {{i}}</td>
+                <td>{{5000 * (i + 1)}}📀</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div *ngIf="nexusBase && nexusBase.engineeringBayLevel > 6">
+        Mint Gold Coins!
       </div>
       <div><button (click)="closeWarehouse()">Back</button></div>
     </div>
@@ -453,23 +462,18 @@
   </div>
 
 
-  <div class="upgradesTableDiv" [style.display]="isCommandCenterOpen ? 'block' : 'none'">
-    Upgrades Available:
+  <div class="upgradesTableDiv" [style.display]="isCommandCenterOpen ? 'block' : 'none'"> 
     <table class="mainTable">
       <thead>
         <tr>
-          <th>Building</th>
-          <th>Level</th>
-          <th>📀</th>
-          <th>Duration</th>
-          <th></th>
+          <th colspan="5">Upgrades Available</th> 
         </tr>
       </thead>
       <tbody *ngIf="currentValidAvailableUpgrades && currentValidAvailableUpgrades.length > 0 ? currentValidAvailableUpgrades : getValidBuildingUpgrades().length > 0 ? currentValidAvailableUpgrades : false">
         <tr *ngFor="let upgrade of (currentValidAvailableUpgrades ? currentValidAvailableUpgrades : getValidBuildingUpgrades())">
-          <td class="capitalize">{{upgrade.building.replace('_', ' ')}}</td>
-          <td>{{upgrade.nextLevel + 1}}</td>
-          <td class="goldText">{{upgrade.cost}}</td>
+          <td class="capitalize cursorPointer" (click)="goToBuilding(upgrade.building)">{{upgrade.building.replace('_', ' ')}}</td>
+          <td>Level {{upgrade.nextLevel + 1}}</td>
+          <td class="goldText">📀{{upgrade.cost}}</td>
           <td>{{formatTimer(upgrade.duration)}}</td>
           <td>
             <button [disabled]="isLoading" (click)="upgradeBuilding(upgrade.building)" #upgradeButton class="upgradeButton">

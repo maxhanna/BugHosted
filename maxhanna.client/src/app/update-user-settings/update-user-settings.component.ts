@@ -24,6 +24,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isMenuIconsToggled = false;
   isWeatherLocationToggled = false;
   isDisplayPictureToggled = false;
+  isDeleteAccountToggled = false;
   isAboutToggled = false; 
   selectableIcons: MenuItem[] = [];
   notifications: string[] = [];
@@ -208,7 +209,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (document.getElementById(id) && this.parentRef) {
       const element = document.getElementById(id);
       if (this.parentRef && element) {
-        this.parentRef.setModalBody(element.innerHTML); 
+        document.getElementById(id + 'divdiv')?.classList.remove("ellipsis");
+        this.parentRef.setModalBody(element.innerHTML);
       }
     } 
   }

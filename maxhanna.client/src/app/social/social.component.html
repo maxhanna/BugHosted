@@ -6,35 +6,41 @@
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
 
-  <div *ngIf="showTopicSelector" class="topicAndNotificationDiv">
-    <app-topics #topicComponent
-                [isDropdown]="true"
-                [user]="parentRef?.user"
-                [parent]="parent ?? parentRef"
-                (topicAdded)="onTopicAdded($event)">
-    </app-topics>
+  <div class="notificationCounterDiv" *ngIf="showTopicSelector"> 
     <app-notifications [minimalInterface]="true"
                        [inputtedParentRef]="parentRef">
     </app-notifications>
-  </div>
+  </div> 
+
   <div class="storyInputDiv">
-    <textarea #story
-              placeholder="Whats on your mind ?"
-              class="foodForThought" 
-              (focus)="focusInput()"></textarea>
+    <div class="mainTopicSelector" *ngIf="showTopicSelector">
+      <app-topics #topicComponent
+                  [isDropdown]="true"
+                  [user]="parentRef?.user"
+                  [parent]="parent ?? parentRef"
+                  (topicAdded)="onTopicAdded($event)">
+      </app-topics>
+    </div>
+    <div>
+      <textarea #story
+                placeholder="Whats on your mind ?"
+                class="foodForThought"
+                (focus)="focusInput()"></textarea>
+    </div>
+    
     <div class="mainFileUploaderAndTopicSelectorDiv">
       <button (click)="post()">🗨️ Post</button>
 
       <app-media-selector #postMediaSelector
                           [currentDirectory]="parentRef?.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
                           [user]="parentRef?.user"
-                          (selectFileEvent)="selectFile($event)"></app-media-selector> 
+                          (selectFileEvent)="selectFile($event)"></app-media-selector>
     </div>
     <div *ngIf="attachedFiles.length > 0">
       {{attachedFiles.length}} Attached Files:
       <div *ngFor="let file of attachedFiles">
         {{file.fileName}}
-        <button (click)="removeAttachment(file.id)" title="Remove attachment">❌</button> 
+        <button (click)="removeAttachment(file.id)" title="Remove attachment">❌</button>
       </div>
     </div>
   </div>
@@ -54,8 +60,8 @@
   <div class="mainTableDiv" id="mainTableDiv" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
     <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
       <div class="storyHeader">
-        <div class="storyDate"> 
-          {{ story.date?.toString()?.split('T') ? story.date?.toString()!.split('T')[0] : '' }} {{ story.date?.toString()!.split('T').length > 0 ? story.date?.toString()!.split('T')[1] : '' }} 
+        <div class="storyDate">
+          {{ formatDate(story.date) }}
         </div>
         <div class="commentVoteButtons">
           <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">📋Share</button>
@@ -112,5 +118,8 @@
                     [commentList]="story!.storyComments!">
       </app-comments>
     </div>
+  </div>
+  <div class="mainTableDiv" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length == 0">
+    Be the first to write about this topic!
   </div>
 </div>

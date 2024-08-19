@@ -41,6 +41,15 @@
   background-color: var(--main-bg-color);
   border: var(--main-border);
 }
+.attacksIncomingCount {
+  position: relative;
+  top: 0px;
+  left: CALC(100% - 30px);
+  width: 0px;
+  height: 0px;
+  color: red;
+  cursor:pointer;
+}
 .nextBaseButton {
   position: absolute;
   top: CALC(var(--nexus-gamescreen-height) / 2);
@@ -182,6 +191,7 @@
 .mapComponentDiv {
   display: none;
   max-height:500px;
+  overflow: hidden;
 }
 
 .baseListComponentDiv {
@@ -245,7 +255,14 @@
   color: var(--secondary-font-color);
 }
 
- 
+.showMoreInfoWarehouseDiv {
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: center;
+  align-content: flex-start;
+}
+
 .supplyUsedDiv {
   height: 120px;
   overflow: auto;

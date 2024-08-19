@@ -75,7 +75,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
   ngAfterViewInit() {
     if (this.user) {
-      this.componentMain.nativeElement.style.padding = "5px";
+      this.componentMain.nativeElement.style.padding = "5px"; 
+      (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
+
     }
   }
   pageChanged() {
@@ -266,9 +268,18 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   createClickableUrls(text?: string): SafeHtml {
     if (!text) { return ''; }
     const urlPattern = /(https?:\/\/[^\s]+)/g;
+    const urlPattern2 = /(Https?:\/\/[^\s]+)/g;
+    const urlPattern3 = /(http?:\/\/[^\s]+)/g;
+    const urlPattern4 = /(Http?:\/\/[^\s]+)/g;
 
     text = text.replace(urlPattern, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
-    const sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
+    let sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
+    text = text.replace(urlPattern2, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
+    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
+    text = text.replace(urlPattern3, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
+    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
+    text = text.replace(urlPattern4, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
+    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
 
     return sanitizedText;
   }
@@ -278,4 +289,25 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.story.nativeElement.scrollIntoView({ behavior: 'smooth' });
     }, 300); // Timeout to wait for the keyboard to appear
   }
+  formatDate(dateString?: Date): string {
+    if (!dateString) return '';
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+     
+    const day = date.getDate(); 
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear();
+
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12 || 12;
+
+    return `${month} ${day}, ${year} - ${hours}:${minutes} ${ampm}`;
+  } 
 }

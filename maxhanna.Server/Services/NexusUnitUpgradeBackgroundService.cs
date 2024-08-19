@@ -55,33 +55,34 @@ namespace maxhanna.Server.Services
 
         private async Task LoadAndScheduleExistingUnitUpgrades()
         {
+            List<int> upgradeIds = new List<int>();
             using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
                 //Console.WriteLine("Checking for unit upgrades");
                 await conn.OpenAsync();
 
                 string query = @"
-                SELECT 
-                    p.id, 
-                    p.timestamp, 
-                    p.unit_id_upgraded,
-                    (us.duration * s.duration) as total_duration
-                FROM 
-                    nexus_unit_upgrades p
-                JOIN 
-                    nexus_bases b ON p.coords_x = b.coords_x AND p.coords_y = b.coords_y
-                JOIN 
-                    nexus_unit_upgrade_stats us ON (
-                        (p.unit_id_upgraded = 6 AND us.unit_level = b.marine_level) OR
-                        (p.unit_id_upgraded = 7 AND us.unit_level = b.goliath_level) OR
-                        (p.unit_id_upgraded = 8 AND us.unit_level = b.battlecruiser_level) OR
-                        (p.unit_id_upgraded = 9 AND us.unit_level = b.wraith_level) OR
-                        (p.unit_id_upgraded = 10 AND us.unit_level = b.siege_tank_level) OR
-                        (p.unit_id_upgraded = 11 AND us.unit_level = b.scout_level) OR
-                        (p.unit_id_upgraded = 12 AND us.unit_level = b.glitcher_level)
-                    )
-                JOIN 
-                    nexus_unit_stats s ON p.unit_id_upgraded = s.unit_id;";
+                    SELECT 
+                        p.id, 
+                        p.timestamp, 
+                        p.unit_id_upgraded,
+                        (us.duration * s.duration) as total_duration
+                    FROM 
+                        nexus_unit_upgrades p
+                    JOIN 
+                        nexus_bases b ON p.coords_x = b.coords_x AND p.coords_y = b.coords_y
+                    JOIN 
+                        nexus_unit_upgrade_stats us ON (
+                            (p.unit_id_upgraded = 6 AND us.unit_level = b.marine_level) OR
+                            (p.unit_id_upgraded = 7 AND us.unit_level = b.goliath_level) OR
+                            (p.unit_id_upgraded = 8 AND us.unit_level = b.battlecruiser_level) OR
+                            (p.unit_id_upgraded = 9 AND us.unit_level = b.wraith_level) OR
+                            (p.unit_id_upgraded = 10 AND us.unit_level = b.siege_tank_level) OR
+                            (p.unit_id_upgraded = 11 AND us.unit_level = b.scout_level) OR
+                            (p.unit_id_upgraded = 12 AND us.unit_level = b.glitcher_level)
+                        )
+                    JOIN 
+                        nexus_unit_stats s ON p.unit_id_upgraded = s.unit_id;";
 
                 MySqlCommand cmd = new MySqlCommand(query, conn);
                 using (var reader = await cmd.ExecuteReaderAsync())
@@ -101,14 +102,18 @@ namespace maxhanna.Server.Services
                         }
                         else
                         {
-                            //Console.WriteLine("Processing upgrade");
-                            ProcessUnitUpgrade(upgradeId);
+                            upgradeIds.Add(upgradeId);
                         }
                     }
                 }
             }
+            foreach (var upgradeId in upgradeIds)
+            { 
+                //Console.WriteLine("Processing upgrade");
+                ProcessUnitUpgrade(upgradeId);
+            }
         }
-         
+
 
         public async Task<NexusBase> GetNexusBaseByUnitUpgradeId(int id, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
         {

@@ -27,10 +27,32 @@ export class NexusBasesComponent extends ChildComponent {
   attacksMap: { [key: string]: NexusAttackSent[] } = {};
 
   getCurrentBases() {
-    if (this.mapData && this.nexusBase) {
-      return this.mapData.filter(x => x.user?.id == this.user?.id);
-    } else return [];
+    if (this.mapData && this.nexusBase && this.attacksIncoming) { 
+      const data = this.mapData
+        .filter(x => x.user?.id === this.user?.id);
+      data.sort((a, b) => {
+        if (this.attacksIncoming) { 
+          const aHasIncomingAttacks = this.attacksIncoming.some(attack =>
+            attack.destinationCoordsX != attack.originCoordsX && attack.destinationCoordsY != attack.originCoordsY &&
+            attack.destinationCoordsX == a.coordsX && attack.destinationCoordsY == a.coordsY
+          );
+          const bHasIncomingAttacks = this.attacksIncoming.some(attack =>
+            attack.destinationCoordsX != attack.originCoordsX && attack.destinationCoordsY != attack.originCoordsY &&
+            attack.destinationCoordsX == b.coordsX && attack.destinationCoordsY == b.coordsY
+          );
+
+          if (aHasIncomingAttacks && !bHasIncomingAttacks) return -1;
+          if (!aHasIncomingAttacks && bHasIncomingAttacks) return 1;
+        }  
+
+        return 0;
+      });
+      return data;
+    } else {
+      return [];
+    }
   }
+
   selectBase(nexusBase: NexusBase) {
     console.log(nexusBase);
     this.emittedBaseChange.emit(nexusBase);
@@ -106,8 +128,7 @@ export class NexusBasesComponent extends ChildComponent {
       default:
         console.log('Unknown command');
     }
-    if (res) {
-      console.log(res);
+    if (res) { 
       this.emittedUpgrade.emit([res as NexusBase[], this.commandSelector.nativeElement.value ?? ""]);
     }
     this.commandSelector.nativeElement.selectedIndex = 0;

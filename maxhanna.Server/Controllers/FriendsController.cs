@@ -225,8 +225,7 @@ namespace maxhanna.Server.Controllers
                 {
                     await connection.OpenAsync();
                     await AddFriend(request.Sender, request.Receiver, connection);
-                }
-
+                }  
                 return Ok("Friend request accepted successfully.");
             }
             catch (Exception ex)
@@ -279,6 +278,19 @@ namespace maxhanna.Server.Controllers
                         insertFriendCommand.Parameters.AddWithValue("@userId", sender.Id);
                         insertFriendCommand.Parameters.AddWithValue("@friendId", receiver.Id);
                         await insertFriendCommand.ExecuteNonQueryAsync();
+                    }
+
+                    string notificationSql =
+                    @"INSERT INTO maxhanna.notifications
+                        (user_id, from_user_id, user_profile_id, text)
+                    VALUES
+                        (@friendId, @userId, @userId, 'Friend request accepted.');";
+
+                    using (var cmd = new MySqlCommand(notificationSql, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@userId", sender.Id);
+                        cmd.Parameters.AddWithValue("@friendId", receiver.Id); 
+                        await cmd.ExecuteNonQueryAsync();
                     }
                 } 
             }

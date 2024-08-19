@@ -286,12 +286,12 @@ export class NexusMapComponent {
   isAttackSentOn(x: number, y: number) {
     if (!this.nexusAttacksSent && !this.nexusDefencesSent) return false; 
     if (this.nexusAttacksSent) {
-      const relevantAttack = this.nexusAttacksSent.find(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y);
+      const relevantAttack = this.nexusAttacksSent.find(nb => (nb.destinationCoordsX != nb.originCoordsX && nb.destinationCoordsY != nb.originCoordsY) && nb.destinationCoordsX == x && nb.destinationCoordsY == y);
       if (relevantAttack) return true;
     }
     
     if (this.nexusAttacksIncoming) { 
-      return this.nexusAttacksIncoming.some(nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y && nb.originUser?.id != this.user?.id); 
+      return this.nexusAttacksIncoming.some(nb => (nb.destinationCoordsX != nb.originCoordsX && nb.destinationCoordsY != nb.originCoordsY) && nb.destinationCoordsX == x && nb.destinationCoordsY == y && nb.originUser?.id != this.user?.id); 
     }
 
     return false;
@@ -407,14 +407,46 @@ export class NexusMapComponent {
         const utcNow = new Date().getTime();
         const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
         const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
-        count++; 
+        count++;
+        if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
+          const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. Returning {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+          if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
+            uniqueAttacks.add(remainingTimeInSeconds);
+            this.startAttackTimer(salt, remainingTimeInSeconds);
+          }
+        } else {
+          const isChallenger = x.originUser?.id != x.destinationUser?.id;
+          const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. ${isChallenger ? 'Attacking' : 'Incoming'} {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+          if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
+            uniqueAttacks.add(remainingTimeInSeconds);
+            this.startAttackTimer(salt, remainingTimeInSeconds);
+          }
+        }
+
+      });
+    }
+    if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0 && this.nexusBase) {
+      let count = 0;
+      const uniqueAttacks = new Set<number>(); // Set to keep track of unique attacks
+      const relevantAttacks = this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY && x.destinationCoordsX != x.originCoordsX && x.destinationCoordsY != x.originCoordsY);
+      //console.log(this.nexusAttacksSent);
+      relevantAttacks.forEach(x => {
+        const startTimeTime = new Date(x.timestamp).getTime();
+        const utcNow = new Date().getTime();
+        const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+        const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
+        count++;
+          
         const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. Attacking {${x.destinationCoordsX},${x.destinationCoordsY}}`;
         if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
           uniqueAttacks.add(remainingTimeInSeconds);
           this.startAttackTimer(salt, remainingTimeInSeconds);
         }
+        
+
       });
     }
+
     if (forceUpdateDefenceTimers) {
       this.updateAttackDefenceTimers();
     }
@@ -446,12 +478,13 @@ export class NexusMapComponent {
     }
   }
 
-  private updateDefenceTimers() { 
+  private updateDefenceTimers() {
+    console.log("updatedefencetimers");
     this.reinitializeDefenceTimers();
-    if (this.nexusBase && this.nexusDefencesIncoming
+    if (this.nexusBase && this.nexusDefencesIncoming  
       && this.nexusDefencesIncoming.some(x => !x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY
         && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
-      //console.log("getting defences incoming timers");
+      console.log("getting defences incoming timers");
 
       let count = 0;
       this.nexusDefencesIncoming.forEach(x => {

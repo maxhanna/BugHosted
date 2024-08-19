@@ -2,10 +2,7 @@
   <div class="closeButton" (click)="remove_me('UpdateUserProfile')"></div>
   <!--<div class="refreshButton" (click)="ngOnInit()"></div>-->
   <div class="componentTitle">{{!showOnlySelectableMenuItems ? 'Settings' : 'Select Your Apps'}}</div>
-  <div *ngFor="let notif of notifications" [innerHTML]="notif" (click)="notifications = [];" title="Click to clear notifications" class="notificationArea notification"></div>
-
-
-  <input type="submit" value="Delete Account 🗑️" (click)="deleteUser()" title="Delete Account" *ngIf="!showOnlySelectableMenuItems" />
+  <div *ngFor="let notif of notifications" [innerHTML]="notif" (click)="notifications = [];" title="Click to clear notifications" class="notificationArea notification"></div> 
  
   <div *ngIf="parentRef!.user" class="settingsDiv">
     <fieldset>
@@ -149,87 +146,97 @@
                     <td (click)="selectMenuIcon(icon.title)" class="pointer">{{ icon.title == 'Weather' ? '☀️' : icon.icon }}{{ icon.title }}</td>
                     <td *ngIf="showOnlySelectableMenuItems" [id]="icon.title+'td'">
                       <div *ngIf="icon.title == 'Bug-Wars'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>"Bug Wars" is a real-time strategy, massively multiplayer online game set in the near future.</div>
-                          <div>As foreseen, AI has turned against humanity, and our mission is now to survive.</div>
-                          <div>
-                            <app-media-viewer [fileId]="6697"
-                                              [inputtedParentRef]="parentRef"
-                                              [displayExtraInfo]="false"
-                                              [showCommentSection]="false"
-                                              [displayExpander]="false">
-                            </app-media-viewer>
-                          </div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          "Bug Wars" is a real-time strategy, massively multiplayer online game set in the near future. Create your base and compete against others for control over the map!<br />
+                          <app-media-viewer [fileId]="6697"
+                                            [inputtedParentRef]="parentRef"
+                                            [displayExtraInfo]="false"
+                                            [showCommentSection]="false"
+                                            [displayExpander]="false">
+                          </app-media-viewer>
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Files'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>
-                            a Filesystem which is the backbone of the Memes/Social/Chat section.
-                            <div>Anything publicly available in the filesystem can be used as an attachment anywhere on the site or shared publicly off-site for free!</div>
-                          </div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          a Filesystem which is the backbone of the Memes/Social/Chat section.
+                          Anything publicly available in the filesystem can be used as an attachment anywhere on the site or shared publicly off-site for free!
+
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'News'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Get the latest news on any subject from multiple different sources (from both main and non-mainstream news).
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'Notifications'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Notifications display for all components of this website. Necessary to get up to date information about whats happening on the site regarding your content.
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'MiningDevices'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Connect to Nicehash and manage your cryptocurrency mining rig devices from here.
+                          If you do not have any mining rigs set up, you can start earning bitcoin with any graphic card by using Nicehash.
+                          Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
+                        </div>
+                        <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
+                      </div>
+                      <div *ngIf="icon.title == 'MiningRigs'" [id]="icon.title+'tddiv'">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Connect to Nicehash and manage your cryptocurrency mining rigs from here.
+                          If you do not have any mining rigs set up, you can start earning bitcoin with any graphic card by using Nicehash.
+                          Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Weather'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>
-                            Get up to date weather information based on a location you supply or the automatically found location based on your IP-Address!
-                          </div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Get up to date weather information based on a location you supply or the automatically found location based on your IP-Address!
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Todo'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>
-                            A todo list to keep yourself reminded of everything todo. Create your own lists and save reminders to it!
-                          </div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          A todo list to keep yourself reminded of everything todo. Create your own lists and save reminders to it!
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Music'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>
-                            A muic list to keep track of your favourite youtube songs! Once added, the songs are displayed on your profile page!
-                            <div>
-                              <app-media-viewer [fileId]="6379"
-                                                [inputtedParentRef]="parentRef"
-                                                [displayExtraInfo]="false"
-                                                [showCommentSection]="false"
-                                                [displayExpander]="false">
-                              </app-media-viewer>
-                            </div>
-                          </div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          A muic list to keep track of your favourite youtube songs! Once added, the songs are displayed on your profile page!
+                          <app-media-viewer [fileId]="6379"
+                                            [inputtedParentRef]="parentRef"
+                                            [displayExtraInfo]="false"
+                                            [showCommentSection]="false"
+                                            [displayExpander]="false">
+                          </app-media-viewer>
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Coin-Watch'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>
-                            Coin Watch keeps track of crypto prices for the most popular coins.
-                            <div>
-                              <app-media-viewer [fileId]="6378"
-                                                [inputtedParentRef]="parentRef"
-                                                [displayExtraInfo]="false"
-                                                [showCommentSection]="false"
-                                                [displayExpander]="false">
-                              </app-media-viewer>
-                            </div>
-                          </div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Coin Watch keeps track of crypto prices for the most popular coins.
+                          <app-media-viewer [fileId]="6378"
+                                            [inputtedParentRef]="parentRef"
+                                            [displayExtraInfo]="false"
+                                            [showCommentSection]="false"
+                                            [displayExpander]="false">
+                          </app-media-viewer>
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Notepad'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>
-                            Jot down notes and share them with others.
-                          </div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Jot down notes and share them with others.
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Contacts'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                           <div>
                             Add your friends as contacts! Simply go to a person's profile page and click Add as Contact to keep track of friends' contact information and profiles.
                           </div>
@@ -237,49 +244,49 @@
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Calendar'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                           The Calendar helps you remember important things. Dont forget.
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Social'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                           Social platform.
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Meme'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                           Share memes, use them in chat, on the socials or even as a display picture!
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Wordler'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                           Can you defeat the Wordler? A word guessing game inspired from the NY Times website!
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Chat'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>Still under construction. Chat system to connect you with your friends or groups of friends.</div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Still under construction. Chat system to connect you with your friends or groups of friends.
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Favourites'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>Still under construction.</div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Still under construction.
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Coin-Wallet'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>Still under construction. Connect to various APIS to show your cryptocurrency wallet balance. Currently supports Nicehash API (and all nicehash wallets associated).</div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Still under construction. Connect to various APIS to show your cryptocurrency wallet balance. Currently supports Nicehash API (and all nicehash wallets associated).
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                           The Array transports users down a seemingly infinite array.
                           The further you go down the array, the more experience you gain.
                           Find items to make you stronger!
@@ -296,14 +303,14 @@
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
                       <div *ngIf="icon.title == 'Emulation'" [id]="icon.title+'tddiv'">
-                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')">
-                          <div>Our "Nostalgist" emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super Nintendo, Sega and more!</div>
-                          <div>Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our servers.</div>
-                          <div>You may now restart from anywhere with any device! (Supports joysticks and fullscreen mode!)</div>
+                        <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                          Our "Nostalgist" emulator allows users to play Gameboy (Color), Gameboy Advance, Nintendo, Super Nintendo, Sega and more!
+                          Simply upload roms and enjoy the autosaving feature! The game will automatically be saved to our servers.
+                          You may now restart from anywhere with any device! (Supports joysticks and fullscreen mode!)
                         </div>
                         <button [style.display]="'none'" [id]="icon.title+'tddivbutton'" (click)="menuInformationZoom(icon.title+'td')">OK</button>
                       </div>
-                    </td> 
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -360,6 +367,20 @@ but you can also set your own City for a more precise location."></span>
             <td><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></td>
           </tr>
         </tbody>
+
+
+
+        <!--Delete Account-->
+        <thead (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlySelectableMenuItems">
+          <tr>
+            <th><span class="helperSpanTitle" title="Delete your account"></span></th>
+            <th>Delete your account?</th>
+            <th style="text-align:right;">
+              <button (click)="deleteUser()" title="Delete your account?" [disabled]="!isDeleteAccountToggled" *ngIf="isDeleteAccountToggled">🗑️</button>
+            </th>
+          </tr>
+        </thead>
+         
       </table>
       <button (click)="!showOnlySelectableMenuItems ? parentRef?.createComponent('User') : remove_me('UpdateUserProfile')">Close</button>
     </fieldset>

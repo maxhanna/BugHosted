@@ -1981,13 +1981,8 @@ namespace maxhanna.Server.Controllers
                         LEFT JOIN maxhanna.user_display_pictures dudp on dudp.user_id = a.destination_user_id
                         WHERE destination_user_id = @UserId"; 
                 }
-                using (MySqlCommand sqlCmd = new MySqlCommand(sql, conn))
-                {
-                    if (transaction != null)
-                    {
-                        sqlCmd.Transaction = transaction;
-                    }
-
+                using (MySqlCommand sqlCmd = new MySqlCommand(sql, conn, transaction))
+                {  
                     if (onlyCurrentBase)
                     {
                         sqlCmd.Parameters.AddWithValue("@DestX", nexusBase.CoordsX);
@@ -2065,6 +2060,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (!passedInConn && conn != null)
                 {
+                    Console.WriteLine("Closeing connection");
                     await conn.CloseAsync();
                 }
             }
@@ -3216,16 +3212,14 @@ namespace maxhanna.Server.Controllers
         public async Task UpdateNexusAttacks([FromBody] NexusBase nexus)
         {
             Console.WriteLine($"Update Nexus Attacks for {nexus.CoordsX},{nexus.CoordsY}");
-
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             await conn.OpenAsync();
 
             MySqlTransaction transaction = await conn.BeginTransactionAsync();
 
             try
-            {
-
-                List<UnitStats> stats = await GetUnitStatsFromDB(null, null);
+            { 
+                List<UnitStats> stats = await GetUnitStatsFromDB(null, null, conn, transaction);
                 UnitStats marineStats = stats.Find(x => x.UnitType == "marine")!;
                 UnitStats goliathStats = stats.Find(x => x.UnitType == "goliath")!;
                 UnitStats siegeTankStats = stats.Find(x => x.UnitType == "siege_tank")!;
@@ -3234,8 +3228,8 @@ namespace maxhanna.Server.Controllers
                 UnitStats battlecruiserStats = stats.Find(x => x.UnitType == "battlecruiser")!;
                 UnitStats glitcherStats = stats.Find(x => x.UnitType == "glitcher")!;
 
-                List<NexusAttackSent>? attacks = (await GetNexusAttacksIncoming(nexus, true, true, null, null)) ?? new List<NexusAttackSent>();
-                List<NexusAttackSent>? attacks2 = (await GetNexusAttacksSent(nexus, true, null, null)) ?? new List<NexusAttackSent>();
+                List<NexusAttackSent>? attacks = (await GetNexusAttacksIncoming(nexus, true, true, conn, transaction)) ?? new List<NexusAttackSent>();
+                List<NexusAttackSent>? attacks2 = (await GetNexusAttacksSent(nexus, true, conn, transaction)) ?? new List<NexusAttackSent>();
                 if (attacks == null)
                 {
                     attacks = new List<NexusAttackSent>();
@@ -3251,18 +3245,17 @@ namespace maxhanna.Server.Controllers
                     for (var attackIndex = 0; attackIndex < attacks.Count; attackIndex++)
                     {
                         await PerformAttackOrDefenceIfTimeElapsed(conn, transaction, marineStats, goliathStats, siegeTankStats, scoutStats, wraithStats, battlecruiserStats, glitcherStats, attacks, attackIndex, upgradeStats);
-                    }
-                    await transaction.CommitAsync();
-
-                    await conn.CloseAsync();
+                    } 
                 }
+
+                await transaction.CommitAsync();
+
+                await conn.CloseAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error while updating attacks:" + ex.Message);
-
+                Console.WriteLine("Error while updating attacks:" + ex.Message); 
                 await transaction.RollbackAsync();
-
             }
         }
 
@@ -3347,7 +3340,7 @@ namespace maxhanna.Server.Controllers
                 };
                 foreach (var (us, total) in units)
                 {
-                    if (total != null && total > 0)
+                    if (total != null && total > 0 && us != null)
                     {
                         UnitStats tmp = us;
                         tmp.SentValue = Math.Max(0, (total ?? 0));
@@ -3471,8 +3464,8 @@ namespace maxhanna.Server.Controllers
                     int attackingAirDamage = CalculateDamage(unitStat => unitStat.AirDamage, attackerUnitTypeToLevelMap);
 
 
-                    double defendingGroundDamage = (defendingUnits?.ScoutTotal * unitStats["scout"].GroundDamage) ?? 0.0001;
-                    double defendingAirDamage = (defendingUnits?.ScoutTotal * unitStats["scout"].AirDamage) ?? 0.0001;
+                    double defendingGroundDamage = (defendingUnits?.ScoutTotal * unitStats["scout"]?.GroundDamage) ?? 0.0001;
+                    double defendingAirDamage = (defendingUnits?.ScoutTotal * unitStats["scout"]?.AirDamage) ?? 0.0001;
                     foreach (var unitType in unitStats.Keys)
                     {
                         if (!scoutAttack && unitType != "scout") // Skip scout since it's already calculated
@@ -3484,10 +3477,10 @@ namespace maxhanna.Server.Controllers
                                 int unitLevel = getLevel();
                                 decimal damageMultiplier = unitUpgradeStats.FirstOrDefault(u => u.UnitLevel == unitLevel)?.DamageMultiplier ?? 1;
 
-                                defendingGroundDamage += totalUnits * (unitStats[unitType].GroundDamage * (double)damageMultiplier);
-                                defendingAirDamage += totalUnits * (unitStats[unitType].AirDamage * (double)damageMultiplier);
+                                defendingGroundDamage += totalUnits * ((unitStats[unitType]?.GroundDamage ?? 0.0001) * (double)damageMultiplier);
+                                defendingAirDamage += totalUnits * ((unitStats[unitType]?.AirDamage ?? 0.0001) * (double)damageMultiplier);
 
-                                Console.WriteLine($"Calculating added {unitType} defending damage: {defendingGroundDamage} {defendingAirDamage} ... ground: {unitStats[unitType].GroundDamage}, air: {unitStats[unitType].AirDamage}, multiplier: {damageMultiplier}");
+                                Console.WriteLine($"Calculating added {unitType} defending damage: {defendingGroundDamage} {defendingAirDamage} ... ground: {(unitStats[unitType]?.GroundDamage ?? 0.0001)}, air: {(unitStats[unitType]?.AirDamage ?? 0.0001)}, multiplier: {damageMultiplier}");
                             }
                         }
                     }
