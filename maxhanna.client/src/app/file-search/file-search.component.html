@@ -61,7 +61,7 @@
                  [id]="'fileIdDiv'+file.id"
                  [attr.data-content]="file?.fileData?.givenFileName ?? file?.fileName ?? ''">
               <input type="text"
-                     [placeholder]="file?.fileData?.givenFileName ?? file && file.fileName ? file.fileName.split('.')[0]! : 'New file name'"
+                     [placeholder]="file?.fileData?.givenFileName ?? (file && file.fileName ? file.fileName.split('.')[0]! : 'New file name')"
                      [value]=""
                      [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
                      (keyup)="editFileKeyUp($event, file.id)"
@@ -72,16 +72,16 @@
                 {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.fileData?.givenFileName ?? getFileWithoutExtension(file.fileName)!}}
               </span>
 
-              <div class="fileExtras">
+              <div class="fileExtras" (click)="selectFile(file);">
                 <app-reaction *ngIf="displayReactions && !file.isFolder"
                               [user]="user"
                               [currentReactions]="file.reactions"
-                              [fileId]="file.id">
+                              [fileId]="file.id" (click)="$event.stopPropagation()">
                 </app-reaction>
                 <div *ngIf="displayComments" class="commentCountTd">
                   {{file && file.fileComments ? '🗨️' + file.fileComments.length : ''}}
                 </div>
-                <div class="typeTd" (click)="selectFile(file);" *ngIf="displayFileType">
+                <div class="typeTd" (click)="selectFile(file); $event.stopPropagation();" *ngIf="displayFileType">
                   <span *ngIf="file && file.fileType">
                     {{file.fileType.toUpperCase()}}
                   </span>
@@ -96,15 +96,15 @@
                   </span>
                 </div>
                 <div class="actionTd" *ngIf="displayFileActions">
-                  <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event)">
+                  <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event);$event.stopPropagation();">
                     ✏️Edit
                   </button>
                   <button title="Share File"
                           *ngIf="file?.visibility?.toLowerCase() == 'private'"
-                          (click)="shareFileInitiate(file)">
+                          (click)="shareFileInitiate(file); $event.stopPropagation();">
                     ↗️Share
                   </button>
-                  <button (click)="this.delete(file);"
+                  <button (click)="this.delete(file); $event.stopPropagation();"
                           *ngIf="
                             file?.sharedWith?.includes(user?.id!+'')
                             || file?.user?.id == user?.id!

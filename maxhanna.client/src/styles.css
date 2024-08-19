@@ -86,11 +86,9 @@ a {
 button {
   background-color: var(--main-highlight-color);
   color: var(--main-font-color);
-  font-weight: bold;
-  font-size: 12px;
-  min-height: 25px;
+  font-weight: bold; 
   text-align: center;
-  text-shadow: 1.2px 1.1px 1.1px black;
+  text-shadow: 1.2px 1.1px 1.1px black; 
 }
 
 legend {

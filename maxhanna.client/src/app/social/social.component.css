@@ -119,11 +119,18 @@
     display: inline-block;
     width: 100%;
 }
-.commentVoteButtons { 
+.commentVoteButtons {
   width: 100%;
-  height: 25px;
-  text-align:right;
-  margin-bottom: -5px;
+  height: 25px; 
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: nowrap; 
+  align-items: center;
+}
+.commentVoteButtons button {
+    width:33%;
+    max-width:60px;
+    font-size: 8px;
 }
 .commentUsername { 
 } 

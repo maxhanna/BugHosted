@@ -35,8 +35,7 @@
   display: inline-block;
 }
 
-.addCommentTextArea {
-  height: 20px;
+.addCommentTextArea { 
   width: 80%;
 }
 
@@ -100,8 +99,7 @@
   color: var(--secondary-font-color);
 }
 
-.commentSubmit {
-  width: 100px;
+.commentSubmit { 
   text-align: center;
 }
 .commentListDiv {
