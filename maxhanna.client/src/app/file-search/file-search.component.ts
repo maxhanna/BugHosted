@@ -175,7 +175,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.search.nativeElement.value = file.fileName;
     } else {
       if (!file.isFolder) {
-        this.download(file, false);
+          this.download(file, false, true)  
       } else {
         this.currentDirectory += file.fileName + "/";
         this.getDirectory(file.fileName);
@@ -254,8 +254,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   getCanEdit(userid: number) {
     return userid == this.parentRef?.user?.id;
   }
-  async download(file: FileEntry, force: boolean) {
-    if (this.isMediaFile(file.fileName) && !force) {
+  async download(file: FileEntry, force: boolean, forceOpenMedia?: boolean) {
+    if ((this.isMediaFile(file.fileName) && !force) || forceOpenMedia) {
       this.viewMediaFile = true;
       if (this.openedFiles.includes(file.id)) {
         this.openedFiles = [];

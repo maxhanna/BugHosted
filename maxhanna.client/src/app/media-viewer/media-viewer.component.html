@@ -14,7 +14,7 @@
     </div>
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
     <div *ngIf="!isLoading && autoload && selectedFileSrc != ''" class="mediaDiv">
-      <img #mediaContainer *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="media" />
+      <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="media" />
       <video #mediaContainer *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
       <audio #mediaContainer
              *ngIf="audioFileExtensionsIncludes(this.selectedFileExtension)"
@@ -25,7 +25,8 @@
              class="audio media">
         Your browser does not support the audio element.
       </audio>
-      <div class="filetype" *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension!)">
+      <div *ngIf="otherFileExtensionsIncludes(this.selectedFileExtension)"><img src="../../favicon.ico" /></div>
+      <div class="filetype" *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension) && !otherFileExtensionsIncludes(this.selectedFileExtension)">
         <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ◻️</span>
       </div>
       <div class="filetype" *ngIf="displayExtraInfo">
@@ -33,11 +34,11 @@
               class="usernameProfileLink cursorPointer">
           {{selectedFile?.user?.username}}
         </span>
-        {{selectedFile ? '🍌' : ''}}{{selectedFile?.date!.toString().replace('T', ' ')}}
+        <span class="notification">{{selectedFile?.date!.toString().replace('T', ' ')}}</span>
       </div>
       <div class="filetype" *ngIf="displayExtraInfo">
-        <button (click)="copyLink()" title="Share Link">Share 📋</button>
-        <button (click)="download(selectedFile!, true)">Download</button>
+        <button (click)="copyLink()" title="Share Link">📋Share</button>
+        <button (click)="download(selectedFile!, true)">📥Download</button>
       </div>
     </div>
   </div>

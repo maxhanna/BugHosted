@@ -9,7 +9,7 @@
 
   <div class="notificationsDisplay">
     <div>
-      <div>You have {{notifications && notifications.length}} notifications <button (click)="delete()" *ngIf="notifications && notifications.length > 0">❌ Delete Notifications</button></div>
+      <div *ngIf="notifications && notifications.length > 0" class="noNotificationsDiv">You have {{notifications && notifications.length}} notifications <button (click)="delete()" *ngIf="notifications && notifications.length > 0">❌ Delete Notifications</button></div>
       <div class="closeButton" (click)="showNotifications = !showNotifications" *ngIf="minimalInterface"></div>
     </div>
     <div [class]="minimalInterface ? 'notificationsList' : ''">
@@ -32,9 +32,15 @@
         </div>
         <div>
           <strong>Date:</strong> {{ notification.date | date: 'short' }}
-        </div>
-        <hr>
+        </div> 
       </div>
+    </div>
+    <div *ngIf="notifications && notifications.length == 0" class="noNotificationsDiv">
+
+      <div>You don't have any notifications</div>
+      <img src="../../favicon.ico" />
+      <div>Notifications will appear when users interact with you or your content.</div>
+      
     </div>
   </div>
 </div>

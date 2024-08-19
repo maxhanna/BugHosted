@@ -1,14 +1,7 @@
 .componentMain {
     min-width: 300px;
     max-width:98vw;
-}
-div {
-  margin-bottom: 10px;
-}
-
-hr {
-  border-top: 1px solid #ccc;
-}
+} 
 .minimalInterfaceComponent {
   background-color: var(--main-bg-color-full-opacity);
   position: fixed;
@@ -19,6 +12,12 @@ hr {
   left: CALC(50% - 150px);
   z-index: 10;
   border: var(--main-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: wrap;
+  flex-direction: column;
 }
 
 .notificationsDisplay {
@@ -26,17 +25,25 @@ hr {
     flex-flow:column wrap;
     justify-content: space-between;
 }
-.notificationsList {
-  padding: 10px;
+.notificationsList { 
   max-height: 245px;
   overflow: auto;
   width: 270px;
 }
 .notificationListItem {
-
+    border: var(--main-border);
 }
 .notificationText {
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+}
+.noNotificationsDiv {
+  display: flex; 
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: space-between;
+  justify-content: space-around;
+  align-items: center;
+  text-align:center;
 }

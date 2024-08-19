@@ -258,4 +258,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   imageFileExtensionsIncludes(ext: string) {
     return this.fileService.imageFileExtensions.includes(ext);
   }
+  otherFileExtensionsIncludes(ext: string) {
+    return !this.videoFileExtensionsIncludes(ext) && !this.audioFileExtensionsIncludes(ext) && !this.imageFileExtensionsIncludes(ext);
+  }
 }

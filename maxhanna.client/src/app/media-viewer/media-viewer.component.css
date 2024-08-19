@@ -47,8 +47,7 @@
   object-fit: contain;
 }
 
-.mediaContainerWrapperDiv {
-  width: 100%;
+.mediaContainerWrapperDiv { 
   display: flex;
   justify-content: center;
 }
