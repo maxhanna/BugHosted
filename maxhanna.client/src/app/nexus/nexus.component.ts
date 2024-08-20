@@ -1121,10 +1121,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         }
 
         this.displayBuildings(this.nexusBaseUpgrades);
-        this.nexusBase.gold -= upgradeCost;
-        if (this.mapData && this.nexusBase) {
-          this.mapData.find(x => x.coordsX == this.nexusBase!.coordsX && x.coordsY == this.nexusBase!.coordsY)!.gold = this.nexusBase.gold;
-        }
+        this.updateCurrentBasesGold(upgradeCost);
         this.addNotification(`{${this.nexusBase.coordsX},${this.nexusBase.coordsY}} Upgrading ${upgrade}`);
         this.getBuildingUpgradesInfo();
 
@@ -1135,6 +1132,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         // Stop loading indicator
         this.stopLoading();
       }
+    }
+  }
+
+  private updateCurrentBasesGold(upgradeCost: number) {
+    if (this.mapData && this.nexusBase) {
+      this.nexusBase.gold -= upgradeCost;
+      this.mapData.find(x => x.coordsX == this.nexusBase!.coordsX && x.coordsY == this.nexusBase!.coordsY)!.gold = this.nexusBase.gold;
     }
   }
 
@@ -1168,7 +1172,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.addNotification(`You cannot have more then one glitcher per base.`);
     }
     else {
-      this.nexusBase.gold -= totalCost;
+      this.updateCurrentBasesGold(totalCost);
       this.nexusBase.supply += totalSupplyCost;
       this.calculateCurrentSupply();
       this.addNotification(`Purchased ${tmpUnit.purchasedValue} ${tmpUnit.unitType}.`);
@@ -1182,9 +1186,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       } as NexusUnitsPurchased;
       if (!this.nexusUnitsPurchaseList) { this.nexusUnitsPurchaseList = []; }
       this.nexusUnitsPurchaseList.push(purchasedUnit);
-      if (this.mapData) {
-        this.mapData.find(x => x.coordsX == this.nexusBase?.coordsX && x.coordsY == this.nexusBase?.coordsY)!.gold = this.nexusBase.gold;
-      }
+      
       this.getUnitTimers();
       this.nexusService.purchaseUnit(this.parentRef.user, this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0);
     }
@@ -1915,7 +1917,22 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     const unitStat = this.units.find(x => x.unitType == unit);
     this.toggleUnitScreen(unitStat);
   }
-  getUnitsWithoutGlitcher() {
+  getResearchCostPerUnit(unit: UnitStats) {
+    return unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1);
+  }
+  getResearchDisplay(unit: UnitStats) {
+    return this.researchTimers[unit.unitType + " level " + unit.unitLevel] ? this.getActiveResearchTimerFormatted(unit) : this.unitCostsMoreThanCurrentGold(unit) ? '⛔' : '🔧';
+  }
+  getActiveResearchTimerFormatted(unit: UnitStats) {
+    return this.formatTimer(this.researchTimers[unit.unitType + " level " + unit.unitLevel].endTime);
+  }
+  unitCostsMoreThanCurrentGold(unit: UnitStats) {
+    return this.nexusBase && (unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1)) > this.nexusBase.gold;
+  }
+  trackByUnit(index: number, unit: UnitStats): any {
+    return unit.unitId; // or a unique identifier for the unit
+  }
+  getUnitsWithoutGlitcher() { 
     if (!this.units || !this.nexusBase) return undefined;
     if (this.unitsWithoutGlitcher) return;
 
@@ -1947,12 +1964,24 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.getEngineerBayUpgradeLimit() <= Object.keys(this.activeResearchTimers).length) {
       return alert("Upgrade the Engineering Bay for more research upgrades.");
     }
+    console.log("researching" + unit.unitId);
+    console.log(unit);
     if (this.parentRef && this.parentRef.user && this.nexusBase) {
-      const res = await this.nexusService.research(this.parentRef.user, this.nexusBase, unit);
-      if (res) {
-        this.addNotification(res);
-        await this.loadNexusData(true);
+      this.nexusService.research(this.parentRef.user, this.nexusBase, unit);
+      const cost = this.getResearchCostPerUnit(unit); 
+      this.updateCurrentBasesGold(cost);
+      if (!this.nexusUnitUpgrades) {
+        this.nexusUnitUpgrades = [];
       }
+      this.nexusUnitUpgrades.push({
+        coordsX : this.nexusBase.coordsX,
+        coordsY : this.nexusBase.coordsY,
+        unitIdUpgraded: unit.unitId,
+        timestamp: new Date(), 
+      } as NexusUnitUpgrades);
+      this.updateUnitResearchTimers();
+
+      this.addNotification(`${unit.unitType} research level ${unit.unitLevel} started.`); 
     }
   }
 

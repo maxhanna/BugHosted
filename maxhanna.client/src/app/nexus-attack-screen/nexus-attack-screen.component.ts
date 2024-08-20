@@ -80,7 +80,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
       }
        
       //this.emittedReloadEvent.emit("Attack sent");
-      this.closedAttackScreen.emit();
+      //this.closedAttackScreen.emit();
       this.RemoveAttackingUnitsFromAvailableUnits();
       const nexusAttack = this.createNexusAttack(attackDuration);
       this.emittedAttack.emit(nexusAttack);

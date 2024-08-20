@@ -135,8 +135,8 @@
   left: 160px;
 }
 .engineeringBay, .engineeringBayLevelDisplay {
-  top: 67px;
-  left: 288px;
+  top: 84px;
+  left: 293px;
 }
 
 .supplyDepotScreen, .starportScreen, .minesScreen, .factoryScreen, .warehouseScreen, .engineeringBayScreen, .commandCenterScreen {
@@ -187,10 +187,10 @@
       height:35px;
       font-size: x-small;
   }
-   
+
 .mapComponentDiv {
   display: none;
-  max-height:500px;
+  max-height: 80vh;
   overflow: hidden;
 }
 

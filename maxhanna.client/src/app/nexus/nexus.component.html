@@ -395,14 +395,14 @@
       <div class="unitsUpgradesDiv">
         <div class="unitsUpgradesDiv">
           <div class="unitResearches">
-            <div *ngFor="let unit of unitsWithoutGlitcher ? unitsWithoutGlitcher : getUnitsWithoutGlitcher()" class="unitUpgradeDiv capitalize xxSmallFont gameNotification unitUpgradeDivContainer">
+            <div *ngFor="let unit of (unitsWithoutGlitcher ? unitsWithoutGlitcher : getUnitsWithoutGlitcher()); trackBy: trackByUnit" class="unitUpgradeDiv capitalize xxSmallFont gameNotification unitUpgradeDivContainer">
               <img [src]="unit.pictureSrc" loading="lazy" class="unitPicture" decoding="asynchronous" />
               <div class="unitUpgradeDiv">
                 <p class="usernameProfileLink">Level: {{unit.unitLevel}}</p>
-                <p class="usernameProfileLink goldText">📀: {{unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1)}}</p>
+                <p class="usernameProfileLink goldText">📀: {{getResearchCostPerUnit(unit)}}</p>
               </div>
               <button [disabled]="isLoading" (click)="research(unit)" *ngIf="unit.unitLevel < 3">
-                {{ researchTimers[unit.unitType + " level " + unit.unitLevel] ? formatTimer(researchTimers[unit.unitType + " level " + unit.unitLevel].endTime) : (nexusBase && (unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1)) > nexusBase.gold) ? '⛔' : '🔧'}}
+                {{ getResearchDisplay(unit) }}
               </button>
             </div>
           </div>

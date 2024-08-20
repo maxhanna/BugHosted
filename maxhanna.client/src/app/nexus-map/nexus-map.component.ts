@@ -299,17 +299,16 @@ export class NexusMapComponent {
     }
     return "emptyBase";
   }
-  isAttackSentOn(x: number, y: number) {
+  isAttackSentOn(x: number, y: number) { 
     if (!this.nexusAttacksSent && !this.nexusDefencesSent) return false; 
-    if (this.nexusAttacksSent) {
-      const relevantAttack = this.nexusAttacksSent.find(nb => (nb.destinationCoordsX != nb.originCoordsX && nb.destinationCoordsY != nb.originCoordsY) && nb.destinationCoordsX == x && nb.destinationCoordsY == y);
+    if (this.nexusAttacksSent) { 
+      const relevantAttack = this.nexusAttacksSent.find(nb => !(nb.destinationCoordsX == nb.originCoordsX && nb.destinationCoordsY == nb.originCoordsY) && nb.destinationCoordsX == x && nb.destinationCoordsY == y);
       if (relevantAttack) return true;
     }
     
     if (this.nexusAttacksIncoming) { 
-      return this.nexusAttacksIncoming.some(nb => (nb.destinationCoordsX != nb.originCoordsX && nb.destinationCoordsY != nb.originCoordsY) && nb.destinationCoordsX == x && nb.destinationCoordsY == y && nb.originUser?.id != this.user?.id); 
+      return this.nexusAttacksIncoming.some(nb => !(nb.destinationCoordsX == nb.originCoordsX && nb.destinationCoordsY == nb.originCoordsY) && nb.destinationCoordsX == x && nb.destinationCoordsY == y && ((nb.originUser?.id ?? 0 ) != (this.user?.id ?? 0))); 
     }
-
     return false;
   }
   isAttackReturningOn(x: number, y: number) {

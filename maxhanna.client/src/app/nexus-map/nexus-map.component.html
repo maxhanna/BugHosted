@@ -32,11 +32,11 @@
 
 <div *ngIf="selectedNexusBase && !isAttackScreenOpen && mapInputX && mapInputY" class="centeredDiv">
   <div>
-    <button (click)="showAttackScreen(false)" *ngIf="showAttackButton">Attack ⚔️</button>
-    <button (click)="showAttackScreen(true)" *ngIf="showAttackButton">Defend 🛡️</button>
+    <button (click)="showAttackScreen(false)" *ngIf="showAttackButton">⚔️Attack</button>
+    <button (click)="showAttackScreen(true)" *ngIf="showAttackButton">🛡️Defend</button>
     <button (click)="scrollToCoordinates(selectedNexusBase.coordsX, selectedNexusBase.coordsY, false)" class="invertedHighlights">{{isAttackScreenOpen ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}</button>
-    <button (click)="toggleShowReports()">{{ isReportsHidden ? '' : 'Hide' }} Data 📃</button>
-    <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">View Base 🏰</button>
+    <button (click)="toggleShowReports()">📃{{ isReportsHidden ? '' : 'Hide' }} Data</button>
+    <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰View Base</button>
   </div>
   <div *ngIf="selectedNexusBase.user && user && selectedNexusBase.user.id != user.id">
     👤:
@@ -66,8 +66,9 @@
     <app-nexus-reports [user]="user" #nexusReports></app-nexus-reports>
   </div>
 </div>
-<div *ngIf="isAttackScreenOpen">
-  <app-nexus-attack-screen [user]="user"
+<div *ngIf="isAttackScreenOpen" class="attackScreenDiv">
+  <app-nexus-attack-screen class="attackScreenDiv"
+                           [user]="user"
                            [originBase]="nexusBase"
                            [selectedNexus]="selectedNexusBase"
                            [nexusAvailableUnits]="nexusAvailableUnits"
