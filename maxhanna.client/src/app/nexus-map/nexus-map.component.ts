@@ -152,10 +152,7 @@ export class NexusMapComponent {
   }
    
 
-  showAttackScreen(isDefence: boolean) {
-    console.log("show attack screen");
-    console.log(this.selectedNexusBase);
-    console.log(this.nexusBase);
+  showAttackScreen(isDefence: boolean) { 
     if (this.selectedNexusBase && this.nexusBase && this.selectedNexusBase.coordsX == this.nexusBase.coordsX && this.selectedNexusBase.coordsY == this.nexusBase.coordsY) { return alert("Cannot attack or defend the same base."); }
     if (this.unitStats) {
       this.unitStats.sort((a, b) => a.cost - b.cost);
@@ -174,7 +171,6 @@ export class NexusMapComponent {
     this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence } as AttackEventPayload); 
     this.updateAttackTimers();
     this.updateDefenceTimers();
-    console.log(this.nexusDefencesSent?.filter(x => x.arrived == false)); 
   }
 
   clearMapInputs() {
