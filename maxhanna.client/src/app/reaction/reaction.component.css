@@ -20,9 +20,16 @@
 }
 .addReactionTitleSpan {
   font-size: small;
-} 
+}
 .reactionChoices {
-  position:relative;
-  z-index:4;
+  max-width: 120px;
+  position: relative;
+  z-index: 4;
   background-color: var(--main-bg-color-full-opacity);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
 }

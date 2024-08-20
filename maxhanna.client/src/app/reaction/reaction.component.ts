@@ -15,7 +15,7 @@ export class ReactionComponent implements OnInit {
   showReactionChoices = false;
   showReactions = false;
   userReaction = '';
-
+  reactionId = Math.random()*10000000000000;
   reactions = [
     { type: 'thumbs_up', emoji: '👍', label: 'Thumbs Up' },
     { type: 'heart', emoji: '❤️', label: 'Heart' },
@@ -23,7 +23,20 @@ export class ReactionComponent implements OnInit {
     { type: 'wow', emoji: '😮', label: 'Wow' },
     { type: 'sad', emoji: '😢', label: 'Sad' },
     { type: 'angry', emoji: '😡', label: 'Angry' },
-    { type: 'thumbs_down', emoji: '👎', label: 'Thumbs Down' }
+    { type: 'thumbs_down', emoji: '👎', label: 'Thumbs Down' },
+    { type: 'clap', emoji: '👏', label: 'Clap' },
+    { type: 'party', emoji: '🎉', label: 'Party' },
+    { type: 'thinking', emoji: '🤔', label: 'Thinking' },
+    { type: 'fire', emoji: '🔥', label: 'Fire' },
+    { type: 'crying', emoji: '😭', label: 'Crying' },
+    { type: 'surprised', emoji: '😲', label: 'Surprised' },
+    { type: 'cool', emoji: '😎', label: 'Cool' },
+    { type: 'love', emoji: '😍', label: 'Love' },
+    { type: 'wink', emoji: '😉', label: 'Wink' },
+    { type: 'pray', emoji: '🙏', label: 'Pray' },
+    { type: 'muscle', emoji: '💪', label: 'Muscle' },
+    { type: 'celebrate', emoji: '🥳', label: 'Celebrate' },
+    { type: 'smile', emoji: '😊', label: 'Smile' }
   ];
 
   @Input() commentId?: number; 
@@ -79,6 +92,16 @@ export class ReactionComponent implements OnInit {
   reactionDisplayOnClick() {
     this.showReactionChoices = !this.showReactionChoices; 
   }
+
+  hideReactionChoicesDiv = () => { 
+    const reactionChoicesDiv = document.getElementById('reactionChoicesDiv') as HTMLDivElement;
+    if (reactionChoicesDiv) {
+      reactionChoicesDiv.style.display = 'none'; // Hide the div
+    }
+    window.removeEventListener('scroll', this.hideReactionChoicesDiv);
+  };
+
+
   showReactionsOnClick() {
     this.showReactions = !this.showReactions;
   }

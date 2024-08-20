@@ -23,7 +23,7 @@ namespace maxhanna.Server.Services
         {
             // Load existing attacks from the database and schedule them
             Task.Run(() => LoadAndScheduleExistingNexus(), stoppingToken);
-            _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(120));
+            _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(8));
 
             return Task.CompletedTask;
         }
