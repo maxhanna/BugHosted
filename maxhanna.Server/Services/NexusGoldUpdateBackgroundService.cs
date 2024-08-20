@@ -50,7 +50,7 @@ namespace maxhanna.Server.Services
                             nexus_bases
                         WHERE
                             mines_level > 0 
-                        AND updated < DATE_SUB(NOW(), INTERVAL 5 MINUTE);";
+                        AND updated < DATE_SUB(NOW(), INTERVAL 10 MINUTE);";
 
                     MySqlCommand cmd = new MySqlCommand(query, conn, transaction);
                     using (var reader = await cmd.ExecuteReaderAsync())
@@ -63,10 +63,16 @@ namespace maxhanna.Server.Services
 
                         }
                     }
+                    int limit = 10;
 
                     foreach (var (x, y) in coordsList.ToArray())
-                    { 
+                    {
+                        limit--;
                         await ProcessNexusGold(x, y, conn, transaction);
+                        if (limit == 0)
+                        {
+                            break;
+                        }
                     }
                     await transaction.CommitAsync();
                 }

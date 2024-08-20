@@ -1,10 +1,10 @@
 <div *ngIf="user || parent?.user" class="topicSelector" (click)="cancelSearch()">
   <div>
-    <input type="text" #newTopic placeholder="Choose a Topic" (keyup)="searchTopics(newTopic.value, true)" (click)="searchInputClick()"> 
+    <input type="text" #newTopic placeholder="Choose a Topic" (keyup)="searchTopics(newTopic.value, true)" (click)="searchInputClick()" id="chooseTopicInput"> 
     <button (click)="addTopic()" #addTopicButton class="addTopicButton" *ngIf="showAddTopicButton">Add Topic</button>
   </div>
   
-  <div *ngIf="matchingTopics.length > 0 && isDropdown" class="dropdownMenu">
+  <div *ngIf="matchingTopics.length > 0 && isDropdown" class="dropdownMenu" id="dropdownMenu">
     <div *ngFor="let topic of matchingTopics" (click)="selectTopic(topic)" class="dropdownMenuTopic">{{topic.topicText}}</div>
   </div>
   <div>

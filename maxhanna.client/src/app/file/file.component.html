@@ -8,7 +8,7 @@
 
   <div *ngIf="!user">
     
-    <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt && !isUploadInitiate">📂New Folder</button>
+    <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt && !isUploadInitiate && !(currentDirectory == '') && !(currentDirectory == 'Users/')">📂New Folder</button>
 
     <app-file-upload
       (userUploadEvent)="uploadInitiate();"
@@ -19,7 +19,7 @@
       [user]="parentRef?.user!"
       [uploadButtonText]="'Upload File(s)'"
       [showPrivatePublicOption]="isUploadInitiate ? true : false"
-      *ngIf="!showMakeDirectoryPrompt">
+      *ngIf="!showMakeDirectoryPrompt && !(currentDirectory == '') && !(currentDirectory == 'Users/')">
     </app-file-upload>
 
     <div *ngIf="showMakeDirectoryPrompt">

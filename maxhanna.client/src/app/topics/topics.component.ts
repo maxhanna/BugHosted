@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { TopicService } from '../../services/topic.service';
 import { Topic } from '../../services/datacontracts/topic'; 
 import { AppComponent } from '../app.component';
@@ -24,7 +24,7 @@ export class TopicsComponent extends ChildComponent {
   private searchTimer: any;
 
   constructor(private topicService: TopicService) { super(); }
-
+   
   async addTopic() {
     if (!this.user || !parent) { return alert("Must be logged in to add a topic!"); }
 
@@ -61,6 +61,7 @@ export class TopicsComponent extends ChildComponent {
       console.log("force? : " + force);
       if (enteredValue.trim() != '' || force) {
         this.matchingTopics = await this.topicService.getTopics(enteredValue);
+        
         if (enteredValue.trim() == '') {
           this.showAddTopicButton = false; 
         } 
@@ -79,7 +80,12 @@ export class TopicsComponent extends ChildComponent {
         this.matchingTopics = [];
         this.showAddTopicButton = false;
       }
-    }, 300);
+      setTimeout(() => {
+        if (document.getElementById('dropdownMenu') && document.getElementById('chooseTopicInput')) {
+          (document.getElementById('dropdownMenu') as HTMLDivElement).style.top = (document.getElementById('chooseTopicInput') as HTMLInputElement).offsetTop + (document.getElementById('chooseTopicInput') as HTMLInputElement).offsetHeight + "px";
+        }
+      }, 10); 
+    }, 100);
   } 
 
   selectTopic(topic: Topic) {

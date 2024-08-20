@@ -91,7 +91,7 @@
                   </span>
                 </div>
                 <div class="fileSizeTd" (click)="selectFile(file);" *ngIf="displayFileSize">
-                  <span *ngIf="file && file.fileSize">
+                  <span *ngIf="file && file.fileSize" (click)="selectFile(file);" >
                     {{formatFileSize(file.fileSize)}}
                   </span>
                 </div>

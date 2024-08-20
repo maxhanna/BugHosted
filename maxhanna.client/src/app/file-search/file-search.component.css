@@ -35,6 +35,7 @@
   font-size: large;
   border: var(--main-border);
   border-color: #4285f4;
+  text-shadow: 1.2px 1.1px 1.1px black;
 }
 
 .pageContainerDiv {

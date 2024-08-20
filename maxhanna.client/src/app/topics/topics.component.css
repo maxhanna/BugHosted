@@ -38,6 +38,8 @@ input {
   max-height: 200px;
   overflow-y: auto;
   border: var(--main-border);
+  z-index:1;
+  position:absolute;
 }
 
 .dropdownMenuTopic {
@@ -48,6 +50,7 @@ input {
   display: flex;
   justify-content: center;
   align-items: center;
+  background-color: var(--main-bg-color-full-opacity);
 }
 
 .removeTopicButton {

@@ -119,10 +119,10 @@
       </app-comments>
     </div>
   </div>
-  <div class="mainTableDiv" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length == 0">
-    Be the first to write about this topic!
+  <div class="mainTableDiv emptyPage" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length == 0">
+    Be the first to write {{user ? 'on ' + user.username : 'about this topic!'}}
   </div>
-  <div class="mainTableDiv" *ngIf="!storyResponse && isLoading">
+  <div class="mainTableDiv emptyPage" *ngIf="!storyResponse && isLoading">
     Loading...
   </div>
 </div>
