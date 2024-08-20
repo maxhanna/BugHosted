@@ -24,10 +24,7 @@
   .storyInputDiv div{
       width: 100%;
   }
-
-  .inputDiv input[type=text] {
-    height: 20px;
-  }
+   
 .mainTopicSelector {
   text-align: center;
   min-height: 30px;
@@ -164,8 +161,12 @@
     justify-content: flex-start;
 }
 .searchInputs {
-    display:flex;
-    justify-content:space-between; 
+  display: flex;
+  justify-content: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  align-items: center;
 }
 
 .additionalSearchFiltersSpan {
@@ -191,12 +192,12 @@
 
 .pagination {
     text-align:right;
-    display:inline;
-    margin-top:5px;
+    display:inline; 
 }
 .mainTableDiv {
-    border: var(--main-border);
-}
+  border: var(--main-border); 
+} 
+ 
 .storyHeader {
   display: flex;
   justify-content: center;
