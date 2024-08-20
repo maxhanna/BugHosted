@@ -10,15 +10,31 @@ namespace maxhanna.Server.Services
     {
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
         private readonly IConfiguration _config;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<NexusController> _logger;
         private Timer _checkForNewDefencesTimer;
 
-
-        public NexusDefenceBackgroundService(IConfiguration config)
+        public NexusDefenceBackgroundService(IConfiguration config, ILogger<NexusController> logger)
         {
             _config = config;
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            _serviceProvider = serviceCollection.BuildServiceProvider();
+            _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+        }
+        private void ConfigureServices(IServiceCollection services)
+        {
+            // Configure logging
+            services.AddLogging(configure => configure.AddConsole())
+                    .Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
+
+            // Configure configuration
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build());
         }
 
-        public void ScheduleDefence(int defenceId, TimeSpan delay, Action<int> callback)
+        public void ScheduleDefence(int defenceId, TimeSpan delay, Func<int, Task> callback)
         {
             if (_timers.ContainsKey(defenceId))
             {
@@ -31,82 +47,98 @@ namespace maxhanna.Server.Services
                 _timers.TryRemove(id, out _);
             }, defenceId, delay, Timeout.InfiniteTimeSpan);
 
-            Console.WriteLine("defence scheduled for : " + delay);
+            //Console.WriteLine($"Defence scheduled for: {delay}");
 
             if (!_timers.TryAdd(defenceId, timer))
-            {
-                // In case the upgradeId was added by another thread between the check and the add
-                timer.Dispose();
+            { 
+                timer.Dispose(); // In case the upgradeId was added by another thread between the check and the add
             }
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            // Load existing attacks from the database and schedule them
-            Task.Run(() => LoadAndScheduleExistingDefences(), stoppingToken);
-            _checkForNewDefencesTimer = new Timer(CheckForNewDefences, null, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20));
-
-            return Task.CompletedTask;
-        }
-        private async void CheckForNewDefences(object state)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await LoadAndScheduleExistingDefences();
+
+            _checkForNewDefencesTimer = new Timer(
+                async _ => await CheckForNewDefences(stoppingToken),
+                null,
+                TimeSpan.FromSeconds(20),
+                TimeSpan.FromSeconds(20)
+            );
+        }
+
+
+        private async Task CheckForNewDefences(CancellationToken stoppingToken)
+        {
+            _checkForNewDefencesTimer?.Change(Timeout.Infinite, Timeout.Infinite); // Disable timer
+            try
+            {
+                await LoadAndScheduleExistingDefences();
+            }
+            finally
+            {
+                if (!stoppingToken.IsCancellationRequested)
+                {
+                    _checkForNewDefencesTimer?.Change(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20)); // Re-enable timer
+                }
+            }
         }
 
         private async Task LoadAndScheduleExistingDefences()
         {
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
+
+            const string query = "SELECT id, timestamp, duration FROM nexus_defences_sent WHERE arrived = 0";
+            await using var cmd = new MySqlCommand(query, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            // Create a list to hold defence IDs and their delays
+            var defences = new List<(int defenceId, TimeSpan delay)>();
+
+            while (await reader.ReadAsync())
             {
-                await conn.OpenAsync();
+                int defenceId = reader.GetInt32("id");
+                DateTime timestamp = reader.GetDateTime("timestamp");
+                int duration = reader.GetInt32("duration");
 
-                string query = "SELECT id, timestamp, duration FROM nexus_defences_sent where arrived = 0";
-                MySqlCommand cmd = new MySqlCommand(query, conn);
-                using (var reader = await cmd.ExecuteReaderAsync())
+                TimeSpan delay = timestamp.AddSeconds(duration) - DateTime.Now;
+
+                defences.Add((defenceId, delay));
+            }
+            await reader.CloseAsync();
+            await conn.CloseAsync();
+
+            // Process each defence based on its delay
+            foreach (var (defenceId, delay) in defences)
+            {
+                if (delay > TimeSpan.Zero)
                 {
-                    while (await reader.ReadAsync())
-                    {
-                        int attackId = reader.GetInt32("id");
-                        DateTime timestamp = reader.GetDateTime("timestamp");
-                        int duration = reader.GetInt32("duration");
-
-                        TimeSpan delay = timestamp.AddSeconds(duration) - DateTime.Now;
-
-                        if (delay > TimeSpan.Zero)
-                        {
-                            ScheduleDefence(attackId, delay, ProcessDefence);
-                        }
-                        else
-                        {
-                            // Process immediately if the attack is overdue
-                            ProcessDefence(attackId);
-                        }
-                    }
+                    ScheduleDefence(defenceId, delay, ProcessDefence);
+                }
+                else
+                {
+                    await ProcessDefence(defenceId);
                 }
             }
         }
 
-        public async Task<NexusBase> GetNexusBaseByDefenceId(int id, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
+        public async Task<NexusBase?> GetNexusBaseByDefenceId(int id)
         {
-            NexusBase tmpBase = new NexusBase();
-            bool createdConnection = false;
+            NexusBase? tmpBase = null;
 
             try
             {
-                if (conn == null)
-                {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                    await conn.OpenAsync();
-                    createdConnection = true;
-                }
+                await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
 
-                string sqlBase =
-                    @"
+                const string sqlBase = @"
                     SELECT * FROM maxhanna.nexus_bases n
                     LEFT JOIN maxhanna.nexus_defences_sent a ON a.origin_coords_x = n.coords_x AND a.origin_coords_y = n.coords_y
                     LEFT JOIN maxhanna.nexus_defences_sent b ON b.destination_coords_x = n.coords_x AND b.destination_coords_y = n.coords_y
-                    WHERE a.id = @DefenceId or b.id = @DefenceId;";
-
-                using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn, transaction))
+                    WHERE a.id = @DefenceId OR b.id = @DefenceId;";
+                 
+                using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn))
                 {
                     cmdBase.Parameters.AddWithValue("@DefenceId", id);
 
@@ -137,73 +169,38 @@ namespace maxhanna.Server.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Query ERROR: " + ex.Message);
-            }
-            finally
-            {
-                if (createdConnection && conn != null)
-                {
-                    await conn.CloseAsync();
-                }
+                Console.WriteLine("GetNexusBaseByDefenceId Query ERROR: " + ex.Message);
             }
 
             return tmpBase;
         }
-
-        private void ConfigureServices(IServiceCollection services)
+        public async Task ProcessDefence(int defenceId)
         {
-            services.AddLogging(configure => configure.AddConsole())
-                   .Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
-
-            services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-               .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-               .Build());
-        }
-
-        public async void ProcessDefence(int defenceId)
-        {
-            Console.WriteLine($"Processing defence with ID: {defenceId}");
-
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            _logger.LogInformation($"Processing defence with ID: {defenceId}"); 
+            try
             {
-                await conn.OpenAsync();
-                using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
+                 NexusBase? nexus = await GetNexusBaseByDefenceId(defenceId);  
+                if (nexus != null)
                 {
-                    try
-                    {
-                        // Load the NexusBase and pass it to UpdateNexusAttacks
-                        NexusBase nexus = await GetNexusBaseByDefenceId(defenceId, conn, transaction);
-                        if (nexus != null)
-                        {
-                            var serviceCollection = new ServiceCollection();
-                            ConfigureServices(serviceCollection);
-                            var serviceProvider = serviceCollection.BuildServiceProvider();
-
-                            // Create the logger
-                            var logger = serviceProvider.GetRequiredService<ILogger<NexusController>>();
-
-                            // Create the configuration
-                            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-
-                            // Instantiate the NexusController with the logger and configuration
-                            var nexusController = new NexusController(logger, configuration);
-                            await nexusController.UpdateNexusDefences(nexus);
-                        }
-                        else
-                        {
-                            Console.WriteLine($"No NexusBase found for defence ID: {defenceId}");
-                        }
-                        await transaction.CommitAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex.Message);
-                        await transaction.RollbackAsync();
-                    }
+                     await ProcessUpdateNexusDefences(nexus);
                 }
+                else
+                {
+                    _logger.LogInformation($"No NexusBase found for defence ID: {defenceId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing defence"); 
             }
         }
 
+        private async Task ProcessUpdateNexusDefences(NexusBase nexus)
+        {
+            // Execute UpdateNexusDefences in a separate context without the initial transaction
+            var nexusController = new NexusController(_logger, _config);
+            await nexusController.UpdateNexusDefences(nexus);
+        }
 
         public override void Dispose()
         {
@@ -211,6 +208,7 @@ namespace maxhanna.Server.Services
             {
                 timer.Dispose();
             }
+            _checkForNewDefencesTimer?.Dispose(); 
             base.Dispose();
         }
     }

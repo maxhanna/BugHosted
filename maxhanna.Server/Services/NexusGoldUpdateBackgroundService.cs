@@ -7,30 +7,52 @@ using System.Collections.Concurrent;
 namespace maxhanna.Server.Services
 {
     public class NexusGoldUpdateBackgroundService : BackgroundService
-    { 
-        private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
+    {  
         private readonly IConfiguration _config;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<NexusController> _logger;
+
         private Timer _checkForNewBaseUpdates;
 
 
         public NexusGoldUpdateBackgroundService(IConfiguration config)
         { 
             _config = config;
+
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            _serviceProvider = serviceCollection.BuildServiceProvider();
+            _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>(); 
         }
-         
+
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // Load existing attacks from the database and schedule them
-            Task.Run(() => LoadAndScheduleExistingNexus(), stoppingToken);
+            Task.Run(async () => await LoadAndScheduleExistingNexus(), stoppingToken)
+                .ContinueWith(t =>
+                {
+                    if (t.Exception != null)
+                    {
+                        Console.WriteLine("UpdateGoldException!! " + t.Exception.Message);
+                    }
+                }, TaskContinuationOptions.OnlyOnFaulted);
             _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(8));
 
             return Task.CompletedTask;
         }
 
         private async void CheckForNewUpdates(object state)
-        { 
-            await LoadAndScheduleExistingNexus();
+        {
+            _checkForNewBaseUpdates?.Change(Timeout.Infinite, Timeout.Infinite); // Disable timer
+            try
+            {
+                await LoadAndScheduleExistingNexus();
+            }
+            finally
+            {
+                _checkForNewBaseUpdates?.Change(TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(8)); // Re-enable timer
+            }
         }
 
         private async Task LoadAndScheduleExistingNexus()
@@ -92,67 +114,67 @@ namespace maxhanna.Server.Services
                 .Build()); 
         }
 
-        public async Task<NexusBase> GetNexusBaseByCoords(int coordsX, int coordsY, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
+        public async Task<NexusBase?> GetNexusBaseByCoords(int coordsX, int coordsY, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
         {
-            NexusBase tmpBase = new NexusBase();
-            bool createdConnection = false;
+            NexusBase? tmpBase = null;
 
             try
             {
                 if (conn == null)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                    await conn.OpenAsync();
-                    createdConnection = true;
+                    await using var newConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await newConn.OpenAsync();
+                    conn = newConn;
+
+                    tmpBase = await QueryNexusBaseAsync(coordsX, coordsY, conn, transaction);
                 }
-
-                string sqlBase = "SELECT * FROM maxhanna.nexus_bases WHERE coords_x = @CoordsX AND coords_y = @CoordsY LIMIT 1;";
-
-                using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn, transaction))
+                else
                 {
-                    cmdBase.Parameters.AddWithValue("@CoordsX", coordsX);
-                    cmdBase.Parameters.AddWithValue("@CoordsY", coordsY);
-
-                    using (var readerBase = await cmdBase.ExecuteReaderAsync())
-                    {
-                        if (await readerBase.ReadAsync())
-                        {
-                            int? userId = readerBase.IsDBNull(readerBase.GetOrdinal("user_id")) ? 0 : readerBase.GetInt32("user_id");
-                            tmpBase = new NexusBase
-                            {
-                                User = new User(userId ?? 0, "Anonymous"),
-                                Gold = readerBase.IsDBNull(readerBase.GetOrdinal("gold")) ? 0 : readerBase.GetDecimal("gold"),
-                                Supply = readerBase.IsDBNull(readerBase.GetOrdinal("supply")) ? 0 : readerBase.GetInt32("supply"),
-                                CoordsX = readerBase.IsDBNull(readerBase.GetOrdinal("coords_x")) ? 0 : readerBase.GetInt32("coords_x"),
-                                CoordsY = readerBase.IsDBNull(readerBase.GetOrdinal("coords_y")) ? 0 : readerBase.GetInt32("coords_y"),
-                                CommandCenterLevel = readerBase.IsDBNull(readerBase.GetOrdinal("command_center_level")) ? 0 : readerBase.GetInt32("command_center_level"),
-                                MinesLevel = readerBase.IsDBNull(readerBase.GetOrdinal("mines_level")) ? 0 : readerBase.GetInt32("mines_level"),
-                                SupplyDepotLevel = readerBase.IsDBNull(readerBase.GetOrdinal("supply_depot_level")) ? 0 : readerBase.GetInt32("supply_depot_level"),
-                                EngineeringBayLevel = readerBase.IsDBNull(readerBase.GetOrdinal("engineering_bay_level")) ? 0 : readerBase.GetInt32("engineering_bay_level"),
-                                WarehouseLevel = readerBase.IsDBNull(readerBase.GetOrdinal("warehouse_level")) ? 0 : readerBase.GetInt32("warehouse_level"),
-                                FactoryLevel = readerBase.IsDBNull(readerBase.GetOrdinal("factory_level")) ? 0 : readerBase.GetInt32("factory_level"),
-                                StarportLevel = readerBase.IsDBNull(readerBase.GetOrdinal("starport_level")) ? 0 : readerBase.GetInt32("starport_level"),
-                                Conquered = readerBase.IsDBNull(readerBase.GetOrdinal("conquered")) ? DateTime.MinValue : readerBase.GetDateTime("conquered"),
-                                Updated = readerBase.IsDBNull(readerBase.GetOrdinal("updated")) ? DateTime.MinValue : readerBase.GetDateTime("updated"),
-                            };
-                        }
-                    }
+                    tmpBase = await QueryNexusBaseAsync(coordsX, coordsY, conn, transaction);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Query ERROR: " + ex.Message);
-            }
-            finally
-            {
-                if (createdConnection && conn != null)
-                {
-                    await conn.CloseAsync();
-                }
+                Console.WriteLine("GetNexusBaseByCoords Query ERROR: " + ex.Message);
             }
 
             return tmpBase;
         }
+
+        private async Task<NexusBase?> QueryNexusBaseAsync(int coordsX, int coordsY, MySqlConnection conn, MySqlTransaction? transaction)
+        {
+            NexusBase? tmpBase = null;
+
+            string sqlBase = "SELECT * FROM maxhanna.nexus_bases WHERE coords_x = @CoordsX AND coords_y = @CoordsY LIMIT 1;";
+            using var cmdBase = new MySqlCommand(sqlBase, conn, transaction);
+            cmdBase.Parameters.AddWithValue("@CoordsX", coordsX);
+            cmdBase.Parameters.AddWithValue("@CoordsY", coordsY);
+
+            using var readerBase = await cmdBase.ExecuteReaderAsync();
+            if (await readerBase.ReadAsync())
+            {
+                int? userId = readerBase.IsDBNull(readerBase.GetOrdinal("user_id")) ? (int?)null : readerBase.GetInt32("user_id");
+                tmpBase = new NexusBase
+                {
+                    User = new User(userId ?? 0, "Anonymous"),
+                    Gold = readerBase.IsDBNull(readerBase.GetOrdinal("gold")) ? 0 : readerBase.GetDecimal("gold"),
+                    Supply = readerBase.IsDBNull(readerBase.GetOrdinal("supply")) ? 0 : readerBase.GetInt32("supply"),
+                    CoordsX = readerBase.IsDBNull(readerBase.GetOrdinal("coords_x")) ? 0 : readerBase.GetInt32("coords_x"),
+                    CoordsY = readerBase.IsDBNull(readerBase.GetOrdinal("coords_y")) ? 0 : readerBase.GetInt32("coords_y"),
+                    CommandCenterLevel = readerBase.IsDBNull(readerBase.GetOrdinal("command_center_level")) ? 0 : readerBase.GetInt32("command_center_level"),
+                    MinesLevel = readerBase.IsDBNull(readerBase.GetOrdinal("mines_level")) ? 0 : readerBase.GetInt32("mines_level"),
+                    SupplyDepotLevel = readerBase.IsDBNull(readerBase.GetOrdinal("supply_depot_level")) ? 0 : readerBase.GetInt32("supply_depot_level"),
+                    EngineeringBayLevel = readerBase.IsDBNull(readerBase.GetOrdinal("engineering_bay_level")) ? 0 : readerBase.GetInt32("engineering_bay_level"),
+                    WarehouseLevel = readerBase.IsDBNull(readerBase.GetOrdinal("warehouse_level")) ? 0 : readerBase.GetInt32("warehouse_level"),
+                    FactoryLevel = readerBase.IsDBNull(readerBase.GetOrdinal("factory_level")) ? 0 : readerBase.GetInt32("factory_level"),
+                    StarportLevel = readerBase.IsDBNull(readerBase.GetOrdinal("starport_level")) ? 0 : readerBase.GetInt32("starport_level"),
+                    Conquered = readerBase.IsDBNull(readerBase.GetOrdinal("conquered")) ? DateTime.MinValue : readerBase.GetDateTime("conquered"),
+                    Updated = readerBase.IsDBNull(readerBase.GetOrdinal("updated")) ? DateTime.MinValue : readerBase.GetDateTime("updated"),
+                };
+            }
+
+            return tmpBase;
+        } 
 
         public async Task ProcessNexusGold(int coordsX, int coordsY, MySqlConnection conn, MySqlTransaction transaction)
         {
@@ -161,21 +183,10 @@ namespace maxhanna.Server.Services
             try
             {
                 // Load the NexusBase and pass it to UpdateNexusAttacks
-                NexusBase nexus = await GetNexusBaseByCoords(coordsX,coordsY, conn, transaction);
+                NexusBase? nexus = await GetNexusBaseByCoords(coordsX,coordsY, conn, transaction);
                 if (nexus != null)
                 {
-                    var serviceCollection = new ServiceCollection();
-                    ConfigureServices(serviceCollection);
-                    var serviceProvider = serviceCollection.BuildServiceProvider();
-
-                    // Create the logger
-                    var logger = serviceProvider.GetRequiredService<ILogger<NexusController>>();
-
-                    // Create the configuration
-                    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-
-                    // Instantiate the NexusController with the logger and configuration
-                    var nexusController = new NexusController(logger, configuration);
+                    var nexusController = new NexusController(_logger, _config);
                     //Console.WriteLine($"Updating gold automatically for nexus: {nexus.CoordsX}{nexus.CoordsY}");
                     await nexusController.UpdateNexusGold(nexus);
                 }
@@ -188,15 +199,10 @@ namespace maxhanna.Server.Services
             {
                 Console.WriteLine(ex.Message);  
             } 
-        }
-
-
+        } 
         public override void Dispose()
         {
-            foreach (var timer in _timers.Values)
-            {
-                timer.Dispose();
-            }
+            _checkForNewBaseUpdates?.Dispose();
             base.Dispose();
         }
     }

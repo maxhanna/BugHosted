@@ -238,7 +238,7 @@ namespace maxhanna.Server.Controllers
                     cmd.Parameters.AddWithValue("@currentDate", currentDate);
                     if (user != null && user?.Id != 0)
                     {
-                        _logger.LogInformation($"adding parameter {user?.Id})");
+                        //_logger.LogInformation($"adding parameter {user?.Id})");
 
                         cmd.Parameters.AddWithValue("@UserId", user?.Id);
                     }

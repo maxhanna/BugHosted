@@ -5,6 +5,6 @@
   }
 }
 .wallet {
-    width: 90vw;
+    min-width: 300px;
     overflow:auto;
 }

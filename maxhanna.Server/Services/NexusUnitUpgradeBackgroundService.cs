@@ -7,17 +7,33 @@ using System.Collections.Concurrent;
 namespace maxhanna.Server.Services
 {
     public class NexusUnitUpgradeBackgroundService : BackgroundService
-    { 
+    {
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
         private readonly IConfiguration _config;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<NexusController> _logger;
         private Timer _checkForNewUnitUpgradesTimer;
-        private int timedCheckEveryXSeconds = 20;
-
+        private const int TimedCheckEveryXSeconds = 20;
         public NexusUnitUpgradeBackgroundService(IConfiguration config)
-        { 
+        {
             _config = config;
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            _serviceProvider = serviceCollection.BuildServiceProvider();
+            _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
         }
 
+        private void ConfigureServices(IServiceCollection services)
+        {
+            // Configure logging
+            services.AddLogging(configure => configure.AddConsole())
+                    .Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
+
+            // Configure configuration
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build());
+        }
         public void ScheduleUpgrade(int upgradeId, TimeSpan delay, Action<int> callback)
         {
             if (_timers.ContainsKey(upgradeId))
@@ -33,33 +49,46 @@ namespace maxhanna.Server.Services
 
 
             if (!_timers.TryAdd(upgradeId, timer))
-            {
-                // In case the upgradeId was added by another thread between the check and the add
-                timer.Dispose();
+            { 
+                timer.Dispose(); // In case the upgradeId was added by another thread between the check and the add
             }
         }
 
-        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // Load existing attacks from the database and schedule them
-            Task.Run(() => LoadAndScheduleExistingUnitUpgrades(), stoppingToken);
-            _checkForNewUnitUpgradesTimer = new Timer(CheckForNewUnitUpgrades, null, TimeSpan.FromSeconds(timedCheckEveryXSeconds), TimeSpan.FromSeconds(20));
+            await LoadAndScheduleExistingUnitUpgrades(stoppingToken);
 
-            return Task.CompletedTask;
+            _checkForNewUnitUpgradesTimer = new Timer(
+                async _ => await CheckForNewUnitUpgrades(stoppingToken),
+                null,
+                TimeSpan.FromSeconds(TimedCheckEveryXSeconds),
+                TimeSpan.FromSeconds(TimedCheckEveryXSeconds)
+            );
         }
 
-        private async void CheckForNewUnitUpgrades(object state)
-        { 
-            await LoadAndScheduleExistingUnitUpgrades();
+        private async Task CheckForNewUnitUpgrades(CancellationToken stoppingToken)
+        {
+            _checkForNewUnitUpgradesTimer?.Change(Timeout.Infinite, Timeout.Infinite); // Disable timer
+            try
+            {
+                await LoadAndScheduleExistingUnitUpgrades(stoppingToken);
+            }
+            finally
+            {
+                if (!stoppingToken.IsCancellationRequested)
+                {
+                    _checkForNewUnitUpgradesTimer?.Change(TimeSpan.FromSeconds(TimedCheckEveryXSeconds), TimeSpan.FromSeconds(TimedCheckEveryXSeconds)); // Re-enable timer
+                }
+            }
         }
 
-        private async Task LoadAndScheduleExistingUnitUpgrades()
+        private async Task LoadAndScheduleExistingUnitUpgrades(CancellationToken stoppingToken)
         {
             List<int> upgradeIds = new List<int>();
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
-                //Console.WriteLine("Checking for unit upgrades");
-                await conn.OpenAsync();
+                await conn.OpenAsync(stoppingToken);
 
                 string query = @"
                     SELECT 
@@ -84,40 +113,37 @@ namespace maxhanna.Server.Services
                     JOIN 
                         nexus_unit_stats s ON p.unit_id_upgraded = s.unit_id;";
 
-                MySqlCommand cmd = new MySqlCommand(query, conn);
-                using (var reader = await cmd.ExecuteReaderAsync())
+                await using var cmd = new MySqlCommand(query, conn);
+                await using var reader = await cmd.ExecuteReaderAsync(stoppingToken);
+
+                while (await reader.ReadAsync(stoppingToken))
                 {
-                    while (await reader.ReadAsync())
+                    int upgradeId = reader.GetInt32("id");
+                    DateTime timestamp = reader.GetDateTime("timestamp");
+                    int unitId = reader.GetInt32("unit_id_upgraded");
+                    int totalDuration = reader.GetInt32("total_duration");
+
+                    TimeSpan delay = timestamp.AddSeconds(totalDuration) - DateTime.Now;
+                    if (delay > TimeSpan.Zero)
                     {
-                        int upgradeId = reader.GetInt32("id");
-                        DateTime timestamp = reader.GetDateTime("timestamp");
-                        int unitId = reader.GetInt32("unit_id_upgraded");
-                        int totalDuration = reader.GetInt32("total_duration");
-                        //Console.WriteLine($"Found ({upgradeId}) : {unitId} {totalDuration} {timestamp}");
-                        TimeSpan delay = timestamp.AddSeconds(totalDuration) - DateTime.Now;
-                        if (delay > TimeSpan.Zero)
-                        {
-                            //Console.WriteLine("scheduling this one for later");
-                            ScheduleUpgrade(upgradeId, delay, ProcessUnitUpgrade);
-                        }
-                        else
-                        {
-                            upgradeIds.Add(upgradeId);
-                        }
+                        ScheduleUpgrade(upgradeId, delay, ProcessUnitUpgrade);
+                    }
+                    else
+                    {
+                        upgradeIds.Add(upgradeId);
                     }
                 }
             }
             foreach (var upgradeId in upgradeIds)
-            { 
-                //Console.WriteLine("Processing upgrade");
+            {
                 ProcessUnitUpgrade(upgradeId);
             }
         }
 
 
-        public async Task<NexusBase> GetNexusBaseByUnitUpgradeId(int id, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
+        public async Task<NexusBase?> GetNexusBaseByUnitUpgradeId(int id, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
         {
-            NexusBase tmpBase = new NexusBase();
+            NexusBase? tmpBase = null;
             bool createdConnection = false;
 
             try
@@ -134,38 +160,34 @@ namespace maxhanna.Server.Services
                       LEFT JOIN maxhanna.nexus_unit_upgrades a ON a.coords_x = n.coords_x AND a.coords_y = n.coords_y
                       WHERE a.id = @UpgradeId LIMIT 1;";
 
-                using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn, transaction))
-                {
-                    cmdBase.Parameters.AddWithValue("@UpgradeId", id);
+                await using var cmdBase = new MySqlCommand(sqlBase, conn, transaction);
+                cmdBase.Parameters.AddWithValue("@UpgradeId", id);
 
-                    using (var readerBase = await cmdBase.ExecuteReaderAsync())
+                await using var readerBase = await cmdBase.ExecuteReaderAsync();
+                if (await readerBase.ReadAsync())
+                {
+                    tmpBase = new NexusBase
                     {
-                        if (await readerBase.ReadAsync())
-                        {
-                            tmpBase = new NexusBase
-                            {
-                                User = new User(readerBase.GetInt32("user_id"), "Anonymous"),
-                                Gold = readerBase.IsDBNull(readerBase.GetOrdinal("gold")) ? 0 : readerBase.GetDecimal("gold"),
-                                Supply = readerBase.IsDBNull(readerBase.GetOrdinal("supply")) ? 0 : readerBase.GetInt32("supply"),
-                                CoordsX = readerBase.IsDBNull(readerBase.GetOrdinal("coords_x")) ? 0 : readerBase.GetInt32("coords_x"),
-                                CoordsY = readerBase.IsDBNull(readerBase.GetOrdinal("coords_y")) ? 0 : readerBase.GetInt32("coords_y"),
-                                CommandCenterLevel = readerBase.IsDBNull(readerBase.GetOrdinal("command_center_level")) ? 0 : readerBase.GetInt32("command_center_level"),
-                                MinesLevel = readerBase.IsDBNull(readerBase.GetOrdinal("mines_level")) ? 0 : readerBase.GetInt32("mines_level"),
-                                SupplyDepotLevel = readerBase.IsDBNull(readerBase.GetOrdinal("supply_depot_level")) ? 0 : readerBase.GetInt32("supply_depot_level"),
-                                EngineeringBayLevel = readerBase.IsDBNull(readerBase.GetOrdinal("engineering_bay_level")) ? 0 : readerBase.GetInt32("engineering_bay_level"),
-                                WarehouseLevel = readerBase.IsDBNull(readerBase.GetOrdinal("warehouse_level")) ? 0 : readerBase.GetInt32("warehouse_level"),
-                                FactoryLevel = readerBase.IsDBNull(readerBase.GetOrdinal("factory_level")) ? 0 : readerBase.GetInt32("factory_level"),
-                                StarportLevel = readerBase.IsDBNull(readerBase.GetOrdinal("starport_level")) ? 0 : readerBase.GetInt32("starport_level"),
-                                Conquered = readerBase.IsDBNull(readerBase.GetOrdinal("conquered")) ? DateTime.MinValue : readerBase.GetDateTime("conquered"),
-                                Updated = readerBase.IsDBNull(readerBase.GetOrdinal("updated")) ? DateTime.MinValue : readerBase.GetDateTime("updated"),
-                            };
-                        }
-                    }
+                        User = new User(readerBase.GetInt32("user_id"), "Anonymous"),
+                        Gold = readerBase.IsDBNull(readerBase.GetOrdinal("gold")) ? 0 : readerBase.GetDecimal("gold"),
+                        Supply = readerBase.IsDBNull(readerBase.GetOrdinal("supply")) ? 0 : readerBase.GetInt32("supply"),
+                        CoordsX = readerBase.IsDBNull(readerBase.GetOrdinal("coords_x")) ? 0 : readerBase.GetInt32("coords_x"),
+                        CoordsY = readerBase.IsDBNull(readerBase.GetOrdinal("coords_y")) ? 0 : readerBase.GetInt32("coords_y"),
+                        CommandCenterLevel = readerBase.IsDBNull(readerBase.GetOrdinal("command_center_level")) ? 0 : readerBase.GetInt32("command_center_level"),
+                        MinesLevel = readerBase.IsDBNull(readerBase.GetOrdinal("mines_level")) ? 0 : readerBase.GetInt32("mines_level"),
+                        SupplyDepotLevel = readerBase.IsDBNull(readerBase.GetOrdinal("supply_depot_level")) ? 0 : readerBase.GetInt32("supply_depot_level"),
+                        EngineeringBayLevel = readerBase.IsDBNull(readerBase.GetOrdinal("engineering_bay_level")) ? 0 : readerBase.GetInt32("engineering_bay_level"),
+                        WarehouseLevel = readerBase.IsDBNull(readerBase.GetOrdinal("warehouse_level")) ? 0 : readerBase.GetInt32("warehouse_level"),
+                        FactoryLevel = readerBase.IsDBNull(readerBase.GetOrdinal("factory_level")) ? 0 : readerBase.GetInt32("factory_level"),
+                        StarportLevel = readerBase.IsDBNull(readerBase.GetOrdinal("starport_level")) ? 0 : readerBase.GetInt32("starport_level"),
+                        Conquered = readerBase.IsDBNull(readerBase.GetOrdinal("conquered")) ? DateTime.MinValue : readerBase.GetDateTime("conquered"),
+                        Updated = readerBase.IsDBNull(readerBase.GetOrdinal("updated")) ? DateTime.MinValue : readerBase.GetDateTime("updated"),
+                    };
                 }
             }
             catch (Exception ex)
             {
-                 Console.WriteLine("Query ERROR: " + ex.Message);
+                _logger.LogError("Query ERROR: " + ex.Message);
             }
             finally
             {
@@ -176,57 +198,34 @@ namespace maxhanna.Server.Services
             }
 
             return tmpBase;
-        }
+        } 
 
-        private void ConfigureServices(IServiceCollection services)
-        {
-            // Configure logging
-            services.AddLogging(configure => configure.AddConsole())
-                    .Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
-
-            // Configure configuration
-            services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .Build()); 
-        }
 
         public async void ProcessUnitUpgrade(int unitUpgradeId)
         {
-            Console.WriteLine($"Processing unit upgrade with ID: {unitUpgradeId}");
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            _logger.LogInformation($"Processing unit upgrade with ID: {unitUpgradeId}");
+            await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
                 await conn.OpenAsync();
-                using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
+                await using (var transaction = await conn.BeginTransactionAsync())
                 {
                     try
                     {
-                        // Load the NexusBase and pass it to UpdateNexusAttacks
-                        NexusBase nexus = await GetNexusBaseByUnitUpgradeId(unitUpgradeId, conn, transaction);
+                        NexusBase? nexus = await GetNexusBaseByUnitUpgradeId(unitUpgradeId, conn, transaction);
                         if (nexus != null)
                         {
-                            var serviceCollection = new ServiceCollection();
-                            ConfigureServices(serviceCollection);
-                            var serviceProvider = serviceCollection.BuildServiceProvider();
-
-                            // Create the logger
-                            var logger = serviceProvider.GetRequiredService<ILogger<NexusController>>();
-
-                            // Create the configuration
-                            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-
-                            // Instantiate the NexusController with the logger and configuration
-                            var nexusController = new NexusController(logger, configuration);
+                            var nexusController = new NexusController(_logger, _config);
                             await nexusController.UpdateNexusUnitUpgradesCompletes(nexus);
                         }
                         else
                         {
-                            Console.WriteLine($"No NexusBase found for unitUpgradeId: {unitUpgradeId}"); 
+                            _logger.LogInformation($"No NexusBase found for unitUpgradeId: {unitUpgradeId}");
                         }
                         await transaction.CommitAsync();
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine(ex.Message); 
+                        _logger.LogError(ex.Message);
                         await transaction.RollbackAsync();
                     }
                 }
@@ -240,6 +239,7 @@ namespace maxhanna.Server.Services
             {
                 timer.Dispose();
             }
+            _checkForNewUnitUpgradesTimer?.Dispose(); 
             base.Dispose();
         }
     }

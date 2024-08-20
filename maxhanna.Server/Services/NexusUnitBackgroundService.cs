@@ -1,23 +1,41 @@
 ﻿using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
 using System.Collections.Concurrent; 
 
 namespace maxhanna.Server.Services
 {
     public class NexusUnitBackgroundService : BackgroundService
-    { 
+    {
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
         private readonly IConfiguration _config;
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<NexusController> _logger;
+
         private Timer _checkForNewUnitsTimer;
 
 
         public NexusUnitBackgroundService(IConfiguration config)
-        { 
+        {
             _config = config;
-        }
+            var serviceCollection = new ServiceCollection();
+            ConfigureServices(serviceCollection);
+            _serviceProvider = serviceCollection.BuildServiceProvider();
+            _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+        } 
+        private void ConfigureServices(IServiceCollection services)
+        {
+            // Configure logging
+            services.AddLogging(configure => configure.AddConsole())
+                    .Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
 
+            // Configure configuration
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build());
+        }
         public void SchedulePurchase(int purchaseId, TimeSpan delay, Action<int> callback)
         {
             if (_timers.ContainsKey(purchaseId))
@@ -28,14 +46,16 @@ namespace maxhanna.Server.Services
             {
                 var id = (int)state;
                 callback(id);
-                _timers.TryRemove(id, out _);
+                if (_timers.TryRemove(id, out var removedTimer))
+                {
+                    removedTimer.Dispose();
+                }
             }, purchaseId, delay, Timeout.InfiniteTimeSpan);
 
 
             if (!_timers.TryAdd(purchaseId, timer))
-            {
-                // In case the upgradeId was added by another thread between the check and the add
-                timer.Dispose();
+            { 
+                timer.Dispose(); // In case the upgradeId was added by another thread between the check and the add
             }
         }
 
@@ -49,17 +69,24 @@ namespace maxhanna.Server.Services
         }
 
         private async void CheckForNewPurchases(object state)
-        { 
-            await LoadAndScheduleExistingPurchases();
+        {
+            _checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite); // Disable timer
+            try
+            {
+                await LoadAndScheduleExistingPurchases();
+            }
+            finally
+            {
+                _checkForNewUnitsTimer?.Change(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20)); // Re-enable timer
+            }
         }
 
         private async Task LoadAndScheduleExistingPurchases()
         {
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-            {
-                await conn.OpenAsync();
+            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await conn.OpenAsync();
 
-                string query = @"
+            string query = @"
                 SELECT 
                     p.id, 
                     p.timestamp,
@@ -75,28 +102,25 @@ namespace maxhanna.Server.Services
                 JOIN 
                     nexus_unit_stats s ON p.unit_id_purchased = s.unit_id";
 
-                MySqlCommand cmd = new MySqlCommand(query, conn);
-                using (var reader = await cmd.ExecuteReaderAsync())
-                {
-                    while (await reader.ReadAsync())
-                    {
-                        int purchaseId = reader.GetInt32("id");
-                        DateTime timestamp = reader.GetDateTime("timestamp");
-                        int unitId = reader.GetInt32("unit_id_purchased");
-                        int unitLevel = GetUnitLevel(reader, unitId);
-                        int duration = reader.GetInt32("duration") * reader.GetInt32("quantity_purchased");
+            await using var cmd = new MySqlCommand(query, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
 
-                        TimeSpan delay = timestamp.AddSeconds(duration) - DateTime.Now; 
-                        if (delay > TimeSpan.Zero)
-                        {
-                            //Console.WriteLine("Purchase scheduled for: " + delay);
-                            SchedulePurchase(purchaseId, delay, ProcessPurchase);
-                        }
-                        else
-                        {
-                            ProcessPurchase(purchaseId);
-                        }
-                    }
+            while (await reader.ReadAsync())
+            {
+                int purchaseId = reader.GetInt32("id");
+                DateTime timestamp = reader.GetDateTime("timestamp");
+                int unitId = reader.GetInt32("unit_id_purchased");
+                int unitLevel = GetUnitLevel(reader, unitId);
+                int duration = reader.GetInt32("duration") * reader.GetInt32("quantity_purchased");
+
+                TimeSpan delay = timestamp.AddSeconds(duration) - DateTime.Now;
+                if (delay > TimeSpan.Zero)
+                {
+                    SchedulePurchase(purchaseId, delay, ProcessPurchase);
+                }
+                else
+                {
+                    ProcessPurchase(purchaseId);
                 }
             }
         }
@@ -116,9 +140,9 @@ namespace maxhanna.Server.Services
             }
         } 
 
-        public async Task<NexusBase> GetNexusBaseByPurchaseId(int id, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
+        public async Task<NexusBase?> GetNexusBaseByPurchaseId(int id, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
         {
-            NexusBase tmpBase = new NexusBase();
+            NexusBase? tmpBase = null;
             bool createdConnection = false;
 
             try
@@ -178,73 +202,47 @@ namespace maxhanna.Server.Services
 
             return tmpBase;
         }
-
-        private void ConfigureServices(IServiceCollection services)
-        {
-            // Configure logging
-            services.AddLogging(configure => configure.AddConsole())
-                    .Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
-
-            // Configure configuration
-            services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .Build()); 
-        }
-
+         
         public async void ProcessPurchase(int purchaseId)
         {
             Console.WriteLine($"Processing purchase with ID: {purchaseId}");
             try
             {
-                using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync();
+                await using var transaction = await conn.BeginTransactionAsync();
+
+                try
                 {
-                    await conn.OpenAsync();
-                    using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
+                    NexusBase? nexus = await GetNexusBaseByPurchaseId(purchaseId, conn, transaction);
+                    if (nexus != null)
                     {
-                        try
-                        {
-                            // Load the NexusBase and pass it to UpdateNexusAttacks
-                            NexusBase nexus = await GetNexusBaseByPurchaseId(purchaseId, conn, transaction);
-                            if (nexus != null)
-                            {
-                                var serviceCollection = new ServiceCollection();
-                                ConfigureServices(serviceCollection);
-                                var serviceProvider = serviceCollection.BuildServiceProvider();
-
-                                // Create the logger
-                                var logger = serviceProvider.GetRequiredService<ILogger<NexusController>>();
-
-                                // Create the configuration
-                                var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-
-                                // Instantiate the NexusController with the logger and configuration
-                                var nexusController = new NexusController(logger, configuration);
-                                await nexusController.UpdateNexusUnitTrainingCompletes(nexus);
-                            }
-                            else
-                            {
-                                Console.WriteLine($"No NexusBase found for attack ID: {purchaseId}");
-                            }
-                            await transaction.CommitAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine(ex.Message);
-                            await transaction.RollbackAsync();
-                        }
+                        var nexusController = new NexusController(_logger, _config);
+                        await nexusController.UpdateNexusUnitTrainingCompletes(nexus);
                     }
+                    else
+                    {
+                        Console.WriteLine($"No NexusBase found for purchase ID: {purchaseId}");
+                    }
+                    await transaction.CommitAsync();
                 }
-            } 
-            catch(Exception ex)
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    await transaction.RollbackAsync();
+                }
+            }
+            catch (Exception ex)
             {
                 Console.WriteLine("Error processing purchase! " + ex.Message);
             }
-            
         }
 
 
         public override void Dispose()
         {
+            _checkForNewUnitsTimer?.Dispose();
+
             foreach (var timer in _timers.Values)
             {
                 timer.Dispose();

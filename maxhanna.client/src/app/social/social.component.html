@@ -27,7 +27,7 @@
                 class="foodForThought"
                 (focus)="focusInput()"></textarea>
     </div>
-    
+
     <div class="mainFileUploaderAndTopicSelectorDiv">
       <button (click)="post()">🗨️ Post</button>
 
@@ -43,19 +43,20 @@
         <button (click)="removeAttachment(file.id)" title="Remove attachment">❌</button>
       </div>
     </div>
-  </div>
-  <div class="inputDiv searchInputs">
-    <div class="pagination" *ngIf="totalPagesArray.length > 1">
-      <span>Page:</span>
-      <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
-        <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
-      </select>
+    <div class="pageAndSearchInputs">
+      <div class="pagination" *ngIf="totalPagesArray.length > 1">
+        <span class="xxSmallFont">Page:</span>
+        <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
+          <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
+        </select>
+      </div>
+      <div class="pageAndSearchInputs">
+        <input type="text" #search placeholder="Search the socials" (keyup.enter)="searchStories()" *ngIf="!user" />
+        <input type="submit" (click)="searchStories()"  value="🔍" *ngIf="!user" />
+      </div>
     </div>
-    <div>
-      <input type="text" #search placeholder="Search the socials" (keyup.enter)="searchStories()" *ngIf="!user" />
-      <input type="submit" (click)="searchStories()" class="createStoryButton" value="🔍" *ngIf="!user" />
-    </div>
   </div>
+  
 
   <div class="mainTableDiv" id="mainTableDiv" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
     <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">

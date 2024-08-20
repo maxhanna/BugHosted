@@ -77,6 +77,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (this.user) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
+      (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.height = "9vh";
     }  
   }
   pageChanged() {

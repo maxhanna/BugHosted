@@ -19,11 +19,9 @@
   display: flex;
   flex-flow: column wrap;
   padding: 5px;
-  margin-top: -30px; 
-}
-  .storyInputDiv div{
-      width: 100%;
-  }
+  margin-top: -30px;
+  height: 15vh;
+} 
    
 .mainTopicSelector {
   text-align: center;
@@ -189,13 +187,21 @@
   overflow: hidden;
   display:table;
 }
-
+.pageAndSearchInputs {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+} 
 .pagination {
-    text-align:right;
-    display:inline; 
+  text-align: right;
+  display: inline;
 }
 .mainTableDiv {
-  border: var(--main-border); 
+  border: var(--main-border);
+  max-height: CALC(99vh - (15vh + 190px));
 } 
  
 .storyHeader {
