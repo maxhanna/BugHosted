@@ -15,8 +15,8 @@
     </select>
   </div>
 
-  Upload {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}?
-  <div class="fileListDiv"> 
+  {{isUploading ? 'Uploading' : 'Upload'}} {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}{{isUploading ? '...' : '?'}}
+  <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index">
       <div [class]="uploadProgress[file.name] != 100 ? 'removeFileButton' : ''" (click)="removeFile(file)" title="Remove file">
         <span>{{file.name}}</span>
@@ -29,8 +29,8 @@
     <button type="submit"
             (click)="uploadSubmitClicked()"
             title="Upload file(s)">
-      {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅' : '⏫' + uploadButtonText)}}
+      {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
-    <button type="submit" *ngIf="uploadFileList.length > 0 && !isUploading" (click)="cancelFileUpload()" title="Cancel upload">❌</button>
+    <button type="submit" *ngIf="uploadFileList.length > 0 && !isUploading" (click)="cancelFileUpload()" title="Cancel upload">❌Cancel</button>
   </div>
 </div>
