@@ -75,6 +75,18 @@ export class NexusMapComponent {
     mapElement.style.height = "90vh";
     mapElement.style.overflow = "auto";
     (document.getElementsByClassName('zoomInButtonDiv')[0] as HTMLDivElement).style.display = "block";
+    let styleElement = document.getElementById('dynamic-scrollbar-style') as HTMLStyleElement;
+    if (!styleElement) {
+      styleElement = document.createElement('style');
+      styleElement.id = 'dynamic-scrollbar-style';
+      document.head.appendChild(styleElement);
+    }
+    styleElement.textContent = `
+    .map::-webkit-scrollbar {
+      width: 28px;
+      height: 28px;
+    } 
+  `;
   }
   zoomIn() {
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
@@ -82,6 +94,10 @@ export class NexusMapComponent {
     mapElement.style.width = "";
     mapElement.style.height = ""; 
     (document.getElementsByClassName('zoomInButtonDiv')[0] as HTMLDivElement).style.display = "none";
+    const styleElement = document.getElementById('dynamic-scrollbar-style') as HTMLStyleElement;
+    if (styleElement) {
+      styleElement.parentNode?.removeChild(styleElement);
+    }
   }
   scrollToCoordinates(coordsX: number, coordsY: number, hideAttackButton?: boolean) {
     if (!this.user || !this.mapData || this.mapData.length === 0) return;
