@@ -7,12 +7,14 @@ using System.Collections.Concurrent;
 namespace maxhanna.Server.Services
 {
     public class NexusGoldUpdateBackgroundService : BackgroundService
-    {  
+    {
         private readonly IConfiguration _config;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
 
-        private Timer _checkForNewBaseUpdates;
+        private Timer _checkForNewBaseUpdates; 
+
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit to 10 concurrent connections
 
 
         public NexusGoldUpdateBackgroundService(IConfiguration config)
@@ -40,7 +42,7 @@ namespace maxhanna.Server.Services
             _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(8));
 
             return Task.CompletedTask;
-        }
+        } 
 
         private async void CheckForNewUpdates(object state)
         {
@@ -64,15 +66,17 @@ namespace maxhanna.Server.Services
                 using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
                 {
                     var coordsList = new List<(int coordsX, int coordsY)>();
+                    int limit = 20;
 
-                    string query = @"
+                    string query = $@"
                         SELECT 
                             coords_x, coords_y, updated
                         FROM 
                             nexus_bases
                         WHERE
                             mines_level > 0 
-                        AND updated < DATE_SUB(NOW(), INTERVAL 10 MINUTE);";
+                        AND updated < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                        LIMIT {limit};";
 
                     MySqlCommand cmd = new MySqlCommand(query, conn, transaction);
                     using (var reader = await cmd.ExecuteReaderAsync())
@@ -85,16 +89,11 @@ namespace maxhanna.Server.Services
 
                         }
                     }
-                    int limit = 10;
 
                     foreach (var (x, y) in coordsList.ToArray())
                     {
-                        limit--;
-                        await ProcessNexusGold(x, y, conn, transaction);
-                        if (limit == 0)
-                        {
-                            break;
-                        }
+                        await Task.Delay(TimeSpan.FromMilliseconds(500)); 
+                        await ProcessNexusGold(x, y, conn, transaction); 
                     }
                     await transaction.CommitAsync();
                 }
@@ -179,6 +178,7 @@ namespace maxhanna.Server.Services
         public async Task ProcessNexusGold(int coordsX, int coordsY, MySqlConnection conn, MySqlTransaction transaction)
         {
             //Console.WriteLine($"Processing ProcessNexusGold with coords: {coordsX},{coordsY}");
+            await _semaphore.WaitAsync(); 
 
             try
             {
@@ -198,11 +198,16 @@ namespace maxhanna.Server.Services
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);  
-            } 
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
         } 
         public override void Dispose()
         {
             _checkForNewBaseUpdates?.Dispose();
+            _semaphore.Dispose();
             base.Dispose();
         }
     }

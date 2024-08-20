@@ -96,7 +96,8 @@
                   </span>
                 </div>
                 <div class="actionTd" *ngIf="displayFileActions">
-                  <button [style.display]="file?.user?.id == user?.id ? 'inline-block':'none' " (click)="startEditing(file.id, $event);$event.stopPropagation();">
+                  <button [style.display]="(file?.user?.id == user?.id! && !(this.currentDirectory == '' && (file.fileName == 'Users' || file.fileName == 'Meme' || file.fileName == 'Roms' || file.fileName == 'Max'  || file.fileName == 'Pictures' || file.fileName == 'Videos' || file.fileName == 'Files' || file.fileName == 'Array' || file.fileName == 'Nexus' || file.fileName == 'BugHosted'))) ? 'inline-block':'none' "
+                          (click)="startEditing(file.id, $event);$event.stopPropagation();">
                     ✏️Edit
                   </button>
                   <button title="Share File"
@@ -105,13 +106,7 @@
                     ↗️Share
                   </button>
                   <button (click)="this.delete(file); $event.stopPropagation();"
-                          *ngIf="
-                            file?.sharedWith?.includes(user?.id!+'')
-                            || file?.user?.id == user?.id!
-                            && !(this.currentDirectory == '' && (file.fileName == 'Users' || file.fileName == 'Meme' || file.fileName == 'Roms'
-                                                                || file.fileName == 'Max'  || file.fileName == 'Pictures' || file.fileName == 'Videos'
-                                                                || file.fileName == 'Files' || file.fileName == 'Array' || file.fileName == 'Nexus'
-                                                                || file.fileName == 'BugHosted'))">
+                          *ngIf="file?.user?.id == user?.id! && !(this.currentDirectory == '' && (file.fileName == 'Users' || file.fileName == 'Meme' || file.fileName == 'Roms' || file.fileName == 'Max'  || file.fileName == 'Pictures' || file.fileName == 'Videos' || file.fileName == 'Files' || file.fileName == 'Array' || file.fileName == 'Nexus' || file.fileName == 'BugHosted'))">
                     ❌Delete
                   </button>
                 </div>

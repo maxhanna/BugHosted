@@ -359,6 +359,7 @@ fieldset {
 .notification {
   color: var(--secondary-font-color);
   font-size: smaller;
+  text-decoration-color: var(--main-font-color);
 }
 
   .notification::before {

@@ -9,11 +9,16 @@ namespace maxhanna.Server.Services
     public class NexusUnitUpgradeBackgroundService : BackgroundService
     {
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
+        private readonly ConcurrentQueue<int> _upgradeQueue = new ConcurrentQueue<int>();
         private readonly IConfiguration _config;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
+        private Timer _processUpgradeQueueTimer;
         private Timer _checkForNewUnitUpgradesTimer;
         private const int TimedCheckEveryXSeconds = 20;
+        private const int QueueProcessingInterval = 100;
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit to 10 concurrent connections
+
         public NexusUnitUpgradeBackgroundService(IConfiguration config)
         {
             _config = config;
@@ -21,6 +26,7 @@ namespace maxhanna.Server.Services
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
             _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+            _checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));  
         }
 
         private void ConfigureServices(IServiceCollection services)
@@ -53,7 +59,18 @@ namespace maxhanna.Server.Services
                 timer.Dispose(); // In case the upgradeId was added by another thread between the check and the add
             }
         }
-
+        public void EnqueueUpgrade(int upgradeId)
+        {
+            if (_upgradeQueue.Contains(upgradeId)) return;
+            _upgradeQueue.Enqueue(upgradeId);
+        }
+        private void ProcessQueue(object state)
+        {
+            if (_upgradeQueue.TryDequeue(out int upgradeId))
+            {
+                ProcessUnitUpgrade(upgradeId);
+            }
+        }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // Load existing attacks from the database and schedule them
@@ -64,7 +81,7 @@ namespace maxhanna.Server.Services
                 null,
                 TimeSpan.FromSeconds(TimedCheckEveryXSeconds),
                 TimeSpan.FromSeconds(TimedCheckEveryXSeconds)
-            );
+            ); 
         }
 
         private async Task CheckForNewUnitUpgrades(CancellationToken stoppingToken)
@@ -84,8 +101,7 @@ namespace maxhanna.Server.Services
         }
 
         private async Task LoadAndScheduleExistingUnitUpgrades(CancellationToken stoppingToken)
-        {
-            List<int> upgradeIds = new List<int>();
+        { 
             await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
             {
                 await conn.OpenAsync(stoppingToken);
@@ -126,41 +142,31 @@ namespace maxhanna.Server.Services
                     TimeSpan delay = timestamp.AddSeconds(totalDuration) - DateTime.Now;
                     if (delay > TimeSpan.Zero)
                     {
-                        ScheduleUpgrade(upgradeId, delay, ProcessUnitUpgrade);
+                        ScheduleUpgrade(upgradeId, delay, EnqueueUpgrade);
                     }
                     else
                     {
-                        upgradeIds.Add(upgradeId);
+                        EnqueueUpgrade(upgradeId);
                     }
                 }
-            }
-            foreach (var upgradeId in upgradeIds)
-            {
-                ProcessUnitUpgrade(upgradeId);
-            }
+            } 
         }
 
 
-        public async Task<NexusBase?> GetNexusBaseByUnitUpgradeId(int id, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
+        public async Task<NexusBase?> GetNexusBaseByUnitUpgradeId(int id)
         {
             NexusBase? tmpBase = null;
-            bool createdConnection = false;
-
             try
             {
-                if (conn == null)
-                {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                    await conn.OpenAsync();
-                    createdConnection = true;
-                }
+                await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await conn.OpenAsync(); 
 
                 string sqlBase =
                     @"SELECT * FROM maxhanna.nexus_bases n
                       LEFT JOIN maxhanna.nexus_unit_upgrades a ON a.coords_x = n.coords_x AND a.coords_y = n.coords_y
                       WHERE a.id = @UpgradeId LIMIT 1;";
 
-                await using var cmdBase = new MySqlCommand(sqlBase, conn, transaction);
+                await using var cmdBase = new MySqlCommand(sqlBase, conn);
                 cmdBase.Parameters.AddWithValue("@UpgradeId", id);
 
                 await using var readerBase = await cmdBase.ExecuteReaderAsync();
@@ -187,15 +193,8 @@ namespace maxhanna.Server.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError("Query ERROR: " + ex.Message);
-            }
-            finally
-            {
-                if (createdConnection && conn != null)
-                {
-                    await conn.CloseAsync();
-                }
-            }
+                _logger.LogError("GetNexusBaseByUnitUpgradeId Query ERROR: " + ex.Message);
+            } 
 
             return tmpBase;
         } 
@@ -203,33 +202,30 @@ namespace maxhanna.Server.Services
 
         public async void ProcessUnitUpgrade(int unitUpgradeId)
         {
-            _logger.LogInformation($"Processing unit upgrade with ID: {unitUpgradeId}");
-            await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            await _semaphore.WaitAsync();
+            _logger.LogInformation($"Processing unit upgrade with ID: {unitUpgradeId}"); 
+            try
             {
-                await conn.OpenAsync();
-                await using (var transaction = await conn.BeginTransactionAsync())
+                NexusBase? nexus = await GetNexusBaseByUnitUpgradeId(unitUpgradeId);
+                if (nexus != null)
                 {
-                    try
-                    {
-                        NexusBase? nexus = await GetNexusBaseByUnitUpgradeId(unitUpgradeId, conn, transaction);
-                        if (nexus != null)
-                        {
-                            var nexusController = new NexusController(_logger, _config);
-                            await nexusController.UpdateNexusUnitUpgradesCompletes(nexus);
-                        }
-                        else
-                        {
-                            _logger.LogInformation($"No NexusBase found for unitUpgradeId: {unitUpgradeId}");
-                        }
-                        await transaction.CommitAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex.Message);
-                        await transaction.RollbackAsync();
-                    }
+                    var nexusController = new NexusController(_logger, _config);
+                    await nexusController.UpdateNexusUnitUpgradesCompletes(nexus);
                 }
+                else
+                {
+                    _logger.LogInformation($"No NexusBase found for unitUpgradeId: {unitUpgradeId}");
+                }
+             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+             }
+            finally
+            {
+                _semaphore.Release();
             }
+                
         }
 
 
@@ -239,7 +235,9 @@ namespace maxhanna.Server.Services
             {
                 timer.Dispose();
             }
-            _checkForNewUnitUpgradesTimer?.Dispose(); 
+            _checkForNewUnitUpgradesTimer?.Dispose();
+            _processUpgradeQueueTimer?.Dispose();
+            _semaphore.Dispose();
             base.Dispose();
         }
     }

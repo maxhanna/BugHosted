@@ -9,10 +9,16 @@ namespace maxhanna.Server.Services
     public class NexusBuildingUpgradeBackgroundService : BackgroundService
     { 
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
+        private readonly ConcurrentQueue<int> _buildingUpgradeQueue = new ConcurrentQueue<int>();
+
         private readonly IConfiguration _config;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
         private Timer _checkForNewUpgradesTimer;
+        private Timer _processBuildingUpgradeQueueTimer;
+
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);  
+
 
         public NexusBuildingUpgradeBackgroundService(IConfiguration config)
         {
@@ -21,10 +27,11 @@ namespace maxhanna.Server.Services
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
             _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+            _processBuildingUpgradeQueueTimer = new Timer(ProcessBuildingUpgradeQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(300)); // Process queue every 0.1 seconds
         }
       
 
-        public void ScheduleUpgrade(int upgradeId, TimeSpan delay, Func<int, Task> callback)
+        public void ScheduleUpgrade(int upgradeId, TimeSpan delay, Action<int> callback)
         {
             if (_timers.ContainsKey(upgradeId))
             {
@@ -42,6 +49,19 @@ namespace maxhanna.Server.Services
             {
                 // In case the upgradeId was added by another thread between the check and the add
                 timer.Dispose();
+            }
+        } 
+        public void AddBuildingUpgradeToQueue(int upgradeId)
+        {
+            if (_buildingUpgradeQueue.Contains(upgradeId)) return;
+            _buildingUpgradeQueue.Enqueue(upgradeId);
+        }
+
+        private async void ProcessBuildingUpgradeQueue(object state)
+        {
+            if (_buildingUpgradeQueue.TryDequeue(out var upgradeId))
+            {
+                await ProcessUpgrade(upgradeId);
             }
         }
 
@@ -182,35 +202,26 @@ namespace maxhanna.Server.Services
 
                         if (delay > TimeSpan.Zero)
                         {
-                            ScheduleUpgrade(upgradeId, delay, ProcessUpgrade);
+                            ScheduleUpgrade(upgradeId, delay, AddBuildingUpgradeToQueue);
                         }
                         else
                         {
-                            if (!upgradeIds.Contains(upgradeId))
-                            {
-                                upgradeIds.Add(upgradeId); 
-                            }
+                            AddBuildingUpgradeToQueue(upgradeId);
                         }
                     }
                 }
-            }
-
-            // Process upgrades that are already overdue
-            foreach (var upgradeId in upgradeIds)
-            {
-                await ProcessUpgrade(upgradeId);
-            }
+            } 
         }
 
 
         private async Task ProcessUpgrade(int upgradeId)
         {
+            await _semaphore.WaitAsync();
             Console.WriteLine($"Processing upgrade with ID: {upgradeId}"); 
 
             await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             await conn.OpenAsync();  
             await using MySqlTransaction transaction = await conn.BeginTransactionAsync(); 
-             
 
             try
             {
@@ -234,6 +245,10 @@ namespace maxhanna.Server.Services
                 Console.WriteLine(ex.Message);
                 await transaction.RollbackAsync();
             } 
+            finally
+            {
+                _semaphore.Release();
+            }
         }
 
 
@@ -314,6 +329,9 @@ namespace maxhanna.Server.Services
 
         public override void Dispose()
         {
+            _checkForNewUpgradesTimer.Dispose();
+            _processBuildingUpgradeQueueTimer.Dispose();
+            _semaphore.Dispose();
             foreach (var timer in _timers.Values)
             {
                 timer.Dispose();

@@ -4588,8 +4588,8 @@ namespace maxhanna.Server.Controllers
                 {
                     // Add parameters to the command
                     cmdUpdate.Parameters.AddRange(parameters.ToArray());
-                    Console.WriteLine(sqlUpdate);
-                    Console.WriteLine($"Updated nexus at ({coordsX}, {coordsY}) - Gold: {newGoldAmount}, Supply: {newSupplyAmount}");
+                    //Console.WriteLine(sqlUpdate);
+                    //Console.WriteLine($"Updated nexus at ({coordsX}, {coordsY}) - Gold: {newGoldAmount}, Supply: {newSupplyAmount}");
                     await cmdUpdate.ExecuteNonQueryAsync();
                 }
             }

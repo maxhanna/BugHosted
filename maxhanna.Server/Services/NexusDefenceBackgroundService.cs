@@ -9,10 +9,15 @@ namespace maxhanna.Server.Services
     public class NexusDefenceBackgroundService : BackgroundService
     {
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
+        private readonly ConcurrentQueue<int> _defenceQueue = new ConcurrentQueue<int>(); 
+
         private readonly IConfiguration _config;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
         private Timer _checkForNewDefencesTimer;
+        private Timer _processDefenceQueueTimer;  
+
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);  
 
         public NexusDefenceBackgroundService(IConfiguration config, ILogger<NexusController> logger)
         {
@@ -21,6 +26,8 @@ namespace maxhanna.Server.Services
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
             _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+            _processDefenceQueueTimer = new Timer(ProcessDefenceQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100)); // Process queue every 0.1 seconds
+
         }
         private void ConfigureServices(IServiceCollection services)
         {
@@ -34,7 +41,22 @@ namespace maxhanna.Server.Services
                 .Build());
         }
 
-        public void ScheduleDefence(int defenceId, TimeSpan delay, Func<int, Task> callback)
+
+        public void AddDefenceToQueue(int defenceId)
+        {
+            if (_defenceQueue.Contains(defenceId)) return;
+            _defenceQueue.Enqueue(defenceId);
+        }
+
+        private async void ProcessDefenceQueue(object state)
+        {
+            if (_defenceQueue.TryDequeue(out var defenceId))
+            {
+                await ProcessDefence(defenceId);
+            }
+        }
+
+        public void ScheduleDefence(int defenceId, TimeSpan delay, Action<int> callback)
         {
             if (_timers.ContainsKey(defenceId))
             {
@@ -114,11 +136,12 @@ namespace maxhanna.Server.Services
             {
                 if (delay > TimeSpan.Zero)
                 {
-                    ScheduleDefence(defenceId, delay, ProcessDefence);
+                    ScheduleDefence(defenceId, delay, AddDefenceToQueue);
                 }
                 else
                 {
-                    await ProcessDefence(defenceId);
+
+                    AddDefenceToQueue(defenceId); 
                 }
             }
         }
@@ -176,6 +199,8 @@ namespace maxhanna.Server.Services
         }
         public async Task ProcessDefence(int defenceId)
         {
+            await _semaphore.WaitAsync();
+
             _logger.LogInformation($"Processing defence with ID: {defenceId}"); 
             try
             {
@@ -193,6 +218,9 @@ namespace maxhanna.Server.Services
             {
                 _logger.LogError(ex, "Error processing defence"); 
             }
+            finally { 
+                _semaphore.Release(); 
+            }
         }
 
         private async Task ProcessUpdateNexusDefences(NexusBase nexus)
@@ -208,7 +236,9 @@ namespace maxhanna.Server.Services
             {
                 timer.Dispose();
             }
+            _semaphore.Dispose();
             _checkForNewDefencesTimer?.Dispose(); 
+            _processDefenceQueueTimer?.Dispose();
             base.Dispose();
         }
     }

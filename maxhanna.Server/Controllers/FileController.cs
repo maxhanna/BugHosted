@@ -1591,7 +1591,10 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError($"Must be within {baseTarget}");
                 return false;
             }
-            else if (directory.Equals("E:/Uploads/Users") || directory.Equals("E:/Uploads/Roms") || directory.Equals("E:/Uploads/Meme"))
+            else if (directory.Equals("E:/Uploads/Users") || directory.Equals("E:/Uploads/Roms") 
+                || directory.Equals("E:/Uploads/Meme") || directory.Equals("E:/Uploads/Nexus") 
+                || directory.Equals("E:/Uploads/Array") || directory.Equals("E:/Uploads/BugHosted") 
+                || directory.Equals("E:/Uploads/Files") || directory.Equals("E:/Uploads/Pictures") || directory.Equals("E:/Uploads/Videos"))
             {
                 _logger.LogError($"Cannot delete {directory}!");
                 return false;

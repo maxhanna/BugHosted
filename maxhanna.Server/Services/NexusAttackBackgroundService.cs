@@ -10,12 +10,15 @@ namespace maxhanna.Server.Services
 {
     public class NexusAttackBackgroundService : BackgroundService
     { 
-        private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>(); 
+        private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
+        private readonly ConcurrentQueue<int> _attackQueue = new ConcurrentQueue<int>();
         private readonly IConfiguration _config;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
         private Timer _checkForNewAttacksTimer;
+        private Timer _processAttackQueueTimer;
 
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
 
         public NexusAttackBackgroundService(IConfiguration config)
         {
@@ -24,9 +27,10 @@ namespace maxhanna.Server.Services
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
             _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+            _processAttackQueueTimer = new Timer(ProcessAttackQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100)); 
         }
 
-        public void ScheduleAttack(int attackId, TimeSpan delay, Func<int, Task> callback)
+        public void ScheduleAttack(int attackId, TimeSpan delay, Action<int> callback)
         {
             if (_timers.ContainsKey(attackId))
             {
@@ -44,6 +48,20 @@ namespace maxhanna.Server.Services
             {
                 // In case the upgradeId was added by another thread between the check and the add
                 timer.Dispose();
+            }
+        }
+
+        public void AddAttackToQueue(int attackId)
+        {
+            if (_attackQueue.Contains(attackId)) return;
+            _attackQueue.Enqueue(attackId);
+        }
+
+        private async void ProcessAttackQueue(object state)
+        {
+            if (_attackQueue.TryDequeue(out var attackId))
+            {
+                await ProcessAttack(attackId);
             }
         }
 
@@ -102,11 +120,11 @@ namespace maxhanna.Server.Services
             {
                 if (delay > TimeSpan.Zero)
                 {
-                    ScheduleAttack(attackId, delay, ProcessAttack);
+                    ScheduleAttack(attackId, delay, AddAttackToQueue);
                 }
                 else
                 {
-                    await ProcessAttack(attackId);
+                    AddAttackToQueue(attackId);
                 }
             }
         }
@@ -179,18 +197,30 @@ namespace maxhanna.Server.Services
 
         public async Task ProcessAttack(int attackId)
         {
-            Console.WriteLine($"Processing attack with ID: {attackId}"); 
-            NexusBase? nexus = await GetNexusBaseByAttackId(attackId);
-            if (nexus != null)
-            {  
-                // Instantiate the NexusController with the logger and configuration
-                var nexusController = new NexusController(_logger, _config);
-                await nexusController.UpdateNexusAttacks(nexus);
-            }
-            else
+            await _semaphore.WaitAsync();
+            try
             {
-                Console.WriteLine($"No NexusBase found for attack ID: {attackId}"); 
-            }  
+                //Console.WriteLine($"Processing attack with ID: {attackId}");
+                NexusBase? nexus = await GetNexusBaseByAttackId(attackId);
+                if (nexus != null)
+                { 
+                    var nexusController = new NexusController(_logger, _config);
+                    await nexusController.UpdateNexusAttacks(nexus);
+                }
+                else
+                {
+                    Console.WriteLine($"No NexusBase found for attack ID: {attackId}");
+                }
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine("ProcessAttack Excpetion : " + ex.Message);
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+            
         }
 
 
@@ -201,6 +231,8 @@ namespace maxhanna.Server.Services
                 timer.Dispose();
             }
             _checkForNewAttacksTimer.Dispose();
+            _processAttackQueueTimer.Dispose();
+            _semaphore.Dispose();
             base.Dispose();
         }
     }
