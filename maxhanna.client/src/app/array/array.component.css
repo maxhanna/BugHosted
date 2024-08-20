@@ -1,13 +1,10 @@
 .componentMain {
   max-width: 400px;
+  height: CALC(100vh - 110px);
 }
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-  .componentMain {
-    max-width: 90vw !important;
-  }
-}
+
 .rankingDiv {
-  max-height: 135px;
+  max-height: 225px;
   overflow: auto;
   width: 100%;
   text-align: left;

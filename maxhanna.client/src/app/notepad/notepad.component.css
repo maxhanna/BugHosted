@@ -1,15 +1,14 @@
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-  .componentMain {
-    max-width: 90vw !important;
-  }
+.componentMain {
+  max-width: 90vw !important;
+  height: CALC(100vh - 110px);
 }
 textarea {
   margin-left: auto;
   margin-right: auto;
   width: 95%;
-  min-height:200px;
-  min-width:400px;
+  min-height: 200px;
   display: block;
+  height: CALC(100vh - 260px);
 }
 .buttonFields{
     text-align:right;

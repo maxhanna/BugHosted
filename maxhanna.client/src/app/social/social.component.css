@@ -1,6 +1,9 @@
 .componentMain {
   max-width: 865px;
   min-width: 350px;
+  height: CALC(100vh - 110px); 
+  display: flex;
+  flex-direction: column; 
 }
 
 @media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
@@ -17,10 +20,12 @@
 }
 .storyInputDiv {
   display: flex;
-  flex-flow: column wrap;
-  padding: 5px;
-  margin-top: -30px;
-  height: 15vh;
+  flex-flow: column wrap;  
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: flex-start;
+  align-items: stretch;
 } 
    
 .mainTopicSelector {
@@ -200,8 +205,7 @@
   display: inline;
 }
 .mainTableDiv {
-  border: var(--main-border);
-  max-height: CALC(99vh - (15vh + 190px));
+  border: var(--main-border); 
 } 
  
 .storyHeader {

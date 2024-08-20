@@ -14,7 +14,7 @@
   --gameboyBgColor: darkgrey;
   --main-font-size: 0.9vw;
   --component-max-width: 90vw;
-  --component-max-height: 80vh;
+  --component-max-height: CALC(100% - 67px);
   --nexus-gamescreen-height: 275px;
   --nexus-gamescreen-width: 350px;
 }
@@ -183,7 +183,7 @@ fieldset {
 }
 
 .mainTableContainer {
-  max-height: 70vh;
+  max-height: CALC(100vh - 180px);
   overflow: auto;
 }
 
@@ -196,10 +196,7 @@ fieldset {
   .media {
     max-width: unset !important;
   }
-
-  .mainTableContainer {
-    max-height: 550px;
-  }
+   
 
   .mainTable td {
     max-width: 100px !important;

@@ -4,7 +4,7 @@ button {
 
 .componentMain {
   width: 800px;
-  height: 90vh;
+  height: CALC(100vh - 110px);
 }
 
 .notifications {
@@ -14,7 +14,7 @@ button {
 }
 
 .memeResultsDiv {
-  max-height: CALC(90vh - 120px);
+  max-height: CALC(100vh - 140px);
   overflow: auto;
 }
 

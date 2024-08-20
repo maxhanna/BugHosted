@@ -1,12 +1,11 @@
 
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-  .componentMain {
-    max-width: 90vw !important;
-  }
-  .miningStatusTable { 
-    overflow: auto; 
-  }
+.componentMain {
+  max-width: 90vw !important;
+  max-height: CALC(100vh - 110px);
 }
+.miningStatusTable { 
+  overflow: auto; 
+} 
 
 
 .deviceTable {
@@ -127,7 +126,7 @@
   color: var(--secondary-font-color);
   font-family: Arial, Helvetica, sans-serif;
   border-collapse: collapse;
-  max-height: 700px !important;
+  max-height: CALC(100vh - 425px);
   overflow-y: auto;
   border: var(--main-border);
   border-radius: 5px;

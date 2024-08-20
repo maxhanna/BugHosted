@@ -1,7 +1,6 @@
-<ng-content *ngIf="originBase && selectedNexus">
-
-  Select units to send from {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}} to {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}:
-  <div class="unitsTableDiv">
+<ng-content *ngIf="originBase && selectedNexus"> 
+  <div class="unitsTableDiv"> 
+    Select units to send from {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}} to {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}:
     <table class="mainTable">
       <tbody *ngFor="let unit of getAvailableUnitStats()">
         <tr>

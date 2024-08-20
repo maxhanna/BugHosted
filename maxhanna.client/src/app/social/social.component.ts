@@ -76,6 +76,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   ngAfterViewInit() {
     if (this.user) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
+      this.componentMain.nativeElement.style.maxHeight = "CALC(100vh - 225px)";
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.height = "9vh";
     }  
@@ -198,10 +199,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.totalPages = this.storyResponse.pageCount;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
     }
-
-    if (this.user) {
-      setTimeout(() => { (document.getElementById('mainTableDiv') as HTMLDivElement).style.height = "57vh"; }, 10);
-    }
+     
 
     this.stopLoading();
   }

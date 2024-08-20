@@ -1,5 +1,6 @@
 .componentMain {
-    width:700px;
+  width: 700px;
+  height: CALC(100vh - 110px);
 }
 
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {

@@ -26,7 +26,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
   @Input() glitcherPictureSrc: string | undefined;
-  @Input() isSendingDefence: boolean = false;
+  @Input() isSendingDefence: boolean = false; 
 
   @Output() emittedNotifications = new EventEmitter<string>();
   @Output() closedAttackScreen = new EventEmitter<void>();
