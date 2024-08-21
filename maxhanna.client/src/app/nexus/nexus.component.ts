@@ -292,17 +292,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.loadNexusData(true);
   }
   private updateDefenceTimers() {
-    //console.log("getDefenceTimers");
     this.reinitializeDefenceTimers();
     if (this.nexusBase && this.nexusDefencesIncoming
       && this.nexusDefencesIncoming.some(x => !x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
         && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
-      //console.log("getting defences incoming timers");
 
       let count = 0;
       this.nexusDefencesIncoming.forEach(x => {
         if (!x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase?.coordsY) {
-          //console.log(`${x.destinationCoordsX} == ${this.nexusBase?.coordsX} && ${x.destinationCoordsY} == ${this.nexusBase?.coordsY}`);
           const startTimeTime = new Date(x.timestamp).getTime();
           const utcNow = new Date().getTime();
           const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
@@ -310,15 +307,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
           if (this.nexusBase) {
             const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
-            //console.log(x);
-            //console.log(remainingTimeInSeconds);
+
             let salt = "";
             if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
               salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
             } else {
               salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
             }
-            /*console.log(salt);*/
             this.startDefenceTimer(salt, remainingTimeInSeconds);
           }
         }
@@ -327,7 +322,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     if (this.nexusBase && this.nexusDefencesSent
       && this.nexusDefencesSent.some(x => x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)) {
-      //console.log("getting defences sent timers");
 
       let count = 0;
       this.nexusDefencesSent.forEach(x => {
@@ -339,15 +333,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
           if (this.nexusBase && x.originCoordsX == this.nexusBase.coordsX && x.originCoordsY == this.nexusBase.coordsY) {
             const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
-            //console.log(x);
-            //console.log(remainingTimeInSeconds);
+
             let salt = "";
             if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
               salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
             } else {
               salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
             }
-            /*console.log(salt);*/
             this.startDefenceTimer(salt, remainingTimeInSeconds);
           }
         }
@@ -357,8 +349,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   private setAvailableUnits() {
     if (!this.nexusBase) return;
-    
-    //console.log("setavilunits");  
+
     const filteredAttacks = this.nexusAttacksSent?.filter(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
     filteredAttacks?.forEach(x => {
       this.reinitializeNexusUnitsByType("nexusAvailableUnits");
@@ -395,8 +386,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.attacksIncomingCount++;
       }
     });
-
-    // Filter out units with the same ID in nexusDefencesIncoming and nexusDefencesSent
+     
     const filteredDefencesIncoming = this.nexusDefencesIncoming?.filter(x =>
       !this.nexusDefencesSent?.some(y => y.id === x.id)
     ) || [];
@@ -588,10 +578,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.nexusUnitUpgrades && this.nexusUnitUpgrades.length > 0 && this.nexusBase && this.units && this.unitUpgradeStats) {
 
       this.nexusUnitUpgrades.forEach(x => {
-
         if (!this.units) return;
         const foundUnit = this.units.find(unit => unit && unit.unitId == x.unitIdUpgraded);
-
         const startTimeTime = new Date(x.timestamp).getTime();
         const utcNow = new Date().getTime();
         const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
@@ -849,7 +837,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.researchTimers[research] || !time || isNaN(time)) {
       return;
     }
-    //console.log(research);
+    //console.log("starting research timer : " +research + " time: " + time);
     const endTime = Math.max(1, time);
     const timer = {
       key: research,
@@ -998,8 +986,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
     });
     this.defenceTimers = {};
-    //console.log("reinitialized! ");
-    //console.log(this.defenceTimers);
   }
 
   private async reinitializeResearchTimers() {
@@ -1186,7 +1172,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       } as NexusUnitsPurchased;
       if (!this.nexusUnitsPurchaseList) { this.nexusUnitsPurchaseList = []; }
       this.nexusUnitsPurchaseList.push(purchasedUnit);
-      
+
       this.getUnitTimers();
       this.nexusService.purchaseUnit(this.parentRef.user, this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0);
     }
@@ -1318,7 +1304,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async closeUserComponent(user: User) {
     if (!this.parentRef) return;
-    console.log(user);
+
     this.parentRef.user = user;
     this.isUserComponentOpen = false;
     await this.loadNexusData();
@@ -1932,7 +1918,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   trackByUnit(index: number, unit: UnitStats): any {
     return unit.unitId; // or a unique identifier for the unit
   }
-  getUnitsWithoutGlitcher() { 
+  getUnitsWithoutGlitcher() {
     if (!this.units || !this.nexusBase) return undefined;
     if (this.unitsWithoutGlitcher) return;
 
@@ -1964,24 +1950,23 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.getEngineerBayUpgradeLimit() <= Object.keys(this.activeResearchTimers).length) {
       return alert("Upgrade the Engineering Bay for more research upgrades.");
     }
-    console.log("researching" + unit.unitId);
-    console.log(unit);
+
     if (this.parentRef && this.parentRef.user && this.nexusBase) {
       this.nexusService.research(this.parentRef.user, this.nexusBase, unit);
-      const cost = this.getResearchCostPerUnit(unit); 
+      const cost = this.getResearchCostPerUnit(unit);
       this.updateCurrentBasesGold(cost);
       if (!this.nexusUnitUpgrades) {
         this.nexusUnitUpgrades = [];
       }
       this.nexusUnitUpgrades.push({
-        coordsX : this.nexusBase.coordsX,
-        coordsY : this.nexusBase.coordsY,
+        coordsX: this.nexusBase.coordsX,
+        coordsY: this.nexusBase.coordsY,
         unitIdUpgraded: unit.unitId,
-        timestamp: new Date(), 
+        timestamp: new Date(),
       } as NexusUnitUpgrades);
       this.updateUnitResearchTimers();
 
-      this.addNotification(`${unit.unitType} research level ${unit.unitLevel} started.`); 
+      this.addNotification(`${unit.unitType} research level ${unit.unitLevel} started.`);
     }
   }
 

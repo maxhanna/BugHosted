@@ -529,8 +529,8 @@
         </div>
       </div>
     </div>
-    <div *ngIf="activeUnitTimers().length > 0">
-      <span class="mainInfoSection">Training:</span>
+    <div *ngIf="activeUnitTimers().length > 0 || activeResearchTimers().length > 0">
+      <span *ngIf="activeUnitTimers().length > 0" class="mainInfoSection">Training:</span>
       <div *ngIf="activeUnitTimers().length > 0" class="unitPurchaseTableDiv upgradeTimersTableDiv">
         <div *ngFor="let timer of activeUnitTimers()" class="activeUnitTimerDiv capitalize">
           <div *ngIf="timer.unit.includes('marine')">
