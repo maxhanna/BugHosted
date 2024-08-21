@@ -38,8 +38,8 @@
   <div class="gamescreen" [style.display]="!isUserNew ? 'block':'none'">
     <div [style.display]="!isReportsOpen && !isSupportOpen && !isBasesOpen && !isMapOpen && nexusBase ? 'block' : 'none'" class="attacksIncomingCount" *ngIf="attacksIncomingCount > 0" (click)="toggleScreen('bases', !isBasesOpen)">{{attacksIncomingCount}}⚔️</div>
     <div [style.display]="numberOfPersonalBases > 1 && !isReportsOpen && !isSupportOpen && !isBasesOpen && nexusBase ? 'block' : 'none'">
-      <button class="previousBaseButton" (click)="previousBase()" [disabled]="isLoading">⩤</button>
-      <button class="nextBaseButton" (click)="nextBase()" [disabled]="isLoading">⩥</button>
+      <button class="previousBaseButton" (click)="previousBase()">⩤</button>
+      <button class="nextBaseButton" (click)="nextBase()">⩥</button>
     </div>
     <div *ngIf="!isReportsOpen && !isMapOpen && !isBasesOpen && !isSupportOpen && !isUserNew && nexusBase" class="resourceDiv">
       <span title="Gold" class="resourceSpan goldText">📀:{{ (nexusBase && nexusBase.gold ? nexusBase.gold : '0') | number:'1.0-2' }}</span>
@@ -57,8 +57,8 @@
       </app-nexus-reports>
     </div>
 
-    <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user" [style.display]="isMapOpen ? 'block':'none'">
-      <app-nexus-map #mapComponent
+    <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user && isMapOpen">
+      <app-nexus-map #mapComponent 
                      [user]="parentRef.user"
                      [inputtedParentRef]="parentRef"
                      [nexusBase]="nexusBase"

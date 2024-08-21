@@ -63,7 +63,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
     });
     if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units!"); 
 
-    await this.engageAttack();
+    this.engageAttack();
   }
 
   async engageAttack() {

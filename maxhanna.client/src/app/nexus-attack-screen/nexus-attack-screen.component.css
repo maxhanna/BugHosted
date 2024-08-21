@@ -1,9 +1,13 @@
 
 .unitsTableDiv {
-  max-height: 40vh;
+  max-height: CALC(CALC(var(--vh, 1vh) * 50) - 135px);
   overflow: auto;
 }
 
 .unitInput {
   width: 25px;
+}
+.bottomButtons {
+  display: flex;
+  justify-content: center;
 }

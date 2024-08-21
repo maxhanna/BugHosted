@@ -9,6 +9,7 @@ import { NexusReportsComponent } from '../nexus-reports/nexus-reports.component'
 import { NexusService } from '../../services/nexus.service';
 import { AttackTimer } from '../../services/datacontracts/nexus/attack-timer';
 import { AttackEventPayload } from '../../services/datacontracts/nexus/attack-event-payload';
+import { ChildComponent } from '../child.component';
 
 
 @Component({
@@ -16,7 +17,7 @@ import { AttackEventPayload } from '../../services/datacontracts/nexus/attack-ev
   templateUrl: './nexus-map.component.html',
   styleUrl: './nexus-map.component.css'
 })
-export class NexusMapComponent {
+export class NexusMapComponent extends ChildComponent {
   mapData: NexusBase[] = [];
   selectedNexusBase?: NexusBase;
   grid: string[][] = [];
@@ -24,6 +25,7 @@ export class NexusMapComponent {
   showAttackButton = false;
   isReportsHidden = true;
   isSendingDefence = false;
+  isMapRendered = false;
   randomRotations: number[][] = [];
   randomMap: number[][] = [];
 
@@ -66,7 +68,7 @@ export class NexusMapComponent {
   @ViewChild(NexusReportsComponent) nexusReports!: NexusReportsComponent;
 
 
-  constructor(private nexusService: NexusService) { }
+  constructor(private nexusService: NexusService) { super(); }
 
   zoomOut() {
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
@@ -123,7 +125,11 @@ export class NexusMapComponent {
   }
 
   setMapData(nexusBases: NexusBase[]) {
+    if (this.isMapRendered) return;
+    this.startLoading();
     this.mapData = nexusBases;
+    console.log(this.mapData);
+    this.isMapRendered = true;
 
     for (let i = 0; i < 100; i++) {
       this.grid[i] = [];
@@ -137,8 +143,15 @@ export class NexusMapComponent {
         }
       }
     }
-    this.generateRandomRotations(); 
+    this.generateRandomRotations();
     this.randomMap = this.generateRandomMap(100, 100);
+    setTimeout(() => {
+      if (this.nexusBase) { 
+        this.scrollToCoordinates(this.nexusBase?.coordsX, this.nexusBase?.coordsY);
+      }
+    }, 10);
+    
+    this.stopLoading();
   }
   generateRandomRotations() {
     const possibleRotations = [0, 180, 270];
@@ -215,6 +228,7 @@ export class NexusMapComponent {
     return randomMap;
   }
   selectCoordinates(coordsx: number, coordsy: number) {
+    if (this.selectedNexusBase?.coordsX == coordsx && this.selectedNexusBase?.coordsY == coordsy) return;
     this.selectedNexusBase = undefined;
     this.showAttackButton = true;
     this.isReportsHidden = true;
@@ -488,70 +502,78 @@ export class NexusMapComponent {
       });
     }
   }
-
+  private incomingFromNexusDefencesIncoming() {
+    return this.nexusDefencesIncoming
+      && this.nexusDefencesIncoming.some(x => !x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY
+        && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0));
+  }
+  private incomingFromNexusDefencesSent() {
+    return this.nexusDefencesSent && this.nexusDefencesSent.some(x => !x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY
+      && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0));
+  }
   private updateDefenceTimers() {
     console.log("updatedefencetimers");
     this.reinitializeDefenceTimers();
-    if (this.nexusBase && this.nexusDefencesIncoming  
-      && this.nexusDefencesIncoming.some(x => !x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY
-        && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
+    if (this.incomingFromNexusDefencesIncoming() || this.incomingFromNexusDefencesSent()) {
       console.log("getting defences incoming timers");
 
       let count = 0;
-      this.nexusDefencesIncoming.forEach(x => {
-        if (!x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase?.coordsY) {
-          //console.log(`${x.destinationCoordsX} == ${this.selectedNexusBase?.coordsX} && ${x.destinationCoordsY} == ${this.selectedNexusBase?.coordsY}`);
-          const startTimeTime = new Date(x.timestamp).getTime();
-          const utcNow = new Date().getTime();
-          const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
-          const timeDuration = x.duration;
+      if (this.nexusDefencesIncoming) {
+        this.nexusDefencesIncoming.forEach(x => {
+          if (!x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase?.coordsY) {
+            //console.log(`${x.destinationCoordsX} == ${this.selectedNexusBase?.coordsX} && ${x.destinationCoordsY} == ${this.selectedNexusBase?.coordsY}`);
+            const startTimeTime = new Date(x.timestamp).getTime();
+            const utcNow = new Date().getTime();
+            const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+            const timeDuration = x.duration;
 
-          if (this.nexusBase) {
-            const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
-            //console.log(x);
-            //console.log(remainingTimeInSeconds); 
-            /*console.log(salt);*/
-            if (remainingTimeInSeconds > 0) {
+            if (this.nexusBase) {
+              const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
+              //console.log(x);
+              //console.log(remainingTimeInSeconds); 
+              /*console.log(salt);*/
+              if (remainingTimeInSeconds > 0) {
+                let salt = "";
+                if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
+                  salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+                } else {
+                  salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+                }
+                this.startDefenceTimer(salt, remainingTimeInSeconds);
+              }
+            }
+          }
+        });
+      }
+
+      if (this.nexusDefencesSent) {
+        console.log("cecking defences sent");
+        console.log(this.nexusDefencesSent);
+        let count = 0;
+        this.nexusDefencesSent.forEach(x => {
+          if (!x.arrived) {
+            const startTimeTime = new Date(x.timestamp).getTime();
+            const utcNow = new Date().getTime();
+            const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+            const timeDuration = x.duration;
+            console.log("found one that hasnt arrived yet");
+
+            if (this.selectedNexusBase && x.destinationCoordsX == this.selectedNexusBase.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY) {
+              const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
+              console.log(x);
+              console.log(remainingTimeInSeconds);
               let salt = "";
               if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
                 salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
               } else {
                 salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
               }
+              /*console.log(salt);*/
               this.startDefenceTimer(salt, remainingTimeInSeconds);
             }
           }
-        }
-      });
-    }
-
-    if (this.selectedNexusBase && this.nexusDefencesSent
-      && this.nexusDefencesSent.some(x => x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)) {
-      console.log("getting defences sent timers");
-
-      let count = 0;
-      this.nexusDefencesSent.forEach(x => {
-        if (!x.arrived) {
-          const startTimeTime = new Date(x.timestamp).getTime();
-          const utcNow = new Date().getTime();
-          const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
-          const timeDuration = x.duration;
-
-          if (this.selectedNexusBase && x.originCoordsX == this.selectedNexusBase.coordsX && x.originCoordsY == this.selectedNexusBase.coordsY) {
-            const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
-            console.log(x);
-            console.log(remainingTimeInSeconds);
-            let salt = "";
-            if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
-              salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
-            } else {
-              salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
-            }
-            /*console.log(salt);*/
-            this.startDefenceTimer(salt, remainingTimeInSeconds);
-          }
-        }
-      });
-    }
+        });
+      }
+    }  
   } 
 }

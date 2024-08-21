@@ -159,8 +159,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
     this.loadPictureSrcs();
-    this.loadNexusData();
-    this.startGoldIncrement();
+    this.loadNexusData(); 
   }
 
   ngOnDestroy() {
@@ -208,16 +207,18 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           || this.nexusUnits.wraithTotal > 0 || this.nexusUnits.battlecruiserTotal > 0 || this.nexusUnits.glitcherTotal > 0) ? JSON.parse(JSON.stringify(this.nexusUnits)) : undefined; //creating a deep copy wont reference the same address as nexusUnits
       this.nexusUnitsOutsideOfBase = undefined;
       this.nexusExternalSupportUnits = undefined;
-      this.currentValidAvailableUpgrades = undefined;
 
-      this.displayBuildings(this.nexusBaseUpgrades);
-      this.updateAttackTimers(true);
-      this.updateDefenceTimers();
+      if (!this.isMapOpen) {
+        this.currentValidAvailableUpgrades = undefined;
+        this.displayBuildings(this.nexusBaseUpgrades);
+        this.updateAttackTimers(true);
+        this.updateDefenceTimers();
+        this.getUnitStats();
+        this.updateUnitResearchTimers();
+        this.getAvailableBuildingUpgrades();
+        this.getMiningSpeedsAndSetMiningSpeed(); 
+      } 
       this.setAvailableUnits();
-      this.getUnitStats();
-      this.updateUnitResearchTimers();
-      this.getAvailableBuildingUpgrades();
-      this.getMiningSpeedsAndSetMiningSpeed();
     }
     if (this.nexusBase) {
       this.isUserComponentOpen = false;
@@ -228,12 +229,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       const mapRes = await this.nexusService.getMap(this.parentRef.user);
       if (mapRes) {
         this.mapData = mapRes;
-        this.mapComponent.setMapData(this.mapData);
         this.numberOfPersonalBases = this.mapData.filter(x => x.user?.id == this.parentRef?.user?.id).length;
       }
     }
     this.unitsWithoutGlitcher = undefined;
-    this.startGoldIncrement();
     this.stopLoading();
   }
   async getMiningSpeedsAndSetMiningSpeed() {
@@ -243,6 +242,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.miningSpeeds) {
       this.miningSpeed = this.miningSpeeds.find(x => x.minesLevel == this.nexusBase?.minesLevel)?.speed ?? 0;
     }
+
+    this.startGoldIncrement();
   }
   async getNexusUnits() {
     if (!this.allNexusUnits) {
@@ -1193,6 +1194,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async viewMap(force?: boolean, dontScroll: boolean = false) {
     this.isMapOpen = force != undefined ? force : !this.isMapOpen;
+    console.log("viewMap" + this.isMapOpen);
     if (this.isMapOpen && this.nexusBase && !dontScroll) {
       setTimeout(() => { if (this.nexusBase) this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY); }, 10);
     }
@@ -1202,7 +1204,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.goldIncrementInterval) {
       clearInterval(this.goldIncrementInterval);
     }
-
+    console.log("start gold increment ");
     const intervalTime = this.miningSpeed * 1000;
 
     this.goldIncrementInterval = setInterval(() => {
@@ -1874,7 +1876,25 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.isReportsOpen = isOpen != undefined ? isOpen : !this.isReportsOpen;
     }
     else if (screen == "map") {
+      this.startLoading();
       this.viewMap(isOpen);
+      setTimeout(() => {
+        if (this.mapData && isOpen && !this.mapComponent.isMapRendered) {
+          this.mapComponent.setMapData(this.mapData);
+          console.log("set map data");
+        }
+      }, 100);
+      if (!isOpen) { 
+        this.currentValidAvailableUpgrades = undefined;
+        this.displayBuildings(this.nexusBaseUpgrades!);
+        this.updateAttackTimers(true);
+        this.updateDefenceTimers();
+        this.getUnitStats();
+        this.updateUnitResearchTimers();
+        this.getAvailableBuildingUpgrades();
+        this.getMiningSpeedsAndSetMiningSpeed();
+      }
+      this.stopLoading();
     }
     else if (screen == "bases") {
       this.isBasesOpen = isOpen != undefined ? isOpen : !this.isBasesOpen;

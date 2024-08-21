@@ -1,4 +1,7 @@
-<div class="map" *ngIf="mapData" #mapContainer>
+<div *ngIf="!isMapRendered" class="map loadingMapDiv">
+  <div>Loading 🗺️...</div> 
+</div>
+<div class="map" *ngIf="mapData isMapRendered" #mapContainer>
   <div *ngFor="let row of grid; let y = index" class="row">
     <div *ngFor="let cell of row; let x = index" class="cell" [attr.x]="x" [attr.y]="y">
       <div class="cell-content" (click)="selectCoordinates(x, y);">
@@ -18,7 +21,7 @@
     </div>
   </div>
 </div>
-<div class="centeredDiv topMapCoords" [style.display]="!isAttackScreenOpen ? 'flex':'none'">
+<div class="centeredDiv topMapCoords" [style.display]="!isAttackScreenOpen && isMapRendered ? 'flex':'none'">
   <button (click)="zoomOut()">Zoom out</button>
   <span>
     X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (keyup.enter)="showMapLocation()" />

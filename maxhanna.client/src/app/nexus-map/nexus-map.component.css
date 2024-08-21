@@ -6,6 +6,11 @@
   height: 275px;
   position: relative;
 }
+.loadingMapDiv {
+    justify-content:center;
+    align-content:center;
+    align-items: center;
+}
 
 .row {
   display: flex;

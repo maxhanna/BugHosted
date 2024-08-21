@@ -320,8 +320,7 @@
       font-size: x-small;
   }
 
-.mapComponentDiv {
-  display: none;
+.mapComponentDiv { 
   max-height: 80vh;
   overflow: hidden;
 }
