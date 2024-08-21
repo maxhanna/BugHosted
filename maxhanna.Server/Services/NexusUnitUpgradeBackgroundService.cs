@@ -15,8 +15,8 @@ namespace maxhanna.Server.Services
         private readonly ILogger<NexusController> _logger;
         private Timer _processUpgradeQueueTimer;
         private Timer _checkForNewUnitUpgradesTimer;
-        private const int TimedCheckEveryXSeconds = 20;
-        private const int QueueProcessingInterval = 100;
+        private const int TimedCheckEveryXSeconds = 60;
+        private const int QueueProcessingInterval = 5;
         private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit to 10 concurrent connections
 
         public NexusUnitUpgradeBackgroundService(IConfiguration config)
@@ -26,7 +26,7 @@ namespace maxhanna.Server.Services
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
             _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
-            _checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));  
+            _checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(QueueProcessingInterval));  
         }
 
         private void ConfigureServices(IServiceCollection services)
@@ -139,13 +139,17 @@ namespace maxhanna.Server.Services
                     int unitId = reader.GetInt32("unit_id_upgraded");
                     int totalDuration = reader.GetInt32("total_duration");
 
+                    //Console.WriteLine($"upgradeId {upgradeId} totalDuration {totalDuration} timestamp {timestamp} ");
+
                     TimeSpan delay = timestamp.AddSeconds(totalDuration) - DateTime.Now;
                     if (delay > TimeSpan.Zero)
                     {
+                        //Console.WriteLine($"ScheduleUpgrade {upgradeId} delay {delay} "); 
                         ScheduleUpgrade(upgradeId, delay, EnqueueUpgrade);
                     }
                     else
                     {
+                        //Console.WriteLine($"EnqueueUpgrade {upgradeId} delay {delay} ");
                         EnqueueUpgrade(upgradeId);
                     }
                 }

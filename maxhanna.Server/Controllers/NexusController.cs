@@ -4343,6 +4343,7 @@ namespace maxhanna.Server.Controllers
                         Console.WriteLine($"Checking {nexus.CoordsX}{nexus.CoordsX} unit upgrades. timeElapsed.TotalSeconds: {timeElapsed.TotalSeconds} Duration : {duration} ({timeElapsed.TotalSeconds - duration})");
                         if ((timeElapsed.TotalSeconds - duration) >= -3)
                         {
+                            Console.WriteLine("time elapsed! upgrading unit");
                             // Update unit level in nexus_bases table
                             string sqlUpdate = $@"
                                 UPDATE nexus_bases 

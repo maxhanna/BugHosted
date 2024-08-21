@@ -3,12 +3,11 @@
   flex-direction: column;
   min-height: 300px;
   min-width: 300px;
-  max-height:80vh;
-  max-width:99vw;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
+  max-width: 99vw;
 }
 
-.userPanel { 
-  height: CALC(100% - 60px);
+.userPanel {  
   width: 0px;
   overflow-x: hidden; 
   z-index: 1;
@@ -42,7 +41,7 @@
 .chatWindow {
   border: 1px solid #ccc;
   padding: 10px;
-  max-height: 60vh; 
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 200px);
   overflow: auto;
   margin-bottom: 10px;
 }
