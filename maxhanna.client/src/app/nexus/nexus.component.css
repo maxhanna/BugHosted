@@ -91,38 +91,120 @@
   border-radius: 50%;
   overflow: hidden;
   position: absolute;
-}
+} 
 
 .commandCenter {
   top: 44px;
   left: 158px;
 }
+.ccGlowLight1 {
+  top: 140px;
+  left: 179px;
+  border-radius: 1px !important;
+  transform: rotate(113deg);
+  height: 7px !important;
+  width: 11px !important;
+  opacity: 69%;
+}
 .commandCenterLevelDisplay {
   top: 45px;
   left: 175px;
 }
+
 .mines, .minesLevelDisplay {
   top: 160px;
   left: 210px;
+}
+.minesGlowLight1 {
+  top: 228px;
+  left: 291px;
+  border-radius: 0px !important;
+  transform: rotate(45deg) skew(-10deg, 40deg);
 }
 
 .starport, .starportLevelDisplay {
   top: 150px;
   left: 90px;
 }
+.starportGlowLight {
+  width: 2px !important;
+  height: 2px !important;
+}
+.starportGlowLight1 {
+  top: 225px;
+  left: 140.5px;
+}
+.starportGlowLight2 {
+  top: 196px;
+  left: 106.5px;
+}
+.starportGlowLight3 {
+  top: 190px;
+  left: 150px;
+}
+.starportWindowsGlowLight {
+  border-radius: 1px !important;
+  transform: rotate(-9deg);
+  height: 4px !important;
+  top: 241px;
+  left: 100.5px;
+  width: 14px !important;
+  opacity: 80%;
+}
 
 .factory, .factoryLevelDisplay {
   top: 63px;
   left: 39px;
 }
+.factoryGlowLight {
+  border-radius: 1px !important;
+  transform: rotate(150deg);
+  height: 2px !important;
+}
+.factoryGlowLight1 {
+  top: 142px;
+  left: 92px; 
+} 
+.factoryGlowLight2 {
+  top: 144px;
+  left: 93px; 
+} 
+.factoryGlowLight3 {
+  top: 146px;
+  left: 94px; 
+}  
 
 .supplyDepot {
   max-height: 65px;
-}
-
+} 
 .supplyDepot, .supplyDepotLevelDisplay {
   top: 0px;
   left: 259px;
+}
+.supplyDepotGlowLight1 {
+  top: 73px;
+  left: 271px;
+  border-radius: 1px !important;
+  transform: rotate(224deg) skew(15deg);
+  height: 8px !important;
+  width: 15px !important;
+  opacity: 69%;
+}
+.fan {
+  transform: scale(0.035);
+  left: 277px;
+  position: absolute;
+  top: 51px;
+  width: 5px;
+  height: 5px;
+}
+.fan2 {
+  transform: scale(0.03);
+  left: 293px;
+  position: absolute;
+  top: 47px;
+  width: 5px;
+  height: 5px; 
 }
 
 .warehouse {
@@ -133,9 +215,60 @@
   top: 0px;
   left: 160px;
 }
+.warehouseGlowLight1 {
+  top: 64px;
+  left: 132px;
+  border-radius: 1px !important;
+  transform: rotate(58deg) skew(-3deg, -31deg) skewY(32deg) skewX(3deg);
+  height: 5px !important;
+  width: 8px !important;
+} 
+
 .engineeringBay, .engineeringBayLevelDisplay {
   top: 84px;
   left: 293px;
+}
+.engineeringBayLongGlowLight {
+  width: 2.1px !important;
+  height: 5.5px !important;
+  border-radius: 41.01px !important;
+  transform: rotate(11deg) skew(10deg, -13deg);
+}
+.egineeringBayLongGlowLight1 {
+  top: 165.5px;
+  left: 344.5px;
+}
+.egineeringBayLongGlowLight2 {
+  top: 164.5px;
+  left: 347.5px;
+}
+.egineeringBayLongGlowLight3 {
+  top: 163.5px;
+  left: 350.5px;
+}
+
+.ebSmallGlowLight1 {
+  top: 169.5px;
+  left: 300px;
+  width: 3px !important;
+  height: 1px !important;
+  transform: rotate(45deg);
+}
+.ebSmallGlowLight2 {
+  top: 171px;
+  left: 303px;
+  width: 4px !important;
+  transform: rotate(16deg);
+  border-radius: 0.6px !important;
+  height: 1.4px !important;
+}
+.ebSmallGlowLight3 {
+  top: 174px;
+  left: 312px;
+  width: 2.5px !important;
+  HEIGHT: 1px !important;
+  border-radius: 0.5px !important;
+  transform: rotate(-13deg);
 }
 
 .supplyDepotScreen, .starportScreen, .minesScreen, .factoryScreen, .warehouseScreen, .engineeringBayScreen, .commandCenterScreen {
@@ -429,4 +562,100 @@
 }
 .unitStatUnitTitle {
     font-weight:bolder;
+}
+
+.glowingLight {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #fff;
+  -webkit-animation: glowing 1s ease-in-out infinite alternate;
+  -moz-animation: glowing 1s ease-in-out infinite alternate;
+  animation: glowing 1s ease-in-out infinite alternate;
+  display: block;
+  position: absolute;
+  z-index:3;
+}
+
+@-webkit-keyframes glowing {
+  from {
+    box-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #f0f, 0 0 40px #0ff, 0 0 50px #e60073, 0 0 60px #e60073, 0 0 70px #e60073;
+  }
+
+  to {
+    box-shadow: 0 0 20px #fff, 0 0 30px #ff4da6, 0 0 40px #ff4da6, 0 0 50px #ff4da6, 0 0 60px #ff4da6, 0 0 70px #ff4da6, 0 0 80px #ff4da6;
+  }
+}
+body {
+  background: #333;
+  padding: 30px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.ceiling-container {
+  transform: scale(0.8);
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  position: relative;
+  display: inline-block;
+  animation: spin 6ms linear infinite;
+}
+
+.ceiling-fan { 
+  display: block;
+  background: #ccc;
+  border-radius: 5px;
+  position: absolute;
+  box-shadow: inset 1px 1px 40px #555;
+}
+.horizontal {
+  width: auto;
+  height: 50px;
+  top: 50%;
+  margin-top: -25px;
+  transform: skewX(20deg);
+} 
+.vertical {
+  width: 50px;
+  height: auto;
+  left: 50%;
+  margin-left: -25px;
+  transform: skewY(20deg); 
+}
+
+.left {
+  left: 0;
+  right: 50%;
+  margin-right: 45px; 
+  border-radius: 50% 15px 15px 50%;
+}
+ .right {
+  right: 0;
+  left: 50%;
+  margin-left: 45px; 
+  border-radius: 15px 50% 50% 15px; 
+}
+
+ .top {
+  top: 0;
+  bottom: 50%;
+  margin-bottom: 45px; 
+  border-radius: 50% 50% 15px 15px; 
+}
+
+.bottom {
+  top: 50%;
+  bottom: 0;
+  margin-top: 45px; 
+  border-radius: 15px 15px 50% 50%; 
 }

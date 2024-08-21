@@ -1252,12 +1252,12 @@ namespace maxhanna.Server.Controllers
 
         private async Task<bool> CanUpgradeBuilding(NexusBase nbase, string building, MySqlConnection connection, MySqlTransaction transaction)
         {
-            if (nbase.MinesLevel < 1)
+            if (nbase.MinesLevel < 1 && building != "mines")
             {
                 return false;
             }
             NexusBaseUpgrades? currentUpgrades = await GetNexusBaseUpgrades(nbase, connection, transaction);
-            if (nbase.MinesLevel < 1 && currentUpgrades?.MinesUpgraded == null)
+            if (nbase.MinesLevel < 1 && currentUpgrades?.MinesUpgraded == null && building != "mines")
             {
                 return false;
             }

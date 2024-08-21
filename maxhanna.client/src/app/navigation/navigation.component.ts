@@ -102,8 +102,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       ]; 
     } else { 
       this._parent.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
-    }
-    console.log("set menu items");
+    } 
   }
   menuIconsIncludes(title: string) {
     if (!this._parent) {

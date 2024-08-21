@@ -134,6 +134,10 @@
           </span>
         </span>
       </div>
+      <div *ngIf="nexusBaseUpgrades && nexusBaseUpgrades.commandCenterUpgraded">
+        <span class="glowingLight ccGlowLight1"></span>
+      </div>
+
 
       <div class="building" [style.display]="displayMines ?  'block' : 'none'">
         <img [src]="nexusBase.minesLevel < 3 ? mineslvl1Src : nexusBase.minesLevel < 4 ? mineslvl2Src : mineslvl3Src"
@@ -146,7 +150,9 @@
           </span>
         </span>
       </div>
-
+      <div *ngIf="nexusBaseUpgrades && nexusBaseUpgrades.minesUpgraded">
+        <span class="glowingLight minesGlowLight1"></span>
+      </div>
 
       <div class="building" [style.visibility]="displayEngineeringBay ?  'visible' : 'hidden'">
         <img [src]="nexusBase.engineeringBayLevel < 3 ? eblvl1Src : nexusBase.engineeringBayLevel < 4 ? eblvl2Src : eblvl3Src"
@@ -158,6 +164,14 @@
             {{getBuildingTimerForBuilding("engineering_bay") ? formatTimer(getBuildingTimerForBuilding("engineering_bay").endTime) : ''}}
           </span>
         </span>
+      </div>
+      <div *ngIf="(nexusBaseUpgrades && nexusBaseUpgrades.engineeringBayUpgraded) || glitchersBeingBuilt > 0 || isUpgradingUnits">
+        <span class="glowingLight engineeringBayLongGlowLight egineeringBayLongGlowLight1"></span>
+        <span class="glowingLight engineeringBayLongGlowLight egineeringBayLongGlowLight2"></span>
+        <span class="glowingLight engineeringBayLongGlowLight egineeringBayLongGlowLight3"></span>
+        <span class="glowingLight ebSmallGlowLight1"></span>
+        <span class="glowingLight ebSmallGlowLight2"></span>
+        <span class="glowingLight ebSmallGlowLight3"></span>
       </div>
 
 
@@ -172,6 +186,10 @@
           </span>
         </span>
       </div>
+      <div *ngIf="nexusBaseUpgrades && nexusBaseUpgrades.warehouseUpgraded">
+        <span class="glowingLight warehouseGlowLight1"></span>
+      </div>
+
 
       <div class="building" [style.visibility]="displayFactory ?  'visible' : 'hidden'">
         <img [src]="nexusBase.factoryLevel < 3 ? flvl1Src : nexusBase.factoryLevel < 4 ? flvl2Src : flvl3Src"
@@ -183,6 +201,11 @@
             {{getBuildingTimerForBuilding("factory") ? formatTimer(getBuildingTimerForBuilding("factory").endTime) : ''}}
           </span>
         </span>
+      </div>
+      <div *ngIf="(nexusBaseUpgrades && nexusBaseUpgrades.factoryUpgraded) || factoryUnitsBeingBuilt > 0">
+        <span class="glowingLight factoryGlowLight factoryGlowLight1"></span>
+        <span class="glowingLight factoryGlowLight factoryGlowLight2"></span>
+        <span class="glowingLight factoryGlowLight factoryGlowLight3"></span>
       </div>
 
       <div class="building" [style.visibility]="displayStarport ?  'visible' : 'hidden'">
@@ -196,6 +219,12 @@
           </span>
         </span>
       </div>
+      <div *ngIf="(nexusBaseUpgrades && nexusBaseUpgrades.factoryUpgraded) || starportUnitsBeingBuilt > 0">
+        <span class="glowingLight starportGlowLight starportGlowLight1"></span>
+        <span class="glowingLight starportGlowLight starportGlowLight2"></span>
+        <span class="glowingLight starportGlowLight starportGlowLight3"></span>
+        <span class="glowingLight starportWindowsGlowLight"></span>
+      </div>
 
       <div class="building" [style.visibility]="displaySupplyDepot ? 'visible' : 'hidden'">
         <img [src]="nexusBase.supplyDepotLevel < 3 ? sdlvl1Src : nexusBase.supplyDepotLevel < 4 ? sdlvl2Src : sdlvl3Src"
@@ -208,8 +237,26 @@
           </span>
         </span>
       </div>
+      <div *ngIf="nexusBaseUpgrades && nexusBaseUpgrades.supplyDepotUpgraded">
+        <span class="glowingLight supplyDepotGlowLight1"></span>
+        <div class="fan">
+          <div class="ceiling-container">
+            <div class="ceiling-fan horizontal left"></div>
+            <div class="ceiling-fan horizontal right"></div>
+            <div class="ceiling-fan vertical rotated top"></div>
+            <div class="ceiling-fan vertical rotated bottom"></div>
+          </div>
+        </div>
+        <div class="fan2">
+          <div class="ceiling-container">
+            <div class="ceiling-fan horizontal left"></div>
+            <div class="ceiling-fan horizontal right"></div>
+            <div class="ceiling-fan vertical rotated top"></div>
+            <div class="ceiling-fan vertical rotated bottom"></div>
+          </div>
+        </div>
+      </div>
     </div>
-
 
 
     <img [src]="nexusBase.commandCenterLevel < 3 ? cclvl1Src : nexusBase.commandCenterLevel < 4 ? cclvl2Src : cclvl3Src"

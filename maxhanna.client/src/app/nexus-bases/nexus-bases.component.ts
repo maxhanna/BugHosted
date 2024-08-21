@@ -53,8 +53,7 @@ export class NexusBasesComponent extends ChildComponent {
     }
   }
 
-  selectBase(nexusBase: NexusBase) {
-    console.log(nexusBase);
+  selectBase(nexusBase: NexusBase) { 
     this.emittedBaseChange.emit(nexusBase);
   }
    

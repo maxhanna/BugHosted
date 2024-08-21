@@ -54,7 +54,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   displaySupplyDepot = false;
   displayWarehouse = false;
   displayEngineeringBay = false;
-  showMoreWarehouseInfo = false;
+  showMoreWarehouseInfo = false; 
+  isUpgradingUnits = false;
 
   mapTileSrc?: string;
   mapTileSrc2?: string;
@@ -135,6 +136,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   supplyCapacity = 2500;
   factoryUnitsBeingBuilt = 0;
   starportUnitsBeingBuilt = 0;
+  glitchersBeingBuilt = 0;
   factoryUnitIds = [6, 7, 10];
   starportUnitIds = [8, 9, 11];
   warehouseUpgradeLevels: number[] = [];
@@ -556,8 +558,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         const salt = "{" + this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} " + count + "." + x.quantityPurchased + " ";
         if (this.factoryUnitIds.includes(x.unitIdPurchased)) {
           this.factoryUnitsBeingBuilt++;
-        } else {
+        } else if (this.starportUnitIds.includes(x.unitIdPurchased)) {
           this.starportUnitsBeingBuilt++;
+        } else {
+          this.glitchersBeingBuilt++;
         }
 
         this.primeTheTimerForUnitPurchases(startTime, x.unitIdPurchased, x.quantityPurchased, salt);
@@ -590,6 +594,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           const foundUnitLevel = this.nexusBase[levelKey];
           const upgradeMultiplyer = this.unitUpgradeStats!.find(level => level && level.unitLevel == foundUnitLevel)!.duration;
           const remainingTimeInSeconds = (unitTimeDuration * upgradeMultiplyer) - elapsedTimeInSeconds;
+          this.isUpgradingUnits = true;
           this.startUnitResearchTimer(`${foundUnit?.unitType} level ${foundUnitLevel}` ?? "?", remainingTimeInSeconds);
         }
       });
@@ -2043,6 +2048,59 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         );
         return upgradedBase ? upgradedBase : base;
       });
+
+      const upgrade = res[1].toLowerCase();
+      if (upgrade.includes("command center") || upgrade.includes("supply depot") || upgrade.includes("warehouse") || upgrade.includes("engineering bay") || upgrade.includes("factory") || upgrade.includes("starport") || upgrade.includes("mines")) {
+        const currentBaseAffected = res[0].find(x => x.coordsX == this.nexusBase?.coordsX && x.coordsY == this.nexusBase.coordsY);
+        if (currentBaseAffected) {
+          if (!this.nexusBaseUpgrades) { this.nexusBaseUpgrades = {} as NexusBaseUpgrades; }
+          if (upgrade.includes("command center")) {
+            this.nexusBaseUpgrades.commandCenterUpgraded = new Date();
+            if (this.nexusAvailableUpgrades && this.nexusBase) {
+              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "command_center" && x.nextLevel == this.nexusBase.commandCenterLevel)?.cost ?? 0
+              this.updateCurrentBasesGold(upgradeCost);
+            } 
+          } else if (upgrade.includes("supply depot")) {
+            this.nexusBaseUpgrades.supplyDepotUpgraded = new Date();
+            if (this.nexusAvailableUpgrades && this.nexusBase) {
+              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "supply_depot" && x.nextLevel == this.nexusBase.supplyDepotLevel)?.cost ?? 0
+              this.updateCurrentBasesGold(upgradeCost);
+            }
+          } else if (upgrade.includes("mines")) {
+            this.nexusBaseUpgrades.minesUpgraded = new Date();
+            if (this.nexusAvailableUpgrades && this.nexusBase) {
+              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "mines" && x.nextLevel == this.nexusBase.minesLevel)?.cost ?? 0
+              this.updateCurrentBasesGold(upgradeCost);
+            }
+          } else if (upgrade.includes("factory")) {
+            this.nexusBaseUpgrades.factoryUpgraded = new Date();
+            if (this.nexusAvailableUpgrades && this.nexusBase) {
+              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "factory" && x.nextLevel == this.nexusBase.factoryLevel)?.cost ?? 0
+              this.updateCurrentBasesGold(upgradeCost);
+            }
+          } else if (upgrade.includes("starport")) {
+            this.nexusBaseUpgrades.starportUpgraded = new Date();
+            if (this.nexusAvailableUpgrades && this.nexusBase) {
+              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "starport" && x.nextLevel == this.nexusBase.starportLevel)?.cost ?? 0
+              this.updateCurrentBasesGold(upgradeCost);
+            }
+          } else if (upgrade.includes("warehouse")) {
+            this.nexusBaseUpgrades.warehouseUpgraded = new Date();
+            if (this.nexusAvailableUpgrades && this.nexusBase) {
+              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "warehouse" && x.nextLevel == this.nexusBase.warehouseLevel)?.cost ?? 0
+              this.updateCurrentBasesGold(upgradeCost);
+            }
+          } else if (upgrade.includes("engineering bay")) {
+            this.nexusBaseUpgrades.engineeringBayUpgraded = new Date();
+            if (this.nexusAvailableUpgrades && this.nexusBase) {
+              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "engineering_bay" && x.nextLevel == this.nexusBase.engineeringBayLevel)?.cost ?? 0
+              this.updateCurrentBasesGold(upgradeCost);
+            }
+          } 
+          this.displayBuildings(this.nexusBaseUpgrades);
+          this.getBuildingUpgradesInfo();
+        } 
+      } 
     }
     this.addNotification(`${res[1]} in ${res[0].length} bases!`);
   }
@@ -2063,7 +2121,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     } else if (building == "mines") {
       this.isMinesOpen = true;
     }
-  }
+  } 
   debounceLoadNexusData = this.debounce(async () => {
     this.loadNexusData();
   }, 1000);
