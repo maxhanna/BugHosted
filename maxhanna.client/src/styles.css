@@ -102,12 +102,12 @@ fieldset {
 }
 
 .componentMain {
-  max-height: CALC(100vh - 110px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
 }
 
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
   .componentMain {
-    max-height: CALC(90vh - 110px);
+    max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
   }
 }
 
@@ -193,7 +193,7 @@ fieldset {
 }
 
 .mainTableContainer {
-  max-height: CALC(90vh - 180px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 180px);
   overflow: auto;
 }
 

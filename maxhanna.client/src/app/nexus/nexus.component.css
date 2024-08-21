@@ -1,5 +1,5 @@
 .componentMain {
-  height: CALC(90vh - 110px);
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
   display: flex;
   flex-flow: column;
   justify-content: flex-start;
@@ -203,7 +203,7 @@
   flex-direction: column;
   overflow: auto;
   width: 100%;
-  height: CALC(90vh - 150px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 150px);
   border-bottom: var(--main-border);
 }
 

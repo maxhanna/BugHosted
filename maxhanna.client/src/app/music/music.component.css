@@ -1,6 +1,6 @@
 .iframeDiv {
   width: 100%;
-  height: CALC(90vh - 110px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
   margin-left: auto;
   margin-right: auto;
 }
@@ -37,5 +37,5 @@ iframe {
     margin: 4px;
   }
 .mainTableDiv {
-  max-height: CALC(90vh - 480px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 480px);
 }

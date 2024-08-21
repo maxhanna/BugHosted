@@ -1,9 +1,9 @@
 .componentMain {
   max-width: 865px;
   min-width: 350px;
-  height: CALC(90vh - 110px); 
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
   display: flex;
-  flex-direction: column; 
+  flex-direction: column;
 }
 
 @media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
@@ -11,15 +11,13 @@
     min-width: 90vw;
     max-width: 98vw;
   }
+  .mobileMaxHeight {
+    max-height: CALC(CALC(var(--vh, 1vh) * 90) - 225px);
+  } 
 }
 .mobileMaxHeight {
-  max-height: calc(100vh - 225px) !important;
-}
-@media only screen and (max-width: 768px) { /* Adjust the width threshold as needed */
-  .mobileMaxHeight {
-    max-height: calc(90vh - 225px) !important;
-  }
-}
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 225px);
+} 
 .inputDiv {
   margin-left: auto;
   margin-right: auto;

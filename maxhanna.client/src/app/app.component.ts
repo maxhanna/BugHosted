@@ -111,6 +111,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user"));
     }
+    window.addEventListener('resize', this.updateHeight);
+    this.updateHeight();
   }
   ngAfterViewInit() { 
     this.router.events.subscribe(event => {
@@ -271,5 +273,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     setTimeout(() => {
       this.modalComponent.setModalBody(msg);
     }, 100); 
+  }
+  updateHeight() {
+    document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
   }
 }
