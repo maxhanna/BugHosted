@@ -1407,8 +1407,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
 
   }
-  maxSliderValue(unit: UnitStats): number {
-    if (!this.nexusBase) return 0;
+  maxSliderValue(unit?: UnitStats): number {
+    if (!this.nexusBase || !unit) return 0;
     const goldTimesUnitGoldMaxCost = Math.floor(this.nexusBase.gold / unit.cost);
     const supplyTimesUnitGoldMaxCost = Math.floor(this.calculateCurrentSupply() / unit.supply);
 
@@ -2049,58 +2049,102 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         return upgradedBase ? upgradedBase : base;
       });
 
+      const currentBaseAffected = res[0].find(x => x.coordsX == this.nexusBase?.coordsX && x.coordsY == this.nexusBase.coordsY); 
       const upgrade = res[1].toLowerCase();
-      if (upgrade.includes("command center") || upgrade.includes("supply depot") || upgrade.includes("warehouse") || upgrade.includes("engineering bay") || upgrade.includes("factory") || upgrade.includes("starport") || upgrade.includes("mines")) {
-        const currentBaseAffected = res[0].find(x => x.coordsX == this.nexusBase?.coordsX && x.coordsY == this.nexusBase.coordsY);
-        if (currentBaseAffected) {
-          if (!this.nexusBaseUpgrades) { this.nexusBaseUpgrades = {} as NexusBaseUpgrades; }
-          if (upgrade.includes("command center")) {
-            this.nexusBaseUpgrades.commandCenterUpgraded = new Date();
-            if (this.nexusAvailableUpgrades && this.nexusBase) {
-              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "command_center" && x.nextLevel == this.nexusBase.commandCenterLevel)?.cost ?? 0
-              this.updateCurrentBasesGold(upgradeCost);
-            } 
-          } else if (upgrade.includes("supply depot")) {
-            this.nexusBaseUpgrades.supplyDepotUpgraded = new Date();
-            if (this.nexusAvailableUpgrades && this.nexusBase) {
-              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "supply_depot" && x.nextLevel == this.nexusBase.supplyDepotLevel)?.cost ?? 0
-              this.updateCurrentBasesGold(upgradeCost);
-            }
-          } else if (upgrade.includes("mines")) {
-            this.nexusBaseUpgrades.minesUpgraded = new Date();
-            if (this.nexusAvailableUpgrades && this.nexusBase) {
-              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "mines" && x.nextLevel == this.nexusBase.minesLevel)?.cost ?? 0
-              this.updateCurrentBasesGold(upgradeCost);
-            }
-          } else if (upgrade.includes("factory")) {
-            this.nexusBaseUpgrades.factoryUpgraded = new Date();
-            if (this.nexusAvailableUpgrades && this.nexusBase) {
-              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "factory" && x.nextLevel == this.nexusBase.factoryLevel)?.cost ?? 0
-              this.updateCurrentBasesGold(upgradeCost);
-            }
-          } else if (upgrade.includes("starport")) {
-            this.nexusBaseUpgrades.starportUpgraded = new Date();
-            if (this.nexusAvailableUpgrades && this.nexusBase) {
-              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "starport" && x.nextLevel == this.nexusBase.starportLevel)?.cost ?? 0
-              this.updateCurrentBasesGold(upgradeCost);
-            }
-          } else if (upgrade.includes("warehouse")) {
-            this.nexusBaseUpgrades.warehouseUpgraded = new Date();
-            if (this.nexusAvailableUpgrades && this.nexusBase) {
-              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "warehouse" && x.nextLevel == this.nexusBase.warehouseLevel)?.cost ?? 0
-              this.updateCurrentBasesGold(upgradeCost);
-            }
-          } else if (upgrade.includes("engineering bay")) {
-            this.nexusBaseUpgrades.engineeringBayUpgraded = new Date();
-            if (this.nexusAvailableUpgrades && this.nexusBase) {
-              const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "engineering_bay" && x.nextLevel == this.nexusBase.engineeringBayLevel)?.cost ?? 0
-              this.updateCurrentBasesGold(upgradeCost);
-            }
+
+      if (currentBaseAffected && (upgrade.includes("marine") || upgrade.includes("goliath") || upgrade.includes("siege tank") || upgrade.includes("scout") || upgrade.includes("wraith") || upgrade.includes("battlecruiser") || upgrade.includes("glitcher"))) {
+        if (upgrade.includes("marine") || upgrade.includes("goliath") || upgrade.includes("siege tank")) {
+          this.factoryUnitsBeingBuilt++; 
+        } else if (upgrade.includes("wraith") || upgrade.includes("scout") || upgrade.includes("battlecruiser")) {
+          this.starportUnitsBeingBuilt++;
+        } else {
+          this.glitchersBeingBuilt++;
+        }
+        if (this.units && this.nexusBase) {
+          let foundUnit = undefined;
+          if (upgrade.includes("marine")) {
+            foundUnit = this.units.find(x => x.unitType == "marine"); 
+          } else if (upgrade.includes("goliath")) {
+            foundUnit = this.units.find(x => x.unitType == "goliath");
+          } else if (upgrade.includes("siege tank")) {
+            foundUnit = this.units.find(x => x.unitType == "siege_tank");
+          } else if (upgrade.includes("scout")) {
+            foundUnit = this.units.find(x => x.unitType == "scout");
+          } else if (upgrade.includes("wraith")) {
+            foundUnit = this.units.find(x => x.unitType == "wraith");
+          } else if (upgrade.includes("battlecruiser")) {
+            foundUnit = this.units.find(x => x.unitType == "battlecruiser");
+          } else if (upgrade.includes("glitcher")) {
+            foundUnit = this.units.find(x => x.unitType == "glitcher");
+          }
+          if (foundUnit) {
+            const maxUnits = this.maxSliderValue(foundUnit);
+            const cost = maxUnits * foundUnit.cost;
+            this.updateCurrentBasesGold(cost);
+
+            const purchasedUnit = {
+              coords_x: this.nexusBase.coordsX,
+              coords_y: this.nexusBase.coordsY,
+              unitIdPurchased: foundUnit.unitId,
+              quantityPurchased: maxUnits,
+              timestamp: new Date(), 
+            } as NexusUnitsPurchased;
+
+            if (!this.nexusUnitsPurchaseList) { this.nexusUnitsPurchaseList = []; }
+            this.nexusUnitsPurchaseList.push(purchasedUnit);
+            this.getUnitTimers();
           } 
-          this.displayBuildings(this.nexusBaseUpgrades);
-          this.getBuildingUpgradesInfo();
-        } 
-      } 
+        }
+      }
+      else if (currentBaseAffected && (upgrade.includes("command center") || upgrade.includes("supply depot") || upgrade.includes("warehouse") || upgrade.includes("engineering bay") || upgrade.includes("factory") || upgrade.includes("starport") || upgrade.includes("mines")))
+      {
+        if (!this.nexusBaseUpgrades) { this.nexusBaseUpgrades = {} as NexusBaseUpgrades; }
+        if (upgrade.includes("command center")) {
+          this.nexusBaseUpgrades.commandCenterUpgraded = new Date();
+          if (this.nexusAvailableUpgrades && this.nexusBase) {
+            const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "command_center" && x.nextLevel == this.nexusBase.commandCenterLevel)?.cost ?? 0
+            this.updateCurrentBasesGold(upgradeCost);
+          }
+        } else if (upgrade.includes("supply depot")) {
+          this.nexusBaseUpgrades.supplyDepotUpgraded = new Date();
+          if (this.nexusAvailableUpgrades && this.nexusBase) {
+            const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "supply_depot" && x.nextLevel == this.nexusBase.supplyDepotLevel)?.cost ?? 0
+            this.updateCurrentBasesGold(upgradeCost);
+          }
+        } else if (upgrade.includes("mines")) {
+          this.nexusBaseUpgrades.minesUpgraded = new Date();
+          if (this.nexusAvailableUpgrades && this.nexusBase) {
+            const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "mines" && x.nextLevel == this.nexusBase.minesLevel)?.cost ?? 0
+            this.updateCurrentBasesGold(upgradeCost);
+          }
+        } else if (upgrade.includes("factory")) {
+          this.nexusBaseUpgrades.factoryUpgraded = new Date();
+          if (this.nexusAvailableUpgrades && this.nexusBase) {
+            const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "factory" && x.nextLevel == this.nexusBase.factoryLevel)?.cost ?? 0
+            this.updateCurrentBasesGold(upgradeCost);
+          }
+        } else if (upgrade.includes("starport")) {
+          this.nexusBaseUpgrades.starportUpgraded = new Date();
+          if (this.nexusAvailableUpgrades && this.nexusBase) {
+            const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "starport" && x.nextLevel == this.nexusBase.starportLevel)?.cost ?? 0
+            this.updateCurrentBasesGold(upgradeCost);
+          }
+        } else if (upgrade.includes("warehouse")) {
+          this.nexusBaseUpgrades.warehouseUpgraded = new Date();
+          if (this.nexusAvailableUpgrades && this.nexusBase) {
+            const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "warehouse" && x.nextLevel == this.nexusBase.warehouseLevel)?.cost ?? 0
+            this.updateCurrentBasesGold(upgradeCost);
+          }
+        } else if (upgrade.includes("engineering bay")) {
+          this.nexusBaseUpgrades.engineeringBayUpgraded = new Date();
+          if (this.nexusAvailableUpgrades && this.nexusBase) {
+            const upgradeCost = this.nexusAvailableUpgrades.find(x => this.nexusBase && x.building == "engineering_bay" && x.nextLevel == this.nexusBase.engineeringBayLevel)?.cost ?? 0
+            this.updateCurrentBasesGold(upgradeCost);
+          }
+        }
+        this.displayBuildings(this.nexusBaseUpgrades);
+        this.getBuildingUpgradesInfo();
+      }
     }
     this.addNotification(`${res[1]} in ${res[0].length} bases!`);
   }
