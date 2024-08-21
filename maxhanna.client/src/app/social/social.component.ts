@@ -76,7 +76,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   ngAfterViewInit() {
     if (this.user) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
-      this.componentMain.nativeElement.style.maxHeight = "CALC(100vh - 225px)";
+      this.componentMain.nativeElement.classList.add("mobileMaxHeight");
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px"; 
     }  
   }

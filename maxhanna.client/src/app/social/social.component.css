@@ -1,7 +1,7 @@
 .componentMain {
   max-width: 865px;
   min-width: 350px;
-  height: CALC(100vh - 110px); 
+  height: CALC(90vh - 110px); 
   display: flex;
   flex-direction: column; 
 }
@@ -12,7 +12,14 @@
     max-width: 98vw;
   }
 }
-
+.mobileMaxHeight {
+  max-height: calc(100vh - 225px) !important;
+}
+@media only screen and (max-width: 768px) { /* Adjust the width threshold as needed */
+  .mobileMaxHeight {
+    max-height: calc(90vh - 225px) !important;
+  }
+}
 .inputDiv {
   margin-left: auto;
   margin-right: auto;

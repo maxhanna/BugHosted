@@ -1,7 +1,7 @@
 
 .componentMain {
   max-width: 90vw !important;
-  max-height: CALC(100vh - 110px);
+  max-height: CALC(90vh - 110px);
 }
 .miningStatusTable { 
   overflow: auto; 
@@ -126,7 +126,7 @@
   color: var(--secondary-font-color);
   font-family: Arial, Helvetica, sans-serif;
   border-collapse: collapse;
-  max-height: CALC(100vh - 425px);
+  max-height: CALC(90vh - 425px);
   overflow-y: auto;
   border: var(--main-border);
   border-radius: 5px;

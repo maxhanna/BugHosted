@@ -1,7 +1,7 @@
 
 .componentMain {
   max-width: 90vw !important;
-  max-height: CALC(100vh - 110px);
+  max-height: CALC(90vh - 110px);
 } 
  
 

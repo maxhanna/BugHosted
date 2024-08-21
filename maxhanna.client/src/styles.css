@@ -102,8 +102,18 @@ fieldset {
 }
 
 .componentMain {
-  background-color: var(--main-bg-color);
-  max-height: var(--component-max-height);
+  max-height: CALC(100vh - 110px);
+}
+
+@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+  .componentMain {
+    max-height: CALC(90vh - 110px);
+  }
+}
+
+
+.componentMain {
+  background-color: var(--main-bg-color); 
   position: relative;
   padding-top: 35px;
   border: var(--main-border);
@@ -183,7 +193,7 @@ fieldset {
 }
 
 .mainTableContainer {
-  max-height: CALC(100vh - 180px);
+  max-height: CALC(90vh - 180px);
   overflow: auto;
 }
 

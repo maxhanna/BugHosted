@@ -1,6 +1,6 @@
 .componentMain {
   max-width: 400px;
-  height: CALC(100vh - 110px);
+  height: CALC(90vh - 110px);
 }
 
 .rankingDiv {

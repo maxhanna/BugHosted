@@ -1,6 +1,6 @@
 .componentMain {
   max-width: 90vw !important;
-  height: CALC(100vh - 110px);
+  height: CALC(90vh - 110px);
 }
 textarea {
   margin-left: auto;
@@ -8,7 +8,7 @@ textarea {
   width: 95%;
   min-height: 200px;
   display: block;
-  height: CALC(100vh - 260px);
+  height: CALC(90vh - 260px);
 }
 .buttonFields{
     text-align:right;
