@@ -1,6 +1,6 @@
 <div *ngIf="!isMapRendered" class="map loadingMapDiv">
   <div class="loadingRing">
-    <div>Loading🗺️</div> 
+    <div>Loading🗺️</div>
     <span class="loadingCircle"></span>
   </div>
 </div>
@@ -30,7 +30,7 @@
   <button (click)="zoomOut()">Zoom out</button>
   <span>
     X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (input)="onMapInputChange(mapInputX.value)" />
-    Y: <input type="number" placeholder="0" min="0" max="99" #mapInputY class="mapInput" (input)="onMapInputChange(mapInputY.value)" /> 
+    Y: <input type="number" placeholder="0" min="0" max="99" #mapInputY class="mapInput" (input)="onMapInputChange(mapInputY.value)" />
 
     <button (click)="showMapLocation()" *ngIf="mapInputX.value && mapInputY.value" [disabled]="!mapInputX.value || !mapInputY.value">📍:{{'{' + mapInputX.value + ',' + mapInputY.value  + '}'}}</button>
     <button (click)="clearMapInputs()" *ngIf="mapInputX.value || mapInputY.value">Clear</button>
@@ -96,4 +96,10 @@
 </div>
 <div class="zoomInButtonDiv">
   <button (click)="zoomIn()">Zoom In</button>
+</div>
+<div [style.display]="isAttackScreenOpen && ((numberOfPersonalBases || 0) > 1) ? 'block' : 'none'" class="baseAutoSwitcherDiv">
+  <label class="cursorPointer usernameProfileLink">
+    <input type="checkbox" #switchNextBaseCheckbox />
+    Automatically switch bases after attacking
+  </label>
 </div>

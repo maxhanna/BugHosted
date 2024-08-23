@@ -52,6 +52,7 @@ export class NexusMapComponent extends ChildComponent {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
   @Input() glitcherPictureSrc: string | undefined;
+  @Input() numberOfPersonalBases: number | undefined;
   @Input() unitStats?: UnitStats[];
   @Input() inputtedParentRef?: AppComponent;
   @Input() nexusAttacksSent?: NexusAttackSent[];
@@ -68,6 +69,7 @@ export class NexusMapComponent extends ChildComponent {
   @ViewChild('mapInputX') mapInputX!: ElementRef<HTMLInputElement>;
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;
   @ViewChild('mapContainer') mapContainer!: ElementRef;
+  @ViewChild('switchNextBaseCheckbox') switchNextBaseCheckbox!: ElementRef<HTMLInputElement>; 
   @ViewChild(NexusReportsComponent) nexusReports!: NexusReportsComponent;
 
 
@@ -193,9 +195,9 @@ export class NexusMapComponent extends ChildComponent {
   }
 
   emittedAttack(attack: NexusAttackSent) {
-    this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence } as AttackEventPayload); 
+    this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence, switchBase: this.switchNextBaseCheckbox.nativeElement.checked } as AttackEventPayload); 
     this.updateAttackTimers();
-    this.updateDefenceTimers();
+    this.updateDefenceTimers(); 
   }
 
   clearMapInputs() {
@@ -376,13 +378,14 @@ export class NexusMapComponent extends ChildComponent {
     });
     this.defenceTimers = {}; 
   }
-  private startAttackTimer(attack: string, time: number) {
+  private startAttackTimer(attack: string, time: number, object: object) {
     if (this.attackTimers[attack] || !time || isNaN(time)) {
       return;
     } 
     const endTime = Math.max(1, time);
     const timer = {
       key: attack,
+      object: object,
       endTime: endTime,
       timeout: setTimeout(async () => { 
         clearInterval(this.attackTimers[attack].interval);
@@ -400,13 +403,14 @@ export class NexusMapComponent extends ChildComponent {
   }
 
 
-  private startDefenceTimer(defence: string, time: number) {
+  private startDefenceTimer(defence: string, time: number, object: object) {
     if (this.defenceTimers[defence] || !time || isNaN(time)) {
       return;
     } 
     const endTime = Math.max(1, time);
     const timer = {
       key: defence,
+      object: object,
       endTime: endTime,
       timeout: setTimeout(async () => { 
         clearInterval(this.defenceTimers[defence].interval);
@@ -441,14 +445,14 @@ export class NexusMapComponent extends ChildComponent {
           const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. Returning {${x.destinationCoordsX},${x.destinationCoordsY}}`;
           if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
             uniqueAttacks.add(remainingTimeInSeconds);
-            this.startAttackTimer(salt, remainingTimeInSeconds);
+            this.startAttackTimer(salt, remainingTimeInSeconds, x);
           }
         } else {
           const isChallenger = x.originUser?.id != x.destinationUser?.id;
           const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. ${isChallenger ? 'Attacking' : 'Incoming'} {${x.destinationCoordsX},${x.destinationCoordsY}}`;
           if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
             uniqueAttacks.add(remainingTimeInSeconds);
-            this.startAttackTimer(salt, remainingTimeInSeconds);
+            this.startAttackTimer(salt, remainingTimeInSeconds, x);
           }
         }
 
@@ -469,7 +473,7 @@ export class NexusMapComponent extends ChildComponent {
         const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. Attacking {${x.destinationCoordsX},${x.destinationCoordsY}}`;
         if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
           uniqueAttacks.add(remainingTimeInSeconds);
-          this.startAttackTimer(salt, remainingTimeInSeconds);
+          this.startAttackTimer(salt, remainingTimeInSeconds, x);
         }
         
 
@@ -500,7 +504,7 @@ export class NexusMapComponent extends ChildComponent {
         if (remainingTimeInSeconds > 0) {
           if (!uniqueDefenses.has(salt)) {
             uniqueDefenses.add(salt);
-            this.startAttackTimer(salt, remainingTimeInSeconds);
+            this.startAttackTimer(salt, remainingTimeInSeconds, x);
           }
         }
       });
@@ -541,7 +545,7 @@ export class NexusMapComponent extends ChildComponent {
                 } else {
                   salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
                 }
-                this.startDefenceTimer(salt, remainingTimeInSeconds);
+                this.startDefenceTimer(salt, remainingTimeInSeconds, x);
               }
             }
           }
@@ -567,7 +571,7 @@ export class NexusMapComponent extends ChildComponent {
                 salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
               }
               /*console.log(salt);*/
-              this.startDefenceTimer(salt, remainingTimeInSeconds);
+              this.startDefenceTimer(salt, remainingTimeInSeconds, x);
             }
           }
         });
@@ -575,12 +579,12 @@ export class NexusMapComponent extends ChildComponent {
     }  
   }
   getRestOfAttackLabel(label: NexusTimer): string {
-    const parts = label.key.split('.');
+    const parts = label.key.split('.');  
     return parts[1] ? parts[1].trim() : '';  
   }
   getAttackerLabel(label: NexusTimer): string {
-    const parts = label.key.split(' ');
-    return parts[0].trim();  
+    const as = (label.object as NexusAttackSent);
+    return `{${as.originCoordsX},${as.originCoordsY}}`;  
   }
 
   scrollToCoordinatesFromAttackTimer(attackTimer: NexusTimer) {
@@ -605,5 +609,5 @@ export class NexusMapComponent extends ChildComponent {
   } 
   onMapInputChange(value: string) {
     this.searchTerm.next(value);
-  }
+  } 
 }

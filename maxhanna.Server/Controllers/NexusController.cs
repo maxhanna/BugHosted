@@ -451,7 +451,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> PurchaseUnit([FromBody] NexusPurchaseUnitRequest request)
         {
             Console.WriteLine($"POST /Nexus/PurchaseUnit for player ({request.User.Id})");
-
+            string unitType = "";
             if (request.User == null || request.User.Id == 0 || request.PurchaseAmount == 0)
             {
                 return BadRequest("Invalid purchase request.");
@@ -487,7 +487,7 @@ namespace maxhanna.Server.Controllers
                             UnitStats unit = unitStats.First(x => x.UnitId == request.UnitId);
                             int unitCost = unit.Cost;
                             int unitSupply = unit.Supply;
-                            string unitType = unit.UnitType ?? "";
+                            unitType = unit.UnitType ?? "";
 
                             Console.WriteLine($"Unit purchased: {unitType}, unitSupply: {unitSupply}, unitCost: {unitCost}, totalCost: {unitCost * request.PurchaseAmount}");
                             var (currentGold, totalSupplyUsed) = await GetNexusGoldAndSupply(request.Nexus, conn, transaction);
@@ -529,7 +529,7 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "Database error");
             }
 
-            return Ok();
+            return Ok($"Purchased {request.PurchaseAmount} {unitType}.");
         }
 
         [HttpPost("/Nexus/GetBuildingUpgrades", Name = "GetBuildingUpgrades")]
@@ -913,7 +913,8 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> ReturnDefence([FromBody] NexusReturnDefenceRequest req)
         {
             Console.WriteLine($"POST /Nexus/ReturnDefence for player ({req.User.Id}, DefenceId: {req.DefenceId})");
-           if (req.DefenceId == 0)
+
+            if (req.DefenceId == 0)
             {
                 return BadRequest("Invalid Defence Id");
             }
@@ -926,44 +927,92 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-
-                        //Console.WriteLine("SendDefence...");
-                       
-
-                        string sql = @"
-                        UPDATE
-                            maxhanna.nexus_defences_sent 
-                        SET  
-                            destination_coords_x = origin_coords_x, 
-                            destination_coords_y = origin_coords_y, 
-                            destination_user_id = origin_user_id, 
-                            timestamp = CURRENT_TIMESTAMP(), 
+                        // Calculate the remaining duration and update the defense details
+                        string updateSql = @"
+                        UPDATE 
+                            maxhanna.nexus_defences_sent
+                        SET
+                            duration = IF(arrived = 0, 
+                                GREATEST(0, TIMESTAMPDIFF(SECOND, timestamp, CURRENT_TIMESTAMP())), 
+                                duration),
+                            destination_coords_x = origin_coords_x,
+                            destination_coords_y = origin_coords_y,
+                            destination_user_id = origin_user_id,
+                            timestamp = CURRENT_TIMESTAMP(),
                             arrived = 0
-                        WHERE id = @DefenceId";
+                        WHERE 
+                            id = @DefenceId";
 
                         var parameters = new Dictionary<string, object?>
                         {
-                            { "@DefenceId", req.DefenceId }, 
+                            { "@DefenceId", req.DefenceId }
                         };
 
-                        var insertedId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
+                        await ExecuteInsertOrUpdateOrDeleteAsync(updateSql, parameters, conn, transaction);
 
                         await transaction.CommitAsync();
+                        return Ok($"Defence cancelled.");
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine("ERROR: " + ex.Message);
                         await transaction.RollbackAsync();
+                        return StatusCode(500, "An error occurred while processing your request.");
                     }
                 }
             }
-
-
-            //first check if units being sent are valid
-
-
-            return Ok($"Defence returned");
         }
+
+        [HttpPost("/Nexus/ReturnAttack", Name = "ReturnAttack")]
+        public async Task<IActionResult> ReturnAttack([FromBody] NexusReturnDefenceRequest req)
+        {
+            Console.WriteLine($"POST /Nexus/ReturnAttack for player ({req.User.Id}, AttackId: {req.DefenceId})");
+
+            if (req.DefenceId == 0)
+            {
+                return BadRequest("Invalid Attack Id");
+            }
+
+            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await conn.OpenAsync();
+
+                using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        // Calculate the remaining duration and update the attack details
+                        string updateSql = @"
+                            UPDATE 
+                                maxhanna.nexus_attacks_sent
+                            SET
+                                duration = GREATEST(0, TIMESTAMPDIFF(SECOND, timestamp, CURRENT_TIMESTAMP())),
+                                destination_coords_x = origin_coords_x,
+                                destination_coords_y = origin_coords_y,
+                                destination_user_id = origin_user_id,
+                                timestamp = CURRENT_TIMESTAMP()
+                            WHERE 
+                                id = @DefenceId";
+
+                        var parameters = new Dictionary<string, object?>
+                        {
+                            { "@DefenceId", req.DefenceId }
+                        };
+
+                        await ExecuteInsertOrUpdateOrDeleteAsync(updateSql, parameters, conn, transaction);
+                        await transaction.CommitAsync();
+                        return Ok("Attack cancelled.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("ERROR: " + ex.Message);
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "An error occurred while processing your request.");
+                    }
+                }
+            }
+        }
+
 
         private async Task<List<Object>> GetBuildingUpgradeList(NexusBase? nexusBase, MySqlConnection connection, MySqlTransaction transaction)
         {
@@ -5152,7 +5201,7 @@ namespace maxhanna.Server.Controllers
                     await updateBaseCmd.ExecuteNonQueryAsync();
                     await transaction.CommitAsync();
 
-                    return Ok($"Upgrading {component}");
+                    return Ok($"Upgrading {component}.");
                 }
                 catch (Exception ex)
                 {

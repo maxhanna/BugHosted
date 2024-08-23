@@ -11,3 +11,7 @@
   display: flex;
   justify-content: center;
 }
+.titleMessage {
+    padding:5px;
+    text-align:center;
+}

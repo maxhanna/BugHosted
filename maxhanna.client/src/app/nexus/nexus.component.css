@@ -754,3 +754,8 @@
   right: 5px;
   width: 40px;
 }
+.cancelAttackSpan {
+    cursor:pointer;
+    color: var(--main-font-color);
+    font-size: xx-small;
+}

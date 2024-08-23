@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild, output } from '@angular/core';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
@@ -33,7 +33,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Output() emittedClosedAttackScreen = new EventEmitter<void>();
   @Output() emittedAttack = new EventEmitter<NexusAttackSent>();
   @Output() emittedReloadEvent = new EventEmitter<string>();
-
+   
   constructor(private nexusService: NexusService) { super();  }
 
   async engageAttackAllUnits() {
@@ -78,7 +78,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
       const nexusAttack = this.createNexusAttack(attackDuration);
       this.unitStats.forEach(x => x.sentValue = 0);
       this.emittedAttack.emit(nexusAttack);
-      this.emittedNotifications.emit(`Sending ${this.isSendingDefence ? 'Defence' : 'Attack'} ${this.isSendingDefence ? 'to' : 'on'} {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}`);
+      this.emittedNotifications.emit(`Sending ${this.isSendingDefence ? 'Defence' : 'Attack'} ${this.isSendingDefence ? 'to' : 'on'} {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}`); 
     }
     this.stopLoading();
   }

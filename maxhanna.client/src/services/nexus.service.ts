@@ -112,6 +112,9 @@ export class NexusService {
   async returnDefence(user: User, defenceId: number): Promise<any> {
     return await this.fetchData('/nexus/returndefence', { User: user, DefenceId: defenceId });
   }
+  async returnAttack(user: User, defenceId: number): Promise<any> {
+    return await this.fetchData('/nexus/returnattack', { User: user, DefenceId: defenceId });
+  } 
   async getBattleReports(user: User, pageNumber: number, pageSize: number, targetBase?: NexusBase): Promise<NexusBattleOutcomeReports> {
     return await this.fetchData('/nexus/getbattlereports', { User: user, PageNumber: pageNumber, PageSize: pageSize, TargetBase: targetBase });
   }
@@ -137,6 +140,7 @@ export class NexusService {
     return await this.fetchData('/nexus/masspurchase', { User: user, Upgrade: unit });
   } 
 
+   
 
   formatTimer(allSeconds?: number): string {
     if (!allSeconds && allSeconds !== 0) return '';

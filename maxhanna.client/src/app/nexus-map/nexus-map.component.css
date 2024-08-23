@@ -198,3 +198,8 @@
     transform: rotate(405deg);
   }
 }
+.baseAutoSwitcherDiv {
+  text-align: center;
+  margin-top: 10px;
+  text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
+}

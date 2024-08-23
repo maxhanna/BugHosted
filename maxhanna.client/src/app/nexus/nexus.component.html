@@ -80,6 +80,7 @@
                      [mapTileSrc]="mapTileSrc"
                      [mapTileSrc2]="mapTileSrc2"
                      [mapTileSrc3]="mapTileSrc3"
+                     [numberOfPersonalBases]="numberOfPersonalBases"
                      [nexusAttacksSent]="nexusAttacksSent"
                      [nexusDefencesSent]="nexusDefencesSent"
                      [nexusAttacksIncoming]="nexusAttacksIncoming"
@@ -595,10 +596,10 @@
     <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0">
       <div class="upgradeTimersTableDiv">
         <div *ngFor="let timer of activeAttackTimers()" [class]="'pointer ' + (timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
-          {{ formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }}
+          {{ formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
         <div *ngFor="let timer of activeDefenceTimers()" [class]="'pointer ' + (timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
-          {{ formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }}
+          {{ formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
       </div>
     </div>
@@ -750,7 +751,7 @@
   </div>
   
   <div class="gameNotificationDiv">
-    <div *ngFor="let notif of notifications" class="gameNotification" (click)="notifications = []">>{{notif}}</div>
+    <div *ngFor="let notif of notifications" class="gameNotification capitalize" (click)="notifications = []">➫ {{notif.replaceAll('_', ' ')}}</div>
   </div>
   <div class="shareMapButtonDiv">
     <button (click)="copyLink()" title="Share Link">Share 📋</button>

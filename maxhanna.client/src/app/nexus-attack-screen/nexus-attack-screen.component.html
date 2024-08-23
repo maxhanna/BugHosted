@@ -1,6 +1,8 @@
 <ng-content *ngIf="originBase && selectedNexus"> 
-  <div class="unitsTableDiv"> 
-    Select units to send from {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}} to {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}:
+  <div class="unitsTableDiv">
+    <div class="titleMessage">
+      Send <span class="usernameProfileLink">{{isSendingDefence ? 'defence' : 'attack'}}</span> from {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}} to {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}:
+    </div>
     <table class="mainTable">
       <tbody *ngFor="let unit of getAvailableUnitStats(); trackBy: trackByUnit">
         <tr>
@@ -29,9 +31,11 @@
     <div *ngIf="getAvailableUnitStats().length == 0" class="notification">No units currently in base</div>
   </div>
   <div class="bottomButtons">
-    <button (click)="closeAttackScreen()">Close</button>
-    <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || isLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'">{{isSendingDefence ? 'Defend' : 'Engage'}}</button>
-    <button (click)="engageAttackAllUnits()" [disabled]="isLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'">Send All Units</button>
+    <div>
+      <button (click)="closeAttackScreen()">Close</button>
+      <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || isLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'">{{isSendingDefence ? 'Defend' : 'Engage'}}</button>
+      <button (click)="engageAttackAllUnits()" [disabled]="isLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'">Send All Units</button>
+    </div> 
   </div>
   
 </ng-content>
