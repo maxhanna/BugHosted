@@ -25,6 +25,21 @@ export class NexusBasesComponent extends ChildComponent {
   @ViewChild('commandSelector') commandSelector!: ElementRef<HTMLSelectElement>;
 
   attacksMap: { [key: string]: NexusAttackSent[] } = {};
+  unitTypes = [
+    { code: 'marineTotal', shortName: 'M' },
+    { code: 'goliathTotal', shortName: 'G' },
+    { code: 'siegeTankTotal', shortName: 'ST' },
+    { code: 'scoutTotal', shortName: 'S' },
+    { code: 'wraithTotal', shortName: 'W' },
+    { code: 'battlecruiserTotal', shortName: 'B' },
+    { code: 'glitcherTotal', shortName: 'GL' }
+  ]; 
+  commands = [
+    "Upgrade Command Center", "Upgrade Mines", "Upgrade Supply Depot", "Upgrade Warehouse",
+    "Upgrade Engineering Bay", "Upgrade Factory", "Upgrade Starport",
+    "Build Marines", "Build Goliath", "Build Siege Tanks", "Build Scouts",
+    "Build Wraith", "Build Battlecruisers", "Build Glitcher"
+  ];
 
   getCurrentBases() { 
     if (this.mapData && this.nexusBase) { 
@@ -131,5 +146,44 @@ export class NexusBasesComponent extends ChildComponent {
       this.emittedUpgrade.emit([res as NexusBase[], this.commandSelector.nativeElement.value ?? ""]);
     }
     this.commandSelector.nativeElement.selectedIndex = 0;
+  }
+
+  trackByCoords(index: number, base: any): string {
+    return `${base.coordsX}-${base.coordsY}`;
+  }
+
+  getBaseClass(base: any): string {
+    return `borderUnderline smallFont ${this.isHighlightedBase(base) ? 'highlightedBase' : ''}`;
+  }
+
+  getAttackClass(base: any): string {
+    return this.getAttacksCount(base) > 0 ? 'redText' : 'greyText';
+  }
+
+  getUnitClass(base: any, unitCode: string): string {
+    if (this.isValidUnitCode(unitCode)) {
+      const hasUnits = this.getUnitTotal(base, unitCode as keyof NexusUnits) > 0;
+      return `baseUnitCountSpan ${hasUnits ? 'gameNotification' : 'greyText'}`;
+    }
+    return 'baseUnitCountSpan greyText';
+  }
+
+  private isValidUnitCode(code: string): code is keyof NexusUnits {
+    return ['marineTotal', 'goliathTotal', 'siegeTankTotal', 'scoutTotal', 'wraithTotal', 'battlecruiserTotal', 'glitcherTotal'].includes(code);
+  }
+
+  getAttacksCount(base: any): number {
+    return this.getAttacksForBase(base.coordsX, base.coordsY).length;
+  }
+  getUnitTotalSafe(base: any, unitCode: string): number {
+    return this.isValidUnitCode(unitCode) ? this.getUnitTotal(base, unitCode as keyof NexusUnits) : 0;
+  }
+  getUnitTotal(base: any, unitCode: keyof NexusUnits): number {
+    const units: NexusUnits | undefined = this.getUnitsForBase(base.coordsX, base.coordsY);
+    return units ? units[unitCode] : 0;
+  }
+
+  isHighlightedBase(base: any): boolean {
+    return (this.nexusBase && base.coordsX === this.nexusBase.coordsX && base.coordsY === this.nexusBase.coordsY) ? true : false;
   }
 }

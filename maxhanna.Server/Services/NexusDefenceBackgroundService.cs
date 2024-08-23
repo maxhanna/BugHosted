@@ -159,7 +159,7 @@ namespace maxhanna.Server.Services
                     SELECT * FROM maxhanna.nexus_bases n
                     LEFT JOIN maxhanna.nexus_defences_sent a ON a.origin_coords_x = n.coords_x AND a.origin_coords_y = n.coords_y
                     LEFT JOIN maxhanna.nexus_defences_sent b ON b.destination_coords_x = n.coords_x AND b.destination_coords_y = n.coords_y
-                    WHERE a.id = @DefenceId OR b.id = @DefenceId;";
+                    WHERE a.id = @DefenceId OR b.id = @DefenceId AND user_id IS NOT NULL LIMIT 1;";
                  
                 using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn))
                 {

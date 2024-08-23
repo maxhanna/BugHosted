@@ -37,12 +37,9 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     }
   }
 
-  private FixCurrentPageDropdownValues() {
-    console.log("FixCurrentPageDropdownValues");
+  private FixCurrentPageDropdownValues() { 
     if (!this.battleReports) return;
-    let tmpPageSize = this.battleReports.pageSize;
-    console.log("tmpPageSize:" + tmpPageSize);
-    console.log("this.battleReports.totalReports:" + this.battleReports.totalReports);
+    let tmpPageSize = this.battleReports.pageSize; 
     this.totalPages = Array.from({ length: Math.ceil(this.battleReports.totalReports / tmpPageSize) }, (_, i) => i + 1);
     setTimeout(() => {
       if (this.pageSize) {

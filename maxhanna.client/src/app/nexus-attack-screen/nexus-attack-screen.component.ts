@@ -6,6 +6,7 @@ import { NexusService } from '../../services/nexus.service';
 import { User } from '../../services/datacontracts/user/user';
 import { ChildComponent } from '../child.component';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
+ 
 
 @Component({
   selector: 'app-nexus-attack-screen',
@@ -29,42 +30,36 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Input() isSendingDefence: boolean = false; 
 
   @Output() emittedNotifications = new EventEmitter<string>();
-  @Output() closedAttackScreen = new EventEmitter<void>();
+  @Output() emittedClosedAttackScreen = new EventEmitter<void>();
   @Output() emittedAttack = new EventEmitter<NexusAttackSent>();
   @Output() emittedReloadEvent = new EventEmitter<string>();
 
   constructor(private nexusService: NexusService) { super();  }
 
   async engageAttackAllUnits() {
-    if (!this.user || !this.originBase || !this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats) return alert("Something went wrong with the request.");
-    const marineTotal = this.nexusAvailableUnits.marineTotal;
-    const goliathTotal = this.nexusAvailableUnits.goliathTotal;
-    const siegeTankTotal = this.nexusAvailableUnits.siegeTankTotal;
-    const scoutTotal = this.nexusAvailableUnits.scoutTotal;
-    const wraithTotal = this.nexusAvailableUnits.wraithTotal;
-    const battlecruiserTotal = this.nexusAvailableUnits.battlecruiserTotal;
-    const glitcherTotal = this.nexusAvailableUnits.glitcherTotal;
-     this.unitStats.forEach(x => {
-      if (x.unitType == "marine") {
-        x.sentValue = marineTotal;
-      } else if (x.unitType == "goliath") {
-        x.sentValue = goliathTotal;
-      } else if (x.unitType == "siege_tank") {
-        x.sentValue = siegeTankTotal;
-      } else if (x.unitType == "scout") {
-        x.sentValue = scoutTotal;
-      } else if (x.unitType == "wraith") {
-        x.sentValue = wraithTotal;
-      } else if (x.unitType == "battlecruiser") {
-        x.sentValue = battlecruiserTotal
-      } else if (x.unitType == "glitcher") {
-        x.sentValue = glitcherTotal
-      }  
+    if (!this.user || !this.originBase || !this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats)
+      return alert("Something went wrong with the request.");
+
+    const unitTypeMap: any = {
+      marine: this.nexusAvailableUnits.marineTotal,
+      goliath: this.nexusAvailableUnits.goliathTotal,
+      siege_tank: this.nexusAvailableUnits.siegeTankTotal,
+      scout: this.nexusAvailableUnits.scoutTotal,
+      wraith: this.nexusAvailableUnits.wraithTotal,
+      battlecruiser: this.nexusAvailableUnits.battlecruiserTotal,
+      glitcher: this.nexusAvailableUnits.glitcherTotal
+    };
+
+    this.unitStats.forEach(unit => {
+      unit.sentValue = unitTypeMap[unit.unitType] ?? 0;
     });
-    if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units!"); 
+
+    if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0))
+      return alert("No units!");
 
     this.engageAttack();
   }
+
 
   async engageAttack() {
     if (!this.user || !this.originBase || !this.selectedNexus || !this.unitStats) return alert("Something went wrong with the request.");
@@ -74,13 +69,11 @@ export class NexusAttackScreenComponent extends ChildComponent {
     const attackDuration = this.calculateAttackDuration();
     if (attackDuration) {
       if (this.isSendingDefence) {
-        this.nexusService.defend(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration); 
-      } else { 
-        this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration);
+        this.nexusService.defend(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration).then(res => this.emittedNotifications.emit(res));
+      } else {
+        this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration).then(res => this.emittedNotifications.emit(res));
       }
-       
-      //this.emittedReloadEvent.emit("Attack sent");
-      //this.closedAttackScreen.emit();
+        
       this.RemoveAttackingUnitsFromAvailableUnits();
       const nexusAttack = this.createNexusAttack(attackDuration);
       this.unitStats.forEach(x => x.sentValue = 0);
@@ -131,101 +124,76 @@ export class NexusAttackScreenComponent extends ChildComponent {
           glitcherTotal: 0
         } as NexusUnits;
       }
+
+      const unitTypeMap: any = {
+        marine: 'marineTotal',
+        goliath: 'goliathTotal',
+        siege_tank: 'siegeTankTotal',
+        scout: 'scoutTotal',
+        wraith: 'wraithTotal',
+        battlecruiser: 'battlecruiserTotal',
+        glitcher: 'glitcherTotal'
+      };
+
       this.unitStats.forEach(unit => {
         if (unit.sentValue) {
-          switch (unit.unitType) {
-            case "marine":
-              this.nexusAvailableUnits!.marineTotal -= unit.sentValue;
-              this.nexusUnitsOutsideOfBase!.marineTotal += unit.sentValue;
-              break;
-            case "goliath":
-              this.nexusAvailableUnits!.goliathTotal -= unit.sentValue;
-              this.nexusUnitsOutsideOfBase!.goliathTotal += unit.sentValue;
-              break;
-            case "siege_tank":
-              this.nexusAvailableUnits!.siegeTankTotal -= unit.sentValue;
-              this.nexusUnitsOutsideOfBase!.siegeTankTotal += unit.sentValue;
-              break;
-            case "scout":
-              this.nexusAvailableUnits!.scoutTotal -= unit.sentValue;
-              this.nexusUnitsOutsideOfBase!.scoutTotal += unit.sentValue;
-              break;
-            case "wraith":
-              this.nexusAvailableUnits!.wraithTotal -= unit.sentValue;
-              this.nexusUnitsOutsideOfBase!.wraithTotal += unit.sentValue;
-              break;
-            case "battlecruiser":
-              this.nexusAvailableUnits!.battlecruiserTotal -= unit.sentValue;
-              this.nexusUnitsOutsideOfBase!.battlecruiserTotal += unit.sentValue;
-              break;
-            case "glitcher":
-              this.nexusAvailableUnits!.glitcherTotal -= unit.sentValue;
-              this.nexusUnitsOutsideOfBase!.glitcherTotal += unit.sentValue;
-              break;
+          const unitType = unitTypeMap[unit.unitType];
+          if (unitType) {
+            if (this.nexusAvailableUnits) {
+              this.nexusAvailableUnits[unitType as keyof NexusUnits] -= unit.sentValue; 
+            }
+            if (!this.nexusUnitsOutsideOfBase) { this.nexusUnitsOutsideOfBase = {} as NexusUnits; }
+            this.nexusUnitsOutsideOfBase[unitType as keyof NexusUnits] += unit.sentValue;
           }
         }
       });
-    }
+    } 
   }
 
   private createNexusAttack(duration: number) {
-    if (this.nexusAvailableUnits && this.unitStats && this.originBase && this.selectedNexus) {
-      let marineCount = 0;
-      let goliathCount = 0;
-      let siegeTankCount = 0;
-      let scoutCount = 0;
-      let wraithCount = 0;
-      let battlecruiserCount = 0;
-      let glitcherCount = 0;
-
-      this.unitStats.forEach(unit => {
-        if (unit.sentValue) {
-          switch (unit.unitType) {
-            case "marine":
-              marineCount = unit.sentValue;
-              break;
-            case "goliath":
-              goliathCount = unit.sentValue;
-              break;
-            case "siege_tank":
-              siegeTankCount = unit.sentValue;
-              break;
-            case "scout":
-              scoutCount = unit.sentValue;
-              break;
-            case "wraith":
-              wraithCount = unit.sentValue;
-              break;
-            case "battlecruiser":
-              battlecruiserCount = unit.sentValue;
-              break;
-            case "glitcher":
-              glitcherCount = unit.sentValue;
-              break;
-          }
-        }
-      });
-      return {
-        originCoordsX: this.originBase.coordsX,
-        originCoordsY: this.originBase.coordsY,
-        originUser: this.originBase.user,
-        destinationCoordsX: this.selectedNexus.coordsX,
-        destinationCoordsY: this.selectedNexus.coordsY,
-        destinationUser: this.selectedNexus.user,
-        marineTotal: marineCount,
-        goliathTotal: goliathCount,
-        siegeTankTotal: siegeTankCount,
-        scoutTotal: scoutCount,
-        wraithTotal: wraithCount,
-        battlecruiserTotal: battlecruiserCount,
-        glitcherTotal: glitcherCount,
-        timestamp: new Date(),
-        duration: duration,
-        arrived: false
-      } as NexusAttackSent;
+    if (!this.nexusAvailableUnits || !this.unitStats || !this.originBase || !this.selectedNexus) {
+      return undefined;
     }
-    return undefined;
+     
+    const unitCounts: { [key: string]: number } = {
+      marine: 0,
+      goliath: 0,
+      siege_tank: 0,
+      scout: 0,
+      wraith: 0,
+      battlecruiser: 0,
+      glitcher: 0
+    };
+
+    for (const unit of this.unitStats) {
+      if (unit.sentValue) {
+        unitCounts[unit.unitType] = unit.sentValue;
+      }
+    }
+
+    const { coordsX: originCoordsX, coordsY: originCoordsY, user: originUser } = this.originBase;
+    const { coordsX: destinationCoordsX, coordsY: destinationCoordsY, user: destinationUser } = this.selectedNexus;
+
+    return {
+      originCoordsX,
+      originCoordsY,
+      originUser,
+      destinationCoordsX,
+      destinationCoordsY,
+      destinationUser,
+      marineTotal: unitCounts["marine"],
+      goliathTotal: unitCounts["goliath"],
+      siegeTankTotal: unitCounts["siege_tank"],
+      scoutTotal: unitCounts["scout"],
+      wraithTotal: unitCounts["wraith"],
+      battlecruiserTotal: unitCounts["battlecruiser"],
+      glitcherTotal: unitCounts["glitcher"],
+      timestamp: new Date(),
+      duration: duration,
+      arrived: false
+    } as NexusAttackSent; 
   }
+
 
   calculateAttackDuration(unitStat?: UnitStats) {
     if (!this.originBase || !this.selectedNexus) {
@@ -285,6 +253,9 @@ export class NexusAttackScreenComponent extends ChildComponent {
   }
   closeAttackScreen() {
     this.unitStats?.forEach(x => x.sentValue = undefined);
-    this.closedAttackScreen.emit();
+    this.emittedClosedAttackScreen.emit();
+  }
+  trackByUnit(index: number, unit: UnitStats): number {
+    return unit.unitId; // or any unique identifier
   }
 }

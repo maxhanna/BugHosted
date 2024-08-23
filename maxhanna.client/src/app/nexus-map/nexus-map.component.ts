@@ -6,10 +6,11 @@ import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
 import { NexusReportsComponent } from '../nexus-reports/nexus-reports.component';
-import { NexusService } from '../../services/nexus.service';
-import { AttackTimer } from '../../services/datacontracts/nexus/attack-timer';
+import { NexusService } from '../../services/nexus.service'; 
 import { AttackEventPayload } from '../../services/datacontracts/nexus/attack-event-payload';
 import { ChildComponent } from '../child.component';
+import { NexusTimer } from '../../services/datacontracts/nexus/nexus-timer';
+import { Subject, debounceTime } from 'rxjs';
 
 
 @Component({
@@ -28,9 +29,11 @@ export class NexusMapComponent extends ChildComponent {
   isMapRendered = false;
   randomRotations: number[][] = [];
   randomMap: number[][] = [];
+  searchTerm = new Subject<string>();
 
-  attackTimers: { [key: string]: AttackTimer } = {};
-  defenceTimers: { [key: string]: AttackTimer } = {};
+
+  attackTimers: { [key: string]: NexusTimer } = {};
+  defenceTimers: { [key: string]: NexusTimer } = {};
 
   @Input() user?: User;
   @Input() nexusAvailableUnits?: NexusUnits;
@@ -41,7 +44,7 @@ export class NexusMapComponent extends ChildComponent {
   @Input() lvl3Src?: string;
   @Input() mapTileSrc?: string;
   @Input() mapTileSrc2?: string;
-  @Input() mapTileSrc3?: string; 
+  @Input() mapTileSrc3?: string;
   @Input() marinePictureSrc: string | undefined;
   @Input() goliathPictureSrc: string | undefined;
   @Input() siegeTankPictureSrc: string | undefined;
@@ -68,7 +71,12 @@ export class NexusMapComponent extends ChildComponent {
   @ViewChild(NexusReportsComponent) nexusReports!: NexusReportsComponent;
 
 
-  constructor(private nexusService: NexusService) { super(); }
+  constructor(private nexusService: NexusService) {
+    super();
+    this.searchTerm.pipe(debounceTime(300)).subscribe(() =>{
+      this.showMapLocation();
+    });
+  }
 
   zoomOut() {
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
@@ -94,7 +102,7 @@ export class NexusMapComponent extends ChildComponent {
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
     mapElement.style.transform = ``;
     mapElement.style.width = "";
-    mapElement.style.height = ""; 
+    mapElement.style.height = "";
     (document.getElementsByClassName('zoomInButtonDiv')[0] as HTMLDivElement).style.display = "none";
     const styleElement = document.getElementById('dynamic-scrollbar-style') as HTMLStyleElement;
     if (styleElement) {
@@ -128,7 +136,6 @@ export class NexusMapComponent extends ChildComponent {
     if (this.isMapRendered) return;
     this.startLoading();
     this.mapData = nexusBases;
-    console.log(this.mapData);
     this.isMapRendered = true;
 
     for (let i = 0; i < 100; i++) {
@@ -144,15 +151,18 @@ export class NexusMapComponent extends ChildComponent {
       }
     }
     this.generateRandomRotations();
-    this.randomMap = this.generateRandomMap(100, 100);
+    this.randomMap = this.generateRandomMap(100, 100); 
+    this.stopLoading();
+  }
+
+  scrollToUserBase() {
     setTimeout(() => {
-      if (this.nexusBase) { 
+      if (this.nexusBase) {
         this.scrollToCoordinates(this.nexusBase?.coordsX, this.nexusBase?.coordsY);
       }
     }, 10);
-    
-    this.stopLoading();
   }
+
   generateRandomRotations() {
     const possibleRotations = [0, 180, 270];
     for (let y = 0; y < this.grid.length; y++) {
@@ -166,7 +176,9 @@ export class NexusMapComponent extends ChildComponent {
    
 
   showAttackScreen(isDefence: boolean) { 
-    if (this.selectedNexusBase && this.nexusBase && this.selectedNexusBase.coordsX == this.nexusBase.coordsX && this.selectedNexusBase.coordsY == this.nexusBase.coordsY) { return alert("Cannot attack or defend the same base."); }
+    if (this.selectedNexusBase && this.nexusBase && this.selectedNexusBase.coordsX == this.nexusBase.coordsX && this.selectedNexusBase.coordsY == this.nexusBase.coordsY) {
+      return alert("Cannot attack or defend the same base.");
+    }
     if (this.unitStats) {
       this.unitStats.sort((a, b) => a.cost - b.cost);
     }
@@ -175,7 +187,7 @@ export class NexusMapComponent extends ChildComponent {
     this.isSendingDefence = isDefence; 
   }
 
-  closedAttackScreen() {
+  emittedClosedAttackScreen() {
     this.showAttackButton = true;
     this.isAttackScreenOpen = false;
   }
@@ -256,23 +268,17 @@ export class NexusMapComponent extends ChildComponent {
         battlecruiserLevel: 0,
         glitcherLevel: 0,
       };
-    }
-    setTimeout(() => {
-      if (this.nexusReports && !this.isReportsHidden) {
-        this.nexusReports.loadBattleReports(this.selectedNexusBase);
-      }
-    }, 10);
+    } 
     this.updateAttackTimers();
-    this.updateDefenceTimers();
+    this.updateDefenceTimers(); 
   }
-  getAttackTimersForCoords(coordsX: number, coordsY: number): AttackTimer[] { 
-    return Object.entries(this.attackTimers) 
-      .map(([key, value]) => value);
+  getAttackTimers(): NexusTimer[] { 
+    return Object.values(this.attackTimers);
   }
-  getDefenceTimersForCoords(coordsX: number, coordsY: number): AttackTimer[] { 
-    return Object.entries(this.defenceTimers) 
-      .map(([key, value]) => value);
+  getDefenceTimers(): NexusTimer[] { 
+    return Object.values(this.defenceTimers); 
   }
+    
 
   formatTimer(allSeconds?: number): string {
     return this.nexusService.formatTimer(allSeconds);
@@ -378,16 +384,14 @@ export class NexusMapComponent extends ChildComponent {
     const timer = {
       key: attack,
       endTime: endTime,
-      timeout: setTimeout(async () => {
-        //console.log("clearing timeout")
+      timeout: setTimeout(async () => { 
         clearInterval(this.attackTimers[attack].interval);
         clearTimeout(this.attackTimers[attack].timeout);
         delete this.attackTimers[attack]; 
       }, endTime * 1000),
       interval: setInterval(() => {
         if (this.attackTimers[attack]) {
-          this.attackTimers[attack].endTime--;
-        //  console.log(this.attackTimers[attack].endTime);
+          this.attackTimers[attack].endTime--; 
         } 
       }, 1000)
     };
@@ -511,11 +515,9 @@ export class NexusMapComponent extends ChildComponent {
     return this.nexusDefencesSent && this.nexusDefencesSent.some(x => !x.arrived && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY
       && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0));
   }
-  private updateDefenceTimers() {
-    console.log("updatedefencetimers");
+  private updateDefenceTimers() { 
     this.reinitializeDefenceTimers();
-    if (this.incomingFromNexusDefencesIncoming() || this.incomingFromNexusDefencesSent()) {
-      console.log("getting defences incoming timers");
+    if (this.incomingFromNexusDefencesIncoming() || this.incomingFromNexusDefencesSent()) { 
 
       let count = 0;
       if (this.nexusDefencesIncoming) {
@@ -547,21 +549,17 @@ export class NexusMapComponent extends ChildComponent {
       }
 
       if (this.nexusDefencesSent) {
-        console.log("cecking defences sent");
-        console.log(this.nexusDefencesSent);
+        console.log("updating defence sent");
         let count = 0;
         this.nexusDefencesSent.forEach(x => {
           if (!x.arrived) {
             const startTimeTime = new Date(x.timestamp).getTime();
             const utcNow = new Date().getTime();
             const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
-            const timeDuration = x.duration;
-            console.log("found one that hasnt arrived yet");
+            const timeDuration = x.duration; 
 
             if (this.selectedNexusBase && x.destinationCoordsX == this.selectedNexusBase.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY) {
-              const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
-              console.log(x);
-              console.log(remainingTimeInSeconds);
+              const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds; 
               let salt = "";
               if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
                 salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
@@ -575,5 +573,37 @@ export class NexusMapComponent extends ChildComponent {
         });
       }
     }  
+  }
+  getRestOfAttackLabel(label: NexusTimer): string {
+    const parts = label.key.split('.');
+    return parts[1] ? parts[1].trim() : '';  
+  }
+  getAttackerLabel(label: NexusTimer): string {
+    const parts = label.key.split(' ');
+    return parts[0].trim();  
+  }
+
+  scrollToCoordinatesFromAttackTimer(attackTimer: NexusTimer) {
+    const key = attackTimer.key;
+    const coordPart = key.split(' ')[0];
+    const coordX = coordPart.substring(1, coordPart.indexOf(','));
+    const coordY = coordPart.substring(coordPart.indexOf(',') + 1, coordPart.length - 1); 
+    this.scrollToCoordinatesByString(coordX, coordY);
+  }
+  trackByIndex(index: number): number {
+    return index;
+  }
+  getImageSrc(x: number, y: number) {
+    return this.grid[x][y] ? this.getSrcForBase(this.grid[x][y]) : this.getRandomEmptyMapTile(x, y);
+  }
+
+  getImageTransform(x: number, y: number): string {
+    return !this.grid[x][y] ? 'rotate(' + this.randomRotations[y][x] + 'deg)' : '';
+  }
+  shouldShowMapInputs(): boolean {
+    return (this.selectedNexusBase && !this.isAttackScreenOpen && this.mapInputX && this.mapInputY) ? true : false;
   } 
+  onMapInputChange(value: string) {
+    this.searchTerm.next(value);
+  }
 }

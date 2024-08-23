@@ -7,8 +7,7 @@ import { FileEntry } from './datacontracts/file/file-entry';
   providedIn: 'root'
 })
 export class ChatService {
-  async getMessageHistory(user1: User, user2: User | null, pageNumber?: number, pageSize?: number) {
-    if (!user1 || !user2) { return; }
+  async getMessageHistory(user1: User | null, user2: User | null, pageNumber?: number, pageSize?: number) { 
     try {
       const response = await fetch(`/chat/getmessagehistory`, {
         method: 'POST',

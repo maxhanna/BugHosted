@@ -160,11 +160,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.showThumbnail = true; 
         this.selectedFileSrc = (reader.result as string);
         if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-          console.log("adding file src to parentRef.pictureSrcs " + fileId);
+          //console.log("adding file src to parentRef.pictureSrcs " + fileId);
           this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
         }
         else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-          console.log("adding file src to inputtedParentRef.pictureSrcs " + fileId);  
+          //console.log("adding file src to inputtedParentRef.pictureSrcs " + fileId);  
           this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
         } 
       };

@@ -5,7 +5,7 @@
 
 
   <app-user-list (userClickEvent)="openChat($event);"
-                 [user]="parentRef?.user!"
+                 [user]="parentRef?.user"
                  [chatNotifications]="notifications"
                  [class.expanded]="isPanelExpanded"
                  class="userPanel"
@@ -29,9 +29,9 @@
         <button (click)="closeChat()">Close Chat with {{ currentChatUser.username }}</button>
       </div>
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
-        <div *ngFor="let message of chatHistory" [class]="{'align-left': message.sender.id === parentRef?.user!.id, 'align-right': message.sender.id !== parentRef?.user!.id, 'messageContainer': true}">
+        <div *ngFor="let message of chatHistory" [class]="{'align-left': message.sender.id === parentRef?.user?.id, 'align-right': message.sender.id !== parentRef?.user?.id, 'messageContainer': true}">
           <!-- USER MESSAGE -->
-          <ng-container *ngIf="message.sender.id === parentRef?.user!.id">
+          <ng-container *ngIf="message.sender.id === parentRef?.user?.id">
             <div class="profileTag">
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
@@ -55,7 +55,7 @@
             </div>
           </ng-container>
           <!-- RECEIVER MESSAGE -->
-          <ng-container *ngIf="message.sender.id !== parentRef?.user!.id">
+          <ng-container *ngIf="message.sender.id !== parentRef?.user?.id">
             <div class="messageContent">
               {{ message.content }}
               <div *ngFor="let file of message.files">
@@ -94,7 +94,7 @@
         <input placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()" />
         <button (click)="sendMessage()">🗨️Send</button>
         <div>
-          <app-media-selector [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user!.username : 'Anonymous')"
+          <app-media-selector [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
                               [user]="parentRef?.user"
                               [inputtedParentRef]="parentRef"
                               (selectFileEvent)="selectFile($event)">

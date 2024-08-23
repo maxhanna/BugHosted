@@ -1,17 +1,22 @@
 <div *ngIf="!isMapRendered" class="map loadingMapDiv">
-  <div>Loading 🗺️...</div> 
+  <div class="loadingRing">
+    <div>Loading🗺️</div> 
+    <span class="loadingCircle"></span>
+  </div>
 </div>
 <div class="map" *ngIf="mapData isMapRendered" #mapContainer>
-  <div *ngFor="let row of grid; let y = index" class="row">
-    <div *ngFor="let cell of row; let x = index" class="cell" [attr.x]="x" [attr.y]="y">
+  <div *ngFor="let row of grid; let y = index; trackBy: trackByIndex" class="row">
+    <div *ngFor="let cell of row; let x = index; trackBy: trackByIndex" class="cell" [attr.x]="x" [attr.y]="y">
       <div class="cell-content" (click)="selectCoordinates(x, y);">
         <div *ngIf="lvl1Src && lvl2Src && lvl3Src && mapTileSrc" [id]="'x' + x + ',y' + y + 'LocDiv'">
-          <img [src]="grid[x][y] ? getSrcForBase(grid[x][y]) : getRandomEmptyMapTile(x, y)"
+          <img [src]="getImageSrc(x, y)"
                class="cell-content"
-               [style.transform]="!grid[x][y] ? 'rotate(' + randomRotations[y][x] + 'deg)' : ''"
+               [style.transform]="getImageTransform(x, y)"
                loading="lazy"
                decoding="asynchronous" />
-          <span *ngIf="grid[x][y]" class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"></span>
+          <ng-container *ngIf="grid[x][y] as base">
+            <span class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"></span>
+          </ng-container>
         </div>
         <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'" [style.display]="grid[x][y] ? 'block' : 'none'">{{x + ',' + y + ' '}}</div>
         <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isAttackReturningOn(x, y) ? 'block' : 'none'">↩</span>
@@ -24,8 +29,8 @@
 <div class="centeredDiv topMapCoords" [style.display]="!isAttackScreenOpen && isMapRendered ? 'flex':'none'">
   <button (click)="zoomOut()">Zoom out</button>
   <span>
-    X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (keyup.enter)="showMapLocation()" />
-    Y: <input type="number" placeholder="0" min="0" max="99" #mapInputY class="mapInput" (keyup.enter)="showMapLocation()" />
+    X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (input)="onMapInputChange(mapInputX.value)" />
+    Y: <input type="number" placeholder="0" min="0" max="99" #mapInputY class="mapInput" (input)="onMapInputChange(mapInputY.value)" /> 
 
     <button (click)="showMapLocation()" *ngIf="mapInputX.value && mapInputY.value" [disabled]="!mapInputX.value || !mapInputY.value">📍:{{'{' + mapInputX.value + ',' + mapInputY.value  + '}'}}</button>
     <button (click)="clearMapInputs()" *ngIf="mapInputX.value || mapInputY.value">Clear</button>
@@ -33,7 +38,7 @@
   <button (click)="scrollToCoordinates(nexusBase.coordsX, nexusBase.coordsY, false)" *ngIf="nexusBase" class="invertedHighlights">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
 </div>
 
-<div *ngIf="selectedNexusBase && !isAttackScreenOpen && mapInputX && mapInputY" class="centeredDiv">
+<div *ngIf="shouldShowMapInputs() && selectedNexusBase" class="centeredDiv">
   <div>
     <button (click)="showAttackScreen(false)" *ngIf="showAttackButton">⚔️Attack</button>
     <button (click)="showAttackScreen(true)" *ngIf="showAttackButton">🛡️Defend</button>
@@ -49,23 +54,21 @@
   </div>
 
   <div class="attackDefenceTimers">
-    <ng-container *ngIf="getAttackTimersForCoords(selectedNexusBase.coordsX, selectedNexusBase.coordsY).length;">
-      <div *ngFor="let attackTimer of getAttackTimersForCoords(selectedNexusBase.coordsX, selectedNexusBase.coordsY)">
+    <ng-container *ngIf="getAttackTimers().length;">
+      <div *ngFor="let attackTimer of getAttackTimers()">
         <span class="invertedHighlights cursorPointer"
-              (click)="scrollToCoordinatesByString(attackTimer.key.split(' ')[0].split(',')[0].replace('{', ''), attackTimer.key.split(' ')[0].split(',')[1].replace('}', ''))">{{attackTimer.key.split(' ')[0].replace(' ','')}}</span>
-        {{attackTimer.key.replace(attackTimer.key.split(' ')[0], '')}}: {{ formatTimer(attackTimer.endTime) }}
+              (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }}
       </div>
     </ng-container>
-    <ng-container *ngIf="getDefenceTimersForCoords(selectedNexusBase.coordsX, selectedNexusBase.coordsY).length;">
-      <div *ngFor="let attackTimer of getDefenceTimersForCoords(selectedNexusBase.coordsX, selectedNexusBase.coordsY)">
+    <ng-container *ngIf="getDefenceTimers().length;">
+      <div *ngFor="let attackTimer of getDefenceTimers()">
         <span class="invertedHighlights cursorPointer"
-              (click)="scrollToCoordinatesByString(attackTimer.key.split(' ')[0].split(',')[0].replace('{', ''), attackTimer.key.split(' ')[0].split(',')[1].replace('}', ''))">{{attackTimer.key.split(' ')[0].replace(' ','')}}</span>
-        {{attackTimer.key.replace(attackTimer.key.split(' ')[0], '')}}: {{ formatTimer(attackTimer.endTime) }}
+              (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }}
       </div>
     </ng-container>
   </div>
 
-  <div class="reportsDisplayDiv" [style.display]="isReportsHidden ? 'none' : 'block'">
+  <div class="reportsDisplayDiv" *ngIf="!isReportsHidden">
     <app-nexus-reports [user]="user" #nexusReports></app-nexus-reports>
   </div>
 </div>
@@ -85,7 +88,7 @@
                            [battlecruiserPictureSrc]="battlecruiserPictureSrc"
                            [glitcherPictureSrc]="glitcherPictureSrc"
                            [isSendingDefence]="isSendingDefence"
-                           (closedAttackScreen)="closedAttackScreen()"
+                           (emittedClosedAttackScreen)="emittedClosedAttackScreen()"
                            (emittedNotifications)="emittedNotifications.emit($event)"
                            (emittedReloadEvent)="emittedReloadEvent.emit($event)"
                            (emittedAttack)="emittedAttack($event)">

@@ -162,8 +162,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     console.log("loading messages");
     this.isPanelExpanded = true;
     this.chatHistory = [];
-    this.currentChatUser = user; 
-    const res = await this.chatService.getMessageHistory(this.parentRef?.user!, this.currentChatUser, undefined, this.pageSize);
+    this.currentChatUser = user;
+    const res = await this.chatService.getMessageHistory(this.parentRef?.user ? this.parentRef.user : null, this.currentChatUser, undefined, this.pageSize);
 
     this.getChatNotifications();
     this.stopLoading(); 

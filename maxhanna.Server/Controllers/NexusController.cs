@@ -270,7 +270,7 @@ namespace maxhanna.Server.Controllers
                 // Insert new base at the available location
                 string sql = @"
                     SELECT 
-                        n.user_id, u.username, n.coords_x, n.coords_y, n.gold, n.command_center_level, n.engineering_bay_level, n.mines_level, n.factory_level, n.starport_level, warehouse_level, udp.file_id
+                        n.user_id, u.username, n.coords_x, n.coords_y, n.gold, n.command_center_level, n.engineering_bay_level, n.mines_level, n.factory_level, n.starport_level, n.warehouse_level, n.supply_depot_level, udp.file_id
                     FROM 
                         maxhanna.nexus_bases n
                     LEFT JOIN 
@@ -300,6 +300,7 @@ namespace maxhanna.Server.Controllers
                         tmpBase.FactoryLevel = reader.IsDBNull(reader.GetOrdinal("factory_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("factory_level"));
                         tmpBase.StarportLevel = reader.IsDBNull(reader.GetOrdinal("starport_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("starport_level"));
                         tmpBase.WarehouseLevel = reader.IsDBNull(reader.GetOrdinal("warehouse_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("warehouse_level"));
+                        tmpBase.SupplyDepotLevel = reader.IsDBNull(reader.GetOrdinal("supply_depot_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("supply_depot_level"));
                         tmpBase.Gold = reader.IsDBNull(reader.GetOrdinal("gold")) ? 0 : reader.GetDecimal(reader.GetOrdinal("gold"));
                         tmpBase.User =
                             new User(reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")),
@@ -1685,7 +1686,7 @@ namespace maxhanna.Server.Controllers
             string sql = @"
                 UPDATE
                     maxhanna.nexus_defences_sent 
-                SET arrived = 1 
+                SET arrived = 1, origin_user_id = @OriginUserId, destination_user_id = @DestinationUserId
                 WHERE 
                     origin_coords_x = @OriginX
                 AND origin_coords_y = @OriginY
@@ -1699,14 +1700,15 @@ namespace maxhanna.Server.Controllers
             {
                 { "@OriginX", OriginNexus.CoordsX },
                 { "@OriginY", OriginNexus.CoordsY },
+                { "@OriginUserId", OriginNexus.User?.Id },
+                { "@DestinationUserId", DestinationNexus.User?.Id },
                 { "@DestinationX", DestinationNexus.CoordsX },
                 { "@DestinationY", DestinationNexus.CoordsY },
                 { "@Duration", DistanceTimeInSeconds },
                 { "@Timestamp", timestamp },
             };
 
-            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-            //Console.WriteLine("NexusAttack deleted");
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
         }
         private async Task<List<NexusAttackSent>?> GetNexusAttacksSent(NexusBase? nexusBase, bool onlyCurrentBase, MySqlConnection? conn, MySqlTransaction? transaction)
         {
@@ -3871,6 +3873,98 @@ namespace maxhanna.Server.Controllers
 
             await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
             //Console.WriteLine($"Deleted Report from {UserId},{BattleId}");
+
+            if (UserId != (deadBase.User?.Id ?? 0) && deadBase.User != null)
+            {
+                string notificationSql = @"
+                    INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+                    SELECT 
+                        @receiverId, 
+                        @senderId, 
+                        @senderId, 
+                        CASE 
+                            WHEN EXISTS (
+                                SELECT 1 
+                                FROM maxhanna.notifications 
+                                WHERE user_id = @receiverId 
+                                  AND from_user_id = @senderId 
+                                  AND user_profile_id = @senderId 
+                                  AND date >= NOW() - INTERVAL 1 MINUTE
+                                ORDER BY date DESC
+                                LIMIT 1
+                            ) 
+                            THEN CONCAT(
+                                (SELECT text 
+                                 FROM maxhanna.notifications 
+                                 WHERE user_id = @receiverId 
+                                   AND from_user_id = @senderId 
+                                   AND user_profile_id = @senderId 
+                                   AND date >= NOW() - INTERVAL 1 MINUTE
+                                 ORDER BY date DESC
+                                 LIMIT 1),
+                                ' and captured another base {', @coordsX, ',', @coordsY, '}!'
+                            )
+                            ELSE CONCAT('Captured your base {', @coordsX, ',', @coordsY, '}!')
+                        END AS text,
+                        NOW()
+                    FROM DUAL;";
+
+                using (var cmd = new MySqlCommand(notificationSql, conn, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@senderId", UserId);
+                    cmd.Parameters.AddWithValue("@receiverId", deadBase.User.Id);
+                    cmd.Parameters.AddWithValue("@coordsX", deadBase.CoordsX);
+                    cmd.Parameters.AddWithValue("@coordsY", deadBase.CoordsY);
+
+                    await cmd.ExecuteNonQueryAsync();
+                }
+            }
+             
+            string notificationToAttackerSql = @"
+                INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+                SELECT 
+                    @attackerId, 
+                    @attackerId, 
+                    @attackerId, 
+                    CASE 
+                        WHEN EXISTS (
+                            SELECT 1 
+                            FROM maxhanna.notifications 
+                            WHERE user_id = @attackerId 
+                              AND from_user_id = @fromId 
+                              AND user_profile_id = @fromId 
+                              AND text LIKE '%captured a base%' 
+                              AND date >= NOW() - INTERVAL 1 MINUTE
+                            ORDER BY date DESC
+                            LIMIT 1
+                        ) 
+                        THEN CONCAT(
+                            (SELECT text 
+                             FROM maxhanna.notifications 
+                             WHERE user_id = @attackerId 
+                               AND from_user_id = @fromId 
+                               AND user_profile_id = @fromId 
+                               AND text LIKE '%captured a base%' 
+                               AND date >= NOW() - INTERVAL 1 MINUTE
+                             ORDER BY date DESC
+                             LIMIT 1),
+                            ' and captured another base {', @coordsX, ',', @coordsY, '}!'
+                        )
+                        ELSE CONCAT('You captured a base at {', @coordsX, ',', @coordsY, '}!')
+                    END AS text,
+                    NOW()
+                FROM DUAL;";
+
+            using (var cmd = new MySqlCommand(notificationToAttackerSql, conn, transaction))
+            {
+                cmd.Parameters.AddWithValue("@attackerId", UserId);
+                cmd.Parameters.AddWithValue("@fromId", (deadBase.User?.Id ?? 0));
+                cmd.Parameters.AddWithValue("@coordsX", deadBase.CoordsX);
+                cmd.Parameters.AddWithValue("@coordsY", deadBase.CoordsY);
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+
         }
 
         private async Task DeleteReport(int userId, int battleId, MySqlConnection conn, MySqlTransaction transaction)

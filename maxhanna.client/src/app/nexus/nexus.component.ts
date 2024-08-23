@@ -12,11 +12,8 @@ import { NexusService } from '../../services/nexus.service';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
 import { NexusUnitUpgrades } from '../../services/datacontracts/nexus/nexus-unit-upgrades';
 import { UnitUpgradeStats } from '../../services/datacontracts/nexus/unit-upgrade-stats';
-import { NexusMapComponent } from '../nexus-map/nexus-map.component';
-import { BuildingTimer } from '../../services/datacontracts/nexus/building-timer';
-import { UnitTimer } from '../../services/datacontracts/nexus/unit-timer';
-import { AttackTimer } from '../../services/datacontracts/nexus/attack-timer';
-import { ResearchTimer } from '../../services/datacontracts/nexus/research-timer';
+import { NexusMapComponent } from '../nexus-map/nexus-map.component'; 
+import { NexusTimer } from '../../services/datacontracts/nexus/nexus-timer'; 
 import { MiningSpeed } from '../../services/datacontracts/nexus/mining-speed';
 import { AttackEventPayload } from '../../services/datacontracts/nexus/attack-event-payload';
 
@@ -54,8 +51,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   displaySupplyDepot = false;
   displayWarehouse = false;
   displayEngineeringBay = false;
-  showMoreWarehouseInfo = false; 
+  showMoreWarehouseInfo = false;
+  showMoreEngineeringBayInfo = false;
   isUpgradingUnits = false;
+  preventMapScrolling = false;
 
   mapTileSrc?: string;
   mapTileSrc2?: string;
@@ -71,6 +70,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   engineeringBayPictureSrc?: string;
   minesPictureSrc?: string;
   factoryPictureSrc?: string;
+
+  currentSupplyDepotSrc?: string;
+  currentCommandCenterSrc?: string;
+  currentWarehouseSrc?: string;
+  currentEngineeringBaySrc?: string;
+  currentFactorySrc?: string;
+  currentStarportSrc?: string;
+  currentMinesSrc?: string;
 
   cclvl1Src?: string;
   cclvl2Src?: string;
@@ -122,13 +129,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   unitUpgradeStats?: UnitUpgradeStats[];
   miningSpeeds?: MiningSpeed[];
 
-  buildingTimers: { [key: string]: BuildingTimer } = {};
-  unitTimers: { [key: string]: UnitTimer } = {};
-  attackTimers: { [key: string]: AttackTimer } = {};
-  defenceTimers: { [key: string]: AttackTimer } = {};
-  researchTimers: { [key: string]: ResearchTimer } = {};
+  buildingTimers: { [key: string]: NexusTimer } = {};
+  unitTimers: { [key: string]: NexusTimer } = {};
+  attackTimers: { [key: string]: NexusTimer } = {};
+  defenceTimers: { [key: string]: NexusTimer } = {};
+  researchTimers: { [key: string]: NexusTimer } = {};
   goldIncrementInterval: any;
 
+  supplyUsedPercentage = 0;
   attacksIncomingCount = 0;
   numberOfPersonalBases = 0;
   miningSpeed = 0.0;
@@ -143,6 +151,16 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   glitcherStats = new UnitStats();
   toggledUnitStat?: UnitStats;
   unitsWithoutGlitcher?: UnitStats[];
+  private unitTypeMap = new Map<string, number>([
+    ["marine", 6],
+    ["goliath", 7],
+    ["battlecruiser", 8],
+    ["wraith", 9],
+    ["siege_tank", 10],
+    ["scout", 11],
+    ["glitcher", 12],
+  ]);
+
 
   @ViewChild('upgradeMineButton') upgradeMineButton!: ElementRef<HTMLButtonElement>;
   @ViewChild('upgradeFactoryButton') upgradeFactoryButton!: ElementRef<HTMLButtonElement>;
@@ -155,11 +173,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async ngOnInit() {
     this.isUserNew = true;
-    this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user);
+    this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user || this.parentRef.user.id == 0);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
     this.loadPictureSrcs();
-    this.loadNexusData(); 
+    this.loadNexusData();
   }
 
   ngOnDestroy() {
@@ -181,44 +199,59 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
-  async loadNexusData(skipMap: Boolean = false) {
-    if (!this.parentRef || !this.parentRef.user) { return; }
+  async loadNexusData(skipMap: Boolean = false) { 
+    if (!this.parentRef?.user) {
+      return;
+    }
     this.startLoading();
+
     const data = await this.nexusService.getNexus(this.parentRef.user, this.nexusBase);
 
-    if (data && data.nexusBase && data.nexusBase.user?.id != 0) {
-      this.nexusBase = data.nexusBase;
-      this.nexusBaseUpgrades = data.nexusBaseUpgrades;
-      this.nexusUnitsPurchaseList = data.nexusUnitsPurchasedList;
-      this.nexusAttacksSent = data.nexusAttacksSent;
-      this.nexusDefencesSent = data.nexusDefencesSent;
-      this.nexusUnitUpgrades = data.nexusUnitUpgrades;
-      this.nexusAttacksIncoming = data.nexusAttacksIncoming;
-      this.nexusDefencesIncoming = data.nexusDefencesIncoming;
-      this.nexusBaseUpgrades = data.nexusBaseUpgrades;
-      this.nexusBase.gold = data.nexusBase.gold;
-      this.goldCapacity = (data.nexusBase.warehouseLevel + 1) * 5000;
-      this.supplyCapacity = (data.nexusBase.supplyDepotLevel * 2500);
+    if (data?.nexusBase?.user?.id !== 0) {
+      const { nexusBase, nexusBaseUpgrades, nexusUnitsPurchasedList, nexusAttacksSent, nexusDefencesSent, nexusUnitUpgrades, nexusAttacksIncoming, nexusDefencesIncoming } = data as any;
+      this.nexusBase = nexusBase;
+      this.nexusBaseUpgrades = nexusBaseUpgrades;
+      this.nexusUnitsPurchaseList = nexusUnitsPurchasedList;
+      this.nexusAttacksSent = nexusAttacksSent;
+      this.nexusDefencesSent = nexusDefencesSent;
+      this.nexusUnitUpgrades = nexusUnitUpgrades;
+      this.nexusAttacksIncoming = nexusAttacksIncoming;
+      this.nexusDefencesIncoming = nexusDefencesIncoming;
+
+      if (this.nexusBase) {
+        this.nexusBase.gold = nexusBase.gold;
+      }
+      this.goldCapacity = (nexusBase.warehouseLevel + 1) * 5000;
+      this.supplyCapacity = (nexusBase.supplyDepotLevel * 2500);
+      this.supplyUsedPercentage = (nexusBase.supply / this.supplyCapacity) * 100;
 
       await this.getNexusUnits();
 
-      this.nexusAvailableUnits = this.nexusUnits
-        && (this.nexusUnits.marineTotal > 0 || this.nexusUnits.siegeTankTotal > 0 || this.nexusUnits.goliathTotal > 0 || this.nexusUnits.scoutTotal > 0
-          || this.nexusUnits.wraithTotal > 0 || this.nexusUnits.battlecruiserTotal > 0 || this.nexusUnits.glitcherTotal > 0) ? JSON.parse(JSON.stringify(this.nexusUnits)) : undefined; //creating a deep copy wont reference the same address as nexusUnits
+      this.nexusAvailableUnits = this.nexusUnits && (
+        this.nexusUnits.marineTotal > 0 ||
+        this.nexusUnits.siegeTankTotal > 0 ||
+        this.nexusUnits.goliathTotal > 0 ||
+        this.nexusUnits.scoutTotal > 0 ||
+        this.nexusUnits.wraithTotal > 0 ||
+        this.nexusUnits.battlecruiserTotal > 0 ||
+        this.nexusUnits.glitcherTotal > 0
+      ) ? { ...this.nexusUnits } : undefined; 
+
       this.nexusUnitsOutsideOfBase = undefined;
       this.nexusExternalSupportUnits = undefined;
 
       if (!this.isMapOpen) {
         this.currentValidAvailableUpgrades = undefined;
-        this.displayBuildings(this.nexusBaseUpgrades);
+        this.displayBuildings(nexusBaseUpgrades);
         this.updateAttackTimers(true);
         this.updateDefenceTimers();
         this.getUnitStats();
         this.updateUnitResearchTimers();
         this.getAvailableBuildingUpgrades();
-        this.getMiningSpeedsAndSetMiningSpeed(); 
-      } 
-      this.setAvailableUnits();
+        this.getMiningSpeedsAndSetMiningSpeed();
+      }
+
+      this.setAvailableUnits(); 
     }
     if (this.nexusBase) {
       this.isUserComponentOpen = false;
@@ -235,6 +268,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.unitsWithoutGlitcher = undefined;
     this.stopLoading();
   }
+
   async getMiningSpeedsAndSetMiningSpeed() {
     if (!this.miningSpeeds) {
       this.miningSpeeds = await this.nexusService.getMiningSpeeds();
@@ -295,154 +329,161 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.loadNexusData(true);
   }
   private updateDefenceTimers() {
-    this.reinitializeDefenceTimers();
-    if (this.nexusBase && this.nexusDefencesIncoming
-      && this.nexusDefencesIncoming.some(x => !x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
-        && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
+    if (!this.isMapOpen) {
+      this.reinitializeDefenceTimers();
+      if (this.nexusBase && this.nexusDefencesIncoming
+        && this.nexusDefencesIncoming.some(x => !x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
+          && (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0))) {
 
-      let count = 0;
-      this.nexusDefencesIncoming.forEach(x => {
-        if (!x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase?.coordsY) {
-          const startTimeTime = new Date(x.timestamp).getTime();
-          const utcNow = new Date().getTime();
-          const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
-          const timeDuration = x.duration;
+        let count = 0;
+        this.nexusDefencesIncoming.forEach(x => {
+          if (!x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase?.coordsY) {
+            const startTimeTime = new Date(x.timestamp).getTime();
+            const utcNow = new Date().getTime();
+            const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+            const timeDuration = x.duration;
 
-          if (this.nexusBase) {
-            const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
+            if (this.nexusBase) {
+              const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
 
-            let salt = "";
-            if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
-              salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
-            } else {
-              salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+              let salt = "";
+              if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
+                salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+              } else {
+                salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+              }
+              this.startDefenceTimer(salt, remainingTimeInSeconds);
             }
-            this.startDefenceTimer(salt, remainingTimeInSeconds);
           }
-        }
-      });
-    }
+        });
+      }
 
-    if (this.nexusBase && this.nexusDefencesSent
-      && this.nexusDefencesSent.some(x => x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)) {
+      if (this.nexusBase && this.nexusDefencesSent
+        && this.nexusDefencesSent.some(x => x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)) {
 
-      let count = 0;
-      this.nexusDefencesSent.forEach(x => {
-        if (!x.arrived) {
-          const startTimeTime = new Date(x.timestamp).getTime();
-          const utcNow = new Date().getTime();
-          const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
-          const timeDuration = x.duration;
+        let count = 0;
+        this.nexusDefencesSent.forEach(x => {
+          if (!x.arrived) {
+            const startTimeTime = new Date(x.timestamp).getTime();
+            const utcNow = new Date().getTime();
+            const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+            const timeDuration = x.duration;
 
-          if (this.nexusBase && x.originCoordsX == this.nexusBase.coordsX && x.originCoordsY == this.nexusBase.coordsY) {
-            const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
+            if (this.nexusBase && x.originCoordsX == this.nexusBase.coordsX && x.originCoordsY == this.nexusBase.coordsY) {
+              const remainingTimeInSeconds = timeDuration - elapsedTimeInSeconds;
 
-            let salt = "";
-            if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
-              salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
-            } else {
-              salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+              let salt = "";
+              if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
+                salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Support returning to {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+              } else {
+                salt = `{${x.originCoordsX},${x.originCoordsY}} ${++count}. Supporting {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+              }
+              this.startDefenceTimer(salt, remainingTimeInSeconds);
             }
-            this.startDefenceTimer(salt, remainingTimeInSeconds);
           }
-        }
-      });
+        });
+      }
     }
   }
 
   private setAvailableUnits() {
     if (!this.nexusBase) return;
 
-    const filteredAttacks = this.nexusAttacksSent?.filter(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
-    filteredAttacks?.forEach(x => {
-      this.reinitializeNexusUnitsByType("nexusAvailableUnits");
-      this.reinitializeNexusUnitsByType("nexusUnitsOutsideOfBase");
-      this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
-      this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
-      this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
-      this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
-      this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
-      this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
-      this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
+    this.reinitializeNexusUnitsByType("nexusAvailableUnits");
+    this.reinitializeNexusUnitsByType("nexusUnitsOutsideOfBase");
+    this.reinitializeNexusUnitsByType("nexusExternalSupportUnits");
 
-      this.nexusUnitsOutsideOfBase!.marineTotal += x.marineTotal;
-      this.nexusUnitsOutsideOfBase!.goliathTotal += x.goliathTotal;
-      this.nexusUnitsOutsideOfBase!.siegeTankTotal += x.siegeTankTotal;
-      this.nexusUnitsOutsideOfBase!.scoutTotal += x.scoutTotal;
-      this.nexusUnitsOutsideOfBase!.wraithTotal += x.wraithTotal;
-      this.nexusUnitsOutsideOfBase!.battlecruiserTotal += x.battlecruiserTotal;
-      this.nexusUnitsOutsideOfBase!.glitcherTotal += x.glitcherTotal;
+    const { coordsX, coordsY } = this.nexusBase;
+
+    const adjustUnitTotals = (units: NexusUnits, attack: NexusAttackSent) => {
+      units.marineTotal -= attack.marineTotal;
+      units.goliathTotal -= attack.goliathTotal;
+      units.siegeTankTotal -= attack.siegeTankTotal;
+      units.scoutTotal -= attack.scoutTotal;
+      units.wraithTotal -= attack.wraithTotal;
+      units.battlecruiserTotal -= attack.battlecruiserTotal;
+      units.glitcherTotal -= attack.glitcherTotal;
+    };
+
+    const addUnitTotals = (units: NexusUnits, attack: NexusAttackSent) => {
+      units.marineTotal += attack.marineTotal;
+      units.goliathTotal += attack.goliathTotal;
+      units.siegeTankTotal += attack.siegeTankTotal;
+      units.scoutTotal += attack.scoutTotal;
+      units.wraithTotal += attack.wraithTotal;
+      units.battlecruiserTotal += attack.battlecruiserTotal;
+      units.glitcherTotal += attack.glitcherTotal;
+    };
+
+    // Handle sent attacks
+    this.nexusAttacksSent?.forEach(attack => {
+      if (attack.originCoordsX === coordsX && attack.originCoordsY === coordsY) {
+        adjustUnitTotals(this.nexusAvailableUnits!, attack);
+        addUnitTotals(this.nexusUnitsOutsideOfBase!, attack);
+      }
     });
 
+    // Handle incoming attacks
     this.attacksIncomingCount = 0;
-    this.nexusAttacksIncoming?.forEach(x => {
-      if (x.originCoordsX == this.nexusBase!.coordsX && x.originCoordsY == this.nexusBase!.coordsY) {
-        this.reinitializeNexusUnitsByType("nexusAvailableUnits");
-        this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
-        this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
-        this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
-        this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
-        this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
-        this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
-        this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
-      } else if (x.originCoordsX != x.destinationCoordsX && x.originCoordsY != x.destinationCoordsY) {
+    this.nexusAttacksIncoming?.forEach(attack => {
+      if (attack.originCoordsX === coordsX && attack.originCoordsY === coordsY) {
+        adjustUnitTotals(this.nexusAvailableUnits!, attack);
+      } else if (attack.originCoordsX !== attack.destinationCoordsX || attack.originCoordsY !== attack.destinationCoordsY) {
         this.attacksIncomingCount++;
       }
     });
-     
-    const filteredDefencesIncoming = this.nexusDefencesIncoming?.filter(x =>
-      !this.nexusDefencesSent?.some(y => y.id === x.id)
+
+    // Handle incoming defenses
+    const filteredDefencesIncoming = this.nexusDefencesIncoming?.filter(defence =>
+      !this.nexusDefencesSent?.some(sent => sent.id === defence.id)
     ) || [];
 
-    filteredDefencesIncoming.forEach(x => {
-      if (x.arrived && x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY) {
-        this.reinitializeNexusUnitsByType("nexusExternalSupportUnits");
-        this.nexusExternalSupportUnits!.marineTotal += x.marineTotal;
-        this.nexusExternalSupportUnits!.goliathTotal += x.goliathTotal;
-        this.nexusExternalSupportUnits!.siegeTankTotal += x.siegeTankTotal;
-        this.nexusExternalSupportUnits!.scoutTotal += x.scoutTotal;
-        this.nexusExternalSupportUnits!.wraithTotal += x.wraithTotal;
-        this.nexusExternalSupportUnits!.battlecruiserTotal += x.battlecruiserTotal;
-        this.nexusExternalSupportUnits!.glitcherTotal += x.glitcherTotal;
+    filteredDefencesIncoming.forEach(defence => {
+      if (defence.arrived && defence.destinationCoordsX === coordsX && defence.destinationCoordsY === coordsY) {
+        addUnitTotals(this.nexusExternalSupportUnits!, defence);
       }
     });
 
-
-
-    this.nexusDefencesSent?.forEach(x => {
-      if (x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase?.coordsY) {
-        this.reinitializeNexusUnitsByType("nexusAvailableUnits");
-        this.reinitializeNexusUnitsByType("nexusUnitsOutsideOfBase");
-        this.nexusAvailableUnits!.marineTotal -= x.marineTotal;
-        this.nexusAvailableUnits!.goliathTotal -= x.goliathTotal;
-        this.nexusAvailableUnits!.siegeTankTotal -= x.siegeTankTotal;
-        this.nexusAvailableUnits!.scoutTotal -= x.scoutTotal;
-        this.nexusAvailableUnits!.wraithTotal -= x.wraithTotal;
-        this.nexusAvailableUnits!.battlecruiserTotal -= x.battlecruiserTotal;
-        this.nexusAvailableUnits!.glitcherTotal -= x.glitcherTotal;
-
-        this.nexusUnitsOutsideOfBase!.marineTotal += x.marineTotal;
-        this.nexusUnitsOutsideOfBase!.goliathTotal += x.goliathTotal;
-        this.nexusUnitsOutsideOfBase!.siegeTankTotal += x.siegeTankTotal;
-        this.nexusUnitsOutsideOfBase!.scoutTotal += x.scoutTotal;
-        this.nexusUnitsOutsideOfBase!.wraithTotal += x.wraithTotal;
-        this.nexusUnitsOutsideOfBase!.battlecruiserTotal += x.battlecruiserTotal;
-        this.nexusUnitsOutsideOfBase!.glitcherTotal += x.glitcherTotal;
+    // Handle sent defenses
+    this.nexusDefencesSent?.forEach(defence => {
+      if (defence.originCoordsX === coordsX && defence.originCoordsY === coordsY) {
+        adjustUnitTotals(this.nexusAvailableUnits!, defence);
+        addUnitTotals(this.nexusUnitsOutsideOfBase!, defence);
       }
     });
 
-
-    if (this.nexusUnitsOutsideOfBase && this.nexusUnitsOutsideOfBase.marineTotal <= 0
-      && this.nexusUnitsOutsideOfBase.siegeTankTotal <= 0 && this.nexusUnitsOutsideOfBase.goliathTotal <= 0
-      && this.nexusUnitsOutsideOfBase.scoutTotal <= 0 && this.nexusUnitsOutsideOfBase.wraithTotal <= 0
-      && this.nexusUnitsOutsideOfBase.battlecruiserTotal <= 0 && this.nexusUnitsOutsideOfBase.glitcherTotal <= 0) {
+    // Cleanup undefined units
+    if (this.nexusUnitsOutsideOfBase &&
+      this.nexusUnitsOutsideOfBase.marineTotal <= 0 &&
+      this.nexusUnitsOutsideOfBase.siegeTankTotal <= 0 &&
+      this.nexusUnitsOutsideOfBase.goliathTotal <= 0 &&
+      this.nexusUnitsOutsideOfBase.scoutTotal <= 0 &&
+      this.nexusUnitsOutsideOfBase.wraithTotal <= 0 &&
+      this.nexusUnitsOutsideOfBase.battlecruiserTotal <= 0 &&
+      this.nexusUnitsOutsideOfBase.glitcherTotal <= 0) {
       this.nexusUnitsOutsideOfBase = undefined;
     }
-    if (this.nexusAvailableUnits && this.nexusAvailableUnits.marineTotal <= 0
-      && this.nexusAvailableUnits.siegeTankTotal <= 0 && this.nexusAvailableUnits.goliathTotal <= 0
-      && this.nexusAvailableUnits.scoutTotal <= 0 && this.nexusAvailableUnits.wraithTotal <= 0
-      && this.nexusAvailableUnits.battlecruiserTotal <= 0 && this.nexusAvailableUnits.glitcherTotal <= 0) {
+
+    if (this.nexusAvailableUnits &&
+      this.nexusAvailableUnits.marineTotal <= 0 &&
+      this.nexusAvailableUnits.siegeTankTotal <= 0 &&
+      this.nexusAvailableUnits.goliathTotal <= 0 &&
+      this.nexusAvailableUnits.scoutTotal <= 0 &&
+      this.nexusAvailableUnits.wraithTotal <= 0 &&
+      this.nexusAvailableUnits.battlecruiserTotal <= 0 &&
+      this.nexusAvailableUnits.glitcherTotal <= 0) {
       this.nexusAvailableUnits = undefined;
+    }
+
+    if (this.nexusExternalSupportUnits &&
+      this.nexusExternalSupportUnits.marineTotal <= 0 &&
+      this.nexusExternalSupportUnits.siegeTankTotal <= 0 &&
+      this.nexusExternalSupportUnits.goliathTotal <= 0 &&
+      this.nexusExternalSupportUnits.scoutTotal <= 0 &&
+      this.nexusExternalSupportUnits.wraithTotal <= 0 &&
+      this.nexusExternalSupportUnits.battlecruiserTotal <= 0 &&
+      this.nexusExternalSupportUnits.glitcherTotal <= 0) {
+      this.nexusExternalSupportUnits = undefined;
     }
   }
 
@@ -551,101 +592,133 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.reinitializeUnitTimers();
     this.factoryUnitsBeingBuilt = 0;
     this.starportUnitsBeingBuilt = 0;
-    if (this.nexusUnitsPurchaseList && this.nexusUnitsPurchaseList.length > 0) {
-      let count = 0;
-      this.nexusUnitsPurchaseList.forEach(x => {
-        count++;
-        const startTime = x.timestamp;
-        const salt = "{" + this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} " + count + "." + x.quantityPurchased + " ";
-        if (this.factoryUnitIds.includes(x.unitIdPurchased)) {
-          this.factoryUnitsBeingBuilt++;
-        } else if (this.starportUnitIds.includes(x.unitIdPurchased)) {
-          this.starportUnitsBeingBuilt++;
-        } else {
-          this.glitchersBeingBuilt++;
-        }
+    this.glitchersBeingBuilt = 0; 
 
-        this.primeTheTimerForUnitPurchases(startTime, x.unitIdPurchased, x.quantityPurchased, salt);
-      });
+    if (!this.nexusUnitsPurchaseList || this.nexusUnitsPurchaseList.length === 0) {
+      return; 
     }
+
+    const { coordsX, coordsY } = this.nexusBase || {}; 
+
+    this.nexusUnitsPurchaseList.forEach((purchase, index) => {
+      const startTime = purchase.timestamp;
+      const salt = `{${coordsX} ${coordsY}} ${index + 1}.${purchase.quantityPurchased} `;
+
+      if (new Set(this.factoryUnitIds).has(purchase.unitIdPurchased)) {
+        this.factoryUnitsBeingBuilt++;
+      } else if (new Set(this.starportUnitIds).has(purchase.unitIdPurchased)) {
+        this.starportUnitsBeingBuilt++;
+      } else {
+        this.glitchersBeingBuilt++;
+      }
+
+      this.primeTheTimerForUnitPurchases(startTime, purchase.unitIdPurchased, purchase.quantityPurchased, salt);
+    });
   }
 
 
   private async updateUnitResearchTimers() {
-    if (!this.parentRef || !this.parentRef.user) return;
+    if (!this.parentRef?.user) return;
+
     if (!this.unitUpgradeStats) {
       const unitUpgradeStatsRes = await this.nexusService.getUnitUpgradeStats(this.parentRef.user);
       if (unitUpgradeStatsRes) {
         this.unitUpgradeStats = unitUpgradeStatsRes;
       }
     }
+
     this.reinitializeResearchTimers();
-    if (this.nexusUnitUpgrades && this.nexusUnitUpgrades.length > 0 && this.nexusBase && this.units && this.unitUpgradeStats) {
 
-      this.nexusUnitUpgrades.forEach(x => {
-        if (!this.units) return;
-        const foundUnit = this.units.find(unit => unit && unit.unitId == x.unitIdUpgraded);
-        const startTimeTime = new Date(x.timestamp).getTime();
-        const utcNow = new Date().getTime();
-        const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
-        const unitTimeDuration = this.units!.find(unit => unit && unit.unitId == x.unitIdUpgraded)!.duration;
+    if (!this.nexusUnitUpgrades || !this.nexusBase || !this.units || !this.unitUpgradeStats) return;
 
-        if (foundUnit && foundUnit.unitType && this.nexusBase) {
-          const levelKey = `${foundUnit.unitType != "siege_tank" ? foundUnit.unitType : "siegeTank"}Level` as keyof NexusBase;
-          const foundUnitLevel = this.nexusBase[levelKey];
-          const upgradeMultiplyer = this.unitUpgradeStats!.find(level => level && level.unitLevel == foundUnitLevel)!.duration;
-          const remainingTimeInSeconds = (unitTimeDuration * upgradeMultiplyer) - elapsedTimeInSeconds;
-          this.isUpgradingUnits = true;
-          this.startUnitResearchTimer(`${foundUnit?.unitType} level ${foundUnitLevel}` ?? "?", remainingTimeInSeconds);
-        }
-      });
-    }
+    const unitMap = new Map(this.units.map(unit => [unit.unitId, unit]));
+    const upgradeStatsMap = new Map(this.unitUpgradeStats.map(stat => [stat.unitLevel, stat]));
+
+    const utcNow = new Date().getTime();
+
+    this.nexusUnitUpgrades.forEach(upgrade => {
+      if (!this.nexusBase) return;
+      const unit = unitMap.get(upgrade.unitIdUpgraded);
+      if (!unit) return;
+
+      const startTimeTime = new Date(upgrade.timestamp).getTime();
+      const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime) / 1000);
+      const unitTimeDuration = unit.duration;
+
+      const levelKey = unit.unitType !== "siege_tank" ? `${unit.unitType}Level` : "siegeTankLevel" as keyof NexusBase;
+      const foundUnitLevel = this.nexusBase[levelKey as keyof NexusBase] as number;
+
+      const upgradeStat = upgradeStatsMap.get(foundUnitLevel);
+      if (upgradeStat) {
+        const remainingTimeInSeconds = (unitTimeDuration * upgradeStat.duration) - elapsedTimeInSeconds;
+        this.isUpgradingUnits = true;
+        this.startUnitResearchTimer(`${unit.unitType} level ${foundUnitLevel}` ?? "?", remainingTimeInSeconds);
+      }
+    });  
   }
 
   private updateAttackTimers(forceUpdateDefenceTimers?: boolean) {
-    this.reinitializeAttackTimers();
+    if (!this.isMapOpen) {
+      this.reinitializeAttackTimers();
 
-    if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0 && this.nexusBase) {
-      let count = 0;
-      const uniqueAttacks = new Set<number>(); // Set to keep track of unique attacks
-      const relevantAttacksSent = this.nexusAttacksSent.filter(x => x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
-      relevantAttacksSent.forEach(x => {
-        const startTimeTime = new Date(x.timestamp).getTime();
-        const utcNow = new Date().getTime();
-        const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
-        const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
-        count++;
-        const coordsMatchOwnBase = (x.destinationCoordsX == this.nexusBase!.coordsX && x.destinationCoordsY == this.nexusBase!.coordsY);
-        const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. ${coordsMatchOwnBase ? "Returning" : "Attacking"} {${x.destinationCoordsX},${x.destinationCoordsY}}`;
-        if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt]) {
-          uniqueAttacks.add(remainingTimeInSeconds);
-          this.startAttackTimer(salt, remainingTimeInSeconds);
-        }
-      });
-    }
-    if (forceUpdateDefenceTimers) {
-      this.updateAttackDefenceTimers();
+      if ((this.nexusAttacksSent?.length || 0) > 0 && this.nexusBase) {
+        const utcNow = new Date().getTime(); // Calculate once
+        const uniqueAttacks = new Set<number>(); // Track unique attack times
+
+        // Filter relevant attacks once
+        const relevantAttacksSent = this.nexusAttacksSent?.filter(x =>
+          x.originCoordsX === this.nexusBase?.coordsX &&
+          x.originCoordsY === this.nexusBase?.coordsY
+        );
+
+        relevantAttacksSent?.forEach((x, index) => {
+          const startTime = new Date(x.timestamp).getTime();
+          const elapsedTimeInSeconds = Math.floor((utcNow - startTime) / 1000);
+          const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
+          const coordsMatchOwnBase = (x.destinationCoordsX === this.nexusBase?.coordsX &&
+            x.destinationCoordsY === this.nexusBase?.coordsY);
+          const salt = `{${x.originCoordsX},${x.originCoordsY}} ${index + 1}. ${coordsMatchOwnBase ? "Returning" : "Attacking"} {${x.destinationCoordsX},${x.destinationCoordsY}}`;
+
+          // Only add to uniqueAttacks if it is not already present
+          if (!this.attackTimers[salt] && !uniqueAttacks.has(remainingTimeInSeconds)) {
+            uniqueAttacks.add(remainingTimeInSeconds);
+            this.startAttackTimer(salt, remainingTimeInSeconds);
+          }
+        });
+      }
+
+      if (forceUpdateDefenceTimers) {
+        this.updateAttackDefenceTimers();
+      }
     }
   }
 
   private updateAttackDefenceTimers() {
-    if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
-      let count = 0;
+    if ((this.nexusAttacksIncoming?.length || 0) > 0 && this.nexusBase) {
+      const utcNow = new Date().getTime(); // Calculate once
       const uniqueDefenses = new Set<string>();
-      const relevantAttacksReceived =
-        this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.nexusBase?.coordsX && x.destinationCoordsY == this.nexusBase.coordsY
-          && x.originUser?.id != this.parentRef?.user?.id);
+      const baseX = this.nexusBase.coordsX;
+      const baseY = this.nexusBase.coordsY;
+      const userId = this.parentRef?.user?.id;
 
-      relevantAttacksReceived.forEach(x => {
-        const startTimeTime = new Date(x.timestamp).getTime();
-        const utcNow = new Date().getTime();
-        const elapsedTimeInSeconds = Math.floor((utcNow - startTimeTime)) / 1000;
+      // Filter relevant attacks once
+      const relevantAttacksReceived = this.nexusAttacksIncoming?.filter(x =>
+        x.destinationCoordsX === baseX &&
+        x.destinationCoordsY === baseY &&
+        x.originUser?.id !== userId
+      );
+
+      relevantAttacksReceived?.forEach((x, index) => {
+        const startTime = new Date(x.timestamp).getTime();
+        const elapsedTimeInSeconds = Math.floor((utcNow - startTime) / 1000);
         const remainingTimeInSeconds = x.duration - elapsedTimeInSeconds;
-        count++;
-        const returningToBase = (x.originCoordsX == this.nexusBase?.coordsX && x.originCoordsY == this.nexusBase.coordsY);
-        const salt = returningToBase ? `{${x.destinationCoordsX},${x.destinationCoordsY}} ${count}. Returning {${x.originCoordsX},${x.originCoordsY}}`
-          : `{${x.destinationCoordsX},${x.destinationCoordsY}} ${count}. Incoming {${x.originCoordsX},${x.originCoordsY}}`;
+
         if (remainingTimeInSeconds > 0) {
+          const returningToBase = (x.originCoordsX === baseX && x.originCoordsY === baseY);
+          const salt = returningToBase
+            ? `{${x.destinationCoordsX},${x.destinationCoordsY}} ${index + 1}. Returning {${x.originCoordsX},${x.originCoordsY}}`
+            : `{${x.destinationCoordsX},${x.destinationCoordsY}} ${index + 1}. Incoming {${x.originCoordsX},${x.originCoordsY}}`;
+
           if (!uniqueDefenses.has(salt)) {
             uniqueDefenses.add(salt);
             this.startAttackTimer(salt, remainingTimeInSeconds);
@@ -655,110 +728,90 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
+
   private startUpgradeTimer(upgrade: string, time: number, isUnit: boolean) {
     if ((isUnit && this.unitTimers[upgrade]) || (!isUnit && this.buildingTimers[upgrade]) || !time || isNaN(time)) {
       return;
     }
 
     const endTime = Math.max(0, time) + 1;
-    let timerObject: any;
-
-    const timer = {
+    const timerObject = {
+      key: upgrade,
       endTime: endTime,
       timeout: setTimeout(async () => {
-
         this.addNotification(`${upgrade} ${isUnit ? '' : 'upgrade '}completed!`);
-        if (isUnit && !this.nexusUnits) {
-          this.nexusUnits = {} as NexusUnits;
-        }
-        if (isUnit && !this.nexusAvailableUnits) {
-          this.nexusAvailableUnits = this.reinitializeNexusUnitsByType("nexusAvailableUnits");
-        }
-        if (isUnit && this.nexusAvailableUnits && this.nexusUnits) {
-          delete this.unitTimers[upgrade];
-          const subs = upgrade.split('.')[1];
-          const count = parseInt(subs.split(' ')[0]);
-          const unitType = subs.split(' ')[1];
-          //console.log("count: " + count + "; unitType:" + unitType);
-          if (unitType.includes("marine")) {
-            this.nexusUnits.marineTotal += count;
-            this.nexusAvailableUnits.marineTotal += count;
-          } else if (unitType.includes("goliath")) {
-            this.nexusUnits.goliathTotal += count;
-            this.nexusAvailableUnits.goliathTotal += count;
-          } else if (unitType.includes("siege_tank")) {
-            this.nexusUnits.siegeTankTotal += count;
-            this.nexusAvailableUnits.siegeTankTotal += count;
-          } else if (unitType.includes("scout")) {
-            this.nexusUnits.scoutTotal += count;
-            this.nexusAvailableUnits.scoutTotal += count;
-          } else if (unitType.includes("wraith")) {
-            this.nexusUnits.wraithTotal += count;
-            this.nexusAvailableUnits.wraithTotal += count;
-          } else if (unitType.includes("battlecruiser")) {
-            this.nexusUnits.battlecruiserTotal += count;
-            this.nexusAvailableUnits.battlecruiserTotal += count;
-          } else if (unitType.includes("glitcher")) {
-            this.nexusUnits.glitcherTotal += count;
-            this.nexusAvailableUnits.glitcherTotal += count;
+
+        if (isUnit) {
+          if (!this.nexusUnits) {
+            this.nexusUnits = {} as NexusUnits;
           }
-          if (this.allNexusUnits && this.nexusBase) {
-            let index = this.allNexusUnits.findIndex(unit =>
-              this.nexusBase &&
-              unit.coordsX === this.nexusBase.coordsX &&
-              unit.coordsY === this.nexusBase.coordsY
-            );
-            if (index !== -1) {
-              this.allNexusUnits[index] = this.nexusUnits;
+          if (!this.nexusAvailableUnits) {
+            this.nexusAvailableUnits = this.reinitializeNexusUnitsByType("nexusAvailableUnits");
+          }
+          if (this.nexusAvailableUnits && this.nexusUnits) {
+            delete this.unitTimers[upgrade];
+            const [countStr, unitType] = upgrade.split('.')[1].split(' ');
+            const count = parseInt(countStr);
+
+            const unitMap: any = {
+              marine: 'marineTotal',
+              goliath: 'goliathTotal',
+              siege_tank: 'siegeTankTotal',
+              scout: 'scoutTotal',
+              wraith: 'wraithTotal',
+              battlecruiser: 'battlecruiserTotal',
+              glitcher: 'glitcherTotal'
+            };
+
+            const unitProperty = unitMap[unitType] as keyof NexusUnits;
+            if (unitProperty) {
+              this.nexusUnits[unitProperty] += count;
+              this.nexusAvailableUnits[unitProperty] += count;
+            }
+
+            if (this.allNexusUnits && this.nexusBase) {
+              const index = this.allNexusUnits.findIndex(unit =>
+                unit.coordsX === this.nexusBase?.coordsX &&
+                unit.coordsY === this.nexusBase?.coordsY
+              );
+              if (index !== -1) {
+                this.allNexusUnits[index] = this.nexusUnits;
+              }
             }
           }
         } else {
           delete this.buildingTimers[upgrade];
           if (this.nexusBase) {
             const buildingType = upgrade.split(' ')[2];
-            if (buildingType == "command_center") {
-              this.nexusBase.commandCenterLevel++;
-              if (this.nexusBaseUpgrades) {
-                this.nexusBaseUpgrades.commandCenterUpgraded = undefined;
-              }
-            } else if (buildingType == "engineering_bay") {
-              this.nexusBase.engineeringBayLevel++;
-              if (this.nexusBaseUpgrades) {
-                this.nexusBaseUpgrades.engineeringBayUpgraded = undefined;
-              }
-            } else if (buildingType == "mines") {
-              this.nexusBase.minesLevel++;
-              this.getMiningSpeedsAndSetMiningSpeed()
-              this.startGoldIncrement();
-              if (this.nexusBaseUpgrades) {
-                this.nexusBaseUpgrades.minesUpgraded = undefined;
-              }
-            } else if (buildingType == "warehouse") {
-              this.nexusBase.warehouseLevel++;
-              if (this.nexusBaseUpgrades) {
-                this.nexusBaseUpgrades.warehouseUpgraded = undefined;
-              }
-            } else if (buildingType == "supply_depot") {
-              this.nexusBase.supplyDepotLevel++;
-              this.supplyCapacity = (this.nexusBase.supplyDepotLevel * 2500);
-              if (this.nexusBaseUpgrades) {
-                this.nexusBaseUpgrades.supplyDepotUpgraded = undefined;
-              }
-            } else if (buildingType == "factory") {
-              this.nexusBase.factoryLevel++;
-              if (this.nexusBaseUpgrades) {
-                this.nexusBaseUpgrades.factoryUpgraded = undefined;
-              }
-            } else if (buildingType == "starport") {
-              this.nexusBase.starportLevel++;
-              if (this.nexusBaseUpgrades) {
-                this.nexusBaseUpgrades.starportUpgraded = undefined;
+            const buildingMap : any = {
+              command_center: () => this.nexusBase!.commandCenterLevel++,
+              engineering_bay: () => this.nexusBase!.engineeringBayLevel++,
+              mines: () => {
+                this.nexusBase!.minesLevel++;
+                this.getMiningSpeedsAndSetMiningSpeed();
+                this.startGoldIncrement();
+              },
+              warehouse: () => this.nexusBase!.warehouseLevel++,
+              supply_depot: () => {
+                this.nexusBase!.supplyDepotLevel++;
+                this.supplyCapacity = this.nexusBase!.supplyDepotLevel * 2500;
+              },
+              factory: () => this.nexusBase!.factoryLevel++,
+              starport: () => this.nexusBase!.starportLevel++
+            };
+
+            const upgradeKey = `${buildingType}Upgraded` as keyof NexusBaseUpgrades;
+            if (buildingMap[buildingType]) {
+              buildingMap[buildingType]();
+              if (this.nexusBaseUpgrades) { 
+                this.nexusBaseUpgrades[upgradeKey] = undefined as any;
               }
             }
 
             this.currentValidAvailableUpgrades = undefined;
           }
         }
+
         clearInterval(timerObject.interval);
       }, endTime * 1000),
 
@@ -772,99 +825,67 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     };
 
     if (isUnit) {
-      this.unitTimers[upgrade] = timer;
+      this.unitTimers[upgrade] = timerObject;
     } else {
-      this.buildingTimers[upgrade] = timer;
+      this.buildingTimers[upgrade] = timerObject;
+    }
+  }
+
+  private startGenericTimer(timerMap: { [key: string]: NexusTimer }, key: string, time: number, completionMessage: string, onComplete: () => void) {
+    // Return if the timer already exists or time is invalid
+    if (timerMap[key] || time <= 0 || isNaN(time)) {
+      return;
     }
 
-    timerObject = timer;
+    // Ensure endTime is a positive integer
+    const endTime = Math.max(1, Math.floor(time));
+
+    // Define the timer object
+    const timer = {
+      key: key,
+      endTime: endTime,
+      timeout: setTimeout(async () => {
+        this.addNotification(completionMessage);
+         
+        clearInterval(timer.interval);
+        clearTimeout(timer.timeout);
+         
+        delete timerMap[key]; 
+        onComplete();
+      }, endTime * 1000),
+
+      interval: setInterval(() => {
+        if (timerMap[key]) {
+          timerMap[key].endTime--;
+        }
+      }, 1000)
+    };
+
+    // Store the timer in the map
+    timerMap[key] = timer;
   }
 
   private startAttackTimer(attack: string, time: number) {
-    if (this.attackTimers[attack] || !time || isNaN(time)) {
-      return;
-    }
-    //console.log("starting attack timer");
-    //console.log(attack);
-    //console.log(time);
-
-    const endTime = Math.max(1, time);
-    const timer = {
-      key: attack,
-      endTime: endTime,
-      timeout: setTimeout(async () => {
-        this.addNotification(`${attack} completed!`);
-        clearInterval(this.attackTimers[attack].interval);
-        clearTimeout(this.attackTimers[attack].timeout);
-        delete this.attackTimers[attack];
-        this.debounceLoadNexusData();
-      }, endTime * 1000),
-      interval: setInterval(() => {
-        if (this.attackTimers[attack]) {
-          this.attackTimers[attack].endTime--;
-        }
-      }, 1000)
-    };
-
-    this.attackTimers[attack] = timer;
+    this.startGenericTimer(this.attackTimers, attack, time, `${attack} completed!`, () => {
+      this.debounceLoadNexusData();
+    });
   }
 
-
   private startDefenceTimer(defence: string, time: number) {
-    if (this.defenceTimers[defence] || !time || isNaN(time)) {
-      return;
-    }
-    //console.log("starting defence timer");
-    //console.log(defence);
-    //console.log(time);
-
-    const endTime = Math.max(1, time);
-    const timer = {
-      key: defence,
-      endTime: endTime,
-      timeout: setTimeout(async () => {
-        this.addNotification(`${defence} completed!`);
-        clearInterval(this.defenceTimers[defence].interval);
-        clearTimeout(this.defenceTimers[defence].timeout);
-        delete this.defenceTimers[defence];
-        this.debounceLoadNexusData();
-      }, endTime * 1000),
-      interval: setInterval(() => {
-        if (this.defenceTimers[defence]) {
-          this.defenceTimers[defence].endTime--;
-        }
-      }, 1000)
-    };
-
-    this.defenceTimers[defence] = timer;
+    this.startGenericTimer(this.defenceTimers, defence, time, `${defence} completed!`, () => {
+      this.debounceLoadNexusData();
+    });
   }
 
   private startUnitResearchTimer(research: string, time: number) {
-    if (this.researchTimers[research] || !time || isNaN(time)) {
-      return;
-    }
-    //console.log("starting research timer : " +research + " time: " + time);
-    const endTime = Math.max(1, time);
-    const timer = {
-      key: research,
-      endTime: endTime,
-      timeout: setTimeout(async () => {
-        this.addNotification(`${research} research completed!`);
-        clearInterval(this.researchTimers[research].interval);
-        clearTimeout(this.researchTimers[research].timeout);
-        delete this.researchTimers[research];
-        const unitId = this.getUnitIdFromType(research);
-        this.nexusUnitUpgrades?.filter(x => x.unitIdUpgraded == unitId);
-      }, endTime * 1000),
-      interval: setInterval(() => {
-        if (this.researchTimers[research]) {
-          this.researchTimers[research].endTime--;
-        }
-      }, 1000)
-    };
-
-    this.researchTimers[research] = timer;
-  }
+    this.startGenericTimer(this.researchTimers, research, time, `${research} research completed!`, () => {
+      const unitId = this.getUnitIdFromType(research);
+      this.nexusUnitUpgrades = this.nexusUnitUpgrades?.filter(x => x.unitIdUpgraded == unitId);
+      if (this.nexusBase) {
+        this.nexusBase[`${(research == 'siege_tank' ? 'siegeTank' : research)}Level` as keyof NexusBase]++;
+      }
+    });
+  } 
 
 
   private getBuildingUpgradesInfo() {
@@ -995,6 +1016,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private async reinitializeResearchTimers() {
+    this.isUpgradingUnits = false;
     Object.keys(this.researchTimers).forEach(research => {
       if (this.researchTimers[research]) {
         clearInterval(this.researchTimers[research].interval);
@@ -1024,6 +1046,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.displaySupplyDepot = !!(nexusBaseUpgrades.supplyDepotUpgraded || this.nexusBase.supplyDepotLevel > 0);
     this.displayWarehouse = !!(nexusBaseUpgrades.warehouseUpgraded || this.nexusBase.warehouseLevel > 0);
     this.displayEngineeringBay = !!(nexusBaseUpgrades.engineeringBayUpgraded || this.nexusBase.engineeringBayLevel > 0);
+
+    this.currentSupplyDepotSrc = this.nexusBase.supplyDepotLevel < 3 ? this.sdlvl1Src : this.nexusBase.supplyDepotLevel < 4 ? this.sdlvl2Src : this.sdlvl3Src;
+    this.currentCommandCenterSrc = this.nexusBase.commandCenterLevel < 3 ? this.cclvl1Src : this.nexusBase.commandCenterLevel < 4 ? this.cclvl2Src : this.cclvl3Src;
+    this.currentFactorySrc = this.nexusBase.factoryLevel < 3 ? this.flvl1Src : this.nexusBase.factoryLevel < 4 ? this.flvl2Src : this.flvl3Src;
+    this.currentStarportSrc = this.nexusBase.starportLevel < 3 ? this.splvl1Src : this.nexusBase.starportLevel < 4 ? this.splvl2Src : this.splvl3Src;
+    this.currentWarehouseSrc = this.nexusBase.warehouseLevel < 3 ? this.whlvl1Src : this.nexusBase.warehouseLevel < 4 ? this.whlvl2Src : this.whlvl3Src;
+    this.currentEngineeringBaySrc = this.nexusBase.engineeringBayLevel < 3 ? this.eblvl1Src : this.nexusBase.engineeringBayLevel < 4 ? this.eblvl2Src : this.eblvl3Src;
+    this.currentMinesSrc = this.nexusBase.minesLevel < 3 ? this.mineslvl1Src : this.nexusBase.minesLevel < 4 ? this.mineslvl2Src : this.mineslvl3Src;
   }
 
   async upgradeBuilding(upgrade: string) {
@@ -1204,7 +1234,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (this.goldIncrementInterval) {
       clearInterval(this.goldIncrementInterval);
     }
-    console.log("start gold increment ");
     const intervalTime = this.miningSpeed * 1000;
 
     this.goldIncrementInterval = setInterval(() => {
@@ -1461,36 +1490,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     };
 
     let totalSupplyUsed = unit.supply * (unitSupplyMap[unit.unitType] ?? 0);
-
-    if (this.nexusAttacksSent) {
-      this.nexusAttacksSent.forEach(attack => {
-        switch (unit.unitType) {
-          case "marine":
-            totalSupplyUsed += unit.supply * (attack.marineTotal ?? 0);
-            break;
-          case "goliath":
-            totalSupplyUsed += unit.supply * (attack.goliathTotal ?? 0);
-            break;
-          case "siege_tank":
-            totalSupplyUsed += unit.supply * (attack.siegeTankTotal ?? 0);
-            break;
-          case "scout":
-            totalSupplyUsed += unit.supply * (attack.scoutTotal ?? 0);
-            break;
-          case "wraith":
-            totalSupplyUsed += unit.supply * (attack.wraithTotal ?? 0);
-            break;
-          case "battlecruiser":
-            totalSupplyUsed += unit.supply * (attack.battlecruiserTotal ?? 0);
-            break;
-          case "glitcher":
-            totalSupplyUsed += unit.supply * (attack.glitcherTotal ?? 0);
-            break;
-          default:
-            break;
-        }
-      });
-    }
+     
 
     if (this.nexusUnitsPurchaseList) {
       this.nexusUnitsPurchaseList.forEach(purchase => {
@@ -1505,367 +1505,95 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
 
   formatBuildingTimer(s: string) {
-    s = s.substring(s.indexOf('}') + 1, s.length).replace('_', ' ');
-    s = s.substring(s.indexOf('.') + 1, s.length);
+    const endIndex = s.indexOf('}');
+    const dotIndex = s.indexOf('.', endIndex + 1); 
+    return s.substring(dotIndex + 1).replace('_', ' ');
+  }
+  getXCoordsFromTimer(s: string): number {
+    const start = s.indexOf('{') + 1;
+    const end = s.indexOf(',');
+    return parseInt(s.slice(start, end));
+  }
 
-    return s;
+  getYCoordsFromTimer(s: string): number {
+    const start = s.indexOf(',') + 1;
+    const end = s.indexOf('}');
+    return parseInt(s.slice(start, end));
   }
-  getXCoordsFromTimer(s: string) {
-    return parseInt(s.substring(s.indexOf('{') + 1, s.indexOf(',')));
-  }
-  getYCoordsFromTimer(s: string) {
-    return parseInt(s.substring(s.indexOf(',') + 1, s.indexOf('}')));
+  getFormattedBuildingTimer(building: string) { 
+    const timer = this.getBuildingTimerForBuilding(building);
+    return timer ? this.nexusService.formatTimer(timer.endTime) : '';
   }
   getBuildingTimerForBuilding(building: string) {
-    const formatted = "{" + this.nexusBase?.coordsX + " " + this.nexusBase?.coordsY + "} " + this.formatBuildingTimer(building).toLowerCase().replace(" ", "_");
-
-    return this.buildingTimers[formatted];
+    return this.buildingTimers[
+      `{${this.nexusBase?.coordsX} ${this.nexusBase?.coordsY}} ${this.formatBuildingTimer(building).toLowerCase().replace(' ', '_')}`
+    ];
   }
 
-  private loadPictureSrcs() {
+  private loadPictureSrcs() { 
+    const pictureSrcMap: { key: string; id: number }[] = [
+      { key: 'cclvl1Src', id: 6546 },
+      { key: 'cclvl2Src', id: 6547 },
+      { key: 'cclvl3Src', id: 6544 },
+      { key: 'splvl1Src', id: 6567 },
+      { key: 'splvl2Src', id: 6565 },
+      { key: 'splvl3Src', id: 6566 },
+      { key: 'mineslvl1Src', id: 6551 },
+      { key: 'mineslvl2Src', id: 6549 },
+      { key: 'mineslvl3Src', id: 6553 },
+      { key: 'flvl1Src', id: 6550 },
+      { key: 'flvl2Src', id: 6554 },
+      { key: 'flvl3Src', id: 6552 },
+      { key: 'sdlvl1Src', id: 6555 },
+      { key: 'sdlvl2Src', id: 6557 },
+      { key: 'sdlvl3Src', id: 6559 },
+      { key: 'whlvl1Src', id: 6562 },
+      { key: 'whlvl2Src', id: 6563 },
+      { key: 'whlvl3Src', id: 6564 },
+      { key: 'eblvl1Src', id: 6545 },
+      { key: 'eblvl2Src', id: 6548 },
+      { key: 'eblvl3Src', id: 6543 },
+      { key: 'nexusBackgroundPictureSrc', id: 6556 },
+      { key: 'nexusLevel1Src', id: 6631 },
+      { key: 'nexusLevel2Src', id: 6632 },
+      { key: 'nexusLevel3Src', id: 6630 },
+      { key: 'mapTileSrc', id: 6293 },
+      { key: 'mapTileSrc2', id: 6292 },
+      { key: 'mapTileSrc3', id: 6293 },
+      { key: 'marinePictureSrc', id: 6240 },
+      { key: 'goliathPictureSrc', id: 6237 },
+      { key: 'siegeTankPictureSrc', id: 6246 },
+      { key: 'scoutPictureSrc', id: 6244 },
+      { key: 'wraithPictureSrc', id: 6245 },
+      { key: 'battlecruiserPictureSrc', id: 6243 },
+      { key: 'glitcherPictureSrc', id: 6261 },
+    ];
+    const loadPromises = pictureSrcMap.map(({ key, id }) => {
+      if (key) {
+        return this.fileService.getFileSrcByFileId(id)
+          .then(src => {
+            (this[key as keyof this] as string) = src;
+          })
+          .catch(error => {
+            console.error(`Error loading source for key ${key}:`, error);
+          });
+      }
+      return Promise.resolve();
+    });
 
-    if (!this.cclvl1Src) {
-      this.fileService.getFileSrcByFileId(6546)
-        .then(src => {
-          this.cclvl1Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.cclvl2Src) {
-      this.fileService.getFileSrcByFileId(6547)
-        .then(src => {
-          this.cclvl2Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.cclvl3Src) {
-      this.fileService.getFileSrcByFileId(6544)
-        .then(src => {
-          this.cclvl3Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.splvl1Src) {
-      this.fileService.getFileSrcByFileId(6567)
-        .then(src => {
-          this.splvl1Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.splvl2Src) {
-      this.fileService.getFileSrcByFileId(6565)
-        .then(src => {
-          this.splvl2Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.splvl3Src) {
-      this.fileService.getFileSrcByFileId(6566)
-        .then(src => {
-          this.splvl3Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.mineslvl1Src) {
-      this.fileService.getFileSrcByFileId(6551)
-        .then(src => {
-          this.mineslvl1Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.mineslvl2Src) {
-      this.fileService.getFileSrcByFileId(6549)
-        .then(src => {
-          this.mineslvl2Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.mineslvl3Src) {
-      this.fileService.getFileSrcByFileId(6553)
-        .then(src => {
-          this.mineslvl3Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-
-    if (!this.flvl1Src) {
-      this.fileService.getFileSrcByFileId(6550)
-        .then(src => {
-          this.flvl1Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.flvl2Src) {
-      this.fileService.getFileSrcByFileId(6554)
-        .then(src => {
-          this.flvl2Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.flvl3Src) {
-      this.fileService.getFileSrcByFileId(6552)
-        .then(src => {
-          this.flvl3Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.sdlvl1Src) {
-      this.fileService.getFileSrcByFileId(6555)
-        .then(src => {
-          this.sdlvl1Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.sdlvl2Src) {
-      this.fileService.getFileSrcByFileId(6557)
-        .then(src => {
-          this.sdlvl2Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.sdlvl3Src) {
-      this.fileService.getFileSrcByFileId(6559)
-        .then(src => {
-          this.sdlvl3Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-
-    if (!this.whlvl1Src) {
-      this.fileService.getFileSrcByFileId(6562)
-        .then(src => {
-          this.whlvl1Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.whlvl2Src) {
-      this.fileService.getFileSrcByFileId(6563)
-        .then(src => {
-          this.whlvl2Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.whlvl3Src) {
-      this.fileService.getFileSrcByFileId(6564)
-        .then(src => {
-          this.whlvl3Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.eblvl1Src) {
-      this.fileService.getFileSrcByFileId(6545)
-        .then(src => {
-          this.eblvl1Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.eblvl2Src) {
-      this.fileService.getFileSrcByFileId(6548)
-        .then(src => {
-          this.eblvl2Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.eblvl3Src) {
-      this.fileService.getFileSrcByFileId(6543)
-        .then(src => {
-          this.eblvl3Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.nexusBackgroundPictureSrc) {
-      this.fileService.getFileSrcByFileId(6556)
-        .then(src => {
-          this.nexusBackgroundPictureSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.nexusLevel1Src) {
-      this.fileService.getFileSrcByFileId(6631)
-        .then(src => {
-          this.nexusLevel1Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.nexusLevel2Src) {
-      this.fileService.getFileSrcByFileId(6632)
-        .then(src => {
-          this.nexusLevel2Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.nexusLevel3Src) {
-      this.fileService.getFileSrcByFileId(6630)
-        .then(src => {
-          this.nexusLevel3Src = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.mapTileSrc) {
-      this.fileService.getFileSrcByFileId(6293)
-        .then(src => {
-          this.mapTileSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.mapTileSrc2) {
-      this.fileService.getFileSrcByFileId(6292)
-        .then(src => {
-          this.mapTileSrc2 = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-
-    if (!this.mapTileSrc3) {
-      this.fileService.getFileSrcByFileId(6293)
-        .then(src => {
-          this.mapTileSrc3 = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.marinePictureSrc) {
-      this.fileService.getFileSrcByFileId(6240)
-        .then(src => {
-          this.marinePictureSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.goliathPictureSrc) {
-      this.fileService.getFileSrcByFileId(6237)
-        .then(src => {
-          this.goliathPictureSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.siegeTankPictureSrc) {
-      this.fileService.getFileSrcByFileId(6246)
-        .then(src => {
-          this.siegeTankPictureSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.scoutPictureSrc) {
-      this.fileService.getFileSrcByFileId(6244)
-        .then(src => {
-          this.scoutPictureSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.wraithPictureSrc) {
-      this.fileService.getFileSrcByFileId(6245)
-        .then(src => {
-          this.wraithPictureSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.battlecruiserPictureSrc) {
-      this.fileService.getFileSrcByFileId(6243)
-        .then(src => {
-          this.battlecruiserPictureSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
-    if (!this.glitcherPictureSrc) {
-      this.fileService.getFileSrcByFileId(6261)
-        .then(src => {
-          this.glitcherPictureSrc = src;
-        })
-        .catch(error => {
-          console.error('Error loading map tile source:', error);
-        });
-    }
+    Promise.all(loadPromises);
   }
+
   toggleScreen(screen: string, isOpen?: boolean) {
+    this.startLoading();
     this.isMinesOpen = false;
     this.isCommandCenterOpen = false;
     this.isStarportOpen = false;
     this.isFactoryOpen = false;
     this.isMinesOpen = false;
     this.isWarehouseOpen = false;
-    this.isEngineeringBayOpen = false;
+    this.isEngineeringBayOpen = false
+    this.isSupplyDepotOpen = false;
     this.isReportsOpen = false;
     this.isMapOpen = false;
     this.isBasesOpen = false;
@@ -1875,16 +1603,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (screen == "reports") {
       this.isReportsOpen = isOpen != undefined ? isOpen : !this.isReportsOpen;
     }
-    else if (screen == "map") {
-      this.startLoading();
-      this.viewMap(isOpen);
+    else if (screen == "map") { 
+      this.isMapOpen = isOpen != undefined ? isOpen : !this.isMapOpen;
       setTimeout(() => {
         if (this.mapData && isOpen && !this.mapComponent.isMapRendered) {
           this.mapComponent.setMapData(this.mapData);
-          console.log("set map data");
+          setTimeout(() => { if (this.nexusBase && !this.preventMapScrolling) { this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY); } }, 10); 
         }
-      }, 100);
-      if (!isOpen) { 
+      }, 50);
+      if (!isOpen) {
         this.currentValidAvailableUpgrades = undefined;
         this.displayBuildings(this.nexusBaseUpgrades!);
         this.updateAttackTimers(true);
@@ -1893,8 +1620,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.updateUnitResearchTimers();
         this.getAvailableBuildingUpgrades();
         this.getMiningSpeedsAndSetMiningSpeed();
-      }
-      this.stopLoading();
+      } 
     }
     else if (screen == "bases") {
       this.isBasesOpen = isOpen != undefined ? isOpen : !this.isBasesOpen;
@@ -1902,6 +1628,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     else if (screen == "support") {
       this.isSupportOpen = isOpen != undefined ? isOpen : !this.isSupportOpen;
     }
+
+    this.stopLoading();
   }
   toggleUnitScreen(unit?: UnitStats, isOpen?: boolean) {
     if (isOpen == false) {
@@ -1942,6 +1670,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
   trackByUnit(index: number, unit: UnitStats): any {
     return unit.unitId; // or a unique identifier for the unit
+  }
+  shouldShowIncomingAttacks(): boolean {
+    return (this.attacksIncomingCount > 0 && !this.isReportsOpen && !this.isSupportOpen && !this.isBasesOpen && !this.isMapOpen && this.nexusBase) ? true : false;
+  }
+  shouldShowBaseNav(): boolean {
+    return (this.numberOfPersonalBases > 1 && !this.isReportsOpen && !this.isSupportOpen && !this.isBasesOpen && !this.showMoreEngineeringBayInfo && this.nexusBase) ? true : false;
+  }
+  shouldShowResources(): boolean {
+    return (!this.isReportsOpen && !this.isMapOpen && !this.isBasesOpen && !this.isSupportOpen && !this.isUserNew && this.nexusBase) ? true : false;
   }
   getUnitsWithoutGlitcher() {
     if (!this.units || !this.nexusBase) return undefined;
@@ -1996,29 +1733,36 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   getEngineerBayUpgradeLimit() {
-    if (!this.nexusBase) return 0;
-    return Math.round(this.nexusBase.engineeringBayLevel / 2)
+    const { nexusBase } = this;
+    return nexusBase ? Math.round(nexusBase.engineeringBayLevel / 2) : 0;
   }
-  getUnitIdFromType(type: string) {
-    return type == "marine" ? 6 : type == "goliath" ? 7 : type == "battlecruiser" ? 8 : type == "wraith" ? 9 : type == "siege_tank" ? 10 : type == "scout" ? 11 : type == "glitcher" ? 12 : 0;
+  getUnitIdFromType(type: string): number {
+    return this.unitTypeMap.get(type) ?? 0;
   }
-  openMapAndScrollTo(timer: string) {
+  openMapAndScrollTo(timer: string) { 
     const x = this.getXCoordsFromTimer(this.formatBuildingTimer(timer));
     const y = this.getYCoordsFromTimer(this.formatBuildingTimer(timer));
-    this.viewMap(true, true);
-    this.mapComponent.selectCoordinates(x, y);
-    setTimeout(() => { this.mapComponent.scrollToCoordinates(this.mapComponent.selectedNexusBase!.coordsX, this.mapComponent.selectedNexusBase!.coordsY); }, 10);
+    this.preventMapScrolling = true;
+    this.toggleScreen("map", true);
+
+    setTimeout(() => { 
+      this.mapComponent.scrollToCoordinates(x, y); 
+      this.preventMapScrolling = false;
+    }, 200);
   }
   emittedOpenMapAndScrollTo(coords: string) {
     const x = parseInt(coords.split(',')[0]);
     const y = parseInt(coords.split(',')[1]);
+    this.preventMapScrolling = true; 
     this.toggleScreen("map", true);
-    this.mapComponent.selectCoordinates(x, y);
-    setTimeout(() => { this.mapComponent.scrollToCoordinates(this.mapComponent.selectedNexusBase!.coordsX, this.mapComponent.selectedNexusBase!.coordsY); }, 10);
+    setTimeout(() => {
+      this.mapComponent.scrollToCoordinates(x, y);
+      this.mapComponent.selectCoordinates(x, y);
+    }, 200);
   }
   async emittedGoToBaseEvent(nexusBase?: NexusBase) {
     this.nexusBase = nexusBase;
-    await this.loadNexusData(true);
+    this.loadNexusData(true);
     this.toggleScreen("map", false);
   }
   emittedReloadEvent(reason: string) {
@@ -2069,12 +1813,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         return upgradedBase ? upgradedBase : base;
       });
 
-      const currentBaseAffected = res[0].find(x => x.coordsX == this.nexusBase?.coordsX && x.coordsY == this.nexusBase.coordsY); 
+      const currentBaseAffected = res[0].find(x => x.coordsX == this.nexusBase?.coordsX && x.coordsY == this.nexusBase.coordsY);
       const upgrade = res[1].toLowerCase();
 
       if (currentBaseAffected && (upgrade.includes("marine") || upgrade.includes("goliath") || upgrade.includes("siege tank") || upgrade.includes("scout") || upgrade.includes("wraith") || upgrade.includes("battlecruiser") || upgrade.includes("glitcher"))) {
         if (upgrade.includes("marine") || upgrade.includes("goliath") || upgrade.includes("siege tank")) {
-          this.factoryUnitsBeingBuilt++; 
+          this.factoryUnitsBeingBuilt++;
         } else if (upgrade.includes("wraith") || upgrade.includes("scout") || upgrade.includes("battlecruiser")) {
           this.starportUnitsBeingBuilt++;
         } else {
@@ -2083,7 +1827,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         if (this.units && this.nexusBase) {
           let foundUnit = undefined;
           if (upgrade.includes("marine")) {
-            foundUnit = this.units.find(x => x.unitType == "marine"); 
+            foundUnit = this.units.find(x => x.unitType == "marine");
           } else if (upgrade.includes("goliath")) {
             foundUnit = this.units.find(x => x.unitType == "goliath");
           } else if (upgrade.includes("siege tank")) {
@@ -2107,17 +1851,16 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
               coords_y: this.nexusBase.coordsY,
               unitIdPurchased: foundUnit.unitId,
               quantityPurchased: maxUnits,
-              timestamp: new Date(), 
+              timestamp: new Date(),
             } as NexusUnitsPurchased;
 
             if (!this.nexusUnitsPurchaseList) { this.nexusUnitsPurchaseList = []; }
             this.nexusUnitsPurchaseList.push(purchasedUnit);
             this.getUnitTimers();
-          } 
+          }
         }
       }
-      else if (currentBaseAffected && (upgrade.includes("command center") || upgrade.includes("supply depot") || upgrade.includes("warehouse") || upgrade.includes("engineering bay") || upgrade.includes("factory") || upgrade.includes("starport") || upgrade.includes("mines")))
-      {
+      else if (currentBaseAffected && (upgrade.includes("command center") || upgrade.includes("supply depot") || upgrade.includes("warehouse") || upgrade.includes("engineering bay") || upgrade.includes("factory") || upgrade.includes("starport") || upgrade.includes("mines"))) {
         if (!this.nexusBaseUpgrades) { this.nexusBaseUpgrades = {} as NexusBaseUpgrades; }
         if (upgrade.includes("command center")) {
           this.nexusBaseUpgrades.commandCenterUpgraded = new Date();
@@ -2185,7 +1928,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     } else if (building == "mines") {
       this.isMinesOpen = true;
     }
-  } 
+  }
   debounceLoadNexusData = this.debounce(async () => {
     this.loadNexusData();
   }, 1000);
