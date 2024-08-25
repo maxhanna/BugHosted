@@ -6,10 +6,11 @@
   height: 275px;
   position: relative;
 }
+
 .loadingMapDiv {
-    justify-content:center;
-    align-content:center;
-    align-items: center;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
 }
 
 .row {
@@ -17,7 +18,7 @@
 }
 
 .cell {
-  width: 50px;  
+  width: 50px;
   height: 50px;
   font-size: 12px;
   display: flex;
@@ -50,12 +51,15 @@
   color: var(--secondary-font-color);
   text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
 }
+
 .cell-content-coords-adjustedForBase {
   top: -27px;
 }
+
 .attackIconSpan-adjustedForNoBase {
   top: -50px !important;
 }
+
 .mapInput {
   width: 40px;
 }
@@ -72,40 +76,48 @@
   max-height: 200px;
   overflow: auto;
 }
+
 .baseAllianceSpan {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   position: relative;
   top: -50px;
-  right: -30px; 
+  right: -30px;
   display: block;
 }
+
 .myBase {
   background-color: var(--main-font-color);
 }
+
 .emptyBase {
   background-color: gray;
 }
+
 .enemyBase {
   background-color: orangered;
 }
+
 .incomingIconSpan {
   width: 10px;
-  height: 10px; 
+  height: 10px;
   position: relative;
   top: -72px;
   left: 4px;
   display: block;
 }
+
 .attackDefenceTimers {
-    max-height: 150px;
-    overflow: auto;
+  max-height: 150px;
+  overflow: auto;
 }
+
 .topMapCoords {
-    display: flex;
-    justify-content: space-between;
+  display: flex;
+  justify-content: space-between;
 }
+
 .zoomInButtonDiv {
   display: none;
   position: absolute;
@@ -114,6 +126,7 @@
   width: 100px;
   height: 30vh;
 }
+
 .attackScreenDiv {
   max-height: CALC(CALC(var(--vh, 1vh) * 100) - 430px);
   overflow: auto;
@@ -198,8 +211,27 @@
     transform: rotate(405deg);
   }
 }
+
 .baseAutoSwitcherDiv {
   text-align: center;
-  margin-top: 10px;
+  margin-top: 25px;
   text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
+}
+
+.selectedBase {
+  width: 20px;
+  height: 20px;
+  box-shadow: 0 0 11px 2px var(--primary-font-color), 
+  inset 0 0 3px 2px var(--primary-font-color); 
+  display: block;
+  border-radius: 50%;
+}
+.selectedBaseContainer {
+  width: 0px;
+  height: 0px;
+  position: relative;
+  top: -36.5px;
+  left: 15.5px;
+  z-index: 5;
+  border-radius:50%;
 }

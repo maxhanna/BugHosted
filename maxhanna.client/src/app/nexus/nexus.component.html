@@ -48,7 +48,7 @@
     <!-- Resources --> 
     <div *ngIf="shouldShowResources()" class="resourceDiv">
       <span title="Gold" class="resourceSpan goldText">📀:{{ (nexusBase?.gold || 0) | number:'1.0-2' }}</span>
-      <span title="Supply Capacity" class="resourceSpan">🥩:{{calculateCurrentSupply()}}</span>
+      <span title="Supply Capacity" class="resourceSpan">🥩:{{supplyCapacity - (nexusBase?.supply || 0)}}</span>
       <span title="Nexus location" class="resourceSpan">📍:<span class="invertedHighlights">{{'{' + nexusBase?.coordsX + ',' + nexusBase?.coordsY + '}'}}</span></span>
     </div>
 
@@ -120,14 +120,11 @@
 
     <img [src]="nexusBackgroundPictureSrc"
          class="nexusBackground"
-         *ngIf="nexusBackgroundPictureSrc"
-         [style.display]="!isMinesOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isCommandCenterOpen && !isSupplyDepotOpen
-         && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen ? 'block' : 'none' "
+         *ngIf="nexusBackgroundPictureSrc && !isMinesOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen"
          loading="lazy" decoding="asynchronous" />
 
 
-    <div [style.display]="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen
-         && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen && nexusBase ? 'block' : 'none'">
+    <div *ngIf="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen && nexusBase">
 
       <div class="building">
         <img [src]="currentCommandCenterSrc" class="commandCenter buildingPicture" *ngIf="nexusBase && cclvl1Src && cclvl2Src && cclvl3Src" (click)="openCommandCenter()" title="Command Center" loading="lazy" decoding="asynchronous" />
@@ -143,7 +140,7 @@
       </ng-container>
 
 
-      <div class="building" [style.display]="displayMines ?  'block' : 'none'">
+      <div class="building" *ngIf="displayMines">
         <img [src]="currentMinesSrc"
              class="buildingPicture mines"
              *ngIf="nexusBase && mineslvl1Src && mineslvl2Src && mineslvl3Src" (click)="openMines();" title="Mines" loading="lazy" decoding="asynchronous" />
@@ -158,7 +155,7 @@
         <span class="glowingLight minesGlowLight1"></span>
       </div>
 
-      <div class="building" [style.visibility]="displayEngineeringBay ?  'visible' : 'hidden'">
+      <div class="building" *ngIf="displayEngineeringBay">
         <img [src]="currentEngineeringBaySrc"
              class="buildingPicture engineeringBay"
              *ngIf="nexusBase && eblvl1Src && eblvl2Src && eblvl3Src" (click)="openEngineeringBay();" title="Engineering Bay" loading="lazy" decoding="asynchronous" />
@@ -179,7 +176,7 @@
       </ng-container>
 
 
-      <div class="building" [style.visibility]="displayWarehouse ?  'visible' : 'hidden'">
+      <div class="building" *ngIf="displayWarehouse">
         <img [src]="currentWarehouseSrc"
              class="buildingPicture warehouse"
              *ngIf="nexusBase && whlvl1Src && whlvl2Src && whlvl3Src" (click)="openWarehouse();" title="Warehouse" loading="lazy" decoding="asynchronous" />
@@ -195,7 +192,7 @@
       </ng-container>
 
 
-      <div class="building" [style.visibility]="displayFactory ?  'visible' : 'hidden'">
+      <div class="building" *ngIf="displayFactory">
         <img [src]="currentFactorySrc"
              class="buildingPicture factory"
              *ngIf="nexusBase && flvl1Src && flvl2Src && flvl3Src"
@@ -214,7 +211,7 @@
         <span class="glowingLight factoryGlowLight factoryGlowLight3"></span>
       </ng-container>
 
-      <div class="building" [style.visibility]="displayStarport ?  'visible' : 'hidden'">
+      <div class="building" *ngIf="displayStarport">
         <img [src]="nexusBase.starportLevel < 3 ? splvl1Src : nexusBase.starportLevel < 4 ? splvl2Src : splvl3Src"
              class="buildingPicture starport"
              *ngIf="nexusBase && splvl1Src && splvl2Src && splvl3Src" (click)="openStarport()" title="Starport" loading="lazy" decoding="asynchronous" />
@@ -232,7 +229,7 @@
         <span class="glowingLight starportWindowsGlowLight"></span>
       </ng-container>
 
-      <div class="building" [style.visibility]="displaySupplyDepot ? 'visible' : 'hidden'">
+      <div class="building" *ngIf="displaySupplyDepot">
         <img [src]="nexusBase.supplyDepotLevel < 3 ? sdlvl1Src : nexusBase.supplyDepotLevel < 4 ? sdlvl2Src : sdlvl3Src"
              class="buildingPicture supplyDepot"
              *ngIf="nexusBase && sdlvl1Src && sdlvl2Src && sdlvl3Src" (click)="openSupplyDepot()" title="Supply Depot" loading="lazy" decoding="asynchronous" />
@@ -267,10 +264,9 @@
 
     <img [src]="currentCommandCenterSrc"
          class="commandCenterBackground"
-         *ngIf="cclvl1Src && cclvl2Src && cclvl3Src && nexusBase"
-         [style.display]="isCommandCenterOpen ? 'block' : 'none'"
+         *ngIf="cclvl1Src && cclvl2Src && cclvl3Src && nexusBase && isCommandCenterOpen"
          loading="lazy" decoding="asynchronous" />
-    <div *ngIf="nexusBase" [style.display]="isCommandCenterOpen ? 'flex' : 'none'" class="commandCenterScreen">
+    <div *ngIf="nexusBase && isCommandCenterOpen" class="commandCenterScreen">
       <div>
         Upgrade the Command Center to gain more worker slots.
         Worker slots allow you to upgrade more buildings simultaneously.
@@ -284,17 +280,16 @@
 
     <img [src]="currentSupplyDepotSrc"
          class="supplyDepotBackground"
-         *ngIf="sdlvl1Src && sdlvl2Src && sdlvl3Src && nexusBase"
-         [style.display]="isSupplyDepotOpen ? 'block' : 'none'"
+         *ngIf="sdlvl1Src && sdlvl2Src && sdlvl3Src && nexusBase && isSupplyDepotOpen"
          loading="lazy" decoding="asynchronous" />
-    <div [style.display]="isSupplyDepotOpen ? 'flex' : 'none'" class="supplyDepotScreen">
+    <div *ngIf="isSupplyDepotOpen" class="supplyDepotScreen">
       <div class="supplyInfoDiv">
         <div class="supplyExplainDiv">
           For every supply depot level your supply capacity increases by 2500.
           <p class="gameNotification">🥩 Capacity: {{supplyCapacity}}</p>
-          <p class="gameNotification" *ngIf="nexusBase">🥩 Used: <span [class]="supplyUsedPercentage > 95 ? 'redText' : ''">{{nexusBase.supply}} ({{ supplyUsedPercentage | number:'1.0-2' }}% of total capacity)</span></p>
+          <p class="gameNotification" *ngIf="nexusBase && isSupplyDepotOpen">🥩 Used: <span [class]="supplyUsedPercentage > 95 ? 'redText' : ''">{{nexusBase.supply}} ({{ supplyUsedPercentage | number:'1.0-2' }}% of total capacity)</span></p>
         </div>
-        <div class="supplyUsedDiv">
+        <div class="supplyUsedDiv && isSupplyDepotOpen">
           <div *ngFor="let unit of units" class="capitalize">
             {{unit.unitType.replace('_',' ')}}: {{getSupplyUsedForUnit(unit.unitId)}}
           </div>
@@ -306,9 +301,8 @@
 
     <img [src]="currentFactorySrc"
          class="factoryBackground"
-         *ngIf="flvl1Src && flvl2Src && flvl3Src && nexusBase"
-         [style.display]="isFactoryOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
-    <div [style.display]="isFactoryOpen ? 'flex' : 'none'" class="factoryScreen">
+         *ngIf="flvl1Src && flvl2Src && flvl3Src && nexusBase && isFactoryOpen" loading="lazy" decoding="asynchronous" />
+    <div *ngIf="isFactoryOpen" class="factoryScreen">
 
       <div *ngIf="calculateCurrentSupply() > 0">
         Upgrade the Factory to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.factoryLevel ?? 0}}</span>
@@ -356,9 +350,9 @@
 
     <img [src]="currentStarportSrc"
          class="starportBackground"
-         *ngIf="splvl1Src && splvl2Src && splvl3Src && nexusBase"
-         [style.display]="isStarportOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
-    <div [style.display]="isStarportOpen ? 'flex' : 'none'" class="starportScreen">
+         *ngIf="splvl1Src && splvl2Src && splvl3Src && nexusBase && isStarportOpen"
+         loading="lazy" decoding="asynchronous" />
+    <div *ngIf="isStarportOpen" class="starportScreen">
 
       <div *ngIf="calculateCurrentSupply() > 0">
         Upgrade the Starport to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
@@ -406,9 +400,8 @@
 
     <img [src]="currentWarehouseSrc"
          class="warehouseBackground"
-         *ngIf="whlvl1Src && whlvl2Src && whlvl3Src && nexusBase"
-         [style.display]="isWarehouseOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
-    <div [style.display]="isWarehouseOpen ? 'flex' : 'none'" class="warehouseScreen">
+         *ngIf="whlvl1Src && whlvl2Src && whlvl3Src && nexusBase && isWarehouseOpen" loading="lazy" decoding="asynchronous" />
+    <div *ngIf="isWarehouseOpen" class="warehouseScreen">
       <div>
         📀 Current gold capacity : <span class="goldText">{{goldCapacity}}📀</span>
       </div>
@@ -440,9 +433,9 @@
 
     <img [src]="currentEngineeringBaySrc"
          class="engineeringBayBackground"
-         *ngIf="eblvl1Src && eblvl2Src && eblvl3Src && nexusBase"
-         [style.display]="isEngineeringBayOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
-    <div [style.display]="isEngineeringBayOpen ? 'flex' : 'none'" class="engineeringBayScreen">
+         *ngIf="eblvl1Src && eblvl2Src && eblvl3Src && nexusBase && isEngineeringBayOpen"
+        loading="lazy" decoding="asynchronous" />
+    <div *ngIf="isEngineeringBayOpen" class="engineeringBayScreen">
       <div class="researchDisplayP">
         Current upgrade limit: {{getEngineerBayUpgradeLimit()}}
         <span (click)="showMoreEngineeringBayInfo = !showMoreEngineeringBayInfo" class="cursorPointer xxSmallFont ebMoreInfoSpan">
@@ -524,9 +517,9 @@
 
     <img [src]="currentMinesSrc"
          class="minesBackground"
-         *ngIf="mineslvl1Src && mineslvl2Src && mineslvl3Src && nexusBase"
-         [style.display]="isMinesOpen ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
-    <div [style.display]="isMinesOpen ? 'flex' : 'none'" class="minesScreen">
+         *ngIf="mineslvl1Src && mineslvl2Src && mineslvl3Src && nexusBase && isMinesOpen"
+         loading="lazy" decoding="asynchronous" />
+    <div *ngIf="isMinesOpen" class="minesScreen">
       <div>
         <div>Upgrade the mines to increase mining efficiency.</div>
         <div>📀 Current mining speed: <span class="gameNotification"><span class="goldText">1 📀</span> per {{miningSpeed}} second(s)</span>.</div>
@@ -536,7 +529,7 @@
   </div>
 
 
-  <div class="upgradesTableDiv" [style.display]="isCommandCenterOpen ? 'block' : 'none'"> 
+  <div class="upgradesTableDiv" *ngIf="isCommandCenterOpen"> 
     <table class="mainTable">
       <thead>
         <tr>
@@ -565,7 +558,7 @@
   </div>
 
 
-  <div [style.display]="toggledUnitStat ? 'block' : 'none'">
+  <div *ngIf="toggledUnitStat">
     <div class="toggledUnitStatScreen" *ngIf="toggledUnitStat">
       <div class="toggledUnitStatInfoDiv">
         <div class="usernameProfileLink capitalize unitStatUnitTitle">{{toggledUnitStat.unitType.replace('_', ' ')}}</div>
@@ -591,7 +584,7 @@
     </div>
   </div>
 
-  <div [style.display]="!isCommandCenterOpen && !toggledUnitStat && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen ? 'block' : 'none'">
+  <div *ngIf="!isCommandCenterOpen && !toggledUnitStat && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen">
     <span *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="mainInfoSection">Movement:</span>
     <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0">
       <div class="upgradeTimersTableDiv">
@@ -687,7 +680,7 @@
         </ng-container>
       </div>-->
     </div>
-    <div class="unitslist" [style.display]="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen && !toggledUnitStat ? 'block' : 'none'">
+    <div class="unitslist" *ngIf="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen && !toggledUnitStat">
       <div *ngIf="nexusAvailableUnits">
         <span class="mainInfoSection">Available:</span>
         <app-nexus-base-units [parentRef]="parentRef"
@@ -703,7 +696,7 @@
         </app-nexus-base-units>
       </div>
       <div *ngIf="nexusExternalSupportUnits">
-        <span class="mainInfoSection">Support:</span>
+        <span class="mainInfoSection">Support from other bases:</span>
         <app-nexus-base-units [parentRef]="parentRef"
                               [nexusAvailableUnits]="nexusExternalSupportUnits"
                               [marinePictureSrc]="marinePictureSrc"
@@ -717,7 +710,7 @@
         </app-nexus-base-units>
       </div>
       <div *ngIf="nexusUnitsOutsideOfBase">
-        <span class="mainInfoSection">Outside:</span>
+        <span class="mainInfoSection">Units outside of base:</span>
         <app-nexus-base-units [parentRef]="parentRef"
                               [nexusAvailableUnits]="nexusUnitsOutsideOfBase"
                               [marinePictureSrc]="marinePictureSrc"
@@ -751,7 +744,7 @@
   </div>
   
   <div class="gameNotificationDiv">
-    <div *ngFor="let notif of notifications" class="gameNotification capitalize" (click)="notifications = []">➫ {{notif.replaceAll('_', ' ')}}</div>
+    <div *ngFor="let notif of notifications" class="gameNotification capitalize" (click)="notifications = []">➫ <span>{{notif.replaceAll('_', ' ')}}</span></div>
   </div>
   <div class="shareMapButtonDiv">
     <button (click)="copyLink()" title="Share Link">Share 📋</button>

@@ -249,6 +249,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.updateUnitResearchTimers();
         this.getAvailableBuildingUpgrades();
         this.getMiningSpeedsAndSetMiningSpeed();
+        const targetMapData = this.mapData?.find(x => x.coordsX == this.nexusBase?.coordsX && x.coordsY == this.nexusBase?.coordsY);
+        if (targetMapData && this.nexusBase) {
+          targetMapData.gold = this.nexusBase?.gold; 
+        }
       }
 
       this.setAvailableUnits(); 
@@ -388,6 +392,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   private setAvailableUnits() {
     if (!this.nexusBase) return;
+    console.log("set available units");
 
     this.reinitializeNexusUnitsByType("nexusAvailableUnits");
     this.reinitializeNexusUnitsByType("nexusUnitsOutsideOfBase");
@@ -432,13 +437,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.attacksIncomingCount++;
       }
     });
-
-    // Handle incoming defenses
-    const filteredDefencesIncoming = this.nexusDefencesIncoming?.filter(defence =>
-      !this.nexusDefencesSent?.some(sent => sent.id === defence.id)
-    ) || [];
-
-    filteredDefencesIncoming.forEach(defence => {
+     
+    this.nexusDefencesIncoming?.forEach(defence => {
       if (defence.arrived && defence.destinationCoordsX === coordsX && defence.destinationCoordsY === coordsY) {
         addUnitTotals(this.nexusExternalSupportUnits!, defence);
       }
@@ -1185,9 +1185,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     else {
       this.updateCurrentBasesGold(totalCost);
-      this.nexusBase.supply += totalSupplyCost;
-      this.calculateCurrentSupply();
-      this.addNotification(`Purchased ${tmpUnit.purchasedValue} ${tmpUnit.unitType}.`);
+      this.nexusBase.supply += totalSupplyCost;  
       const purchasedUnit = {
         coords_x: this.nexusBase.coordsX,
         coords_y: this.nexusBase.coordsY,
@@ -1837,6 +1835,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           if (foundUnit) {
             const maxUnits = this.maxSliderValue(foundUnit);
             const cost = maxUnits * foundUnit.cost;
+            const supplyCost = maxUnits * foundUnit.supply;
+            this.nexusBase.supply += supplyCost;
             this.updateCurrentBasesGold(cost);
 
             const purchasedUnit = {
@@ -1923,48 +1923,59 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
-  async findAttackId(attack: NexusAttackSent): Promise<number | undefined> {
-    let attackId = attack.id;
+  async findAttackId(attack: NexusAttackSent, isDefence: boolean): Promise<number | undefined> {
+    let attackId : number | undefined = attack.id;
 
     if (!attackId) {
       // If the attack ID is undefined, wait for Nexus data to reload
       await this.loadNexusData(true);
 
-      // Find the attack in the updated nexusAttacksSent list
-      const matchingAttack = this.nexusAttacksSent?.find(a =>
-        a.originCoordsX === attack.originCoordsX &&
-        a.originCoordsY === attack.originCoordsY &&
-        a.destinationCoordsX === attack.destinationCoordsX &&
-        a.destinationCoordsY === attack.destinationCoordsY &&
-        a.marineTotal === attack.marineTotal &&
-        a.goliathTotal === attack.goliathTotal &&
-        a.siegeTankTotal === attack.siegeTankTotal &&
-        a.scoutTotal === attack.scoutTotal &&
-        a.wraithTotal === attack.wraithTotal &&
-        a.battlecruiserTotal === attack.battlecruiserTotal &&
-        a.glitcherTotal === attack.glitcherTotal
-      );
-
-      if (matchingAttack) {
-        attackId = matchingAttack.id;
+      if (isDefence) {
+        attackId = this.nexusDefencesSent?.reverse().find(a =>
+          a.originCoordsX === attack.originCoordsX &&
+          a.originCoordsY === attack.originCoordsY &&
+          a.destinationCoordsX === attack.destinationCoordsX &&
+          a.destinationCoordsY === attack.destinationCoordsY &&
+          a.marineTotal === attack.marineTotal &&
+          a.goliathTotal === attack.goliathTotal &&
+          a.siegeTankTotal === attack.siegeTankTotal &&
+          a.scoutTotal === attack.scoutTotal &&
+          a.wraithTotal === attack.wraithTotal &&
+          a.battlecruiserTotal === attack.battlecruiserTotal &&
+          a.glitcherTotal === attack.glitcherTotal
+        )?.id; 
       }
+      else { 
+        attackId = this.nexusAttacksSent?.reverse().find(a =>
+          a.originCoordsX === attack.originCoordsX &&
+          a.originCoordsY === attack.originCoordsY &&
+          a.destinationCoordsX === attack.destinationCoordsX &&
+          a.destinationCoordsY === attack.destinationCoordsY &&
+          a.marineTotal === attack.marineTotal &&
+          a.goliathTotal === attack.goliathTotal &&
+          a.siegeTankTotal === attack.siegeTankTotal &&
+          a.scoutTotal === attack.scoutTotal &&
+          a.wraithTotal === attack.wraithTotal &&
+          a.battlecruiserTotal === attack.battlecruiserTotal &&
+          a.glitcherTotal === attack.glitcherTotal
+        )?.id; 
+      } 
     }
 
     return attackId;
   } 
 
   async sendBack(attackSent: object, isDefence: boolean) {
-    if (!confirm("Are you sure you want to send these units back home?") || !(this.parentRef?.user)) {
+    if (!(this.parentRef?.user)) {
       return;
-    }
-
+    } 
     const attack = attackSent as NexusAttackSent;
-    const attackId = await this.findAttackId(attack);
+    const attackId = await this.findAttackId(attack, isDefence);
 
     if (!attackId) {
       alert("Attack ID could not be found. Please try again.");
       return;
-    } 
+    }  
 
     if (isDefence) {
       await this.nexusService.returnDefence(this.parentRef.user, attackId).then(res => this.addNotification(res));

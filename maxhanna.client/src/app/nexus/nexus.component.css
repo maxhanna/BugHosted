@@ -469,12 +469,22 @@
 }
 
 .gameNotificationDiv {
-  max-height: 50px;
   overflow: auto;
-  bottom: 0px;
+  top: 35px;
+  right: 15px;
   position: absolute;
   margin-bottom: 50px;
+  z-index: 100;
+  text-align: right;
 }
+
+  .gameNotificationDiv div {
+    margin-bottom: 10px;
+  }
+
+    .gameNotificationDiv div span {
+      background-color: rgba(54, 25, 25, 0.6);
+    }
 
 .unitInput {
   width: 25px;

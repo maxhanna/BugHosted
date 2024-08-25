@@ -32,9 +32,9 @@
   </div>
   <div class="bottomButtons">
     <div>
-      <button (click)="closeAttackScreen()">Close</button>
-      <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || isLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'">{{isSendingDefence ? 'Defend' : 'Engage'}}</button>
       <button (click)="engageAttackAllUnits()" [disabled]="isLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'">Send All Units</button>
+      <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || isLoading" [style.display]="hasUnitsToSend() ? 'inline-block' : 'none'">{{isSendingDefence ? 'Defend' : 'Engage'}}</button>
+      <button (click)="closeAttackScreen()">Close</button>
     </div> 
   </div>
   

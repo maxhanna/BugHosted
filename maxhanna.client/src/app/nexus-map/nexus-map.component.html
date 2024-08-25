@@ -17,6 +17,11 @@
           <ng-container *ngIf="grid[x][y] as base">
             <span class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"></span>
           </ng-container>
+          <ng-container *ngIf="selectedNexusBase?.coordsX == x && selectedNexusBase?.coordsY == y">
+            <div [class]="'selectedBaseContainer' + (grid[x][y] ? ' attackIconSpan-adjustedForNoBase' : '')">
+              <span class="selectedBase"></span> 
+            </div>
+          </ng-container>
         </div>
         <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'" [style.display]="grid[x][y] ? 'block' : 'none'">{{x + ',' + y + ' '}}</div>
         <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isAttackReturningOn(x, y) ? 'block' : 'none'">↩</span>
@@ -102,4 +107,5 @@
     <input type="checkbox" #switchNextBaseCheckbox />
     Automatically switch bases after attacking
   </label>
+  <div *ngIf="isLoading">Loading Data</div> 
 </div>

@@ -34,7 +34,7 @@
               class="usernameProfileLink cursorPointer">
           {{selectedFile?.user?.username}}
         </span>
-        <span class="notification">{{selectedFile?.date!.toString().replace('T', ' ')}}</span>
+        <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>
       </div>
       <div class="filetype" *ngIf="displayExtraInfo">
         <button (click)="copyLink()" title="Share Link">📋Share</button>

@@ -1311,6 +1311,21 @@ namespace maxhanna.Server.Controllers
             {
                 return false;
             }
+            int upgradeCount = 0;
+
+            if (currentUpgrades?.EngineeringBayUpgraded != null) upgradeCount++;
+            if (currentUpgrades?.CommandCenterUpgraded != null) upgradeCount++;
+            if (currentUpgrades?.MinesUpgraded != null) upgradeCount++;
+            if (currentUpgrades?.StarportUpgraded != null) upgradeCount++;
+            if (currentUpgrades?.FactoryUpgraded != null) upgradeCount++;
+            if (currentUpgrades?.SupplyDepotUpgraded != null) upgradeCount++;
+            if (currentUpgrades?.WarehouseUpgraded != null) upgradeCount++;  
+      
+            if (upgradeCount >= (nbase.CommandCenterLevel + 1))
+            {
+                return false;
+            } 
+        
             return building switch
             {
                 "command_center" => currentUpgrades?.CommandCenterUpgraded == null,
@@ -3040,7 +3055,7 @@ namespace maxhanna.Server.Controllers
             {
                 return;
             }
-            Console.WriteLine($"Update nexus gold : {nexusBase.CoordsX},{nexusBase.CoordsY}");
+            //Console.WriteLine($" Update nexus gold : {nexusBase.CoordsX},{nexusBase.CoordsY}");
             decimal newGoldAmount = 0;
             decimal miningSpeed = 0;
             decimal goldEarned = 0;
@@ -3906,71 +3921,56 @@ namespace maxhanna.Server.Controllers
 
         private async Task ChangeOwnership(int UserId, NexusBase deadBase, MySqlConnection? conn, MySqlTransaction? transaction)
         {
-            //Console.WriteLine($"Deleting Report from {UserId},{BattleId}");
+            // Insert or update the base ownership
             string sql = @"
                 INSERT INTO maxhanna.nexus_bases (user_id, coords_x, coords_y, gold)
                 VALUES (@UserId, @CoordsX, @CoordsY, @Gold)
                 ON DUPLICATE KEY UPDATE user_id = @UserId;";
 
             var parameters = new Dictionary<string, object?>
-             {
-                 { "@UserId", UserId },
-                 { "@CoordsX", deadBase.CoordsX },
-                 { "@CoordsY", deadBase.CoordsY },
-                 { "@Gold", 200 }
-             };
+            {
+                { "@UserId", UserId },
+                { "@CoordsX", deadBase.CoordsX },
+                { "@CoordsY", deadBase.CoordsY },
+                { "@Gold", 200 }
+            };
 
             await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-            //Console.WriteLine($"Deleted Report from {UserId},{BattleId}");
 
-            if (UserId != (deadBase.User?.Id ?? 0) && deadBase.User != null)
-            {
-                string notificationSql = @"
-                    INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
-                    SELECT 
-                        @receiverId, 
-                        @senderId, 
-                        @senderId, 
-                        CASE 
-                            WHEN EXISTS (
-                                SELECT 1 
-                                FROM maxhanna.notifications 
-                                WHERE user_id = @receiverId 
-                                  AND from_user_id = @senderId 
-                                  AND user_profile_id = @senderId 
-                                  AND date >= NOW() - INTERVAL 1 MINUTE
-                                ORDER BY date DESC
-                                LIMIT 1
-                            ) 
-                            THEN CONCAT(
-                                (SELECT text 
-                                 FROM maxhanna.notifications 
-                                 WHERE user_id = @receiverId 
-                                   AND from_user_id = @senderId 
-                                   AND user_profile_id = @senderId 
-                                   AND date >= NOW() - INTERVAL 1 MINUTE
-                                 ORDER BY date DESC
-                                 LIMIT 1),
-                                ' and captured another base {', @coordsX, ',', @coordsY, '}!'
-                            )
-                            ELSE CONCAT('Captured your base {', @coordsX, ',', @coordsY, '}!')
-                        END AS text,
-                        NOW()
-                    FROM DUAL;";
-
-                using (var cmd = new MySqlCommand(notificationSql, conn, transaction))
-                {
-                    cmd.Parameters.AddWithValue("@senderId", UserId);
-                    cmd.Parameters.AddWithValue("@receiverId", deadBase.User.Id);
-                    cmd.Parameters.AddWithValue("@coordsX", deadBase.CoordsX);
-                    cmd.Parameters.AddWithValue("@coordsY", deadBase.CoordsY);
-
-                    await cmd.ExecuteNonQueryAsync();
-                }
-            }
-             
-            string notificationToAttackerSql = @"
+            // Combined notification SQL statement for both defender and attacker
+            string notificationSql = @"
                 INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+                SELECT 
+                    @receiverId, 
+                    @senderId, 
+                    @senderId, 
+                    CASE 
+                        WHEN EXISTS (
+                            SELECT 1 
+                            FROM maxhanna.notifications 
+                            WHERE user_id = @receiverId 
+                              AND from_user_id = @senderId 
+                              AND user_profile_id = @senderId 
+                              AND date >= NOW() - INTERVAL 1 DAY
+                            ORDER BY date DESC
+                            LIMIT 1
+                        ) 
+                        THEN CONCAT(
+                            'Captured ', 
+                            (SELECT COUNT(*) 
+                             FROM maxhanna.notifications 
+                             WHERE user_id = @receiverId 
+                               AND from_user_id = @senderId 
+                               AND user_profile_id = @senderId 
+                               AND date >= NOW() - INTERVAL 1 DAY
+                               AND text LIKE '%captured%'),
+                            ' bases, including {', @coordsX, ',', @coordsY, '}!'
+                        )
+                        ELSE CONCAT('Captured your base {', @coordsX, ',', @coordsY, '}!')
+                    END AS text,
+                    NOW()
+                FROM DUAL
+                UNION ALL
                 SELECT 
                     @attackerId, 
                     @attackerId, 
@@ -3980,41 +3980,40 @@ namespace maxhanna.Server.Controllers
                             SELECT 1 
                             FROM maxhanna.notifications 
                             WHERE user_id = @attackerId 
-                              AND from_user_id = @fromId 
-                              AND user_profile_id = @fromId 
-                              AND text LIKE '%captured a base%' 
-                              AND date >= NOW() - INTERVAL 1 MINUTE
+                              AND from_user_id = @attackerId 
+                              AND user_profile_id = @attackerId 
+                              AND date >= NOW() - INTERVAL 1 DAY
                             ORDER BY date DESC
                             LIMIT 1
                         ) 
                         THEN CONCAT(
-                            (SELECT text 
+                            'You captured ', 
+                            (SELECT COUNT(*) 
                              FROM maxhanna.notifications 
                              WHERE user_id = @attackerId 
-                               AND from_user_id = @fromId 
-                               AND user_profile_id = @fromId 
-                               AND text LIKE '%captured a base%' 
-                               AND date >= NOW() - INTERVAL 1 MINUTE
-                             ORDER BY date DESC
-                             LIMIT 1),
-                            ' and captured another base {', @coordsX, ',', @coordsY, '}!'
+                               AND from_user_id = @attackerId 
+                               AND user_profile_id = @attackerId 
+                               AND date >= NOW() - INTERVAL 1 DAY
+                               AND text LIKE '%captured%'),
+                            ' bases, including {', @coordsX, ',', @coordsY, '}!'
                         )
                         ELSE CONCAT('You captured a base at {', @coordsX, ',', @coordsY, '}!')
                     END AS text,
                     NOW()
                 FROM DUAL;";
 
-            using (var cmd = new MySqlCommand(notificationToAttackerSql, conn, transaction))
+            using (var cmd = new MySqlCommand(notificationSql, conn, transaction))
             {
+                cmd.Parameters.AddWithValue("@senderId", UserId);
+                cmd.Parameters.AddWithValue("@receiverId", deadBase.User?.Id ?? 0);
                 cmd.Parameters.AddWithValue("@attackerId", UserId);
-                cmd.Parameters.AddWithValue("@fromId", (deadBase.User?.Id ?? 0));
                 cmd.Parameters.AddWithValue("@coordsX", deadBase.CoordsX);
                 cmd.Parameters.AddWithValue("@coordsY", deadBase.CoordsY);
 
                 await cmd.ExecuteNonQueryAsync();
             }
-
         }
+
 
         private async Task DeleteReport(int userId, int battleId, MySqlConnection conn, MySqlTransaction transaction)
         {

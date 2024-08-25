@@ -78,7 +78,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
       const nexusAttack = this.createNexusAttack(attackDuration);
       this.unitStats.forEach(x => x.sentValue = 0);
       this.emittedAttack.emit(nexusAttack);
-      this.emittedNotifications.emit(`Sending ${this.isSendingDefence ? 'Defence' : 'Attack'} ${this.isSendingDefence ? 'to' : 'on'} {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}`); 
+    //  this.emittedNotifications.emit(`Sending ${this.isSendingDefence ? 'Defence' : 'Attack'} ${this.isSendingDefence ? 'to' : 'on'} {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}`); 
     }
     this.stopLoading();
   }

@@ -39,7 +39,7 @@ namespace maxhanna.Server.Services
                         Console.WriteLine("UpdateGoldException!! " + t.Exception.Message);
                     }
                 }, TaskContinuationOptions.OnlyOnFaulted);
-            _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(8));
+            _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
 
             return Task.CompletedTask;
         } 
@@ -53,7 +53,7 @@ namespace maxhanna.Server.Services
             }
             finally
             {
-                _checkForNewBaseUpdates?.Change(TimeSpan.FromSeconds(8), TimeSpan.FromSeconds(8)); // Re-enable timer
+                _checkForNewBaseUpdates?.Change(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4)); // Re-enable timer
             }
         }
 
@@ -76,6 +76,7 @@ namespace maxhanna.Server.Services
                         WHERE
                             mines_level > 0 
                         AND updated < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                        ORDER BY updated ASC 
                         LIMIT {limit};";
 
                     MySqlCommand cmd = new MySqlCommand(query, conn, transaction);
@@ -86,13 +87,12 @@ namespace maxhanna.Server.Services
                             int coordsX = reader.GetInt32("coords_x");
                             int coordsY = reader.GetInt32("coords_y");
                             coordsList.Add((coordsX, coordsY));  
-
                         }
                     }
 
                     foreach (var (x, y) in coordsList.ToArray())
                     {
-                        await Task.Delay(TimeSpan.FromMilliseconds(500)); 
+                        await Task.Delay(TimeSpan.FromMilliseconds(200)); 
                         await ProcessNexusGold(x, y, conn, transaction); 
                     }
                     await transaction.CommitAsync();
