@@ -100,3 +100,7 @@
 .loginDiv {
     text-align:center;
 }
+.notificationCounterDiv {
+  position: absolute; 
+  right: 5px;
+}

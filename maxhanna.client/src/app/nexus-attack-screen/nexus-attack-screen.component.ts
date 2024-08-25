@@ -38,200 +38,82 @@ export class NexusAttackScreenComponent extends ChildComponent {
 
   async engageAttackAllUnits() {
     if (!this.user || !this.originBase || !this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats)
-      return alert("Something went wrong with the request.");
+      return alert("Something went wrong with the request."); 
 
-    const unitTypeMap: any = {
-      marine: this.nexusAvailableUnits.marineTotal,
-      goliath: this.nexusAvailableUnits.goliathTotal,
-      siege_tank: this.nexusAvailableUnits.siegeTankTotal,
-      scout: this.nexusAvailableUnits.scoutTotal,
-      wraith: this.nexusAvailableUnits.wraithTotal,
-      battlecruiser: this.nexusAvailableUnits.battlecruiserTotal,
-      glitcher: this.nexusAvailableUnits.glitcherTotal
-    };
-
-    this.unitStats.forEach(unit => {
-      unit.sentValue = unitTypeMap[unit.unitType] ?? 0;
-    });
-
-    if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0))
-      return alert("No units!");
-
-    this.engageAttack();
+    this.engageAttack(true);
   }
 
 
-  async engageAttack() {
+  async engageAttack(allUnits: boolean = false) {
     if (!this.user || !this.originBase || !this.selectedNexus || !this.unitStats) return alert("Something went wrong with the request.");
-    if (!this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units have been selected! Please select some units and try again.");
     this.startLoading();
-
-    const attackDuration = this.calculateAttackDuration();
-    if (attackDuration) {
-      if (this.isSendingDefence) {
-        this.nexusService.defend(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration).then(res => this.emittedNotifications.emit(res));
-      } else {
-        this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats, attackDuration).then(res => this.emittedNotifications.emit(res));
-      }
-        
-      this.RemoveAttackingUnitsFromAvailableUnits();
-      const nexusAttack = this.createNexusAttack(attackDuration);
-      this.unitStats.forEach(x => x.sentValue = 0);
-      this.emittedAttack.emit(nexusAttack);
-    //  this.emittedNotifications.emit(`Sending ${this.isSendingDefence ? 'Defence' : 'Attack'} ${this.isSendingDefence ? 'to' : 'on'} {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}`); 
-    }
-    this.stopLoading();
-  }
-  getAvailableUnitStats() {
-    if (this.nexusAvailableUnits && this.unitStats) {
-      return this.unitStats.filter(unit => {
-        switch (unit.unitType) {
-          case "marine":
-            return this.nexusAvailableUnits!.marineTotal > 0;
-          case "goliath":
-            return this.nexusAvailableUnits!.goliathTotal > 0;
-          case "siege_tank":
-            return this.nexusAvailableUnits!.siegeTankTotal > 0;
-          case "scout":
-            return this.nexusAvailableUnits!.scoutTotal > 0;
-          case "wraith":
-            return this.nexusAvailableUnits!.wraithTotal > 0;
-          case "battlecruiser":
-            return this.nexusAvailableUnits!.battlecruiserTotal > 0;
-          case "glitcher":
-            return this.nexusAvailableUnits!.glitcherTotal > 0;
-          default:
-            return false;
+    setTimeout(() => {
+      let hasUnits = false;
+      if (this.user && this.originBase && this.selectedNexus && this.unitStats) {
+        if (allUnits && this.nexusAvailableUnits) {
+          for (let unit of this.unitStats) {
+            unit.sentValue = this.nexusAvailableUnits[`${unit.unitType == "siege_tank" ? "siegeTank" : unit.unitType}Total` as keyof NexusUnits] ?? 0;
+            if (!hasUnits && unit.sentValue) hasUnits = true;
+          } 
         }
-      });
-    }
-    else {
-      return [];
-    } 
-  }
-  private RemoveAttackingUnitsFromAvailableUnits() {
-    if (this.nexusAvailableUnits && this.unitStats && this.originBase) {
-      if (!this.nexusUnitsOutsideOfBase) {
-        this.nexusUnitsOutsideOfBase = {
-          coordsX: this.originBase.coordsX,
-          coordsY: this.originBase.coordsY,
-          marineTotal: 0,
-          goliathTotal: 0,
-          siegeTankTotal: 0,
-          scoutTotal: 0,
-          wraithTotal: 0,
-          battlecruiserTotal: 0,
-          glitcherTotal: 0
-        } as NexusUnits;
-      }
+        if (!hasUnits && !this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units have been selected! Please select some units and try again.");
 
-      const unitTypeMap: any = {
-        marine: 'marineTotal',
-        goliath: 'goliathTotal',
-        siege_tank: 'siegeTankTotal',
-        scout: 'scoutTotal',
-        wraith: 'wraithTotal',
-        battlecruiser: 'battlecruiserTotal',
-        glitcher: 'glitcherTotal'
-      };
-
-      this.unitStats.forEach(unit => {
-        if (unit.sentValue) {
-          const unitType = unitTypeMap[unit.unitType];
-          if (unitType) {
-            if (this.nexusAvailableUnits) {
-              this.nexusAvailableUnits[unitType as keyof NexusUnits] -= unit.sentValue; 
-            }
-            if (!this.nexusUnitsOutsideOfBase) { this.nexusUnitsOutsideOfBase = {} as NexusUnits; }
-            this.nexusUnitsOutsideOfBase[unitType as keyof NexusUnits] += unit.sentValue;
-          }
+        if (this.isSendingDefence) {
+          this.nexusService.defend(this.user, this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));
+        } else {
+          this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));
         }
-      });
-    } 
+        const nexusAttack = this.createNexusAttack();
+        this.emittedAttack.emit(nexusAttack);
+        this.stopLoading();
+      }
+    }, 10);
+   
   }
 
-  private createNexusAttack(duration: number) {
-    if (!this.nexusAvailableUnits || !this.unitStats || !this.originBase || !this.selectedNexus) {
-      return undefined;
-    }
-     
-    const unitCounts: { [key: string]: number } = {
-      marine: 0,
-      goliath: 0,
-      siege_tank: 0,
-      scout: 0,
-      wraith: 0,
-      battlecruiser: 0,
-      glitcher: 0
-    };
+  getAvailableUnitStats() { 
+    return this.unitStats?.filter(unit => (this.nexusAvailableUnits?.[`${unit.unitType}Total` as keyof NexusUnits] ?? 0) > 0) || [];
+  } 
 
-    for (const unit of this.unitStats) {
-      if (unit.sentValue) {
-        unitCounts[unit.unitType] = unit.sentValue;
-      }
-    }
+  private createNexusAttack() {
+    if (!this.originBase || !this.selectedNexus || !this.unitStats) return undefined;
 
-    const { coordsX: originCoordsX, coordsY: originCoordsY, user: originUser } = this.originBase;
-    const { coordsX: destinationCoordsX, coordsY: destinationCoordsY, user: destinationUser } = this.selectedNexus;
+    const unitCounts = this.unitStats.reduce((acc, unit) => {
+      if (unit.sentValue) acc[unit.unitType] = unit.sentValue;
+      return acc;
+    }, {} as { [key: string]: number });
 
+    this.unitStats.forEach(x => x.sentValue = 0);
+    this.nexusAvailableUnits = undefined;
     return {
-      originCoordsX,
-      originCoordsY,
-      originUser,
-      destinationCoordsX,
-      destinationCoordsY,
-      destinationUser,
-      marineTotal: unitCounts["marine"],
-      goliathTotal: unitCounts["goliath"],
-      siegeTankTotal: unitCounts["siege_tank"],
-      scoutTotal: unitCounts["scout"],
-      wraithTotal: unitCounts["wraith"],
-      battlecruiserTotal: unitCounts["battlecruiser"],
-      glitcherTotal: unitCounts["glitcher"],
-      timestamp: new Date(),
-      duration: duration,
+      originCoordsX: this.originBase.coordsX,
+      originCoordsY: this.originBase.coordsY,
+      originUser: this.originBase.user,
+      destinationCoordsX: this.selectedNexus.coordsX,
+      destinationCoordsY: this.selectedNexus.coordsY,
+      destinationUser: this.selectedNexus.user,
+      ...unitCounts,
+      timestamp: new Date(), 
       arrived: false
-    } as NexusAttackSent; 
+    } as NexusAttackSent;
   }
-
-
-  calculateAttackDuration(unitStat?: UnitStats) {
+  calculateAttackDuration(unitStat?: UnitStats): number {
     if (!this.originBase || !this.selectedNexus) {
       alert("Problem setting duration! Either no origin or no destination selected!")
       return 0;
     }
-    const selectedX = this.selectedNexus.coordsX;
-    const selectedY = this.selectedNexus.coordsY;
-    const baseX = this.originBase.coordsX;
-    const baseY = this.originBase.coordsY;
-    const distance = 1 + (Math.abs(baseX - selectedX) + Math.abs(baseY - selectedY));
 
-    if (unitStat) {
-      const unitSpeed = unitStat.speed;
-      return distance * unitSpeed * 60;
-    } else {
-      let slowestSpeed = 0;
+    const distance = 1 + Math.abs(this.originBase.coordsX - this.selectedNexus.coordsX) + Math.abs(this.originBase.coordsY - this.selectedNexus.coordsY);
+    const speed = unitStat ? unitStat.speed : Math.min(...this.unitStats?.filter(unit => unit.sentValue && unit.speed)?.map(unit => unit.speed) || [0]);
 
-      if (this.unitStats) {
-        for (const unit of this.unitStats) {
-          if (unit.sentValue && unit.sentValue > 0 && unit.speed && unit.speed > slowestSpeed) {
-            slowestSpeed = unit.speed;
-          }
-        }
-      }
-
-      return distance * slowestSpeed * 60;
-    }
-
+    return distance * speed * 60;
   }
   isEngagingUnits() {
-    if (!this.unitStats) return false;
-    return this.unitStats.find(x => x.sentValue && x.sentValue > 0);
+    return this.unitStats?.some(x => x.sentValue && x.sentValue > 0);
   }
+
   hasUnitsToSend() {
-    if (!this.nexusAvailableUnits) return false;
-    return this.nexusAvailableUnits.marineTotal > 0 || this.nexusAvailableUnits.goliathTotal > 0 || this.nexusAvailableUnits.siegeTankTotal > 0
-      || this.nexusAvailableUnits.scoutTotal > 0 || this.nexusAvailableUnits.wraithTotal > 0 || this.nexusAvailableUnits.battlecruiserTotal > 0 || this.nexusAvailableUnits.glitcherTotal > 0;
+    return Object.keys(this.nexusAvailableUnits || {}).some(key => this.nexusAvailableUnits![key as keyof NexusUnits] > 0);
   }
   maxSliderValue(unit: UnitStats): number {
     if (unit.unitType == "marine") return this.nexusAvailableUnits?.marineTotal ?? 0;

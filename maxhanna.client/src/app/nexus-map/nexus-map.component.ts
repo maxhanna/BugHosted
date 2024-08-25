@@ -164,25 +164,14 @@ export class NexusMapComponent extends ChildComponent {
     }, 10);
   }
 
-  generateRandomRotations() {
-    const possibleRotations = [0, 180, 270];
-    for (let y = 0; y < this.grid.length; y++) {
-      this.randomRotations[y] = [];
-      for (let x = 0; x < this.grid[y].length; x++) {
-        const randomIndex = Math.floor(Math.random() * possibleRotations.length);
-        this.randomRotations[y][x] = possibleRotations[randomIndex];
-      }
-    }
-  }
-
-
   showAttackScreen(isDefence: boolean) {
-    if (this.selectedNexusBase && this.nexusBase && this.selectedNexusBase.coordsX == this.nexusBase.coordsX && this.selectedNexusBase.coordsY == this.nexusBase.coordsY) {
+    if (this.selectedNexusBase?.coordsX === this.nexusBase?.coordsX &&
+      this.selectedNexusBase?.coordsY === this.nexusBase?.coordsY) {
       return alert("Cannot attack or defend the same base.");
     }
     this.startLoading();
-    if (this.unitStats) {
-      this.unitStats.sort((a, b) => a.cost - b.cost);
+    if ((this.unitStats?.length ?? 0) > 1) {
+      this.unitStats?.sort((a, b) => a.cost - b.cost);
     }
     this.isAttackScreenOpen = true;
     this.showAttackButton = false;
@@ -193,14 +182,15 @@ export class NexusMapComponent extends ChildComponent {
   emittedClosedAttackScreen() {
     this.showAttackButton = true;
     this.isAttackScreenOpen = false;
+
+    this.updateAttackTimers();
+    this.updateDefenceTimers();
   }
 
   emittedAttack(attack: NexusAttackSent) {
     this.startLoading();
     setTimeout(() => {
-      this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence, switchBase: this.switchNextBaseCheckbox.nativeElement.checked } as AttackEventPayload);
-      this.updateAttackTimers();
-      this.updateDefenceTimers();
+      this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence, switchBase: this.switchNextBaseCheckbox.nativeElement.checked } as AttackEventPayload); 
       this.stopLoading();
     }, 10);
   }
@@ -210,82 +200,96 @@ export class NexusMapComponent extends ChildComponent {
     this.mapInputY.nativeElement.value = '';
   }
   showMapLocation() {
-    const x = parseInt(this.mapInputX.nativeElement.value);
-    const y = parseInt(this.mapInputY.nativeElement.value);
-    if (x < 0 || y < 0) { return alert("Invalid Coordinates."); }
-    if (x > this.grid[0].length) {
-      return alert("X coordinates off map.");
-    } else if (y > this.grid[0].length) {
-      return alert("Y coordinates off map.");
+    const x = parseInt(this.mapInputX.nativeElement.value, 10);
+    const y = parseInt(this.mapInputY.nativeElement.value, 10);
+     
+    if (isNaN(x) || isNaN(y) || x < 0 || y < 0 || x >= this.grid[0].length || y >= this.grid.length) {
+      alert("Invalid Coordinates.");
+      return;
     }
+
     this.scrollToCoordinates(x, y);
+  } 
+
+  generateRandomRotations() {
+    const possibleRotations = [0, 180, 270];
+    const rotationCount = possibleRotations.length; 
+    this.randomRotations = Array.from({ length: this.grid.length }, () => new Array(this.grid[0].length));
+
+    for (let y = 0; y < this.grid.length; y++) {
+      const row = this.randomRotations[y];
+      for (let x = 0; x < row.length; x++) {
+        row[x] = possibleRotations[Math.floor(Math.random() * rotationCount)];
+      }
+    }
   }
+
   hash(x: number, y: number): number {
     const seed = (x * 73856093) ^ (y * 19349663);
     const lcg = (seed * 1664525 + 1013904223) & 0xffffffff;
-    return (lcg % 3) + 1; // Returns 1, 2, or 3
+    return (lcg % 3) + 1;
   }
   getRandomEmptyMapTile(x: number, y: number) {
-    const tileType = this.randomMap[y][x];
-    if (tileType === 1) {
-      return this.mapTileSrc;
-    } else if (tileType === 2) {
-      return this.mapTileSrc2;
-    } else {
-      return this.mapTileSrc3;
-    }
+    const tileSources = [this.mapTileSrc3, this.mapTileSrc, this.mapTileSrc2]; 
+    return tileSources[this.randomMap[y][x]] || this.mapTileSrc3;
   }
   generateRandomMap(gridSizeX: number, gridSizeY: number): number[][] {
-    const randomMap: number[][] = [];
+    const randomMap: number[][] = new Array(gridSizeY);
+     
     for (let y = 0; y < gridSizeY; y++) {
-      const row: number[] = [];
+      const row: number[] = new Array(gridSizeX); 
       for (let x = 0; x < gridSizeX; x++) {
-        row.push(this.hash(x, y)); // Generate consistent "random" number for each cell
+        row[x] = this.hash(x, y);
       }
-      randomMap.push(row);
+      randomMap[y] = row;
     }
+
     return randomMap;
   }
-  selectCoordinates(coordsx: number, coordsy: number) {
-    if (this.selectedNexusBase?.coordsX == coordsx && this.selectedNexusBase?.coordsY == coordsy) return;
+
+  selectCoordinates(coordsX: number, coordsY: number) { 
+    if (this.selectedNexusBase?.coordsX === coordsX && this.selectedNexusBase?.coordsY === coordsY) return;
+     
     this.selectedNexusBase = undefined;
     this.showAttackButton = true;
     this.isReportsHidden = true;
     this.isAttackScreenOpen = false;
-    this.unitStats?.forEach(x => x.sentValue = undefined);
-    this.selectedNexusBase = this.mapData.find(x => x.coordsX && x.coordsY && x.coordsX == coordsx && x.coordsY == coordsy);
-    if (!this.selectedNexusBase) {
-      this.selectedNexusBase = {
-        coordsX: coordsx,
-        coordsY: coordsy,
-        gold: 0,
-        supply: 0,
-        supplyDepotLevel: 0,
-        commandCenterLevel: 0,
-        minesLevel: 0,
-        engineeringBayLevel: 0,
-        factoryLevel: 0,
-        starportLevel: 0,
-        warehouseLevel: 0,
-        marineLevel: 0,
-        goliathLevel: 0,
-        siegeTankLevel: 0,
-        scoutLevel: 0,
-        wraithLevel: 0,
-        battlecruiserLevel: 0,
-        glitcherLevel: 0,
-      };
+    if (this.unitStats) {
+      this.unitStats.forEach(stat => stat.sentValue = undefined);
     }
+     
+    this.selectedNexusBase = this.mapData.find(base => base.coordsX === coordsX && base.coordsY === coordsY) || {
+      coordsX,
+      coordsY,
+      gold: 0,
+      supply: 0,
+      supplyDepotLevel: 0,
+      commandCenterLevel: 0,
+      minesLevel: 0,
+      engineeringBayLevel: 0,
+      factoryLevel: 0,
+      starportLevel: 0,
+      warehouseLevel: 0,
+      marineLevel: 0,
+      goliathLevel: 0,
+      siegeTankLevel: 0,
+      scoutLevel: 0,
+      wraithLevel: 0,
+      battlecruiserLevel: 0,
+      glitcherLevel: 0,
+    };
+
+    // Update attack and defence timers
     this.updateAttackTimers();
     this.updateDefenceTimers();
   }
+
   getAttackTimers(): NexusTimer[] {
     return Object.values(this.attackTimers);
   }
   getDefenceTimers(): NexusTimer[] {
     return Object.values(this.defenceTimers);
-  }
-
+  } 
 
   formatTimer(allSeconds?: number): string {
     return this.nexusService.formatTimer(allSeconds);
@@ -312,16 +316,15 @@ export class NexusMapComponent extends ChildComponent {
     }
   }
   getBaseAllianceSpanClass(x: number, y: number) {
-    const targetBase = this.mapData.find(target => target.coordsX == x && target.coordsY == y);
-    if (targetBase && targetBase.user && this.user) {
-      if (targetBase.user.id == this.user.id) {
-        return "myBase";
-      } else {
-        return "enemyBase";
-      }
+    const targetBase = this.mapData.find(base => base.coordsX === x && base.coordsY === y);
+
+    if (!targetBase || !targetBase.user || !this.user) {
+      return "emptyBase";
     }
-    return "emptyBase";
+
+    return targetBase.user.id === this.user.id ? "myBase" : "enemyBase";
   }
+
   isAttackSentOn(x: number, y: number) {
     if (!this.nexusAttacksSent && !this.nexusDefencesSent) return false;
     if (this.nexusAttacksSent) {
@@ -336,21 +339,12 @@ export class NexusMapComponent extends ChildComponent {
   }
   isAttackReturningOn(x: number, y: number) {
     if (!this.nexusAttacksSent) return false;
-
-    const currentBases = this.mapData.filter(base => base.user?.id == this.user?.id);
-
-    let relevantAttack = undefined;
-    if (this.nexusAttacksSent) {
-      relevantAttack = this.nexusAttacksSent.find(
-        nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y
-          && currentBases.find(
-            cb => cb.coordsX == nb.originCoordsX
-              && cb.coordsY == nb.originCoordsY
-              && cb.coordsX == nb.destinationCoordsX
-              && cb.coordsY == nb.destinationCoordsY
-          )
-      ) as NexusAttackSent;
-    }
+    
+    let relevantAttack = this.nexusAttacksSent.find(
+      nb => nb.destinationCoordsX == x && nb.destinationCoordsY == y
+        && nb.originCoordsX == x && nb.originCoordsY == y
+        && nb.destinationUser?.id == this.parentRef?.user?.id
+    ) as NexusAttackSent || undefined; 
     return relevantAttack;
   }
   isDefenceSentOn(x: number, y: number) {

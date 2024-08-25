@@ -103,11 +103,11 @@ export class NexusService {
   async purchaseUnit(user: User, nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
     return await this.fetchData('/nexus/purchaseUnit', { User: user, Nexus: nexus, unitId, purchaseAmount });
   }
-  async engage(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[], timeInSeconds: number): Promise<any> {
-    return await this.fetchData('/nexus/engage', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats, DistanceTimeInSeconds: Math.round(timeInSeconds) });
+  async engage(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[]): Promise<any> {
+    return await this.fetchData('/nexus/engage', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats });
   }
-  async defend(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[], timeInSeconds: number): Promise<any> {
-    return await this.fetchData('/nexus/defend', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats, DistanceTimeInSeconds: Math.round(timeInSeconds) });
+  async defend(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[]): Promise<any> {
+    return await this.fetchData('/nexus/defend', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats });
   }
   async returnDefence(user: User, defenceId: number): Promise<any> {
     return await this.fetchData('/nexus/returndefence', { User: user, DefenceId: defenceId });

@@ -3,6 +3,13 @@
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!loginOnly"></div>
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
+
+  <div class="notificationCounterDiv" *ngIf="parentRef?.user">
+    <app-notifications [minimalInterface]="true"
+                       [inputtedParentRef]="parentRef">
+    </app-notifications>
+  </div>
+
   <div class="avatar" *ngIf="!loginOnly && !user?.displayPictureFile && user">
     <span class="avatarBug">🪲</span>
     <span class="avatarBust">👤</span>
@@ -125,7 +132,7 @@
 
         <div class="loginDiv">
           <input type="text" placeholder="Username" #loginUsername (keydown.enter)="login()" />
-          <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" /> 
+          <input type="password" placeholder="Password" #loginPassword (keydown.enter)="login()" />
           <div>
             <input type="submit" value="🔑 Login" (click)="login()" />
             <input type="submit" value="👤➕ Create User" (click)="createUser()" />
@@ -141,7 +148,7 @@
   </div>
 
   <div class="profileControls">
-    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">📋 Share Profile</button> 
+    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">📋 Share Profile</button>
     <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">👤 Add friend</button>
     <button *ngIf="areWeFriends(user)" (click)="removeFriend(user)">👤 Remove friend</button>
     <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" (click)="addContact(user)">👤 Add as Contact</button>
@@ -151,7 +158,7 @@
 
   <!-- ABOUT -->
   <div [style.display]="isMoreInfoOpen ? 'block' : 'none'">
-    
+
     <div class="topProfileContainer" id="aboutContainer">
       <div *ngIf="user || parentRef?.user" class="aboutContainer">
         <span class="cursorPointer mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">About</span>
@@ -314,13 +321,13 @@
       </div>
     </div>
   </div>
-  
+
 
   <!-- SOCIAL -->
   <div class="topProfileContainer expanded" id="socialProfileContainer">
     <div>
-      <div *ngIf="user || parentRef?.user"> 
-        <div class="profileStories" >
+      <div *ngIf="user || parentRef?.user">
+        <div class="profileStories">
           <app-social #socialComponent
                       [user]="user"
                       [parent]="parentRef"

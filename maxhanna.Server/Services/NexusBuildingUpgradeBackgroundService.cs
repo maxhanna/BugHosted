@@ -220,15 +220,11 @@ namespace maxhanna.Server.Services
             Console.WriteLine($"Processing upgrade with ID: {upgradeId}"); 
 
             await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            await conn.OpenAsync();  
-            await using MySqlTransaction transaction = await conn.BeginTransactionAsync(); 
-
+            await conn.OpenAsync();   
             try
             {
                 // Load the NexusBase and pass it to UpdateNexusAttacks
-                NexusBase? nexus = await GetNexusBaseByUpgradeId(upgradeId, conn, transaction);
-                await transaction.CommitAsync();
-
+                NexusBase? nexus = await GetNexusBaseByUpgradeId(upgradeId, conn);
                 if (nexus != null)
                 { 
                     // Instantiate the NexusController with the logger and configuration
@@ -243,7 +239,6 @@ namespace maxhanna.Server.Services
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
-                await transaction.RollbackAsync();
             } 
             finally
             {
@@ -252,7 +247,7 @@ namespace maxhanna.Server.Services
         }
 
 
-        public async Task<NexusBase> GetNexusBaseByUpgradeId(int id, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
+        public async Task<NexusBase> GetNexusBaseByUpgradeId(int id, MySqlConnection? conn = null)
         {
             NexusBase tmpBase = new NexusBase();
             bool createdConnection = false;
@@ -271,7 +266,7 @@ namespace maxhanna.Server.Services
                       LEFT JOIN maxhanna.nexus_base_upgrades a ON a.coords_x = n.coords_x AND a.coords_y = n.coords_y
                       WHERE a.id = @UpgradeId LIMIT 1;";
 
-                using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn, transaction))
+                using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn))
                 {
                     cmdBase.Parameters.AddWithValue("@UpgradeId", id);
 

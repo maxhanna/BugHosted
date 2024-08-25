@@ -45,20 +45,20 @@
       <button class="previousBaseButton" [disabled]="isLoading" (click)="previousBase()">⩤</button>
       <button class="nextBaseButton" [disabled]="isLoading" (click)="nextBase()">⩥</button>
     </div>
-    <!-- Resources --> 
+    <!-- Resources -->
     <div *ngIf="shouldShowResources()" class="resourceDiv">
       <span title="Gold" class="resourceSpan goldText">📀:{{ (nexusBase?.gold || 0) | number:'1.0-2' }}</span>
       <span title="Supply Capacity" class="resourceSpan">🥩:{{supplyCapacity - (nexusBase?.supply || 0)}}</span>
       <span title="Nexus location" class="resourceSpan">📍:<span class="invertedHighlights">{{'{' + nexusBase?.coordsX + ',' + nexusBase?.coordsY + '}'}}</span></span>
     </div>
-
+    <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen" class="battleReportComponentDiv">
       <app-nexus-reports [user]="parentRef.user"
                          (openMapEmitter)="emittedOpenMapAndScrollTo($event)"
                          *ngIf="isReportsOpen">
       </app-nexus-reports>
     </div>
-
+    <!-- Map screen -->
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user && isMapOpen">
       <app-nexus-map #mapComponent
                      [user]="parentRef.user"
@@ -92,8 +92,7 @@
                      (emittedGoToBaseEvent)="emittedGoToBaseEvent($event)">
       </app-nexus-map>
     </div>
-
-
+    <!-- Bases screen -->
     <app-nexus-bases class="baseListComponentDiv" *ngIf="parentRef && parentRef.user && mapData && nexusBase"
                      [style.display]="isBasesOpen ? 'block':'none'"
                      [mapData]="mapData"
@@ -105,7 +104,7 @@
                      (emittedNotifications)="emittedNotifications($event)"
                      (emittedUpgrade)="emittedUpgrade($event)">
     </app-nexus-bases>
-
+    <!-- Support screen -->
     <app-nexus-support-screen *ngIf="parentRef && parentRef.user && nexusBase"
                               class="baseListComponentDiv"
                               [style.display]="isSupportOpen ? 'block':'none'"
@@ -114,17 +113,13 @@
                               [nexusDefencesIncoming]="nexusDefencesIncoming"
                               [nexusDefencesSent]="nexusDefencesSent"
                               (defenceReturnedEmitter)="emittedDefenceReturned($event)"
-                              (openMapEmitter)="emittedOpenMapAndScrollTo($event)"></app-nexus-support-screen>
-
-
-
-    <img [src]="nexusBackgroundPictureSrc"
-         class="nexusBackground"
-         *ngIf="nexusBackgroundPictureSrc && !isMinesOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen"
-         loading="lazy" decoding="asynchronous" />
-
-
+                              (openMapEmitter)="emittedOpenMapAndScrollTo($event)"></app-nexus-support-screen> 
+    <!-- Buildings -->  
     <div *ngIf="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen && nexusBase">
+      <img [src]="nexusBackgroundPictureSrc"
+           class="nexusBackground"
+           *ngIf="nexusBackgroundPictureSrc"
+           loading="lazy" decoding="asynchronous" />
 
       <div class="building">
         <img [src]="currentCommandCenterSrc" class="commandCenter buildingPicture" *ngIf="nexusBase && cclvl1Src && cclvl2Src && cclvl3Src" (click)="openCommandCenter()" title="Command Center" loading="lazy" decoding="asynchronous" />
@@ -434,7 +429,7 @@
     <img [src]="currentEngineeringBaySrc"
          class="engineeringBayBackground"
          *ngIf="eblvl1Src && eblvl2Src && eblvl3Src && nexusBase && isEngineeringBayOpen"
-        loading="lazy" decoding="asynchronous" />
+         loading="lazy" decoding="asynchronous" />
     <div *ngIf="isEngineeringBayOpen" class="engineeringBayScreen">
       <div class="researchDisplayP">
         Current upgrade limit: {{getEngineerBayUpgradeLimit()}}
