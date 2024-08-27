@@ -2,6 +2,7 @@ import { User } from "../user/user";
 
 export interface NexusBase {
   user?: User;
+  baseName?: string;
   gold: number;
   supply: number;
   coordsX: number;

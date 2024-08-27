@@ -80,6 +80,51 @@ namespace maxhanna.Server.Controllers
         }
 
 
+        [HttpPost("/Nexus/SetBaseName", Name = "SetBaseName")]
+        public async Task<IActionResult> SetBaseName([FromBody] NexusBaseNameRequest request)
+        {
+            Console.WriteLine($"POST /Nexus/SetBaseName for player {request.User.Id}");
+            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            {
+                await conn.OpenAsync();
+
+                using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
+                {
+                    try
+                    {
+                        // Calculate the remaining duration and update the defense details
+                        string updateSql = @"
+                        UPDATE 
+                            maxhanna.nexus_bases
+                        SET
+                            base_name = @BaseName
+                        WHERE 
+                            coords_x = @CoordsX
+                        AND coords_y = @CoordsY
+                        LIMIT 1;";
+
+                        var parameters = new Dictionary<string, object?>
+                        {
+                            { "@BaseName", request.BaseName },
+                            { "@CoordsX", request.Nexus.CoordsX },
+                            { "@CoordsY",request.Nexus.CoordsY }
+                        };
+
+                        await ExecuteInsertOrUpdateOrDeleteAsync(updateSql, parameters, conn, transaction);
+
+                        await transaction.CommitAsync();
+                        return Ok($"Base successfully renamed {request.BaseName}.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("ERROR: " + ex.Message);
+                        await transaction.RollbackAsync();
+                        return StatusCode(500, "An error occurred while processing your request.");
+                    }
+                }
+            } 
+        }
+
         [HttpPost("/Nexus/GetAllBuildingUpgradesList", Name = "GetAllBuildingUpgradesList")]
         public async Task<IActionResult> GetAllBuildingUpgradesList()
         {
@@ -270,7 +315,7 @@ namespace maxhanna.Server.Controllers
                 // Insert new base at the available location
                 string sql = @"
                     SELECT 
-                        n.user_id, u.username, n.coords_x, n.coords_y, n.gold, n.command_center_level, n.engineering_bay_level, n.mines_level, n.factory_level, n.starport_level, n.warehouse_level, n.supply_depot_level, udp.file_id
+                        n.user_id, n.base_name, u.username, n.coords_x, n.coords_y, n.gold, n.command_center_level, n.engineering_bay_level, n.mines_level, n.factory_level, n.starport_level, n.warehouse_level, n.supply_depot_level, udp.file_id
                     FROM 
                         maxhanna.nexus_bases n
                     LEFT JOIN 
@@ -294,6 +339,7 @@ namespace maxhanna.Server.Controllers
                         NexusBase tmpBase = new NexusBase();
                         tmpBase.CoordsX = reader.IsDBNull(reader.GetOrdinal("coords_x")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_x"));
                         tmpBase.CoordsY = reader.IsDBNull(reader.GetOrdinal("coords_y")) ? 0 : reader.GetInt32(reader.GetOrdinal("coords_y"));
+                        tmpBase.BaseName = reader.IsDBNull(reader.GetOrdinal("base_name")) ? null : reader.GetString(reader.GetOrdinal("base_name"));
                         tmpBase.CommandCenterLevel = reader.IsDBNull(reader.GetOrdinal("command_center_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("command_center_level"));
                         tmpBase.MinesLevel = reader.IsDBNull(reader.GetOrdinal("mines_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("mines_level"));
                         tmpBase.EngineeringBayLevel = reader.IsDBNull(reader.GetOrdinal("engineering_bay_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("engineering_bay_level"));
@@ -308,8 +354,7 @@ namespace maxhanna.Server.Controllers
                                 null,
                                 dp,
                                 null);
-                        bases.Add(tmpBase);
-                        //await RecalculateNexusGold(conn, tmpBase, transaction);
+                        bases.Add(tmpBase); 
                     }
                 }
 
@@ -663,8 +708,14 @@ namespace maxhanna.Server.Controllers
                     {
                         try
                         {
-
-                            await DeleteReport(request.User.Id, request.BattleId, conn, transaction);
+                            if (request.BattleId != null)
+                            {
+                                await DeleteReport(request.User.Id, (int)request.BattleId, conn, transaction); 
+                            }
+                            else
+                            {
+                                await DeleteAllUserReports(request.User?.Id ?? 0, conn, transaction);
+                            }
 
                             await transaction.CommitAsync();
                         }
@@ -881,7 +932,7 @@ namespace maxhanna.Server.Controllers
                         bool canSend = await DoesBaseHaveEnoughUnitsToSendAttack(req.OriginNexus, req.UnitList, true, null, null);
                         if (canSend)
                         {
-                            Console.WriteLine("Sending the defence...");
+                            Console.WriteLine($"Sending the defence from {req.OriginNexus.CoordsX}{req.OriginNexus.CoordsY} to {req.DestinationNexus.CoordsX}{req.DestinationNexus.CoordsY}...");
                             await SendDefence(req.OriginNexus, req.DestinationNexus, req.UnitList, conn, transaction);
                         }
                         else
@@ -1578,16 +1629,17 @@ namespace maxhanna.Server.Controllers
         }
         private async Task SendAttack(NexusBase OriginNexus, NexusBase DestinationNexus, User? from, User? to, UnitStats[] UnitList, MySqlConnection? conn, MySqlTransaction? transaction)
         {
-            //Console.WriteLine("SendAttack...");
+            Console.WriteLine("SendAttack...");
             if (OriginNexus == null || DestinationNexus == null) return;
 
             decimal slowestSpeed = UnitList
              .Where(unit => unit.SentValue > 0)
              .Select(unit => unit.Speed)
              .DefaultIfEmpty(0.0m)
-             .Min();
+             .Max();
             int distance = 1 + Math.Abs(OriginNexus.CoordsX - DestinationNexus.CoordsX) + Math.Abs(OriginNexus.CoordsY - DestinationNexus.CoordsY);
             int duration = (int)(distance * slowestSpeed * 60);
+            Console.WriteLine($"duration:{duration} distance:{distance}, slowestSpeed: {slowestSpeed}");
 
             int marinesSent = UnitList.FirstOrDefault(x => x.UnitType != null && x.UnitType == "marine")?.SentValue ?? 0;
             int goliathSent = UnitList.FirstOrDefault(x => x.UnitType != null && x.UnitType == "goliath")?.SentValue ?? 0;
@@ -1623,10 +1675,7 @@ namespace maxhanna.Server.Controllers
                 { "@Glitcher", glitcherSent },
             };
 
-            var insertedId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-
-
-            //Console.WriteLine("Attack sent");
+            var insertedId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
         }
 
 
@@ -1639,9 +1688,9 @@ namespace maxhanna.Server.Controllers
              .Where(unit => unit.SentValue > 0)
              .Select(unit => unit.Speed)
              .DefaultIfEmpty(0.0m)
-             .Min();
+             .Max();
             int distance = 1 + Math.Abs(OriginNexus.CoordsX - DestinationNexus.CoordsX) + Math.Abs(OriginNexus.CoordsY - DestinationNexus.CoordsY);
-            int duration = (int)(distance * slowestSpeed * 60);
+            int duration = (int)(distance * slowestSpeed * 60); 
 
             int marinesSent = UnitList.FirstOrDefault(x => x.UnitType != null && x.UnitType == "marine")?.SentValue ?? 0;
             int goliathSent = UnitList.FirstOrDefault(x => x.UnitType != null && x.UnitType == "goliath")?.SentValue ?? 0;
@@ -1667,7 +1716,7 @@ namespace maxhanna.Server.Controllers
                 { "@DestinationX", DestinationNexus.CoordsX },
                 { "@DestinationY", DestinationNexus.CoordsY },
                 { "@DestinationUserId", DestinationNexus.User?.Id },
-                { "@Duration", distance },
+                { "@Duration", duration },
                 { "@Marine", marinesSent },
                 { "@Goliath", goliathSent },
                 { "@SiegeTank", siegeTankSent },
@@ -2309,7 +2358,12 @@ namespace maxhanna.Server.Controllers
                 { "@Battlecruiser", Math.Max(0, battlecruiserTotal) },
                 { "@Glitcher", Math.Max(0, glitcherTotal) }
             };
+            Console.WriteLine("UpdateNexusUnits:");
 
+            foreach (var param in parameters)
+            {
+                Console.WriteLine($"{param.Key}: {param.Value}");
+            }
             await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
             //Console.WriteLine($"Updated Nexus Units!");
 
@@ -2630,6 +2684,7 @@ namespace maxhanna.Server.Controllers
                         nexusBase = new NexusBase
                         {
                             User = new User(readerBase.IsDBNull(readerBase.GetOrdinal("user_id")) ? 0 : readerBase.GetInt32("user_id"), "Anonymous"),
+                            BaseName = readerBase.IsDBNull(readerBase.GetOrdinal("base_name")) ? null : readerBase.GetString("base_name"),
                             Gold = readerBase.IsDBNull(readerBase.GetOrdinal("gold")) ? 0 : readerBase.GetDecimal("gold"),
                             Supply = readerBase.IsDBNull(readerBase.GetOrdinal("supply")) ? 0 : readerBase.GetInt32("supply"),
                             CoordsX = readerBase.IsDBNull(readerBase.GetOrdinal("coords_x")) ? 0 : readerBase.GetInt32("coords_x"),
@@ -3712,14 +3767,14 @@ namespace maxhanna.Server.Controllers
                                 Console.WriteLine($"Battlecruiser losses: {supportingLosses["battlecruiser"]} (Total before: {supportingBaseUnits.BattlecruiserTotal})");
                                 Console.WriteLine($"Glitcher losses: {supportingLosses["glitcher"]} (Total before: {supportingBaseUnits.GlitcherTotal})");
 
-                                await UpdateNexusUnitsAfterAttack(conn, transaction, tmpBase, unitStats, supportingLosses);
+                                await UpdateNexusUnitsAfterAttack(conn, transaction, tmpBase, supportingLosses);
                                 int supportingBaseCurrentSupplyUsed = await CalculateUsedNexusSupply(tmpBase, conn, transaction);
                                 await UpdateNexusSupply(tmpBase, supportingBaseCurrentSupplyUsed, conn, transaction);
                                 await UpdateSupportingUnitsAfterAttack(supportingBaseUnits, supportingLosses, conn, transaction);
                             }
                         }
 
-                        await UpdateNexusUnitsAfterAttack(conn, transaction, destination, unitStats, defendingLosses);
+                        await UpdateNexusUnitsAfterAttack(conn, transaction, destination, defendingLosses);
                         int currentSupplyUsed = await CalculateUsedNexusSupply(destination, conn, transaction);
                         await UpdateNexusSupply(destination, currentSupplyUsed, conn, transaction);
                     }
@@ -3750,7 +3805,7 @@ namespace maxhanna.Server.Controllers
                         {
                             if (!string.IsNullOrEmpty(x.UnitType) && losses.ContainsKey(x.UnitType))
                             {
-                                x.SentValue = (x.SentValue ?? 0) - (losses[x.UnitType] ?? 0);
+                                x.SentValue = Math.Max(0, (x.SentValue ?? 0) - (losses[x.UnitType] ?? 0));
                             }
                         });
                     }
@@ -3786,9 +3841,9 @@ namespace maxhanna.Server.Controllers
                         attackingUnits.Where(x => x.UnitType == "glitcher").First().SentValue = 0;
                     }
 
-                    if (attackerSupplyRecovered)
+                    if (attackerSupplyRecovered && attackingLosses != null)
                     {
-                        await UpdateNexusUnitsAfterAttack(conn, transaction, origin, unitStats, attackingLosses!);
+                        await UpdateNexusUnitsAfterAttack(conn, transaction, origin, attackingLosses);
                         int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
                         await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
                     }
@@ -3855,35 +3910,41 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task UpdateNexusUnitsAfterAttack(MySqlConnection conn, MySqlTransaction transaction, NexusBase nexusBase, Dictionary<string, UnitStats> unitStats, Dictionary<string, int?> losses)
-        {
-            NexusUnits? homeBaseUnits = await GetNexusUnits(nexusBase, true, conn, transaction);
-            if (homeBaseUnits != null)
+        private async Task UpdateNexusUnitsAfterAttack(MySqlConnection conn, MySqlTransaction transaction, NexusBase nexusBase, Dictionary<string, int?> losses)
+        { 
+            string sql = @"
+                UPDATE maxhanna.nexus_units 
+                SET 
+                    marine_total = (marine_total - @Marine), 
+                    goliath_total = (goliath_total - @Goliath), 
+                    siege_tank_total = (siege_tank_total - @SiegeTank), 
+                    scout_total = (scout_total - @Scout), 
+                    wraith_total = (wraith_total - @Wraith), 
+                    battlecruiser_total = (battlecruiser_total - @Battlecruiser),
+                    glitcher_total = (glitcher_total - @Glitcher)
+                WHERE 
+                    coords_x = @CoordsX 
+                AND coords_y = @CoordsY;";
+
+            var parameters = new Dictionary<string, object?>
             {
-                foreach (var unitType in unitStats.Keys)
-                {
-                    string bigType = (unitType == "siege_tank" ? "SiegeTank"
-                        : unitType == "marine" ? "Marine"
-                        : unitType == "goliath" ? "Goliath"
-                        : unitType == "scout" ? "Scout"
-                        : unitType == "wraith" ? "Wraith"
-                        : unitType == "battlecruiser" ? "Battlecruiser"
-                        : "Glitcher");
-                    var prop = homeBaseUnits.GetType().GetProperty($"{bigType}Total");
-                    if (prop != null)
-                    {
-                        prop.SetValue(homeBaseUnits, (int)prop.GetValue(homeBaseUnits, null)! - losses[unitType]);
-                    }
-                }
-                await UpdateNexusUnits(nexusBase,
-                    homeBaseUnits.MarineTotal ?? 0,
-                    homeBaseUnits.GoliathTotal ?? 0,
-                    homeBaseUnits.SiegeTankTotal ?? 0,
-                    homeBaseUnits.ScoutTotal ?? 0,
-                    homeBaseUnits.WraithTotal ?? 0,
-                    homeBaseUnits.BattlecruiserTotal ?? 0,
-                    homeBaseUnits.GlitcherTotal ?? 0, conn, transaction);
+                { "@CoordsX", nexusBase.CoordsX },
+                { "@CoordsY", nexusBase.CoordsY },
+                { "@Marine", Math.Max(0, losses["marine"] ?? 0) },
+                { "@Goliath",  Math.Max(0, losses["goliath"] ?? 0) },
+                { "@SiegeTank",  Math.Max(0, losses["siege_tank"] ?? 0) },
+                { "@Scout",  Math.Max(0, losses["scout"] ?? 0) },
+                { "@Wraith",  Math.Max(0, losses["wraith"] ?? 0) },
+                { "@Battlecruiser",  Math.Max(0, losses["battlecruiser"] ?? 0) },
+                { "@Glitcher", Math.Max(0, losses["glitcher"] ?? 0)}
+            };
+            Console.WriteLine("UpdateNexusUnitsAfterAttack:");
+
+            foreach (var param in parameters)
+            {
+                Console.WriteLine($"{param.Key}: {param.Value}");
             }
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
         }
 
         private async Task<decimal> GetGoldPlundered(MySqlConnection conn, MySqlTransaction transaction, NexusBase destination, List<UnitStats> attackingUnits, NexusUnits? defendingUnits, Dictionary<string, UnitStats> unitStats)
@@ -3959,56 +4020,58 @@ namespace maxhanna.Server.Controllers
             var coordsY = deadBase.CoordsY;
 
             // Calculate the count of similar notifications for defender
-            var countDefenderSql = @"
-                SELECT COUNT(*)
-                FROM maxhanna.notifications
-                WHERE user_id = @receiverId
-                  AND from_user_id = @senderId
-                  AND user_profile_id = @senderId
-                  AND date >= NOW() - INTERVAL 1 DAY
-                  AND text LIKE '%captured%'";
-
-            int defenderCount;
-            using (var countDefenderCmd = new MySqlCommand(countDefenderSql, conn, transaction))
+            if (deadBase.User?.Id != null)
             {
-                countDefenderCmd.Parameters.AddWithValue("@receiverId", receiverId);
-                countDefenderCmd.Parameters.AddWithValue("@senderId", senderId);
-                defenderCount = Convert.ToInt32(await countDefenderCmd.ExecuteScalarAsync());
-            }
+                var countDefenderSql = @"
+                    SELECT COUNT(*)
+                    FROM maxhanna.notifications
+                    WHERE user_id = @receiverId
+                      AND from_user_id = @senderId
+                      AND user_profile_id = @senderId
+                      AND date >= NOW() - INTERVAL 1 DAY
+                      AND text LIKE '%captured%'";
 
-            // Update defender notification if it exists
-            var updateDefenderSql = @"
-                UPDATE maxhanna.notifications
-                SET text = CONCAT(
-                        'Captured ', 
-                        @count,
-                        ' bases, including {'
-                        , @coordsX
-                        , ','
-                        , @coordsY
-                        , '}!'
-                    ),
-                    date = NOW()
-                WHERE user_id = @receiverId 
-                  AND from_user_id = @senderId 
-                  AND user_profile_id = @senderId 
-                  AND date >= NOW() - INTERVAL 1 DAY
-                  AND text LIKE '%captured%'";
+                int defenderCount;
+                using (var countDefenderCmd = new MySqlCommand(countDefenderSql, conn, transaction))
+                {
+                    countDefenderCmd.Parameters.AddWithValue("@receiverId", receiverId);
+                    countDefenderCmd.Parameters.AddWithValue("@senderId", senderId);
+                    defenderCount = Convert.ToInt32(await countDefenderCmd.ExecuteScalarAsync());
+                }
 
-            var updateDefenderParameters = new Dictionary<string, object?>
-            {
-                { "@count", defenderCount },
-                { "@receiverId", receiverId },
-                { "@senderId", senderId },
-                { "@coordsX", coordsX },
-                { "@coordsY", coordsY }
-            };
+                // Update defender notification if it exists
+                var updateDefenderSql = @"
+                    UPDATE maxhanna.notifications
+                    SET text = CONCAT(
+                            'Captured ', 
+                            @count,
+                            ' bases, including {'
+                            , @coordsX
+                            , ','
+                            , @coordsY
+                            , '}!'
+                        ),
+                        date = NOW()
+                    WHERE user_id = @receiverId 
+                      AND from_user_id = @senderId 
+                      AND user_profile_id = @senderId 
+                      AND date >= NOW() - INTERVAL 1 DAY
+                      AND text LIKE '%captured%'";
 
-            long? defenderAffectedRows = await ExecuteInsertOrUpdateOrDeleteAsync(updateDefenderSql, updateDefenderParameters, conn, transaction);
+                var updateDefenderParameters = new Dictionary<string, object?>
+                {
+                    { "@count", defenderCount },
+                    { "@receiverId", receiverId },
+                    { "@senderId", senderId },
+                    { "@coordsX", coordsX },
+                    { "@coordsY", coordsY }
+                };
 
-            if (defenderAffectedRows == null || defenderAffectedRows == 0)
-            {
-                var insertDefenderSql = @"
+                long? defenderAffectedRows = await ExecuteInsertOrUpdateOrDeleteAsync(updateDefenderSql, updateDefenderParameters, conn, transaction);
+
+                if (defenderAffectedRows == null || defenderAffectedRows == 0)
+                {
+                    var insertDefenderSql = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                     SELECT 
                         @receiverId, 
@@ -4018,7 +4081,9 @@ namespace maxhanna.Server.Controllers
                         NOW()
                     FROM DUAL";
 
-                await ExecuteInsertOrUpdateOrDeleteAsync(insertDefenderSql, updateDefenderParameters, conn, transaction);
+                    await ExecuteInsertOrUpdateOrDeleteAsync(insertDefenderSql, updateDefenderParameters, conn, transaction);
+                }
+
             }
 
             // Calculate the count of similar notifications for attacker
@@ -4038,8 +4103,17 @@ namespace maxhanna.Server.Controllers
                 attackerCount = Convert.ToInt32(await countAttackerCmd.ExecuteScalarAsync());
             }
 
-            // Update attacker notification if it exists
-            var updateAttackerSql = @"
+            var updateAttackerParameters = new Dictionary<string, object?>
+            {
+                { "@count", attackerCount },
+                { "@attackerId", attackerId },
+                { "@coordsX", coordsX },
+                { "@coordsY", coordsY }
+            };
+
+            if (attackerCount > 0)
+            {
+                var updateAttackerSql = @"
                 UPDATE maxhanna.notifications
                 SET text = CONCAT('You captured ', @count, ' bases, including {', @coordsX, ',', @coordsY, '}!'),
                     date = NOW()
@@ -4049,18 +4123,12 @@ namespace maxhanna.Server.Controllers
                   AND date >= NOW() - INTERVAL 1 DAY
                   AND text LIKE '%captured%'";
 
-            var updateAttackerParameters = new Dictionary<string, object?>
-            {
-                { "@count", attackerCount },
-                { "@attackerId", attackerId },
-                { "@coordsX", coordsX },
-                { "@coordsY", coordsY }
-            };
+              
 
-            long? attackerAffectedRows = await ExecuteInsertOrUpdateOrDeleteAsync(updateAttackerSql, updateAttackerParameters, conn, transaction);
-
-            if (attackerAffectedRows == null || attackerAffectedRows == 0)
-            {
+                await ExecuteInsertOrUpdateOrDeleteAsync(updateAttackerSql, updateAttackerParameters, conn, transaction);
+            } 
+            else
+            { 
                 var insertAttackerSql = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                     SELECT 
@@ -4073,73 +4141,104 @@ namespace maxhanna.Server.Controllers
 
                 await ExecuteInsertOrUpdateOrDeleteAsync(insertAttackerSql, updateAttackerParameters, conn, transaction);
             }
+            
         }
 
+        private async Task DeleteAllUserReports(int userId, MySqlConnection conn, MySqlTransaction transaction)
+        {
+            // Step 1: Insert deletion requests for all battles involving the user
+            string insertSql = @"
+                INSERT INTO nexus_reports_deleted (user_id, battle_id)
+                SELECT DISTINCT @UserId, b.battle_id
+                FROM nexus_battles b
+                WHERE (b.origin_user_id = @UserId OR b.destination_user_id = @UserId)
+                AND NOT EXISTS (
+                    SELECT 1 FROM nexus_reports_deleted d
+                    WHERE d.user_id = @UserId AND d.battle_id = b.battle_id
+                );";
 
+            var insertParameters = new Dictionary<string, object?>
+            {
+                { "@UserId", userId }
+            };
+           await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, insertParameters, conn, transaction);
+
+            // Step 2: Identify battles where both users have deleted the report
+            string selectBattlesToDeleteSql = @"
+                SELECT b.battle_id 
+                FROM nexus_battles b
+                LEFT JOIN nexus_reports_deleted d1 ON b.battle_id = d1.battle_id AND b.origin_user_id = d1.user_id
+                LEFT JOIN nexus_reports_deleted d2 ON b.battle_id = d2.battle_id AND b.destination_user_id = d2.user_id
+                WHERE (b.origin_user_id = @UserId OR b.destination_user_id = @UserId)
+                AND d1.user_id IS NOT NULL
+                AND d2.user_id IS NOT NULL;";
+
+            List<int> battleIdsToDelete = new List<int>();
+
+            MySqlCommand selectCmd = new MySqlCommand(selectBattlesToDeleteSql, conn, transaction);
+            selectCmd.Parameters.AddWithValue("@UserId", userId);
+
+            using (var reader = await selectCmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    battleIdsToDelete.Add(reader.GetInt32("battle_id"));
+                }
+            }
+
+            if (battleIdsToDelete.Count > 0)
+            {
+                string placeholders = string.Join(",", battleIdsToDelete.Select((_, index) => $"@BattleId{index}"));
+
+                string deleteBattlesSql = $@"
+                    DELETE FROM nexus_battles 
+                    WHERE battle_id IN ({placeholders});";
+
+                string deleteReportsSql = $@"
+                    DELETE FROM nexus_reports_deleted
+                    WHERE battle_id IN ({placeholders});";
+
+                var deleteParameters = new Dictionary<string, object?>();
+
+                for (int i = 0; i < battleIdsToDelete.Count; i++)
+                {
+                    deleteParameters.Add($"@BattleId{i}", battleIdsToDelete[i]);
+                }
+
+                await ExecuteInsertOrUpdateOrDeleteAsync(deleteBattlesSql, deleteParameters, conn, transaction);
+                await ExecuteInsertOrUpdateOrDeleteAsync(deleteReportsSql, deleteParameters, conn, transaction);
+            }
+
+        }
 
         private async Task DeleteReport(int userId, int battleId, MySqlConnection conn, MySqlTransaction transaction)
         {
-            string sql = @"
+            // Insert the deletion request into nexus_reports_deleted
+            string insertSql = @"
                 INSERT INTO nexus_reports_deleted (user_id, battle_id) 
                 VALUES (@UserId, @BattleId);";
 
-            var parameters = new Dictionary<string, object?>
+            var insertParameters = new Dictionary<string, object?>
             {
                 { "@UserId", userId },
                 { "@BattleId", battleId },
             };
-            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
+            await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, insertParameters, conn, transaction);
 
-            sql = @"
-                DELETE b
-                FROM nexus_battles b
-                LEFT JOIN nexus_reports_deleted d1 ON b.battle_id = d1.battle_id AND b.origin_user_id = d1.user_id
-                LEFT JOIN nexus_reports_deleted d2 ON b.battle_id = d2.battle_id AND b.destination_user_id = d2.user_id
-                WHERE b.battle_id = @BattleId
-                    AND ((b.origin_user_id IS NULL OR b.origin_user_id = 0 OR d1.user_id IS NOT NULL)
-                    AND  (b.destination_user_id IS NULL OR b.destination_user_id = 0 OR d2.user_id IS NOT NULL));";
-
-            parameters = new Dictionary<string, object?>
-            {
-                { "@BattleId", battleId },
-            };
-            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-
+            // Check if both users have deleted the report
             string selectUserIdsSql = @"
                 SELECT user_id 
                 FROM nexus_reports_deleted
                 WHERE battle_id = @BattleId
-                AND (
-                    (user_id IN (
-                        SELECT origin_user_id 
-                        FROM nexus_battles 
-                        WHERE battle_id = @BattleId
-                        AND (origin_user_id IS NULL OR origin_user_id = 0)
-                    ))
-                    OR
-                    (user_id IN (
-                        SELECT destination_user_id 
-                        FROM nexus_battles 
-                        WHERE battle_id = @BattleId
-                        AND (destination_user_id IS NULL OR destination_user_id = 0)
-                    ))
-                    OR
-                    (
-                        EXISTS (
-                            SELECT 1 
-                            FROM nexus_reports_deleted d1
-                            WHERE d1.battle_id = @BattleId
-                            AND d1.user_id = nexus_reports_deleted.user_id
-                        )
-                        AND EXISTS (
-                            SELECT 1 
-                            FROM nexus_reports_deleted d2
-                            WHERE d2.battle_id = @BattleId
-                            AND d2.user_id = nexus_reports_deleted.user_id
-                        )
-                    )
+                AND user_id IN (
+                    SELECT origin_user_id 
+                    FROM nexus_battles 
+                    WHERE battle_id = @BattleId
+                    UNION
+                    SELECT destination_user_id 
+                    FROM nexus_battles 
+                    WHERE battle_id = @BattleId
                 );";
-
 
             List<int> userIdsToDelete = new List<int>();
 
@@ -4154,22 +4253,31 @@ namespace maxhanna.Server.Controllers
                 }
             }
 
-            if (userIdsToDelete.Count > 1)
+            // If both users have deleted the report, proceed to delete the report from the nexus_battles table
+            if (userIdsToDelete.Count == 2)
             {
-                string deleteReportsSql = @"
-                DELETE FROM nexus_reports_deleted
-                WHERE battle_id = @BattleIdBattleId
-                AND user_id IN (@UserIdsToDelete);";
-                Console.WriteLine("deleting from nexus_reports_deleted where userIdsToDelete : " + userIdsToDelete);
-                var deleteParameters = new Dictionary<string, object?>
+                string deleteBattleSql = @"
+                    DELETE FROM nexus_battles 
+                    WHERE battle_id = @BattleId;";
+
+                var deleteBattleParameters = new Dictionary<string, object?>
                 {
                     { "@BattleId", battleId },
-                    { "@UserIdsToDelete", string.Join(",", userIdsToDelete) }
                 };
+                await ExecuteInsertOrUpdateOrDeleteAsync(deleteBattleSql, deleteBattleParameters, conn, transaction);
 
-                await ExecuteInsertOrUpdateOrDeleteAsync(deleteReportsSql, deleteParameters, conn, transaction);
+                string deleteReportsSql = @"
+                    DELETE FROM nexus_reports_deleted
+                    WHERE battle_id = @BattleId;";
+
+                var deleteReportsParameters = new Dictionary<string, object?>
+                {
+                    { "@BattleId", battleId },
+                };
+                await ExecuteInsertOrUpdateOrDeleteAsync(deleteReportsSql, deleteReportsParameters, conn, transaction);
             }
         }
+
 
         private async Task ResearchUnit(NexusBase nexusBase, UnitStats unit, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
         {

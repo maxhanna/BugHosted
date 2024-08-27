@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';  
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';  
 import { MiningService } from '../../services/mining.service';
 import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
@@ -28,8 +28,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private coinWalletInfoInterval: any;
   private wordlerInfoInterval: any;
 
-  navbarCollapsed: boolean = false; 
-
+  navbarReady = false;
+  navbarCollapsed: boolean = false;  
   @Input() user?: User;
 
   constructor(public _parent: AppComponent,
@@ -42,9 +42,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private notificationService: NotificationService) {
   }
   async ngOnInit() {
-    await this.getSelectedMenuItems();
-    this.getNotifications();
+    this.navbarReady = true;
+
+    setTimeout(() => {
+      this.getNotifications();
+    }, 100)
   }
+
   ngOnDestroy() {  
     clearInterval(this.miningInfoInterval);
     clearInterval(this.calendarInfoInterval);
@@ -52,7 +56,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     clearInterval(this.wordlerInfoInterval);
     clearInterval(this.notificationInfoInterval);
     this.clearNotifications();
-  }
+  } 
   clearNotifications() {
     const itemsToClear = [
       "MiningRigs",
@@ -88,29 +92,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.coinWalletInfoInterval = setInterval(() => this.getCoinWalletInfo(), 60 * 60 * 1000); // every hour
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
   }
-  async getSelectedMenuItems() {
-    if (!this._parent || !this.user) {
-      this._parent.userSelectedNavigationItems = [
-        { ownership: 0, icon: "📕", title: "Close Menu", content: '' },
-        { ownership: 0, icon: "🌍", title: "Social", content: undefined },
-        { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
-        { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
-        { ownership: 0, icon: "🎮", title: "Emulation", content: undefined }, 
-        { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
-        { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
-        { ownership: 0, icon: "👤", title: "User", content: undefined }, 
-      ]; 
-    } else { 
-      this._parent.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
-    } 
-  }
-  menuIconsIncludes(title: string) {
-    if (!this._parent) {
-      console.log("no parent returning false");
-      return false;
-    } 
-    return this._parent.userSelectedNavigationItems.some(x => x.title == title);
-  }
+  
+   
   async getNotificationInfo() {
     if (!this._parent || !this._parent.user) {
       return;
@@ -241,10 +224,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     event.stopPropagation();
   }
+  menuIconsIncludes(title: string) {
+    
+      return this._parent.userSelectedNavigationItems.some(x => x.title == title);
+    
+  }
   shouldDisplayItem(title: string): boolean {
     // Logic to determine if an item should be displayed
     const alwaysDisplay = ['Close Menu', 'User', 'Meme', 'Social', 'Wordler', 'Emulation', 'Files'];
-    return this.menuIconsIncludes(title) || alwaysDisplay.includes(title);
+    return this._parent.userSelectedNavigationItems.some(x => x.title == title) || alwaysDisplay.includes(title);
   }
   minimizeNav() {
     if (this.navbar) {

@@ -29,8 +29,7 @@
 
 .cell-content {
   width: 50px;
-  height: 50px;
-  overflow: hidden;
+  height: 50px; 
   background-color: #150f0f;
 }
 
@@ -65,7 +64,7 @@
 }
 
 .centeredDiv {
-  text-align: center;
+  text-align: center; 
 }
 
 .attacking::before {
@@ -234,4 +233,43 @@
   left: 15.5px;
   z-index: 5;
   border-radius:50%;
+}
+.tileInfoDiv {
+  margin-top: 25px;
+  border: var(--main-border);
+  max-width: 300px;
+}
+.infoContainer {
+  width: 100%;
+  display: flex; 
+  justify-content: center;
+  align-items: center;
+}
+.selectedBaseNameOnMap {
+  max-width: 130px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  background-color: var(--main-bg-color-full-opacity);
+  line-height: 30px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+.selectedBaseMapControls {
+  text-align: center;
+  height: 30px;
+  display: flex;
+  flex-direction: column-reverse; 
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+}
+.selectedNexusBaseMapControlsContainer {
+  position: absolute;
+  transform: translateY(-84px);
+  max-width: 200px;
+  text-align: center;
+  z-index: 5;
 }

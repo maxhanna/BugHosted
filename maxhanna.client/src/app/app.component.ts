@@ -10,7 +10,7 @@ import { TodoComponent } from './todo/todo.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
-import { CoinWalletComponent } from './coin-wallet/coin-wallet.component'; 
+import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
 import { UserComponent } from './user/user.component';
 import { MenuItem } from '../services/datacontracts/user/menu-item';
 import { ChatComponent } from './chat/chat.component';
@@ -27,6 +27,7 @@ import { NexusComponent } from './nexus/nexus.component';
 import { User } from '../services/datacontracts/user/user';
 import { ModalComponent } from './modal/modal.component';
 import { NotificationsComponent } from './notifications/notifications.component';
+import { UserService } from '../services/user.service';
 
 
 
@@ -46,7 +47,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   isModalOpen = false;
   pictureSrcs: { key: string, value: string, type: string, extension: string }[] = [];
   created: boolean = false; // Global variable accessible throughout the component
-
+  isNavigationInitialized: boolean = false;
+  originalWeatherIcon = "☀️";
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>();
   navigationItems: MenuItem[] = [
@@ -90,7 +92,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Todo": TodoComponent,
     "Music": MusicComponent,
     "Notepad": NotepadComponent,
-    "Contacts": ContactsComponent, 
+    "Contacts": ContactsComponent,
     "Emulation": EmulationComponent,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
@@ -105,7 +107,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
-  constructor(private router: Router, private route: ActivatedRoute) {
+  constructor(private router: Router, private route: ActivatedRoute, private userService: UserService) {
   }
   ngOnInit() {
     if (this.getCookie("user")) {
@@ -113,28 +115,29 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
     window.addEventListener('resize', this.updateHeight);
     this.updateHeight();
+    this.getSelectedMenuItems()
   }
-  ngAfterViewInit() { 
+  ngAfterViewInit() {
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
         if (this.router.url.includes('Memes')) {
-          this.checkAndClearRouterOutlet(); 
-          const memeId = this.router.url.toLowerCase().split('memes/')[1];  
+          this.checkAndClearRouterOutlet();
+          const memeId = this.router.url.toLowerCase().split('memes/')[1];
           this.createComponent("Meme", { "memeId": memeId });
         }
         if (this.router.url.includes('Social')) {
-          this.checkAndClearRouterOutlet(); 
-          const storyId = this.router.url.toLowerCase().split('social/')[1];  
+          this.checkAndClearRouterOutlet();
+          const storyId = this.router.url.toLowerCase().split('social/')[1];
           this.createComponent("Social", { "storyId": storyId });
         }
         if (this.router.url.includes('User')) {
           this.checkAndClearRouterOutlet();
-          const userId = this.router.url.toLowerCase().split('user/')[1];  
+          const userId = this.router.url.toLowerCase().split('user/')[1];
           this.createComponent("User", { "userId": userId });
         }
         if (this.router.url.includes('File')) {
           this.checkAndClearRouterOutlet();
-          const fileId = this.router.url.toLowerCase().split('file/')[1]; 
+          const fileId = this.router.url.toLowerCase().split('file/')[1];
           this.createComponent("Files", { "fileId": fileId });
         }
         if (this.router.url.includes('Array')) {
@@ -150,8 +153,25 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.createComponent('Wordler');
         }
       }
-    }); 
-    this.createComponent('User'); 
+    });
+    this.createComponent('User');
+  }
+  async getSelectedMenuItems() {
+    if (!this.user) {
+      this.userSelectedNavigationItems = [
+        { ownership: 0, icon: "📕", title: "Close Menu", content: '' },
+        { ownership: 0, icon: "🌍", title: "Social", content: undefined },
+        { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
+        { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
+        { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
+        { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
+        { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
+        { ownership: 0, icon: "👤", title: "User", content: undefined },
+      ];
+    } else {
+      this.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
+    }
+    this.isNavigationInitialized = true;
   }
   checkAndClearRouterOutlet() {
     if (this.outlet) {
@@ -161,7 +181,19 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   createComponent(componentType: string, inputs?: { [key: string]: any; }) {
-    this.navigationComponent.minimizeNav();
+    if (!this.isNavigationInitialized) {
+      setTimeout(() => {
+        if (!this.isNavigationInitialized) {
+          setTimeout(() => {
+            this.navigationComponent.minimizeNav();
+          }, 95)
+        } else { 
+          this.navigationComponent.minimizeNav();
+        }
+      }, 75)
+    } else {
+      this.navigationComponent.minimizeNav();
+    }
     if (!componentType || componentType.trim() === "") {
       console.log("returning null due to invalid componentType");
       return null;
@@ -190,7 +222,6 @@ export class AppComponent implements OnInit, AfterViewInit {
         childComponent[key] = inputs[key];
       });
     }
-
     this.componentsReferences.push(childComponentRef);
     return childComponentRef;
   }
@@ -211,7 +242,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.componentsReferences = this.componentsReferences.filter(
       x => x.instance.unique_key !== key
     );
-    this.navigationComponent.maximizeNav(); 
+    this.navigationComponent.maximizeNav();
   }
 
   removeAllComponents() {
@@ -223,7 +254,6 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     this.VCR.clear();
     this.componentsReferences = [];
-
   }
 
   getCookie(name: string) {
@@ -257,7 +287,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   clearAllNotifications() {
     this.navigationComponent.clearNotifications();
     this.navigationComponent.ngOnInit();
-  } 
+  }
   openModal() {
     this.isModalOpen = true;
   }
@@ -269,10 +299,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     console.log("set modal body in parent");
     if (!this.isModalOpen) {
       this.isModalOpen = true;
-    } 
+    }
     setTimeout(() => {
       this.modalComponent.setModalBody(msg);
-    }, 100); 
+    }, 100);
   }
   updateHeight() {
     document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);

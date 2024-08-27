@@ -140,6 +140,7 @@
           </div>
         </div>
       </div>
+      <div *ngIf="!usersCount && !isLoading">Server down</div>
       <div *ngIf="parentRef?.user" style="width:100%;text-align:center">
         <button (click)="logout()">🔑 Logout</button>
         <button (click)="parentRef?.createComponent('UpdateUserSettings', {showOnlySelectableMenuItems : false, areSelectableMenuItemsExplained: false})" title="Update Settings">⚙️ Settings</button>

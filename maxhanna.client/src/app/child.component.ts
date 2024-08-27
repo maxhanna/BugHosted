@@ -79,38 +79,43 @@ export class ChildComponent {
     }
   }
   sortTable(columnIndex: number, tableId: string): void {
-    let table, rows, switching, i, x, y, shouldSwitch;
-    let id = columnIndex;
-    table = document.getElementById(tableId) as HTMLTableElement;
-    switching = true;
-    while (switching) {
-      switching = false;
-      rows = table!.rows;
-      for (i = 1; i < (rows.length - 1); i++) {
-        shouldSwitch = false;
-        x = rows[i].getElementsByTagName("TD")[id];
-        y = rows[i + 1].getElementsByTagName("TD")[id];
-        if (this.asc.some(([table, column]) => table === tableId && column === id)) {
-          if (x && x.innerHTML && x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
-            shouldSwitch = true;
-            break;
-          }
-        } else {
-          if (x && x.innerHTML && x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
-            shouldSwitch = true;
-            break;
-          }
-        }
+    const table = document.getElementById(tableId) as HTMLTableElement;
+    if (!table) return;
+
+    const rowsArray = Array.from(table.rows).slice(1); // Skip the header row
+    const isAscending = this.asc.some(([table, column]) => table === tableId && column === columnIndex);
+
+    // Custom comparator for sorting
+    const compare = (rowA: HTMLTableRowElement, rowB: HTMLTableRowElement) => {
+      const cellA = rowA.cells[columnIndex].textContent?.trim().toLowerCase() || '';
+      const cellB = rowB.cells[columnIndex].textContent?.trim().toLowerCase() || '';
+
+      // Handle numeric sorting if needed
+      const numA = parseFloat(cellA);
+      const numB = parseFloat(cellB);
+
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return isAscending ? numA - numB : numB - numA;
       }
-      if (shouldSwitch) {
-        rows[i].parentNode!.insertBefore(rows[i + 1], rows[i]);
-        switching = true;
-      }
-    }
-    if (this.asc.some(([table, column]) => table === tableId && column === id)) {
-      this.asc = this.asc.filter(([table, column]) => !(table === tableId && column === id));
+
+      return isAscending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
+    };
+
+    // Sort rows in memory
+    rowsArray.sort(compare);
+
+    // Rebuild the table using a DocumentFragment
+    const fragment = document.createDocumentFragment();
+    rowsArray.forEach(row => fragment.appendChild(row));
+
+    // Append sorted rows back to the table
+    table.tBodies[0].appendChild(fragment);
+
+    // Update sort direction tracking
+    if (isAscending) {
+      this.asc = this.asc.filter(([table, column]) => !(table === tableId && column === columnIndex));
     } else {
-      this.asc.push([tableId, id]);
+      this.asc.push([tableId, columnIndex]);
     }
   }
   async promiseWrapper(apromise: any) {

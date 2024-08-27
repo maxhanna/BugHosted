@@ -36,11 +36,15 @@
 .resourceDiv {
   position: absolute;
   top: CALC(var(--nexus-gamescreen-height) + 10px);
-  left: calc(50% - 110px);
-  width: 220px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 300px;
   text-align: center;
   background-color: var(--main-bg-color);
   border: var(--main-border);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .attacksIncomingCount {

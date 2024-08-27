@@ -1,18 +1,18 @@
 <div class="overallDisplay">
-  <table>
+  <table id="baseTable">
     <thead>
       <tr>
-        <th></th>
-        <th></th>
-        <th><span class="rotated-header">Command Center</span></th>
-        <th><span class="rotated-header">Mines</span></th>
-        <th><span class="rotated-header">Engineering Bay</span></th>
-        <th><span class="rotated-header">Factory</span></th>
-        <th><span class="rotated-header">Starport</span></th>
-        <th><span class="rotated-header">Warehouse</span></th>
-        <th><span class="rotated-header">Supply Depot</span></th>
-        <th><span class="rotated-header">📀</span></th>
-        <th><span class="rotated-header">Incoming</span></th>
+        <th style="background-color: var(--primary-font-color); opacity: 50%" (click)="sortTable(0, 'baseTable')"></th>
+        <th style="background-color: var(--secondary-font-color); opacity: 50%" (click)="sortTable(1, 'baseTable')"></th>
+        <th (click)="sortTable(2, 'baseTable')"><span class="rotated-header">Command Center</span></th>
+        <th (click)="sortTable(3, 'baseTable')"><span class="rotated-header">Mines</span></th>
+        <th (click)="sortTable(4, 'baseTable')"><span class="rotated-header">Engineering Bay</span></th>
+        <th (click)="sortTable(5, 'baseTable')"><span class="rotated-header">Factory</span></th>
+        <th (click)="sortTable(6, 'baseTable')"><span class="rotated-header">Starport</span></th>
+        <th (click)="sortTable(7, 'baseTable')"><span class="rotated-header">Warehouse</span></th>
+        <th (click)="sortTable(8, 'baseTable')"><span class="rotated-header">Supply Depot</span></th>
+        <th (click)="sortTable(9, 'baseTable')"><span class="rotated-header">📀</span></th>
+        <th (click)="sortTable(10, 'baseTable')"><span class="rotated-header">Incoming</span></th>
       </tr>
     </thead>
     <tbody *ngFor="let base of getCurrentBases(); let i = index; trackBy: trackByCoords" (click)="selectBase(base)" class="pointer">

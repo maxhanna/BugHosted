@@ -7,8 +7,7 @@ import { NexusUnitsPurchased } from './datacontracts/nexus/nexus-units-purchased
 import { NexusUnits } from './datacontracts/nexus/nexus-units';
 import { UnitStats } from './datacontracts/nexus/unit-stats';
 import { NexusAttackSent } from './datacontracts/nexus/nexus-attack-sent';
-import { NexusAvailableUpgrades, UpgradeDetail } from './datacontracts/nexus/nexus-available-upgrades';
-import { NexusBattleOutcome } from './datacontracts/nexus/nexus-battle-outcome';
+import { UpgradeDetail } from './datacontracts/nexus/nexus-available-upgrades';
 import { NexusBattleOutcomeReports } from './datacontracts/nexus/nexus-battle-outcome-reports';
 import { NexusUnitUpgrades } from './datacontracts/nexus/nexus-unit-upgrades';
 import { MiningSpeed } from './datacontracts/nexus/mining-speed';
@@ -41,7 +40,7 @@ export class NexusService {
         return await response.text();
       }
     } catch (error) {
-      console.error(error);
+      //console.error(error);
     }
   }
 
@@ -114,11 +113,11 @@ export class NexusService {
   }
   async returnAttack(user: User, defenceId: number): Promise<any> {
     return await this.fetchData('/nexus/returnattack', { User: user, DefenceId: defenceId });
-  } 
+  }
   async getBattleReports(user: User, pageNumber: number, pageSize: number, targetBase?: NexusBase): Promise<NexusBattleOutcomeReports> {
     return await this.fetchData('/nexus/getbattlereports', { User: user, PageNumber: pageNumber, PageSize: pageSize, TargetBase: targetBase });
   }
-  async deleteReport(user: User, battleId: number): Promise<any> {
+  async deleteReport(user: User, battleId?: number): Promise<any> {
     return await this.fetchData('/nexus/deletereport', { User: user, BattleId: battleId });
   }
   async research(user: User, nexusBase: NexusBase, unit: UnitStats): Promise<any> {
@@ -138,9 +137,12 @@ export class NexusService {
   }
   async massPurchase(unit: string, user?: User): Promise<NexusBase[]> {
     return await this.fetchData('/nexus/masspurchase', { User: user, Upgrade: unit });
-  } 
+  }
+  async setBaseName(user: User, nexus: NexusBase, baseName: string): Promise<any> {
+    return await this.fetchData('/nexus/setbasename', { User: user, Nexus: nexus, BaseName: baseName });
+  }
 
-   
+
 
   formatTimer(allSeconds?: number): string {
     if (!allSeconds && allSeconds !== 0) return '';
@@ -154,12 +156,12 @@ export class NexusService {
 
     const timeParts: string[] = [];
 
-    if (days > 0) timeParts.push(`${days}d`); // Append 'd' for days
-    if (hours > 0 || days > 0) timeParts.push(`${hours}`); // Append 'h' for hours
-    timeParts.push(`${String(minutes).padStart(2, '0') }`); // Append 'm' for minutes
-    timeParts.push(`${String(seconds).padStart(2, '0') }`); // Append 's' for seconds
+    if (days > 0) timeParts.push(`${days}d`);
+    if (hours > 0 || days > 0) timeParts.push(`${hours}`);
+    timeParts.push(`${String(minutes).padStart(2, '0')}`);
+    timeParts.push(`${String(seconds).padStart(2, '0')}`);
 
-    return timeParts.join(':'); // Join with a space for better readability
+    return timeParts.join(':');
   }
 
 

@@ -31,11 +31,44 @@ namespace maxhanna.Server.Services
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Fetching coin values at: {time}", DateTimeOffset.Now);
+                _logger.LogInformation("Refreshing system information: {time}", DateTimeOffset.Now);
                 await FetchAndStoreCoinValues();
-                await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+                await DeleteOldBattleReports();
+                await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
             }
         }
+
+        private async Task DeleteOldBattleReports()
+        {
+            try
+            {
+                using (var conn = new MySqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+
+                    // SQL statement to delete from nexus_reports_deleted and nexus_battles in one go
+                    var deleteSql = @"
+                        DELETE rd, b
+                        FROM nexus_reports_deleted rd
+                        JOIN nexus_battles b ON rd.battle_id = b.battle_id
+                        WHERE b.timestamp < NOW() - INTERVAL 10 DAY;
+                
+                        DELETE FROM nexus_battles
+                        WHERE timestamp < NOW() - INTERVAL 10 DAY;";
+
+                    using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+                    {
+                        int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+                        _logger.LogInformation($"Deleted {affectedRows} battle reports and their references older than 10 days.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting old battle reports.");
+            }
+        }
+
 
         private async Task FetchAndStoreCoinValues()
         {
@@ -82,8 +115,7 @@ namespace maxhanna.Server.Services
                 using (var conn = new MySqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
-
-                    // Check if any entries have been added in the last 10 minutes
+                     
                     var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 1 HOUR)";
                     using (var checkCmd = new MySqlCommand(checkSql, conn))
                     {

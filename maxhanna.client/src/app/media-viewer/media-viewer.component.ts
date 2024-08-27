@@ -54,12 +54,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.fileId) {
       this.selectedFile = {
         id: this.fileId,
-      } as FileEntry;
-
+      } as FileEntry; 
       if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value
         || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {
-        console.log("setting file Src for file id" + this.fileId);
-        this.selectedFileSrc = this.parentRef?.pictureSrcs[this.fileId].value ?? this.inputtedParentRef!.pictureSrcs[this.fileId].value;
+         this.selectedFileSrc = this.parentRef?.pictureSrcs[this.fileId].value ?? this.inputtedParentRef!.pictureSrcs[this.fileId].value;
         return;
       } else {
         await this.setFileSrcById(this.selectedFile.id);
@@ -89,7 +87,15 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       } 
     }
   }
-
+  resetSelectedFile() {
+    if (this.abortFileRequestController) {
+      this.abortFileRequestController.abort("Component is destroyed");
+    }
+    this.selectedFile = undefined;
+    this.selectedFileSrc = "";
+    this.selectedFileName = "";
+    this.selectedFileExtension = "";
+  }
   ngOnDestroy() {
     try {
       if (this.abortFileRequestController) {
@@ -115,9 +121,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
    
   async setFileSrcById(fileId: number) {
-    if (this.selectedFileSrc) return;
-    //console.log(this.parentRef?.pictureSrcs);
-    //console.log(this.inputtedParentRef?.pictureSrcs);
+    if (this.selectedFileSrc) return; 
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       //console.log("getting already set file Src for file id" + fileId);
       this.showThumbnail = true; 

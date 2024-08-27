@@ -6,6 +6,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
     {
         public User? User { get; set; }
         public Decimal Gold { get; set; }
+        public string? BaseName { get; set; }
         public int Supply { get; set; }
         public int CoordsX { get; set; }
         public int CoordsY { get; set; }

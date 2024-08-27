@@ -186,4 +186,51 @@ export class NexusBasesComponent extends ChildComponent {
   isHighlightedBase(base: any): boolean {
     return (this.nexusBase && base.coordsX === this.nexusBase.coordsX && base.coordsY === this.nexusBase.coordsY) ? true : false;
   }
+  override sortTable(columnIndex: number, tableId: string): void {
+    const table = document.getElementById(tableId) as HTMLTableElement;
+    if (!table) return;
+
+    const tbodyArray = Array.from(table.tBodies) as HTMLTableSectionElement[];
+    const isAscending = this.asc.some(([table, column]) => table === tableId && column === columnIndex);
+
+    // Custom comparator for sorting tbody elements
+    const compare = (tbodyA: HTMLTableSectionElement, tbodyB: HTMLTableSectionElement) => {
+      const getCellValue = (tbody: HTMLTableSectionElement) => {
+        const cellText = tbody.rows[0].cells[columnIndex].textContent?.trim().toLowerCase() || '';
+
+        // Remove commas and handle periods for numeric conversion
+        const numericValue = parseFloat(cellText.replace(/,/g, ''));
+        return isNaN(numericValue) ? cellText : numericValue;
+      };
+
+      const valueA = getCellValue(tbodyA);
+      const valueB = getCellValue(tbodyB);
+
+      // If both values are numeric, compare as numbers
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return isAscending ? valueA - valueB : valueB - valueA;
+      }
+
+      // Otherwise, compare as strings
+      return isAscending ? (valueA as string).localeCompare(valueB as string) : (valueB as string).localeCompare(valueA as string);
+    };
+
+    // Sort tbody elements in memory
+    tbodyArray.sort(compare);
+
+    // Rebuild the table using a DocumentFragment
+    const fragment = document.createDocumentFragment();
+    tbodyArray.forEach(tbody => fragment.appendChild(tbody));
+
+    // Append sorted tbody elements back to the table
+    table.appendChild(fragment);
+
+    // Update sort direction tracking
+    if (isAscending) {
+      this.asc = this.asc.filter(([table, column]) => !(table === tableId && column === columnIndex));
+    } else {
+      this.asc.push([tableId, columnIndex]);
+    }
+  }
+
 }

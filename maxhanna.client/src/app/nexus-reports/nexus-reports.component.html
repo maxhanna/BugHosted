@@ -1,6 +1,6 @@
 <div *ngIf="battleReports && battleReports.battleOutcomes && !isLoading">
-  <div class="pageControls">
-    Total:{{battleReports.totalReports}}
+  <div class="pageControls"> 
+    <span class="xSmallFont">Total:{{battleReports.totalReports}}</span>
     <span *ngIf="totalPages && totalPages.length > 0 && !isLoading">
       <label for="currentPage">Page:</label>
       <select #currentPage id="currentPage" (change)="onPageChange()">
@@ -13,9 +13,11 @@
         <option *ngFor="let size of pageSizes" [value]="size">{{ size }}</option>
       </select>
     </span>
-    <button (click)="nextPage()" *ngIf="totalPages && totalPages.length > 1 && !isLoading">Next Page</button> 
+    <button (click)="nextPage()" *ngIf="totalPages && totalPages.length > 1 && !isLoading">Next Page</button>
+    <div class="deleteAllReportsDiv" *ngIf="!targetBase">
+      <button (click)="deleteAllReports()">Delete All Reports</button>
+    </div>  
   </div>
-  
   <div *ngIf="!isLoading">
     <div *ngFor="let report of battleReports.battleOutcomes" class="battleReportDiv">
       <div class="reportHeader">

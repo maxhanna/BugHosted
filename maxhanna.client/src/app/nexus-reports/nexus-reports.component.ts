@@ -79,6 +79,12 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     }
   }
 
+  async deleteAllReports() {
+    if (!this.user || !this.battleReports) return;
+    this.nexusService.deleteReport(this.user);
+    this.battleReports.battleOutcomes = []; 
+    this.battleReports.totalReports = 0;
+  }
 
   async loadBattleReports(targetBase?: NexusBase) {
     if (!this.user) return;

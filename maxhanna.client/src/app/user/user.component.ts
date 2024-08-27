@@ -205,10 +205,14 @@ export class UserComponent extends ChildComponent implements OnInit {
 
   async logout() {
     if (this.parentRef) {
-      console.log("filtering out menu items");
-      console.log(this.parentRef.navigationItems);
-      this.parentRef.navigationItems = this.parentRef.navigationItems.filter(x => x.title == "chat" || x.title == "meme" || x.title == "emulation" || x.title == "social" || x.title == "bug-wars" || x.title == "user" || x.title == "close menu");
-      this.parentRef.userSelectedNavigationItems = this.parentRef.userSelectedNavigationItems.filter(x => x.title == "Chat" || x.title == "Meme" || x.title == "Emulation" || x.title == "Social" || x.title == "Bug-Wars" || x.title == "User" || x.title == "Close Menu");
+      this.parentRef.navigationItems = this.parentRef.navigationItems.filter(x => {
+        const title = x.title.toLowerCase();
+        title == "chat" || title == "meme" || title == "emulation" || title == "social" || title == "bug-wars" || title == "user" || title == "close menu"
+      });
+      this.parentRef.userSelectedNavigationItems = this.parentRef.userSelectedNavigationItems.filter(x => {
+        const title = x.title.toLowerCase();
+        title == "chat" || title == "meme" || title == "emulation" || title == "social" || title == "bug-wars" || title == "user" || title == "close menu"
+      });
       this.parentRef.deleteCookie("user");
       this.parentRef.clearAllNotifications();
       this.parentRef.user = undefined; 

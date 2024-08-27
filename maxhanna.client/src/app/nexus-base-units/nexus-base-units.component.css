@@ -33,16 +33,15 @@
   }
 .unitCountLabel {
   position: absolute;
-  bottom: 4px;
+  bottom: 0px;
   right: 0;
   background-color: rgba(0, 0, 0, 0.2);
   color: white;
-  padding: 5px;
   z-index: 10;
   pointer-events: none;
-  width: 40px;
-  height: 6px;
-  line-height: 10px;
+  width: 50px;
+  height: 20px;
+  line-height: 20px;
   text-overflow: ellipsis;
   overflow: hidden;
   word-break: keep-all;

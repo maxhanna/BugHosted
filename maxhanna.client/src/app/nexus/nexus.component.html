@@ -46,10 +46,10 @@
       <button class="nextBaseButton" [disabled]="isLoading" (click)="nextBase()">⩥</button>
     </div>
     <!-- Resources -->
-    <div *ngIf="shouldShowResources()" class="resourceDiv">
-      <span title="Gold" class="resourceSpan goldText">📀:{{ (nexusBase?.gold || 0) | number:'1.0-2' }}</span>
-      <span title="Supply Capacity" class="resourceSpan">🥩:{{supplyCapacity - (nexusBase?.supply || 0)}}</span>
-      <span title="Nexus location" class="resourceSpan">📍:<span class="invertedHighlights">{{'{' + nexusBase?.coordsX + ',' + nexusBase?.coordsY + '}'}}</span></span>
+    <div *ngIf="shouldShowResources() && nexusBase" class="resourceDiv">
+      <span title="Gold" class="resourceSpan goldText">📀:{{ (nexusBase.gold || 0) | number:'1.0-2' }}</span>
+      <span title="Supply Capacity" class="resourceSpan" *ngIf="supplyCapacity">🥩:{{supplyCapacity - (nexusBase.supply || 0)}}</span>
+      <span title="Nexus location" class="resourceSpan">📍:<span class="invertedHighlights">{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '} '}}</span><span *ngIf="nexusBase && nexusBase.baseName" class="usernameProfileLink">{{nexusBase.baseName}}</span></span>
     </div>
     <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen" class="battleReportComponentDiv">
@@ -113,8 +113,8 @@
                               [nexusDefencesIncoming]="nexusDefencesIncoming"
                               [nexusDefencesSent]="nexusDefencesSent"
                               (defenceReturnedEmitter)="emittedDefenceReturned($event)"
-                              (openMapEmitter)="emittedOpenMapAndScrollTo($event)"></app-nexus-support-screen> 
-    <!-- Buildings -->  
+                              (openMapEmitter)="emittedOpenMapAndScrollTo($event)"></app-nexus-support-screen>
+    <!-- Buildings -->
     <div *ngIf="!isMinesOpen && !isCommandCenterOpen && !isSupplyDepotOpen && !isFactoryOpen && !isMinesOpen && !isStarportOpen && !isWarehouseOpen && !isEngineeringBayOpen && !isMapOpen && !isBasesOpen && !isReportsOpen && !isSupportOpen && nexusBase">
       <img [src]="nexusBackgroundPictureSrc"
            class="nexusBackground"
@@ -268,6 +268,9 @@
       </div>
       <div class="upgradeProgressDisplayP">
         Current upgrade limit : {{nexusBase.commandCenterLevel + 1}}
+      </div>
+      <div>
+        Base Name : <input type="text" #baseNameInput [placeholder]="nexusBase.baseName ?? ''" (onkeyup.Enter)="setBaseName()" /><button (click)="setBaseName()">Change</button>
       </div>
       <div><button (click)="closeCommandCenter()">Back</button></div>
     </div>
@@ -524,11 +527,11 @@
   </div>
 
 
-  <div class="upgradesTableDiv" *ngIf="isCommandCenterOpen"> 
+  <div class="upgradesTableDiv" *ngIf="isCommandCenterOpen">
     <table class="mainTable">
       <thead>
         <tr>
-          <th colspan="5">Upgrades Available</th> 
+          <th colspan="5">Upgrades Available</th>
         </tr>
       </thead>
       <tbody *ngIf="currentValidAvailableUpgrades && currentValidAvailableUpgrades.length > 0 ? currentValidAvailableUpgrades : getValidBuildingUpgrades().length > 0 ? currentValidAvailableUpgrades : false">
@@ -737,7 +740,7 @@
       <div class="notification">It is recommended you take a look at the map (click on the button below) to get acquainted with your surroundings.</div>
     </div>
   </div>
-  
+
   <div class="gameNotificationDiv">
     <div *ngFor="let notif of notifications" class="gameNotification capitalize" (click)="notifications = []">➫ <span>{{notif.replaceAll('_', ' ')}}</span></div>
   </div>
@@ -745,8 +748,8 @@
     <button (click)="copyLink()" title="Share Link">Share 📋</button>
     <button (click)="toggleScreen('map', !isMapOpen)" title="View Map" *ngIf="!isUserNew && parentRef && parentRef.user" [disabled]="isLoading">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>
     <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports" *ngIf="!isUserNew && parentRef && parentRef.user" [disabled]="isLoading">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
-    <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases" *ngIf="!isUserNew && parentRef && parentRef.user"  [disabled]="isLoading">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
-    <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support" *ngIf="!isUserNew && parentRef && parentRef.user"  [disabled]="isLoading">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
+    <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases" *ngIf="!isUserNew && parentRef && parentRef.user" [disabled]="isLoading">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
+    <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support" *ngIf="!isUserNew && parentRef && parentRef.user" [disabled]="isLoading">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
   </div>
   <div *ngIf="!isLoading && !nexusBase && !isUserNew">
     Server is down.

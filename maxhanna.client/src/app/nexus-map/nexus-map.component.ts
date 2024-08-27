@@ -311,7 +311,7 @@ export class NexusMapComponent extends ChildComponent {
   }
   toggleShowReports() {
     this.isReportsHidden = !this.isReportsHidden;
-    if (!this.isReportsHidden && this.selectedNexusBase) {
+    if (!this.isReportsHidden && this.selectedNexusBase && this.nexusReports) {
       this.nexusReports.loadBattleReports(this.selectedNexusBase);
     }
   }
