@@ -772,3 +772,7 @@
     color: var(--main-font-color);
     font-size: xx-small;
 }
+.movementListDiv {
+    max-height:200px;
+    overflow:auto;
+}

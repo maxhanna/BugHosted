@@ -30,7 +30,7 @@
         <td><span [ngClass]="getAttackClass(base)">{{getAttacksCount(base)}}</span> <span [ngClass]="getDefenceClass(base)">{{getDefenceCount(base)}}</span></td>
       </tr>
       <tr [ngClass]="getBaseClass(base)">
-        <td colspan="5" >
+        <td colspan="5">
           <span class="baseNameSpan">{{base.baseName}}</span>
         </td>
         <td colspan="6" class="unitsListTd">
@@ -44,6 +44,7 @@
     </tbody>
   </table>
 </div>
+<div class="xxSmallFont">Note: <span class="reorderNote">Click on column headers to reorder the list.</span></div>
 <div>
   <select #commandSelector (change)="selectCommand()">
     <option selected disabled>Send a command to all your bases</option>

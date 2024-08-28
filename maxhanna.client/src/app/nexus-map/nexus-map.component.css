@@ -273,3 +273,9 @@
   text-align: center;
   z-index: 5;
 }
+
+.cancelAttackSpan {
+  cursor: pointer;
+  color: var(--main-font-color);
+  font-size: xx-small;
+}

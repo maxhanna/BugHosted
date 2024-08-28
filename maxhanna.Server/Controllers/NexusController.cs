@@ -248,10 +248,11 @@ namespace maxhanna.Server.Controllers
 
                 // Insert new base at the available location
                 string insertSql = @"
-                    INSERT INTO maxhanna.nexus_bases (user_id, gold, coords_x, coords_y)
+                    INSERT INTO maxhanna.nexus_bases (user_id, gold, base_name, coords_x, coords_y)
                     SELECT 
                         @UserId, 
                         200, 
+                        @BaseName,
                         new_coords.coords_x, 
                         new_coords.coords_y
                     FROM (
@@ -272,6 +273,7 @@ namespace maxhanna.Server.Controllers
 
                 MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
                 insertCmd.Parameters.AddWithValue("@UserId", user.Id);
+                insertCmd.Parameters.AddWithValue("@BaseName", user.Username ?? "Anonymous");
                 insertCmd.Parameters.AddWithValue("@MapSizeX", _mapSizeX);
                 insertCmd.Parameters.AddWithValue("@MapSizeY", _mapSizeY);
                 using (var reader = await insertCmd.ExecuteReaderAsync())
@@ -552,6 +554,32 @@ namespace maxhanna.Server.Controllers
                             if (totalSupplyUsed < 0)
                             {
                                 return BadRequest("Not Enough Supply");
+                            }
+                            List<NexusUnitsPurchased>? nup = await GetNexusUnitPurchases(request.Nexus, conn, transaction);
+                            int factoryPurchases = 0;
+                            int starportPurchases = 0;
+                            if (nup != null && nup.Count > 0)
+                            {
+                                foreach (var purchase in nup)
+                                {
+                                    var stats = unitStats.First(x => x.UnitId == purchase.UnitIdPurchased);
+                                    if (stats.UnitType == "marine" || stats.UnitType == "goliath" || stats.UnitType == "siege_tank")
+                                    {
+                                        factoryPurchases++;
+                                    }
+                                    else if (stats.UnitType == "scout" || stats.UnitType == "wraith" || stats.UnitType == "battlecruiser")
+                                    {
+                                        starportPurchases++;
+                                    }
+                                }
+                            }
+                            if (factoryPurchases > 0 && request.Nexus.FactoryLevel <= factoryPurchases)
+                            {
+                                return BadRequest("Factory Level Insufficient"); 
+                            }
+                            else if (starportPurchases > 0 && request.Nexus.StarportLevel <= starportPurchases)
+                            {
+                                return BadRequest("Starport Level Insufficient");
                             }
                             await UpdateNexusGoldAndSupply(request.Nexus.CoordsX, request.Nexus.CoordsY, currentGold, totalSupplyUsed, conn, transaction);
                             Console.WriteLine("current gold : after the update: " + currentGold);
@@ -1382,7 +1410,7 @@ namespace maxhanna.Server.Controllers
 
             // Dictionary to store base coordinates and corresponding NexusBase objects
             var baseUpdates = new Dictionary<(int CoordsX, int CoordsY), (NexusBase Base, int UnitId, decimal AdjustedGold, int Supply, int QtyPurchased)>();
-
+            List<UnitStats> unitStats = await GetUnitStatsFromDB(null, null, connection, transaction);
             try
             {
                 string sql = $@"
@@ -1467,7 +1495,34 @@ namespace maxhanna.Server.Controllers
                     var coords = baseUpdate.Key;
                     var updateInfo = baseUpdate.Value;
 
-                    // Update NexusBase
+
+                    List<NexusUnitsPurchased>? nup = await GetNexusUnitPurchases(baseUpdate.Value.Base, connection, transaction);
+                    int factoryPurchases = 0;
+                    int starportPurchases = 0; 
+                    if (nup != null && nup.Count > 0)
+                    {
+                        foreach (var purchase in nup)
+                        {
+                            var stats = unitStats.First(x => x.UnitId == purchase.UnitIdPurchased);
+                            if (stats.UnitType == "marine" || stats.UnitType == "goliath" || stats.UnitType == "siege_tank")
+                            {
+                                factoryPurchases++;
+                            } else if (stats.UnitType == "scout" || stats.UnitType == "wraith" || stats.UnitType == "battlecruiser")
+                            {
+                                starportPurchases++;
+                            }
+                        }
+                    }
+                     
+                    if (factoryPurchases > 0 && baseUpdate.Value.Base.FactoryLevel <= factoryPurchases)
+                    {
+                        break;
+                    } 
+                    else if (starportPurchases > 0 && baseUpdate.Value.Base.StarportLevel <= starportPurchases)
+                    {
+                        break;
+                    }
+                    // Update NexusBase 
                     await UpdateNexusGoldAndSupply(coords.CoordsX, coords.CoordsY, updateInfo.AdjustedGold, updateInfo.Supply, connection, transaction);
                     await UpdateNexusUnitPurchases(coords.CoordsX, coords.CoordsY, updateInfo.UnitId, updateInfo.QtyPurchased, connection, transaction);
 
@@ -2376,13 +2431,12 @@ namespace maxhanna.Server.Controllers
 
             if (supportingUnitsSent != null)
             {
-                string sql = "";
                 Dictionary<string, object?> parameters = new Dictionary<string, object?>();
 
                 if (supportingUnitsSent.MarineTotal <= 0 && supportingUnitsSent.GoliathTotal <= 0 && supportingUnitsSent.SiegeTankTotal <= 0 && supportingUnitsSent.ScoutTotal <= 0
                 && supportingUnitsSent.WraithTotal <= 0 && supportingUnitsSent.BattlecruiserTotal <= 0 && supportingUnitsSent.GlitcherTotal <= 0)
                 {
-                    sql = @"
+                    string sql = @"
                         DELETE FROM maxhanna.nexus_defences_sent
                         WHERE id = @DefenceId LIMIT 1;";
 
@@ -2390,16 +2444,23 @@ namespace maxhanna.Server.Controllers
                     {
                         { "@DefenceId", supportingUnitsSent.Id}
                     };
+                    await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
                 }
                 else
                 {
-                    sql = @"
+                    string sql = @"
                         UPDATE maxhanna.nexus_defences_sent 
-                        SET marine_total = @MarineTotal, goliath_total = @GoliathTotal, siege_tank_total = @SiegeTankTotal, 
-                            scout_total = @ScoutTotal, wraith_total = @WraithTotal, battlecruiser_total = @BattlecruiserTotal, 
-                            glitcher_total = @GlitcherTotal 
-                        WHERE id = @DefenceId LIMIT 1;";
-
+                        SET 
+                            marine_total = GREATEST(0, @MarineTotal), 
+                            goliath_total = GREATEST(0, @GoliathTotal), 
+                            siege_tank_total = GREATEST(0, @SiegeTankTotal), 
+                            scout_total = GREATEST(0, @ScoutTotal), 
+                            wraith_total = GREATEST(0, @WraithTotal), 
+                            battlecruiser_total = GREATEST(0, @BattlecruiserTotal), 
+                            glitcher_total = GREATEST(0, @GlitcherTotal)
+                        WHERE 
+                            id = @DefenceId 
+                        LIMIT 1;";
                     parameters = new Dictionary<string, object?>
                     {
                         { "@DefenceId", supportingUnitsSent.Id},
@@ -2411,8 +2472,8 @@ namespace maxhanna.Server.Controllers
                         { "@BattlecruiserTotal", supportingUnitsSent.BattlecruiserTotal - (losses?["battlecruiser"] ?? 0) },
                         { "@GlitcherTotal", supportingUnitsSent.GlitcherTotal - (losses?["glitcher"] ?? 0) },
                     };
+                    await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
                 }
-                await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
             }
             else
             {
@@ -3009,7 +3070,6 @@ namespace maxhanna.Server.Controllers
 
         private async Task<List<NexusUnitsPurchased>?> GetNexusUnitPurchases(NexusBase? nexusBase, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
         {
-            //Console.WriteLine("GetNexusUnitPurchases...");
             if (nexusBase == null)
             {
                 return new List<NexusUnitsPurchased>();
@@ -3018,13 +3078,21 @@ namespace maxhanna.Server.Controllers
             var res = new List<NexusUnitsPurchased>();
             bool createdConnection = false;
 
+            MySqlConnection? localConn = null;
+
             try
             {
                 if (conn == null)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                    await conn.OpenAsync();
+                    localConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await localConn.OpenAsync();
                     createdConnection = true;
+                    conn = localConn;
+                }
+
+                if (conn == null)
+                {
+                    throw new InvalidOperationException("Database connection is not available.");
                 }
 
                 string sqlUnitPurchases = @"
@@ -3042,7 +3110,7 @@ namespace maxhanna.Server.Controllers
                     {
                         while (await readerUnitPurchases.ReadAsync())
                         {
-                            NexusUnitsPurchased nexusUnitPurchases = new NexusUnitsPurchased
+                            var nexusUnitPurchases = new NexusUnitsPurchased
                             {
                                 CoordsX = readerUnitPurchases.GetInt32("coords_x"),
                                 CoordsY = readerUnitPurchases.GetInt32("coords_y"),
@@ -3058,17 +3126,19 @@ namespace maxhanna.Server.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"An error occurred while GetNexusUnitPurchases");
+                _logger.LogError(ex, "An error occurred while getting Nexus unit purchases.");
             }
             finally
             {
-                if (createdConnection && conn != null)
+                if (createdConnection && localConn != null)
                 {
-                    await conn.CloseAsync();
+                    await localConn.CloseAsync();
                 }
             }
+
             return res;
         }
+
 
 
         private async Task<NexusBase?> GetUserFirstBase(User user, MySqlConnection connection, MySqlTransaction transaction)
@@ -3615,8 +3685,8 @@ namespace maxhanna.Server.Controllers
                     int attackingAirDamage = CalculateDamage(unitStat => unitStat.AirDamage, attackerUnitTypeToLevelMap);
 
 
-                    double defendingGroundDamage = (defendingUnits?.ScoutTotal * unitStats["scout"]?.GroundDamage) ?? 0.0001;
-                    double defendingAirDamage = (defendingUnits?.ScoutTotal * unitStats["scout"]?.AirDamage) ?? 0.0001;
+                    double defendingGroundDamage = Math.Max(0, (defendingUnits?.ScoutTotal * unitStats["scout"]?.GroundDamage) ?? 0.0001);
+                    double defendingAirDamage = Math.Max(0, (defendingUnits?.ScoutTotal * unitStats["scout"]?.AirDamage) ?? 0.0001);
                     foreach (var unitType in unitStats.Keys)
                     {
                         if (!scoutAttack && unitType != "scout") // Skip scout since it's already calculated
@@ -3628,8 +3698,8 @@ namespace maxhanna.Server.Controllers
                                 int unitLevel = getLevel();
                                 decimal damageMultiplier = unitUpgradeStats.FirstOrDefault(u => u.UnitLevel == unitLevel)?.DamageMultiplier ?? 1;
 
-                                defendingGroundDamage += totalUnits * ((unitStats[unitType]?.GroundDamage ?? 0.0001) * (double)damageMultiplier);
-                                defendingAirDamage += totalUnits * ((unitStats[unitType]?.AirDamage ?? 0.0001) * (double)damageMultiplier);
+                                defendingGroundDamage += Math.Max(0, totalUnits * ((unitStats[unitType]?.GroundDamage ?? 0.0001) * (double)damageMultiplier));
+                                defendingAirDamage += Math.Max(0, totalUnits * ((unitStats[unitType]?.AirDamage ?? 0.0001) * (double)damageMultiplier));
 
                                 Console.WriteLine($"Calculating added {unitType} defending damage: {defendingGroundDamage} {defendingAirDamage} ... ground: {(unitStats[unitType]?.GroundDamage ?? 0.0001)}, air: {(unitStats[unitType]?.AirDamage ?? 0.0001)}, multiplier: {damageMultiplier}");
                             }
@@ -3641,10 +3711,10 @@ namespace maxhanna.Server.Controllers
                     Console.WriteLine("Defending ground damage: " + defendingGroundDamage);
                     Console.WriteLine("Defending air damage: " + defendingAirDamage);
 
-                    double groundCoeff = attackingGroundDamage / defendingGroundDamage;
-                    double airCoeff = attackingAirDamage / defendingAirDamage;
-                    double groundAttackDmgLossCoeff = groundCoeff * Math.Sqrt((double)groundCoeff);
-                    double airAttackDmgLossCoeff = airCoeff * Math.Sqrt((double)airCoeff);
+                    double groundCoeff = Math.Max(0, attackingGroundDamage / defendingGroundDamage);
+                    double airCoeff = Math.Max(0, attackingAirDamage / defendingAirDamage);
+                    double groundAttackDmgLossCoeff = Math.Max(0, groundCoeff * Math.Sqrt((double)groundCoeff));
+                    double airAttackDmgLossCoeff = Math.Max(0, airCoeff * Math.Sqrt((double)airCoeff));
 
                     Console.WriteLine("groundCoeff: " + groundCoeff);
                     Console.WriteLine("airCoeff: " + airCoeff);
@@ -3682,10 +3752,10 @@ namespace maxhanna.Server.Controllers
                             var defendingUnitProperty = defendingUnits?.GetType().GetProperty($"{bigType}Total");
                             //Console.WriteLine($"Defending unit property: {defendingUnitProperty?.Name}");
 
-                            var defendingUnitValue = defendingUnitProperty?.GetValue(defendingUnits, null) as int? ?? 0;
+                            var defendingUnitValue = Math.Max(0, defendingUnitProperty?.GetValue(defendingUnits, null) as int? ?? 0);
                             //Console.WriteLine($"Defending unit value: {defendingUnitValue}");
 
-                            var sentValue = attackingUnit?.SentValue ?? 0;
+                            var sentValue = Math.Max(0, attackingUnit?.SentValue ?? 0);
                             //Console.WriteLine($"Sent value: {sentValue}");
 
                             var attackLossCoeff = (unitType == "scout" || unitType == "wraith" || unitType == "battlecruiser" || unitType == "glitcher")
@@ -3694,8 +3764,8 @@ namespace maxhanna.Server.Controllers
                             //Console.WriteLine($"Attack loss coeff: {attackLossCoeff}");
                             int aLoss = Math.Min(sentValue, (int)(sentValue / attackLossCoeff));
                             int dLoss = Math.Min(defendingUnitValue, (int)(defendingUnitValue * attackLossCoeff));
-                            attackingLosses[unitType] = aLoss;
-                            defendingLosses[unitType] = dLoss;
+                            attackingLosses[unitType] = Math.Max(0, aLoss);
+                            defendingLosses[unitType] = Math.Max(0, dLoss);
                             //Console.WriteLine($"Attacking losses: {attackingLosses[unitType]}"); 
                             //Console.WriteLine($"Defending losses: {defendingLosses[unitType]}");\
                             if (aLoss > 0) { attackerSupplyRecovered = true; }
@@ -3726,44 +3796,51 @@ namespace maxhanna.Server.Controllers
                                 {
                                     int loss = Math.Min(supportingBaseUnits.MarineTotal.Value, (int)(supportingBaseUnits.MarineTotal.Value * groundAttackDmgLossCoeff));
                                     supportingLosses["marine"] = Math.Min(supportingBaseUnits.MarineTotal.Value, loss);
-                                    supportingBaseUnits.MarineTotal -= loss;
+                                    supportingBaseUnits.MarineTotal = Math.Max(0, supportingBaseUnits.MarineTotal.Value - loss);
                                 }
+
                                 if (supportingBaseUnits.GoliathTotal != null && supportingBaseUnits.GoliathTotal > 0)
                                 {
                                     int loss = Math.Min(supportingBaseUnits.GoliathTotal.Value, (int)(supportingBaseUnits.GoliathTotal.Value * groundAttackDmgLossCoeff));
                                     supportingLosses["goliath"] = Math.Min(supportingBaseUnits.GoliathTotal.Value, loss);
-                                    supportingBaseUnits.GoliathTotal -= loss;
+                                    supportingBaseUnits.GoliathTotal = Math.Max(0, supportingBaseUnits.GoliathTotal.Value - loss);
                                 }
+
                                 if (supportingBaseUnits.SiegeTankTotal != null && supportingBaseUnits.SiegeTankTotal > 0)
                                 {
                                     int loss = Math.Min(supportingBaseUnits.SiegeTankTotal.Value, (int)(supportingBaseUnits.SiegeTankTotal.Value * groundAttackDmgLossCoeff));
                                     supportingLosses["siege_tank"] = Math.Min(supportingBaseUnits.SiegeTankTotal.Value, loss);
-                                    supportingBaseUnits.SiegeTankTotal -= loss;
+                                    supportingBaseUnits.SiegeTankTotal = Math.Max(0, supportingBaseUnits.SiegeTankTotal.Value - loss);
                                 }
+
                                 if (supportingBaseUnits.ScoutTotal != null && supportingBaseUnits.ScoutTotal > 0)
                                 {
                                     int loss = Math.Min(supportingBaseUnits.ScoutTotal.Value, (int)(supportingBaseUnits.ScoutTotal.Value * airAttackDmgLossCoeff));
                                     supportingLosses["scout"] = Math.Min(supportingBaseUnits.ScoutTotal.Value, loss);
-                                    supportingBaseUnits.ScoutTotal -= loss;
+                                    supportingBaseUnits.ScoutTotal = Math.Max(0, supportingBaseUnits.ScoutTotal.Value - loss);
                                 }
+
                                 if (supportingBaseUnits.WraithTotal != null && supportingBaseUnits.WraithTotal > 0)
                                 {
                                     int loss = Math.Min(supportingBaseUnits.WraithTotal.Value, (int)(supportingBaseUnits.WraithTotal.Value * airAttackDmgLossCoeff));
                                     supportingLosses["wraith"] = Math.Min(supportingBaseUnits.WraithTotal.Value, loss);
-                                    supportingBaseUnits.WraithTotal -= loss;
+                                    supportingBaseUnits.WraithTotal = Math.Max(0, supportingBaseUnits.WraithTotal.Value - loss);
                                 }
+
                                 if (supportingBaseUnits.BattlecruiserTotal != null && supportingBaseUnits.BattlecruiserTotal > 0)
                                 {
                                     int loss = Math.Min(supportingBaseUnits.BattlecruiserTotal.Value, (int)(supportingBaseUnits.BattlecruiserTotal.Value * airAttackDmgLossCoeff));
                                     supportingLosses["battlecruiser"] = Math.Min(supportingBaseUnits.BattlecruiserTotal.Value, loss);
-                                    supportingBaseUnits.BattlecruiserTotal -= loss;
+                                    supportingBaseUnits.BattlecruiserTotal = Math.Max(0, supportingBaseUnits.BattlecruiserTotal.Value - loss);
                                 }
+
                                 if (supportingBaseUnits.GlitcherTotal != null && supportingBaseUnits.GlitcherTotal > 0)
                                 {
                                     int loss = Math.Min(supportingBaseUnits.GlitcherTotal.Value, (int)(supportingBaseUnits.GlitcherTotal.Value * airAttackDmgLossCoeff));
                                     supportingLosses["glitcher"] = Math.Min(supportingBaseUnits.GlitcherTotal.Value, loss);
-                                    supportingBaseUnits.GlitcherTotal -= loss;
+                                    supportingBaseUnits.GlitcherTotal = Math.Max(0, supportingBaseUnits.GlitcherTotal.Value - loss);
                                 }
+
                                 var tmpBase = new NexusBase();
                                 tmpBase.CoordsX = supportingBaseUnits.DestinationCoordsX;
                                 tmpBase.CoordsY = supportingBaseUnits.DestinationCoordsY;
@@ -3850,8 +3927,7 @@ namespace maxhanna.Server.Controllers
                     }
 
                     if (attackerSupplyRecovered && attackingLosses != null)
-                    {
-                        Console.WriteLine("Removing glitcher");
+                    { 
                         await UpdateNexusUnitsAfterAttack(conn, transaction, origin, attackingLosses);
                         int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
                         await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
@@ -3924,34 +4000,13 @@ namespace maxhanna.Server.Controllers
             string sql = @"
                 UPDATE maxhanna.nexus_units 
                 SET 
-                    marine_total = CASE 
-                        WHEN marine_total - @Marine < 0 THEN 0 
-                        ELSE marine_total - @Marine 
-                    END,
-                    goliath_total = CASE 
-                        WHEN goliath_total - @Goliath < 0 THEN 0 
-                        ELSE goliath_total - @Goliath 
-                    END,
-                    siege_tank_total = CASE 
-                        WHEN siege_tank_total - @SiegeTank < 0 THEN 0 
-                        ELSE siege_tank_total - @SiegeTank 
-                    END,
-                    scout_total = CASE 
-                        WHEN scout_total - @Scout < 0 THEN 0 
-                        ELSE scout_total - @Scout 
-                    END,
-                    wraith_total = CASE 
-                        WHEN wraith_total - @Wraith < 0 THEN 0 
-                        ELSE wraith_total - @Wraith 
-                    END,
-                    battlecruiser_total = CASE 
-                        WHEN battlecruiser_total - @Battlecruiser < 0 THEN 0 
-                        ELSE battlecruiser_total - @Battlecruiser 
-                    END,
-                    glitcher_total = CASE 
-                        WHEN glitcher_total - @Glitcher < 0 THEN 0 
-                        ELSE glitcher_total - @Glitcher 
-                    END
+                    marine_total = GREATEST(0, marine_total - @Marine), 
+                    goliath_total = GREATEST(0, goliath_total - @Goliath), 
+                    siege_tank_total = GREATEST(0, siege_tank_total - @SiegeTank), 
+                    scout_total = GREATEST(0, scout_total - @Scout), 
+                    wraith_total = GREATEST(0, wraith_total - @Wraith), 
+                    battlecruiser_total = GREATEST(0, battlecruiser_total - @Battlecruiser), 
+                    glitcher_total = GREATEST(0, glitcher_total - @Glitcher)
                 WHERE 
                     coords_x = @CoordsX 
                 AND coords_y = @CoordsY;";

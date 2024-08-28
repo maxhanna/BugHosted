@@ -37,7 +37,7 @@
 
   <div class="gamescreen" *ngIf="!isUserNew">
     <!-- Conditionally display incoming attacks -->
-    <div *ngIf=" shouldShowIncomingDefences()" class="incomingCount" (click)="toggleScreen('bases', !isBasesOpen)">
+    <div *ngIf="shouldShowIncomingAttacks() || shouldShowIncomingDefences()" class="incomingCount" (click)="toggleScreen('bases', !isBasesOpen)">
       <div *ngIf="shouldShowIncomingAttacks()" class="attacksIncomingCount">{{attacksIncomingCount}}⚔️</div>
       <div *ngIf="shouldShowIncomingDefences()" class="defenceIncomingCount">{{defencesIncomingCount}}🛡️</div>
     </div> 
@@ -65,6 +65,7 @@
       <app-nexus-map #mapComponent
                      [user]="parentRef.user"
                      [inputtedParentRef]="parentRef"
+                     [isParentLoading]="isLoading"
                      [nexusBase]="nexusBase"
                      [nexusAvailableUnits]="nexusAvailableUnits"
                      [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase"
@@ -91,7 +92,9 @@
                      (emittedReloadEvent)="emittedReloadEvent($event)"
                      (closeMapEvent)="viewMap()"
                      (emittedAttackEvent)="emittedAttackEvent($event)"
-                     (emittedGoToBaseEvent)="emittedGoToBaseEvent($event)">
+                     (emittedGoToBaseEvent)="emittedGoToBaseEvent($event)"
+                     (emittedSendBackAttackEvent)="emittedSendBackAttackEvent($event)"
+                     (emittedSendBackDefenceEvent)="emittedSendBackDefenceEvent($event)">
       </app-nexus-map>
     </div>
     <!-- Bases screen -->
@@ -405,7 +408,10 @@
          *ngIf="whlvl1Src && whlvl2Src && whlvl3Src && nexusBase && isWarehouseOpen" loading="lazy" decoding="asynchronous" />
     <div *ngIf="isWarehouseOpen" class="warehouseScreen">
       <div>
-        📀 Current gold capacity : <span class="goldText">{{goldCapacity}}📀</span>
+        <div>Current gold capacity : <span class="goldText">{{goldCapacity}}📀</span></div>
+        <div *ngIf="nexusBase">
+          Time until max capacity: {{ formatTimer(calculateTimeUntilMaxCapacity()) }} seconds
+        </div>
       </div>
       <div class="showMoreInfoWarehouseDiv">
         <div (click)="showMoreWarehouseInfo = !showMoreWarehouseInfo" class="cursorPointer">{{showMoreWarehouseInfo ? 'Hide' : 'More'}} info</div>
@@ -588,13 +594,13 @@
 
   <div *ngIf="!isCommandCenterOpen && !toggledUnitStat && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen">
     <span *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="mainInfoSection">Movement:</span>
-    <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0">
+    <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="movementListDiv">
       <div class="upgradeTimersTableDiv">
         <div *ngFor="let timer of activeAttackTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
-          <span class="pointer" (click)="openMapAndScrollTo(timer.unit)">{{ formatBuildingTimer(timer.unit) }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+          <span class="pointer" (click)="openMapAndScrollTo(timer.unit)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
         <div *ngFor="let timer of activeDefenceTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
-          <span class="pointer" (click)="openMapAndScrollTo(timer.unit)">{{ formatBuildingTimer(timer.unit) }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+          <span class="pointer" (click)="openMapAndScrollTo(timer.unit)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
       </div>
     </div>
@@ -605,7 +611,7 @@
           <div *ngIf="timer.unit.includes('marine')">
             <app-nexus-base-units [showOnlyMarine]="true"
                                   [marineTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'marine', formatBuildingTimer(timer.unit).split(' ')[0], true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'marine', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [marinePictureSrc]="marinePictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -613,7 +619,7 @@
           <div *ngIf="timer.unit.includes('goliath')">
             <app-nexus-base-units [showOnlyGoliath]="true"
                                   [goliathTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'goliath', formatBuildingTimer(timer.unit).split(' ')[0], true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'goliath', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [goliathPictureSrc]="goliathPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -621,7 +627,7 @@
           <div *ngIf="timer.unit.includes('siege_tank')">
             <app-nexus-base-units [showOnlySiegeTank]="true"
                                   [siegeTankTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'siege_tank', formatBuildingTimer(timer.unit).split(' ')[0], true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'siege_tank', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [siegeTankPictureSrc]="siegeTankPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -629,7 +635,7 @@
           <div *ngIf="timer.unit.includes('scout')">
             <app-nexus-base-units [showOnlyScout]="true"
                                   [scoutTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'scout', formatBuildingTimer(timer.unit).split(' ')[0], true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'scout', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [scoutPictureSrc]="scoutPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -637,7 +643,7 @@
           <div *ngIf="timer.unit.includes('wraith')">
             <app-nexus-base-units [showOnlyWraith]="true"
                                   [wraithTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'wraith', formatBuildingTimer(timer.unit).split(' ')[0], true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'wraith', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [wraithPictureSrc]="wraithPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -645,7 +651,7 @@
           <div *ngIf="timer.unit.includes('battlecruiser')">
             <app-nexus-base-units [showOnlyBattlecruiser]="true"
                                   [battlecruiserTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'battlecruiser', formatBuildingTimer(timer.unit).split(' ')[0], true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'battlecruiser', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [battlecruiserPictureSrc]="battlecruiserPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -653,7 +659,7 @@
           <div *ngIf="timer.unit.includes('glitcher')">
             <app-nexus-base-units [showOnlyGlitcher]="true"
                                   [glitcherTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'glitcher', formatBuildingTimer(timer.unit).split(' ')[0], true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'glitcher', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [glitcherPictureSrc]="glitcherPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>

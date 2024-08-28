@@ -84,13 +84,13 @@
     <ng-container *ngIf="getAttackTimers().length;">
       <div *ngFor="let attackTimer of getAttackTimers()">
         <span class="invertedHighlights cursorPointer"
-              (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }}
+              (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }} <span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackAttack(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
       </div>
     </ng-container>
     <ng-container *ngIf="getDefenceTimers().length;">
       <div *ngFor="let attackTimer of getDefenceTimers()">
         <span class="invertedHighlights cursorPointer"
-              (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }}
+              (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }}<span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackDefence(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
       </div>
     </ng-container>
   </div>
@@ -129,5 +129,5 @@
     <input type="checkbox" #switchNextBaseCheckbox />
     Automatically switch bases after attacking
   </label>
-  <div *ngIf="isLoading">Loading Data</div> 
+  <div *ngIf="isLoading || isParentLoading">Loading Data</div> 
 </div>

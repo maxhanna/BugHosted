@@ -87,3 +87,7 @@ tbody {
 .blueText{
     color: var(--secondary-font-color);
 }
+.reorderNote {
+  color: var(--secondary-font-color);
+  font-style: italic;
+}
