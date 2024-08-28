@@ -4106,36 +4106,27 @@ namespace maxhanna.Server.Controllers
             // Calculate the count of similar notifications for defender
             if (deadBase.User?.Id != null)
             {
-                var countDefenderSql = @"
-                    SELECT COUNT(*)
-                    FROM maxhanna.notifications
-                    WHERE user_id = @receiverId
-                      AND from_user_id = @senderId
-                      AND user_profile_id = @senderId
-                      AND date >= NOW() - INTERVAL 1 DAY
-                      AND text LIKE '%captured%'";
-
-                int defenderCount;
-                using (var countDefenderCmd = new MySqlCommand(countDefenderSql, conn, transaction))
-                {
-                    countDefenderCmd.Parameters.AddWithValue("@receiverId", receiverId);
-                    countDefenderCmd.Parameters.AddWithValue("@senderId", senderId);
-                    defenderCount = Convert.ToInt32(await countDefenderCmd.ExecuteScalarAsync());
-                }
-
-                // Update defender notification if it exists
                 var updateDefenderSql = @"
                     UPDATE maxhanna.notifications
-                    SET text = CONCAT(
-                            'Captured ', 
-                            @count,
-                            ' bases, including {'
-                            , @coordsX
-                            , ','
-                            , @coordsY
-                            , '}!'
-                        ),
-                        date = NOW()
+                    SET text = IF(
+                            text LIKE '%Captured % bases,%',
+                            CONCAT(
+                                'Captured ', 
+                                CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(text, ' ', -5), ' ', 1) AS UNSIGNED) + 1,
+                                ' bases, including {'
+                                , @coordsX
+                                , ','
+                                , @coordsY
+                                , '}!'
+                            ),
+                            CONCAT(
+                                'Captured 2 bases, including {'
+                                , @coordsX
+                                , ','
+                                , @coordsY
+                                , '}!'
+                            )
+                        )
                     WHERE user_id = @receiverId 
                       AND from_user_id = @senderId 
                       AND user_profile_id = @senderId 
@@ -4144,7 +4135,6 @@ namespace maxhanna.Server.Controllers
 
                 var updateDefenderParameters = new Dictionary<string, object?>
                 {
-                    { "@count", defenderCount },
                     { "@receiverId", receiverId },
                     { "@senderId", senderId },
                     { "@coordsX", coordsX },
@@ -4156,76 +4146,58 @@ namespace maxhanna.Server.Controllers
                 if (defenderAffectedRows == null || defenderAffectedRows == 0)
                 {
                     var insertDefenderSql = @"
-                    INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
-                    SELECT 
-                        @receiverId, 
-                        @senderId, 
-                        @senderId, 
-                        CONCAT('Captured your base {', @coordsX, ',', @coordsY, '}!'),
-                        NOW()
-                    FROM DUAL";
+                        INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+                        VALUES 
+                            (@receiverId, 
+                             @senderId, 
+                             @senderId, 
+                             CONCAT('Captured your base {', @coordsX, ',', @coordsY, '}!'),
+                             NOW())";
 
                     await ExecuteInsertOrUpdateOrDeleteAsync(insertDefenderSql, updateDefenderParameters, conn, transaction);
                 }
-
             }
 
-            // Calculate the count of similar notifications for attacker
-            var countAttackerSql = @"
-                SELECT COUNT(*)
-                FROM maxhanna.notifications
-                WHERE user_id = @attackerId
-                  AND from_user_id = @attackerId
-                  AND user_profile_id = @attackerId
+            // Handle attacker notification
+            var updateAttackerSql = @"
+                UPDATE maxhanna.notifications
+                SET text = CONCAT(
+                        'You captured ', 
+                        CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(text, ' ', -5), ' ', 1) AS UNSIGNED) + 1,
+                        ' bases, including {'
+                        , @coordsX
+                        , ','
+                        , @coordsY
+                        , '}!'
+                    )
+                WHERE user_id = @attackerId 
+                  AND from_user_id = @attackerId 
+                  AND user_profile_id = @attackerId 
                   AND date >= NOW() - INTERVAL 1 DAY
-                  AND text LIKE '%captured%'";
-
-            int attackerCount;
-            using (var countAttackerCmd = new MySqlCommand(countAttackerSql, conn, transaction))
-            {
-                countAttackerCmd.Parameters.AddWithValue("@attackerId", attackerId);
-                attackerCount = Convert.ToInt32(await countAttackerCmd.ExecuteScalarAsync());
-            }
+                  AND text LIKE '%You captured%'";
 
             var updateAttackerParameters = new Dictionary<string, object?>
             {
-                { "@count", attackerCount },
                 { "@attackerId", attackerId },
                 { "@coordsX", coordsX },
                 { "@coordsY", coordsY }
             };
 
-            if (attackerCount > 0)
-            {
-                var updateAttackerSql = @"
-                UPDATE maxhanna.notifications
-                SET text = CONCAT('You captured ', @count, ' bases, including {', @coordsX, ',', @coordsY, '}!'),
-                    date = NOW()
-                WHERE user_id = @attackerId 
-                  AND from_user_id = @attackerId 
-                  AND user_profile_id = @attackerId 
-                  AND date >= NOW() - INTERVAL 1 DAY
-                  AND text LIKE '%captured%'";
+            long? attackerAffectedRows = await ExecuteInsertOrUpdateOrDeleteAsync(updateAttackerSql, updateAttackerParameters, conn, transaction);
 
-
-
-                await ExecuteInsertOrUpdateOrDeleteAsync(updateAttackerSql, updateAttackerParameters, conn, transaction);
-            }
-            else
+            if (attackerAffectedRows == null || attackerAffectedRows == 0)
             {
                 var insertAttackerSql = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
-                    SELECT 
-                        @attackerId, 
-                        @attackerId, 
-                        @attackerId, 
-                        CONCAT('You captured a base at {', @coordsX, ',', @coordsY, '}!'),
-                        NOW()
-                    FROM DUAL";
+                    VALUES 
+                        (@attackerId, 
+                         @attackerId, 
+                         @attackerId, 
+                         CONCAT('You captured a base at {', @coordsX, ',', @coordsY, '}!'),
+                         NOW())";
 
                 await ExecuteInsertOrUpdateOrDeleteAsync(insertAttackerSql, updateAttackerParameters, conn, transaction);
-            }
-
+            } 
         }
         private async Task DeleteSupportSent(NexusBase deadBase, MySqlConnection? conn, MySqlTransaction? transaction)
         {

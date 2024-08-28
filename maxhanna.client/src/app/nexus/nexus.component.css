@@ -477,7 +477,7 @@
   font-size: small;
 }
 
-.gameNotificationDiv { 
+.gameNotificationDiv, .moreInfoTitle {
   top: 35px;
   right: 15px;
   position: absolute;
@@ -775,4 +775,25 @@
 .movementListDiv {
     max-height:200px;
     overflow:auto;
+}
+.flexCentered {
+  display: flex;
+  justify-content: center;
+  box-shadow: 0px 0px 5px black;
+}
+.flexCenteredColumn {
+  display: flex;
+  justify-content: center; 
+  flex-direction: column;
+  align-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.unitTypeMoreInfoDiv {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  align-content: center;
+  justify-content: space-evenly;
+  align-items: center;
 }

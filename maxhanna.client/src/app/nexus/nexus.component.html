@@ -308,18 +308,18 @@
          class="screenBackground"
          *ngIf="flvl1Src && flvl2Src && flvl3Src && nexusBase && isFactoryOpen" loading="lazy" decoding="asynchronous" />
     <div *ngIf="isFactoryOpen" class="factoryScreen">
-
-      <div *ngIf="calculateCurrentSupply() > 0">
+      <div class="moreInfoTitle xxSmallFont cursorPointer" (click)="showMoreFactoryInfo = !showMoreFactoryInfo">[More Info]</div>
+      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreFactoryInfo">
         Upgrade the Factory to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.factoryLevel ?? 0}}</span>
       </div>
-      <div *ngIf="calculateCurrentSupply() == 0" class="redText">You require more supply.</div>
-      <div *ngIf="calculateCurrentSupply() == 0">Upgrade the Supply Depot to train more units.</div>
+      <div *ngIf="calculateCurrentSupply() == 0 && !showMoreFactoryInfo" class="redText">You require more supply.</div>
+      <div *ngIf="calculateCurrentSupply() == 0 && !showMoreFactoryInfo">Upgrade the Supply Depot to train more units.</div>
 
-      <div class="unitsTableDiv">
+      <div class="unitsTableDiv" *ngIf="!showMoreFactoryInfo">
         <table class="upgradeDisplayTable">
           <tbody *ngFor="let unit of getFactoryUnits()">
             <tr>
-              <td class="unitPictureTd" (click)="toggleUnitScreen(unit, true)">
+              <td class="unitPictureTd" (click)="toggleUnitScreen(unit, undefined, true)">
                 <img [src]="unit.pictureSrc" class="unitPicture" *ngIf="unit.pictureSrc" loading="lazy" decoding="asynchronous" />
               </td>
               <td class="unitPictureTd capitalize smallFont usernameProfileLink">
@@ -349,7 +349,34 @@
           </tbody>
         </table>
       </div>
-      <div><button (click)="closeFactory()">Back</button></div>
+      <div *ngIf="showMoreFactoryInfo">
+        <div>Use your factories to train ground units.</div>
+        <div class="notification">Ground units can shoot both air and ground units but each unit has its own specialty.</div>
+        <div class="notification">Marines and Goliaths have an affinity for air damage.</div>
+        <div class="notification">Siege Tanks are strongest against ground units.</div>
+        <div class="flexCentered mainInfoSection">Available units:</div>
+        <div class="flexCentered unitTypeMoreInfoDiv">
+          <div (click)="toggleUnitScreen(undefined, 'marine', true)" class="flexCenteredColumn">
+            <div>Marine</div>
+            <div>
+              <img [src]="marinePictureSrc" class="unitPicture" *ngIf="marinePictureSrc" loading="lazy" decoding="asynchronous" />
+            </div>
+          </div>
+          <div (click)="toggleUnitScreen(undefined, 'goliath', true)" class="flexCenteredColumn">
+            <div>Goliath</div>
+            <div>
+              <img [src]="goliathPictureSrc" class="unitPicture" *ngIf="goliathPictureSrc" loading="lazy" decoding="asynchronous" />
+            </div>
+          </div>
+          <div (click)="toggleUnitScreen(undefined, 'siege_tank', true)" class="flexCenteredColumn">
+            <div>Siege Tank</div>
+            <div>
+              <img [src]="siegeTankPictureSrc" class="unitPicture" *ngIf="siegeTankPictureSrc" loading="lazy" decoding="asynchronous" />
+            </div>
+          </div> 
+        </div>
+      </div>
+      <div><button (click)="showMoreFactoryInfo ? showMoreFactoryInfo = !showMoreFactoryInfo : closeFactory()">Back</button></div>
     </div>
 
 
@@ -358,18 +385,18 @@
          *ngIf="splvl1Src && splvl2Src && splvl3Src && nexusBase && isStarportOpen"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="isStarportOpen" class="starportScreen">
-
-      <div *ngIf="calculateCurrentSupply() > 0">
+      <div class="moreInfoTitle xxSmallFont cursorPointer" (click)="showMoreStarportInfo = !showMoreStarportInfo">[More Info]</div> 
+      <div *ngIf="calculateCurrentSupply() > 0 && !showMoreStarportInfo">
         Upgrade the Starport to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
       </div>
-      <div *ngIf="calculateCurrentSupply() == 0" class="redText">You require more supply.</div>
-      <div *ngIf="calculateCurrentSupply() == 0">Upgrade the Supply Depot to train more units.</div>
+      <div *ngIf="calculateCurrentSupply() == 0 && !showMoreStarportInfo" class="redText">You require more supply.</div>
+      <div *ngIf="calculateCurrentSupply() == 0 && !showMoreStarportInfo">Upgrade the Supply Depot to train more units.</div>
 
-      <div class="unitsTableDiv">
+      <div class="unitsTableDiv" *ngIf="!showMoreStarportInfo">
         <table class="upgradeDisplayTable">
           <tbody *ngFor="let unit of getStarportUnits()">
             <tr>
-              <td class="unitPictureTd" (click)="toggleUnitScreen(unit, true)">
+              <td class="unitPictureTd" (click)="toggleUnitScreen(unit, undefined)">
                 <img [src]="unit.pictureSrc" class="unitPicture" *ngIf="unit.pictureSrc" loading="lazy" decoding="asynchronous" />
               </td>
               <td class="unitPictureTd capitalize smallFont usernameProfileLink">
@@ -399,7 +426,34 @@
           </tbody>
         </table>
       </div>
-      <div><button (click)="closeStarport()">Back</button></div>
+      <div *ngIf="showMoreStarportInfo">
+        <div>Use your starports to train air units.</div>
+        <div class="notification">Air units can shoot both air and ground units but each unit has its own specialty.</div>
+        <div class="notification">Battlecruisers and Wraith are great at dealing damage.</div>
+        <div class="notification">Scouts are used to detect enemy units and buildings. When sent alone in combat, only scouts can defend against other scouts.</div>
+        <div class="flexCentered mainInfoSection">Available units:</div>
+        <div class="flexCentered unitTypeMoreInfoDiv">
+          <div (click)="toggleUnitScreen(undefined, 'scout', true)" class="flexCenteredColumn">
+            <div>Scout</div>
+            <div>
+              <img [src]="scoutPictureSrc" class="unitPicture" *ngIf="scoutPictureSrc" loading="lazy" decoding="asynchronous" />
+            </div>
+          </div>
+          <div (click)="toggleUnitScreen(undefined, 'wraith', true)" class="flexCenteredColumn">
+            <div>Wraith</div>
+            <div>
+              <img [src]="wraithPictureSrc" class="unitPicture" *ngIf="wraithPictureSrc" loading="lazy" decoding="asynchronous" />
+            </div>
+          </div>
+          <div (click)="toggleUnitScreen(undefined, 'battlecruiser', true)" class="flexCenteredColumn">
+            <div>Battlecruiser</div>
+            <div>
+              <img [src]="battlecruiserPictureSrc" class="unitPicture" *ngIf="battlecruiserPictureSrc" loading="lazy" decoding="asynchronous" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div><button (click)="showMoreStarportInfo ? showMoreStarportInfo = !showMoreStarportInfo : closeStarport()">Back</button></div>
     </div>
 
 
@@ -410,7 +464,7 @@
       <div>
         <div>Current gold capacity : <span class="goldText">{{goldCapacity}}📀</span></div>
         <div *ngIf="nexusBase">
-          Time until max capacity: {{ formatTimer(calculateTimeUntilMaxCapacity()) }} seconds
+          Time until max capacity: {{ formatTimer(calculateTimeUntilMaxCapacity()) }}
         </div>
       </div>
       <div class="showMoreInfoWarehouseDiv">
@@ -488,7 +542,7 @@
           <table class="upgradeDisplayTable">
             <tbody>
               <tr>
-                <td class="unitPictureTd" (click)="toggleUnitScreen(glitcherStats, true)">
+                <td class="unitPictureTd" (click)="toggleUnitScreen(glitcherStats, undefined, true)">
                   <img [src]="glitcherStats.pictureSrc" class="unitPicture" *ngIf="glitcherStats.pictureSrc" loading="lazy" decoding="asynchronous" />
                 </td>
                 <td class="unitPictureTd capitalize smallFont usernameProfileLink">
@@ -587,7 +641,7 @@
              [src]="toggledUnitStat.pictureSrc"
              *ngIf="toggledUnitStat.pictureSrc"
              [style.display]="toggledUnitStat ? 'block' : 'none'" loading="lazy" decoding="asynchronous" />
-        <button (click)="toggleUnitScreen(toggledUnitStat, false)">Close</button>
+        <button (click)="toggleUnitScreen(toggledUnitStat, undefined, false)">Close</button>
       </div>
     </div>
   </div>

@@ -30,10 +30,10 @@
         <td><span [ngClass]="getAttackClass(base)">{{getAttacksCount(base)}}</span> <span [ngClass]="getDefenceClass(base)">{{getDefenceCount(base)}}</span></td>
       </tr>
       <tr [ngClass]="getBaseClass(base)">
-        <td colspan="5">
+        <td colspan="4">
           <span class="baseNameSpan">{{base.baseName}}</span>
         </td>
-        <td colspan="6" class="unitsListTd">
+        <td colspan="7" class="unitsListTd">
           <ng-container *ngFor="let unitType of unitTypes">
             <span [ngClass]="getUnitClass(base, unitType.code)">
               {{unitType.shortName}}:{{getUnitTotalSafe(base, unitType.code)}}

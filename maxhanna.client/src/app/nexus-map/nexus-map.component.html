@@ -59,13 +59,15 @@
 </div>
 
 <div *ngIf="shouldShowMapInputs() && selectedNexusBase" class="centeredDiv">
+  <!-- COMMAND BUTTONS -->
   <div>
     <button (click)="showAttackScreen(false)" *ngIf="showAttackButton" title="Send Attack">⚔️Attack</button>
     <button (click)="showAttackScreen(true)" *ngIf="showAttackButton" title="Send Defence">🛡️Defend</button>
     <button (click)="toggleShowReports()" title="Shows battle reports for this base.">📃{{ isReportsHidden ? '' : 'Hide' }} Data</button>
     <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰View Base</button>
   </div>
-  <div class="infoContainer">
+  <!-- LOCATION INFO -->
+  <div class="infoContainer" *ngIf="isReportsHidden">
     <div class="tileInfoDiv">
       <div *ngIf="selectedNexusBase.user && user"> 
         <span style="display:inline-block;">
@@ -78,9 +80,9 @@
         <div *ngIf="selectedNexusBase.baseName">Name: <span class="usernameProfileLink">{{selectedNexusBase.baseName}}</span></div>
       </div>
     </div>
-  </div> 
-
-  <div class="attackDefenceTimers">
+  </div>
+  <!-- ATTACK TIMERS -->
+  <div class="attackDefenceTimers" *ngIf="isReportsHidden">
     <ng-container *ngIf="getAttackTimers().length;">
       <div *ngFor="let attackTimer of getAttackTimers()">
         <span class="invertedHighlights cursorPointer"
@@ -94,7 +96,7 @@
       </div>
     </ng-container>
   </div>
-
+  <!-- REPORTS -->
   <div class="reportsDisplayDiv" *ngIf="!isReportsHidden">
     <app-nexus-reports [user]="user" [targetBase]="selectedNexusBase" #nexusReports></app-nexus-reports>
   </div>

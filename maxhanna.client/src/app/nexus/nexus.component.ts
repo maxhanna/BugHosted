@@ -52,6 +52,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   displayWarehouse = false;
   displayEngineeringBay = false;
   showMoreWarehouseInfo = false;
+  showMoreFactoryInfo = false;
+  showMoreStarportInfo = false;
   showMoreEngineeringBayInfo = false;
   isUpgradingUnits = false;
   preventMapScrolling = false;
@@ -1555,11 +1557,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.stopLoading();
     }
   }
-  toggleUnitScreen(unit?: UnitStats, isOpen?: boolean) {
-    if (isOpen == false) {
+  toggleUnitScreen(unit?: UnitStats, type?: string, isOpen?: boolean) {
+    if (isOpen == false || (isOpen && this.toggledUnitStat)) {
       this.toggledUnitStat = undefined;
     } else {
-      this.toggledUnitStat = unit;
+      if (unit) {
+        this.toggledUnitStat = unit;
+      } else if (type && this.units) {
+        this.toggledUnitStat = this.units.find(x => x.unitType == type);
+      }
     }
   }
   getGlitcherStats() {

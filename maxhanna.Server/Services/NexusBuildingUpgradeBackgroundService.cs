@@ -217,54 +217,69 @@ namespace maxhanna.Server.Services
         private async Task ProcessUpgrade(int upgradeId)
         {
             await _semaphore.WaitAsync();
-            Console.WriteLine($"Processing upgrade with ID: {upgradeId}"); 
+            Console.WriteLine($"Processing upgrade with ID: {upgradeId}");
+
+            NexusBase? nexus = null;
 
             await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            await conn.OpenAsync();   
+            await conn.OpenAsync();
+
             try
             {
-                // Load the NexusBase and pass it to UpdateNexusAttacks
-                NexusBase? nexus = await GetNexusBaseByUpgradeId(upgradeId, conn);
-                if (nexus != null)
-                { 
-                    // Instantiate the NexusController with the logger and configuration
-                    var nexusController = new NexusController(_logger, _config);
-                    await nexusController.UpdateNexusBuildings(nexus);
-                }
-                else
-                {
-                    Console.WriteLine($"No NexusBase found for attack ID: {upgradeId}");
-                } 
+                // Load the NexusBase
+                nexus = await GetNexusBaseByUpgradeId(upgradeId, conn);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
-            } 
+                Console.WriteLine($"Error loading NexusBase for upgrade ID {upgradeId}: {ex.Message}");
+            }
             finally
             {
+                await conn.CloseAsync();
+                await conn.DisposeAsync();
+                if (nexus != null)
+                {
+                    try
+                    {
+                        // Instantiate the NexusController with the logger and configuration
+                        var nexusController = new NexusController(_logger, _config);
+
+                        // Update the Nexus buildings
+                        await nexusController.UpdateNexusBuildings(nexus);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error updating Nexus buildings for upgrade ID {upgradeId}: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"No NexusBase found for upgrade ID: {upgradeId}");
+                }
+
                 _semaphore.Release();
             }
         }
 
 
+
         public async Task<NexusBase> GetNexusBaseByUpgradeId(int id, MySqlConnection? conn = null)
         {
             NexusBase tmpBase = new NexusBase();
-            bool createdConnection = false;
+            bool createdConnection = conn == null;
 
             try
             {
-                if (conn == null)
+                if (createdConnection)
                 {
                     conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
                     await conn.OpenAsync();
-                    createdConnection = true;
                 }
 
-                string sqlBase =
-                    @"SELECT * FROM maxhanna.nexus_bases n
-                      LEFT JOIN maxhanna.nexus_base_upgrades a ON a.coords_x = n.coords_x AND a.coords_y = n.coords_y
-                      WHERE a.id = @UpgradeId LIMIT 1;";
+                string sqlBase = @"
+                    SELECT * FROM maxhanna.nexus_bases n
+                    LEFT JOIN maxhanna.nexus_base_upgrades a ON a.coords_x = n.coords_x AND a.coords_y = n.coords_y
+                    WHERE a.id = @UpgradeId LIMIT 1;";
 
                 using (MySqlCommand cmdBase = new MySqlCommand(sqlBase, conn))
                 {
@@ -276,28 +291,39 @@ namespace maxhanna.Server.Services
                         {
                             tmpBase = new NexusBase
                             {
-                                User = new User(readerBase.IsDBNull(readerBase.GetOrdinal("user_id")) ? 0 : readerBase.GetInt32("user_id"), "Anonymous"),
-                                Gold = readerBase.IsDBNull(readerBase.GetOrdinal("gold")) ? 0 : readerBase.GetDecimal("gold"),
-                                Supply = readerBase.IsDBNull(readerBase.GetOrdinal("supply")) ? 0 : readerBase.GetInt32("supply"),
-                                CoordsX = readerBase.IsDBNull(readerBase.GetOrdinal("coords_x")) ? 0 : readerBase.GetInt32("coords_x"),
-                                CoordsY = readerBase.IsDBNull(readerBase.GetOrdinal("coords_y")) ? 0 : readerBase.GetInt32("coords_y"),
-                                CommandCenterLevel = readerBase.IsDBNull(readerBase.GetOrdinal("command_center_level")) ? 0 : readerBase.GetInt32("command_center_level"),
-                                MinesLevel = readerBase.IsDBNull(readerBase.GetOrdinal("mines_level")) ? 0 : readerBase.GetInt32("mines_level"),
-                                SupplyDepotLevel = readerBase.IsDBNull(readerBase.GetOrdinal("supply_depot_level")) ? 0 : readerBase.GetInt32("supply_depot_level"),
-                                EngineeringBayLevel = readerBase.IsDBNull(readerBase.GetOrdinal("engineering_bay_level")) ? 0 : readerBase.GetInt32("engineering_bay_level"),
-                                WarehouseLevel = readerBase.IsDBNull(readerBase.GetOrdinal("warehouse_level")) ? 0 : readerBase.GetInt32("warehouse_level"),
-                                FactoryLevel = readerBase.IsDBNull(readerBase.GetOrdinal("factory_level")) ? 0 : readerBase.GetInt32("factory_level"),
-                                StarportLevel = readerBase.IsDBNull(readerBase.GetOrdinal("starport_level")) ? 0 : readerBase.GetInt32("starport_level"),
-                                Conquered = readerBase.IsDBNull(readerBase.GetOrdinal("conquered")) ? DateTime.MinValue : readerBase.GetDateTime("conquered"),
-                                Updated = readerBase.IsDBNull(readerBase.GetOrdinal("updated")) ? DateTime.MinValue : readerBase.GetDateTime("updated"),
+                                User = readerBase.IsDBNull(readerBase.GetOrdinal("user_id"))
+                                        ? new User(0, "Anonymous")
+                                        : new User(readerBase.GetInt32("user_id"), "Anonymous"),
+                                Gold = readerBase.IsDBNull(readerBase.GetOrdinal("gold"))
+                                        ? 0 : readerBase.GetDecimal("gold"),
+                                Supply = readerBase.IsDBNull(readerBase.GetOrdinal("supply"))
+                                        ? 0 : readerBase.GetInt32("supply"),
+                                CoordsX = readerBase.IsDBNull(readerBase.GetOrdinal("coords_x"))
+                                        ? 0 : readerBase.GetInt32("coords_x"),
+                                CoordsY = readerBase.IsDBNull(readerBase.GetOrdinal("coords_y"))
+                                        ? 0 : readerBase.GetInt32("coords_y"),
+                                CommandCenterLevel = readerBase.IsDBNull(readerBase.GetOrdinal("command_center_level"))
+                                        ? 0 : readerBase.GetInt32("command_center_level"),
+                                MinesLevel = readerBase.IsDBNull(readerBase.GetOrdinal("mines_level"))
+                                        ? 0 : readerBase.GetInt32("mines_level"),
+                                SupplyDepotLevel = readerBase.IsDBNull(readerBase.GetOrdinal("supply_depot_level"))
+                                        ? 0 : readerBase.GetInt32("supply_depot_level"),
+                                EngineeringBayLevel = readerBase.IsDBNull(readerBase.GetOrdinal("engineering_bay_level"))
+                                        ? 0 : readerBase.GetInt32("engineering_bay_level"),
+                                WarehouseLevel = readerBase.IsDBNull(readerBase.GetOrdinal("warehouse_level"))
+                                        ? 0 : readerBase.GetInt32("warehouse_level"),
+                                FactoryLevel = readerBase.IsDBNull(readerBase.GetOrdinal("factory_level"))
+                                        ? 0 : readerBase.GetInt32("factory_level"),
+                                StarportLevel = readerBase.IsDBNull(readerBase.GetOrdinal("starport_level"))
+                                        ? 0 : readerBase.GetInt32("starport_level"),
+                                Conquered = readerBase.IsDBNull(readerBase.GetOrdinal("conquered"))
+                                        ? DateTime.MinValue : readerBase.GetDateTime("conquered"),
+                                Updated = readerBase.IsDBNull(readerBase.GetOrdinal("updated"))
+                                        ? DateTime.MinValue : readerBase.GetDateTime("updated"),
                             };
                         }
                     }
                 }
-            }
-            catch (Exception ex)
-            { 
-                Console.WriteLine("Query ERROR: " + ex.Message);
             }
             finally
             {
@@ -309,6 +335,7 @@ namespace maxhanna.Server.Services
 
             return tmpBase;
         }
+
 
 
         private void ConfigureServices(IServiceCollection services)
