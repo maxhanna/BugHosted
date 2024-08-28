@@ -53,19 +53,22 @@ th {
   text-decoration-color: var(--primary-font-color);
 }
 
-.reportsCenterDisplay {
-  margin-top: -20px;
+.reportsCenterDisplay { 
   width: 100%;
   text-align: center;
 }
 
 .reportTimestampSpan {
   font-size: small;
-  color: var(--secondary-font-color);
+  color: var(--secondary-font-color); 
 }
 
 .reportHeader {
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  align-items: center;
   justify-content: space-between;
 }
 
@@ -98,4 +101,8 @@ th {
     display:flex;
     align-content:center;
     margin-top:10px;
+}
+.expireNote {
+    color: var(--secondary-font-color);
+    font-style: italic;
 }

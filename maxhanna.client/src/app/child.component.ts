@@ -25,13 +25,20 @@ export class ChildComponent {
 
 
   debounce(func: Function, wait: number) {
+    let isFirstCall = true;
+    let timer: number | undefined;
+
     return (...args: any[]) => {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = setTimeout(() => {
+      if (isFirstCall) {
+        func.apply(this, args);
+        isFirstCall = false;
+      }
+      clearTimeout(timer);
+      timer = window.setTimeout(() => {
         func.apply(this, args);
       }, wait);
     };
-  } 
+  }
 
   replaceEmojisInMessage(msg: string) {
     const emojiMap: { [key: string]: string } =

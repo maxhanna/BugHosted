@@ -71,9 +71,19 @@ tbody {
 .baseUnitCountSpan {
   margin-left: 5px;
   margin-right: 5px;
-  font-size: x-small;
+  font-size: xx-small;
+  background-color: var(--main-bg-color-full-opacity);
 }
 
 .gameNotification {
   color: var(--secondary-font-color);
+}
+
+.baseNameSpan {
+  width: 0px;
+  white-space: nowrap;
+  float: left; 
+}
+.blueText{
+    color: var(--secondary-font-color);
 }

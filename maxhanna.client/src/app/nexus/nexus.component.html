@@ -4,7 +4,7 @@
   <div class="componentTitle">Bug Wars</div>
 
   <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading">
-    Welcome to Nexus wars.
+    Welcome to Bug Wars.
     <button (click)="start()">Enter the fight</button>
   </div>
   <div *ngIf="isUserComponentOpen">
@@ -37,9 +37,10 @@
 
   <div class="gamescreen" *ngIf="!isUserNew">
     <!-- Conditionally display incoming attacks -->
-    <div *ngIf="shouldShowIncomingAttacks()" class="attacksIncomingCount" (click)="toggleScreen('bases', !isBasesOpen)">
-      {{attacksIncomingCount}}⚔️
-    </div>
+    <div *ngIf=" shouldShowIncomingDefences()" class="incomingCount" (click)="toggleScreen('bases', !isBasesOpen)">
+      <div *ngIf="shouldShowIncomingAttacks()" class="attacksIncomingCount">{{attacksIncomingCount}}⚔️</div>
+      <div *ngIf="shouldShowIncomingDefences()" class="defenceIncomingCount">{{defencesIncomingCount}}🛡️</div>
+    </div> 
     <!-- Navigation -->
     <div *ngIf="shouldShowBaseNav()">
       <button class="previousBaseButton" [disabled]="isLoading" (click)="previousBase()">⩤</button>
@@ -54,6 +55,7 @@
     <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen" class="battleReportComponentDiv">
       <app-nexus-reports [user]="parentRef.user"
+                         [mapData]="mapData"
                          (openMapEmitter)="emittedOpenMapAndScrollTo($event)"
                          *ngIf="isReportsOpen">
       </app-nexus-reports>
@@ -100,6 +102,7 @@
                      [allNexusUnits]="allNexusUnits"
                      [user]="parentRef.user"
                      [attacksIncoming]="nexusAttacksIncoming"
+                     [defenceIncoming]="nexusDefencesIncoming"
                      (emittedBaseChange)="emittedBaseChange($event)"
                      (emittedNotifications)="emittedNotifications($event)"
                      (emittedUpgrade)="emittedUpgrade($event)">
@@ -258,7 +261,7 @@
 
 
     <img [src]="currentCommandCenterSrc"
-         class="commandCenterBackground"
+         class="screenBackground"
          *ngIf="cclvl1Src && cclvl2Src && cclvl3Src && nexusBase && isCommandCenterOpen"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="nexusBase && isCommandCenterOpen" class="commandCenterScreen">
@@ -270,14 +273,15 @@
         Current upgrade limit : {{nexusBase.commandCenterLevel + 1}}
       </div>
       <div>
-        Base Name : <input type="text" #baseNameInput [placeholder]="nexusBase.baseName ?? ''" (onkeyup.Enter)="setBaseName()" /><button (click)="setBaseName()">Change</button>
+        Base Name : <input type="text" #baseNameInput [placeholder]="nexusBase.baseName ?? ''" (keyup.enter)="setBaseName()" />
+        <button (click)="setBaseName()">Change</button>
       </div>
       <div><button (click)="closeCommandCenter()">Back</button></div>
     </div>
 
 
     <img [src]="currentSupplyDepotSrc"
-         class="supplyDepotBackground"
+         class="screenBackground"
          *ngIf="sdlvl1Src && sdlvl2Src && sdlvl3Src && nexusBase && isSupplyDepotOpen"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="isSupplyDepotOpen" class="supplyDepotScreen">
@@ -298,7 +302,7 @@
 
 
     <img [src]="currentFactorySrc"
-         class="factoryBackground"
+         class="screenBackground"
          *ngIf="flvl1Src && flvl2Src && flvl3Src && nexusBase && isFactoryOpen" loading="lazy" decoding="asynchronous" />
     <div *ngIf="isFactoryOpen" class="factoryScreen">
 
@@ -347,7 +351,7 @@
 
 
     <img [src]="currentStarportSrc"
-         class="starportBackground"
+         class="screenBackground"
          *ngIf="splvl1Src && splvl2Src && splvl3Src && nexusBase && isStarportOpen"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="isStarportOpen" class="starportScreen">
@@ -397,7 +401,7 @@
 
 
     <img [src]="currentWarehouseSrc"
-         class="warehouseBackground"
+         class="screenBackground"
          *ngIf="whlvl1Src && whlvl2Src && whlvl3Src && nexusBase && isWarehouseOpen" loading="lazy" decoding="asynchronous" />
     <div *ngIf="isWarehouseOpen" class="warehouseScreen">
       <div>
@@ -430,7 +434,7 @@
 
 
     <img [src]="currentEngineeringBaySrc"
-         class="engineeringBayBackground"
+         class="screenBackground"
          *ngIf="eblvl1Src && eblvl2Src && eblvl3Src && nexusBase && isEngineeringBayOpen"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="isEngineeringBayOpen" class="engineeringBayScreen">
@@ -514,7 +518,7 @@
 
 
     <img [src]="currentMinesSrc"
-         class="minesBackground"
+         class="screenBackground"
          *ngIf="mineslvl1Src && mineslvl2Src && mineslvl3Src && nexusBase && isMinesOpen"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="isMinesOpen" class="minesScreen">
@@ -586,11 +590,11 @@
     <span *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="mainInfoSection">Movement:</span>
     <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0">
       <div class="upgradeTimersTableDiv">
-        <div *ngFor="let timer of activeAttackTimers()" [class]="'pointer ' + (timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
-          {{ formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+        <div *ngFor="let timer of activeAttackTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
+          <span class="pointer" (click)="openMapAndScrollTo(timer.unit)">{{ formatBuildingTimer(timer.unit) }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
-        <div *ngFor="let timer of activeDefenceTimers()" [class]="'pointer ' + (timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'" (click)="openMapAndScrollTo(timer.unit)">
-          {{ formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+        <div *ngFor="let timer of activeDefenceTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
+          <span class="pointer" (click)="openMapAndScrollTo(timer.unit)">{{ formatBuildingTimer(timer.unit) }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
       </div>
     </div>

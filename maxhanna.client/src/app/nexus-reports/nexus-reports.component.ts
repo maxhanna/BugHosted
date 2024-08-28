@@ -14,6 +14,7 @@ import { ChildComponent } from '../child.component';
 export class NexusReportsComponent extends ChildComponent implements OnInit, OnChanges {
   @Input() battleReports?: NexusBattleOutcomeReports;
   @Input() user?: User;
+  @Input() mapData?: NexusBase[];
   @Input() targetBase?: NexusBase;
   @Output() openMapEmitter = new EventEmitter<string>;
    
@@ -117,6 +118,9 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   }
   canSeeNextPage() {
     return (this.totalPages && this.totalPages.length > 0 && this.battleReports && this.battleReports.totalReports && this.pageSize && this.battleReports.totalReports > parseInt(this.pageSize.nativeElement.value));
+  }
+  getBaseNameForCoords(x: number, y: number) {
+    return this.mapData?.find(base => base.coordsX == x && base.coordsY == y)?.baseName;
   }
   async nextPage() {
     if (!this.user) return;

@@ -2888,13 +2888,18 @@ namespace maxhanna.Server.Controllers
                 {
                     List<NexusAttackSent>? nexusAttacksSent = await GetNexusAttacksSent(nexusBase, true, conn, transaction);
                     List<NexusAttackSent>? nexusDefencesSent = await GetNexusDefencesSent(nexusBase, true, conn, transaction);
+
                     if (nexusDefencesSent != null)
                     {
                         if (nexusAttacksSent == null)
                         {
                             nexusAttacksSent = new List<NexusAttackSent>();
                         }
-                        nexusAttacksSent = nexusAttacksSent.Concat(nexusDefencesSent).ToList();
+
+                        var attackIds = new HashSet<int>(nexusAttacksSent.Select(a => a.Id));
+                        var uniqueDefences = nexusDefencesSent.Where(d => !attackIds.Contains(d.Id));
+
+                        nexusAttacksSent = nexusAttacksSent.Concat(uniqueDefences).ToList();
                     }
                     List<UnitStats> unitsSent = await GetUnitStatsFromDB(null, null, conn, transaction);
                     unitsSent = AggregateUnitsSentIntoUnitStats(nexusAttacksSent, unitsSent);
@@ -3419,8 +3424,11 @@ namespace maxhanna.Server.Controllers
                 if (defences == null)
                 {
                     defences = new List<NexusAttackSent>();
-                }
-                defences = defences.Concat(defences2).ToList();
+                } 
+                var defenceIds = new HashSet<int>(defences.Select(a => a.Id));
+                var uniqueDefences = defences2.Where(d => !defenceIds.Contains(d.Id));
+                 
+                defences = defences.Concat(uniqueDefences).ToList();
 
                 Console.WriteLine(" Defences Count: " + defences.Count);
 
@@ -3823,7 +3831,7 @@ namespace maxhanna.Server.Controllers
                         // Glitcher was sent, and it survived. Take over the nexus and make sure the units remain there;
                         // Since support is not implemented yet, just send the units back to base for now.
                         await ChangeOwnership((origin.User?.Id ?? 0), destination, conn, transaction);
-
+                        await DeleteSupportSent(destination, conn, transaction);
                         attackerSupplyRecovered = true;
                         if (attackingLosses != null && !attackingLosses.ContainsKey("glitcher"))
                         {
@@ -3843,11 +3851,12 @@ namespace maxhanna.Server.Controllers
 
                     if (attackerSupplyRecovered && attackingLosses != null)
                     {
+                        Console.WriteLine("Removing glitcher");
                         await UpdateNexusUnitsAfterAttack(conn, transaction, origin, attackingLosses);
                         int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
                         await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
                     }
-                    Console.WriteLine("all done, sending attack");
+                    Console.WriteLine("all done, sending survivor attacking units back home");
                     if (attackingUnits != null && attackingUnits.FirstOrDefault(x => x.SentValue > 0) != null)
                     {
                         if (origin.CoordsX != destination.CoordsX || origin.CoordsY != destination.CoordsY)
@@ -3911,21 +3920,41 @@ namespace maxhanna.Server.Controllers
         }
 
         private async Task UpdateNexusUnitsAfterAttack(MySqlConnection conn, MySqlTransaction transaction, NexusBase nexusBase, Dictionary<string, int?> losses)
-        { 
+        {
             string sql = @"
                 UPDATE maxhanna.nexus_units 
                 SET 
-                    marine_total = (marine_total - @Marine), 
-                    goliath_total = (goliath_total - @Goliath), 
-                    siege_tank_total = (siege_tank_total - @SiegeTank), 
-                    scout_total = (scout_total - @Scout), 
-                    wraith_total = (wraith_total - @Wraith), 
-                    battlecruiser_total = (battlecruiser_total - @Battlecruiser),
-                    glitcher_total = (glitcher_total - @Glitcher)
+                    marine_total = CASE 
+                        WHEN marine_total - @Marine < 0 THEN 0 
+                        ELSE marine_total - @Marine 
+                    END,
+                    goliath_total = CASE 
+                        WHEN goliath_total - @Goliath < 0 THEN 0 
+                        ELSE goliath_total - @Goliath 
+                    END,
+                    siege_tank_total = CASE 
+                        WHEN siege_tank_total - @SiegeTank < 0 THEN 0 
+                        ELSE siege_tank_total - @SiegeTank 
+                    END,
+                    scout_total = CASE 
+                        WHEN scout_total - @Scout < 0 THEN 0 
+                        ELSE scout_total - @Scout 
+                    END,
+                    wraith_total = CASE 
+                        WHEN wraith_total - @Wraith < 0 THEN 0 
+                        ELSE wraith_total - @Wraith 
+                    END,
+                    battlecruiser_total = CASE 
+                        WHEN battlecruiser_total - @Battlecruiser < 0 THEN 0 
+                        ELSE battlecruiser_total - @Battlecruiser 
+                    END,
+                    glitcher_total = CASE 
+                        WHEN glitcher_total - @Glitcher < 0 THEN 0 
+                        ELSE glitcher_total - @Glitcher 
+                    END
                 WHERE 
                     coords_x = @CoordsX 
                 AND coords_y = @CoordsY;";
-
             var parameters = new Dictionary<string, object?>
             {
                 { "@CoordsX", nexusBase.CoordsX },
@@ -3938,7 +3967,7 @@ namespace maxhanna.Server.Controllers
                 { "@Battlecruiser",  Math.Max(0, losses["battlecruiser"] ?? 0) },
                 { "@Glitcher", Math.Max(0, losses["glitcher"] ?? 0)}
             };
-            Console.WriteLine("UpdateNexusUnitsAfterAttack:");
+            Console.WriteLine("UpdateNexusUnitsAfterAttack - attacking losses passed in :");
 
             foreach (var param in parameters)
             {
@@ -4123,12 +4152,12 @@ namespace maxhanna.Server.Controllers
                   AND date >= NOW() - INTERVAL 1 DAY
                   AND text LIKE '%captured%'";
 
-              
+
 
                 await ExecuteInsertOrUpdateOrDeleteAsync(updateAttackerSql, updateAttackerParameters, conn, transaction);
-            } 
+            }
             else
-            { 
+            {
                 var insertAttackerSql = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                     SELECT 
@@ -4141,7 +4170,23 @@ namespace maxhanna.Server.Controllers
 
                 await ExecuteInsertOrUpdateOrDeleteAsync(insertAttackerSql, updateAttackerParameters, conn, transaction);
             }
-            
+
+        }
+        private async Task DeleteSupportSent(NexusBase deadBase, MySqlConnection? conn, MySqlTransaction? transaction)
+        {
+            // Insert or update the base ownership
+            string sql = @"
+                DELETE FROM maxhanna.nexus_defences_sent 
+                WHERE origin_coords_x = @CoordsX 
+                AND origin_coords_y = @CoordsY;";
+
+            var parameters = new Dictionary<string, object?>
+            { 
+                { "@CoordsX", deadBase.CoordsX },
+                { "@CoordsY", deadBase.CoordsY }, 
+            };
+
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
         }
 
         private async Task DeleteAllUserReports(int userId, MySqlConnection conn, MySqlTransaction transaction)

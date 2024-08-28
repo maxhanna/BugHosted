@@ -176,7 +176,7 @@ export class NexusMapComponent extends ChildComponent {
     this.isAttackScreenOpen = true;
     this.showAttackButton = false;
     this.isSendingDefence = isDefence;
-    this.stopLoading();
+    this.stopLoading(); 
   }
 
   emittedClosedAttackScreen() {
@@ -248,7 +248,9 @@ export class NexusMapComponent extends ChildComponent {
   }
 
   selectCoordinates(coordsX: number, coordsY: number) { 
-    if (this.selectedNexusBase?.coordsX === coordsX && this.selectedNexusBase?.coordsY === coordsY) return;
+    if (this.selectedNexusBase?.coordsX === coordsX && this.selectedNexusBase?.coordsY === coordsY) { 
+      return;
+    }
      
     this.selectedNexusBase = undefined;
     this.showAttackButton = true;
@@ -281,7 +283,7 @@ export class NexusMapComponent extends ChildComponent {
 
     // Update attack and defence timers
     this.updateAttackTimers();
-    this.updateDefenceTimers();
+    this.updateDefenceTimers(); 
   }
 
   getAttackTimers(): NexusTimer[] {
@@ -442,25 +444,24 @@ export class NexusMapComponent extends ChildComponent {
         count++;
         if (x.originCoordsX == x.destinationCoordsX && x.originCoordsY == x.destinationCoordsY) {
           const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. Returning {${x.destinationCoordsX},${x.destinationCoordsY}}`;
-          if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
-            uniqueAttacks.add(remainingTimeInSeconds);
+          if (!uniqueAttacks.has(x.id) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
+            uniqueAttacks.add(x.id);
             this.startAttackTimer(salt, remainingTimeInSeconds, x);
           }
         } else {
           const isChallenger = x.originUser?.id != x.destinationUser?.id;
           const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. ${isChallenger ? 'Attacking' : 'Incoming'} {${x.destinationCoordsX},${x.destinationCoordsY}}`;
-          if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
-            uniqueAttacks.add(remainingTimeInSeconds);
+          if (!uniqueAttacks.has(x.id) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
+            uniqueAttacks.add(x.id);
             this.startAttackTimer(salt, remainingTimeInSeconds, x);
           }
-        }
-
+        } 
       });
     }
     if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0 && this.nexusBase) {
       let count = 0;
       const uniqueAttacks = new Set<number>(); // Set to keep track of unique attacks
-      const relevantAttacks = this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY && x.destinationCoordsX != x.originCoordsX && x.destinationCoordsY != x.originCoordsY);
+      const relevantAttacks = this.nexusAttacksIncoming.filter(x => x.originUser?.id != x.destinationUser?.id && x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY && x.destinationCoordsX != x.originCoordsX && x.destinationCoordsY != x.originCoordsY);
       //console.log(this.nexusAttacksSent);
       relevantAttacks.forEach(x => {
         const startTimeTime = new Date(x.timestamp).getTime();
@@ -470,8 +471,8 @@ export class NexusMapComponent extends ChildComponent {
         count++;
 
         const salt = `{${x.originCoordsX},${x.originCoordsY}} ${count}. Attacking {${x.destinationCoordsX},${x.destinationCoordsY}}`;
-        if (!uniqueAttacks.has(remainingTimeInSeconds) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
-          uniqueAttacks.add(remainingTimeInSeconds);
+        if (!uniqueAttacks.has(x.id) && !this.attackTimers[salt] && remainingTimeInSeconds > 0) {
+          uniqueAttacks.add(x.id);
           this.startAttackTimer(salt, remainingTimeInSeconds, x);
         }
 
@@ -487,7 +488,7 @@ export class NexusMapComponent extends ChildComponent {
   private updateAttackDefenceTimers() {
     if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0) {
       let count = 0;
-      const uniqueDefenses = new Set<string>();
+      const uniqueDefenses = new Set<number>();
       const relevantAttacksReceived =
         this.nexusAttacksIncoming.filter(x => x.destinationCoordsX == this.selectedNexusBase?.coordsX && x.destinationCoordsY == this.selectedNexusBase.coordsY
           && x.originUser?.id != this.inputtedParentRef?.user?.id);
@@ -501,8 +502,8 @@ export class NexusMapComponent extends ChildComponent {
         const salt = `{${x.destinationCoordsX},${x.destinationCoordsY}} ${count}. Incoming {${x.originCoordsX},${x.originCoordsY}}`;
 
         if (remainingTimeInSeconds > 0) {
-          if (!uniqueDefenses.has(salt)) {
-            uniqueDefenses.add(salt);
+          if (!uniqueDefenses.has(x.id)) {
+            uniqueDefenses.add(x.id);
             this.startAttackTimer(salt, remainingTimeInSeconds, x);
           }
         }

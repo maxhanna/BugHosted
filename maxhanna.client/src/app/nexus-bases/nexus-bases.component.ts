@@ -18,6 +18,7 @@ export class NexusBasesComponent extends ChildComponent {
   @Input() allNexusUnits: NexusUnits[] | undefined;
   @Input() mapData: NexusBase[] | undefined;
   @Input() attacksIncoming: NexusAttackSent[] | undefined;   
+  @Input() defenceIncoming: NexusAttackSent[] | undefined;   
   @Output() emittedNotifications = new EventEmitter<string>();
   @Output() emittedBaseChange = new EventEmitter<NexusBase>();
   @Output() emittedUpgrade = new EventEmitter<[NexusBase[], string]>();
@@ -25,6 +26,7 @@ export class NexusBasesComponent extends ChildComponent {
   @ViewChild('commandSelector') commandSelector!: ElementRef<HTMLSelectElement>;
 
   attacksMap: { [key: string]: NexusAttackSent[] } = {};
+  defenceMap: { [key: string]: NexusAttackSent[] } = {};
   unitTypes = [
     { code: 'marineTotal', shortName: 'M' },
     { code: 'goliathTotal', shortName: 'G' },
@@ -48,11 +50,11 @@ export class NexusBasesComponent extends ChildComponent {
       data.sort((a, b) => {
         if (this.attacksIncoming) { 
           const aHasIncomingAttacks = this.attacksIncoming.some(attack =>
-            attack.destinationCoordsX != attack.originCoordsX && attack.destinationCoordsY != attack.originCoordsY &&
+            (attack.destinationCoordsX != attack.originCoordsX || attack.destinationCoordsY != attack.originCoordsY) &&
             attack.destinationCoordsX == a.coordsX && attack.destinationCoordsY == a.coordsY
           );
           const bHasIncomingAttacks = this.attacksIncoming.some(attack =>
-            attack.destinationCoordsX != attack.originCoordsX && attack.destinationCoordsY != attack.originCoordsY &&
+            (attack.destinationCoordsX != attack.originCoordsX || attack.destinationCoordsY != attack.originCoordsY) &&
             attack.destinationCoordsX == b.coordsX && attack.destinationCoordsY == b.coordsY
           );
 
@@ -75,7 +77,7 @@ export class NexusBasesComponent extends ChildComponent {
   getAttacksForBase(coordsX: number, coordsY: number): NexusAttackSent[] {
     if (this.attacksIncoming && this.attacksMap && Object.keys(this.attacksMap).length == 0) {
       this.attacksMap = {};
-      const pertinentAttacks = this.attacksIncoming.filter(x => x.destinationUser?.id == this.user?.id && x.originUser?.id != this.user?.id);
+      const pertinentAttacks = this.attacksIncoming.filter(x => x.destinationUser?.id == this.user?.id);
       for (let attack of pertinentAttacks) {
         const key = `${attack.destinationCoordsX},${attack.destinationCoordsY}`;
         if (!this.attacksMap[key]) {
@@ -88,6 +90,22 @@ export class NexusBasesComponent extends ChildComponent {
     const key = `${coordsX},${coordsY}`;
     //console.log(this.attacksMap[key]);
     return this.attacksMap[key] || [];
+  }
+  getSupportForBase(coordsX: number, coordsY: number): NexusAttackSent[] {
+    if (this.defenceIncoming && this.defenceMap && Object.keys(this.defenceMap).length == 0) {
+      this.defenceMap = {};
+      const pertinentDefences = this.defenceIncoming.filter(x => x.destinationUser?.id == this.user?.id);
+      for (let defence of pertinentDefences) {
+        const key = `${defence.destinationCoordsX},${defence.destinationCoordsY}`;
+        if (!this.defenceMap[key]) {
+          this.defenceMap[key] = [];
+        }
+        this.defenceMap[key].push(defence);
+      }
+
+    }
+    const key = `${coordsX},${coordsY}`; 
+    return this.defenceMap[key] || [];
   }
   getUnitsForBase(coordsX: number, coordsY: number) {
     return this.allNexusUnits?.find(x => x.coordsX == coordsX && x.coordsY == coordsY) ?? undefined;
@@ -160,6 +178,10 @@ export class NexusBasesComponent extends ChildComponent {
     return this.getAttacksCount(base) > 0 ? 'redText' : 'greyText';
   }
 
+  getDefenceClass(base: any): string {
+    return this.getDefenceCount(base) > 0 ? 'blueText' : 'greyText';
+  }
+
   getUnitClass(base: any, unitCode: string): string {
     if (this.isValidUnitCode(unitCode)) {
       const hasUnits = this.getUnitTotal(base, unitCode as keyof NexusUnits) > 0;
@@ -174,6 +196,9 @@ export class NexusBasesComponent extends ChildComponent {
 
   getAttacksCount(base: any): number {
     return this.getAttacksForBase(base.coordsX, base.coordsY).length;
+  }
+  getDefenceCount(base: any): number {
+    return this.getSupportForBase(base.coordsX, base.coordsY).length;
   }
   getUnitTotalSafe(base: any, unitCode: string): number {
     return this.isValidUnitCode(unitCode) ? this.getUnitTotal(base, unitCode as keyof NexusUnits) : 0;

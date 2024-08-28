@@ -27,10 +27,13 @@
         <td>{{base.warehouseLevel}}</td>
         <td>{{base.supplyDepotLevel}}</td>
         <td class="goldText">{{base.gold | number:'1.2-2'}}</td>
-        <td [ngClass]="getAttackClass(base)">{{getAttacksCount(base)}}</td>
+        <td><span [ngClass]="getAttackClass(base)">{{getAttacksCount(base)}}</span> <span [ngClass]="getDefenceClass(base)">{{getDefenceCount(base)}}</span></td>
       </tr>
       <tr [ngClass]="getBaseClass(base)">
-        <td colspan="11" class="unitsListTd">
+        <td colspan="5" >
+          <span class="baseNameSpan">{{base.baseName}}</span>
+        </td>
+        <td colspan="6" class="unitsListTd">
           <ng-container *ngFor="let unitType of unitTypes">
             <span [ngClass]="getUnitClass(base, unitType.code)">
               {{unitType.shortName}}:{{getUnitTotalSafe(base, unitType.code)}}

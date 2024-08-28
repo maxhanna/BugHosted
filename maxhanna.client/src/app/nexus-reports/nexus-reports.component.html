@@ -14,22 +14,42 @@
       </select>
     </span>
     <button (click)="nextPage()" *ngIf="totalPages && totalPages.length > 1 && !isLoading">Next Page</button>
-    <div class="deleteAllReportsDiv" *ngIf="!targetBase">
+    <div class="deleteAllReportsDiv" *ngIf="!targetBase && battleReports.totalReports > 0">
       <button (click)="deleteAllReports()">Delete All Reports</button>
     </div>  
   </div>
   <div *ngIf="!isLoading">
     <div *ngFor="let report of battleReports.battleOutcomes" class="battleReportDiv">
       <div class="reportHeader">
-        <button (click)="deleteReport(report)">Delete</button>
+        <span><strong>Report #{{report.battleId}}</strong></span>
         <span class="reportTimestampSpan">{{ report.timestamp | date:'MM/dd/yyyy HH:mm:ss' }}</span>
+        <button (click)="deleteReport(report)">Delete</button> 
       </div>
-      <div class="reportTitleDiv">
-        <strong>Report #{{report.battleId}}</strong>
-      </div>
+      
       <div class="reportsCenterDisplay">
-        <div><span (click)="openMapEmitter.emit(report.originCoordsX + ',' + report.originCoordsY)" class="invertedHighlights cursorPointer">({{report.originCoordsX}},{{report.originCoordsY}})</span> - <app-user-tag [user]="report.originUser" [displayOnlyName]="true"></app-user-tag></div>
-        <div>VS <span (click)="openMapEmitter.emit(report.destinationCoordsX + ',' + report.destinationCoordsY)" class="invertedHighlights cursorPointer">({{report.destinationCoordsX}},{{report.destinationCoordsY}})</span><span *ngIf="report.destinationUser"> - <app-user-tag [user]="report.destinationUser" [displayOnlyName]="true"></app-user-tag></span></div>
+        <div>
+          <span (click)="openMapEmitter.emit(report.originCoordsX + ',' + report.originCoordsY)" class="invertedHighlights cursorPointer">
+            ({{report.originCoordsX}},{{report.originCoordsY}})
+          </span>
+          <span class="usernameProfileLink" *ngIf="getBaseNameForCoords(report.originCoordsX, report.originCoordsY)">
+            {{getBaseNameForCoords(report.originCoordsX, report.originCoordsY)}}
+          </span>
+          -
+          <app-user-tag [user]="report.originUser" [displayOnlyName]="true"></app-user-tag>
+        </div>
+        <div>
+          VS
+          <span (click)="openMapEmitter.emit(report.destinationCoordsX + ',' + report.destinationCoordsY)" class="invertedHighlights cursorPointer">
+            ({{report.destinationCoordsX}},{{report.destinationCoordsY}})
+          </span>
+          <span class="usernameProfileLink" *ngIf="getBaseNameForCoords(report.originCoordsX, report.originCoordsY)">
+            {{getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)}}
+          </span>
+          <span *ngIf="report.destinationUser">
+            -
+            <app-user-tag [user]="report.destinationUser" [displayOnlyName]="true"></app-user-tag>
+          </span>
+        </div>
         <div class="reportTimestampSpan">📀 Stolen: <span [class]="report.defenderGoldStolen && report.defenderGoldStolen > 0 ? 'goldText' : 'greyText'">{{report.defenderGoldStolen | number:'1.2-2' }}</span> / <span [class]="report.defenderGold && report.defenderGold > 0 ? 'goldText' : 'greyText'">{{report.defenderGold | number:'1.2-2' }}</span></div>
       </div>
 
@@ -141,6 +161,7 @@
         </table>
       </div>
     </div>
+    <div class="xxSmallFont">Note: <span class="expireNote">Reports will expire after after 10 days.</span></div>
   </div>
 </div>
 <div *ngIf="isLoading || !battleReports || !battleReports.battleOutcomes || battleReports.battleOutcomes.length == 0">

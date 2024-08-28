@@ -45,16 +45,27 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+  z-index: 1;
 }
 
-.attacksIncomingCount {
-  position: relative;
-  top: 0px;
-  left: CALC(100% - 30px);
-  width: 0px;
-  height: 0px;
-  color: red;
+.incomingCount {
+  position: absolute;
+  top: 34px;
+  right: 0px; 
   cursor: pointer;
+  z-index: 1;
+  white-space: nowrap;
+  display: flex;
+  flex-direction: row-reverse;
+}
+.attacksIncomingCount {
+  color: red;
+  float:left;
+}
+
+.defenceIncomingCount {
+  color: blue;
+  float:left;
 }
 
 .nextBaseButton {
@@ -316,27 +327,29 @@
   justify-content: space-between;
 }
 
-.supplyDepotBackground, .starportBackground, .warehouseBackground, .engineeringBayBackground, .minesBackground, .factoryBackground, .commandCenterBackground, .nexusBackground {
+.screenBackground {
   position: absolute;
   top: 33px;
   left: 0px;
   z-index: -1;
   width: 100%;
   height: var(--nexus-gamescreen-height);
-  object-fit: cover; /* Ensures the image covers the entire parent div */
+  object-fit: cover;  
   overflow: hidden;
   opacity: 25%;
 }
 
 .nexusBackground {
+  position: absolute;
   height: var(--nexus-gamescreen-height);
+  object-fit: cover;
   opacity: 100% !important;
   left: -25px;
+  top: 33px;
   width: 450px
 }
 
-.commandCenterScreen, .commandCenterBackground, .factoryScreen, .factoryBackground, .starportScreen, .starportBackground,
-.minesScreen, .minesBackground, .supplyDepotBackground, .engineeringBayBackground, .warehouseBackground {
+.commandCenterScreen, .factoryScreen, .starportScreen, .minesScreen, .screenBackground {
   height: var(--nexus-gamescreen-height);
   width: 100%;
 }
@@ -353,34 +366,33 @@
     font-size: x-small;
   }
 
+.mapComponentDiv, .baseListComponentDiv, .battleReportComponentDiv, .upgradesTableDiv, .unitsTableDiv, .warehouseLevelsDiv, .gameNotificationDiv, .supplyUsedDiv {
+  overflow: auto;
+  flex-direction: column;
+}
+
 .mapComponentDiv {
-  max-height: 80vh;
-  overflow: hidden;
+  max-height: 80vh; 
 }
 
 .baseListComponentDiv {
-  height: 70vh;
-  overflow: auto;
+  height: 70vh; 
 }
 
 .battleReportComponentDiv {
-  display: flex;
-  flex-direction: column;
-  overflow: auto;
+  display: flex; 
   width: 100%;
   max-height: CALC(CALC(var(--vh, 1vh) * 100) - 150px);
   border-bottom: var(--main-border);
 }
 
 .upgradesTableDiv {
-  max-height: 500px;
-  overflow: auto;
+  max-height: 500px; 
   width: var(--nexus-gamescreen-width);
 }
 
 .unitsTableDiv {
-  max-height: 210px;
-  overflow: auto;
+  max-height: 210px; 
   width: 100%;
 }
 
@@ -395,8 +407,7 @@
 }
 
 .warehouseLevelsDiv {
-  height: 165px;
-  overflow: auto;
+  height: 165px; 
 }
 
 .upgradeProgressDisplayP::before {
@@ -429,10 +440,11 @@
 
 .supplyUsedDiv {
   height: 120px;
-  overflow: auto;
+  width: 30%;
   border: var(--main-border);
   padding-left: 10px;
   padding-right: 10px;
+  font-size: small;
   color: var(--secondary-font-color);
 }
 
@@ -440,13 +452,7 @@
   display: flex;
   flex-direction: row;
   justify-content: flex-start;
-}
-
-.supplyUsedDiv {
-  width: 30%;
-  font-size: small;
-  color: var(--secondary-font-color);
-}
+} 
 
 .supplyExplainDiv {
   width: 65%;
@@ -458,8 +464,7 @@
 
 .upgradeTimersTableDiv {
   max-height: 100px;
-  width: 100%;
-  overflow: auto;
+  width: 100%; 
   font-size: small;
 }
 
@@ -472,8 +477,7 @@
   font-size: small;
 }
 
-.gameNotificationDiv {
-  overflow: auto;
+.gameNotificationDiv { 
   top: 35px;
   right: 15px;
   position: absolute;
@@ -577,12 +581,7 @@
 
 .centeredText {
   text-align: center;
-}
-
-.unitslist {
-  max-height: 200px;
-  overflow: auto;
-}
+} 
 
 .mainInfoSection {
   text-align: center;

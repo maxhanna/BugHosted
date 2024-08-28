@@ -1,6 +1,6 @@
 export interface NexusUnitsPurchased {
-  coords_x: number;
-  coords_y: number;
+  coordsX: number;
+  coordsY: number;
   unitIdPurchased: number;
   quantityPurchased: number;
   timestamp: Date;
