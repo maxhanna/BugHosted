@@ -13,15 +13,16 @@ table thead th {
 
 .rotated-header {
   display: inline-block;
-  transform: rotate(-90deg) translateY(56px) translateX(-5px);
+  transform: rotate(-90deg) translateY(57px) translateX(-5px);
   transform-origin: left bottom;
   white-space: nowrap;
   height: 60px;
-  width: 20px;
+  width: 15px;
   text-align: right;
   text-overflow: ellipsis;
   font-size: x-small;
   font-weight: 100;
+  cursor: pointer;
 }
 
 table {
@@ -44,6 +45,7 @@ th,
 td {
   overflow: auto;
   font-size: small;
+  width: 0px;
 }
 
 td {
@@ -63,26 +65,33 @@ tbody {
 .goldText {
   color: gold;
 }
-
-.unitsListTd {
-  text-align: center;
+ 
+.unitsListTdDiv {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: space-between;
+  align-items: baseline;
 }
-
 .baseUnitCountSpan {
-  margin-left: 5px;
-  margin-right: 5px;
   font-size: xx-small;
-  background-color: var(--main-bg-color-full-opacity);
+  width: 45px;
+  display: inline-flex;
+  flex-direction: row;
+  align-content: space-between;
+  justify-content: space-around;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .gameNotification {
   color: var(--secondary-font-color);
 }
 
-.baseNameSpan {
-  width: 0px;
-  white-space: nowrap;
-  float: left; 
+.baseNameSpan { 
+  white-space: nowrap; 
+  font-size: xx-small;
 }
 .blueText{
     color: var(--secondary-font-color);
@@ -90,4 +99,8 @@ tbody {
 .reorderNote {
   color: var(--secondary-font-color);
   font-style: italic;
+}
+.unitPic {
+  width: 20px;
+  height: 20px;
 }

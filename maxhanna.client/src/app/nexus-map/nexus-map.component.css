@@ -279,3 +279,7 @@
   color: var(--main-font-color);
   font-size: xx-small;
 }
+.timersReducedNote {
+  color: var(--secondary-font-color);
+  font-style: italic;
+}

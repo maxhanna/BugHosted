@@ -17,7 +17,7 @@
           <span *ngIf="grid[x][y] as base">
             <span class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"></span>
           </span>
-          <div *ngIf="selectedNexusBase?.coordsX == x && selectedNexusBase?.coordsY == y">
+          <div *ngIf="selectedNexusBase && selectedNexusBase.coordsX == x && selectedNexusBase.coordsY == y">
             <div [class]="'selectedBaseContainer' + (grid[x][y] ? ' attackIconSpan-adjustedForNoBase' : '')">
               <span class="selectedBase"></span>
             </div>
@@ -25,7 +25,7 @@
               <div class="selectedBaseMapControls">
                 <div style=" display: flex;">
                   <button (click)="showAttackScreen(false)" *ngIf="showAttackButton" title="Send Attack">⚔️</button>
-                  <span *ngIf="selectedNexusBase?.baseName" class="usernameProfileLink selectedBaseNameOnMap">{{selectedNexusBase?.baseName}}</span>
+                  <span *ngIf="selectedNexusBase?.baseName" class="usernameProfileLink selectedBaseNameOnMap">{{selectedNexusBase.baseName}}</span>
                   <button (click)="showAttackScreen(true)" *ngIf="showAttackButton" title="Send Defence">🛡️</button>
                 </div>
                 <div>
@@ -38,10 +38,10 @@
             </div>
           </div>
         </div>
-        <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'" [style.display]="grid[x][y] ? 'block' : 'none'">{{x + ',' + y + ' '}}</div>
-        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isAttackReturningOn(x, y) ? 'block' : 'none'">↩</span>
-        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isDefenceSentOn(x,y) ? 'block' : 'none'">🛡️</span>
-        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" [style.display]="isAttackSentOn(x, y) ? 'block': 'none'">⚔️</span>
+        <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'" *ngIf="grid[x][y]">{{x + ',' + y + ' '}}</div>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" *ngIf="isAttackReturningOn(x, y)">↩</span>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" *ngIf="isDefenceSentOn(x,y)">🛡️</span>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" *ngIf="isAttackSentOn(x, y)">⚔️</span>
       </div>
     </div>
   </div>
@@ -67,9 +67,9 @@
     <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰View Base</button>
   </div>
   <!-- LOCATION INFO -->
-  <div class="infoContainer" *ngIf="isReportsHidden">
-    <div class="tileInfoDiv">
-      <div *ngIf="selectedNexusBase.user && user"> 
+  <div class="infoContainer" *ngIf="isReportsHidden"> 
+    <div class="tileInfoDiv"> 
+      <div *ngIf="selectedNexusBase.user"> 
         <span style="display:inline-block;">
           <app-user-tag [user]="selectedNexusBase.user"
                         [inputtedParentRef]="inputtedParentRef"></app-user-tag>
@@ -82,22 +82,23 @@
     </div>
   </div>
   <!-- ATTACK TIMERS -->
-  <div class="attackDefenceTimers" *ngIf="isReportsHidden">
+  <div class="attackDefenceTimers" *ngIf="isReportsHidden && !isAttackScreenOpen">
     <ng-container *ngIf="getAttackTimers().length;">
-      <div *ngFor="let attackTimer of getAttackTimers()">
+      <div *ngFor="let attackTimer of getAttackTimers(); trackBy: trackByTimerId">
         <span class="invertedHighlights cursorPointer"
               (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }} <span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackAttack(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
       </div>
     </ng-container>
     <ng-container *ngIf="getDefenceTimers().length;">
-      <div *ngFor="let attackTimer of getDefenceTimers()">
+      <div *ngFor="let attackTimer of getDefenceTimers(); trackBy: trackByTimerId">
         <span class="invertedHighlights cursorPointer"
               (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }}<span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackDefence(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
       </div>
     </ng-container>
+    <div *ngIf="getAttackTimers().length > 5 || getDefenceTimers().length > 5" class="xxSmallFont">Note: <span class="timersReducedNote">To see all attack timers, visit the base.</span></div>
   </div>
   <!-- REPORTS -->
-  <div class="reportsDisplayDiv" *ngIf="!isReportsHidden">
+  <div class="reportsDisplayDiv" *ngIf="!isReportsHidden && !isAttackScreenOpen">
     <app-nexus-reports [user]="user" [targetBase]="selectedNexusBase" #nexusReports></app-nexus-reports>
   </div>
 </div>
@@ -120,10 +121,11 @@
                            (emittedClosedAttackScreen)="emittedClosedAttackScreen()"
                            (emittedNotifications)="emittedNotifications.emit($event)"
                            (emittedReloadEvent)="emittedReloadEvent.emit($event)"
-                           (emittedAttack)="emittedAttack($event)">
+                           (emittedAttack)="emittedAttack($event)"
+                           (emittedGoToCoords)="emittedGoToCoords($event)">
   </app-nexus-attack-screen>
 </div>
-<div class="zoomInButtonDiv">
+<div class="zoomInButtonDiv" *ngIf="isReportsHidden && !isAttackScreenOpen">
   <button (click)="zoomIn()">Zoom In</button>
 </div>
 <div [style.display]="isAttackScreenOpen && ((numberOfPersonalBases || 0) > 1) ? 'block' : 'none'" class="baseAutoSwitcherDiv">
@@ -131,5 +133,5 @@
     <input type="checkbox" #switchNextBaseCheckbox />
     Automatically switch bases after attacking
   </label>
-  <div *ngIf="isLoading || isParentLoading">Loading Data</div> 
+  <div *ngIf="isLoading || isParentLoading">Loading Data</div>
 </div>

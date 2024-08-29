@@ -3,7 +3,7 @@
     <div class="mainInfoSection">
       Player :
       <app-user-tag [user]="getTmpUserForUserId(key.split('-')[0])" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag>
-      Coordinates: <span class="invertedHighlights cursorPointer" (click)="openMapEmitter.emit(key.split('-')[1])">{{ key.split('-')[1] }}</span>
+      Coordinates: <span class="pointer" (click)="openMapEmitter.emit(key.split('-')[1])"><span class="invertedHighlights">{{ key.split('-')[1] }}</span> <span class="usernameProfileLink">{{ getBaseNameForCoords(key.split('-')[1].split(',')[0],key.split('-')[1].split(',')[1]) }}</span></span>
     </div>
     <table>
       <thead>

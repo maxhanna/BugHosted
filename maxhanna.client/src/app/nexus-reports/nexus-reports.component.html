@@ -42,7 +42,7 @@
           <span (click)="openMapEmitter.emit(report.destinationCoordsX + ',' + report.destinationCoordsY)" class="invertedHighlights cursorPointer">
             ({{report.destinationCoordsX}},{{report.destinationCoordsY}})
           </span>
-          <span class="usernameProfileLink" *ngIf="getBaseNameForCoords(report.originCoordsX, report.originCoordsY)">
+          <span class="usernameProfileLink" *ngIf="getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)">
             {{getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)}}
           </span>
           <span *ngIf="report.destinationUser">
@@ -62,7 +62,7 @@
             <tr>
               <th></th>
               <td *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
-                <span class="rotated-header unitCell">{{ unit.key }}</span>
+                <img [src]="getUnitPictureSrc(unit.key == 'siege_tank' ? 'siegeTank' : unit.key)" class="unitPic" /> 
               </td>
             </tr>
           </thead>
@@ -92,7 +92,7 @@
             <tr>
               <th></th>
               <td *ngFor="let unit of getUnitsArray(report.attackingLosses); let i = index">
-                <span class="rotated-header unitCell">{{ unit.key }}</span>
+                <img [src]="getUnitPictureSrc(unit.key == 'siege_tank' ? 'siegeTank' : unit.key)" class="unitPic" />
               </td>
             </tr>
           </thead>
@@ -121,16 +121,16 @@
           <thead>
             <tr>
               <th></th>
-              <td *ngFor="let unit of getUnitsArray(report.defenderBuildingLevels); let i = index">
-                <span class="rotated-header unitCell">{{ unit.key }}</span>
-              </td>
+              <td *ngFor="let key of buildingOrder; let i = index">
+                <span class="rotated-header unitCell buildingNameTH capitalize">{{ key.replace('_', ' ') }}</span>
+              </td> 
             </tr>
           </thead>
           <tbody>
             <tr>
               <th>🏰:</th>
-              <ng-container *ngFor="let unit of getUnitsArray(report.defenderBuildingLevels); let i = index">
-                <td [class]="'unitCell ' + (unit.value == 0 ? ' greyText' : '')">{{ unit.value }}</td>
+              <ng-container *ngFor="let key of buildingOrder; let i = index">
+                <td [class]="'unitCell ' + (report.defenderBuildingLevels[key] == 0 ? ' greyText' : '')">{{ report.defenderBuildingLevels[key] || 0}}</td>
               </ng-container>
             </tr>
           </tbody>
@@ -146,7 +146,7 @@
             <tr>
               <th></th>
               <td *ngFor="let unit of getUnitsArray(report.defenderUnitsNotInVillage); let i = index">
-                <span class="rotated-header unitCell">{{ unit.key }}</span>
+                <img [src]="getUnitPictureSrc(unit.key == 'siege_tank' ? 'siegeTank' : unit.key)" class="unitPic" />
               </td>
             </tr>
           </thead>

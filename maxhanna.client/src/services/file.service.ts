@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core'; 
+import { Injectable } from '@angular/core';
 import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
-import { Observable } from 'rxjs/internal/Observable'; 
+import { Observable } from 'rxjs/internal/Observable';
 import { User } from './datacontracts/user/user';
 import { FileData } from './datacontracts/file/file-data';
 import { FileEntry } from './datacontracts/file/file-entry';
@@ -124,9 +124,9 @@ export class FileService {
           'Cache-Control': 'max-age=31536000'
         },
         body: JSON.stringify(user),
-        signal: options?.signal  
+        signal: options?.signal
       });
-       
+
       if (options?.signal?.aborted) {
         throw new Error('Request aborted');
       }
@@ -336,7 +336,7 @@ export class FileService {
       return null;
     }
   }
-  async getFileSrcByFileId(fileId: number) : Promise<string> {
+  async getFileSrcByFileId(fileId: number): Promise<string> {
     const response = await this.getFileById(fileId);
     if (!response || response == null) return '';
     const contentDisposition = response.headers["content-disposition"];
@@ -357,7 +357,7 @@ export class FileService {
         resolve(reader.result as string);
       };
       reader.onerror = reject;
-    }); 
+    });
   }
   getFileExtension(file: string) {
     if (!file) return '';
@@ -373,7 +373,7 @@ export class FileService {
       } else {
         return file;
       }
-    } else return '';   
+    } else return '';
   }
   getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
     if (!contentDisposition) return '';
@@ -381,8 +381,13 @@ export class FileService {
       // Match the filename* pattern first to handle UTF-8 encoding
       const filenameStarMatch = contentDisposition.match(/filename\*=['"]?UTF-8''([^'";\s]+)['"]?/);
       if (filenameStarMatch && filenameStarMatch[1]) {
-        const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
-        return utf8Filename.split('.').pop() || '';
+        try {
+          const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
+          return utf8Filename.split('.').pop() || '';
+        } catch (error) {
+          console.log('Error decoding UTF-8 filename:', error);
+          return ''; // Return an empty string or handle the error as needed
+        }
       }
 
       // Match the filename pattern
@@ -391,9 +396,11 @@ export class FileService {
         const filename = filenameMatch[1];
         return filename.split('.').pop() || '';
       }
+    } catch (error) {
+      console.log('Error processing Content-Disposition header:', error);
     }
-    catch { }
 
     return '';
   }
+
 }

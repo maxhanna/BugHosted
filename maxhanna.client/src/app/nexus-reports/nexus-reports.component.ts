@@ -16,10 +16,35 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   @Input() user?: User;
   @Input() mapData?: NexusBase[];
   @Input() targetBase?: NexusBase;
+  @Input() marinePictureSrc: string | undefined;
+  @Input() goliathPictureSrc: string | undefined;
+  @Input() siegeTankPictureSrc: string | undefined;
+  @Input() scoutPictureSrc: string | undefined;
+  @Input() wraithPictureSrc: string | undefined;
+  @Input() battlecruiserPictureSrc: string | undefined;
+  @Input() glitcherPictureSrc: string | undefined;
   @Output() openMapEmitter = new EventEmitter<string>;
    
   pageSizes: number[] = [5, 10, 20, 50];
   totalPages: number[] = [1];
+  unitOrder = [
+    'marine',
+    'goliath',
+    'siege_tank',
+    'scout',
+    'wraith',
+    'battlecruiser',
+    'glitcher'
+  ];
+  buildingOrder = [
+    'command_center',
+    'mines',
+    'engineering_bay',
+    'factory',
+    'starport',
+    'warehouse',
+    'supply_depot'
+  ];
 
   @ViewChild('pageSize') pageSize!: ElementRef<HTMLSelectElement>;
   @ViewChild('currentPage') currentPage!: ElementRef<HTMLSelectElement>;
@@ -37,7 +62,9 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
       this.pageSize.nativeElement.value = this.battleReports.pageSize + '';
     }
   }
-
+  getUnitPictureSrc(key: string) {
+    return this[(key + 'PictureSrc') as keyof this];
+  }
   private FixCurrentPageDropdownValues() { 
     if (!this.battleReports) return;
     let tmpPageSize = this.battleReports.pageSize; 
@@ -50,19 +77,16 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   }
 
   getUnitsArray(units: Record<string, number>): { key: string, value: number }[] {
-    if (!units || Object.keys(units).length === 0) {
-      // Return an array of all zeros if the data is null
-      return [
-        { key: 'marine', value: 0 },
-        { key: 'goliath', value: 0 },
-        { key: 'siege_tank', value: 0 },
-        { key: 'scout', value: 0 },
-        { key: 'wraith', value: 0 },
-        { key: 'battlecruiser', value: 0 },
-        { key: 'glitcher', value: 0 }, 
-      ];
+      
+
+     if (!units || Object.keys(units).length === 0) {
+      return this.unitOrder.map(unit => ({ key: unit, value: 0 }));
     }
-    return Object.entries(units).map(([key, value]) => ({ key, value }));
+
+    return this.unitOrder.map(unit => ({
+      key: unit,
+      value: units[unit] || 0
+    }));
   }
 
   async deleteReport(report: NexusBattleOutcome) {

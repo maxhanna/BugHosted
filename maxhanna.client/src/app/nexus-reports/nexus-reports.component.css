@@ -9,13 +9,19 @@
 .rotated-header {
   display: inline-block;
   text-transform: capitalize;
-  transform: rotate(-90deg) translateY(10px);
+  transform: rotate(-14deg) translateX(10px) translateY(8px);
   white-space: nowrap;
-  height: 30px;
-  width: 30px;
+  height: 20px;
+  width: 35px;
+  /* overflow: hidden; */
   font-size: xx-small;
   text-overflow: ellipsis;
   color: var(--secondary-font-color);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: center;
 }
 
 table {
@@ -23,7 +29,7 @@ table {
 }
 
 td {
-  text-align: center; /* Align text to center */
+  text-align: center; 
 }
 
 th {
@@ -33,10 +39,8 @@ th {
 }
 
 
-.unitSummaryDiv {
-  margin-top: 15px;
-  display: flex;
-  min-height: 85px;
+.unitSummaryDiv { 
+  display: flex; 
   justify-content: center;
   align-items: flex-end;
 }
@@ -105,4 +109,11 @@ th {
 .expireNote {
     color: var(--secondary-font-color);
     font-style: italic;
+}
+.unitPic {
+    width:20px;
+    height:20px;
+}
+.buildingNameTH {
+    font-size:xx-small;
 }

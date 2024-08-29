@@ -4113,25 +4113,17 @@ namespace maxhanna.Server.Controllers
                             CONCAT(
                                 'Captured ', 
                                 CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(text, ' ', -5), ' ', 1) AS UNSIGNED) + 1,
-                                ' bases, including {'
-                                , @coordsX
-                                , ','
-                                , @coordsY
-                                , '}!'
+                                ' bases, including {', @coordsX, ',', @coordsY, '}!'
                             ),
                             CONCAT(
-                                'Captured 2 bases, including {'
-                                , @coordsX
-                                , ','
-                                , @coordsY
-                                , '}!'
+                                'Captured 2 bases, including {', @coordsX, ',', @coordsY, '}!'
                             )
                         )
                     WHERE user_id = @receiverId 
                       AND from_user_id = @senderId 
                       AND user_profile_id = @senderId 
-                      AND date >= NOW() - INTERVAL 1 DAY
-                      AND text LIKE '%captured%'";
+                      AND (date >= (NOW() - INTERVAL 1 DAY))
+                      AND text LIKE '%captured%';";
 
                 var updateDefenderParameters = new Dictionary<string, object?>
                 {
@@ -4164,17 +4156,13 @@ namespace maxhanna.Server.Controllers
                 SET text = CONCAT(
                         'You captured ', 
                         CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(text, ' ', -5), ' ', 1) AS UNSIGNED) + 1,
-                        ' bases, including {'
-                        , @coordsX
-                        , ','
-                        , @coordsY
-                        , '}!'
+                        ' bases, including {', @coordsX, ',', @coordsY, '}!'
                     )
                 WHERE user_id = @attackerId 
                   AND from_user_id = @attackerId 
                   AND user_profile_id = @attackerId 
-                  AND date >= NOW() - INTERVAL 1 DAY
-                  AND text LIKE '%You captured%'";
+                  AND (date >= (NOW() - INTERVAL 1 DAY))
+                  AND text LIKE '%captured%';";
 
             var updateAttackerParameters = new Dictionary<string, object?>
             {

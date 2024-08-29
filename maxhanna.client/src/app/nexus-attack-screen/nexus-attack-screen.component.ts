@@ -33,6 +33,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Output() emittedClosedAttackScreen = new EventEmitter<void>();
   @Output() emittedAttack = new EventEmitter<NexusAttackSent>();
   @Output() emittedReloadEvent = new EventEmitter<string>();
+  @Output() emittedGoToCoords = new EventEmitter<[ number, number ]>();
    
   constructor(private nexusService: NexusService) { super();  }
 
@@ -136,6 +137,9 @@ export class NexusAttackScreenComponent extends ChildComponent {
   closeAttackScreen() {
     this.unitStats?.forEach(x => x.sentValue = undefined);
     this.emittedClosedAttackScreen.emit();
+  }
+  goToCoords(x: number, y: number) {
+    this.emittedGoToCoords.emit([x, y]);
   }
   trackByUnit(index: number, unit: UnitStats): number {
     return unit.unitId; // or any unique identifier

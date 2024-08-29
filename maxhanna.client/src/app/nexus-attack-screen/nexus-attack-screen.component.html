@@ -1,7 +1,17 @@
-<div *ngIf="originBase && selectedNexus"> 
+<div *ngIf="originBase && selectedNexus">
   <div class="unitsTableDiv">
     <div class="titleMessage">
-      Send <span class="usernameProfileLink">{{isSendingDefence ? 'defence' : 'attack'}}</span> from {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}} to {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}:
+      Send
+      <span class="usernameProfileLink">{{isSendingDefence ? 'defence' : 'attack'}}</span>
+      from
+      <span (click)="goToCoords(originBase.coordsX, originBase.coordsY)" class="invertedHighlights pointer">
+        {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}}
+      </span>
+      to
+      <span (click)="goToCoords(selectedNexus.coordsX, selectedNexus.coordsY)" class="invertedHighlights pointer"> 
+        {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}
+      </span>
+      :
     </div>
     <table class="mainTable" *ngIf="!isLoading && getAvailableUnitStats().length > 0">
       <tbody *ngFor="let unit of getAvailableUnitStats(); trackBy: trackByUnit">
@@ -60,15 +70,20 @@
           <td class="unitSliderTd">
             <input type="range" class="unitSliderTd" [value]="unit.sentValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
           </td>
+          <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer centeredText" (click)="unit.sentValue = maxSliderValue(unit)">
+            {{maxSliderValue(unit)}}
+          </td>
           <td>
             <input [value]="unit.sentValue ? unit.sentValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
           </td>
         </tr>
         <tr *ngIf="unit.sentValue">
-          <td class="smallFont" colspan="4">
-            ⏱️ETA:{{ formatTimer(calculateAttackDuration(unit))}}
-            ⚔️:{{ unit.groundDamage * (unit.sentValue ? unit.sentValue : 1)}}
-            🚀:{{ unit.airDamage * (unit.sentValue ? unit.sentValue : 1)}}
+          <td class="smallFont" colspan="5">
+            <div class="unitStatsDiv">
+              <span>⏱️ETA:{{ formatTimer(calculateAttackDuration(unit))}}</span>
+              <span>⚔️:{{ unit.groundDamage * (unit.sentValue ? unit.sentValue : 1)}}</span>
+              <span>🚀:{{ unit.airDamage * (unit.sentValue ? unit.sentValue : 1)}}</span>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -80,6 +95,6 @@
       <button (click)="engageAttackAllUnits()" [disabled]="isLoading" *ngIf="hasUnitsToSend()">Send All Units</button>
       <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || isLoading" *ngIf="hasUnitsToSend()">{{isSendingDefence ? 'Defend' : 'Engage'}}</button>
       <button (click)="closeAttackScreen()">Close</button>
-    </div> 
-  </div> 
+    </div>
+  </div>
 </div>

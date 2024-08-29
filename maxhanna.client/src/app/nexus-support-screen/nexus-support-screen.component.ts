@@ -16,6 +16,7 @@ type GroupedDefences = {
 export class NexusSupportScreenComponent implements OnInit {
   @Input() nexusDefencesIncoming?: NexusAttackSent[];
   @Input() nexusDefencesSent?: NexusAttackSent[];
+  @Input() mapData?: NexusBase[] = [];
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent; 
   @Output() defenceReturnedEmitter = new EventEmitter<NexusAttackSent>;
@@ -30,6 +31,11 @@ export class NexusSupportScreenComponent implements OnInit {
   getObjectKeys(obj: any): string[] {
     return Object.keys(obj);
   }
+  getBaseNameForCoords(x?: string, y?: string) {
+    if (!x || !y) return '';
+    return this.mapData?.find(base => base.coordsX == parseInt(x) && base.coordsY == parseInt(y))?.baseName ?? '';
+  }
+
 
   async sendBack(nexusAttack: NexusAttackSent) {
     if (!this.user) return;

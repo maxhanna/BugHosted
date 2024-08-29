@@ -153,8 +153,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.createComponent('Wordler');
         }
       }
-    });
-    this.createComponent('User');
+    }); 
   }
   async getSelectedMenuItems() {
     if (!this.user) {

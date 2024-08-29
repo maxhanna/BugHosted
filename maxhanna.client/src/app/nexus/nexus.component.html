@@ -55,18 +55,27 @@
     <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen" class="battleReportComponentDiv">
       <app-nexus-reports [user]="parentRef.user"
-                         [mapData]="mapData"
+                         [mapData]="mapData" 
+                         [marinePictureSrc]="marinePictureSrc"
+                         [goliathPictureSrc]="goliathPictureSrc"
+                         [siegeTankPictureSrc]="siegeTankPictureSrc"
+                         [scoutPictureSrc]="scoutPictureSrc"
+                         [wraithPictureSrc]="wraithPictureSrc"
+                         [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                         [glitcherPictureSrc]="glitcherPictureSrc"
                          (openMapEmitter)="emittedOpenMapAndScrollTo($event)"
                          *ngIf="isReportsOpen">
       </app-nexus-reports>
     </div>
     <!-- Map screen -->
-    <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user && isMapOpen">
+    <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user && isMapOpen && mapData">
       <app-nexus-map #mapComponent
                      [user]="parentRef.user"
                      [inputtedParentRef]="parentRef"
                      [isParentLoading]="isLoading"
+                     [mapData]="mapData"
                      [nexusBase]="nexusBase"
+                     [currentPersonalBases]="currentPersonalBases"
                      [nexusAvailableUnits]="nexusAvailableUnits"
                      [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase"
                      [unitStats]="units"
@@ -98,24 +107,31 @@
       </app-nexus-map>
     </div>
     <!-- Bases screen -->
-    <app-nexus-bases class="baseListComponentDiv" *ngIf="parentRef && parentRef.user && mapData && nexusBase"
-                     [style.display]="isBasesOpen ? 'block':'none'"
-                     [mapData]="mapData"
+    <app-nexus-bases *ngIf="parentRef && parentRef.user && currentPersonalBases && nexusBase && isBasesOpen"
+                     class="baseListComponentDiv"  
+                     [mapData]="currentPersonalBases"
                      [nexusBase]="nexusBase"
                      [allNexusUnits]="allNexusUnits"
                      [user]="parentRef.user"
                      [attacksIncoming]="nexusAttacksIncoming"
                      [defenceIncoming]="nexusDefencesIncoming"
+                     [marinePictureSrc]="marinePictureSrc"
+                     [goliathPictureSrc]="goliathPictureSrc"
+                     [siegeTankPictureSrc]="siegeTankPictureSrc"
+                     [scoutPictureSrc]="scoutPictureSrc"
+                     [wraithPictureSrc]="wraithPictureSrc"
+                     [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                     [glitcherPictureSrc]="glitcherPictureSrc"
                      (emittedBaseChange)="emittedBaseChange($event)"
                      (emittedNotifications)="emittedNotifications($event)"
                      (emittedUpgrade)="emittedUpgrade($event)">
     </app-nexus-bases>
     <!-- Support screen -->
-    <app-nexus-support-screen *ngIf="parentRef && parentRef.user && nexusBase"
-                              class="baseListComponentDiv"
-                              [style.display]="isSupportOpen ? 'block':'none'"
+    <app-nexus-support-screen *ngIf="parentRef && parentRef.user && nexusBase && isSupportOpen"
+                              class="baseListComponentDiv" 
                               [user]="parentRef.user"
                               [inputtedParentRef]="parentRef"
+                              [mapData]="mapData"
                               [nexusDefencesIncoming]="nexusDefencesIncoming"
                               [nexusDefencesSent]="nexusDefencesSent"
                               (defenceReturnedEmitter)="emittedDefenceReturned($event)"
@@ -241,8 +257,8 @@
           </span>
         </span>
       </div>
-      <ng-container *ngIf="nexusBaseUpgrades?.supplyDepotUpgraded">
-        <span class="glowingLight supplyDepotGlowLight1"></span>
+      <ng-container>
+        <span class="glowingLight supplyDepotGlowLight1" *ngIf="nexusBaseUpgrades?.supplyDepotUpgraded"></span>
         <div class="fan" *ngIf="nexusBase && nexusBase.supplyDepotLevel > 2">
           <div class="ceiling-container">
             <div class="ceiling-fan horizontal left"></div>
@@ -251,7 +267,7 @@
             <div class="ceiling-fan vertical rotated bottom"></div>
           </div>
         </div>
-        <div class="fan2">
+        <div class="fan2" *ngIf="nexusBase && nexusBase.supplyDepotLevel > 0">
           <div class="ceiling-container">
             <div class="ceiling-fan horizontal left"></div>
             <div class="ceiling-fan horizontal right"></div>
@@ -463,9 +479,7 @@
     <div *ngIf="isWarehouseOpen" class="warehouseScreen">
       <div>
         <div>Current gold capacity : <span class="goldText">{{goldCapacity}}📀</span></div>
-        <div *ngIf="nexusBase">
-          Time until max capacity: {{ formatTimer(calculateTimeUntilMaxCapacity()) }}
-        </div>
+
       </div>
       <div class="showMoreInfoWarehouseDiv">
         <div (click)="showMoreWarehouseInfo = !showMoreWarehouseInfo" class="cursorPointer">{{showMoreWarehouseInfo ? 'Hide' : 'More'}} info</div>
@@ -584,7 +598,10 @@
     <div *ngIf="isMinesOpen" class="minesScreen">
       <div>
         <div>Upgrade the mines to increase mining efficiency.</div>
-        <div>📀 Current mining speed: <span class="gameNotification"><span class="goldText">1 📀</span> per {{miningSpeed}} second(s)</span>.</div>
+        <div>Current mining speed: <span class="gameNotification"><span class="goldText">1 📀</span> per {{miningSpeed}} second(s)</span>.</div>
+        <div *ngIf="nexusBase">
+          Time until max capacity: {{ formatTimer(calculateTimeUntilMaxCapacity()) }}
+        </div>
       </div>
       <div><button (click)="closeMines()">Back</button></div>
     </div>
@@ -665,7 +682,7 @@
           <div *ngIf="timer.unit.includes('marine')">
             <app-nexus-base-units [showOnlyMarine]="true"
                                   [marineTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'marine', getQuantityPurchasedFromTimer(timer.object) + '', true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByTypeForUnitTimers('nexusAvailableUnits', 'marine', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [marinePictureSrc]="marinePictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -673,7 +690,7 @@
           <div *ngIf="timer.unit.includes('goliath')">
             <app-nexus-base-units [showOnlyGoliath]="true"
                                   [goliathTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'goliath', getQuantityPurchasedFromTimer(timer.object) + '', true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByTypeForUnitTimers('nexusAvailableUnits', 'goliath', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [goliathPictureSrc]="goliathPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -681,7 +698,7 @@
           <div *ngIf="timer.unit.includes('siege_tank')">
             <app-nexus-base-units [showOnlySiegeTank]="true"
                                   [siegeTankTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'siege_tank', getQuantityPurchasedFromTimer(timer.object) + '', true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByTypeForUnitTimers('nexusAvailableUnits', 'siege_tank', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [siegeTankPictureSrc]="siegeTankPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -689,7 +706,7 @@
           <div *ngIf="timer.unit.includes('scout')">
             <app-nexus-base-units [showOnlyScout]="true"
                                   [scoutTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'scout', getQuantityPurchasedFromTimer(timer.object) + '', true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByTypeForUnitTimers('nexusAvailableUnits', 'scout', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [scoutPictureSrc]="scoutPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -697,7 +714,7 @@
           <div *ngIf="timer.unit.includes('wraith')">
             <app-nexus-base-units [showOnlyWraith]="true"
                                   [wraithTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'wraith', getQuantityPurchasedFromTimer(timer.object) + '', true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByTypeForUnitTimers('nexusAvailableUnits', 'wraith', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [wraithPictureSrc]="wraithPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -705,7 +722,7 @@
           <div *ngIf="timer.unit.includes('battlecruiser')">
             <app-nexus-base-units [showOnlyBattlecruiser]="true"
                                   [battlecruiserTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'battlecruiser', getQuantityPurchasedFromTimer(timer.object) + '', true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByTypeForUnitTimers('nexusAvailableUnits', 'battlecruiser', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [battlecruiserPictureSrc]="battlecruiserPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
@@ -713,7 +730,7 @@
           <div *ngIf="timer.unit.includes('glitcher')">
             <app-nexus-base-units [showOnlyGlitcher]="true"
                                   [glitcherTitle]="formatTimer(timer.endTime)"
-                                  [nexusAvailableUnits]="reinitializeNexusUnitsByType('nexusAvailableUnits', 'glitcher', getQuantityPurchasedFromTimer(timer.object) + '', true)"
+                                  [nexusAvailableUnits]="reinitializeNexusUnitsByTypeForUnitTimers('nexusAvailableUnits', 'glitcher', getQuantityPurchasedFromTimer(timer.object) + '', true)"
                                   [parentRef]="parentRef"
                                   [glitcherPictureSrc]="glitcherPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
