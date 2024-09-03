@@ -1,13 +1,15 @@
-<div class="mediaContainerWrapperDiv">
+<div class="mediaContainerWrapperDiv" 
+             appInView
+             (inView)="onInView($event)">
   <!-- Fullscreen Overlay -->
-  <div #fullscreenOverlay class="fullscreen-overlay" >
+  <div #fullscreenOverlay class="fullscreen-overlay" (click)="imageFileExtensionsIncludes(this.selectedFileExtension) ? shrink() : ''">
     <span class="close-overlay" (click)="shrink()">✖</span>
     <img #fullscreenImage class="fullscreen-media" />
     <video #fullscreenVideo class="fullscreen-media" controls [autoplay]="autoplay"></video>
     <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio> 
     <div class="shrinkMediaDiv cursorPointer" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
-  <div class="mediaContainerDiv">
+  <div class="mediaContainerDiv" [style.height]="selectedFileSrc == '' ? '300px' : ''">
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
       <span class="clickToLoadText">Click here to load media</span>
       <span><img src="favicon.ico" /></span>
@@ -15,7 +17,14 @@
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
     <div *ngIf="!isLoading && autoload && selectedFileSrc != ''" class="mediaDiv">
       <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="media" />
-      <video #mediaContainer *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" controls preload="auto" [autoplay]="autoplay" class="video media"></video>
+      <video #mediaContainer
+             *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)"
+             [src]="selectedFileSrc" 
+             controls
+             preload="auto"
+             [autoplay]="autoplay"
+             class="video media">
+      </video>
       <audio #mediaContainer
              *ngIf="audioFileExtensionsIncludes(this.selectedFileExtension)"
              [src]="selectedFileSrc"

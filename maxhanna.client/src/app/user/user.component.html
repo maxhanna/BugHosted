@@ -9,119 +9,130 @@
                        [inputtedParentRef]="parentRef">
     </app-notifications>
   </div>
+   
 
-  <div class="avatar" *ngIf="!loginOnly && !user?.displayPictureFile && user">
-    <span class="avatarBug">🪲</span>
-    <span class="avatarBust">👤</span>
+  <div class="profileHeader">
+    <div class="avatar" *ngIf="!loginOnly && (user && this.parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
+      <app-media-viewer #displayPictureViewer
+                        [displayExpander]="false"
+                        [displayExtraInfo]="false"
+                        [showCommentSection]="false"
+                        [file]="user.displayPictureFile"
+                        [currentDirectory]="user.displayPictureFile.directory"
+                        [user]="user">
+      </app-media-viewer>
+    </div>
+    <div>
+      {{user?.about?.description}}
+    </div>
   </div>
-  <div class="avatar" *ngIf="!loginOnly && (user && this.parentRef && user.displayPictureFile) && (user?.displayPictureFile ?? this.parentRef?.user?.displayPictureFile)">
-    <app-media-viewer #displayPictureViewer
-                      [displayExpander]="false"
-                      [displayExtraInfo]="false"
-                      [showCommentSection]="false"
-                      [file]="user.displayPictureFile"
-                      [currentDirectory]="user.displayPictureFile.directory"
-                      [user]="user">
-    </app-media-viewer>
-  </div>
+  
   <!--LOGIN AREA-->
   <div *ngIf="(user && parentRef && parentRef.user && user.id == parentRef.user.id) || !user && !parentRef?.user">
     <div>
       <div *ngIf="!parentRef?.user">
         <div *ngIf="!loginOnly">
-          <app-user-tag [displayEmptyAvatar]="true"></app-user-tag>
-          <div class="bugHostedLogo">BugHosted</div>
+          <div class="emptyUserTagLogo"> 
+            <app-user-tag [displayEmptyAvatar]="true"></app-user-tag>
+          </div>
+          <div class="bugHostedLogo">
+            BugHosted
+          </div>
           <div class="welcomeMessage">
             <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
             <p class="welcomeTitle">Total users: <span [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount && !isLoading ? usersCount : !usersCount && !isLoading ? 'Server is down!' : 'Unknown Error'}}</span></p>
             <p class="moreInfoTitle welcomeTitle" (click)="isAboutOpen = !isAboutOpen">Click here for more information</p>
             <div *ngIf="isAboutOpen" class="aboutSiteDiv">
-              <p class="notification">Welcome to Bug Hosted</p>
-
-
-              Play games together!
-              <app-media-viewer [fileId]="6373"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-
-              Interact with users
-              <app-media-viewer [fileId]="6374"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-
-
-              Social Media platform
-
-              <app-media-viewer [fileId]="6375"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-
-              Memes
-
-              <app-media-viewer [fileId]="6376"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-
-
-              Shared Filesystem
-
-              <app-media-viewer [fileId]="6380"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-
-              Cryptocurrency Tools
-
-              <app-media-viewer [fileId]="6377"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-
-              <app-media-viewer [fileId]="6378"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              Music and self organization tools
-
-              <app-media-viewer [fileId]="6379"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              Calendar
-              <app-media-viewer [fileId]="6381"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              Todo
-              <app-media-viewer [fileId]="6382"
-                                [inputtedParentRef]="parentRef"
-                                [displayExtraInfo]="false"
-                                [showCommentSection]="false"
-                                [displayExpander]="false">
-              </app-media-viewer>
-              And more! All available for free in our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>!
+              <ul>
+                <li>
+                  Play games together
+                  <app-media-viewer [fileId]="6373"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+                <li>
+                  Interact with users
+                  <app-media-viewer [fileId]="6374"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+                <li>
+                  Social Media platform
+                  <app-media-viewer [fileId]="6375"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+                <li>
+                  Memes
+                  <app-media-viewer [fileId]="6376"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+                <li>
+                  Shared Filesystem
+                  <app-media-viewer [fileId]="6380"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+                <li>
+                  Cryptocurrency Tools
+                  <app-media-viewer [fileId]="6377"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                  <app-media-viewer [fileId]="6378"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+                <li>
+                  Music and self organization tools
+                  <app-media-viewer [fileId]="6379"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+                <li>
+                  Calendar
+                  <app-media-viewer [fileId]="6381"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+                <li>
+                  Todo
+                  <app-media-viewer [fileId]="6382"
+                                    [inputtedParentRef]="parentRef"
+                                    [displayExtraInfo]="false"
+                                    [showCommentSection]="false"
+                                    [displayExpander]="false">
+                  </app-media-viewer>
+                </li>
+              </ul> 
+              And more! All available for free in our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>
             </div>
           </div>
         </div>
@@ -140,21 +151,22 @@
           </div>
         </div>
       </div>
-      <div *ngIf="!usersCount && !isLoading">Server down</div>
-      <div *ngIf="parentRef?.user" style="width:100%;text-align:center">
-        <button (click)="logout()">🔑 Logout</button>
-        <button (click)="parentRef?.createComponent('UpdateUserSettings', {showOnlySelectableMenuItems : false, areSelectableMenuItemsExplained: false})" title="Update Settings">⚙️ Settings</button>
-      </div>
+      <div *ngIf="!usersCount && !isLoading">Server down</div> 
     </div>
   </div>
 
-  <div class="profileControls">
-    <button class="shareButton" (click)="copyLink()" title="Share Link" *ngIf="user || parentRef?.user">📋 Share Profile</button>
-    <button *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe()" [style.display]="!canAddFriend(user)? 'none' : 'inline-block'" (click)="addFriend(user)">👤 Add friend</button>
-    <button *ngIf="areWeFriends(user)" (click)="removeFriend(user)">👤 Remove friend</button>
-    <button *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" (click)="addContact(user)">👤 Add as Contact</button>
-    <button *ngIf="user" (click)="openChat()">🗨️ Chat</button>
-    <button *ngIf="user" (click)="isMoreInfoOpen = !isMoreInfoOpen">ℹ️ User Info</button>
+  <div class="profileControls" *ngIf="user || parentRef?.user">
+    <select (change)="onProfileControlsChange()" #profileControls>
+      <option selected disabled>Options</option>
+      <option *ngIf="user || parentRef?.user" value="shareProfile">📋 Share Profile</option>
+      <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe() && canAddFriend(user)" value="addFriend">👤 Add Friend</option>
+      <option *ngIf="areWeFriends(user)" value="removeFriend">👤 Remove Friend</option>
+      <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">👤 Add Contact</option>
+      <option *ngIf="user" value="chat">🗨️ Chat</option>
+      <option *ngIf="user" value="userInfo">ℹ️ User Info</option>
+      <option *ngIf="user" value="settings">⚙️ Settings</option>
+      <option *ngIf="user" value="logout">🔑 Logout</option>
+    </select> 
   </div>
 
   <!-- ABOUT -->
@@ -275,9 +287,9 @@
     <!-- WORDLER SCORES-->
     <div class="topProfileContainer" id="wordlerScoresProfileContainer" (click)="expandDiv('wordlerScoresProfileContainer'); isWordlerScoresExpanded = !isWordlerScoresExpanded">
       <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
-        <span class="cursorPointer mainTable">Wordler Scores</span>
+        <span class="cursorPointer mainTable">Best Wordler Scores</span>
         <span class="smallExpander mainTable">
-          {{'('+wordlerScores.length+')'}}{{isWordlerScoresExpanded ? '-' : '+'}}
+          {{'(out of '+wordlerScoresCount+' total scores)'}}{{isWordlerScoresExpanded ? '-' : '+'}}
         </span>
 
         <div *ngIf="wordlerScores.length > 0 && isWordlerScoresExpanded" class="mainTableDiv">
@@ -325,17 +337,10 @@
 
 
   <!-- SOCIAL -->
-  <div class="topProfileContainer expanded" id="socialProfileContainer">
-    <div>
-      <div *ngIf="user || parentRef?.user">
-        <div class="profileStories">
-          <app-social #socialComponent
-                      [user]="user"
-                      [parent]="parentRef"
-                      [showTopicSelector]="false"
-                      *ngIf="user && parentRef"></app-social>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div class="topProfileContainer expanded" id="socialProfileContainer" *ngIf="user || parentRef?.user">  
+    <app-social #socialComponent
+                [user]="user"
+                [parent]="parentRef"
+                [showTopicSelector]="false"
+                *ngIf="user && parentRef"></app-social> 
 </div>

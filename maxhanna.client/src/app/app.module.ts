@@ -49,6 +49,7 @@ import { NexusMapComponent } from './nexus-map/nexus-map.component';
 import { ModalComponent } from './modal/modal.component';
 import { NexusSupportScreenComponent } from './nexus-support-screen/nexus-support-screen.component';
 import { NotificationsComponent } from './notifications/notifications.component';
+import { InViewDirective } from './in-view.directive';  
 
 @NgModule({
   declarations: [
@@ -93,11 +94,15 @@ import { NotificationsComponent } from './notifications/notifications.component'
     ModalComponent,
     NexusSupportScreenComponent,
     NotificationsComponent,
+    InViewDirective,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
     LineGraphComponent,
     AppRoutingModule],
+  exports: [
+    InViewDirective
+  ],
   providers: [
     provideHttpClient(withInterceptorsFromDi()),
     provideCharts(withDefaultRegisterables()),

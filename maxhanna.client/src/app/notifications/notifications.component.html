@@ -1,16 +1,16 @@
-<div *ngIf="minimalInterface"  class="usernameProfileLink pointer" (click)="showNotifications = !showNotifications">
- 🔔<span>{{notifications && notifications.length}}</span>
+<div *ngIf="minimalInterface" class="usernameProfileLink pointer" (click)="showNotifications = !showNotifications; (inputtedParentRef ? inputtedParentRef.showOverlay = showNotifications : '')">
+  🔔<span>{{notifications && notifications.length}}</span>
 </div>
 
 <div [class]="minimalInterface ? 'minimalInterfaceComponent' : 'componentMain'" *ngIf="!minimalInterface || showNotifications">
   <div class="closeButton" (click)="removeMe('Notifications')" *ngIf="!minimalInterface"></div>
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!minimalInterface"></div>
-  <div class="componentTitle" *ngIf="!minimalInterface">Notifications</div> 
+  <div class="componentTitle" *ngIf="!minimalInterface">Notifications</div>
 
   <div class="notificationsDisplay">
     <div>
       <div *ngIf="notifications && notifications.length > 0" class="noNotificationsDiv">You have {{notifications && notifications.length}} notifications <button (click)="delete()" *ngIf="notifications && notifications.length > 0">❌ Delete Notifications</button></div>
-      <div class="closeButton" (click)="showNotifications = !showNotifications" *ngIf="minimalInterface"></div>
+      <div class="closeButton" id="closeOverlay" (click)="showNotifications = false;  (inputtedParentRef ? inputtedParentRef.closeOverlay() : '')" *ngIf="minimalInterface"></div>
     </div>
     <div [class]="minimalInterface ? 'notificationsList' : ''">
       <div *ngFor="let notification of notifications" class="notificationListItem">
@@ -32,7 +32,7 @@
         </div>
         <div>
           <strong>Date:</strong> {{ notification.date | date: 'short' }}
-        </div> 
+        </div>
       </div>
     </div>
     <div *ngIf="notifications && notifications.length == 0" class="noNotificationsDiv">
@@ -40,7 +40,7 @@
       <div>You don't have any notifications</div>
       <img src="../../favicon.ico" />
       <div>Notifications will appear when users interact with you or your content.</div>
-      
+
     </div>
   </div>
-</div>
+</div> 

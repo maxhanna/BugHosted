@@ -92,8 +92,8 @@
   </div>
   <div class="bottomButtons" *ngIf="!isLoading">
     <div>
-      <button (click)="engageAttackAllUnits()" [disabled]="isLoading" *ngIf="hasUnitsToSend()">Send All Units</button>
-      <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || isLoading" *ngIf="hasUnitsToSend()">{{isSendingDefence ? 'Defend' : 'Engage'}}</button>
+      <button (click)="engageAttackAllUnits()" [disabled]="isLoading" *ngIf="hasUnitsToSend()">{{isSendingDefence ? '🛡️' : '⚔️'}}Send All Units</button>
+      <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || isLoading" *ngIf="hasUnitsToSend()">{{isSendingDefence ? '🛡️Defend' : '⚔️Engage'}}</button>
       <button (click)="closeAttackScreen()">Close</button>
     </div>
   </div>

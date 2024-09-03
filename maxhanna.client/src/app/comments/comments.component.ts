@@ -13,7 +13,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
   styleUrl: './comments.component.css'
 })
 export class CommentsComponent extends ChildComponent {
-  showComments = true;
+  showComments = false;
   showCommentLoadingOverlay = false;
   upvotedCommentIds: number[] = []
   downvotedCommentIds: number[] = []

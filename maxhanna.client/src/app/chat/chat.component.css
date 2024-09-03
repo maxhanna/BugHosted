@@ -75,11 +75,11 @@
 .messageContent {
   display: inline-block;
   padding: 5px 10px;
-  border-radius: 4px;
+  border-radius: 12px;
   border: var(--main-border);
-  word-break:break-word;
+  word-break: break-word;
   width: CALC(100% - 120px);
-  max-width:30vw;
+  max-width: 30vw;
 }
 @media only screen and (min-device-width: 300px) and (max-device-width:800px) {
   .messageContent {
@@ -106,11 +106,18 @@ input[type="text"] {
 }
 .profileTag {
   margin-left: unset !important;
-  margin-right: unset !important;
-  width: 100px;
-  text-align:center; 
+  margin-right: unset !important; 
+  text-align:center;
+  width:50px;
 }
 .attachedFilesDiv {
   display: flex;
   justify-content: center;
+}
+.otherPersonsMessage {
+    background-color: var(--main-bg-color-full-opacity);
+}
+.otherPersonsReaction {
+    width:100%;
+    text-align:right;
 }

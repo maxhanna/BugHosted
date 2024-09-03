@@ -33,6 +33,7 @@ export class UserComponent extends ChildComponent implements OnInit {
 
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
+  @ViewChild('profileControls') profileControls!: ElementRef<HTMLSelectElement>;
   @ViewChild(SocialComponent) socialComponent!: SocialComponent;
 
   updateUserDivVisible = true;
@@ -52,6 +53,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   friendRequests: FriendRequest[] = [];
   contacts: Contact[] = [];
   wordlerScores: WordlerScore[] = [];
+  wordlerScoresCount: number = 0;
   isMusicContainerExpanded = false;
   playListCount = 0;
   playListFirstFetch = true;
@@ -131,6 +133,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         const res = await this.wordlerService.getAllScores(this.user ?? this.parentRef?.user);
         if (res) {
           this.wordlerScores = res;
+          this.setTopScores();
         }
         const wsRes = await this.wordlerService.getConsecutiveDayStreak((this.user ?? this.parentRef?.user)!);
         if (wsRes) {
@@ -239,6 +242,65 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.notifications.push(res);
     await this.loadFriendData();
   }
+  setTopScores() {
+    const groupedScores: { [key: number]: WordlerScore[] } = this.wordlerScores.reduce((groups, score) => {
+      const difficulty = score.difficulty;
+      if (!groups[difficulty]) {
+        groups[difficulty] = [];
+      }
+      groups[difficulty].push(score);
+      return groups;
+    }, {} as { [key: number]: WordlerScore[] });
+
+    // Get the top 5 scores for each difficulty
+    const topScores = Object.values(groupedScores).flatMap(scores =>
+      scores
+        .sort((a, b) => b.score - a.score || a.time - b.time) // Sort by score descending, then by time ascending
+        .slice(0, 5) // Take the top 5
+    );
+    this.wordlerScoresCount = this.wordlerScores.length;
+    this.wordlerScores = topScores;
+  }
+  onProfileControlsChange() {
+    const command = this.profileControls.nativeElement.value;
+
+    switch (command) {
+      case 'shareProfile':
+        this.copyLink();
+        break;
+      case 'addFriend':
+        if (this.user) { 
+          this.addFriend(this.user);
+        }
+        break;
+      case 'removeFriend':
+        this.removeFriend(this.user);
+        break;
+      case 'addContact':
+        if (this.user) { 
+          this.addContact(this.user);
+        }
+        break;
+      case 'chat':
+        this.openChat();
+        break;
+      case 'userInfo':
+        this.isMoreInfoOpen = !this.isMoreInfoOpen;
+        break;
+      case 'settings':
+        this.parentRef?.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false })
+        break;
+      case 'logout':
+        this.logout()
+        break;
+      default:
+        break;
+    }
+
+    // Reset the select dropdown to the default "Options" placeholder
+    this.profileControls.nativeElement.selectedIndex = 0;
+  }
+
 
   async addFriend(user: User) {
     if (this.parentRef && this.parentRef.user) {

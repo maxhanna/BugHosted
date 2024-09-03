@@ -13,6 +13,7 @@
   <div class="fileUploadInputs">
     <app-file-upload [currentDirectory]="'Meme'"
                      [user]="parentRef?.user"
+                     [inputtedParentRef]="parentRef"  
                      [showPrivatePublicOption]="false"
                      [allowedFileTypes]="'image/*,video/*'"
                      [uploadButtonText]="'Upload Meme(s)'"
@@ -35,6 +36,7 @@
                      [displayFileType]="false"
                      [displayFileSize]="false"
                      [fileId]="memeId"
+                     [autoload]="memeId ? false : true"
                      (userNotificationEvent)="uploadNotification($event);">
     </app-file-search>
   </div>

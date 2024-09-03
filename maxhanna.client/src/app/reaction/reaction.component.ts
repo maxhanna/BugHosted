@@ -2,6 +2,7 @@ import { Component, Input, OnInit } from '@angular/core';
 import { ReactionService } from '../../services/reaction.service'; 
 import { User } from '../../services/datacontracts/user/user';
 import { Reaction } from '../../services/datacontracts/reactions/reaction';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-reaction',
@@ -44,6 +45,7 @@ export class ReactionComponent implements OnInit {
   @Input() messageId?: number;
   @Input() fileId?: number;
   @Input() user?: User;
+  @Input() inputtedParentRef?: AppComponent;
   @Input() currentReactions?: Reaction[] = [];
   constructor(private reactionService: ReactionService) { }
 
@@ -77,6 +79,9 @@ export class ReactionComponent implements OnInit {
       this.getReactionsListDisplay();
     }
     this.showReactionChoices = false;
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.showOverlay = this.showReactionChoices;
+    }
     this.userReaction = reaction;
   }
   getReactionsListDisplay() {
@@ -90,7 +95,10 @@ export class ReactionComponent implements OnInit {
     } 
   }
   reactionDisplayOnClick() {
-    this.showReactionChoices = !this.showReactionChoices; 
+    this.showReactionChoices = !this.showReactionChoices;
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.showOverlay = this.showReactionChoices; 
+    }
   }
 
   hideReactionChoicesDiv = () => { 
@@ -103,7 +111,7 @@ export class ReactionComponent implements OnInit {
 
 
   showReactionsOnClick() {
-    this.showReactions = !this.showReactions;
+    this.showReactions = !this.showReactions; 
   }
 
   replaceReactionType(type?: string) {

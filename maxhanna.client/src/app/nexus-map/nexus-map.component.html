@@ -1,7 +1,9 @@
-<div *ngIf="!isMapRendered" class="map loadingMapDiv">
-  <div class="loadingRing">
-    <div>Loading🗺️</div>
-    <span class="loadingCircle"></span>
+<div class="mapContainer">
+  <div *ngIf="!isMapRendered" class="map loadingMapDiv">
+    <div class="loadingRing">
+      <div>Loading🗺️</div>
+      <span class="loadingCircle"></span>
+    </div>
   </div>
 </div>
 <div class="map" *ngIf="mapData isMapRendered" #mapContainer>
@@ -46,7 +48,7 @@
     </div>
   </div>
 </div>
-<div class="centeredDiv topMapCoords" [style.display]="!isAttackScreenOpen && isMapRendered ? 'flex':'none'">
+<div *ngIf="!zoomedOut" class="centeredDiv topMapCoords" [style.display]="!isAttackScreenOpen && isMapRendered ? 'flex':'none'">
   <button (click)="zoomOut()">Zoom out</button>
   <span>
     X: <input type="number" placeholder="0" min="0" max="99" #mapInputX class="mapInput" (keyup.enter)="onMapInputChange(mapInputX.value)" />
@@ -58,7 +60,7 @@
   <button (click)="scrollToCoordinates(nexusBase.coordsX, nexusBase.coordsY, false)" *ngIf="nexusBase" class="invertedHighlights">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
 </div>
 
-<div *ngIf="shouldShowMapInputs() && selectedNexusBase" class="centeredDiv">
+<div *ngIf="shouldShowMapInputs() && selectedNexusBase && !zoomedOut" class="centeredDiv">
   <!-- COMMAND BUTTONS -->
   <div>
     <button (click)="showAttackScreen(false)" *ngIf="showAttackButton" title="Send Attack">⚔️Attack</button>
@@ -125,10 +127,10 @@
                            (emittedGoToCoords)="emittedGoToCoords($event)">
   </app-nexus-attack-screen>
 </div>
-<div class="zoomInButtonDiv" *ngIf="isReportsHidden && !isAttackScreenOpen">
+<div class="zoomInButtonDiv" *ngIf="zoomedOut">
   <button (click)="zoomIn()">Zoom In</button>
 </div>
-<div [style.display]="isAttackScreenOpen && ((numberOfPersonalBases || 0) > 1) ? 'block' : 'none'" class="baseAutoSwitcherDiv">
+<div [style.display]="isAttackScreenOpen && ((numberOfPersonalBases || 0) > 1)  && !zoomedOut ? 'block' : 'none'" class="baseAutoSwitcherDiv">
   <label class="cursorPointer usernameProfileLink">
     <input type="checkbox" #switchNextBaseCheckbox />
     Automatically switch bases after attacking

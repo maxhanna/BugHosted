@@ -21,6 +21,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() clearAfterSelectFile = false;
   @Input() allowedFileTypes: string[] = [];
   @Input() user?: User;
+  @Input() inputtedParentRef?: AppComponent;
   @Input() showPrivatePublicOption: boolean = true;
   @Input() maxResults: number = 50;
   @Input() canChangeDirectory: boolean = true;
@@ -30,8 +31,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() displayFileActions: boolean = true;
   @Input() displayComments: boolean = true;
   @Input() displayReactions: boolean = true;
+  @Input() autoload: boolean = false;
   @Input() canDragMove: boolean = true;
-  @Input() inputtedParentRef?: AppComponent;
   @Input() fileId: string | null = null;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -435,5 +436,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.showShareUserList = true;
     this.selectedSharedFile = file;
     this.shareUserListDiv.nativeElement.classList.toggle("open");
+  }
+  emittedNotification(event: string) {
+    this.userNotificationEvent.emit(event);
   }
 }

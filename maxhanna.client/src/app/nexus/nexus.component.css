@@ -15,18 +15,16 @@
 }
 
 .bugWarsInfo {
+    padding:10px;
   display: flex;
   flex-flow: column wrap;
-  justify-content: flex-start;
-  height: 605px;
+  justify-content: flex-start; 
   overflow: auto;
   flex-direction: column;
   flex-wrap: nowrap;
-  text-align: center;
-  font-size: large;
+  text-align: center; 
   font-weight: bolder;
-}
-
+} 
 .gamescreen, .map {
   width: 100%;
   height: var(--nexus-gamescreen-height);
@@ -40,7 +38,7 @@
   transform: translateX(-50%);
   max-width: 300px;
   text-align: center;
-  background-color: var(--main-bg-color);
+  background-color: var(--main-highlight-color-quarter-opacity);
   border: var(--main-border);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -68,22 +66,22 @@
   float:left;
 }
 
-.nextBaseButton {
+.switchBaseButtons {
   position: absolute;
-  top: CALC(var(--nexus-gamescreen-height) / 2);
-  left: CALC(100% - 25px);
+  top: CALC(var(--nexus-gamescreen-height) + 5px);
   display: block;
-  width: 25px;
+  width: 35px;
+  text-align: center;
+  padding: 0px;
   z-index: 5;
 }
 
-.previousBaseButton {
-  position: absolute;
-  top: CALC(var(--nexus-gamescreen-height) / 2);
-  left: 0px;
-  display: block;
-  width: 25px;
-  z-index: 5;
+.nextBaseButton {
+  right: 10px;
+}
+
+.previousBaseButton {  
+  left: 10px; 
 }
 
 .map {
@@ -98,6 +96,8 @@
 .timerLabel {
   font-size: small;
   background: var(--main-bg-color);
+  z-index: 1;
+  position: relative;
 }
 
 .building {
@@ -142,6 +142,92 @@
   left: 291px;
   border-radius: 0px !important;
   transform: rotate(45deg) skew(-10deg, 40deg);
+}
+.minesSmokeContainer {
+  transform: scale(13%);
+  position: absolute;
+}
+
+.minesSmokeContainer1 {
+  left: 245px;
+  top: 199px;
+}
+
+.minesSmokeContainer2 {
+  left: 265px;
+  top: 205px;
+}
+
+.minesSmokeContainer3 {
+  left: 282px;
+  top: 210px;
+}
+
+.minesSmoke ul {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0;
+}
+
+.minesSmoke li {
+  position: absolute;
+  list-style: none;
+  width: 80px;
+  height: 80px;
+  background: #475a4878;
+  border-radius: 50%;
+  animation-duration: 2.8s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite; 
+  aspect-ratio: 1.8;
+  --g: radial-gradient(50% 50%, #000 98%, #0000) no-repeat;
+  mask: var(--g) 100% 100%/30% 60%,var(--g) 70% 0/50% 100%,var(--g) 0 100%/36% 68%,var(--g) 27% 18%/26% 40%,linear-gradient(#000 0 0) bottom/67% 58% no-repeat;
+ }
+ 
+  .minesSmoke li:nth-child(even) {
+    animation-name: animateEven;
+  }
+
+  .minesSmoke li:nth-child(odd) {
+    animation-name: animateOdd;
+  }
+
+  .minesSmoke li:nth-child(9) {
+    animation: none;
+    filter: blur(15px);
+  }
+
+@keyframes animateEven {
+  0% {
+    transform: translate(0,0) scale(1);
+    opacity: 1;
+    filter: blur(5px);
+  }
+
+  100% {
+    transform: translate(100px,-500px) scale(3);
+    opacity: 0;
+    filter: blur(10px);
+    background-color: #42ff0038;
+  }
+}
+
+@keyframes animateOdd {
+  0% {
+    transform: translate(0,0) scale(1);
+    opacity: 1;
+    filter: blur(5px);
+  }
+
+  100% {
+    transform: translate(-100px,-500px) scale(3);
+    opacity: 0;
+    filter: blur(10px);
+    background-color: #6666668a;
+  }
 }
 
 .starport, .starportLevelDisplay {
@@ -372,11 +458,12 @@
 }
 
 .mapComponentDiv {
-  max-height: 80vh; 
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 160px);
 }
 
 .baseListComponentDiv {
-  height: 70vh; 
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 160px);
+  display:block;
 }
 
 .battleReportComponentDiv {
@@ -462,10 +549,14 @@
   width: 100%;
 }
 
-.upgradeTimersTableDiv {
+.upgradeTimersTableDiv, .unitTimersTableDiv {
   max-height: 100px;
-  width: 100%; 
+  min-height: 20px;
+  width: 100%;
   font-size: small;
+}
+.upgradeTimersTableDiv {
+  overflow: auto;
 }
 
 .unitPurchaseTableDiv {
@@ -581,18 +672,6 @@
 
 .centeredText {
   text-align: center;
-} 
-
-.mainInfoSection {
-  text-align: center;
-  font-size: small;
-  border-top: var(--main-border);
-  margin-bottom: 2px;
-  display: block;
-  background-color: var(--main-bg-color);
-  text-shadow: 0.1px 0.1px 2px black;
-  text-decoration-color: var(--primary-font-color);
-  box-shadow: 0px 0px 5px black;
 }
 
 .unitSliderTd {
@@ -797,3 +876,7 @@
   justify-content: space-evenly;
   align-items: center;
 }
+.movementResearchAndUnitsDiv {
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 150px - var(--nexus-gamescreen-height));
+  overflow: auto;
+} 

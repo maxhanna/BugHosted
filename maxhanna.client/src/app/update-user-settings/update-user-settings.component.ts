@@ -196,6 +196,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     }
   }
 
+
   menuIconsIncludes(title: string) {
     return this.parentRef!.userSelectedNavigationItems.some(x => x.title == title) || this.inputtedParentRef?.userSelectedNavigationItems.some(x => x.title == title);
   }

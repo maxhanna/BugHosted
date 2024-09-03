@@ -122,14 +122,21 @@
             <tr>
               <th></th>
               <td *ngFor="let key of buildingOrder; let i = index">
-                <span class="rotated-header unitCell buildingNameTH capitalize">{{ key.replace('_', ' ') }}</span>
+                <img [src]="key == 'command_center' ? cclvl1Src
+                          : key == 'engineering_bay' ? eblvl1Src
+                          : key == 'supply_depot' ? sdlvl1Src
+                          : key == 'warehouse' ? whlvl1Src
+                          : key == 'starport' ? splvl1Src
+                          : key == 'factory' ? flvl1Src
+                          : key == 'mines' ? mineslvl1Src
+                          : ''" class="buildingPicture "  *ngIf="scoutPictureSrc" loading="lazy" decoding="asynchronous" [title]="key.replace('_', ' ')" />  
               </td> 
             </tr>
           </thead>
           <tbody>
             <tr>
               <th>🏰:</th>
-              <ng-container *ngFor="let key of buildingOrder; let i = index">
+              <ng-container *ngFor="let key of buildingOrder; let i = index"> 
                 <td [class]="'unitCell ' + (report.defenderBuildingLevels[key] == 0 ? ' greyText' : '')">{{ report.defenderBuildingLevels[key] || 0}}</td>
               </ng-container>
             </tr>

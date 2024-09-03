@@ -14,3 +14,6 @@ td {
   background-color: var(--main-highlight-color) !important; 
   border: var(--main-border);
 }
+.mainBgColor {
+  background-color: var(--main-bg-color) !important;
+}

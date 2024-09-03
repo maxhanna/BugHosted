@@ -62,7 +62,14 @@ namespace maxhanna.Server.Controllers
                             @"INSERT INTO maxhanna.notifications
                                 (user_id, from_user_id, file_id, text)
                             VALUES
-                                ((SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id), @user_id, @file_id, @comment);";
+                                ((SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id), @user_id, @file_id, @comment);
+
+                            INSERT INTO maxhanna.notifications
+                                (user_id, from_user_id, file_id, text)
+                            SELECT DISTINCT user_id, @user_id, @file_id, @comment
+                            FROM maxhanna.comments
+                            WHERE file_id = @file_id
+                            AND user_id <> @user_id;";
                     }
                     else if (request.StoryId != null)
                     {

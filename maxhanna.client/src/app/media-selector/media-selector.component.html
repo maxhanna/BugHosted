@@ -1,63 +1,73 @@
 <div class="mediaSelectorDiv">
-  <button class="mediaSelectorButton" (click)="toggleMediaChoices()">🧷Attach</button>
+  <button class="mediaSelectorButton pointer" (click)="toggleMediaChoices()">🧷Attach</button>
   <ng-container *ngIf="viewMediaChoicesOpen || displaySearch">
     <div id="selectMediaDiv" [ngClass]="{'open': viewMediaChoicesOpen || displaySearch}">
       <div class="mediaSelectorTitle">
-        Select Media Files: <button class="doneButton" #doneButton (click)="done()">Done</button>
+        <div class="selectFilesTitle">Select Media Files</div>
       </div>
-      <div *ngIf="viewMediaChoicesOpen">
-        <div class="attachmentChoiceContainer" *ngIf="selectedFiles && selectedFiles.length > 0">
-          <div *ngFor="let file of selectedFiles">
-            <div class="smallContainerForMedia">
-              <app-media-viewer [user]="user"
-                                [inputtedParentRef]="inputtedParentRef"
-                                [currentDirectory]="file.directory"
-                                [file]="file"
-                                [showCommentSection]="false"
-                                [displayExtraInfo]="false"
-                                [displayExpander]="false"
-                                [autoplay]="false">
-              </app-media-viewer>
-              <div>
-                <div><button (click)="removeFile(file)">Remove file</button></div>
+
+      <div class="mediaChoices">
+        <div *ngIf="viewMediaChoicesOpen">
+          <div class="attachmentChoiceContainer" *ngIf="selectedFiles && selectedFiles.length > 0">
+            <div *ngFor="let file of selectedFiles">
+              <div class="smallContainerForMedia">
+                <app-media-viewer [user]="user"
+                                  [inputtedParentRef]="inputtedParentRef"
+                                  [currentDirectory]="file.directory"
+                                  [file]="file"
+                                  [showCommentSection]="false"
+                                  [displayExtraInfo]="false"
+                                  [displayExpander]="false"
+                                  [autoplay]="false">
+                </app-media-viewer>
+                <div>
+                  <div><button (click)="removeFile(file)">Remove file</button></div>
+                </div>
               </div>
-            </div> 
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="fileSearchDiv">
+        <div>
+          <button (click)="displaySearch = !displaySearch" *ngIf="displaySearchButton && !displaySearch" title="Search for files" class="pointer">{{displaySearch ? 'Close Search' : '🔍Search Files'}}</button>
+        </div>
+        <div class="searchContainerDiv">
+          <div *ngIf="!displaySearch">
+            <app-file-upload [uploadButtonText]="'Upload Files'"
+                             [inputtedParentRef]="inputtedParentRef" 
+                             [showPrivatePublicOption]="false"
+                             [currentDirectory]="currentDirectory"
+                             (userUploadFinishedEvent)="uploadFinishedEvent($event)"
+                             (userUploadEvent)="uploadEvent($event)"
+                             (userCancelEvent)="uploadCancelledEvent($event)"
+                             [user]="user">
+            </app-file-upload>
+          </div>
+          <div>
+            <app-file-search *ngIf="displaySearch"
+                             [user]="user"
+                             [inputtedParentRef]="inputtedParentRef"
+                             [currentDirectory]="currentDirectory"
+                             [clearAfterSelectFile]="true"
+                             [showPrivatePublicOption]="false"
+                             [maxResults]="10"
+                             [canChangeDirectory]="true"
+                             [displayFileType]="false"
+                             [displayFileSize]="false"
+                             [displayFileData]="false"
+                             [displayFileActions]="false"
+                             [displayReactions]="false"
+                             [displayComments]="false"
+                             (selectFileEvent)="selectFile($event)"
+                             (currentDirectoryChangeEvent)="directoryChanged($event)">
+            </app-file-search>
           </div>
         </div>
-        <div>
-          <app-file-upload [uploadButtonText]="'Upload Files'"
-                           [showPrivatePublicOption]="false"
-                           [currentDirectory]="currentDirectory"
-                           (userUploadFinishedEvent)="uploadFinishedEvent($event)"
-                           (userUploadEvent)="uploadEvent($event)"
-                           (userCancelEvent)="uploadCancelledEvent($event)"
-                           [user]="user">
-          </app-file-upload>
-        </div>
       </div>
-      <div>
-        <button (click)="displaySearch = !displaySearch" *ngIf="displaySearchButton" title="Search for files">🔍Search Files</button>
-        <div class="searchContainerDiv">
-          <app-file-search *ngIf="displaySearch"
-                           [user]="user"
-                           [inputtedParentRef]="inputtedParentRef"
-                           [currentDirectory]="currentDirectory"
-                           [clearAfterSelectFile]="true"
-                           [showPrivatePublicOption]="false"
-                           [maxResults]="10"
-                           [canChangeDirectory]="true"
-                           [displayFileType]="false"
-                           [displayFileSize]="false"
-                           [displayFileData]="false"
-                           [displayFileActions]="false"
-                           [displayReactions]="false"
-                           [displayComments]="false"
-                           (selectFileEvent)="selectFile($event)"
-                           (currentDirectoryChangeEvent)="directoryChanged($event)">
-          </app-file-search>
-        </div>
+      <button id="closeOverlay" class="doneButton pointer" #doneButton (click)="displaySearch ? displaySearch = !displaySearch :  done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Done' : 'Cancel'}}</button>
 
-      </div>
     </div>
   </ng-container>
-</div>
+</div> 

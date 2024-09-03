@@ -25,12 +25,12 @@
     </div>
   </div>
 
-  <div>
+  <div class="fileUploaderButtons">
     <button type="submit"
             (click)="uploadSubmitClicked()"
             title="Upload file(s)">
       {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
-    <button type="submit" *ngIf="uploadFileList.length > 0 && !isUploading" (click)="cancelFileUpload()" title="Cancel upload">❌Cancel</button>
+    <button type="submit" id="closeOverlay" *ngIf="!isUploading" (click)="cancelFileUpload()" title="Cancel upload">❌Cancel</button>
   </div>
-</div>
+</div> 

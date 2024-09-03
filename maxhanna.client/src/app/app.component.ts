@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { AfterViewInit, Component, ComponentRef, ElementRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
 import { CalendarComponent } from './calendar/calendar.component';
 import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { FavouritesComponent } from './favourites/favourites.component';
@@ -45,6 +45,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
   showMainContent = true;
   isModalOpen = false;
+  showOverlay = false;
   pictureSrcs: { key: string, value: string, type: string, extension: string }[] = [];
   created: boolean = false; // Global variable accessible throughout the component
   isNavigationInitialized: boolean = false;
@@ -163,6 +164,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
         { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
         { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
+        { ownership: 0, icon: "📁", title: "Files", content: undefined },
         { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
         { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
         { ownership: 0, icon: "👤", title: "User", content: undefined },
@@ -305,5 +307,18 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   updateHeight() {
     document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+  }
+  closeOverlay() {
+    console.log("close overlay");
+    this.showOverlay = false;
+    if ((document.getElementById("closeOverlay") as HTMLButtonElement)) { 
+      (document.getElementById("closeOverlay") as HTMLButtonElement).click()
+      //close the second one if it exists
+      setTimeout(() => {
+        if ((document.getElementById("closeOverlay") as HTMLButtonElement)) {
+          (document.getElementById("closeOverlay") as HTMLButtonElement).click()
+        }
+      }, 10);
+    }
   }
 }

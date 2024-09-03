@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component'; 
 import { FileService } from '../../services/file.service';  
 import { AppComponent } from '../app.component';
@@ -37,14 +37,32 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() autoplay: boolean = true;
   @Input() autoload: boolean = true;
   @Input() showCommentSection: boolean = true;
+  @Input() canScroll: boolean = false;
   @Input() file?: FileEntry;
   @Input() fileId?: number;
   @Input() fileSrc?: string; 
   @Input() currentDirectory?: string = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
-
-  async ngOnInit() {
+  @Output() emittedNotification = new EventEmitter<string>();
+    
+  async ngOnInit() { 
+  }
+  onInView(isInView: boolean) {
+    if (isInView) {
+      this.fetchFileSrc();
+    } else {
+      if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLVideoElement) {
+        this.mediaContainer.nativeElement.pause();
+      } else if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLAudioElement) {
+        this.mediaContainer.nativeElement.pause();
+      }
+      if (this.abortFileRequestController) {
+        this.abortFileRequestController.abort();
+      } 
+    }
+  }
+  async fetchFileSrc() {
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       return;
@@ -54,10 +72,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.fileId) {
       this.selectedFile = {
         id: this.fileId,
-      } as FileEntry; 
+      } as FileEntry;
       if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value
         || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {
-         this.selectedFileSrc = this.parentRef?.pictureSrcs[this.fileId].value ?? this.inputtedParentRef!.pictureSrcs[this.fileId].value;
+        this.selectedFileSrc = this.parentRef?.pictureSrcs[this.fileId].value ?? this.inputtedParentRef!.pictureSrcs[this.fileId].value;
         return;
       } else {
         await this.setFileSrcById(this.selectedFile.id);
@@ -74,7 +92,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       } else {
         await this.setFileSrcById(fileObject.id);
         this.selectedFile = fileObject;
-      } 
+      }
     } else if (this.file && !Array.isArray(this.file)) {
       if (this.parentRef && this.parentRef.pictureSrcs[this.file.id] && this.parentRef.pictureSrcs[this.file.id].value
         || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.file.id] && this.inputtedParentRef.pictureSrcs[this.file.id].value) {
@@ -84,7 +102,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       } else {
         await this.setFileSrcById(this.file.id);
         this.selectedFile = this.file;
-      } 
+      }
     }
   }
   resetSelectedFile() {
@@ -111,7 +129,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     const link = `https://bughosted.com/${this.file?.directory.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`; 
     try {
       navigator.clipboard.writeText(link);
+      this.emittedNotification.emit(`${link} copied to clipboard!`);
     } catch {
+      this.emittedNotification.emit("Error: Unable to share link!");
       console.log("Error: Unable to share link!");
     }
   }
@@ -175,12 +195,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         console.error(error);
+        this.emittedNotification.emit((error as Error).message);
       }
     } finally {
       this.stopLoading();
-      setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
+      if (this.canScroll) { 
+        setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
+      }
     }
   }
+ 
   expandFile(file: any) {
     this.isFullscreenMode = true;
     (this.mediaContainer.nativeElement as HTMLMediaElement).src = '';
@@ -237,6 +261,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
     try {
       this.startLoading();
+      this.emittedNotification.emit(`Downloading ${file.fileName}`);
+
       const response = await this.fileService.getFile(target, undefined, this.user);
       const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
@@ -252,6 +278,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.stopLoading();
     } catch (ex) {
       console.error(ex);
+      this.emittedNotification.emit((ex as Error).message); 
     }
   }  
   videoFileExtensionsIncludes(ext: string) {

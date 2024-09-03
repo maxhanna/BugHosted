@@ -16,13 +16,18 @@
   </div>
 </div>
 
-<div *ngIf="showReactionChoices" class="reactionChoices" id="reactionChoicesDiv">
-  <div class="reactionChoice" *ngFor="let reaction of reactions" (click)="selectReaction(reaction.type)">
-    {{reaction.emoji}}
+<div *ngIf="showReactionChoices" class="reactionChoicesContainer" id="reactionChoicesDiv">
+  <div class="reactionChoices">
+    <div class="reactionChoice" *ngFor="let reaction of reactions" (click)="selectReaction(reaction.type)">
+      {{reaction.emoji}}
+    </div>
+  </div> 
+  <div>
+    <button id="closeOverlay" (click)="reactionDisplayOnClick()">Close</button>
   </div>
 </div>
 
-<div *ngIf="showReactions" class="reactionChoices">
+<div *ngIf="showReactions">
   <div *ngFor="let reaction of currentReactions" (click)="showReactionsOnClick()">
     {{reaction.user?.username}}:{{replaceReactionType(reaction.type)}}  
   </div>

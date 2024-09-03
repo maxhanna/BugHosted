@@ -2,7 +2,7 @@
   <div class="closeButton" (click)="remove_me('MiningDevicesComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Mining Rig Devices</div>
-   
+
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
   <div class="mainTableDiv" *ngIf="miningRigDevices.length > 0">
     <table class="mainTable miningStatusTable" id="deviceRigTable">
@@ -46,8 +46,9 @@
       </tbody>
     </table>
   </div>
-  <div *ngIf="miningRigDevices.length == 0 || !miningRigDevices">
+  <div *ngIf="!isLoading && (miningRigDevices.length == 0 || !miningRigDevices)">
     <div>You have no mining rig devices to show!</div>
     <div>Set up nicehash API to fetch your rig details:</div>
   </div>
+  <div *ngIf="isLoading">Loading...</div> 
 </div>

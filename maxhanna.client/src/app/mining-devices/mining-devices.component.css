@@ -75,8 +75,8 @@
   }
 
 .stopped, .started, .disabled {
-  height: var(--main-font-size);
-  width: var(--main-font-size);
+/*  height: var(--main-font-size);
+  width: var(--main-font-size);*/
   border-radius: 50%;
   border: 1px ridge var(--main-font-color);
   margin-left: auto;

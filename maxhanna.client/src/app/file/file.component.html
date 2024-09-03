@@ -17,6 +17,7 @@
       (userCancelEvent)="cancelMakeDirectoryOrFile();"
       [currentDirectory]="currentDirectory"
       [user]="parentRef?.user!"
+      [inputtedParentRef]="parentRef"
       [uploadButtonText]="'Upload File(s)'"
       [showPrivatePublicOption]="isUploadInitiate ? true : false"
       *ngIf="!showMakeDirectoryPrompt && !(currentDirectory == '') && !(currentDirectory == 'Users/')">

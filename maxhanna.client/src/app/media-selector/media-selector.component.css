@@ -7,21 +7,26 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 330px;
   height: 370px;
-  top: CALC(50% - 300px); /* Adjust as needed */
-  left: CALC(50% - 150px); /* Adjust as needed */
+  top: CALC(50% - 175px);
+  left: CALC(50% - 175px);
   overflow: auto;
 }
 
   #selectMediaDiv.open {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-content: center;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 2;
   }
 
 .smallContainerForMedia {
   text-align: center;
 }
 
-.searchContainerDiv {
-  max-height: 250px;
+.searchContainerDiv { 
   overflow: auto;
 }
 
@@ -31,7 +36,7 @@
 }
 
 .mediaFileName {
-  display: inline-block; /* or block */
+  display: inline-block; 
   width: 10vw;
   overflow: hidden;
   white-space: nowrap;
@@ -47,4 +52,37 @@
   margin-left: auto;
   margin-right: auto;
   gap: 15px;
-} 
+}
+.mediaChoices {
+  width: 100%;
+  display: flex;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+}
+.fileSearchDiv {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: space-between;
+  justify-content: space-around;
+  align-items: center;
+  height: 100%;
+}
+
+.fileUploadOverlay {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background-color: var(--main-highlight-color-quarter-opacity);
+}
+.selectFilesTitle {
+  font-family: Courier New, Arial;
+  font-weight: bolder;
+  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+}

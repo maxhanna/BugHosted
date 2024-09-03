@@ -5,13 +5,17 @@
   display: flex;
   justify-content: center;
   padding: 5px;
+  max-height: 300px;
+  overflow: auto;
+  padding-left: 5vw;
+  padding-right: 5vw;
 }
 
 
 .commentsHeader {
   margin-left: auto;
   margin-right: auto;
-  width: 130px;
+  width: 300px;
   font-size: large;
   text-align: center;
   cursor: pointer;

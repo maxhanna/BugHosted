@@ -30,7 +30,7 @@ export class NexusMapComponent extends ChildComponent {
   randomMap: number[][] = [];
   searchTerm = new Subject<string>();
   tileSources = [this.mapTileSrc3, this.mapTileSrc, this.mapTileSrc2];
-
+  zoomedOut = false;
   attackTimers: { [key: string]: NexusTimer } = {};
   defenceTimers: { [key: string]: NexusTimer } = {};
 
@@ -62,8 +62,7 @@ export class NexusMapComponent extends ChildComponent {
   @Input() nexusDefencesIncoming?: NexusAttackSent[];
   @Input() isParentLoading?: boolean = false;
 
-  @Output() emittedReloadEvent = new EventEmitter<string>();
-  @Output() closeMapEvent = new EventEmitter<void>();
+  @Output() emittedReloadEvent = new EventEmitter<string>(); 
   @Output() emittedNotifications = new EventEmitter<string>();
   @Output() emittedGoToBaseEvent = new EventEmitter<NexusBase>();
   @Output() emittedAttackEvent = new EventEmitter<AttackEventPayload>();
@@ -85,12 +84,13 @@ export class NexusMapComponent extends ChildComponent {
   }
 
   zoomOut() {
+    this.zoomedOut = true;
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
     mapElement.style.transform = `scale(${0.5}) translateX(-50%) translateY(-50%)`;
     mapElement.style.width = "200%";
-    mapElement.style.height = "90vh";
+    mapElement.style.height = "80vh";
     mapElement.style.overflow = "auto";
-    (document.getElementsByClassName('zoomInButtonDiv')[0] as HTMLDivElement).style.display = "block";
+
     let styleElement = document.getElementById('dynamic-scrollbar-style') as HTMLStyleElement;
     if (!styleElement) {
       styleElement = document.createElement('style');
@@ -105,11 +105,12 @@ export class NexusMapComponent extends ChildComponent {
   `;
   }
   zoomIn() {
+    this.zoomedOut = false
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
     mapElement.style.transform = ``;
     mapElement.style.width = "";
     mapElement.style.height = "";
-    (document.getElementsByClassName('zoomInButtonDiv')[0] as HTMLDivElement).style.display = "none";
+
     const styleElement = document.getElementById('dynamic-scrollbar-style') as HTMLStyleElement;
     if (styleElement) {
       styleElement.parentNode?.removeChild(styleElement);
@@ -172,6 +173,10 @@ export class NexusMapComponent extends ChildComponent {
   showAttackScreen(isDefence: boolean) {
     const isChecked = this.switchNextBaseCheckbox.nativeElement.checked;
 
+    if (this.zoomedOut) {
+      this.zoomIn();
+    }
+
     if (this.selectedNexusBase?.coordsX === this.nexusBase?.coordsX &&
       this.selectedNexusBase?.coordsY === this.nexusBase?.coordsY) {
       return alert("Cannot attack or defend the same base.");
@@ -183,7 +188,8 @@ export class NexusMapComponent extends ChildComponent {
     this.isAttackScreenOpen = true;
     this.showAttackButton = false;
     this.isSendingDefence = isDefence;
-    this.switchNextBaseCheckbox.nativeElement.checked = isChecked; 
+    this.switchNextBaseCheckbox.nativeElement.checked = isChecked;
+
     this.stopLoading();
   }
 

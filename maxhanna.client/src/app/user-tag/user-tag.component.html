@@ -1,17 +1,18 @@
-<div class="avatar largeAvatar" *ngIf="!displayOnlyName">
-  <div class="displayPicture avatar" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
-    <app-media-viewer #profileImageViewer
-                      [inputtedParentRef]="parentRef"
-                      [fileId]="user.displayPictureFile.id"
-                      [showCommentSection]="false"
-                      [displayExtraInfo]="false"
-                      [displayExpander]="false">
-    </app-media-viewer>
+<div class="userTag">
+  <div class="avatar largeAvatar" *ngIf="!displayOnlyName">
+    <div class="displayPicture avatar" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
+      <app-media-viewer #profileImageViewer
+                        [inputtedParentRef]="parentRef"
+                        [fileId]="user.displayPictureFile.id"
+                        [showCommentSection]="false"
+                        [displayExtraInfo]="false"
+                        [displayExpander]="false">
+      </app-media-viewer>
+    </div>
+    <div class="avatar noAvatar" *ngIf="!displayOnlyAvatar && (!user || !user.displayPictureFile || user.displayPictureFile.id == 0 || displayEmptyAvatar || (user && user.id == 0))">
+      <span class="avatarBug noAvatar">🪲</span>
+      <span class="avatarBust noAvatar">👤</span>
+    </div>
   </div>
-  <div class="avatar noAvatar" *ngIf="!displayOnlyAvatar && (!user || !user.displayPictureFile || user.displayPictureFile.id == 0 || displayEmptyAvatar || (user && user.id == 0))">
-    <span class="avatarBug noAvatar">🪲</span>
-    <span class="avatarBust noAvatar">👤</span>
-  </div>
-</div> 
-<span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username cursorPointer usernameProfileLink'" (click)="viewProfile(user)"  *ngIf="!displayOnlyAvatar && !displayEmptyAvatar && !hideName">{{user?.username}}</span>
- 
+  <span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username cursorPointer usernameProfileLink'" (click)="viewProfile(user)" *ngIf="!displayOnlyAvatar && !displayEmptyAvatar && !hideName">{{user?.username}}</span>
+</div>

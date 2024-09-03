@@ -24,6 +24,7 @@
     display: flex;
     flex-flow:column wrap;
     justify-content: space-between;
+    z-index:2;
 }
 .notificationsList { 
   max-height: 245px;
@@ -46,4 +47,14 @@
   justify-content: space-around;
   align-items: center;
   text-align:center;
+}
+
+.notificationsOverlay {
+  position: absolute;
+  top: -53px;
+  left: CALC(-100vw + 2vw);
+  width: 100vw;
+  height: CALC(-60px + 100vh); 
+  z-index: 1;
+  background-color: var(--main-highlight-color-quarter-opacity);
 }

@@ -14,3 +14,12 @@
     display:flex;
     justify-content:center;
 }
+.overlay {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 100vw;
+  height: CALC(var(--vh, 1vh) * 100);
+  z-index: 1;
+  background-color: var(--main-highlight-color-quarter-opacity);
+}

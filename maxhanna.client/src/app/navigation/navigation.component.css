@@ -1,8 +1,7 @@
 #navbar {
   position: absolute;
   top: 0px;
-  left: 2px;
-  z-index: 100;
+  left: 2px; 
   height: 95vh;
   display: flex;
   flex-wrap: wrap;
@@ -59,8 +58,7 @@ a {
   border-radius: 65% / 10%;
   font-size: 35px;
   line-height: 45px;
-  margin-top: -19px;
-  z-index: 300;
+  margin-top: -19px; 
 }
 
   .navLink:before {
@@ -70,25 +68,25 @@ a {
   }
 
 .navLinkText {
-  z-index: 99;
   font-size: 8px;
   overflow: hidden;
   height: 12px;
   line-height: 13px;
   text-overflow: clip;
   display: inline-block;
-  width: 49px;
+  width: 50px;
   position: relative;
-  top: 0px;
-  left: 0px;
-  margin-left:auto;
-  margin-right:auto;
+  top: 1px;
+  left: 2px;
+  margin-left: auto;
+  margin-right: auto;
   text-decoration: underline;
   cursor: pointer;
+  text-shadow: 0px 0px 2px black;
+  box-shadow: 1px 1px 1px 1px black;
   background-color: #000000a6;
 }
-.navLinkUnderText {
-  z-index: 99;
+.navLinkUnderText { 
   font-size: 10px;
   overflow: hidden;
   height: 12px;
@@ -112,7 +110,7 @@ a {
   flex-wrap: nowrap !important;
   padding: unset !important;
   overflow-y: hidden !important;
-  background-color: black;
+  background-color: var(--main-bg-color);
 }
 
  
@@ -129,7 +127,7 @@ a {
   border: none;
   font-size: 16px;
   cursor: pointer;
-  z-index: 11;
+  z-index: 1;
   opacity: 0;
   transition: opacity 3s ease;
   font-size: 20px;

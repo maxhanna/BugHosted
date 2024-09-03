@@ -20,7 +20,7 @@ export class TopicsComponent extends ChildComponent {
 
   showAddTopicButton = false;
   topics: Topic[] = [];
-  matchingTopics: Topic[] = [];
+  matchingTopics: Topic[] = []; 
   private searchTimer: any;
 
   constructor(private topicService: TopicService) { super(); }
@@ -48,7 +48,7 @@ export class TopicsComponent extends ChildComponent {
   }
 
 
-  async searchTopics(enteredValue: string, force: boolean = false) {
+  async searchTopics(enteredValue: string, force: boolean = false) {  
     if (this.searchTimer) {
       clearTimeout(this.searchTimer);
     }
@@ -59,21 +59,25 @@ export class TopicsComponent extends ChildComponent {
       }
       console.log("enteredValue : " + enteredValue);
       console.log("force? : " + force);
-      if (enteredValue.trim() != '' || force) {
+      if (enteredValue.trim() != '' || force) { 
         this.matchingTopics = await this.topicService.getTopics(enteredValue);
         
         if (enteredValue.trim() == '') {
           this.showAddTopicButton = false; 
         } 
         if (this.matchingTopics.length == 0 && enteredValue.trim() != '') {
-          this.showAddTopicButton = true; 
-          setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
+          this.showAddTopicButton = (this.user || this.parent?.user) ? true : false;
+          if (this.showAddTopicButton) {
+            setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
+          }
         } else {
           if (this.matchingTopics.some(x => x.topicText != '' && x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
             this.addTopicButton.nativeElement.style.visibility = "hidden"; 
           } else if (enteredValue.trim() != '') {
-            this.showAddTopicButton = true;
-            setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
+            this.showAddTopicButton = (this.user || this.parent?.user) ? true : false; 
+            if (this.showAddTopicButton) {
+              setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
+            }
           }
         }
       } else {
@@ -83,7 +87,13 @@ export class TopicsComponent extends ChildComponent {
       setTimeout(() => {
         if (document.getElementById('dropdownMenu') && document.getElementById('chooseTopicInput')) {
           (document.getElementById('dropdownMenu') as HTMLDivElement).style.top = (document.getElementById('chooseTopicInput') as HTMLInputElement).offsetTop + (document.getElementById('chooseTopicInput') as HTMLInputElement).offsetHeight + "px";
+
+          if (this.parent) {
+            this.parent.showOverlay = true;
+          }
+          
         }
+       
       }, 10); 
     }, 100);
   } 
@@ -94,7 +104,12 @@ export class TopicsComponent extends ChildComponent {
     this.topicAdded.emit(this.topics);
     this.newTopic.nativeElement.value = '';
     this.matchingTopics = [];
-    this.addTopicButton.nativeElement.style.visibility = "hidden";
+    if (this.addTopicButton) {
+      this.addTopicButton.nativeElement.style.visibility = "hidden"; 
+    }
+    if (this.parent?.showOverlay) {
+      this.parent.closeOverlay();
+    }
   }
   searchInputClick() {
     if (this.isDropdown) {
@@ -106,8 +121,12 @@ export class TopicsComponent extends ChildComponent {
       }
     }
   }
-  cancelSearch() {
+  clearSearch() { 
+    this.newTopic.nativeElement.value = "";
     this.matchingTopics = [];
-    this.showAddTopicButton = false; 
+    this.showAddTopicButton = false;
+  }
+  cancelSearch() { 
+    this.clearSearch(); 
   }
 }

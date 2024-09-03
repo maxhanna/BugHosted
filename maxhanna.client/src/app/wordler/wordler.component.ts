@@ -291,7 +291,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         this.notifications.push(message);
         this.showScores = true;
         alert(message); 
-        const definition = await this.wordlerService.getWordDefinition(guess);
+        const definition = await this.wordlerService.getWordDefinition(this.wordToGuess);
         if (definition) {
           this.notifications.push(`Word definition: ${definition}`);
         }

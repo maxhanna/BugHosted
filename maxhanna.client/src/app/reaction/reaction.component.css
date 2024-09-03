@@ -21,18 +21,33 @@
 .addReactionTitleSpan {
   font-size: small;
 }
-.reactionChoices {
-  max-width: 170px;
-  height: 150px;
-  position: relative;
-  z-index: 4;
-  background-color: var(--main-bg-color-full-opacity);
+.reactionChoicesContainer {
+  width: 300px;
+  height: 200px;
+  position: absolute;
+  z-index: 2;
+  background-color: var(--main-bg-color);
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   gap: 19px;
   align-content: center;
   flex-wrap: wrap;
   font-size: small;
+  top: CALC(50% - 100px);
+  left: CALC(50% - 150px);
+  border-radius: 5%;
+  border: var(--main-border);
+}
+.reactionChoices {
+  display: flex;
+  width: 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: space-between;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-size: x-large;
 }

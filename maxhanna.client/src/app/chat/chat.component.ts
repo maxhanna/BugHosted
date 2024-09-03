@@ -27,7 +27,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() inputtedParentRef?: AppComponent;
   @Output() closeChatEvent = new EventEmitter<void>();
 
-  notifications: ChatNotification[] = [];
   emojiMap: { [key: string]: string } =
   {
     ":)":"😊", ":(":"☹️", ";)":"😉", ":D":"😃", "XD":"😆", ":P":"😛", ":O":"😮", "B)":"😎", ":/":"😕", ":'(":"😢", "<3":"❤️", "</3":"💔",
@@ -221,18 +220,21 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   } 
   async sendMessage() {
     let msg = this.newMessage.nativeElement.value.trim();
-
+    console.log("sendMessage");
     if (msg) {
       msg = this.replaceEmojisInMessage(msg);
-      try {
-        this.newMessage.nativeElement.value = '';
-        await this.chatService.sendMessage(this.parentRef?.user!, this.currentChatUser!, msg, this.attachedFiles);
-        this.attachedFiles = [];
-        await this.getMessageHistory();
-      } catch (error) {
-        console.error(error);
-      }
     }
+    if (msg.trim() == "" && (!this.attachedFiles || this.attachedFiles.length == 0)) {
+      return alert("Message content cannot be empty.");
+    }
+    try {
+      this.newMessage.nativeElement.value = '';
+      await this.chatService.sendMessage(this.parentRef?.user!, this.currentChatUser!, msg, this.attachedFiles);
+      this.attachedFiles = [];
+      await this.getMessageHistory();
+    } catch (error) {
+      console.error(error);
+    } 
   }
 
   selectFile(files: FileEntry[]) {

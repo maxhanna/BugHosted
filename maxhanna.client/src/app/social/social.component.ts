@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Input, OnInit, SecurityContext, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit, SecurityContext, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
@@ -6,7 +6,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Topic } from '../../services/datacontracts/topic';
 import { AppComponent } from '../app.component';
 import { TopicsComponent } from '../topics/topics.component';
-import { StoryResponse } from '../../services/datacontracts/social/story-response'; 
+import { StoryResponse } from '../../services/datacontracts/social/story-response';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
@@ -23,8 +23,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   storyResponse?: StoryResponse;
   comments: FileComment[] = [];
   loading = false;
-  showComments = false;
-  revealSearchFilters = false;
+  showComments = false; 
+  revealSearchFilters = false; 
   openedMemes: number[] = [];
   selectedAttachmentFileExtension: string | null = null;
   isEditing: number[] = [];
@@ -38,10 +38,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
   emojiMap: { [key: string]: string } =
     { ":)": "😊", ":(": "☹️", ";)": "😉", ":D": "😃", "XD": "😆", ":P": "😛", ":O": "😮", "B)": "😎", ":/": "😕", ":'(": "😢", "<3": "❤️", "</3": "💔", ":*": "😘", "O:)": "😇", "3:)": "😈", ":|": "😐", ":$": "😳", "8)": "😎", "^_^": "😊", "-_-": "😑", ">_<": "😣", ":'D": "😂", ":3": "😺", ":v": "✌️", ":S": "😖", ":b": "😛", ":x": "😶", ":X": "🤐", ":Z": "😴", "*_*": "😍", ":@": "😡", ":#": "🤬", ">:(": "😠", ":&": "🤢", ":T": "😋", "T_T": "😭", "Q_Q": "😭", ":1": "😆", "O_O": "😳", "*o*": "😍", "T-T": "😭", ";P": "😜", ":B": "😛", ":W": "😅", ":L": "😞", ":E": "😲", ":M": "🤔", ":C": "😏", ":I": "🤓", ":Q": "😮", ":F": "😇", ":G": "😵", ":H": "😱", ":J": "😜", ":K": "😞", ":Y": "😮", ":N": "😒", ":U": "😕", ":V": "😈", ":wave:": "👋", ":ok:": "👌", ":thumbsup:": "👍", ":thumbsdown:": "👎", ":clap:": "👏", ":star:": "⭐", ":star2:": "🌟", ":dizzy:": "💫", ":sparkles:": "✨", ":boom:": "💥", ":fire:": "🔥", ":droplet:": "💧", ":sweat_drops:": "💦", ":dash:": "💨", ":cloud:": "☁️", ":sunny:": "☀️", ":umbrella:": "☂️", ":snowflake:": "❄️", ":snowman:": "⛄", ":zap:": "⚡", ":cyclone:": "🌀", ":fog:": "🌫️", ":rainbow:": "🌈", ":heart:": "❤️", ":blue_heart:": "💙", ":green_heart:": "💚", ":yellow_heart:": "💛", ":purple_heart:": "💜", ":black_heart:": "🖤", ":white_heart:": "🤍", ":orange_heart:": "🧡", ":broken_heart:": "💔", ":heartbeat:": "💓", ":heartpulse:": "💗", ":two_hearts:": "💕", ":sparkling_heart:": "💖", ":cupid:": "💘", ":gift_heart:": "💝", ":revolving_hearts:": "💞", ":heart_decoration:": "💟", ":peace:": "☮️", ":cross:": "✝️", ":star_and_crescent:": "☪️", ":om:": "🕉️", ":wheel_of_dharma:": "☸️", ":yin_yang:": "☯️", ":orthodox_cross:": "☦️", ":star_of_david:": "✡️", ":six_pointed_star:": "🔯", ":menorah:": "🕎", ":infinity:": "♾️", ":wavy_dash:": "〰️", ":congratulations:": "㊗️", ":secret:": "㊙️", ":red_circle:": "🔴", ":orange_circle:": "🟠", ":yellow_circle:": "🟡", ":green_circle:": "🟢", ":blue_circle:": "🔵", ":purple_circle:": "🟣", ":brown_circle:": "🟤", ":black_circle:": "⚫", ":white_circle:": "⚪", ":red_square:": "🟥", ":orange_square:": "🟧", ":yellow_square:": "🟨", ":green_square:": "🟩", ":blue_square:": "🟦", ":purple_square:": "🟪", ":brown_square:": "🟫", ":black_large_square:": "⬛", ":white_large_square:": "⬜", ":black_medium_square:": "◼️", ": black_medium_small_square: ": "◾", ": white_medium_small_square: ": "◽", ": black_small_square: ": "▪️", ": white_small_square: ": "▫️", ": large_orange_diamond: ": "🔶", ": large_blue_diamond: ": "🔷", ": small_orange_diamond: ": "🔸", ": small_blue_diamond: ": "🔹", ": red_triangle_pointed_up: ": "🔺", ": red_triangle_pointed_down: ": "🔻", ": diamond_shape_with_a_dot_inside: ": "💠", ": radio_button: ": "🔘", ": white_square_button: ": "🔳", ": black_square_button: ": "🔲", ": checkered_flag: ": "🏁", ": triangular_flag_on_post: ": "🚩", ": crossed_flags: ": "🎌", ": black_flag: ": "🏴", ": white_flag: ": "🏳️", ": rainbow_flag: ": "🏳️‍🌈", ": pirate_flag: ": "🏴‍☠️" };
+  storyOverflowMap: { [key: string]: boolean } = {};
 
   fileType: string | undefined;
   abortAttachmentRequestController: AbortController | null = null;
   notifications: String[] = [];
+  expanded: string[] = [];
   attachedSearchTopics: Array<Topic> = [];
 
   currentPage: number = 1;
@@ -60,7 +62,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   @Input() user?: User;
   @Input() parent?: AppComponent;
 
-  constructor(private socialService: SocialService, private sanitizer: DomSanitizer) {
+  constructor(private socialService: SocialService, private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) {
     super();
   }
 
@@ -68,17 +70,20 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (this.parent) {
       this.parentRef = this.parent;
     }
-    await this.getStories(); 
+
+    await this.getStories();
     if (this.storyId) {
       this.scrollToStory(this.storyId);
     }
   }
-  ngAfterViewInit() {
+
+  async ngAfterViewInit() {
     if (this.user) {
       this.componentMain.nativeElement.style.paddingTop = "0px";
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
-      (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px"; 
-    }  
+      (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
+      (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
+    } 
   }
   pageChanged() {
     this.currentPage = parseInt(this.pageSelect.nativeElement.value);
@@ -92,9 +97,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
           element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 1111);
-    } else { 
+    } else {
       setTimeout(() => {
-        const element = document.getElementById('mainTableDiv')?.getElementsByClassName("storyContainer")[0]; 
+        const element = document.getElementById('mainTableDiv')?.getElementsByClassName("storyContainer")[0];
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -117,7 +122,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "block";
         (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "block";
         (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "none";
-      } else { 
+      } else {
         (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "none";
         (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "none";
         (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "block";
@@ -127,7 +132,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   async editStory(story: Story) {
     const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
     story.storyText = message;
-    if (document.getElementById('storyText' + story.id) && this.parentRef && this.parentRef.user) { 
+    if (document.getElementById('storyText' + story.id) && this.parentRef && this.parentRef.user) {
       this.socialService.editStory(this.parentRef.user, story);
       (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "none";
       (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "none";
@@ -135,7 +140,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
   }
   async onTopicAdded(topics?: Array<Topic>) {
-    if (topics) { 
+    if (topics) {
       this.attachedTopics = topics;
       this.searchStories(topics);
       this.scrollToStory();
@@ -168,7 +173,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   }
 
-  async searchStories(searchTopics?: Array<Topic>) { 
+  async searchStories(searchTopics?: Array<Topic>) {
     let search = this.search.nativeElement.value;
     let topics = '';
     if (searchTopics && searchTopics.length > 0) {
@@ -197,9 +202,13 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.storyResponse = res;
       this.totalPages = this.storyResponse.pageCount;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
+      this.storyResponse.stories?.forEach(story => { 
+        this.checkOverflow(story.id); 
+      });
     }
-     
 
+
+    this.cdr.detectChanges();
     this.stopLoading();
   }
 
@@ -250,14 +259,14 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
 
   goToLink(story?: Story) {
-    if (story && story.storyText) { 
+    if (story && story.storyText) {
       const goodUrl = this.extractUrl(story.storyText);
       if (goodUrl) {
         window.open(goodUrl, '_blank');
       }
     }
     else {
-      if (story && story.metadata) { 
+      if (story && story.metadata) {
         const tmpUrl = story.metadata.imageUrl;
         if (tmpUrl) {
           window.open(tmpUrl, '_blank');
@@ -293,8 +302,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   formatDate(dateString?: Date): string {
     if (!dateString) return '';
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-     
-    const day = date.getDate(); 
+
+    const day = date.getDate();
 
     const monthNames = [
       "January", "February", "March", "April", "May", "June",
@@ -310,5 +319,36 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     hours = hours % 12 || 12;
 
     return `${month} ${day}, ${year} - ${hours}:${minutes} ${ampm}`;
-  } 
+  }
+  
+  toggleCollapse(storyId?: string): void {
+    if (!storyId) return;
+
+    if (!this.expanded.includes(storyId)) {
+      this.storyOverflowMap[storyId as string] = !this.storyOverflowMap[storyId as string]; 
+      this.expanded.push(storyId);
+    }
+  }
+
+  isExpanded(elementId: string) { 
+    return this.expanded.includes(elementId);
+  }
+  checkOverflow(storyId?: number): void {
+    if (storyId) { 
+      const elementId = 'storyTextContainer' + storyId;
+      const element = document.getElementById(elementId);
+      if (element) {
+        this.storyOverflowMap[storyId] = element.scrollHeight > 70;
+      } 
+    }
+  }
+
+
+  hasOverflow(elementId: string): boolean {
+    const element = document.getElementById(elementId);
+    if (element) {
+      return element.scrollHeight >= 100;
+    }
+    return false;
+  }
 }

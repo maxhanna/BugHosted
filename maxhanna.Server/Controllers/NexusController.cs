@@ -122,7 +122,7 @@ namespace maxhanna.Server.Controllers
                         return StatusCode(500, "An error occurred while processing your request.");
                     }
                 }
-            } 
+            }
         }
 
         [HttpPost("/Nexus/GetAllBuildingUpgradesList", Name = "GetAllBuildingUpgradesList")]
@@ -356,7 +356,7 @@ namespace maxhanna.Server.Controllers
                                 null,
                                 dp,
                                 null);
-                        bases.Add(tmpBase); 
+                        bases.Add(tmpBase);
                     }
                 }
 
@@ -562,25 +562,29 @@ namespace maxhanna.Server.Controllers
                             {
                                 foreach (var purchase in nup)
                                 {
-                                    var stats = unitStats.First(x => x.UnitId == purchase.UnitIdPurchased);
-                                    if (stats.UnitType == "marine" || stats.UnitType == "goliath" || stats.UnitType == "siege_tank")
+                                    Console.WriteLine("unitIdPurchasd: " + purchase.UnitIdPurchased);
+                                    var stats = unitStats.FirstOrDefault(x => x.UnitId == purchase.UnitIdPurchased);
+                                    if (stats != null && (stats.UnitType == "marine" || stats.UnitType == "goliath" || stats.UnitType == "siege_tank"))
                                     {
                                         factoryPurchases++;
                                     }
-                                    else if (stats.UnitType == "scout" || stats.UnitType == "wraith" || stats.UnitType == "battlecruiser")
+                                    else if (stats != null && (stats.UnitType == "scout" || stats.UnitType == "wraith" || stats.UnitType == "battlecruiser"))
                                     {
                                         starportPurchases++;
                                     }
                                 }
                             }
+                            Console.WriteLine("before factory and starport checks");
+
                             if (factoryPurchases > 0 && request.Nexus.FactoryLevel <= factoryPurchases)
                             {
-                                return BadRequest("Factory Level Insufficient"); 
+                                return BadRequest("Factory Level Insufficient");
                             }
                             else if (starportPurchases > 0 && request.Nexus.StarportLevel <= starportPurchases)
                             {
                                 return BadRequest("Starport Level Insufficient");
                             }
+                            Console.WriteLine("before update nexus gold and supply");
                             await UpdateNexusGoldAndSupply(request.Nexus.CoordsX, request.Nexus.CoordsY, currentGold, totalSupplyUsed, conn, transaction);
                             Console.WriteLine("current gold : after the update: " + currentGold);
                             await UpdateNexusUnitPurchases(request.Nexus.CoordsX, request.Nexus.CoordsY, request.UnitId, request.PurchaseAmount, conn, transaction);
@@ -738,7 +742,7 @@ namespace maxhanna.Server.Controllers
                         {
                             if (request.BattleId != null)
                             {
-                                await DeleteReport(request.User.Id, (int)request.BattleId, conn, transaction); 
+                                await DeleteReport(request.User.Id, (int)request.BattleId, conn, transaction);
                             }
                             else
                             {
@@ -1498,7 +1502,7 @@ namespace maxhanna.Server.Controllers
 
                     List<NexusUnitsPurchased>? nup = await GetNexusUnitPurchases(baseUpdate.Value.Base, connection, transaction);
                     int factoryPurchases = 0;
-                    int starportPurchases = 0; 
+                    int starportPurchases = 0;
                     if (nup != null && nup.Count > 0)
                     {
                         foreach (var purchase in nup)
@@ -1507,17 +1511,18 @@ namespace maxhanna.Server.Controllers
                             if (stats.UnitType == "marine" || stats.UnitType == "goliath" || stats.UnitType == "siege_tank")
                             {
                                 factoryPurchases++;
-                            } else if (stats.UnitType == "scout" || stats.UnitType == "wraith" || stats.UnitType == "battlecruiser")
+                            }
+                            else if (stats.UnitType == "scout" || stats.UnitType == "wraith" || stats.UnitType == "battlecruiser")
                             {
                                 starportPurchases++;
                             }
                         }
                     }
-                     
+
                     if (factoryPurchases > 0 && baseUpdate.Value.Base.FactoryLevel <= factoryPurchases)
                     {
                         break;
-                    } 
+                    }
                     else if (starportPurchases > 0 && baseUpdate.Value.Base.StarportLevel <= starportPurchases)
                     {
                         break;
@@ -1730,7 +1735,7 @@ namespace maxhanna.Server.Controllers
                 { "@Glitcher", glitcherSent },
             };
 
-            var insertedId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
+            var insertedId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
         }
 
 
@@ -1745,7 +1750,7 @@ namespace maxhanna.Server.Controllers
              .DefaultIfEmpty(0.0m)
              .Max();
             int distance = 1 + Math.Abs(OriginNexus.CoordsX - DestinationNexus.CoordsX) + Math.Abs(OriginNexus.CoordsY - DestinationNexus.CoordsY);
-            int duration = (int)(distance * slowestSpeed * 60); 
+            int duration = (int)(distance * slowestSpeed * 60);
 
             int marinesSent = UnitList.FirstOrDefault(x => x.UnitType != null && x.UnitType == "marine")?.SentValue ?? 0;
             int goliathSent = UnitList.FirstOrDefault(x => x.UnitType != null && x.UnitType == "goliath")?.SentValue ?? 0;
@@ -2444,7 +2449,7 @@ namespace maxhanna.Server.Controllers
                     {
                         { "@DefenceId", supportingUnitsSent.Id}
                     };
-                    await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
+                    await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
                 }
                 else
                 {
@@ -2472,7 +2477,7 @@ namespace maxhanna.Server.Controllers
                         { "@BattlecruiserTotal", supportingUnitsSent.BattlecruiserTotal - (losses?["battlecruiser"] ?? 0) },
                         { "@GlitcherTotal", supportingUnitsSent.GlitcherTotal - (losses?["glitcher"] ?? 0) },
                     };
-                    await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
+                    await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
                 }
             }
             else
@@ -3494,10 +3499,10 @@ namespace maxhanna.Server.Controllers
                 if (defences == null)
                 {
                     defences = new List<NexusAttackSent>();
-                } 
+                }
                 var defenceIds = new HashSet<int>(defences.Select(a => a.Id));
                 var uniqueDefences = defences2.Where(d => !defenceIds.Contains(d.Id));
-                 
+
                 defences = defences.Concat(uniqueDefences).ToList();
 
                 Console.WriteLine(" Defences Count: " + defences.Count);
@@ -3927,7 +3932,7 @@ namespace maxhanna.Server.Controllers
                     }
 
                     if (attackerSupplyRecovered && attackingLosses != null)
-                    { 
+                    {
                         await UpdateNexusUnitsAfterAttack(conn, transaction, origin, attackingLosses);
                         int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
                         await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
@@ -4028,7 +4033,7 @@ namespace maxhanna.Server.Controllers
             {
                 Console.WriteLine($"{param.Key}: {param.Value}");
             }
-            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
         }
 
         private async Task<decimal> GetGoldPlundered(MySqlConnection conn, MySqlTransaction transaction, NexusBase destination, List<UnitStats> attackingUnits, NexusUnits? defendingUnits, Dictionary<string, UnitStats> unitStats)
@@ -4079,65 +4084,72 @@ namespace maxhanna.Server.Controllers
             return goldPlundered;
         }
 
-        private async Task ChangeOwnership(int UserId, NexusBase deadBase, MySqlConnection? conn, MySqlTransaction? transaction)
+        private async Task ChangeOwnership(int userId, NexusBase deadBase, MySqlConnection conn, MySqlTransaction transaction)
         {
             // Insert or update the base ownership
-            string sql = @"
+            const string insertOrUpdateBaseSql = @"
                 INSERT INTO maxhanna.nexus_bases (user_id, coords_x, coords_y, gold)
                 VALUES (@UserId, @CoordsX, @CoordsY, @Gold)
                 ON DUPLICATE KEY UPDATE user_id = @UserId;";
 
-            var parameters = new Dictionary<string, object?>
+            var baseParameters = new Dictionary<string, object?>
             {
-                { "@UserId", UserId },
+                { "@UserId", userId },
                 { "@CoordsX", deadBase.CoordsX },
                 { "@CoordsY", deadBase.CoordsY },
                 { "@Gold", 200 }
             };
 
-            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
+            await ExecuteInsertOrUpdateOrDeleteAsync(insertOrUpdateBaseSql, baseParameters, conn, transaction);
 
-            var senderId = UserId;
+            // Update attacks and defences sent to that base
+            var updateParameters = new Dictionary<string, object?>
+            {
+                { "@UserId", userId },
+                { "@CoordsX", deadBase.CoordsX },
+                { "@CoordsY", deadBase.CoordsY }
+            };
+
+            const string updateAttacksSentSql = @"
+                UPDATE maxhanna.nexus_attacks_sent 
+                SET destination_user_id = @UserId 
+                WHERE destination_coords_x = @CoordsX
+                  AND destination_coords_y = @CoordsY;";
+
+            const string updateDefencesSentSql = @"
+                UPDATE maxhanna.nexus_defences_sent 
+                SET destination_user_id = @UserId 
+                WHERE destination_coords_x = @CoordsX
+                  AND destination_coords_y = @CoordsY;";
+
+            await ExecuteInsertOrUpdateOrDeleteAsync(updateAttacksSentSql, updateParameters, conn, transaction);
+            await ExecuteInsertOrUpdateOrDeleteAsync(updateDefencesSentSql, updateParameters, conn, transaction);
+
             var receiverId = deadBase.User?.Id ?? 0;
-            var attackerId = UserId;
             var coordsX = deadBase.CoordsX;
             var coordsY = deadBase.CoordsY;
 
-            // Calculate the count of similar notifications for defender
-            if (deadBase.User?.Id != null)
+            // Handle defender notification
+            if (receiverId != 0)
             {
-                var updateDefenderSql = @"
-                    UPDATE maxhanna.notifications
-                    SET text = IF(
-                            text LIKE '%Captured % bases,%',
-                            CONCAT(
-                                'Captured ', 
-                                CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(text, ' ', -5), ' ', 1) AS UNSIGNED) + 1,
-                                ' bases, including {', @coordsX, ',', @coordsY, '}!'
-                            ),
-                            CONCAT(
-                                'Captured 2 bases, including {', @coordsX, ',', @coordsY, '}!'
-                            )
-                        )
+                const string selectDefenderCountSql = @"
+                    SELECT COUNT(*)
+                    FROM maxhanna.notifications
                     WHERE user_id = @receiverId 
                       AND from_user_id = @senderId 
                       AND user_profile_id = @senderId 
                       AND (date >= (NOW() - INTERVAL 1 DAY))
-                      AND text LIKE '%captured%';";
+                      AND text LIKE 'Captured%';";
 
-                var updateDefenderParameters = new Dictionary<string, object?>
+                await using var selectDefenderCountCmd = new MySqlCommand(selectDefenderCountSql, conn, transaction);
+                selectDefenderCountCmd.Parameters.AddWithValue("@receiverId", receiverId);
+                selectDefenderCountCmd.Parameters.AddWithValue("@senderId", userId);
+
+                long defenderCount = (long)await selectDefenderCountCmd.ExecuteScalarAsync();
+
+                if (defenderCount == 0)
                 {
-                    { "@receiverId", receiverId },
-                    { "@senderId", senderId },
-                    { "@coordsX", coordsX },
-                    { "@coordsY", coordsY }
-                };
-
-                long? defenderAffectedRows = await ExecuteInsertOrUpdateOrDeleteAsync(updateDefenderSql, updateDefenderParameters, conn, transaction);
-
-                if (defenderAffectedRows == null || defenderAffectedRows == 0)
-                {
-                    var insertDefenderSql = @"
+                    const string insertDefenderSql = @"
                         INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                         VALUES 
                             (@receiverId, 
@@ -4146,47 +4158,117 @@ namespace maxhanna.Server.Controllers
                              CONCAT('Captured your base {', @coordsX, ',', @coordsY, '}!'),
                              NOW())";
 
-                    await ExecuteInsertOrUpdateOrDeleteAsync(insertDefenderSql, updateDefenderParameters, conn, transaction);
+                    var insertDefenderParameters = new Dictionary<string, object?>
+                    {
+                        { "@receiverId", receiverId },
+                        { "@senderId", userId },
+                        { "@coordsX", coordsX },
+                        { "@coordsY", coordsY }
+                    };
+
+                    await ExecuteInsertOrUpdateOrDeleteAsync(insertDefenderSql, insertDefenderParameters, conn, transaction);
+                }
+                else
+                {
+                    const string updateDefenderSql = @"
+                        UPDATE maxhanna.notifications
+                        SET text = IF(
+                                text LIKE 'Captured % bases,%',
+                                CONCAT(
+                                    'Captured ', 
+                                    CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(text, ' ', -4), ' ', 1) AS UNSIGNED) + 1,
+                                    ' bases, including {', @coordsX, ',', @coordsY, '}!'
+                                ),
+                                CONCAT(
+                                    'Captured 2 bases, including {', @coordsX, ',', @coordsY, '}!'
+                                )
+                            )
+                        WHERE user_id = @receiverId 
+                          AND from_user_id = @senderId 
+                          AND user_profile_id = @senderId 
+                          AND (date >= (NOW() - INTERVAL 1 DAY))
+                          AND text LIKE 'Captured%';";
+
+                    var updateDefenderParameters = new Dictionary<string, object?>
+                    {
+                        { "@receiverId", receiverId },
+                        { "@senderId", userId },
+                        { "@coordsX", coordsX },
+                        { "@coordsY", coordsY }
+                    };
+
+                    await ExecuteInsertOrUpdateOrDeleteAsync(updateDefenderSql, updateDefenderParameters, conn, transaction);
                 }
             }
 
             // Handle attacker notification
-            var updateAttackerSql = @"
-                UPDATE maxhanna.notifications
-                SET text = CONCAT(
-                        'You captured ', 
-                        CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(text, ' ', -5), ' ', 1) AS UNSIGNED) + 1,
-                        ' bases, including {', @coordsX, ',', @coordsY, '}!'
-                    )
+            const string selectAttackerCountSql = @"
+                SELECT COUNT(*)
+                FROM maxhanna.notifications
                 WHERE user_id = @attackerId 
                   AND from_user_id = @attackerId 
                   AND user_profile_id = @attackerId 
                   AND (date >= (NOW() - INTERVAL 1 DAY))
-                  AND text LIKE '%captured%';";
+                  AND text LIKE 'Captured%';";
 
-            var updateAttackerParameters = new Dictionary<string, object?>
+            await using var selectAttackerCountCmd = new MySqlCommand(selectAttackerCountSql, conn, transaction);
+            selectAttackerCountCmd.Parameters.AddWithValue("@attackerId", userId);
+
+            long attackerCount = (long)await selectAttackerCountCmd.ExecuteScalarAsync();
+
+            if (attackerCount == 0)
             {
-                { "@attackerId", attackerId },
-                { "@coordsX", coordsX },
-                { "@coordsY", coordsY }
-            };
-
-            long? attackerAffectedRows = await ExecuteInsertOrUpdateOrDeleteAsync(updateAttackerSql, updateAttackerParameters, conn, transaction);
-
-            if (attackerAffectedRows == null || attackerAffectedRows == 0)
-            {
-                var insertAttackerSql = @"
+                const string insertAttackerSql = @"
                     INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
                     VALUES 
                         (@attackerId, 
                          @attackerId, 
                          @attackerId, 
-                         CONCAT('You captured a base at {', @coordsX, ',', @coordsY, '}!'),
+                         CONCAT('Captured a base at {', @coordsX, ',', @coordsY, '}!'),
                          NOW())";
 
-                await ExecuteInsertOrUpdateOrDeleteAsync(insertAttackerSql, updateAttackerParameters, conn, transaction);
-            } 
+                var insertAttackerParameters = new Dictionary<string, object?>
+                {
+                    { "@attackerId", userId },
+                    { "@coordsX", coordsX },
+                    { "@coordsY", coordsY }
+                };
+
+                await ExecuteInsertOrUpdateOrDeleteAsync(insertAttackerSql, insertAttackerParameters, conn, transaction);
+            }
+            else
+            {
+                const string updateAttackerSql = @"
+                    UPDATE maxhanna.notifications
+                    SET text = IF(
+                            text LIKE 'Captured % bases,%',
+                            CONCAT(
+                                'Captured ', 
+                                CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(text, ' ', -4), ' ', 1) AS UNSIGNED) + 1,
+                                ' bases, including {', @coordsX, ',', @coordsY, '}!'
+                            ),
+                            CONCAT(
+                                'Captured 2 bases, including {', @coordsX, ',', @coordsY, '}!'
+                            )
+                        )
+                    WHERE user_id = @attackerId 
+                      AND from_user_id = @attackerId 
+                      AND user_profile_id = @attackerId 
+                      AND (date >= (NOW() - INTERVAL 1 DAY))
+                      AND text LIKE 'Captured%';";
+
+                var updateAttackerParameters = new Dictionary<string, object?>
+                {
+                    { "@attackerId", userId },
+                    { "@coordsX", coordsX },
+                    { "@coordsY", coordsY }
+                };
+
+                await ExecuteInsertOrUpdateOrDeleteAsync(updateAttackerSql, updateAttackerParameters, conn, transaction);
+            }
         }
+
+
         private async Task DeleteSupportSent(NexusBase deadBase, MySqlConnection? conn, MySqlTransaction? transaction)
         {
             // Insert or update the base ownership
@@ -4196,12 +4278,12 @@ namespace maxhanna.Server.Controllers
                 AND origin_coords_y = @CoordsY;";
 
             var parameters = new Dictionary<string, object?>
-            { 
+            {
                 { "@CoordsX", deadBase.CoordsX },
-                { "@CoordsY", deadBase.CoordsY }, 
+                { "@CoordsY", deadBase.CoordsY },
             };
 
-            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
+            await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
         }
 
         private async Task DeleteAllUserReports(int userId, MySqlConnection conn, MySqlTransaction transaction)
@@ -4221,7 +4303,7 @@ namespace maxhanna.Server.Controllers
             {
                 { "@UserId", userId }
             };
-           await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, insertParameters, conn, transaction);
+            await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, insertParameters, conn, transaction);
 
             // Step 2: Identify battles where both users have deleted the report
             string selectBattlesToDeleteSql = @"

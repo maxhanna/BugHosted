@@ -13,7 +13,7 @@
     <div (click)="toggleShowAllData()" class="totalDailyEarningsDiv">
       {{ dailyEarnings[0] ? dailyEarnings[0].date.toString().split("T")[0] : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? (rate * dailyEarnings[0].totalEarnings!).toFixed(2) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
       <div>
-        Total Weekly Earnings: {{ calculateWeeklyEarnings() }} | Daily Average: {{ calculateAverageDailyEarnings() }} 
+        Total Weekly Earnings: {{ calculateWeeklyEarnings() }} | Daily Average: {{ calculateAverageDailyEarnings() }}
       </div>
 
       <div *ngIf="showAllData">
@@ -108,5 +108,6 @@
       </tbody>
     </table>
   </div>
- <div *ngIf="miningRigs.length == 0">No mining rigs detected, go to your user settings and enter your nicehash API settings.</div>
+  <div *ngIf="!isLoading && miningRigs.length == 0">No mining rigs detected, go to your user settings and enter your nicehash API settings.</div>
+  <div *ngIf="isLoading">Loading...</div>
 </div> 

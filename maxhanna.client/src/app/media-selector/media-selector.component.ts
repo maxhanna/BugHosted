@@ -30,6 +30,11 @@ export class MediaSelectorComponent {
 
   toggleMediaChoices() {
     this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
+    console.log("toggle");
+    if (this.inputtedParentRef) {
+      console.log("toggle parent");
+      this.inputtedParentRef.showOverlay = this.viewMediaChoicesOpen; 
+    }
     this.displaySearchButton = true;
     if (this.selectMediaDiv) {
       this.selectMediaDiv.nativeElement.classList.toggle("open");
@@ -106,7 +111,10 @@ export class MediaSelectorComponent {
     this.viewMediaChoicesOpen = false;
     this.displaySearch = false;
     if (this.selectMediaDiv) {
-      this.selectMediaDiv.nativeElement.classList.remove("open");
+      this.selectMediaDiv.nativeElement.classList.remove("open"); 
+    }
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.showOverlay = false;
     }
   }
 }

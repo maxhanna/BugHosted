@@ -5,8 +5,7 @@
 
 
   <app-user-list (userClickEvent)="openChat($event);"
-                 [user]="parentRef?.user"
-                 [chatNotifications]="notifications"
+                 [user]="parentRef?.user" 
                  [class.expanded]="isPanelExpanded"
                  class="userPanel"
                  *ngIf="isPanelExpanded">
@@ -47,16 +46,19 @@
                                   [displayExtraInfo]="false"
                                   [showCommentSection]="false"
                                   [user]="parentRef?.user"
-                                  [autoplay]="true"
-                                  [autoload]="false">
+                                  [autoplay]="false"
+                                  [autoload]="true">
                 </app-media-viewer>
               </div>
-              <app-reaction [messageId]="message.id" [user]="parentRef?.user" [currentReactions]="message.reactions"></app-reaction>
+              <app-reaction [messageId]="message.id"
+                            [user]="parentRef?.user"
+                            [inputtedParentRef]="parentRef"
+                            [currentReactions]="message.reactions"></app-reaction>
             </div>
           </ng-container>
           <!-- RECEIVER MESSAGE -->
           <ng-container *ngIf="message.sender.id !== parentRef?.user?.id">
-            <div class="messageContent">
+            <div class="messageContent otherPersonsMessage">
               {{ message.content }}
               <div *ngFor="let file of message.files">
                 <div class="attachmentMedia">
@@ -66,14 +68,17 @@
                                     [displayExtraInfo]="false"
                                     [showCommentSection]="false"
                                     [user]="parentRef?.user"
-                                    [autoplay]="true"
-                                    [autoload]="false">
+                                    [autoplay]="false"
+                                    [autoload]="true">
                   </app-media-viewer>
                 </div>
               </div>
-              <app-reaction [messageId]="message.id"
-                            [user]="parentRef?.user"
-                            [currentReactions]="message.reactions"></app-reaction>
+              <div class="otherPersonsReaction">
+                <app-reaction [messageId]="message.id"
+                              [user]="parentRef?.user"
+                              [inputtedParentRef]="parentRef"
+                              [currentReactions]="message.reactions"></app-reaction>
+              </div> 
             </div>
             <div class="profileTag">
               <div class="usernameProfileLink">

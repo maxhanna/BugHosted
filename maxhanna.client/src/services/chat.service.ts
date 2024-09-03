@@ -51,7 +51,7 @@ export class ChatService {
       return null;
     }
   }
-  async sendMessage(sender: User, receiver: User, content: string, files?: FileEntry[]) {
+  async sendMessage(sender: User, receiver: User, content?: string, files?: FileEntry[]) {
     try {
       const response = await fetch(`/chat/sendmessage`, {
         method: 'POST',

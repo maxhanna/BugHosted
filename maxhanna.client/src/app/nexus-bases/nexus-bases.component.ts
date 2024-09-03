@@ -161,7 +161,7 @@ export class NexusBasesComponent extends ChildComponent {
   getAttacksForBase = this.memoize((coordsX: number, coordsY: number) => {
     if (this.attacksIncoming && this.attacksMap && Object.keys(this.attacksMap).length == 0) {
       this.attacksMap = {};
-      const pertinentAttacks = this.attacksIncoming.filter(x => x.destinationUser?.id == this.user?.id);
+      const pertinentAttacks = this.attacksIncoming.filter(x => x.destinationUser?.id != this.user?.id);
       for (let attack of pertinentAttacks) {
         const key = `${attack.destinationCoordsX},${attack.destinationCoordsY}`;
         if (!this.attacksMap[key]) {

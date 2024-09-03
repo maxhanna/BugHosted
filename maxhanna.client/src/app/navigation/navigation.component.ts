@@ -1,9 +1,7 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';  
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';  
 import { MiningService } from '../../services/mining.service';
 import { CalendarService } from '../../services/calendar.service';
-import { WeatherService } from '../../services/weather.service';
-import { UserService } from '../../services/user.service';
-import { ChatService } from '../../services/chat.service';
+import { WeatherService } from '../../services/weather.service'; 
 import { AppComponent } from '../app.component';
 import { CoinValueService } from '../../services/coin-value.service';
 import { WordlerService } from '../../services/wordler.service';
@@ -36,8 +34,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private miningService: MiningService,
     private calendarService: CalendarService,
     private weatherService: WeatherService,
-    private coinValueService: CoinValueService,
-    private userService: UserService,
+    private coinValueService: CoinValueService, 
     private wordlerService: WordlerService,
     private notificationService: NotificationService) {
   }

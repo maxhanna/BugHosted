@@ -78,8 +78,8 @@
     }
 
   .stopped, .started, .offline {
-    height: var(--main-font-size);
-    width: var(--main-font-size);
+/*    height: var(--main-font-size);
+    width: var(--main-font-size);*/
     border-radius: 50%;
     border: 2px ridge var(--main-font-color);
     margin-left: auto;

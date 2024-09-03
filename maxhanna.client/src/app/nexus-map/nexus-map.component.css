@@ -7,6 +7,11 @@
   position: relative;
 }
 
+.mapContainer{
+    max-height:275px;
+    overflow:hidden;
+}
+
 .loadingMapDiv {
   justify-content: center;
   align-content: center;
@@ -118,12 +123,11 @@
 }
 
 .zoomInButtonDiv {
-  display: none;
   position: absolute;
-  bottom: 0px;
-  left: 0px;
+  top: CALC(var(--nexus-gamescreen-height) + 150px);
+  left: CALC(var(--nexus-gamescreen-width) / 2);
   width: 100px;
-  height: 30vh;
+  height: 30px;
 }
 
 .attackScreenDiv {

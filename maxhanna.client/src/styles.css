@@ -1,18 +1,27 @@
 /* You can add global styles to this file, and also import other style files */
 :root {
-  --main-bg-color: rgba(54, 25, 25, .5);
-  --main-highlight-color: rgba(105, 105, 105, .65);
+  /*  --main-bg-color: rgba(54, 25, 25, .5);
+*/
+  --main-bg-color: #0e0e0e;
+  --main-bg-color-quarter-opacity: #202020;
+  --main-highlight-color: #3a3a3a;
+  --main-highlight-color-quarter-opacity: #a9a9a987;
   --secondary-bg-color: rgba(54, 25, 25, .2);
-  --main-bg-color-full-opacity: rgba(54, 25, 25);
-  --table-thead-color: rgba(54, 25, 25);
+  /*  --main-bg-color-full-opacity: rgba(54, 25, 25);
+*/ --main-bg-color-full-opacity: #011300;
+  /*  --table-thead-color: rgba(54, 25, 25);
+*/ --table-thead-color: var(--main-highlight-color-quarter-opacity);
   --main-font-family: Arial;
-  --main-font-color: chartreuse;
-  --main-link-color: #2a6c2d;
+  /*  --main-font-color: chartreuse;
+*/ --main-font-color: #b0c2b1;
+  --main-link-color: chartreuse;
   --primary-font-color: var(--main-font-color);
-  --secondary-font-color: cornflowerblue;
+  --secondary-font-color: #ffffff;
+  --third-font-color: cornflowerblue;
   --main-border: 2px ridge var(--main-highlight-color);
   --gameboyBgColor: darkgrey;
-  --main-font-size: 0.9vw;
+  /*  --main-font-size: 14px;
+*/ --main-font-weight: 400;
   --component-max-width: 90vw;
   --component-max-height: CALC(100% - 67px);
   --nexus-gamescreen-height: 275px;
@@ -21,8 +30,8 @@
 
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   :root {
-    --main-font-size: 2.45vw;
-  }
+/*    --main-font-size: 2.45vw;
+*/  }
 }
 /* prevent pull-to-refresh for Safari 16+ */
 @media screen and (pointer: coarse) {
@@ -53,11 +62,13 @@
 body {
   overscroll-behavior-y: none;
   font-family: var(--main-font-family), Arial;
-  background-color: black;
+  background-color: var(--main-bg-color);
   color: var(--main-font-color);
   margin: 0;
   padding: 0;
   padding-bottom: 55px;
+/*  font-size: var(--main-font-size);
+*/  font-weight: var(--main-font-weight);
 }
 
 html, body {
@@ -86,9 +97,10 @@ a {
 button {
   background-color: var(--main-highlight-color);
   color: var(--main-font-color);
-  font-weight: bold; 
+  font-weight: bold;
   text-align: center;
-  text-shadow: 1.2px 1.1px 1.1px black; 
+  text-shadow: 1.2px 1.1px 1.1px black;
+  user-select: none; /* Prevents text selection */
 }
 
 legend {
@@ -113,7 +125,7 @@ fieldset {
 
 
 .componentMain {
-  background-color: var(--main-bg-color); 
+  background-color: var(--main-bg-color-quarter-opacity);
   position: relative;
   padding-top: 35px;
   border: var(--main-border);
@@ -172,6 +184,7 @@ fieldset {
   box-shadow: 0px 2px 2px black;
   z-index: 1;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+  background-color: var(--main-highlight-color);
 }
 
 .mainTableDiv { 
@@ -229,7 +242,7 @@ fieldset {
 
 .mainTable {
   width: 100%;
-  background-color: var(--secondary-bg-color);
+  background-color: var(--main-bg-color);
   border-collapse: collapse;
   color: var(--secondary-font-color);
 }
@@ -247,7 +260,10 @@ fieldset {
   }
 
   .mainTable tr:nth-child(even) {
-    background-color: var(--main-bg-color);
+    border-bottom: 1px solid;
+    border-top: 1px solid;
+    border-color: var(--main-highlight-color);
+    background-color: var(--secondary-bg-color);
   }
 
   .mainTable tbody {
@@ -306,7 +322,7 @@ fieldset {
   .mainTable th {
     border-collapse: collapse;
     text-align: left;
-    background-color: var(--table-thead-color);
+    background-color: var(--main-highlight-color-quarter-opacity);
     color: var(--main-font-color);
     position: sticky;
     top: -3px;
@@ -384,7 +400,8 @@ fieldset {
 
 .usernameProfileLink {
   text-decoration-color: var(--secondary-font-color);
-  text-shadow: 0.1px 0.1px var(--secondary-font-color);
+  text-shadow: 0.1px 0.1px var(--third-font-color);
+  font-weight:100;
 }
 
 .smallExpander {
@@ -414,9 +431,7 @@ fieldset {
 
 .avatar {
   max-width: 50px;
-  max-height: 50px; 
-  margin-left: auto;
-  margin-right: auto;
+  max-height: 50px;  
 }
 
 .avatarBug, .avatarBust {
@@ -465,4 +480,16 @@ fieldset {
 } 
 .greyText {
     color:grey;
+}
+
+.mainInfoSection {
+  text-align: center;
+  font-size: small;
+  border-top: var(--main-border);
+  margin-bottom: 2px;
+  display: block;
+  background-color: var(--main-highlight-color-quarter-opacity);
+  text-shadow: 0.1px 0.1px 2px var(--main-bg-color);
+  text-decoration-color: var(--primary-font-color);
+  box-shadow: 0px 0px 5px black;
 }

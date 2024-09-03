@@ -32,8 +32,8 @@
           <td title="Cloud to sky %">{{ weather.current.cloud.toFixed(0) }}</td>
         </tr>
       </tbody>
-      <tbody *ngIf="weather.forecast">
-        <tr>
+      <tbody *ngIf="weather.forecast" >
+        <tr class="mainBgColor">
           <th>Forecast</th>
           <th>°C</th>
           <th>°F</th>
@@ -43,7 +43,7 @@
           <th title="Cloud to sky %">C</th>
         </tr>
         <ng-container *ngFor="let day of weather.forecast.forecastday; let isFirst = first">
-          <tr (click)="toggleDay(day.date)" style="cursor: pointer;" [class.highlight]="isFirst">
+          <tr (click)="toggleDay(day.date)" style="cursor: pointer;"  [class]="isFirst ? 'highlight' : 'mainBgColor'">
             <td>
               <span [class.collapsible]="!isCollapsed(day.date)" [class.collapsed]="isCollapsed(day.date)">
                 {{ day.date }}

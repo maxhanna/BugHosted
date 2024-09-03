@@ -1,23 +1,7 @@
 <!-- Comments Section -->
-<div class="commentsHeader">
-  <span [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'" (click)="showComments = !showComments">
-    Comments ({{commentList ? commentList.length : '0'}}) <span class="smallExpander">{{showComments ? '-' : '+'}}</span>
-  </span>
-</div>
-<div class="commentsInputArea" *ngIf="showComments">
-  <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
-    Loading comments...
-  </div>
-  <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
-    <textarea [placeholder]='commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();"></textarea>
-    <button (click)="startLoadingComment();" class="commentSubmit">🗨️Post</button>
-    <app-media-selector [currentDirectory]="'Users/' + (inputtedParentRef?.user && inputtedParentRef?.user?.id != 0 ? inputtedParentRef?.user!.username : 'Anonymous')"
-                        [user]="inputtedParentRef?.user"
-                        [inputtedParentRef]="inputtedParentRef"
-                        (selectFileEvent)="selectFile($event)"></app-media-selector>
-  </div>
-  <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.</div>
-</div>
+<div class="commentsHeader" [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'" (click)="showComments = !showComments"> 
+  Comments ({{commentList ? commentList.length : '0'}}) <span class="smallExpander">{{showComments ? '-' : '+'}}</span> 
+</div> 
 <div class="comments-section" *ngIf="commentList && commentList.length > 0">
   <div *ngIf="showComments">
     <div *ngFor="let comment of commentList!" class="commentListDiv">
@@ -36,6 +20,7 @@
 
           <app-reaction [commentId]="comment.id"
                         [user]="inputtedParentRef?.user"
+                        [inputtedParentRef]="inputtedParentRef"
                         [currentReactions]="comment.reactions">
           </app-reaction>
 
@@ -57,5 +42,19 @@
       </div>
     </div> 
   </div>
+</div>
+<div class="commentsInputArea" *ngIf="showComments">
+  <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
+    Loading comments...
+  </div>
+  <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
+    <textarea [placeholder]='commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();"></textarea>
+    <button (click)="startLoadingComment();" class="commentSubmit">🗨️Post</button>
+    <app-media-selector [currentDirectory]="'Users/' + (inputtedParentRef?.user && inputtedParentRef?.user?.id != 0 ? inputtedParentRef?.user!.username : 'Anonymous')"
+                        [user]="inputtedParentRef?.user"
+                        [inputtedParentRef]="inputtedParentRef"
+                        (selectFileEvent)="selectFile($event)"></app-media-selector>
+  </div>
+  <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.</div>
 </div>
 <!-- End Comments Section -->

@@ -7,156 +7,166 @@ import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { ChildComponent } from '../child.component';
 
 @Component({
-  selector: 'app-nexus-reports',
-  templateUrl: './nexus-reports.component.html',
-  styleUrl: './nexus-reports.component.css'
+    selector: 'app-nexus-reports',
+    templateUrl: './nexus-reports.component.html',
+    styleUrl: './nexus-reports.component.css'
 })
 export class NexusReportsComponent extends ChildComponent implements OnInit, OnChanges {
-  @Input() battleReports?: NexusBattleOutcomeReports;
-  @Input() user?: User;
-  @Input() mapData?: NexusBase[];
-  @Input() targetBase?: NexusBase;
-  @Input() marinePictureSrc: string | undefined;
-  @Input() goliathPictureSrc: string | undefined;
-  @Input() siegeTankPictureSrc: string | undefined;
-  @Input() scoutPictureSrc: string | undefined;
-  @Input() wraithPictureSrc: string | undefined;
-  @Input() battlecruiserPictureSrc: string | undefined;
-  @Input() glitcherPictureSrc: string | undefined;
-  @Output() openMapEmitter = new EventEmitter<string>;
-   
-  pageSizes: number[] = [5, 10, 20, 50];
-  totalPages: number[] = [1];
-  unitOrder = [
-    'marine',
-    'goliath',
-    'siege_tank',
-    'scout',
-    'wraith',
-    'battlecruiser',
-    'glitcher'
-  ];
-  buildingOrder = [
-    'command_center',
-    'mines',
-    'engineering_bay',
-    'factory',
-    'starport',
-    'warehouse',
-    'supply_depot'
-  ];
+    @Input() battleReports?: NexusBattleOutcomeReports;
+    @Input() user?: User;
+    @Input() mapData?: NexusBase[];
+    @Input() targetBase?: NexusBase;
+    @Input() marinePictureSrc: string | undefined;
+    @Input() goliathPictureSrc: string | undefined;
+    @Input() siegeTankPictureSrc: string | undefined;
+    @Input() scoutPictureSrc: string | undefined;
+    @Input() wraithPictureSrc: string | undefined;
+    @Input() battlecruiserPictureSrc: string | undefined;
+    @Input() glitcherPictureSrc: string | undefined;
+    @Input() cclvl1Src: string | undefined;
+    @Input() splvl1Src: string | undefined;
+    @Input() sdlvl1Src: string | undefined;
+    @Input() whlvl1Src: string | undefined;
+    @Input() eblvl1Src: string | undefined;
+    @Input() mineslvl1Src: string | undefined;
+    @Input() flvl1Src: string | undefined;
+    @Output() openMapEmitter = new EventEmitter<string>;
 
-  @ViewChild('pageSize') pageSize!: ElementRef<HTMLSelectElement>;
-  @ViewChild('currentPage') currentPage!: ElementRef<HTMLSelectElement>;
-  constructor(private nexusService: NexusService) { super(); }
+    pageSizes: number[] = [5, 10, 20, 50];
+    totalPages: number[] = [1];
+    unitOrder = [
+        'marine',
+        'goliath',
+        'siege_tank',
+        'scout',
+        'wraith',
+        'battlecruiser',
+        'glitcher'
+    ];
+    buildingOrder = [
+        'command_center',
+        'mines',
+        'engineering_bay',
+        'factory',
+        'starport',
+        'warehouse',
+        'supply_depot'
+    ];
 
-  ngOnInit() {
-    
-    this.loadBattleReports(this.targetBase);
-    
-  }
+    @ViewChild('pageSize') pageSize!: ElementRef<HTMLSelectElement>;
+    @ViewChild('currentPage') currentPage!: ElementRef<HTMLSelectElement>;
+    constructor(private nexusService: NexusService) { super(); }
 
-  ngOnChanges(changes: SimpleChanges) {
-    if (changes['battleReports'] && this.battleReports) {
-      this.FixCurrentPageDropdownValues();
-      this.pageSize.nativeElement.value = this.battleReports.pageSize + '';
-    }
-  }
-  getUnitPictureSrc(key: string) {
-    return this[(key + 'PictureSrc') as keyof this];
-  }
-  private FixCurrentPageDropdownValues() { 
-    if (!this.battleReports) return;
-    let tmpPageSize = this.battleReports.pageSize; 
-    this.totalPages = Array.from({ length: Math.ceil(this.battleReports.totalReports / tmpPageSize) }, (_, i) => i + 1);
-    setTimeout(() => {
-      if (this.pageSize) {
-        this.pageSize.nativeElement.selectedIndex = this.pageSizes.indexOf(tmpPageSize);
-      }
-    }, 1); 
-  }
+    ngOnInit() {
 
-  getUnitsArray(units: Record<string, number>): { key: string, value: number }[] {
-      
+        this.loadBattleReports(this.targetBase);
+        if (this.eblvl1Src) {
+            console.log("got eblvl1Src");
+        }
 
-     if (!units || Object.keys(units).length === 0) {
-      return this.unitOrder.map(unit => ({ key: unit, value: 0 }));
     }
 
-    return this.unitOrder.map(unit => ({
-      key: unit,
-      value: units[unit] || 0
-    }));
-  }
-
-  async deleteReport(report: NexusBattleOutcome) {
-    if (!this.user || !this.battleReports) return;
-
-    const index = this.battleReports!.battleOutcomes.findIndex(x => x.battleId === report.battleId);
-    if (index !== -1) {
-      this.battleReports!.battleOutcomes.splice(index, 1);
+    ngOnChanges(changes: SimpleChanges) {
+        if (changes['battleReports'] && this.battleReports) {
+            this.FixCurrentPageDropdownValues();
+            this.pageSize.nativeElement.value = this.battleReports.pageSize + '';
+        }
     }
-    this.battleReports.totalReports--;
-    this.nexusService.deleteReport(this.user, report.battleId);
-
-    if (this.battleReports!.battleOutcomes.length == 0) {
-      this.loadBattleReports(this.targetBase);
+    getUnitPictureSrc(key: string) {
+        return this[(key + 'PictureSrc') as keyof this];
     }
-  }
-
-  async deleteAllReports() {
-    if (!this.user || !this.battleReports) return;
-    this.nexusService.deleteReport(this.user);
-    this.battleReports.battleOutcomes = []; 
-    this.battleReports.totalReports = 0;
-  }
-
-  async loadBattleReports(targetBase?: NexusBase) {
-    if (!this.user) return;
-    const pageSize = this.pageSize?.nativeElement.value ? parseInt(this.pageSize.nativeElement.value) : 5;
-    const currentPage = this.currentPage?.nativeElement.value ?? 1;
-
-    if (targetBase) {
-      this.targetBase = targetBase;
+    private FixCurrentPageDropdownValues() {
+        if (!this.battleReports) return;
+        let tmpPageSize = this.battleReports.pageSize;
+        this.totalPages = Array.from({ length: Math.ceil(this.battleReports.totalReports / tmpPageSize) }, (_, i) => i + 1);
+        setTimeout(() => {
+            if (this.pageSize) {
+                this.pageSize.nativeElement.selectedIndex = this.pageSizes.indexOf(tmpPageSize);
+            }
+        }, 1);
     }
-    this.startLoading();
-    this.battleReports = await this.nexusService.getBattleReports(this.user, +currentPage, +pageSize, targetBase);
-    this.stopLoading();
 
-    if (this.battleReports) {
-      this.totalPages = Array.from({ length: Math.round(this.battleReports.totalReports / pageSize) }, (_, i) => i + 1);
-    }
-    else {
-      this.totalPages = [1];
-    }
-    this.FixCurrentPageDropdownValues();
-  }
+    getUnitsArray(units: Record<string, number>): { key: string, value: number }[] {
 
 
-  onPageSizeChange() {
-    this.loadBattleReports(this.targetBase);
-  }
+        if (!units || Object.keys(units).length === 0) {
+            return this.unitOrder.map(unit => ({ key: unit, value: 0 }));
+        }
 
-  onPageChange() {
-    this.loadBattleReports(this.targetBase);
-  }
-  canSeeNextPage() {
-    return (this.totalPages && this.totalPages.length > 0 && this.battleReports && this.battleReports.totalReports && this.pageSize && this.battleReports.totalReports > parseInt(this.pageSize.nativeElement.value));
-  }
-  getBaseNameForCoords(x: number, y: number) {
-    return this.mapData?.find(base => base.coordsX == x && base.coordsY == y)?.baseName;
-  }
-  async nextPage() {
-    if (!this.user) return;
-    const pageSize = parseInt(this.pageSize.nativeElement.value);
-    this.currentPage.nativeElement.value = parseInt(this.currentPage.nativeElement.value) + 1 + "";
-    let currentPage = parseInt(this.currentPage.nativeElement.value);
-    this.battleReports = await this.nexusService.getBattleReports(this.user, currentPage, pageSize, this.targetBase);
-    if (this.battleReports) {
-      this.totalPages = Array.from({ length: Math.round(this.battleReports.totalReports / pageSize) }, (_, i) => i + 1);
+        return this.unitOrder.map(unit => ({
+            key: unit,
+            value: units[unit] || 0
+        }));
     }
-    else {
-      this.totalPages = [1];
+
+    async deleteReport(report: NexusBattleOutcome) {
+        if (!this.user || !this.battleReports) return;
+
+        const index = this.battleReports!.battleOutcomes.findIndex(x => x.battleId === report.battleId);
+        if (index !== -1) {
+            this.battleReports!.battleOutcomes.splice(index, 1);
+        }
+        this.battleReports.totalReports--;
+        this.nexusService.deleteReport(this.user, report.battleId);
+
+        if (this.battleReports!.battleOutcomes.length == 0) {
+            this.loadBattleReports(this.targetBase);
+        }
     }
-  }
+
+    async deleteAllReports() {
+        if (!this.user || !this.battleReports) return;
+        this.nexusService.deleteReport(this.user);
+        this.battleReports.battleOutcomes = [];
+        this.battleReports.totalReports = 0;
+    }
+
+    async loadBattleReports(targetBase?: NexusBase) {
+        if (!this.user) return;
+        const pageSize = this.pageSize?.nativeElement.value ? parseInt(this.pageSize.nativeElement.value) : 5;
+        const currentPage = this.currentPage?.nativeElement.value ?? 1;
+
+        if (targetBase) {
+            this.targetBase = targetBase;
+        }
+        this.startLoading();
+        this.battleReports = await this.nexusService.getBattleReports(this.user, +currentPage, +pageSize, targetBase);
+        this.stopLoading();
+
+        if (this.battleReports) {
+            this.totalPages = Array.from({ length: Math.round(this.battleReports.totalReports / pageSize) }, (_, i) => i + 1);
+        }
+        else {
+            this.totalPages = [1];
+        }
+        this.FixCurrentPageDropdownValues();
+    }
+
+
+    onPageSizeChange() {
+        this.loadBattleReports(this.targetBase);
+    }
+
+    onPageChange() {
+        this.loadBattleReports(this.targetBase);
+    }
+    canSeeNextPage() {
+        return (this.totalPages && this.totalPages.length > 0 && this.battleReports && this.battleReports.totalReports && this.pageSize && this.battleReports.totalReports > parseInt(this.pageSize.nativeElement.value));
+    }
+    getBaseNameForCoords(x: number, y: number) {
+        return this.mapData?.find(base => base.coordsX == x && base.coordsY == y)?.baseName;
+    }
+    async nextPage() {
+        if (!this.user) return;
+        const pageSize = parseInt(this.pageSize.nativeElement.value);
+        this.currentPage.nativeElement.value = parseInt(this.currentPage.nativeElement.value) + 1 + "";
+        let currentPage = parseInt(this.currentPage.nativeElement.value);
+        this.battleReports = await this.nexusService.getBattleReports(this.user, currentPage, pageSize, this.targetBase);
+        if (this.battleReports) {
+            this.totalPages = Array.from({ length: Math.round(this.battleReports.totalReports / pageSize) }, (_, i) => i + 1);
+        }
+        else {
+            this.totalPages = [1];
+        }
+    }
 }

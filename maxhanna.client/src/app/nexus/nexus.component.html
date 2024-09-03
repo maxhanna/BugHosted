@@ -3,36 +3,31 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Bug Wars</div>
 
-  <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading">
-    Welcome to Bug Wars.
+  <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading" class="centeredText"> 
     <button (click)="start()">Enter the fight</button>
   </div>
-  <div *ngIf="isUserComponentOpen">
-    <app-user [loginOnly]="true"
+  <div *ngIf="isUserComponentOpen || (!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading)">
+    <app-user *ngIf="isUserComponentOpen"
+              [loginOnly]="true"
               [inputtedParentRef]="parentRef"
               [canClose]="false"
               (closeUserComponentEvent)="closeUserComponent($event)"
               [loginReasonMessage]="'You must log in to volunteer in the Bug Wars.'"></app-user>
     <div class="bugWarsInfo">
-      <div>
-        Build your bases!
-        <app-media-viewer [fileId]="6697"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [displayExpander]="false">
-        </app-media-viewer>
-      </div>
-      <div>
-        Conquer the world!
-        <app-media-viewer [fileId]="6698"
-                          [inputtedParentRef]="parentRef"
-                          [displayExtraInfo]="false"
-                          [showCommentSection]="false"
-                          [displayExpander]="false">
-        </app-media-viewer>
-      </div>
+      <div>Behold, a new era dawns upon us.</div>
+      <div class="notification">A time of unprecedented conflict, where the most cunning and ruthless will survive.</div>
+      <div class="gameNotification">In this epoch of Bug Wars, you, the chosen one, shall orchestrate the rise of your colony to unparalleled heights.</div>
+      <div class="gameNotification">Form strategic alliances, perform tactical maneuvers, gain influence. </div>
+      <div class="gameNotification">Are you ready to embrace your destiny and become the ultimate ruler of the world? The fate of your colony rests in your hands.</div>
+
     </div>
+    <app-media-viewer [fileId]="6698"
+                      [autoload]="false"
+                      [inputtedParentRef]="parentRef"
+                      [displayExtraInfo]="false"
+                      [showCommentSection]="false"
+                      [displayExpander]="false">
+    </app-media-viewer>
   </div>
 
   <div class="gamescreen" *ngIf="!isUserNew">
@@ -43,8 +38,8 @@
     </div> 
     <!-- Navigation -->
     <div *ngIf="shouldShowBaseNav()">
-      <button class="previousBaseButton" [disabled]="isLoading" (click)="previousBase()">⩤</button>
-      <button class="nextBaseButton" [disabled]="isLoading" (click)="nextBase()">⩥</button>
+      <button class="switchBaseButtons previousBaseButton" [disabled]="isLoading" (click)="previousBase()">⩤</button>
+      <button class="switchBaseButtons nextBaseButton" [disabled]="isLoading" (click)="nextBase()">⩥</button>
     </div>
     <!-- Resources -->
     <div *ngIf="shouldShowResources() && nexusBase" class="resourceDiv">
@@ -53,7 +48,7 @@
       <span title="Nexus location" class="resourceSpan">📍:<span class="invertedHighlights">{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '} '}}</span><span *ngIf="nexusBase && nexusBase.baseName" class="usernameProfileLink">{{nexusBase.baseName}}</span></span>
     </div>
     <!-- Reports -->
-    <div *ngIf="parentRef && parentRef.user && isReportsOpen" class="battleReportComponentDiv">
+    <div *ngIf="parentRef && parentRef.user && isReportsOpen " class="battleReportComponentDiv">
       <app-nexus-reports [user]="parentRef.user"
                          [mapData]="mapData" 
                          [marinePictureSrc]="marinePictureSrc"
@@ -63,6 +58,13 @@
                          [wraithPictureSrc]="wraithPictureSrc"
                          [battlecruiserPictureSrc]="battlecruiserPictureSrc"
                          [glitcherPictureSrc]="glitcherPictureSrc"
+                         [cclvl1Src]="cclvl1Src"
+                         [splvl1Src]="splvl1Src"
+                         [sdlvl1Src]="sdlvl1Src"
+                         [whlvl1Src]="whlvl1Src"
+                         [eblvl1Src]="eblvl1Src"
+                         [mineslvl1Src]="mineslvl1Src"
+                         [flvl1Src]="flvl1Src"
                          (openMapEmitter)="emittedOpenMapAndScrollTo($event)"
                          *ngIf="isReportsOpen">
       </app-nexus-reports>
@@ -98,8 +100,7 @@
                      [nexusAttacksIncoming]="nexusAttacksIncoming"
                      [nexusDefencesIncoming]="nexusDefencesIncoming"
                      (emittedNotifications)="emittedNotifications($event)"
-                     (emittedReloadEvent)="emittedReloadEvent($event)"
-                     (closeMapEvent)="viewMap()"
+                     (emittedReloadEvent)="emittedReloadEvent($event)" 
                      (emittedAttackEvent)="emittedAttackEvent($event)"
                      (emittedGoToBaseEvent)="emittedGoToBaseEvent($event)"
                      (emittedSendBackAttackEvent)="emittedSendBackAttackEvent($event)"
@@ -171,6 +172,19 @@
       <div *ngIf="nexusBaseUpgrades?.minesUpgraded">
         <span class="glowingLight minesGlowLight1"></span>
       </div>
+      <div *ngIf="nexusBase.minesLevel > 0">
+        <div *ngFor="let container of mineSmokeContainers;" [ngClass]="'minesSmokeContainer minesSmokeContainer' + container">
+          <div class="minesSmoke">
+            <ul>
+              <ng-container *ngFor="let li of mineSmokeContainersLis; let j = index">
+                <li *ngIf="nexusBase.gold < goldCapacity || randomMineSmokeContainersBooleans[j]" [ngStyle]="{'animation-delay': (j * 0.4) + 's'}"></li>
+              </ng-container>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+
 
       <div class="building" *ngIf="displayEngineeringBay">
         <img [src]="currentEngineeringBaySrc"
@@ -501,7 +515,7 @@
         </div>
       </div>
       <div *ngIf="nexusBase && nexusBase.engineeringBayLevel > 6">
-        Mint Gold Coins!
+        Create cybershardss!
       </div>
       <div><button (click)="closeWarehouse()">Back</button></div>
     </div>
@@ -618,7 +632,7 @@
       <tbody *ngIf="currentValidAvailableUpgrades && currentValidAvailableUpgrades.length > 0 ? currentValidAvailableUpgrades : getValidBuildingUpgrades().length > 0 ? currentValidAvailableUpgrades : false">
         <tr *ngFor="let upgrade of (currentValidAvailableUpgrades ? currentValidAvailableUpgrades : getValidBuildingUpgrades())">
           <td class="capitalize cursorPointer" (click)="goToBuilding(upgrade.building)">{{upgrade.building.replace('_', ' ')}}</td>
-          <td>Level {{upgrade.nextLevel + 1}}</td>
+          <td>Level {{upgrade.nextLevel == 0 ? 1 : upgrade.nextLevel + 1}}</td>
           <td class="goldText">📀{{upgrade.cost}}</td>
           <td>{{formatTimer(upgrade.duration)}}</td>
           <td>
@@ -663,7 +677,8 @@
     </div>
   </div>
 
-  <div *ngIf="!isCommandCenterOpen && !toggledUnitStat && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen">
+  <div *ngIf="!isCommandCenterOpen && !toggledUnitStat && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen" class="movementResearchAndUnitsDiv">
+    <!-- TIMERS -->
     <span *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="mainInfoSection">Movement:</span>
     <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="movementListDiv">
       <div class="upgradeTimersTableDiv">
@@ -677,7 +692,7 @@
     </div>
     <div *ngIf="activeUnitTimers().length > 0 || activeResearchTimers().length > 0">
       <span *ngIf="activeUnitTimers().length > 0" class="mainInfoSection">Training:</span>
-      <div *ngIf="activeUnitTimers().length > 0" class="unitPurchaseTableDiv upgradeTimersTableDiv">
+      <div *ngIf="activeUnitTimers().length > 0" class="unitPurchaseTableDiv unitTimersTableDiv">
         <div *ngFor="let timer of activeUnitTimers()" class="activeUnitTimerDiv capitalize">
           <div *ngIf="timer.unit.includes('marine')">
             <app-nexus-base-units [showOnlyMarine]="true"
@@ -734,31 +749,21 @@
                                   [parentRef]="parentRef"
                                   [glitcherPictureSrc]="glitcherPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
-          </div>
-          <!--{{ formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }}-->
+          </div> 
         </div>
       </div>
       <div *ngIf="activeResearchTimers().length > 0">
         <span class="mainInfoSection">Research:</span>
         <div class="upgradeTimersTableDiv">
           <div *ngIf="activeResearchTimers().length > 0">
-            <div *ngFor="let timer of activeResearchTimers()" class="researchDisplayP capitalize">
+            <div *ngFor="let timer of activeResearchTimers()" class="researchDisplayP capitalize"> 
               {{formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }}
             </div>
           </div>
         </div>
       </div>
-      <!--Building: <span class="xxSmallFont redText" *ngIf="!activeBuildingTimers() || activeBuildingTimers().length == 0">[No building.]</span>
-      <div class="upgradeTimersTableDiv">
-        <ng-container *ngIf="activeBuildingTimers().length > 0">
-          <div *ngFor="let timer of activeBuildingTimers()">
-            <p class="upgradeProgressDisplayP capitalize">
-              {{ formatBuildingTimer(timer.building) }} {{ formatTimer(timer.endTime) }}
-            </p>
-          </div>
-        </ng-container>
-      </div>-->
     </div>
+    <!-- UNITS -->
     <div class="unitslist" *ngIf="!isCommandCenterOpen && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen && !isUserNew && !isUserComponentOpen && !toggledUnitStat">
       <div *ngIf="nexusAvailableUnits">
         <span class="mainInfoSection">Available:</span>
@@ -803,24 +808,25 @@
         </app-nexus-base-units>
       </div>
     </div>
-  </div>
-  <div *ngIf="numberOfPersonalBases == 1 && nexusBase && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen">
-    <div *ngIf="nexusBase.minesLevel == 0 && (!nexusBaseUpgrades || !nexusBaseUpgrades.minesUpgraded)">
-      <span class="invertedHighlights">WELCOME TO THE BUG WARS, COMMANDER.</span>
-      <div class="notification" [style.textDecoration]="isCommandCenterOpen ? 'line-through' : 'none'">Click on the Command Center to build or upgrade buildings.</div>
-      <div class="notification">Click on the 🔧 button to start building a mine.</div>
+    <!-- TUTORIAL -->
+    <div *ngIf="numberOfPersonalBases == 1 && nexusBase && !isMapOpen && !isReportsOpen && !isBasesOpen && !isSupportOpen">
+      <div *ngIf="nexusBase.minesLevel == 0 && (!nexusBaseUpgrades || !nexusBaseUpgrades.minesUpgraded)">
+        <span class="invertedHighlights">WELCOME TO THE BUG WARS, COMMANDER.</span>
+        <div class="notification" [style.textDecoration]="isCommandCenterOpen ? 'line-through' : 'none'">Click on the Command Center to build or upgrade buildings.</div>
+        <div class="notification">Click on the 🔧 button to start building a mine.</div>
+      </div>
+      <div *ngIf="nexusBase.minesLevel == 0 && nexusBaseUpgrades && nexusBaseUpgrades.minesUpgraded">
+        <div class="invertedHighlights">Congrats! You built your first mines.</div>
+        <div class="notification">This building generates gold every second.</div>
+        <div class="notification">Lets wait until this building completes...</div>
+      </div>
+      <div *ngIf="nexusBase.minesLevel == 1 && (nexusBaseUpgrades && !nexusBaseUpgrades.minesUpgraded && !nexusBaseUpgrades.factoryUpgraded && !nexusBaseUpgrades.starportUpgraded && !nexusBaseUpgrades.commandCenterUpgraded && !nexusBaseUpgrades.engineeringBayUpgraded && !nexusBaseUpgrades.warehouseUpgraded) && (!(nexusBase.factoryLevel > 0) && !(nexusBase.starportLevel > 0) && !(nexusBase.commandCenterLevel > 1) && !(nexusBase.engineeringBayLevel > 0) && !(nexusBase.supplyDepotLevel > 0) && !(nexusBase.warehouseLevel > 0))">
+        <div class="invertedHighlights">You now have a choice!</div>
+        <div class="notification">Build a factory to train units or keep upgrading other buildings.</div>
+        <div class="notification">It is recommended you take a look at the map (click on the button below) to get acquainted with your surroundings.</div>
+      </div>
     </div>
-    <div *ngIf="nexusBase.minesLevel == 0 && nexusBaseUpgrades && nexusBaseUpgrades.minesUpgraded">
-      <div class="invertedHighlights">Congrats! You built your first mines.</div>
-      <div class="notification">This building generates gold every second.</div>
-      <div class="notification">Lets wait until this building completes...</div>
-    </div>
-    <div *ngIf="nexusBase.minesLevel == 1 && (nexusBaseUpgrades && !nexusBaseUpgrades.minesUpgraded && !nexusBaseUpgrades.factoryUpgraded && !nexusBaseUpgrades.starportUpgraded && !nexusBaseUpgrades.commandCenterUpgraded && !nexusBaseUpgrades.engineeringBayUpgraded && !nexusBaseUpgrades.warehouseUpgraded) && (!(nexusBase.factoryLevel > 0) && !(nexusBase.starportLevel > 0) && !(nexusBase.commandCenterLevel > 1) && !(nexusBase.engineeringBayLevel > 0) && !(nexusBase.supplyDepotLevel > 0) && !(nexusBase.warehouseLevel > 0))">
-      <div class="invertedHighlights">You now have a choice!</div>
-      <div class="notification">Build a factory to train units or keep upgrading other buildings.</div>
-      <div class="notification">It is recommended you take a look at the map (click on the button below) to get acquainted with your surroundings.</div>
-    </div>
-  </div>
+  </div> 
 
   <div class="gameNotificationDiv">
     <div *ngFor="let notif of notifications" class="gameNotification capitalize" (click)="notifications = []">➫ <span>{{notif.replaceAll('_', ' ')}}</span></div>
