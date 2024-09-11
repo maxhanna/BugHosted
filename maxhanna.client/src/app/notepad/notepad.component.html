@@ -15,6 +15,10 @@
     <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
     <input type="hidden" value="" #noteId />
   </fieldset>
+  <div *ngIf="(notes && notes.length > 0) || searchInput.nativeElement.value" class="searchBar">
+    <input placeholder="Search" #searchInput (keyup)="search()" />
+    <button (click)="search()">🔍</button>
+  </div>
   <div class="notesCarousel">
     <label *ngFor="let note of notes" (click)="getNote(note.id!)">{{ note.note }}</label>
   </div>

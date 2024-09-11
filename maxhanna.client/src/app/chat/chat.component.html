@@ -44,6 +44,7 @@
                                   [currentDirectory]="file.directory"
                                   [inputtedParentRef]="parentRef"
                                   [displayExtraInfo]="false"
+                                  [displayExpander]="false"
                                   [showCommentSection]="false"
                                   [user]="parentRef?.user"
                                   [autoplay]="false"
@@ -66,6 +67,7 @@
                                     [currentDirectory]="file.directory"
                                     [inputtedParentRef]="parentRef"
                                     [displayExtraInfo]="false"
+                                    [displayExpander]="false"
                                     [showCommentSection]="false"
                                     [user]="parentRef?.user"
                                     [autoplay]="false"
@@ -106,10 +108,7 @@
           </app-media-selector>
         </div>
       </div>
-      <div *ngIf="attachedFiles && attachedFiles.length > 0">Attachments :</div>
-      <div *ngIf="attachedFiles && attachedFiles.length > 0" class="attachedFilesDiv">
-        <div *ngFor="let file of attachedFiles">{{file.fileName}}</div>
-      </div>
+      <div *ngIf="attachedFiles && attachedFiles.length > 0">Attachments : {{attachedFiles.length}}</div> 
     </div>
   </div>
 </div>

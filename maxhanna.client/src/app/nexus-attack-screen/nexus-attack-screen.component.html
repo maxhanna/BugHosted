@@ -13,7 +13,7 @@
       </span>
       :
     </div>
-    <table class="mainTable" *ngIf="!isLoading && getAvailableUnitStats().length > 0">
+    <table class="mainTable" *ngIf="!isLoading && !isLoadingData && getAvailableUnitStats().length > 0">
       <tbody *ngFor="let unit of getAvailableUnitStats(); trackBy: trackByUnit">
         <tr>
           <td class="unitPictureTd">
@@ -88,12 +88,12 @@
         </tr>
       </tbody>
     </table>
-    <div *ngIf="!isLoading && getAvailableUnitStats().length == 0" class="notification">No units currently in base</div>
+    <div *ngIf="!isLoading && !isLoadingData && getAvailableUnitStats().length == 0" class="notification">No units currently in base</div>
   </div>
-  <div class="bottomButtons" *ngIf="!isLoading">
+  <div class="bottomButtons" *ngIf="!isLoading && !isLoadingData ">
     <div>
-      <button (click)="engageAttackAllUnits()" [disabled]="isLoading" *ngIf="hasUnitsToSend()">{{isSendingDefence ? '🛡️' : '⚔️'}}Send All Units</button>
-      <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || isLoading" *ngIf="hasUnitsToSend()">{{isSendingDefence ? '🛡️Defend' : '⚔️Engage'}}</button>
+      <button (click)="engageAttackAllUnits()" [disabled]="isLoading && isLoadingData " *ngIf="hasUnitsToSend()">{{isSendingDefence ? '🛡️' : '⚔️'}}Send All Units</button>
+      <button (click)="engageAttack()" [disabled]="!isEngagingUnits() || (isLoading || isLoadingData)" *ngIf="hasUnitsToSend()">{{isSendingDefence ? '🛡️Defend' : '⚔️Engage'}}</button>
       <button (click)="closeAttackScreen()">Close</button>
     </div>
   </div>

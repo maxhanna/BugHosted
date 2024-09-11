@@ -25,9 +25,9 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> PostComment([FromBody] CommentRequest request)
         {
             _logger.LogInformation($"POST /Comment (for user {request.User?.Id})");
-            if (string.IsNullOrEmpty(request.Comment))
+            if (string.IsNullOrEmpty(request.Comment) && request.FileId == null)
             {
-                string message = "Comment text cannot be empty.";
+                string message = "Comment cannot be empty.";
                 _logger.LogInformation(message);
                 return BadRequest(message);
             } 

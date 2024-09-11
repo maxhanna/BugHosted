@@ -1,26 +1,53 @@
-<button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button> 
+<!--<button class="toggleNavButton" (click)="toggleMenu()" #toggleNavButton title="Close Navigation">📕</button>-->
 <div #navbar id="navbar" *ngIf="_parent && _parent.navigationItems && _parent.navigationItems.length > 0">
 
   <ng-container *ngFor="let item of _parent.navigationItems">
-    <div *ngIf="(menuIconsIncludes(item.title))
-         || (navbarCollapsed && item.title === 'Close Menu')
-         || item.title === 'User' 
+    <div *ngIf="(menuIconsIncludes(item.title)) 
+         || item.title === 'User'
          || (!navbarCollapsed && item.title === 'UpdateUserSettings')" class="navLinkDiv">
       <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
         <span (click)="goTo($event)" [title]="item.title">{{item.content! || ''}}</span>
       </span>
 
 
-      <ng-container *ngIf="item.title === 'Weather'; else otherItems">
-        <ng-container *ngIf="item.icon !== '☀️'">
-          <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
-          <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" *ngIf="item.icon" />
-          <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
+      <ng-container *ngIf="item.title === 'Weather' || item.title == 'User'; else otherItems">
+        <ng-container *ngIf="item.title == 'Weather'">
+          <ng-container *ngIf="item.icon !== '☀️'">
+            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" *ngIf="item.icon" />
+            <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
+          </ng-container>
+          <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️'">
+            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <a class="navLink" (click)="goTo($event)" [title]="item.title">{{_parent.originalWeatherIcon}}</a>
+          </ng-container>
         </ng-container>
-        <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️'">
-          <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
-          <a class="navLink" (click)="goTo($event)" [title]="item.title">{{_parent.originalWeatherIcon}}</a>
-        </ng-container> 
+
+        <ng-container *ngIf="item.title == 'User'">
+          <ng-container *ngIf="user && _parent && user?.displayPictureFile?.id">
+            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <a class="navLink" (click)="goTo($event)" [title]="item.title">
+              <app-media-viewer [file]="user.displayPictureFile"
+                                [inputtedParentRef]="_parent"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [user]="_parent.user"
+                                [autoplay]="true"
+                                [title]="item.title"
+                                [displayExpander]="false"
+                                [blockExpand]="true">
+              </app-media-viewer>
+            </a>
+
+            <!--<span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+  <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" *ngIf="item.icon" />
+  <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="!item.icon">☀️</a>-->
+          </ng-container>
+          <ng-container *ngIf="!user?.displayPictureFile?.id">
+            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
+          </ng-container>
+        </ng-container>
       </ng-container>
 
 

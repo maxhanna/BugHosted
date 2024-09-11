@@ -58,12 +58,6 @@
   object-fit: contain;
 }
 
-/*@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-  .mediaContainerDiv {*/
-    /*width: 45vh;*/
-  /*}
-}*/
-
 .displayExpander {
   font-size: 8px;
 }
@@ -99,3 +93,6 @@
     left: 0px;
     top: 0px;
   }
+.filetype {
+    font-size: xx-small;
+}

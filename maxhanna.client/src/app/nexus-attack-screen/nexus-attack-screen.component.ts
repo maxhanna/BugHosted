@@ -6,14 +6,14 @@ import { NexusService } from '../../services/nexus.service';
 import { User } from '../../services/datacontracts/user/user';
 import { ChildComponent } from '../child.component';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
- 
+
 
 @Component({
   selector: 'app-nexus-attack-screen',
   templateUrl: './nexus-attack-screen.component.html',
   styleUrl: './nexus-attack-screen.component.css'
 })
-export class NexusAttackScreenComponent extends ChildComponent { 
+export class NexusAttackScreenComponent extends ChildComponent {
   @Input() user?: User;
   @Input() originBase?: NexusBase;
   @Input() selectedNexus?: NexusBase;
@@ -27,26 +27,35 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
   @Input() glitcherPictureSrc: string | undefined;
-  @Input() isSendingDefence: boolean = false; 
+  @Input() isSendingDefence: boolean = false;
+  @Input() isLoadingData: boolean = false;
 
   @Output() emittedNotifications = new EventEmitter<string>();
   @Output() emittedClosedAttackScreen = new EventEmitter<void>();
   @Output() emittedAttack = new EventEmitter<NexusAttackSent>();
   @Output() emittedReloadEvent = new EventEmitter<string>();
-  @Output() emittedGoToCoords = new EventEmitter<[ number, number ]>();
-   
-  constructor(private nexusService: NexusService) { super();  }
+  @Output() emittedGoToCoords = new EventEmitter<[number, number]>();
+
+  constructor(private nexusService: NexusService) { super(); }
 
   async engageAttackAllUnits() {
-    if (!this.user || !this.originBase || !this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats)
-      return alert("Something went wrong with the request."); 
+    if (!this.user || !this.originBase) {
+      return alert("Something went wrong with the request.");
+    } else if (!this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats) {
+      return alert("No units to send.");
+    }
 
     this.engageAttack(true);
   }
 
 
   async engageAttack(allUnits: boolean = false) {
-    if (!this.user || !this.originBase || !this.selectedNexus || !this.unitStats) return alert("Something went wrong with the request.");
+    if (!this.user || !this.originBase) {
+      return alert("Something went wrong with the request.");
+    } else if (!this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats) {
+      return alert("No units to send.");
+    }
+
     this.startLoading();
     setTimeout(() => {
       let hasUnits = false;
@@ -55,7 +64,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
           for (let unit of this.unitStats) {
             unit.sentValue = this.nexusAvailableUnits[`${unit.unitType == "siege_tank" ? "siegeTank" : unit.unitType}Total` as keyof NexusUnits] ?? 0;
             if (!hasUnits && unit.sentValue) hasUnits = true;
-          } 
+          }
         }
         if (!hasUnits && !this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units have been selected! Please select some units and try again.");
 
@@ -69,22 +78,44 @@ export class NexusAttackScreenComponent extends ChildComponent {
         this.stopLoading();
       }
     }, 10);
-   
+
   }
 
-  getAvailableUnitStats() { 
-    return this.unitStats?.filter(unit => (this.nexusAvailableUnits?.[`${unit.unitType}Total` as keyof NexusUnits] ?? 0) > 0) || [];
-  } 
+  getAvailableUnitStats() {
+    if (!this.unitStats || !this.nexusAvailableUnits) return [];
+
+    const availableUnitStats: UnitStats[] = [];
+    const availableUnits = this.nexusAvailableUnits;
+
+    for (let i = 0; i < this.unitStats.length; i++) {
+      const unit = this.unitStats[i];
+      const unitType = unit.unitType == 'siege_tank' ? 'siegeTank' : unit.unitType;
+      const totalUnits = availableUnits[`${unitType}Total` as keyof NexusUnits] ?? 0;
+
+      if (totalUnits > 0) {
+        availableUnitStats.push(unit);
+      }
+    }
+
+    return availableUnitStats;
+  }
+
 
   private createNexusAttack() {
     if (!this.originBase || !this.selectedNexus || !this.unitStats) return undefined;
 
-    const unitCounts = this.unitStats.reduce((acc, unit) => {
-      if (unit.sentValue) acc[unit.unitType] = unit.sentValue;
-      return acc;
-    }, {} as { [key: string]: number });
+    const unitCounts: { [key: string]: number } = {};
+    for (let i = 0; i < this.unitStats.length; i++) {
+      const unit = this.unitStats[i];
+      if (unit.sentValue) {
+        unitCounts[unit.unitType] = unit.sentValue;
+      }
+    }
 
-    this.unitStats.forEach(x => x.sentValue = 0);
+    for (let i = 0; i < this.unitStats.length; i++) {
+      this.unitStats[i].sentValue = 0;
+    }
+
     this.nexusAvailableUnits = undefined;
     return {
       originCoordsX: this.originBase.coordsX,
@@ -94,38 +125,79 @@ export class NexusAttackScreenComponent extends ChildComponent {
       destinationCoordsY: this.selectedNexus.coordsY,
       destinationUser: this.selectedNexus.user,
       ...unitCounts,
-      timestamp: new Date(), 
+      timestamp: new Date(),
       arrived: false
     } as NexusAttackSent;
   }
   calculateAttackDuration(unitStat?: UnitStats): number {
     if (!this.originBase || !this.selectedNexus) {
-      alert("Problem setting duration! Either no origin or no destination selected!")
+      alert("Problem setting duration! Either no origin or no destination selected!");
       return 0;
     }
 
     const distance = 1 + Math.abs(this.originBase.coordsX - this.selectedNexus.coordsX) + Math.abs(this.originBase.coordsY - this.selectedNexus.coordsY);
-    const speed = unitStat ? unitStat.speed : Math.min(...this.unitStats?.filter(unit => unit.sentValue && unit.speed)?.map(unit => unit.speed) || [0]);
 
-    return distance * speed * 60;
+    if (unitStat) {
+      return distance * unitStat.speed * 60;
+    }
+    let minSpeed = Infinity;
+    if (this.unitStats) {
+      for (const unit of this.unitStats) {
+        if (unit.sentValue && unit.speed && unit.speed < minSpeed) {
+          minSpeed = unit.speed;
+        }
+      }
+    }
+    if (minSpeed === Infinity) {
+      minSpeed = 0;
+    }
+
+    return distance * minSpeed * 60;
   }
+
   isEngagingUnits() {
-    return this.unitStats?.some(x => x.sentValue && x.sentValue > 0);
+    if (!this.unitStats) return false;
+
+    for (let i = 0; i < this.unitStats.length; i++) {
+      const unit = this.unitStats[i];
+      if (unit.sentValue && unit.sentValue > 0) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   hasUnitsToSend() {
-    return Object.keys(this.nexusAvailableUnits || {}).some(key => this.nexusAvailableUnits![key as keyof NexusUnits] > 0);
+    const availableUnits = this.nexusAvailableUnits;
+    if (!availableUnits) return false;
+
+    for (const key in availableUnits) {
+      if (availableUnits[key as keyof NexusUnits] > 0) {
+        return true;
+      }
+    }
+
+    return false;
   }
+
   maxSliderValue(unit: UnitStats): number {
-    if (unit.unitType == "marine") return this.nexusAvailableUnits?.marineTotal ?? 0;
-    if (unit.unitType == "goliath") return this.nexusAvailableUnits?.goliathTotal ?? 0;
-    if (unit.unitType == "siege_tank") return this.nexusAvailableUnits?.siegeTankTotal ?? 0;
-    if (unit.unitType == "scout") return this.nexusAvailableUnits?.scoutTotal ?? 0;
-    if (unit.unitType == "wraith") return this.nexusAvailableUnits?.wraithTotal ?? 0;
-    if (unit.unitType == "battlecruiser") return this.nexusAvailableUnits?.battlecruiserTotal ?? 0;
-    if (unit.unitType == "glitcher") return this.nexusAvailableUnits?.glitcherTotal ?? 0;
-    return 0;
+    const availableUnits = this.nexusAvailableUnits;
+    if (!availableUnits) return 0;
+
+    const unitTypeMap: { [key: string]: keyof NexusUnits } = {
+      marine: 'marineTotal',
+      goliath: 'goliathTotal',
+      siege_tank: 'siegeTankTotal',
+      scout: 'scoutTotal',
+      wraith: 'wraithTotal',
+      battlecruiser: 'battlecruiserTotal',
+      glitcher: 'glitcherTotal',
+    };
+
+    return availableUnits[unitTypeMap[unit.unitType]] ?? 0;
   }
+
   onSliderChange(event: any, unit: UnitStats): void {
     const value = Math.min(this.maxSliderValue(unit), event.target.value);
     unit.sentValue = value;
@@ -135,9 +207,15 @@ export class NexusAttackScreenComponent extends ChildComponent {
     return this.nexusService.formatTimer(allSeconds);
   }
   closeAttackScreen() {
-    this.unitStats?.forEach(x => x.sentValue = undefined);
+    const unitStats = this.unitStats;
+    if (unitStats) {
+      for (let i = 0; i < unitStats.length; i++) {
+        unitStats[i].sentValue = undefined;
+      }
+    }
     this.emittedClosedAttackScreen.emit();
   }
+
   goToCoords(x: number, y: number) {
     this.emittedGoToCoords.emit([x, y]);
   }

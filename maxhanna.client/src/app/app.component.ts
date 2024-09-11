@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ComponentRef, ElementRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { AfterViewInit, Component, ComponentRef, ElementRef, OnDestroy, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
 import { CalendarComponent } from './calendar/calendar.component';
 import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { FavouritesComponent } from './favourites/favourites.component';
@@ -18,7 +18,7 @@ import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { NewsComponent } from './news/news.component';
 import { NavigationComponent } from './navigation/navigation.component';
-import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { WordlerComponent } from './wordler/wordler.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
 import { EmulationComponent } from './emulation/emulation.component';
@@ -27,8 +27,7 @@ import { NexusComponent } from './nexus/nexus.component';
 import { User } from '../services/datacontracts/user/user';
 import { ModalComponent } from './modal/modal.component';
 import { NotificationsComponent } from './notifications/notifications.component';
-import { UserService } from '../services/user.service';
-
+import { UserService } from '../services/user.service'; 
 
 
 
@@ -79,7 +78,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
   ];
-
+ 
 
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
@@ -109,6 +108,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router, private route: ActivatedRoute, private userService: UserService) {
+  
   }
   ngOnInit() {
     if (this.getCookie("user")) {
@@ -155,7 +155,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         }
       }
     }); 
-  }
+  } 
   async getSelectedMenuItems() {
     if (!this.user) {
       this.userSelectedNavigationItems = [
@@ -181,7 +181,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.router.dispose();
     }
   }
-  createComponent(componentType: string, inputs?: { [key: string]: any; }) {
+  createComponent(componentType: string, inputs?: { [key: string]: any; }) { 
     if (!this.isNavigationInitialized) {
       setTimeout(() => {
         if (!this.isNavigationInitialized) {
@@ -308,17 +308,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   updateHeight() {
     document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
   }
-  closeOverlay() {
-    console.log("close overlay");
-    this.showOverlay = false;
+  closeOverlay() { 
     if ((document.getElementById("closeOverlay") as HTMLButtonElement)) { 
-      (document.getElementById("closeOverlay") as HTMLButtonElement).click()
-      //close the second one if it exists
-      setTimeout(() => {
-        if ((document.getElementById("closeOverlay") as HTMLButtonElement)) {
-          (document.getElementById("closeOverlay") as HTMLButtonElement).click()
-        }
-      }, 10);
-    }
+      (document.getElementById("closeOverlay") as HTMLButtonElement).click();
+    }  
+    this.showOverlay = false;
   }
 }

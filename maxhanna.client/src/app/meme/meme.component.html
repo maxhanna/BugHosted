@@ -5,27 +5,27 @@
 
   <div class="notifications">
     <app-notifications [minimalInterface]="true"
-                   [inputtedParentRef]="parentRef">
+                       [inputtedParentRef]="parentRef">
     </app-notifications>
   </div>
-  
 
-  <div class="fileUploadInputs">
-    <app-file-upload [currentDirectory]="'Meme'"
-                     [user]="parentRef?.user"
-                     [inputtedParentRef]="parentRef"  
-                     [showPrivatePublicOption]="false"
-                     [allowedFileTypes]="'image/*,video/*'"
-                     [uploadButtonText]="'Upload Meme(s)'"
-                     (userNotificationEvent)="uploadNotification($event);"
-                     (userUploadEvent)="uploadFileListEvent($event);"
-                     (userUploadFinishedEvent)="uploadFinished($event)"
-                     (userCancelEvent)="uploadCancelEvent($event);"
-                     id="fileUploader">
-    </app-file-upload>
-  </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
   <div class="memeResultsDiv">
+    <div class="fileUploadInputs">
+      <app-file-upload [currentDirectory]="'Meme'"
+                       [user]="parentRef?.user"
+                       [inputtedParentRef]="parentRef"
+                       [showPrivatePublicOption]="false"
+                       [allowedFileTypes]="'image/*,video/*'"
+                       [uploadButtonText]="'Upload Meme(s)'"
+                       (userNotificationEvent)="uploadNotification($event);"
+                       (userUploadEvent)="uploadFileListEvent($event);"
+                       (userUploadFinishedEvent)="uploadFinished($event)"
+                       (userCancelEvent)="uploadCancelEvent($event);"
+                       id="fileUploader">
+      </app-file-upload>
+    </div>
+
     <app-file-search [inputtedParentRef]="parentRef"
                      [user]="parentRef?.user"
                      [currentDirectory]="'Meme/'"
@@ -37,6 +37,7 @@
                      [displayFileSize]="false"
                      [fileId]="memeId"
                      [autoload]="memeId ? false : true"
+                     [displayTotal]="false"
                      (userNotificationEvent)="uploadNotification($event);">
     </app-file-search>
   </div>

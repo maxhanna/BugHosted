@@ -9,25 +9,26 @@
     <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio> 
     <div class="shrinkMediaDiv cursorPointer" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
-  <div class="mediaContainerDiv" [style.height]="selectedFileSrc == '' ? '300px' : ''">
+  <div class="mediaContainerDiv" [style.height]="selectedFileSrc == '' ? (file && file.height ? file.height : 250)+ 'px' : ''">
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
       <span class="clickToLoadText">Click here to load media</span>
       <span><img src="favicon.ico" /></span>
     </div>
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
     <div *ngIf="!isLoading && autoload && selectedFileSrc != ''" class="mediaDiv">
-      <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" alt="file" class="media" />
+      <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" [attr.title]="title ? title : null"
+ class="media" />
       <video #mediaContainer
              *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)"
              [src]="selectedFileSrc" 
              controls
-             preload="auto"
+             preload="auto" 
              [autoplay]="autoplay"
              class="video media">
       </video>
       <audio #mediaContainer
              *ngIf="audioFileExtensionsIncludes(this.selectedFileExtension)"
-             [src]="selectedFileSrc"
+             [src]="selectedFileSrc" 
              controls
              preload="auto"
              [autoplay]="false"
@@ -45,17 +46,18 @@
         </span>
         <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>
       </div>
-      <div class="filetype" *ngIf="displayExtraInfo">
-        <button (click)="copyLink()" title="Share Link">📋Share</button>
-        <button (click)="download(selectedFile!, true)">📥Download</button>
+      <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">
+        <button (click)="copyLink()" title="Share Link" *ngIf="displayExtraInfo">📋Share</button>
+        <button (click)="download(selectedFile!, true)" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">📥Download</button>
       </div>
     </div>
   </div>
 </div>
 
-<app-comments *ngIf="selectedFile && showCommentSection && displayExtraInfo"
+<app-comments *ngIf="selectedFile && showCommentSection"
               [inputtedParentRef]="inputtedParentRef"
               [type]="'File'"
               [component_id]="selectedFile.id"
-              [commentList]="selectedFile.fileComments">
+              [commentList]="selectedFile.fileComments"
+              (commentAddedEvent)="commentAddedEvent($event)">
 </app-comments>

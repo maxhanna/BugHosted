@@ -12,6 +12,7 @@ namespace maxhanna.Server.Services
         private readonly ConcurrentQueue<int> _buildingUpgradeQueue = new ConcurrentQueue<int>();
 
         private readonly IConfiguration _config;
+        private readonly string _connectionString;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
         private Timer _checkForNewUpgradesTimer;
@@ -23,6 +24,8 @@ namespace maxhanna.Server.Services
         public NexusBuildingUpgradeBackgroundService(IConfiguration config)
         {
             _config = config;
+            _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
@@ -94,7 +97,7 @@ namespace maxhanna.Server.Services
         private async Task LoadAndScheduleExistingUpgrades()
         {
             List<int> upgradeIds = new List<int>();
-            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await using var conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
 
             string query = @"
@@ -221,7 +224,7 @@ namespace maxhanna.Server.Services
 
             NexusBase? nexus = null;
 
-            await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await using MySqlConnection conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
 
             try
@@ -272,7 +275,7 @@ namespace maxhanna.Server.Services
             {
                 if (createdConnection)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn = new MySqlConnection(_connectionString);
                     await conn.OpenAsync();
                 }
 

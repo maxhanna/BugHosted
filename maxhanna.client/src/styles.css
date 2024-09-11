@@ -28,11 +28,7 @@
   --nexus-gamescreen-width: 350px;
 }
 
-@media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
-  :root {
-/*    --main-font-size: 2.45vw;
-*/  }
-}
+ 
 /* prevent pull-to-refresh for Safari 16+ */
 @media screen and (pointer: coarse) {
   @supports (-webkit-backdrop-filter: blur(1px)) and (overscroll-behavior-y: none) {
@@ -66,9 +62,7 @@ body {
   color: var(--main-font-color);
   margin: 0;
   padding: 0;
-  padding-bottom: 55px;
-/*  font-size: var(--main-font-size);
-*/  font-weight: var(--main-font-weight);
+  font-weight: var(--main-font-weight);
 }
 
 html, body {
@@ -80,8 +74,6 @@ a {
   font-family: Gadugi, Arial, Helvetica;
   padding: 1px;
   text-align: center;
-  border-radius: 5px;
-  border-bottom: 1px dotted var(--main-font-color);
   text-decoration: none;
   font-style: italic;
 }
@@ -92,6 +84,10 @@ a {
 
   a:active {
     color: var(--secondary-font-color);
+  }
+  a:hover {
+    border-radius: 5px;
+    border-bottom: 1px dotted var(--main-font-color);
   }
 
 button {
@@ -111,18 +107,7 @@ legend {
 fieldset {
   text-align: center;
   border: var(--main-border);
-}
-
-.componentMain {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
-}
-
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
-  .componentMain {
-    max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
-  }
-}
-
+} 
 
 .componentMain {
   background-color: var(--main-bg-color-quarter-opacity);
@@ -181,8 +166,7 @@ fieldset {
   line-height: 29px;
   top: 0px;
   display: block;
-  box-shadow: 0px 2px 2px black;
-  z-index: 1;
+  box-shadow: 0px 2px 2px black; 
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   background-color: var(--main-highlight-color);
 }
@@ -206,12 +190,15 @@ fieldset {
 }
 
 .mainTableContainer {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 180px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 120px);
   overflow: auto;
 }
 
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
- 
+@media only screen and (max-device-width:800px) {
+
+  .componentMain {
+      max-width: 100%;
+  }
   .mainTableDiv { 
     overflow-x: auto;
   }
@@ -237,7 +224,7 @@ fieldset {
 .miningStatusTable tr > :last-child {
   position: sticky;
   right: 0;
-  z-index: 22;
+  z-index: 1;
 }
 
 .mainTable {
@@ -251,7 +238,7 @@ fieldset {
     position: sticky;
     top: 0;
     background-color: var(--main-bg-color);
-    z-index: 10;
+    z-index: 1;
     cursor: default;
   }
 
@@ -337,7 +324,7 @@ fieldset {
   width: 100%;
   height: 5px;
   background-color: #f0f0f0;
-  z-index: 9999;
+  z-index: 1;
   display: none;
 }
 
@@ -442,17 +429,14 @@ fieldset {
 }
 
 .avatarBug {
-  z-index: 3;
   font-size: 15px;
   left: 8px;
+  top: -50px;
 }
 
 
 .avatarBust {
-  font-size: 40px;
-  top: -20px;
-  left: -1px;
-  z-index: 2;
+  font-size: 40px; 
 }
 
 .italics {

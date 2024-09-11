@@ -359,7 +359,8 @@ namespace maxhanna.Server.Controllers
             _logger.LogInformation($"POST /Mining/{rigId}/{deviceId}");
             try
             {
-                JObject payload = [new JProperty("rigId", rigId)];
+                JObject payload = new JObject();
+                payload.Add("rigId", rigId);
                 if (!string.IsNullOrEmpty(deviceId))
                 {
                     payload.Add(new JProperty("deviceId", deviceId));

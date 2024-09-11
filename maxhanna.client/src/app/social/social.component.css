@@ -1,22 +1,24 @@
 .componentMain {
   max-width: 865px;
   min-width: 350px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
   display: flex;
   flex-direction: column;
 }
 
-@media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
+.socialComponent{
+    max-height: CALC(100vh - 40px);
+    overflow: auto;
+}
+
+@media only screen and (max-device-width: 800px) {
   .componentMain {
     min-width: 90vw;
     max-width: 98vw;
-  }
-  .mobileMaxHeight {
-    max-height: CALC(CALC(var(--vh, 1vh) * 90) - 225px);
-  } 
+  }  
 }
 .mobileMaxHeight {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 225px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 113px);
 } 
 .inputDiv {
   margin-left: auto;
@@ -31,11 +33,16 @@
   align-content: center;
   justify-content: flex-start;
   align-items: stretch;
-} 
-   
+}
+
 .mainTopicSelector {
   text-align: center;
   min-height: 30px;
+  display: flex;
+  flex-direction: row;
+  align-content: center;
+  justify-content: center;
+  align-items: flex-start;
 }
 .mainTopicSelector input{
   width:100%;
@@ -93,7 +100,7 @@
   max-height: 500px;
 }
 
-@media only screen and (min-device-width: 300px) and (max-device-width: 800px) {
+@media only screen and (max-device-width: 800px) {
   .metadataImage {
     max-width: 300px;
     max-height: 300px;
@@ -275,10 +282,11 @@
   width: 100%;
 }
 .notificationCounterDiv {
-  position: relative;
-  left: CALC(100% - 40px);
-  top: 0px;
+  position: absolute;
+  right: 35px;
+  top: 4px;
   width: 40px;
+  text-align: right;
 }
 
 .topicDiv {
@@ -286,14 +294,13 @@
 }
 .emptyPage {
     height:30px;
-} 
+}
 .attachmentsDiv {
   display: flex;
-  flex-direction: column;
-  align-content: center;
+  flex-direction: row;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
+  align-items: stretch;
+  justify-content: center;
 }
 .expandSpan {
   display: flex;
@@ -306,15 +313,55 @@
 }
 .reactionTopics {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   align-content: center;
   flex-direction: row;
 }
 .smallExpander {
   width: 110px;
+  text-align: center;
 }
 .reactionsSpan {
   max-width: 100px;
   min-width: 35px;
+}
+.textExpanderDiv {
+  width: 100%;
+  text-align: center;
+  cursor: pointer;
+  margin-top: -10px;
+  margin-bottom: 10px;
+  opacity: 75%;
+}
+.searchSocialsPanel {
+  position: absolute;
+  width: 300px;
+  height: 250px;
+  top: CALC(50% - 125px);
+  left: CALC(50% - 150px);
+  background-color: var(--main-bg-color);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+.storyEditSpans {
+  position: relative;
+  transform: scale(0.75);
+  heighT: 0;
+  width: 0;
+}
+
+.storyRejectEdit {
+  left: 7px;
+}
+
+.storyAcceptEdit {
+  left: -2px;
+  top: -3px;
 }

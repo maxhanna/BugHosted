@@ -16,11 +16,13 @@ export class FileEntry {
   fileData?: FileData;
   fileSize: number;
   fileType: string;
+  width?: number;
+  height?: number;
   reactions?: Array<Reaction>;
     
   constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string,
     user: User, isFolder: boolean, comments: Array<FileComment>, date: Date,
-    fileSize: number, fileType: string, reactions?: Array<Reaction>, fileData?: FileData) {
+    fileSize: number, fileType: string, reactions?: Array<Reaction>, fileData?: FileData, width?: number, height?: number) {
     this.id = id;
     this.fileName = fileName;
     this.directory = directory;
@@ -33,6 +35,8 @@ export class FileEntry {
     this.fileData = fileData;
     this.fileSize = fileSize;
     this.fileType = fileType;
+    this.width = width;
+    this.height = height;
     this.reactions = reactions;
   } 
 }

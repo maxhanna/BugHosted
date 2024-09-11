@@ -15,10 +15,11 @@
 .commentsHeader {
   margin-left: auto;
   margin-right: auto;
-  width: 300px;
-  font-size: large;
+  width: 300px; 
   text-align: center;
   cursor: pointer;
+  font-weight: 700;
+  font-size:smaller;
 }
 
 .commentUsername {
@@ -108,4 +109,17 @@
 }
 .commentListDiv {
   margin-bottom: 10px;
+}
+.commentEditSpans {
+  position: relative;
+  transform: scale(0.75);
+  heighT: 0;
+  width: 0;
+}
+.commentCancelEdit {
+  left: -3px;
+}
+.commentAcceptEdit { 
+  left: -2px;
+  top: -3px; 
 }

@@ -21,14 +21,14 @@ export class NotepadService {
       return null; // Return null in case of error
     } 
   } 
-  async getNotes(user: User) {
+  async getNotes(user: User, search?: string) {
     try {
       const response = await fetch(`/notepad/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
         },
-        body: JSON.stringify(user), // Convert the user object to JSON string
+        body: JSON.stringify({ User: user, Search: search }), // Convert the user object to JSON string
       });
 
       return await response.json(); // Parse JSON response 

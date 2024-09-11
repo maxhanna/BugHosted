@@ -5,7 +5,7 @@
 </button>
 <input #fileInput type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes" style="visibility: hidden; position: absolute; width:1px;" multiple />
 
-<div class="fileListContainer" #fileListContainer>
+<div class="fileListContainer" #fileListContainer *ngIf="displayListContainer" [class]="displayListContainer ? 'open' : ''">
 
   <div *ngIf="showPrivatePublicOption && !getOverallProgress()">
     <span>Select file(s) visibility:</span>

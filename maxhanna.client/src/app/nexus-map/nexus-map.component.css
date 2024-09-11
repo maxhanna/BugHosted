@@ -92,7 +92,7 @@
 }
 
 .myBase {
-  background-color: var(--main-font-color);
+  background-color: chartreuse;
 }
 
 .emptyBase {
@@ -124,18 +124,12 @@
 
 .zoomInButtonDiv {
   position: absolute;
-  top: CALC(var(--nexus-gamescreen-height) + 150px);
-  left: CALC(var(--nexus-gamescreen-width) / 2);
+  bottom: 0px;
+  left: CALC(50% - 50px);
   width: 100px;
-  height: 30px;
+  text-align: center;
 }
-
-.attackScreenDiv {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 430px);
-  overflow: auto;
-}
-
-
+  
 .loadingRing {
   position: absolute;
   top: 50%;
@@ -216,9 +210,14 @@
 }
 
 .baseAutoSwitcherDiv {
-  text-align: center;
-  margin-top: 25px;
+    position:relative;
+    bottom: 0px;
+  text-align: center; 
   text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
+  display: flex;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
 }
 
 .selectedBase {
@@ -286,4 +285,17 @@
 .timersReducedNote {
   color: var(--secondary-font-color);
   font-style: italic;
+}
+.bottomActionDiv {
+  height: CALC(100vh - 80px - var(--nexus-gamescreen-height));
+  display: flex;
+  flex-direction: column;
+  align-content: stretch;
+  align-items: stretch;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  overflow: auto;
+}
+.attackScreenDiv {
+    overflow: auto;
 }

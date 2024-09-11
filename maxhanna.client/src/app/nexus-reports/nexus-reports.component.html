@@ -1,5 +1,5 @@
 <div *ngIf="battleReports && battleReports.battleOutcomes && !isLoading">
-  <div class="pageControls"> 
+  <div class="pageControls">
     <span class="xSmallFont">Total:{{battleReports.totalReports}}</span>
     <span *ngIf="totalPages && totalPages.length > 0 && !isLoading">
       <label for="currentPage">Page:</label>
@@ -14,41 +14,39 @@
       </select>
     </span>
     <button (click)="nextPage()" *ngIf="totalPages && totalPages.length > 1 && !isLoading">Next Page</button>
-    <div class="deleteAllReportsDiv" *ngIf="!targetBase && battleReports.totalReports > 0">
-      <button (click)="deleteAllReports()">Delete All Reports</button>
-    </div>  
   </div>
+
+  <div class="deleteAllReportsDiv" *ngIf="!targetBase && battleReports.totalReports > 0">
+    <button (click)="deleteAllReports()" *ngIf="!selectedReportIds.size && battleReports.battleOutcomes.length > 0 && !targetUser">Delete All Reports</button>
+    <button (click)="deleteSelectedReports()" *ngIf="selectedReportIds.size">Delete {{selectedReportIds.size}} Reports</button>
+    <button (click)="showUserSearchOverlay()" *ngIf="!targetUser">🔍Search Reports</button> 
+  </div>
+
+  <div class="deleteAllReportsDiv"> 
+    <div *ngIf="targetUser" class="cursorPointer smallFont" (click)="clearTargetUser()">Filter: {{targetUser.username}}</div> 
+  </div>
+
+  <label *ngIf="battleReports.battleOutcomes.length > 0"><input type="checkbox" (change)="selectAllCheckboxes($event)" #selectAllCheckbox /> {{selectAllCheckbox.checked ? 'De-select all' : 'Select all'}}</label>
   <div *ngIf="!isLoading">
     <div *ngFor="let report of battleReports.battleOutcomes" class="battleReportDiv">
       <div class="reportHeader">
+        <input type="checkbox"
+               [value]="report.battleId"
+               (change)="onReportSelectionChange(report.battleId, $event)" />
         <span><strong>Report #{{report.battleId}}</strong></span>
         <span class="reportTimestampSpan">{{ report.timestamp | date:'MM/dd/yyyy HH:mm:ss' }}</span>
-        <button (click)="deleteReport(report)">Delete</button> 
+        <button (click)="deleteReport(report)">Delete</button>
       </div>
-      
+
       <div class="reportsCenterDisplay">
-        <div>
-          <span (click)="openMapEmitter.emit(report.originCoordsX + ',' + report.originCoordsY)" class="invertedHighlights cursorPointer">
-            ({{report.originCoordsX}},{{report.originCoordsY}})
-          </span>
-          <span class="usernameProfileLink" *ngIf="getBaseNameForCoords(report.originCoordsX, report.originCoordsY)">
-            {{getBaseNameForCoords(report.originCoordsX, report.originCoordsY)}}
-          </span>
-          -
+        <div class="reportsNameDisplay">
+          <span (click)="openMapEmitter.emit(report.originCoordsX + ',' + report.originCoordsY)" class="invertedHighlights cursorPointer">({{report.originCoordsX}},{{report.originCoordsY}})<span class="invertedHighlights" *ngIf="getBaseNameForCoords(report.originCoordsX, report.originCoordsY)">{{getBaseNameForCoords(report.originCoordsX, report.originCoordsY)}}</span></span>
           <app-user-tag [user]="report.originUser" [displayOnlyName]="true"></app-user-tag>
         </div>
-        <div>
-          VS
-          <span (click)="openMapEmitter.emit(report.destinationCoordsX + ',' + report.destinationCoordsY)" class="invertedHighlights cursorPointer">
-            ({{report.destinationCoordsX}},{{report.destinationCoordsY}})
-          </span>
-          <span class="usernameProfileLink" *ngIf="getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)">
-            {{getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)}}
-          </span>
-          <span *ngIf="report.destinationUser">
-            -
-            <app-user-tag [user]="report.destinationUser" [displayOnlyName]="true"></app-user-tag>
-          </span>
+        <div> VS </div>
+        <div class="reportsNameDisplay">
+          <span (click)="openMapEmitter.emit(report.destinationCoordsX + ',' + report.destinationCoordsY)" class="invertedHighlights cursorPointer">({{report.destinationCoordsX}},{{report.destinationCoordsY}})<span class="invertedHighlights" *ngIf="getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)">{{getBaseNameForCoords(report.destinationCoordsX, report.destinationCoordsY)}}</span></span>
+          <app-user-tag [user]="report.destinationUser" [displayOnlyName]="true"></app-user-tag>
         </div>
         <div class="reportTimestampSpan">📀 Stolen: <span [class]="report.defenderGoldStolen && report.defenderGoldStolen > 0 ? 'goldText' : 'greyText'">{{report.defenderGoldStolen | number:'1.2-2' }}</span> / <span [class]="report.defenderGold && report.defenderGold > 0 ? 'goldText' : 'greyText'">{{report.defenderGold | number:'1.2-2' }}</span></div>
       </div>
@@ -62,7 +60,7 @@
             <tr>
               <th></th>
               <td *ngFor="let unit of getUnitsArray(report.attackingUnits); let i = index">
-                <img [src]="getUnitPictureSrc(unit.key == 'siege_tank' ? 'siegeTank' : unit.key)" class="unitPic" /> 
+                <img [src]="getUnitPictureSrc(unit.key == 'siege_tank' ? 'siegeTank' : unit.key)" class="unitPic" />
               </td>
             </tr>
           </thead>
@@ -129,14 +127,14 @@
                           : key == 'starport' ? splvl1Src
                           : key == 'factory' ? flvl1Src
                           : key == 'mines' ? mineslvl1Src
-                          : ''" class="buildingPicture "  *ngIf="scoutPictureSrc" loading="lazy" decoding="asynchronous" [title]="key.replace('_', ' ')" />  
-              </td> 
+                          : ''" class="buildingPicture " *ngIf="scoutPictureSrc" loading="lazy" decoding="asynchronous" [title]="key.replace('_', ' ')" />
+              </td>
             </tr>
           </thead>
           <tbody>
             <tr>
               <th>🏰:</th>
-              <ng-container *ngFor="let key of buildingOrder; let i = index"> 
+              <ng-container *ngFor="let key of buildingOrder; let i = index">
                 <td [class]="'unitCell ' + (report.defenderBuildingLevels[key] == 0 ? ' greyText' : '')">{{ report.defenderBuildingLevels[key] || 0}}</td>
               </ng-container>
             </tr>
@@ -176,4 +174,8 @@
 </div>
 <div *ngIf="battleReports && !battleReports.totalReports" class="notification">
   This is where battle reports will show up after you attack or get attacked.
+</div>
+
+<div class="userSearchOverlay" *ngIf="userSearchOpen">
+  <app-user-list (userClickEvent)="searchReports($event);" [user]="user" [inputtedParentRef]="inputtedParentRef"></app-user-list>
 </div>

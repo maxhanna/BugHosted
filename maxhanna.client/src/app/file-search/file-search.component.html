@@ -1,6 +1,6 @@
 <div class="shareUserListDiv" #shareUserListDiv>
   <div>Share {{selectedSharedFile?.fileData?.givenFileName ?? selectedSharedFile?.fileName ?? ''}} With?</div>
-  <div class="shareUserList"><app-user-list (userClickEvent)="shareFile($event);" [user]="user!" *ngIf="showShareUserList"></app-user-list></div> 
+  <div class="shareUserList"><app-user-list (userClickEvent)="shareFile($event);" [user]="user!" *ngIf="showShareUserList"></app-user-list></div>
 </div>
 <div class="filters" *ngIf="showPrivatePublicOption && showData">
   <div>
@@ -23,18 +23,21 @@
     </label>
   </div>
 </div>
+<!-- Page Controls --> 
 <div class="searchInput">
-  <input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
+  <span *ngIf="totalPages > 1 && currentPage != 1">
+    <span *ngIf="displayTotal || (searchTerms != '' && currentPage != 1)">Page: {{currentPage}}</span>
+    <button (click)="previousPage()" [disabled]="currentPage === 1">⬅️</button>
+  </span>
+  <input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" /> 
+  <span *ngIf="totalPages > 1">
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages">➡️</button>
+    <span *ngIf="displayTotal || searchTerms != ''">Total: {{totalPages}}</span>
+  </span>
 </div>
 
 <div *ngIf="showData">
-  <!-- Pagination Controls -->
-  <div *ngIf="directory && totalPages > 1" class="pageContainerDiv">
-    <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
-    <span>Page {{currentPage}} of {{totalPages}}</span>
-    <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
-  </div>
-  <div>Total: {{directory?.totalCount}}</div>
+  <div *ngIf="displayTotal" class="totalDisplay">Total: {{directory?.totalCount}} <span class="currentDirectorySpan">Current Directory: <span class="invertedHighlights">{{currentDirectory || '.'}}</span></span></div>
 
   <!-- Main Data -->
   <div class="">
@@ -92,7 +95,7 @@
                   </span>
                 </div>
                 <div class="fileSizeTd" (click)="selectFile(file);" *ngIf="displayFileSize">
-                  <span *ngIf="file && file.fileSize" (click)="selectFile(file);" >
+                  <span *ngIf="file && file.fileSize" (click)="selectFile(file);">
                     {{formatFileSize(file.fileSize)}}
                   </span>
                 </div>
@@ -102,8 +105,7 @@
                     ✏️Edit
                   </button>
                   <button title="Share File"
-                          *ngIf="file?.visibility?.toLowerCase() == 'private'"
-                          (click)="shareFileInitiate(file); $event.stopPropagation();">
+                          (click)="(file?.visibility?.toLowerCase() == 'private' ? shareFileInitiate(file) : shareLink(file)); $event.stopPropagation();">
                     ↗️Share
                   </button>
                   <button (click)="this.delete(file); $event.stopPropagation();"
@@ -123,6 +125,8 @@
                                 [autoplay]="false"
                                 [inputtedParentRef]="inputtedParentRef"
                                 [canScroll]="fileId ? true : false"
+                                [displayExpander]="false"
+                                [displayExtraInfo]="false"
                                 (emittedNotification)="emittedNotification($event)"
                                 class="mediaViewer">
               </app-media-viewer>

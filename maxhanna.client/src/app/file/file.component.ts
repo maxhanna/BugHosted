@@ -62,7 +62,8 @@ export class FileComponent extends ChildComponent {
   uploadFinished(newFiles: FileEntry[]) {
     this.fileSearchComponent.handleUploadedFiles(newFiles.flatMap(fileArray => fileArray)); 
   }
-  async shareFile(userToShareWith: User) {
+  async shareFile(userToShareWith?: User) {
+    if (!userToShareWith) return;
     try {
       await this.fileService.shareFile(this.parentRef?.user!, userToShareWith, this.fileBeingShared);
       this.fileBeingShared = 0;

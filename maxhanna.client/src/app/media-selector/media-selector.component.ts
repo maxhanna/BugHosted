@@ -2,6 +2,7 @@ import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@
 import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
+import { FileUploadComponent } from '../file-upload/file-upload.component';
 
 
 @Component({
@@ -25,6 +26,8 @@ export class MediaSelectorComponent {
   @ViewChild('selectMediaDiv', { static: false }) selectMediaDiv!: ElementRef;
   @ViewChild('mediaButton', { static: false }) mediaButton!: ElementRef;
   @ViewChild('doneButton') doneButton!: ElementRef<HTMLButtonElement>;
+  @ViewChild(FileUploadComponent) fileUploadComponent!: FileUploadComponent;
+
 
   constructor() { }
 
@@ -33,7 +36,7 @@ export class MediaSelectorComponent {
     console.log("toggle");
     if (this.inputtedParentRef) {
       console.log("toggle parent");
-      this.inputtedParentRef.showOverlay = this.viewMediaChoicesOpen; 
+      this.inputtedParentRef.showOverlay = this.viewMediaChoicesOpen;
     }
     this.displaySearchButton = true;
     if (this.selectMediaDiv) {
@@ -41,10 +44,6 @@ export class MediaSelectorComponent {
     }
   }
 
-  done() {
-    this.selectFileEvent.emit(this.selectedFiles);
-    this.closeMediaSelector();
-  }
 
   selectFile(file: FileEntry) {
     this.displaySearch = false;
@@ -105,16 +104,20 @@ export class MediaSelectorComponent {
     this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
     this.displaySearchButton = !this.displaySearchButton;
   }
+  done() {
+    this.selectFileEvent.emit(this.selectedFiles);
+    this.closeMediaSelector();
+  }
   closeMediaSelector() {
-    this.selectedFiles = [];
-    this.displaySearchButton = false;
-    this.viewMediaChoicesOpen = false;
+    console.log("closing selector"); 
+      this.selectedFiles = [];
+      this.displaySearchButton = false;
+      this.viewMediaChoicesOpen = false;
     this.displaySearch = false;
-    if (this.selectMediaDiv) {
-      this.selectMediaDiv.nativeElement.classList.remove("open"); 
-    }
-    if (this.inputtedParentRef) {
+    if (this.inputtedParentRef) { 
       this.inputtedParentRef.showOverlay = false;
     }
+    
+    //this.fileUploadComponent.cancelFileUpload(); 
   }
 }

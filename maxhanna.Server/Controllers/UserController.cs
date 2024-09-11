@@ -368,6 +368,20 @@ namespace maxhanna.Server.Controllers
                     oldUsername = reader.GetString("username");
                 }
 
+                // Check if the new username already exists in the database
+                string checkUsernameSql = "SELECT COUNT(*) FROM maxhanna.users WHERE username = @Username AND id != @Id";
+                MySqlCommand checkUsernameCmd = new MySqlCommand(checkUsernameSql, conn);
+                checkUsernameCmd.Parameters.AddWithValue("@Username", user.Username);
+                checkUsernameCmd.Parameters.AddWithValue("@Id", user.Id);
+
+                int usernameCount = Convert.ToInt32(await checkUsernameCmd.ExecuteScalarAsync());
+
+                if (usernameCount > 0)
+                {
+                    // Username already exists in the database
+                    return Conflict("Username already exists!");
+                }
+
                 if (!oldUsername.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
                 {
                     // Update the home folder path if the old username is different from the new username

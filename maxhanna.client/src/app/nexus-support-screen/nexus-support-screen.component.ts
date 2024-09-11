@@ -18,7 +18,15 @@ export class NexusSupportScreenComponent implements OnInit {
   @Input() nexusDefencesSent?: NexusAttackSent[];
   @Input() mapData?: NexusBase[] = [];
   @Input() user?: User;
-  @Input() inputtedParentRef?: AppComponent; 
+  @Input() inputtedParentRef?: AppComponent;
+
+  @Input() marinePictureSrc: string | undefined;
+  @Input() goliathPictureSrc: string | undefined;
+  @Input() siegeTankPictureSrc: string | undefined;
+  @Input() scoutPictureSrc: string | undefined;
+  @Input() wraithPictureSrc: string | undefined;
+  @Input() battlecruiserPictureSrc: string | undefined;
+  @Input() glitcherPictureSrc: string | undefined;
   @Output() defenceReturnedEmitter = new EventEmitter<NexusAttackSent>;
   @Output() openMapEmitter = new EventEmitter<string>;
   groupedDefences: GroupedDefences = {};

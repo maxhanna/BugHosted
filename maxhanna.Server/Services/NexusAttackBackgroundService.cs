@@ -13,6 +13,7 @@ namespace maxhanna.Server.Services
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
         private readonly ConcurrentQueue<int> _attackQueue = new ConcurrentQueue<int>();
         private readonly IConfiguration _config;
+        private readonly string _connectionString;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
         private Timer _checkForNewAttacksTimer;
@@ -23,6 +24,7 @@ namespace maxhanna.Server.Services
         public NexusAttackBackgroundService(IConfiguration config)
         {
             _config = config;
+            _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
@@ -97,7 +99,7 @@ namespace maxhanna.Server.Services
         {
             var attacks = new List<(int attackId, TimeSpan delay)>();
 
-            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await using var conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
 
             string query = "SELECT id, timestamp, duration FROM nexus_attacks_sent";
@@ -135,7 +137,7 @@ namespace maxhanna.Server.Services
 
             try
             { 
-                await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await using MySqlConnection conn = new MySqlConnection(_connectionString);
                 await conn.OpenAsync(); 
                  
 

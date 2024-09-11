@@ -32,11 +32,12 @@ export class FileUploadComponent {
   uploadedFileList: FileEntry[] = [];
   uploadProgress: { [key: string]: number } = {};
   isUploading: boolean = false;
+  displayListContainer = false;
   constructor(private fileService: FileService) { }
 
   uploadInitiate() {
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
-      this.fileListContainer.nativeElement.classList.toggle("open");
+      this.displayListContainer = true;
       if (this.inputtedParentRef) { 
         this.inputtedParentRef.showOverlay = true;
       }
@@ -45,13 +46,14 @@ export class FileUploadComponent {
     }
   }
   cancelFileUpload() {
+    console.log("cancel file upload");
     this.uploadProgress = {};
     this.isUploading = false;
     this.uploadFileList = [];
     this.fileInput.nativeElement.value = '';
     this.userCancelEvent.emit(true);
-    this.fileListContainer.nativeElement.classList.toggle("open");
-    if (this.inputtedParentRef) {
+    this.displayListContainer = false;
+    if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
       this.inputtedParentRef.closeOverlay();
     }
   }
@@ -122,16 +124,14 @@ export class FileUploadComponent {
   private checkIfLastFileUploaded(filesArray: File[], index: number) { 
     if (filesArray.length == index) {
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
-      this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`);
-      //(document.getElementById('closeOverlay') as HTMLButtonElement).click();
-
+      this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`); 
 
       this.uploadProgress = {};
       this.isUploading = false;
       this.uploadFileList = [];
       this.uploadedFileList = [];
       this.fileInput.nativeElement.value = ''; 
-      this.fileListContainer.nativeElement.classList.toggle("open");
+      this.displayListContainer = false; 
       if (this.inputtedParentRef) {
         this.inputtedParentRef.closeOverlay();
       }

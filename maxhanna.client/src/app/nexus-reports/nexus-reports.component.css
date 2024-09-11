@@ -57,16 +57,31 @@ th {
   align-items: flex-end;
 }
 
- 
 
-.reportsCenterDisplay { 
+
+.reportsCenterDisplay {
   width: 100%;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+}
+
+.reportsNameDisplay {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  align-content: center;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
 }
 
 .reportTimestampSpan {
   font-size: small;
-  color: var(--secondary-font-color); 
+  color: var(--secondary-font-color);
 }
 
 .reportHeader {
@@ -86,12 +101,10 @@ th {
   width: 50px;
 }
 
-.pageControls { 
+.pageControls {
   display: flex;
-  justify-content: space-between;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
+  justify-content: space-evenly;
+  flex-direction: row;
   align-items: center;
 }
 
@@ -107,6 +120,8 @@ th {
     display:flex;
     align-content:center;
     margin-top:10px;
+    max-height:200px;
+    overflow: auto;
 }
 .expireNote {
     color: var(--secondary-font-color);
@@ -122,4 +137,14 @@ th {
 .buildingPicture {
     width:30px;
     height:30px;
+}
+.userSearchOverlay {
+  position: absolute;
+  left: CALC(50% - 112.5px);
+  top: CALC(50% - 200px);
+  width: 225px;
+  height: 400px;
+  background-color: var(--main-bg-color);
+  overflow: auto;
+  z-index: 2;
 }

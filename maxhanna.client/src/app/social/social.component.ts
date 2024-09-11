@@ -22,9 +22,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
   comments: FileComment[] = [];
-  loading = false;
-  showComments = false; 
-  revealSearchFilters = false; 
+  isSearchSocialsPanelOpen = false;
   openedMemes: number[] = [];
   selectedAttachmentFileExtension: string | null = null;
   isEditing: number[] = [];
@@ -49,6 +47,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   currentPage: number = 1;
   totalPages: number = 1;
   totalPagesArray: number[] = [];
+  userSearch = "";
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
@@ -122,10 +121,14 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "block";
         (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "block";
         (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "none";
+        (document.getElementById('storyAcceptEditButtonSpan' + story.id) as HTMLDivElement).style.display = "block";
+        (document.getElementById('storyRejectEditButtonSpan' + story.id) as HTMLDivElement).style.display = "block";
       } else {
         (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "none";
         (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "none";
         (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "block";
+        (document.getElementById('storyAcceptEditButtonSpan' + story.id) as HTMLDivElement).style.display = "none"; 
+        (document.getElementById('storyRejectEditButtonSpan' + story.id) as HTMLDivElement).style.display = "none"; 
       }
     }
   }
@@ -174,7 +177,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
 
   async searchStories(searchTopics?: Array<Topic>) {
-    let search = this.search.nativeElement.value;
+    let search = "";
+    if (this.search && this.search.nativeElement) {
+      search = this.search.nativeElement.value;
+    }
+
+    this.userSearch = search;
     let topics = '';
     if (searchTopics && searchTopics.length > 0) {
       topics = topics.trim() != '' ? topics + ',' : topics;
@@ -207,7 +215,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       });
     }
 
-
+    this.closeSearchSocialsPanel();
     this.cdr.detectChanges();
     this.stopLoading();
   }
@@ -342,8 +350,19 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       } 
     }
   }
-
-
+  showSearchSocialsPanel() {
+    this.isSearchSocialsPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeSearchSocialsPanel() {
+    console.log("ccloseSearchSocialsPanel"); 
+    this.isSearchSocialsPanelOpen = false;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
+  }
   hasOverflow(elementId: string): boolean {
     const element = document.getElementById(elementId);
     if (element) {

@@ -14,7 +14,10 @@
         <div class="commentContent">
           <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id"></div>
           <textarea [style.display]="'none'" [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea> 
-          <button [style.display]="'none'" [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)">✏️Edit</button>
+          <button [style.display]="'none'" [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)"> 
+            <span class="commentEditSpans commentAcceptEdit" [style.display]="'none'" [id]="'commentAcceptButtonSpan' + comment.id">✔️</span>
+            ✏️Edit
+          </button>
 
           <div class="commentDate">{{comment.date!.toString().replace('T', ' ')}}</div>
 
@@ -30,15 +33,18 @@
                               [currentDirectory]="file.directory"
                               [inputtedParentRef]="inputtedParentRef"
                               [displayExtraInfo]="false"
-                              [autoplay]="true"
-                              [autoload]="false"
+                              [autoplay]="false"
+                              [autoload]="true"
                               [showCommentSection]="false"></app-media-viewer>
           </div>
         </div>
       </div>
       <div class="actionDiv"> 
         <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id && comment.id">❌</button>
-        <button (click)="editComment(comment)" title="Edit Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id && comment.id">✏️</button>
+        <button (click)="editComment(comment)" title="Edit Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id && comment.id">
+          <span class="commentEditSpans commentCancelEdit" [style.display]="'none'" [id]="'commentEditButtonSpan' + comment.id">❌</span>
+          ✏️
+        </button>
       </div>
     </div> 
   </div>

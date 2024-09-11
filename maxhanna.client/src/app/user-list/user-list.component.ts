@@ -4,6 +4,7 @@ import { ChatNotification } from '../../services/datacontracts/chat/chat-notific
 import { ChatService } from '../../services/chat.service';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
+import { AppComponent } from '../app.component';
 
 @Component({
   selector: 'app-user-list',
@@ -12,10 +13,11 @@ import { User } from '../../services/datacontracts/user/user';
 })
 export class UserListComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User;
+  @Input() inputtedParentRef?: AppComponent;
   @Input() chatNotifications?: ChatNotification[];
   @Input() friendsOnly: boolean = false;
   @Input() contactsOnly: boolean = false;
-  @Output() userClickEvent = new EventEmitter<User>();
+  @Output() userClickEvent = new EventEmitter<User | undefined>();
 
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
 
@@ -33,8 +35,11 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   async ngOnDestroy() {
     clearInterval(this.chatInfoInterval);
   }
-  click(value: User) {
+  click(value?: User) {
     this.userClickEvent.emit(value);
+    if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
+      this.inputtedParentRef.closeOverlay();
+    } 
   }
   getChatNotificationsByUser(userId?: number) {
     if (userId && this.chatNotifications && this.chatNotifications.length > 0) {

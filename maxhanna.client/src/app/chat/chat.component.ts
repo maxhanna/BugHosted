@@ -155,7 +155,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.chatHistory = [];
     this.getMessageHistory(this.pageNumber, this.pageSize);
   }
-  async openChat(user: User | null) {
+  async openChat(user?: User) {
     if (!user) { return; }
     this.startLoading();
     console.log("loading messages");
@@ -238,6 +238,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   selectFile(files: FileEntry[]) {
+    console.log("selected files : " + files);
     this.attachedFiles = files;
   } 
 }

@@ -58,7 +58,8 @@ a {
   border-radius: 65% / 10%;
   font-size: 35px;
   line-height: 45px;
-  margin-top: -19px; 
+  margin-top: -19px;
+  overflow:hidden;
 }
 
   .navLink:before {
@@ -100,17 +101,18 @@ a {
 }
 
 .collapsed {
-  position: absolute !important;
+    display:none !important;
+  /*position: absolute !important;
   width: CALC(100vw - 2px);
-  height: 67px !important;
+  height: 67px !important;*/
   /* max-height: 5vh !important; */
-  bottom: 0px !important;
+  /*bottom: 0px !important;
   top: CALC(100% - 67px) !important;
   display: flex !important;
   flex-wrap: nowrap !important;
   padding: unset !important;
   overflow-y: hidden !important;
-  background-color: var(--main-bg-color);
+  background-color: var(--main-bg-color);*/
 }
 
  

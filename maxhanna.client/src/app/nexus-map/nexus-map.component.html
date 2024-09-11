@@ -23,6 +23,7 @@
             <div [class]="'selectedBaseContainer' + (grid[x][y] ? ' attackIconSpan-adjustedForNoBase' : '')">
               <span class="selectedBase"></span>
             </div>
+            <!-- ON MAP COMMAND BUTTONS -->
             <div class="selectedNexusBaseMapControlsContainer">
               <div class="selectedBaseMapControls">
                 <div style=" display: flex;">
@@ -31,19 +32,20 @@
                   <button (click)="showAttackScreen(true)" *ngIf="showAttackButton" title="Send Defence">🛡️</button>
                 </div>
                 <div>
-                  <button (click)="toggleShowReports()" title="Shows battle reports for this base.">📃</button>
+                  <button (click)="toggleShowReports()" *ngIf="showAttackButton" title="Shows battle reports for this base.">📃</button>
                   <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰</button>
                 </div>
-                
-                
               </div>
             </div>
           </div>
         </div>
         <div [class]="'cell-content-coords ' + (grid[x][y] ? 'cell-content-coords-adjustedForBase' : '')" [id]="'x' + x + ',y' + y + 'LocCoordsDiv'" *ngIf="grid[x][y]">{{x + ',' + y + ' '}}</div>
-        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" *ngIf="isAttackReturningOn(x, y)">↩</span>
-        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" *ngIf="isDefenceSentOn(x,y)">🛡️</span>
-        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')" *ngIf="isAttackSentOn(x, y)">⚔️</span>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')"
+              *ngIf="attackSentStatus.get(x + ',' + y)">⚔️</span>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')"
+              *ngIf="attackReturningStatus.get(x + ',' + y)">↩</span>
+        <span [class]="'incomingIconSpan ' + (grid[x][y] ? '' : 'attackIconSpan-adjustedForNoBase')"
+              *ngIf="defenseSentStatus.get(x + ',' + y)">🛡️</span>
       </div>
     </div>
   </div>
@@ -69,9 +71,9 @@
     <button *ngIf="selectedNexusBase?.user?.id == user?.id" (click)="emittedGoToBaseEvent.emit(selectedNexusBase)">🏰View Base</button>
   </div>
   <!-- LOCATION INFO -->
-  <div class="infoContainer" *ngIf="isReportsHidden"> 
-    <div class="tileInfoDiv"> 
-      <div *ngIf="selectedNexusBase.user"> 
+  <div class="infoContainer" *ngIf="isReportsHidden">
+    <div class="tileInfoDiv">
+      <div *ngIf="selectedNexusBase.user">
         <span style="display:inline-block;">
           <app-user-tag [user]="selectedNexusBase.user"
                         [inputtedParentRef]="inputtedParentRef"></app-user-tag>
@@ -87,53 +89,82 @@
   <div class="attackDefenceTimers" *ngIf="isReportsHidden && !isAttackScreenOpen">
     <ng-container *ngIf="getAttackTimers().length;">
       <div *ngFor="let attackTimer of getAttackTimers(); trackBy: trackByTimerId">
-        <span class="invertedHighlights cursorPointer"
-              (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }} <span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackAttack(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+        <span class="invertedHighlights cursorPointer" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
+          {{ getAttackerLabel(attackTimer) }}
+        </span>
+        {{getAttackOrReturnLabel(attackTimer)}}
+        <span class="invertedHighlights cursorPointer" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
+        {{ formatTimer(attackTimer.endTime) }}
+        <span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackAttack(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
       </div>
     </ng-container>
     <ng-container *ngIf="getDefenceTimers().length;">
       <div *ngFor="let attackTimer of getDefenceTimers(); trackBy: trackByTimerId">
-        <span class="invertedHighlights cursorPointer"
-              (click)="scrollToCoordinatesFromAttackTimer(attackTimer)">{{ getAttackerLabel(attackTimer) }}</span> {{getRestOfAttackLabel(attackTimer)}}: {{ formatTimer(attackTimer.endTime) }}<span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackDefence(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+        <span class="invertedHighlights cursorPointer" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
+          {{ getAttackerLabel(attackTimer) }}
+        </span>
+        Defending
+        <span class="invertedHighlights cursorPointer" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
+        {{ formatTimer(attackTimer.endTime) }}<span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackDefence(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
       </div>
     </ng-container>
-    <div *ngIf="getAttackTimers().length > 5 || getDefenceTimers().length > 5" class="xxSmallFont">Note: <span class="timersReducedNote">To see all attack timers, visit the base.</span></div>
+    <div *ngIf="attackTimers || defenceTimers" class="xxSmallFont">Note: <span class="timersReducedNote">Maximum 5 attack and 5 defence timers displayed.</span></div>
   </div>
   <!-- REPORTS -->
   <div class="reportsDisplayDiv" *ngIf="!isReportsHidden && !isAttackScreenOpen">
     <app-nexus-reports [user]="user" [targetBase]="selectedNexusBase" #nexusReports></app-nexus-reports>
   </div>
 </div>
-<div *ngIf="isAttackScreenOpen" class="attackScreenDiv">
-  <app-nexus-attack-screen class="attackScreenDiv"
-                           [user]="user"
-                           [originBase]="nexusBase"
-                           [selectedNexus]="selectedNexusBase"
-                           [nexusAvailableUnits]="nexusAvailableUnits"
-                           [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase"
-                           [unitStats]="unitStats"
-                           [marinePictureSrc]="marinePictureSrc"
-                           [goliathPictureSrc]="goliathPictureSrc"
-                           [siegeTankPictureSrc]="siegeTankPictureSrc"
-                           [scoutPictureSrc]="scoutPictureSrc"
-                           [wraithPictureSrc]="wraithPictureSrc"
-                           [battlecruiserPictureSrc]="battlecruiserPictureSrc"
-                           [glitcherPictureSrc]="glitcherPictureSrc"
-                           [isSendingDefence]="isSendingDefence"
-                           (emittedClosedAttackScreen)="emittedClosedAttackScreen()"
-                           (emittedNotifications)="emittedNotifications.emit($event)"
-                           (emittedReloadEvent)="emittedReloadEvent.emit($event)"
-                           (emittedAttack)="emittedAttack($event)"
-                           (emittedGoToCoords)="emittedGoToCoords($event)">
-  </app-nexus-attack-screen>
-</div>
-<div class="zoomInButtonDiv" *ngIf="zoomedOut">
-  <button (click)="zoomIn()">Zoom In</button>
-</div>
-<div [style.display]="isAttackScreenOpen && ((numberOfPersonalBases || 0) > 1)  && !zoomedOut ? 'block' : 'none'" class="baseAutoSwitcherDiv">
-  <label class="cursorPointer usernameProfileLink">
-    <input type="checkbox" #switchNextBaseCheckbox />
-    Automatically switch bases after attacking
-  </label>
-  <div *ngIf="isLoading || isParentLoading">Loading Data</div>
-</div>
+<div class="bottomActionDiv">
+  <div *ngIf="isAttackScreenOpen" class="attackScreenDiv">
+
+    <div [style.display]="((numberOfPersonalBases || 0) > 1)  && !zoomedOut ? 'flex' : 'none'" class="baseAutoSwitcherDiv">
+      <div *ngIf="(numberOfPersonalBases ?? 0)  > 1">
+        <label class="cursorPointer usernameProfileLink">
+          <input type="checkbox" #switchNextBaseCheckbox />
+          Switch bases
+        </label>
+      </div>
+      <div>
+        <label class="cursorPointer usernameProfileLink">
+          <input type="checkbox" #attackModeCheckbox (change)="checkModes()" />
+          Lock on
+        </label>
+      </div>
+      <div *ngIf="(numberOfPersonalBases ?? 0)  > 1">
+        <label class="cursorPointer usernameProfileLink">
+          <input type="checkbox" #engageModeCheckbox (change)="checkModes()" disabled />
+          Engage All
+        </label>
+      </div>
+    </div>
+    <app-nexus-attack-screen #nexusAttackScreenComponent
+                             class="attackScreenDiv"
+                             [user]="user"
+                             [originBase]="nexusBase"
+                             [selectedNexus]="selectedNexusBase"
+                             [nexusAvailableUnits]="nexusAvailableUnits"
+                             [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase"
+                             [unitStats]="unitStats"
+                             [marinePictureSrc]="marinePictureSrc"
+                             [goliathPictureSrc]="goliathPictureSrc"
+                             [siegeTankPictureSrc]="siegeTankPictureSrc"
+                             [scoutPictureSrc]="scoutPictureSrc"
+                             [wraithPictureSrc]="wraithPictureSrc"
+                             [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                             [glitcherPictureSrc]="glitcherPictureSrc"
+                             [isSendingDefence]="isSendingDefence"
+                             [isLoadingData]="isLoading || (isLoadingData ? true : false)"
+                             (emittedClosedAttackScreen)="emittedClosedAttackScreen()"
+                             (emittedNotifications)="emittedNotifications.emit($event)"
+                             (emittedReloadEvent)="emittedReloadEvent.emit($event)"
+                             (emittedAttack)="emittedAttack($event)"
+                             (emittedGoToCoords)="emittedGoToCoords($event)">
+    </app-nexus-attack-screen>
+  </div>
+  <div class="zoomInButtonDiv" *ngIf="zoomedOut">
+    <button (click)="zoomIn()">Zoom In</button>
+  </div>
+</div> 
+<div *ngIf="isLoading || isLoadingData" class="baseAutoSwitcherDiv">Loading Data</div>
+

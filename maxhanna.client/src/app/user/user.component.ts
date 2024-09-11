@@ -23,7 +23,7 @@ import { WeatherLocation } from '../../services/datacontracts/weather/weather-lo
 })
 export class UserComponent extends ChildComponent implements OnInit {
   @Input() user?: User | undefined;
-  @Input() userId: string | null = null;
+  @Input() userId: number | null = null;
   @Input() loginOnly?: boolean | undefined;
   @Input() inputtedParentRef?: AppComponent | undefined;
   @Input() loginReasonMessage?: string | undefined;
@@ -59,6 +59,7 @@ export class UserComponent extends ChildComponent implements OnInit {
   playListFirstFetch = true;
   songPlaylist: Todo[] = [];
   wordlerStreak: number = 0;
+  weatherLocation = "";
 
   constructor(private userService: UserService,
     private contactService: ContactService,
@@ -78,11 +79,11 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.usersCount = await this.userService.getUserCount();
     try {
       if (this.userId) {
-        const res = await this.userService.getUserById(parseInt(this.userId));
+        const res = await this.userService.getUserById(this.userId);
         if (res) {
           this.user = res as User;
           if (this.socialComponent) {
-            this.socialComponent.user = this.user;
+            this.socialComponent.user = this.user; 
           }
         }
       } else {
@@ -90,10 +91,17 @@ export class UserComponent extends ChildComponent implements OnInit {
       }
 
       await this.getLoggedInUser();
-      await this.loadFriendData();
-      await this.loadWordlerData();
-      await this.loadSongData();
-      await this.loadContactsData(); 
+      if (this.user) {  
+        await this.loadFriendData();
+        await this.loadWordlerData();
+        await this.loadSongData();
+        await this.loadContactsData();
+        this.weatherService.getWeatherLocation(this.user).then(res => {
+          if (res.city) {
+            this.weatherLocation = res.city;
+          }
+        });
+      }
     }
     catch (error) { console.log((error as Error).message); }
     this.stopLoading();
@@ -225,10 +233,10 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.friendRequests = [];
     this.friends = [];
     this.user = undefined;
-    this.notifications.push("Logged out successfully, refresh in 3 seconds.");
+    this.notifications.push("Logged out successfully, refresh in 100 milliseconds.");
     setTimeout(() => {
       window.location = window.location;
-    }, 3000);
+    }, 100);
   }
 
 

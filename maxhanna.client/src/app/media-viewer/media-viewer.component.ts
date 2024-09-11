@@ -24,7 +24,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   showCommentLoadingOverlay = false;
   selectedFileName = '';
   abortFileRequestController: AbortController | null = null; 
-  fS = '/';
+  fS = '/'; 
   isFullscreenMode = false;
   @ViewChild('mediaContainer', { static: false }) mediaContainer!: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay!: ElementRef;
@@ -34,6 +34,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
    
   @Input() displayExpander: boolean = true;
   @Input() displayExtraInfo: boolean = true;
+  @Input() blockExpand: boolean = false;
   @Input() autoplay: boolean = true;
   @Input() autoload: boolean = true;
   @Input() showCommentSection: boolean = true;
@@ -41,10 +42,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() file?: FileEntry;
   @Input() fileId?: number;
   @Input() fileSrc?: string; 
+  @Input() title?: string; 
   @Input() currentDirectory?: string = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
-  @Output() emittedNotification = new EventEmitter<string>();
+  @Output() emittedNotification = new EventEmitter<string>(); 
     
   async ngOnInit() { 
   }
@@ -206,6 +208,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
  
   expandFile(file: any) {
+    if (this.blockExpand) return;
     this.isFullscreenMode = true;
     (this.mediaContainer.nativeElement as HTMLMediaElement).src = '';
     const overlay = this.fullscreenOverlay.nativeElement;
@@ -293,4 +296,20 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   otherFileExtensionsIncludes(ext: string) {
     return !this.videoFileExtensionsIncludes(ext) && !this.audioFileExtensionsIncludes(ext) && !this.imageFileExtensionsIncludes(ext);
   }
+  commentAddedEvent(comment: FileComment) { 
+    const addCommentToFile = (file: { fileComments?: FileComment[] }) => {
+      if (file) {
+        if (!file.fileComments) {
+          file.fileComments = [];
+        }
+        file.fileComments.push(comment);
+      }
+    }; 
+    if (this.file) { 
+      addCommentToFile(this.file);
+    }
+    else if (this.selectedFile) {
+      addCommentToFile(this.selectedFile);
+    }
+  } 
 }

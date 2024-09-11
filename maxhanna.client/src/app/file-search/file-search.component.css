@@ -3,7 +3,7 @@
   .componentMain {
     width: 96vw;
   }
-   
+
 
   .fileExtras {
     justify-content: space-between;
@@ -27,7 +27,7 @@
 }
 
 .folder {
-  color: var(--secondary-font-color); 
+  color: var(--secondary-font-color);
 }
 
 .upOneFolder {
@@ -43,7 +43,10 @@
 }
 
 .searchInput {
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: xx-small;
 }
 
 .typeTd {
@@ -70,7 +73,12 @@
 
 .filters {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: space-evenly;
+  align-items: center;
+  margin-top: 15px;
 }
 
 .fileTypeSpan {
@@ -96,6 +104,7 @@
   display: flex;
   align-items: center;
   width: 100%;
+  word-break: break-word;
 }
 
 .fileExtras {
@@ -148,11 +157,23 @@
   max-height: 200px;
   overflow: auto;
 }
+
 .mediaViewer {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-content: center;
   justify-content: space-evenly;
+  align-items: center;
+}
+
+.currentDirectorySpan {
+  font-size: xx-small;
+}
+
+.totalDisplay {
+  display: flex;
+  justify-content: space-between;
+  align-content: center;
   align-items: center;
 }

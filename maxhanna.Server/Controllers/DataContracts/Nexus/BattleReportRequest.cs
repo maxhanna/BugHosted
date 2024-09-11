@@ -6,6 +6,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Nexus
     {
         public required User User { get; set; }
         public NexusBase? TargetBase { get; set; }
+        public User? TargetUser { get; set; }
         public int PageNumber { get; set; }
         public int PageSize { get; set; }
     }

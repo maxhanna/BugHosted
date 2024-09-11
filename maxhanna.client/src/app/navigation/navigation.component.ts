@@ -211,7 +211,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   goTo(event: any) {
-    const title = event.target.getAttribute('title');
+    const title = event.target.getAttribute('title'); 
     if (event.target.getAttribute("title")?.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else if (title == "UpdateUserSettings") {
@@ -235,13 +235,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (this.navbar) {
       this.navbar.nativeElement.classList.add('collapsed');
       this.navbarCollapsed = true;
+      console.log("collapsed");
     }
   }
   maximizeNav() {
     if (this.navbar) {
       this.navbar.nativeElement.classList.remove('collapsed');
       this.navbarCollapsed = false;
-      if (this.toggleNavButton.nativeElement.style.display == "block") {
+      if (this.toggleNavButton && this.toggleNavButton.nativeElement.style.display == "block") {
         this.toggleMenu(); 
       }
     }

@@ -1,7 +1,6 @@
 
 .componentMain {
   max-width: 800px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
 }
 .mainTable td {
   word-wrap: break-word;

@@ -18,6 +18,7 @@ export class NotepadComponent extends ChildComponent {
   @ViewChild('newNoteButton') newNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('shareNoteButton') shareNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('deleteNoteButton') deleteNoteButton!: ElementRef<HTMLInputElement>;
+  @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
   noteInputValue: string = ''; // Initialize with an empty string
   isPanelExpanded: boolean = false;
   users: User[] = [];
@@ -44,7 +45,8 @@ export class NotepadComponent extends ChildComponent {
   async getUsers() {
     this.users = await this.userService.getAllUsers(this.parentRef?.user!);
   }
-  async shareNote(withUser: User) {
+  async shareNote(withUser?: User) {
+    if (!withUser) return;
     if (confirm(`Share note with ${withUser.username}?`)) {
       this.notepadService.shareNote(this.parentRef?.user!, withUser, parseInt(this.noteId.nativeElement.value));
       this.isPanelExpanded = false;
@@ -69,7 +71,11 @@ export class NotepadComponent extends ChildComponent {
   }
   async getNotepad() {
     try {
-      this.notes = await this.notepadService.getNotes(this.parentRef?.user!);
+      let search = undefined;
+      if (this.searchInput && this.searchInput.nativeElement) {
+        search = this.searchInput.nativeElement.value;
+      }
+      this.notes = await this.notepadService.getNotes(this.parentRef?.user!, search);
     } catch (error) {
       console.error("Error fetching notepad entries:", error);
     }
@@ -101,5 +107,8 @@ export class NotepadComponent extends ChildComponent {
     } catch (error) {
       console.error(error);
     }
+  } 
+  async search() {
+    this.getNotepad();
   }
 }

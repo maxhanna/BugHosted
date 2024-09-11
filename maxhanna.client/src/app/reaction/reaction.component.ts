@@ -1,5 +1,5 @@
 import { Component, Input, OnInit } from '@angular/core';
-import { ReactionService } from '../../services/reaction.service'; 
+import { ReactionService } from '../../services/reaction.service';
 import { User } from '../../services/datacontracts/user/user';
 import { Reaction } from '../../services/datacontracts/reactions/reaction';
 import { AppComponent } from '../app.component';
@@ -11,12 +11,12 @@ import { AppComponent } from '../app.component';
 })
 export class ReactionComponent implements OnInit {
 
-  reactionsDisplay = ''; 
+  reactionsDisplay = '';
   reactionCount = 0;
   showReactionChoices = false;
   showReactions = false;
   userReaction = '';
-  reactionId = Math.random()*10000000000000;
+  reactionId = Math.random() * 10000000000000;
   reactions = [
     { type: 'thumbs_up', emoji: '👍', label: 'Thumbs Up' },
     { type: 'heart', emoji: '❤️', label: 'Heart' },
@@ -40,7 +40,7 @@ export class ReactionComponent implements OnInit {
     { type: 'smile', emoji: '😊', label: 'Smile' }
   ];
 
-  @Input() commentId?: number; 
+  @Input() commentId?: number;
   @Input() storyId?: number;
   @Input() messageId?: number;
   @Input() fileId?: number;
@@ -52,13 +52,13 @@ export class ReactionComponent implements OnInit {
   ngOnInit() {
     this.getReactionsListDisplay();
   }
-   
+
   async selectReaction(reaction: string) {
     if (this.userHasReacted() && this.currentReactions && this.currentReactions.some(x => x.type && x.type == reaction)) {
       this.showReactionChoices = false;
       return;
     }
-    let tmpReaction = new Reaction(); 
+    let tmpReaction = new Reaction();
     tmpReaction.messageId = this.messageId;
     tmpReaction.storyId = this.storyId;
     tmpReaction.commentId = this.commentId;
@@ -69,9 +69,9 @@ export class ReactionComponent implements OnInit {
     const res = await this.reactionService.addReaction(tmpReaction);
     if (res && res.toLowerCase().includes('success')) {
       if (!this.user || this.user.id == 0) {
-        this.currentReactions = this.currentReactions?.filter(x => x.user?.id != 0); 
+        this.currentReactions = this.currentReactions?.filter(x => x.user?.id != 0);
       } else {
-        this.currentReactions = this.currentReactions?.filter(x => x.user?.id != this.user?.id); 
+        this.currentReactions = this.currentReactions?.filter(x => x.user?.id != this.user?.id);
       }
       if (!this.currentReactions)
         this.currentReactions = [];
@@ -90,18 +90,31 @@ export class ReactionComponent implements OnInit {
       this.reactionsDisplay = this.currentReactions.map(x => this.replaceReactionType(x.type)).join(',');
       const foundReaction = this.currentReactions.find(x => (x.user?.id ?? 0) === (this.user?.id ?? 0));
       if (foundReaction) {
-        this.userReaction = foundReaction.type ?? '';  
+        this.userReaction = foundReaction.type ?? '';
       }
-    } 
+    }
   }
   reactionDisplayOnClick() {
     this.showReactionChoices = !this.showReactionChoices;
     if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay = this.showReactionChoices; 
+      if (!this.showReactionChoices) {
+        this.inputtedParentRef.closeOverlay();
+      } else {
+        this.inputtedParentRef.showOverlay = true;
+      }
     }
   }
 
-  hideReactionChoicesDiv = () => { 
+
+  closeReactionDisplay() {
+    this.showReactionChoices = false;
+    console.log("closed");
+    if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
+      this.inputtedParentRef.closeOverlay();
+    }
+  }
+
+  hideReactionChoicesDiv = () => {
     const reactionChoicesDiv = document.getElementById('reactionChoicesDiv') as HTMLDivElement;
     if (reactionChoicesDiv) {
       reactionChoicesDiv.style.display = 'none'; // Hide the div
@@ -111,7 +124,7 @@ export class ReactionComponent implements OnInit {
 
 
   showReactionsOnClick() {
-    this.showReactions = !this.showReactions; 
+    this.showReactions = !this.showReactions;
   }
 
   replaceReactionType(type?: string) {

@@ -1,21 +1,21 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component';
-import { FileService } from '../../services/file.service';
+import { AttackEventPayload } from '../../services/datacontracts/nexus/attack-event-payload';
+import { MiningSpeed } from '../../services/datacontracts/nexus/mining-speed';
+import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
+import { UpgradeDetail } from '../../services/datacontracts/nexus/nexus-available-upgrades';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { NexusBaseUpgrades } from '../../services/datacontracts/nexus/nexus-base-upgrades';
-import { UpgradeDetail } from '../../services/datacontracts/nexus/nexus-available-upgrades';
-import { User } from '../../services/datacontracts/user/user';
-import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
+import { NexusTimer } from '../../services/datacontracts/nexus/nexus-timer';
+import { NexusUnitUpgrades } from '../../services/datacontracts/nexus/nexus-unit-upgrades';
 import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { NexusUnitsPurchased } from '../../services/datacontracts/nexus/nexus-units-purchased';
-import { NexusService } from '../../services/nexus.service';
-import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
-import { NexusUnitUpgrades } from '../../services/datacontracts/nexus/nexus-unit-upgrades';
+import { UnitStats } from '../../services/datacontracts/nexus/unit-stats';
 import { UnitUpgradeStats } from '../../services/datacontracts/nexus/unit-upgrade-stats';
+import { User } from '../../services/datacontracts/user/user';
+import { FileService } from '../../services/file.service';
+import { NexusService } from '../../services/nexus.service';
+import { ChildComponent } from '../child.component';
 import { NexusMapComponent } from '../nexus-map/nexus-map.component';
-import { NexusTimer } from '../../services/datacontracts/nexus/nexus-timer';
-import { MiningSpeed } from '../../services/datacontracts/nexus/mining-speed';
-import { AttackEventPayload } from '../../services/datacontracts/nexus/attack-event-payload';
 
 @Component({
   selector: 'app-nexus',
@@ -208,16 +208,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       await this.loadNexusData();
     }
   }
-  async loadNexusData() {
-    console.log("loadNexusData");
+  async loadNexusData() { 
     if (!this.parentRef?.user) return;
 
     this.startLoading();
-    this.unitsWithoutGlitcher = undefined;
-
+    this.unitsWithoutGlitcher = undefined;  
     try {
       this.nexusService.getNexus(this.parentRef.user, this.nexusBase).then(data => {
-        if (data && data.nexusBase?.user?.id !== 0) {
+        if (data && data.nexusBase) {
           // Set basic data
           this.nexusBase = data.nexusBase;
           this.nexusBaseUpgrades = data.nexusBaseUpgrades;
@@ -253,13 +251,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             this.fixMapDataGold();
             this.fixMinesSmoke();
           }
-          if (this.nexusBase.coordsX == 0 && this.nexusBase.coordsY == 0) {
-            this.isUserNew = true;
-          } else {
-            this.isUserNew = false;
-          }
+          this.isUserNew = false;
+
           this.isUserComponentOpen = false;
           this.startLoadMapCounter();
+          this.stopLoading();
+        } else {
           this.stopLoading();
         }
       });
@@ -847,7 +844,11 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
                 this.getMiningSpeedsAndSetMiningSpeed();
                 this.startGoldIncrement();
               },
-              warehouse: () => this.nexusBase!.warehouseLevel++,
+              warehouse: () => {
+                this.nexusBase!.warehouseLevel++;
+                this.goldCapacity = ((this.nexusBase?.warehouseLevel ?? 0) + 1) * 5000; 
+                this.startGoldIncrement();
+              },
               supply_depot: () => {
                 this.nexusBase!.supplyDepotLevel++;
                 this.supplyCapacity = this.nexusBase!.supplyDepotLevel * 2500;
@@ -1645,6 +1646,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       }
       else if (screen == "support") {
         this.isSupportOpen = isOpen != undefined ? isOpen : !this.isSupportOpen;
+        if (!this.isSupportOpen) {
+          this.isBasesOpen = true;
+        }
         setTimeout(() => {
           this.stopLoading();
         });
@@ -1690,7 +1694,20 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1);
   }
   getResearchDisplay(unit: UnitStats) {
-    return this.researchTimers[unit.unitType + " level " + unit.unitLevel] ? this.getActiveResearchTimerFormatted(unit) : this.unitCostsMoreThanCurrentGold(unit) ? '⛔' : '🔧';
+    const unitKey = `${unit.unitType} level ${unit.unitLevel}`;
+    const researchTimer = this.researchTimers[unitKey];
+     
+    if (researchTimer) {
+      return this.getActiveResearchTimerFormatted(unit);
+    }
+
+    const isCostMoreThanCurrentGold = this.unitCostsMoreThanCurrentGold(unit);
+    const engineerBayUpgradeLimitReached = this.getEngineerBayUpgradeLimit() <= (this.nexusUnitUpgrades?.length ?? 0);
+     
+    if (isCostMoreThanCurrentGold || engineerBayUpgradeLimitReached) {
+      return '⛔';
+    } 
+    return '🔧';
   }
   getActiveResearchTimerFormatted(unit: UnitStats) {
     return this.formatTimer(this.researchTimers[unit.unitType + " level " + unit.unitLevel].endTime);
@@ -1758,21 +1775,29 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (!this.nexusUnitUpgrades || this.getEngineerBayUpgradeLimit() <= this.nexusUnitUpgrades.length) {
       return alert("Upgrade the Engineering Bay for more research upgrades.");
     }
+    if (this.nexusUnitUpgrades.find(x => x.unitIdUpgraded == unit.unitId)) {
+      return alert("You must wait until the current upgrade finishes.");
+    }
 
     if (this.parentRef && this.parentRef.user && this.nexusBase) {
-      this.nexusService.research(this.parentRef.user, this.nexusBase, unit).then(res => this.addNotification(res));
-      const cost = this.getResearchCostPerUnit(unit);
-      this.updateCurrentBasesGold(cost);
-      if (!this.nexusUnitUpgrades) {
-        this.nexusUnitUpgrades = [];
-      }
-      this.nexusUnitUpgrades.push({
-        coordsX: this.nexusBase.coordsX,
-        coordsY: this.nexusBase.coordsY,
-        unitIdUpgraded: unit.unitId,
-        timestamp: new Date(),
-      } as NexusUnitUpgrades);
-      this.updateUnitResearchTimers();
+      this.nexusService.research(this.parentRef.user, this.nexusBase, unit).then(res => {
+        this.addNotification(res)
+        if (!res.toLowerCase().includes("not enough gold") && this.nexusBase) {
+          const cost = this.getResearchCostPerUnit(unit);
+          this.updateCurrentBasesGold(cost);
+          if (!this.nexusUnitUpgrades) {
+            this.nexusUnitUpgrades = [];
+          }
+          this.nexusUnitUpgrades.push({
+            coordsX: this.nexusBase.coordsX,
+            coordsY: this.nexusBase.coordsY,
+            unitIdUpgraded: unit.unitId,
+            timestamp: new Date(),
+          } as NexusUnitUpgrades);
+          this.updateUnitResearchTimers();
+        }
+
+      }); 
     }
   }
 
@@ -1786,9 +1811,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   getUnitTypeFromId(id: number): string {
     return this.units?.find(x => x.unitId == id)?.unitType ?? "";
   }
-  openMapAndScrollTo(timer: string) {
-    const x = this.getXCoordsFromTimer(this.formatBuildingTimer(timer));
-    const y = this.getYCoordsFromTimer(this.formatBuildingTimer(timer));
+  openMapAndScrollTo(timer: any, isAttack: boolean) {
+    if (!('object' in timer)) {
+      return
+    }
+    const timerObject = (timer.object as NexusAttackSent); 
+    const x = isAttack ? timerObject.destinationCoordsX : timerObject.originCoordsX;
+    const y = isAttack ? timerObject.destinationCoordsY : timerObject.originCoordsY; 
     this.preventMapScrolling = true;
     this.toggleScreen("map", true);
 

@@ -45,7 +45,7 @@
     <div *ngIf="shouldShowResources() && nexusBase" class="resourceDiv">
       <span title="Gold" class="resourceSpan goldText">📀:{{ (nexusBase.gold || 0) | number:'1.0-2' }}</span>
       <span title="Supply Capacity" class="resourceSpan" *ngIf="supplyCapacity">🥩:{{supplyCapacity - (nexusBase.supply || 0)}}</span>
-      <span title="Nexus location" class="resourceSpan">📍:<span class="invertedHighlights">{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '} '}}</span><span *ngIf="nexusBase && nexusBase.baseName" class="usernameProfileLink">{{nexusBase.baseName}}</span></span>
+      <span title="Nexus location" class="resourceSpan">📍:<span class="invertedHighlights">{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '} '}}</span><span *ngIf="nexusBase && nexusBase.baseName" class="invertedHighlights">{{nexusBase.baseName}}</span></span>
     </div>
     <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen " class="battleReportComponentDiv">
@@ -73,8 +73,7 @@
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user && isMapOpen && mapData">
       <app-nexus-map #mapComponent
                      [user]="parentRef.user"
-                     [inputtedParentRef]="parentRef"
-                     [isParentLoading]="isLoading"
+                     [inputtedParentRef]="parentRef" 
                      [mapData]="mapData"
                      [nexusBase]="nexusBase"
                      [currentPersonalBases]="currentPersonalBases"
@@ -99,6 +98,7 @@
                      [nexusDefencesSent]="nexusDefencesSent"
                      [nexusAttacksIncoming]="nexusAttacksIncoming"
                      [nexusDefencesIncoming]="nexusDefencesIncoming"
+                     [isLoadingData]="isLoading"
                      (emittedNotifications)="emittedNotifications($event)"
                      (emittedReloadEvent)="emittedReloadEvent($event)" 
                      (emittedAttackEvent)="emittedAttackEvent($event)"
@@ -134,7 +134,14 @@
                               [inputtedParentRef]="parentRef"
                               [mapData]="mapData"
                               [nexusDefencesIncoming]="nexusDefencesIncoming"
-                              [nexusDefencesSent]="nexusDefencesSent"
+                              [nexusDefencesSent]="nexusDefencesSent" 
+                              [marinePictureSrc]="marinePictureSrc"
+                              [goliathPictureSrc]="goliathPictureSrc"
+                              [siegeTankPictureSrc]="siegeTankPictureSrc"
+                              [scoutPictureSrc]="scoutPictureSrc"
+                              [wraithPictureSrc]="wraithPictureSrc"
+                              [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                              [glitcherPictureSrc]="glitcherPictureSrc"
                               (defenceReturnedEmitter)="emittedDefenceReturned($event)"
                               (openMapEmitter)="emittedOpenMapAndScrollTo($event)"></app-nexus-support-screen>
     <!-- Buildings -->
@@ -683,10 +690,10 @@
     <div *ngIf="activeAttackTimers().length > 0 || activeDefenceTimers().length > 0" class="movementListDiv">
       <div class="upgradeTimersTableDiv">
         <div *ngFor="let timer of activeAttackTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
-          <span class="pointer" (click)="openMapAndScrollTo(timer.unit)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+          <span class="pointer" (click)="openMapAndScrollTo(timer, true)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackAttack(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
         <div *ngFor="let timer of activeDefenceTimers()" [class]="(timer.unit.includes('Support') ? 'defenceProgressDisplayP' : 'unitProgressDisplayP') + ' capitalize'">
-          <span class="pointer" (click)="openMapAndScrollTo(timer.unit)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
+          <span class="pointer" (click)="openMapAndScrollTo(timer, false)">{{ timer.unit }}</span> {{ formatTimer(timer.endTime) }} <span *ngIf="canSendUnitsBack(timer.object)" (click)="sendBackDefence(timer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
         </div>
       </div>
     </div>
@@ -832,11 +839,11 @@
     <div *ngFor="let notif of notifications" class="gameNotification capitalize" (click)="notifications = []">➫ <span>{{notif.replaceAll('_', ' ')}}</span></div>
   </div>
   <div class="shareMapButtonDiv">
-    <button (click)="copyLink()" title="Share Link">Share 📋</button>
-    <button (click)="toggleScreen('map', !isMapOpen)" title="View Map" *ngIf="!isUserNew && parentRef && parentRef.user" [disabled]="isLoading">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>
-    <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports" *ngIf="!isUserNew && parentRef && parentRef.user" [disabled]="isLoading">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
-    <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases" *ngIf="!isUserNew && parentRef && parentRef.user" [disabled]="isLoading">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
-    <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support" *ngIf="!isUserNew && parentRef && parentRef.user" [disabled]="isLoading">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
+    <button (click)="copyLink()" title="Share Link" *ngIf="!isReportsOpen && !isMapOpen && !isBasesOpen && !isSupportOpen">Share 📋</button>
+    <button (click)="toggleScreen('map', !isMapOpen)" title="View Map" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isBasesOpen" [disabled]="isLoading">{{isMapOpen ? 'Close ' : ''}}Map 🗺️</button>
+    <button (click)="toggleScreen('reports', !isReportsOpen)" title="View Reports" *ngIf="!isUserNew && parentRef && parentRef.user && !isMapOpen && !isSupportOpen && !isBasesOpen" [disabled]="isLoading">{{isReportsOpen ? 'Close ' : ''}}Data 📃</button>
+    <button (click)="toggleScreen('bases', !isBasesOpen)" title="View Bases" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isSupportOpen && !isMapOpen" [disabled]="isLoading">{{isBasesOpen ? 'Close ' : ''}}Bases 🏰</button>
+    <button (click)="toggleScreen('support', !isSupportOpen)" title="View Support" *ngIf="!isUserNew && parentRef && parentRef.user && !isReportsOpen && !isMapOpen && (isBasesOpen || isSupportOpen)" [disabled]="isLoading">{{isSupportOpen ? 'Close ' : ''}}Support 🛡️</button>
   </div>
   <div *ngIf="!isLoading && !nexusBase && !isUserNew">
     Server is down.

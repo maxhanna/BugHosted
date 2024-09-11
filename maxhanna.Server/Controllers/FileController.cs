@@ -5,12 +5,8 @@ using System.Diagnostics;
 using System.Net;
 using MySqlConnector;
 using Xabe.FFmpeg;
-using SixLabors.ImageSharp;
-using System.Runtime.Intrinsics.Arm;
-using System.Data;
-using System.Xml.Linq;
-using System.ComponentModel.Design;
-using Microsoft.Extensions.Configuration;
+using SixLabors.ImageSharp; 
+using System.Data; 
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users; 
 
@@ -22,12 +18,15 @@ namespace maxhanna.Server.Controllers
     {
         private readonly ILogger<FileController> _logger;
         private readonly IConfiguration _config;
+        private readonly string _connectionString; 
         private readonly string baseTarget = "E:/Uploads/";
 
         public FileController(ILogger<FileController> logger, IConfiguration config)
         {
             _logger = logger;
             _config = config;
+            _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
             FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
         }
         [HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
@@ -62,7 +61,7 @@ namespace maxhanna.Server.Controllers
                         : "";
                 string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
                 string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (var connection = new MySqlConnection(_connectionString))
                 {
                     connection.Open();
                     int offset = (page - 1) * pageSize;
@@ -70,9 +69,9 @@ namespace maxhanna.Server.Controllers
                     if (fileId.HasValue && page == 1)
                     {
                         _logger.LogInformation($"fetching specific fileId's: {fileId} folder path");
-                         var directoryCommand = new MySqlCommand(
-                            "SELECT folder_path FROM maxhanna.file_uploads WHERE id = @fileId",
-                            connection);
+                        var directoryCommand = new MySqlCommand(
+                           "SELECT folder_path FROM maxhanna.file_uploads WHERE id = @fileId",
+                           connection);
                         directoryCommand.Parameters.AddWithValue("@fileId", fileId.Value);
                         var directoryReader = directoryCommand.ExecuteReader();
 
@@ -122,7 +121,9 @@ namespace maxhanna.Server.Controllers
                             fd.description,
                             fd.last_updated AS file_data_updated,
                             f.file_type AS file_type,
-                            f.file_size AS file_size
+                            f.file_size AS file_size,
+                            f.width AS width,
+                            f.height AS height
                         FROM
                             maxhanna.file_uploads f
                         LEFT JOIN
@@ -148,7 +149,7 @@ namespace maxhanna.Server.Controllers
                     command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
                     command.Parameters.AddWithValue("@pageSize", pageSize);
                     command.Parameters.AddWithValue("@offset", offset);
-                    command.Parameters.AddWithValue("@fileId", fileId); 
+                    command.Parameters.AddWithValue("@fileId", fileId);
                     if (!string.IsNullOrEmpty(search))
                     {
                         command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
@@ -165,7 +166,7 @@ namespace maxhanna.Server.Controllers
                             var fileEntry = new FileEntry
                             {
                                 Id = fileIdValue,
-                                FileName = reader.IsDBNull("file_name") ? "": reader.GetString("file_name"),
+                                FileName = reader.IsDBNull("file_name") ? "" : reader.GetString("file_name"),
                                 Directory = reader.IsDBNull("folder_path") ? "" : reader.GetString("folder_path"),
                                 Visibility = (reader.IsDBNull("is_public") ? true : reader.GetBoolean("is_public")) ? "Public" : "Private",
                                 IsFolder = reader.IsDBNull("is_folder") ? false : reader.GetBoolean("is_folder"),
@@ -182,7 +183,7 @@ namespace maxhanna.Server.Controllers
                                     null
                                 ),
                                 SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
-                                Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"), 
+                                Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
                                 FileData = new FileData
                                 {
                                     GivenFileName = reader.IsDBNull("given_file_name") ? null : reader.GetString("given_file_name"),
@@ -190,7 +191,9 @@ namespace maxhanna.Server.Controllers
                                     LastUpdated = reader.IsDBNull("file_data_updated") ? (DateTime?)null : reader.GetDateTime("file_data_updated")
                                 },
                                 FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
-                                FileSize = reader.IsDBNull("file_size") ? 0 :  reader.GetInt32("file_size")
+                                FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
+                                Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
+                                Height = reader.IsDBNull("height") ? null : reader.GetInt32("height"),
                             };
 
                             fileEntries.Add(fileEntry);
@@ -244,7 +247,7 @@ namespace maxhanna.Server.Controllers
                     LEFT JOIN 
                         maxhanna.users cfu2 on cfu2.id = cf2.user_id 
                     WHERE 1=1
-                       {(fileIds.Count > 0 ? " AND fc.file_id IN (" + string.Join(", ", fileIdsParameters) + ")" : string.Empty)};" 
+                       {(fileIds.Count > 0 ? " AND fc.file_id IN (" + string.Join(", ", fileIdsParameters) + ")" : string.Empty)};"
                     , connection);
                     for (int i = 0; i < fileIds.Count; i++)
                     {
@@ -352,7 +355,7 @@ namespace maxhanna.Server.Controllers
                         LEFT JOIN
                             maxhanna.users ru ON r.user_id = ru.id
                         WHERE 1=1
-                        {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) +')' : string.Empty)} 
+                        {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)} 
                         {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};"
                     , connection);
 
@@ -371,7 +374,7 @@ namespace maxhanna.Server.Controllers
                         {
                             var reactionId = reader.GetInt32("reaction_id");
                             var fileIdValue = reader.IsDBNull(reader.GetOrdinal("reactionFileId")) ? 0 : reader.GetInt32("reactionFileId");
-                            var commentIdValue  = reader.IsDBNull(reader.GetOrdinal("reactionCommentId")) ? 0 : reader.GetInt32("reactionCommentId");
+                            var commentIdValue = reader.IsDBNull(reader.GetOrdinal("reactionCommentId")) ? 0 : reader.GetInt32("reactionCommentId");
 
                             var reaction = new Reaction
                             {
@@ -405,7 +408,7 @@ namespace maxhanna.Server.Controllers
                                     }
                                 }
                             }
-                              
+
                             if (commentEntry.Id != 0)
                             {
                                 if (commentEntry.Reactions == null)
@@ -454,7 +457,7 @@ namespace maxhanna.Server.Controllers
                     };
 
                     return Ok(result);
-                } 
+                }
             }
             catch (Exception ex)
             {
@@ -471,7 +474,7 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (var connection = new MySqlConnection(_connectionString))
                 {
                     await connection.OpenAsync();
 
@@ -550,7 +553,7 @@ namespace maxhanna.Server.Controllers
                     return BadRequest("File id is missing.");
                 }
 
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (var connection = new MySqlConnection(_connectionString))
                 {
                     await connection.OpenAsync();
 
@@ -632,7 +635,7 @@ namespace maxhanna.Server.Controllers
                 string fileName = Path.GetFileName(request.directory);
                 string directoryName = (Path.GetDirectoryName(request.directory) ?? "").Replace("\\", "/");
 
-                string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+                string connectionString = _connectionString ?? "";
 
                 using (var connection = new MySqlConnection(connectionString))
                 {
@@ -677,8 +680,6 @@ namespace maxhanna.Server.Controllers
                 return StatusCode(500, "An error occurred while creating directory.");
             }
         }
-
-
 
         [HttpPost("/File/Upload", Name = "Upload")]
         public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
@@ -728,19 +729,21 @@ namespace maxhanna.Server.Controllers
                         }
 
                         // Check file type and convert if necessary
-                        var convertedFilePath = filePath; 
+                        var convertedFilePath = filePath;
+                        int? width = null;
+                        int? height = null;
                         if (IsGifFile(file))
                         {
                             convertedFilePath = await ConvertGifToWebp(file, uploadDirectory);
 
                         }
                         else if (IsImageFile(file) && !IsWebPFile(file))
-                        {
-                            convertedFilePath = await ConvertImageToWebp(file, uploadDirectory);
+                        { 
+                            (convertedFilePath, width, height) = await ConvertImageToWebp(file, uploadDirectory);
                         }
                         else if (IsVideoFile(file) && !IsWebMFile(file))
                         {
-                            convertedFilePath = await ConvertVideoToWebm(file, uploadDirectory);
+                            (convertedFilePath, width, height) = await ConvertVideoToWebm(file, uploadDirectory);
                         }
                         else if (IsAudioFile(file) && !file.FileName.EndsWith(".opus"))
                         {
@@ -754,14 +757,14 @@ namespace maxhanna.Server.Controllers
                             }
                         }
 
-                        var fileId = await InsertFileMetadata(user!, file, uploadDirectory, isPublic, convertedFilePath);
-                        var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory);
+                        var fileId = await InsertFileMetadata(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height);
+                        var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height);
                         uploaded.Add(fileEntry);
 
                         _logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
                     }
                 }
-                _logger.LogInformation($"Uploaded {uploaded.Count} files."); 
+                _logger.LogInformation($"Uploaded {uploaded.Count} files.");
                 return Ok(uploaded);
             }
             catch (Exception ex)
@@ -769,7 +772,7 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "An error occurred while uploading files.");
                 return StatusCode(500, "An error occurred while uploading files.");
             }
-        }
+        } 
         private bool IsWebPFile(IFormFile file)
         {
             var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -858,11 +861,11 @@ namespace maxhanna.Server.Controllers
                 if (System.IO.File.Exists(opusConvertedFilePath))
                 {
                     System.IO.File.Delete(opusConvertedFilePath);
-                } 
+                }
                 if (beforeFileSize > afterFileSize)
                 {
-                    System.IO.File.Delete(inputFilePath); 
-                } 
+                    System.IO.File.Delete(inputFilePath);
+                }
                 else
                 {
                     System.IO.File.Delete(mp4ConvertedFilePath);
@@ -907,13 +910,13 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "Error occurred during GIF conversion.");
             }
             finally
-            { 
+            {
                 var beforeFileSize = new FileInfo(inputFilePath).Length;
                 var afterFileSize = new FileInfo(convertedFilePath).Length;
 
                 if (beforeFileSize > afterFileSize)
                 {
-                    System.IO.File.Delete(inputFilePath);  
+                    System.IO.File.Delete(inputFilePath);
                 } else
                 {
                     System.IO.File.Delete(convertedFilePath);
@@ -925,12 +928,13 @@ namespace maxhanna.Server.Controllers
             return convertedFilePath;
         }
 
-        private async Task<string> ConvertImageToWebp(IFormFile file, string uploadDirectory)
+        private async Task<(string FilePath, int Width, int Height)> ConvertImageToWebp(IFormFile file, string uploadDirectory)
         {
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
             var convertedFileName = $"{fileNameWithoutExtension}.webp";
             var convertedFilePath = Path.Combine(uploadDirectory, convertedFileName);
-
+            var width = 0;
+            var height = 0;
             try
             {
                 using (var image = await SixLabors.ImageSharp.Image.LoadAsync(file.OpenReadStream()))
@@ -940,6 +944,8 @@ namespace maxhanna.Server.Controllers
                     await image.SaveAsWebpAsync(convertedFilePath);
 
                     var afterFileSize = new FileInfo(convertedFilePath).Length;
+                    width = image.Width;
+                    height = image.Height;
                     _logger.LogInformation($"Image to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
                 }
             }
@@ -948,29 +954,36 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "Error occurred during image conversion.");
             }
 
-            return convertedFilePath;
+            return (convertedFilePath, width, height);
         }
 
-        private async Task<string> ConvertVideoToWebm(IFormFile file, string uploadDirectory)
+        private async Task<(string FilePath, int Width, int Height)> ConvertVideoToWebm(IFormFile file, string uploadDirectory)
         {
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
             var convertedFileName = $"{fileNameWithoutExtension}.webm";
             var convertedFilePath = Path.Combine(uploadDirectory, convertedFileName);
-            var inputFilePath = Path.Combine(uploadDirectory, file.FileName);
-
+            var inputFilePath = Path.Combine(uploadDirectory, file.FileName); 
+            int width = 0, height = 0;
             try
             {
                 using (var stream = new FileStream(inputFilePath, FileMode.Create))
                 {
                     await file.CopyToAsync(stream);
                 }
-
+               
                 var beforeFileSize = new FileInfo(inputFilePath).Length;
 
                 var res = await FFmpeg.Conversions.FromSnippet.ToWebM(inputFilePath, convertedFilePath);
                 await res.Start();
 
                 var afterFileSize = new FileInfo(convertedFilePath).Length;
+                var ffProbe = await FFmpeg.GetMediaInfo(inputFilePath);
+                var videoStream = ffProbe.VideoStreams.FirstOrDefault();
+                if (videoStream != null)
+                {
+                    width = videoStream.Width;
+                    height = videoStream.Height;
+                }
                 _logger.LogInformation($"Video to WebM conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
                 if (beforeFileSize > afterFileSize)
                 {
@@ -996,13 +1009,13 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError(ex, "Error occurred during video conversion."); 
             }
 
-            return convertedFilePath;
+            return (convertedFilePath, width, height);
         }
 
 
         private async Task InsertDirectoryMetadata(User user, string directoryPath, bool isPublic)
         {
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
                 var directoryName = (Path.GetFileName(Path.GetDirectoryName(directoryPath.TrimEnd('/'))) ?? "").Replace("\\", "/");
@@ -1026,23 +1039,25 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private async Task<int> InsertFileMetadata(User user, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath)
+        private async Task<int> InsertFileMetadata(User user, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath, int? width, int? height)
         {
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
                 var command = new MySqlCommand(
-                    @$"INSERT INTO maxhanna.file_uploads 
-                    (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size)  
+                @$"INSERT INTO maxhanna.file_uploads 
+                    (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height)  
                 VALUES 
-                    (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size); 
+                    (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size, @width, @height); 
                 SELECT LAST_INSERT_ID();", connection);
                 command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
                 command.Parameters.AddWithValue("@fileName", Path.GetFileName(convertedFilePath));
                 command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
                 command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
                 command.Parameters.AddWithValue("@isPublic", isPublic);
+                command.Parameters.AddWithValue("@width", width);
+                command.Parameters.AddWithValue("@height", height);
                 command.Parameters.AddWithValue("@isFolder", false);
                 command.Parameters.AddWithValue("@file_size", new FileInfo(convertedFilePath).Length);
 
@@ -1051,7 +1066,7 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath, string uploadDirectory)
+        private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath, string uploadDirectory, int? height, int? width)
         {
             return new FileEntry
             {
@@ -1065,7 +1080,9 @@ namespace maxhanna.Server.Controllers
                 Date = DateTime.UtcNow,
                 SharedWith = string.Empty,
                 FileType = Path.GetExtension(filePath).TrimStart('.'),
-                FileSize = (int)new FileInfo(filePath).Length
+                FileSize = (int)new FileInfo(filePath).Length,
+                Height = height,
+                Width = width,
             };
         }
         private async Task<FileEntry?> GetConflictingFile(int userId, Microsoft.AspNetCore.Http.IFormFile file, string folderPath, bool isPublic)
@@ -1084,7 +1101,7 @@ namespace maxhanna.Server.Controllers
 
             //_logger.LogInformation("Checking for duplicated files : " + (!string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName));
 
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
@@ -1094,6 +1111,8 @@ namespace maxhanna.Server.Controllers
                         f.file_name, 
                         f.is_public, 
                         f.is_folder, 
+                        f.width, 
+                        f.height, 
                         f.user_id, 
                         u.username AS username, 
                         f.shared_with,  
@@ -1142,6 +1161,8 @@ namespace maxhanna.Server.Controllers
                         var user_id = reader.GetInt32("user_id");
                         var userName = reader.GetString("username");
                         var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
+                        int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
+                        int? height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : reader.GetInt32("height");
                         var isFolder = reader.GetBoolean("is_folder");
                        
                         var date = reader.GetDateTime("date");
@@ -1162,6 +1183,8 @@ namespace maxhanna.Server.Controllers
                         fileEntry.FileComments = new List<FileComment>();
                         fileEntry.Date = date;
                         fileEntry.FileData = fileData;
+                        fileEntry.Width = width;
+                        fileEntry.Height = height;
 
 
                         if (!reader.IsDBNull(reader.GetOrdinal("commentId")))
@@ -1207,7 +1230,7 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (var connection = new MySqlConnection(_connectionString))
                 {
                     connection.Open();
                     _logger.LogInformation($"Opened connection to database for deleting file or directory with id {request.file.Id}");
@@ -1385,7 +1408,7 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (var conn = new MySqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
 
@@ -1478,7 +1501,7 @@ namespace maxhanna.Server.Controllers
         private async Task UpdateFilePathInDatabase(string oldFilePath, string newFilePath)
         {
 
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
@@ -1512,7 +1535,7 @@ namespace maxhanna.Server.Controllers
         {
             _logger.LogInformation($"UpdateDirectoryPathInDatabase: oldDirectoryPath: {oldDirectoryPath}; newDirectoryPath: {newDirectoryPath}");
 
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 

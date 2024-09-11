@@ -1,26 +1,26 @@
 ﻿using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
-using MySqlConnector;
-using System.Collections.Concurrent; 
+using MySqlConnector; 
 
 namespace maxhanna.Server.Services
 {
     public class NexusGoldUpdateBackgroundService : BackgroundService
     {
         private readonly IConfiguration _config;
+        private readonly string _connectionString;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
 
         private Timer _checkForNewBaseUpdates; 
 
-        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit to 10 concurrent connections
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
 
 
         public NexusGoldUpdateBackgroundService(IConfiguration config)
         { 
             _config = config;
-
+            _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
@@ -39,7 +39,7 @@ namespace maxhanna.Server.Services
                         Console.WriteLine("UpdateGoldException!! " + t.Exception.Message);
                     }
                 }, TaskContinuationOptions.OnlyOnFaulted);
-            _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
+            _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
 
             return Task.CompletedTask;
         } 
@@ -53,14 +53,14 @@ namespace maxhanna.Server.Services
             }
             finally
             {
-                _checkForNewBaseUpdates?.Change(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4)); // Re-enable timer
+                _checkForNewBaseUpdates?.Change(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3)); // Re-enable timer
             }
         }
 
         private async Task LoadAndScheduleExistingNexus()
         {
 
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (MySqlConnection conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
                 using (MySqlTransaction transaction = await conn.BeginTransactionAsync())
@@ -92,7 +92,7 @@ namespace maxhanna.Server.Services
 
                     foreach (var (x, y) in coordsList.ToArray())
                     {
-                        await Task.Delay(TimeSpan.FromMilliseconds(200)); 
+                        await Task.Delay(TimeSpan.FromMilliseconds(120)); 
                         await ProcessNexusGold(x, y, conn, transaction); 
                     }
                     await transaction.CommitAsync();
@@ -121,7 +121,7 @@ namespace maxhanna.Server.Services
             {
                 if (conn == null)
                 {
-                    await using var newConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    await using var newConn = new MySqlConnection(_connectionString);
                     await newConn.OpenAsync();
                     conn = newConn;
 
@@ -176,18 +176,15 @@ namespace maxhanna.Server.Services
         } 
 
         public async Task ProcessNexusGold(int coordsX, int coordsY, MySqlConnection conn, MySqlTransaction transaction)
-        {
-            //Console.WriteLine($"Processing ProcessNexusGold with coords: {coordsX},{coordsY}");
+        { 
             await _semaphore.WaitAsync(); 
 
             try
-            {
-                // Load the NexusBase and pass it to UpdateNexusAttacks
+            { 
                 NexusBase? nexus = await GetNexusBaseByCoords(coordsX,coordsY, conn, transaction);
                 if (nexus != null)
                 {
-                    var nexusController = new NexusController(_logger, _config);
-                    //Console.WriteLine($"Updating gold automatically for nexus: {nexus.CoordsX}{nexus.CoordsY}");
+                    var nexusController = new NexusController(_logger, _config); 
                     await nexusController.UpdateNexusGold(nexus);
                 }
                 else

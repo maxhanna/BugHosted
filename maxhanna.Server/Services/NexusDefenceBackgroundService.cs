@@ -9,8 +9,9 @@ namespace maxhanna.Server.Services
     public class NexusDefenceBackgroundService : BackgroundService
     {
         private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
-        private readonly ConcurrentQueue<int> _defenceQueue = new ConcurrentQueue<int>(); 
+        private readonly ConcurrentQueue<int> _defenceQueue = new ConcurrentQueue<int>();
 
+        private readonly string _connectionString;
         private readonly IConfiguration _config;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
@@ -21,6 +22,7 @@ namespace maxhanna.Server.Services
 
         public NexusDefenceBackgroundService(IConfiguration config, ILogger<NexusController> logger)
         {
+            _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
             _config = config;
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
@@ -108,7 +110,7 @@ namespace maxhanna.Server.Services
 
         private async Task LoadAndScheduleExistingDefences()
         {
-            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await using var conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
 
             const string query = "SELECT id, timestamp, duration FROM nexus_defences_sent WHERE arrived = 0";
@@ -152,7 +154,7 @@ namespace maxhanna.Server.Services
 
             try
             {
-                await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await using MySqlConnection conn = new MySqlConnection(_connectionString);
                 await conn.OpenAsync();
 
                 const string sqlBase = @"

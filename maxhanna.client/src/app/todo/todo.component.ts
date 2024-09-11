@@ -17,6 +17,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedType') selectedType!: ElementRef<HTMLSelectElement>;
+  @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
 
   constructor(private todoService: TodoService) {
     super();
@@ -35,8 +36,11 @@ export class TodoComponent extends ChildComponent implements OnInit {
   }
   async getTodoInfo() {
     try {
+      const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
+      const search = (!terms || terms.trim() == "") ? undefined : terms;
+
       const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
-      const res = await this.todoService.getTodo(this.parentRef?.user!, type);
+      const res = await this.todoService.getTodo(this.parentRef?.user!, type, search);
       this.todos = res;
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
@@ -44,7 +48,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
   }
   async addTodo() {
     if (!this.todoInput.nativeElement.value) {
-      return alert("todo cannot be empty!");
+      return alert("Cannot add empty values.");
     }
     let tmpTodo = new Todo();
     tmpTodo.date = new Date();
@@ -65,5 +69,8 @@ export class TodoComponent extends ChildComponent implements OnInit {
       document.getElementById("todoDeleteNo" + id)?.setAttribute("disabled", "true");
     }
     this.clearInputs();
+  }
+  async search() {
+    this.getTodoInfo();
   }
 }

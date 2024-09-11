@@ -3,7 +3,7 @@
   flex-direction: column;
   min-height: 300px;
   min-width: 300px;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
   max-width: 99vw;
 }
 
@@ -41,7 +41,7 @@
 .chatWindow {
   border: 1px solid #ccc;
   padding: 10px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 200px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 150px);
   overflow: auto;
   margin-bottom: 10px;
 }
@@ -81,7 +81,7 @@
   width: CALC(100% - 120px);
   max-width: 30vw;
 }
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+@media only screen and (max-device-width:800px) {
   .messageContent {
     max-width: 99vw;
   }

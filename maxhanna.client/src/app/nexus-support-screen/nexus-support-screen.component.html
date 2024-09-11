@@ -1,29 +1,80 @@
 <div *ngIf="groupedDefences && getObjectKeys(groupedDefences).length > 0; else noDefences">
   <div *ngFor="let key of getObjectKeys(groupedDefences)" class="defencesTableDiv">
-    <div class="mainInfoSection">
-      Player :
+    <div class="mainInfoSection"> 
       <app-user-tag [user]="getTmpUserForUserId(key.split('-')[0])" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag>
-      Coordinates: <span class="pointer" (click)="openMapEmitter.emit(key.split('-')[1])"><span class="invertedHighlights">{{ key.split('-')[1] }}</span> <span class="usernameProfileLink">{{ getBaseNameForCoords(key.split('-')[1].split(',')[0],key.split('-')[1].split(',')[1]) }}</span></span>
+      <span class="pointer" (click)="openMapEmitter.emit(key.split('-')[1])">
+        <span class="invertedHighlights">{{'{' + key.split('-')[1] + '} ' }}</span>
+        <span class="invertedHighlights">{{ getBaseNameForCoords(key.split('-')[1].split(',')[0],key.split('-')[1].split(',')[1]) }}</span>
+      </span>
     </div>
     <table>
       <thead>
         <tr>
-          <th><span class="rotated-header unitCell">Origin</span></th>
-          <th><span class="rotated-header unitCell">User</span></th>
-          <th><span class="rotated-header unitCell">Marine</span></th>
-          <th><span class="rotated-header unitCell">Goliath</span></th>
-          <th><span class="rotated-header unitCell">Siege Tank</span></th>
-          <th><span class="rotated-header unitCell">Scout</span></th>
-          <th><span class="rotated-header unitCell">Wraith</span></th>
-          <th><span class="rotated-header unitCell">Battlecruiser</span></th>
-          <th><span class="rotated-header unitCell">Glitcher</span></th>
-          <th><span class="rotated-header unitCell">Arrived</span></th>
+          <th><span>Origin</span></th>
+          <th><span>User</span></th>
+          <th>
+            <span>
+              <img [src]="marinePictureSrc"
+                   class="unitPic"
+                   loading="lazy"
+                   decoding="asynchronous" />
+            </span>
+          </th>
+          <th>
+            <span>
+              <img [src]="goliathPictureSrc"
+                   class="unitPic"
+                   loading="lazy"
+                   decoding="asynchronous" />
+            </span>
+          </th>
+          <th>
+            <span>
+              <img [src]="siegeTankPictureSrc"
+                   class="unitPic"
+                   loading="lazy"
+                   decoding="asynchronous" />
+            </span>
+          </th>
+          <th>
+            <span>
+              <img [src]="scoutPictureSrc"
+                   class="unitPic"
+                   loading="lazy"
+                   decoding="asynchronous" />
+            </span>
+          </th>
+          <th>
+            <span>
+              <img [src]="wraithPictureSrc"
+                   class="unitPic"
+                   loading="lazy"
+                   decoding="asynchronous" />
+            </span>
+          </th>
+          <th>
+            <span>
+              <img [src]="battlecruiserPictureSrc"
+                   class="unitPic"
+                   loading="lazy"
+                   decoding="asynchronous" />
+            </span>
+          </th>
+          <th>
+            <span>
+              <img [src]="glitcherPictureSrc"
+                   class="unitPic"
+                   loading="lazy"
+                   decoding="asynchronous" />
+            </span>
+          </th>
+          <th><span>Arrived</span></th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let defence of groupedDefences[key]">
           <td (click)="openMapEmitter.emit(defence.originCoordsX + ',' + defence.originCoordsY)" class="cursorPointer invertedHighlights">{{defence.originCoordsX}},{{defence.originCoordsY}}</td>
-          <td><app-user-tag [user]="defence.originUser" [inputtedParentRef]="inputtedParentRef" [displayOnlyAvatar]="true"></app-user-tag></td>
+          <td><app-user-tag [user]="defence.originUser" [inputtedParentRef]="inputtedParentRef" [displayOnlyName]="true"></app-user-tag></td>
           <td [class]="defence.marineTotal > 0 ? '' : 'greyText'">{{defence.marineTotal}}</td>
           <td [class]="defence.goliathTotal > 0 ? '' : 'greyText'">{{defence.goliathTotal}}</td>
           <td [class]="defence.siegeTankTotal > 0 ? '' : 'greyText'">{{defence.siegeTankTotal}}</td>

@@ -18,23 +18,30 @@ namespace maxhanna.Server.Controllers
             _config = config;
         }
 
-        [HttpPost("/Notepad", Name = "GetNotes")]
-        public async Task<IActionResult> Get([FromBody] User user)
+        [HttpPost(Name = "GetNotes")]
+        public async Task<IActionResult> GetNotes([FromBody] GetNotepadRequest req)
         {
-            _logger.LogInformation($"GET /Notepad (for user: {user.Id})");
+            _logger.LogInformation($"GET /Notepad (for user: {req.User?.Id ?? 0})");
 
-            string sql = "SELECT " +
-                            "id, LEFT(note, 25) AS note, date, ownership " +
-                        "FROM " +
-                            "maxhanna.notepad " +
-                        "WHERE " +
-                            "ownership = @Owner " +
-                            "OR " +
-                            "ownership LIKE CONCAT('%,', @Owner, ',%') " +
-                            "OR " +
-                            "ownership LIKE CONCAT(@Owner, ',%') " +
-                            "OR " +
-                            "ownership LIKE CONCAT('%,', @Owner)";
+            string sql = @"SELECT 
+                             id, LEFT(note, 25) AS note, date, ownership  
+                        FROM 
+                            maxhanna.notepad 
+                        WHERE 
+                        (
+                            ownership = @Owner 
+                            OR 
+                                ownership LIKE CONCAT('%,', @Owner, ',%') 
+                            OR 
+                                ownership LIKE CONCAT(@Owner, ',%') 
+                            OR 
+                                ownership LIKE CONCAT('%,', @Owner)
+                        )";
+            if (!string.IsNullOrEmpty(req.Search))
+            {
+                sql += " AND note LIKE CONCAT('%', @Search, '%')";
+            }
+            sql += ";";
             try
             {
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -43,8 +50,11 @@ namespace maxhanna.Server.Controllers
 
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
-                        cmd.Parameters.AddWithValue("@Owner", user.Id);
-
+                        cmd.Parameters.AddWithValue("@Owner", req.User?.Id ?? 0);
+                        if (!string.IsNullOrEmpty(req.Search))
+                        { 
+                            cmd.Parameters.AddWithValue("@Search", req.Search);
+                        }
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
                             var entries = new List<NotepadEntry>();
@@ -295,5 +305,10 @@ namespace maxhanna.Server.Controllers
     {
         public User? User1 { get; set; }
         public User? User2 { get; set; }
+    }
+    public class GetNotepadRequest
+    {
+        public User? User { get; set; }
+        public string? Search { get; set; }
     }
 }

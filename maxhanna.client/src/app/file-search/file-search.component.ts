@@ -34,6 +34,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() autoload: boolean = false;
   @Input() canDragMove: boolean = true;
   @Input() fileId: string | null = null;
+  @Input() displayTotal = true;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
@@ -54,7 +55,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   viewMediaFile = false;
   isEditing: number[] = [];
   openedFiles: number[] = [];
-
+  searchTerms = ""
   filter = {
     visibility: 'all',
     ownership: 'all'
@@ -120,7 +121,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   async getDirectory(file?: string, fileId?: number) {
     this.directory = undefined;
     this.openedFiles = [];
-    const search = this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : undefined;
+    this.searchTerms = this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : "";
     this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.showData = true;
     clearTimeout(this.debounceTimer);
@@ -134,7 +135,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
           this.user,
           this.currentPage,
           this.maxResults,
-          search,
+          this.searchTerms,
           fileId,
           (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>())
         );
@@ -425,7 +426,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
-  shareFile(user: User) {
+  shareFile(user?: User) {
+    if (!user) return;
     if (this.selectedSharedFile && this.user) {
       this.fileService.shareFile(this.user, user, this.selectedSharedFile!.id);
     }
@@ -439,5 +441,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   }
   emittedNotification(event: string) {
     this.userNotificationEvent.emit(event);
+  }
+  shareLink(fileEntry: FileEntry) {
+    const link = `https://bughosted.com/${fileEntry.directory.includes("Meme") ? 'Memes' : 'File'}/${fileEntry.id}`;
+    try {
+      navigator.clipboard.writeText(link);
+      this.emittedNotification(`${link} copied to clipboard!`);
+    } catch {
+      this.emittedNotification("Error: Unable to share link!");
+      console.log("Error: Unable to share link!");
+    }
   }
 }

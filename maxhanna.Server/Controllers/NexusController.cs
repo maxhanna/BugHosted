@@ -4,6 +4,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
+using System.Transactions;
 
 namespace maxhanna.Server.Controllers
 {
@@ -13,6 +14,7 @@ namespace maxhanna.Server.Controllers
     {
         private readonly ILogger<NexusController> _logger;
         private readonly IConfiguration _config;
+        private readonly string _connectionString;
         private readonly int _mapSizeX = 100;
         private readonly int _mapSizeY = 100;
 
@@ -20,6 +22,7 @@ namespace maxhanna.Server.Controllers
         {
             _logger = logger;
             _config = config;
+            _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
         }
 
         [HttpPost("/Nexus", Name = "GetBaseData")]
@@ -32,7 +35,7 @@ namespace maxhanna.Server.Controllers
                 return BadRequest("Invalid user data.");
             }
 
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
@@ -42,6 +45,11 @@ namespace maxhanna.Server.Controllers
                         if (req.Nexus == null)
                         {
                             req.Nexus = await GetUserFirstBase(req.User, connection, transaction);
+                        }
+
+                        if (req.Nexus == null)
+                        {
+                            return NotFound();
                         }
                         await RecalculateNexusGold(connection, req.Nexus, transaction);
 
@@ -84,7 +92,7 @@ namespace maxhanna.Server.Controllers
         public async Task<IActionResult> SetBaseName([FromBody] NexusBaseNameRequest request)
         {
             Console.WriteLine($"POST /Nexus/SetBaseName for player {request.User.Id}");
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (MySqlConnection conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
 
@@ -131,7 +139,7 @@ namespace maxhanna.Server.Controllers
             Console.WriteLine($"POST /Nexus/GetAllBuildingUpgradesList");
 
 
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
@@ -159,7 +167,7 @@ namespace maxhanna.Server.Controllers
             Console.WriteLine($"POST /Nexus/GetAllBasesUnits for user: {user?.Id ?? 0}");
 
 
-            using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
                 using (var transaction = connection.BeginTransaction())
@@ -186,7 +194,7 @@ namespace maxhanna.Server.Controllers
         {
             Console.WriteLine($"POST /Nexus/GetAllMiningSpeeds");
             List<NexusMiningSpeed> speeds = new List<NexusMiningSpeed>();
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection conn = new MySqlConnection(_connectionString);
 
             await conn.OpenAsync();
             MySqlTransaction transaction = await conn.BeginTransactionAsync();
@@ -241,7 +249,7 @@ namespace maxhanna.Server.Controllers
         {
             Console.WriteLine($"POST /Nexus/Start Starting the game for player {user.Id}");
 
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection conn = new MySqlConnection(_connectionString);
             try
             {
                 await conn.OpenAsync();
@@ -306,7 +314,7 @@ namespace maxhanna.Server.Controllers
         {
             Console.WriteLine($"POST /Nexus/GetMap for player {user.Id}");
             List<NexusBase> bases = new List<NexusBase>();
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection conn = new MySqlConnection(_connectionString);
 
             await conn.OpenAsync();
             MySqlTransaction transaction = await conn.BeginTransactionAsync();
@@ -380,8 +388,8 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Nexus/GetBattleReports", Name = "GetBattleReports")]
         public async Task<IActionResult> GetBattleReports([FromBody] BattleReportRequest request)
         {
-            Console.WriteLine($"POST /Nexus/GetBattleReports for player {request.User.Id} targetBase: {request.TargetBase?.CoordsX},{request.TargetBase?.CoordsY}, page: {request.PageNumber}, pageSize: {request.PageSize}");
-            var paginatedReports = await GetAllBattleReports(request.User.Id, request.TargetBase, request.PageNumber, request.PageSize, null, null);
+            Console.WriteLine($"POST /Nexus/GetBattleReports for player {request.User.Id} targetUser: {request.TargetUser?.Id}, targetBase: {request.TargetBase?.CoordsX},{request.TargetBase?.CoordsY}, page: {request.PageNumber}, pageSize: {request.PageSize}");
+            var paginatedReports = await GetAllBattleReports(request.User.Id, request.TargetBase, request.TargetUser, request.PageNumber, request.PageSize, null, null);
             return Ok(paginatedReports);
         }
 
@@ -411,7 +419,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (connection == null)
                 {
-                    connection = new MySqlConnection("your-connection-string-here");
+                    connection = new MySqlConnection(_connectionString);
                     await connection.OpenAsync();
                     ownConnection = true;
                 }
@@ -506,7 +514,7 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (MySqlConnection conn = new MySqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
 
@@ -644,7 +652,7 @@ namespace maxhanna.Server.Controllers
             List<NexusBase> upgradedBases = new List<NexusBase>();
             try
             {
-                using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (MySqlConnection conn = new MySqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
 
@@ -691,7 +699,7 @@ namespace maxhanna.Server.Controllers
             List<NexusBase> upgradedBases = new List<NexusBase>();
             try
             {
-                using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (MySqlConnection conn = new MySqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
 
@@ -723,7 +731,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Nexus/DeleteReport", Name = "DeleteReport")]
         public async Task<IActionResult> DeleteReportRequest([FromBody] NexusDeleteReportRequest request)
         {
-            Console.WriteLine($"POST /Nexus/DeleteReport for player ({request.User.Id}) battle id : {request.BattleId}");
+            Console.WriteLine($"POST /Nexus/DeleteReport for player ({request.User.Id}) battle id(s) : {request.BattleIds}");
 
             if (request.User == null || request.User.Id == 0)
             {
@@ -732,7 +740,7 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (MySqlConnection conn = new MySqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
 
@@ -740,9 +748,9 @@ namespace maxhanna.Server.Controllers
                     {
                         try
                         {
-                            if (request.BattleId != null)
+                            if (request.BattleIds != null)
                             {
-                                await DeleteReport(request.User.Id, (int)request.BattleId, conn, transaction);
+                                await DeleteReport(request.User.Id, request.BattleIds, conn, transaction);
                             }
                             else
                             {
@@ -765,8 +773,8 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError($"Error with database connection: {ex.Message}");
                 return StatusCode(500, "Database error");
             }
-            return Ok($"Report {request.BattleId} deleted.");
-        }
+            return Ok($"Report {request.BattleIds} deleted.");
+        } 
 
 
         [HttpPost("/Nexus/Research", Name = "Research")]
@@ -782,7 +790,7 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                using (MySqlConnection conn = new MySqlConnection(_connectionString))
                 {
                     await conn.OpenAsync();
 
@@ -813,10 +821,11 @@ namespace maxhanna.Server.Controllers
                             UnitStats upgradeUnit = unitStats[0];
                             Console.WriteLine("Upgrade unit : " + upgradeUnit?.UnitType ?? "");
 
-                            if (unitStats == null || unitStats.Count == 0 || upgradeUnit == null)
+                            if (unitStats == null || unitStats.Count == 0)
                             {
                                 return NotFound("Unit stats not found.");
                             }
+                            if (upgradeUnit == null) return NotFound("Unit not found."); 
 
                             // Get the unit level based on the unit type
                             int unitLevel = upgradeUnit?.UnitType switch
@@ -831,6 +840,12 @@ namespace maxhanna.Server.Controllers
                                 _ => 0 // Default if the unit type does not match
                             };
 
+                            //Make sure the unit upgrade isnt already queued.
+                            List<NexusUnitUpgrades> unitUpgrades = await GetNexusUnitUpgrades(request.NexusBase, conn, transaction);
+                            if (unitUpgrades.Any(x => x.UnitIdUpgraded == upgradeUnit.UnitId))
+                            {
+                                return BadRequest("You must wait until the current upgrade finishes.");
+                            }
 
                             //unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1
                             nexus.Gold -= (upgradeUnit.Cost * 10 * (unitLevel + 1));
@@ -913,7 +928,7 @@ namespace maxhanna.Server.Controllers
             if (req.OriginNexus == null) { return BadRequest("Origin must be defined!"); }
             if (req.DestinationNexus == null) { return BadRequest("Destination must be defined!"); }
 
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (MySqlConnection conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
 
@@ -952,7 +967,7 @@ namespace maxhanna.Server.Controllers
             if (req.OriginNexus == null) { return BadRequest("Origin must be defined!"); }
             if (req.DestinationNexus == null) { return BadRequest("Destination must be defined!"); }
 
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (MySqlConnection conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
 
@@ -1000,7 +1015,7 @@ namespace maxhanna.Server.Controllers
                 return BadRequest("Invalid Defence Id");
             }
 
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (MySqlConnection conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
 
@@ -1054,7 +1069,7 @@ namespace maxhanna.Server.Controllers
                 return BadRequest("Invalid Attack Id");
             }
 
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (MySqlConnection conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
 
@@ -1896,7 +1911,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (!passedInConn)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn = new MySqlConnection(_connectionString);
                     await conn.OpenAsync();
                 }
 
@@ -2016,7 +2031,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (!passedInConn)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn = new MySqlConnection(_connectionString);
                     await conn.OpenAsync();
                 }
 
@@ -2137,7 +2152,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (!passedInConn)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn = new MySqlConnection(_connectionString);
                     await conn.OpenAsync();
                 }
 
@@ -2266,7 +2281,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (!passedInConn)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn = new MySqlConnection(_connectionString);
                     await conn.OpenAsync();
                 }
 
@@ -2583,7 +2598,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (conn == null)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn = new MySqlConnection(_connectionString);
                     await conn.OpenAsync();
                     createdConnection = true;
                 }
@@ -2674,7 +2689,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (conn == null)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn = new MySqlConnection(_connectionString);
                     await conn.OpenAsync();
                     createdConnection = true;
                 }
@@ -2733,7 +2748,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (conn == null)
                 {
-                    conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    conn = new MySqlConnection(_connectionString);
                     await conn.OpenAsync();
                     shouldCloseConnection = true;
                 }
@@ -2845,7 +2860,7 @@ namespace maxhanna.Server.Controllers
 
             if (!passedInConn)
             {
-                conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                conn = new MySqlConnection(_connectionString);
             }
 
             try
@@ -2914,7 +2929,7 @@ namespace maxhanna.Server.Controllers
 
             if (!passedInConn)
             {
-                conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                conn = new MySqlConnection(_connectionString);
             }
 
             try
@@ -3089,7 +3104,7 @@ namespace maxhanna.Server.Controllers
             {
                 if (conn == null)
                 {
-                    localConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    localConn = new MySqlConnection(_connectionString);
                     await localConn.OpenAsync();
                     createdConnection = true;
                     conn = localConn;
@@ -3187,7 +3202,7 @@ namespace maxhanna.Server.Controllers
 
         private async Task RecalculateNexusGold(MySqlConnection conn, NexusBase? nexusBase, MySqlTransaction transaction)
         {
-            if (nexusBase == null || (nexusBase.CoordsX == 0 && nexusBase.CoordsY == 0))
+            if (nexusBase == null)
             {
                 return;
             }
@@ -3263,7 +3278,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("UpdateNexusGold")]
         public async Task UpdateNexusGold(NexusBase nexusBase)
         {
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
             MySqlTransaction transaction = await conn.BeginTransactionAsync();
 
@@ -3294,10 +3309,8 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("UpdateNexusBuildings")]
         public async Task UpdateNexusBuildings(NexusBase nexusBase)
-        {
-            var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
-
-            using (var conn = new MySqlConnection(connectionString))
+        {  
+            using (var conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
                 using (var transaction = await conn.BeginTransactionAsync())
@@ -3411,11 +3424,13 @@ namespace maxhanna.Server.Controllers
                                                         }
                                                     }
                                                 }
+
+
                                             }
                                         }
                                     }
                                 }
-                            }
+                            } 
                             await transaction.CommitAsync();
                         }
                         catch (Exception ex)
@@ -3426,7 +3441,7 @@ namespace maxhanna.Server.Controllers
                         }
                     }
                 }
-            }
+            }  
         }
 
 
@@ -3435,7 +3450,7 @@ namespace maxhanna.Server.Controllers
         public async Task UpdateNexusAttacks([FromBody] NexusBase nexus)
         {
             Console.WriteLine($"Update Nexus Attacks for {nexus.CoordsX},{nexus.CoordsY}");
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
 
             MySqlTransaction transaction = await conn.BeginTransactionAsync();
@@ -3487,7 +3502,7 @@ namespace maxhanna.Server.Controllers
         {
             Console.WriteLine($"Update Nexus Defences for {nexus.CoordsX},{nexus.CoordsY}");
 
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
 
             MySqlTransaction transaction = await conn.BeginTransactionAsync();
@@ -4187,7 +4202,8 @@ namespace maxhanna.Server.Controllers
                           AND from_user_id = @senderId 
                           AND user_profile_id = @senderId 
                           AND (date >= (NOW() - INTERVAL 1 DAY))
-                          AND text LIKE 'Captured%';";
+                          AND text LIKE 'Captured%' 
+                        LIMIT 1;";
 
                     var updateDefenderParameters = new Dictionary<string, object?>
                     {
@@ -4255,7 +4271,8 @@ namespace maxhanna.Server.Controllers
                       AND from_user_id = @attackerId 
                       AND user_profile_id = @attackerId 
                       AND (date >= (NOW() - INTERVAL 1 DAY))
-                      AND text LIKE 'Captured%';";
+                      AND text LIKE 'Captured%'
+                    LIMIT 1;";
 
                 var updateAttackerParameters = new Dictionary<string, object?>
                 {
@@ -4353,22 +4370,24 @@ namespace maxhanna.Server.Controllers
 
         }
 
-        private async Task DeleteReport(int userId, int battleId, MySqlConnection conn, MySqlTransaction transaction)
+        private async Task DeleteReport(int userId, int[] battleIds, MySqlConnection conn, MySqlTransaction transaction)
         {
             // Insert the deletion request into nexus_reports_deleted
-            string insertSql = @"
+            for(var x = 0; x < battleIds.Length; x++)
+            {
+                string insertSql = @"
                 INSERT INTO nexus_reports_deleted (user_id, battle_id) 
                 VALUES (@UserId, @BattleId);";
 
-            var insertParameters = new Dictionary<string, object?>
-            {
-                { "@UserId", userId },
-                { "@BattleId", battleId },
-            };
-            await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, insertParameters, conn, transaction);
+                var insertParameters = new Dictionary<string, object?>
+                {
+                    { "@UserId", userId },
+                    { "@BattleId", battleIds[x] },
+                };
+                await ExecuteInsertOrUpdateOrDeleteAsync(insertSql, insertParameters, conn, transaction);
 
-            // Check if both users have deleted the report
-            string selectUserIdsSql = @"
+                // Check if both users have deleted the report
+                string selectUserIdsSql = @"
                 SELECT user_id 
                 FROM nexus_reports_deleted
                 WHERE battle_id = @BattleId
@@ -4382,42 +4401,43 @@ namespace maxhanna.Server.Controllers
                     WHERE battle_id = @BattleId
                 );";
 
-            List<int> userIdsToDelete = new List<int>();
+                List<int> userIdsToDelete = new List<int>();
 
-            MySqlCommand cmd = new MySqlCommand(selectUserIdsSql, conn, transaction);
-            cmd.Parameters.AddWithValue("@BattleId", battleId);
+                MySqlCommand cmd = new MySqlCommand(selectUserIdsSql, conn, transaction);
+                cmd.Parameters.AddWithValue("@BattleId", battleIds[x]);
 
-            using (var reader = await cmd.ExecuteReaderAsync())
-            {
-                while (await reader.ReadAsync())
+                using (var reader = await cmd.ExecuteReaderAsync())
                 {
-                    userIdsToDelete.Add(reader.GetInt32("user_id"));
+                    while (await reader.ReadAsync())
+                    {
+                        userIdsToDelete.Add(reader.GetInt32("user_id"));
+                    }
                 }
-            }
 
-            // If both users have deleted the report, proceed to delete the report from the nexus_battles table
-            if (userIdsToDelete.Count == 2)
-            {
-                string deleteBattleSql = @"
+                // If both users have deleted the report, proceed to delete the report from the nexus_battles table
+                if (userIdsToDelete.Count == 2)
+                {
+                    string deleteBattleSql = @"
                     DELETE FROM nexus_battles 
                     WHERE battle_id = @BattleId;";
 
-                var deleteBattleParameters = new Dictionary<string, object?>
-                {
-                    { "@BattleId", battleId },
-                };
-                await ExecuteInsertOrUpdateOrDeleteAsync(deleteBattleSql, deleteBattleParameters, conn, transaction);
+                    var deleteBattleParameters = new Dictionary<string, object?>
+                    {
+                        { "@BattleId",  battleIds[x] },
+                    };
+                    await ExecuteInsertOrUpdateOrDeleteAsync(deleteBattleSql, deleteBattleParameters, conn, transaction);
 
-                string deleteReportsSql = @"
+                    string deleteReportsSql = @"
                     DELETE FROM nexus_reports_deleted
                     WHERE battle_id = @BattleId;";
 
-                var deleteReportsParameters = new Dictionary<string, object?>
-                {
-                    { "@BattleId", battleId },
-                };
-                await ExecuteInsertOrUpdateOrDeleteAsync(deleteReportsSql, deleteReportsParameters, conn, transaction);
-            }
+                    var deleteReportsParameters = new Dictionary<string, object?>
+                    {
+                        { "@BattleId",  battleIds[x] },
+                    };
+                    await ExecuteInsertOrUpdateOrDeleteAsync(deleteReportsSql, deleteReportsParameters, conn, transaction);
+                }
+            } 
         }
 
 
@@ -4500,6 +4520,7 @@ namespace maxhanna.Server.Controllers
         private async Task<NexusBattleOutcomeReports> GetAllBattleReports(
             int? userId,
             NexusBase? targetBase,
+            User? targetUser,
             int pageNumber,
             int pageSize,
             MySqlConnection? externalConnection = null,
@@ -4534,6 +4555,19 @@ namespace maxhanna.Server.Controllers
                 query += @"
                     AND (b.destination_coords_x = @BaseCoordsX AND b.destination_coords_y = @BaseCoordsY)";
             }
+            if (targetUser != null)
+            {
+                if (targetUser.Id == 0)
+                {
+                    query += @"
+                        AND (b.destination_user_id IS NULL)";
+                }
+                else
+                {
+                    query += @"
+                        AND (b.destination_user_id = @DestinationUserId)"; 
+                } 
+            }
             query += @"
                 ORDER BY b.timestamp DESC, b.battle_id DESC
                 LIMIT @PageSize OFFSET @Offset";
@@ -4563,7 +4597,7 @@ namespace maxhanna.Server.Controllers
                         AND (b.destination_coords_x = @BaseCoordsX AND b.destination_coords_y = @BaseCoordsY)";
             }
 
-            MySqlConnection connection = externalConnection ?? new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection connection = externalConnection ?? new MySqlConnection(_connectionString);
             MySqlTransaction transaction = externalTransaction;
             bool needToCloseConnection = externalConnection == null;
             bool needToCommitTransaction = externalTransaction == null;
@@ -4592,6 +4626,10 @@ namespace maxhanna.Server.Controllers
                     {
                         command.Parameters.AddWithValue("@BaseCoordsX", targetBase.CoordsX);
                         command.Parameters.AddWithValue("@BaseCoordsY", targetBase.CoordsY);
+                    }
+                    if (targetUser != null)
+                    {
+                        command.Parameters.AddWithValue("@DestinationUserId", targetUser.Id == 0 ? null : targetUser.Id);
                     }
                     command.Parameters.AddWithValue("@PageSize", pageSize);
                     command.Parameters.AddWithValue("@Offset", offset);
@@ -4773,7 +4811,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("UpdateNexusUnitUpgradesCompletes")]
         public async Task UpdateNexusUnitUpgradesCompletes([FromBody] NexusBase nexus)
         {
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
             MySqlTransaction transaction = await conn.BeginTransactionAsync();
 
@@ -4840,7 +4878,7 @@ namespace maxhanna.Server.Controllers
         {
             //Console.WriteLine("Update Nexus Units Training Completed");
 
-            MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            MySqlConnection conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
             MySqlTransaction transaction = await conn.BeginTransactionAsync();
 
@@ -5324,7 +5362,7 @@ namespace maxhanna.Server.Controllers
         {
             string buildingType = "";
 
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (MySqlConnection conn = new MySqlConnection(_connectionString))
             {
                 conn.Open();
 
@@ -5352,7 +5390,7 @@ namespace maxhanna.Server.Controllers
                 return NotFound("Base not found.");
             }
 
-            using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+            using (MySqlConnection conn = new MySqlConnection(_connectionString))
             {
                 try
                 {
@@ -5534,7 +5572,7 @@ namespace maxhanna.Server.Controllers
 
                 if (connection == null)
                 {
-                    connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                    connection = new MySqlConnection(_connectionString);
                     await connection.OpenAsync();
                     createdConnection = true;
                 }
@@ -5544,7 +5582,15 @@ namespace maxhanna.Server.Controllers
                     // Add parameters to the command
                     foreach (var param in parameters)
                     {
-                        cmdUpdate.Parameters.AddWithValue(param.Key, param.Value);
+                        if (param.Value == null)
+                        {
+                            _logger.LogWarning($"Null parameter: {param.Key} has a null value.");
+                            cmdUpdate.Parameters.AddWithValue(param.Key, DBNull.Value);
+                        }
+                        else
+                        {
+                            cmdUpdate.Parameters.AddWithValue(param.Key, param.Value);
+                        }
                     }
                     cmdText = cmdUpdate.CommandText;
                     await cmdUpdate.ExecuteNonQueryAsync();

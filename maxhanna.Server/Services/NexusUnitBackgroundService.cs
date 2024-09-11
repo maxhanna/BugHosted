@@ -13,6 +13,7 @@ namespace maxhanna.Server.Services
         private readonly ConcurrentQueue<int> _unitPurchaseQueue = new ConcurrentQueue<int>(); // Queue for attack IDs
 
         private readonly IConfiguration _config;
+        private readonly string _connectionString;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
 
@@ -25,6 +26,7 @@ namespace maxhanna.Server.Services
         public NexusUnitBackgroundService(IConfiguration config)
         {
             _config = config;
+            _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
@@ -77,7 +79,7 @@ namespace maxhanna.Server.Services
 
             if (!_timers.TryAdd(purchaseId, timer))
             { 
-                timer.Dispose(); // In case the upgradeId was added by another thread between the check and the add
+                timer.Dispose();  
             }
         }
 
@@ -95,7 +97,7 @@ namespace maxhanna.Server.Services
 
         private async Task CheckForNewPurchases(CancellationToken stoppingToken)
         {
-            _checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite); // Disable timer
+            _checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite);  
             try
             {
                 await LoadAndScheduleExistingPurchases(stoppingToken);
@@ -108,7 +110,7 @@ namespace maxhanna.Server.Services
 
         private async Task LoadAndScheduleExistingPurchases(CancellationToken stoppingToken)
         {
-            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+            await using var conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
 
             string query = @"
@@ -171,7 +173,7 @@ namespace maxhanna.Server.Services
 
             try
             {
-                await using MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+                await using MySqlConnection conn = new MySqlConnection(_connectionString);
                 await conn.OpenAsync(); 
 
                 string sqlBase =

@@ -35,7 +35,8 @@
         </div>
         <div class="searchContainerDiv">
           <div *ngIf="!displaySearch">
-            <app-file-upload [uploadButtonText]="'Upload Files'"
+            <app-file-upload #fileUploadComponent
+                             [uploadButtonText]="'Upload Files'"
                              [inputtedParentRef]="inputtedParentRef" 
                              [showPrivatePublicOption]="false"
                              [currentDirectory]="currentDirectory"

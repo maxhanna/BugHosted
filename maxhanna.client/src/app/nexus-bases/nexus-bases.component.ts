@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { NexusBase } from '../../services/datacontracts/nexus/nexus-base';
 import { User } from '../../services/datacontracts/user/user';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
@@ -12,7 +12,7 @@ import { ChildComponent } from '../child.component';
   styleUrl: './nexus-bases.component.css', 
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class NexusBasesComponent extends ChildComponent {
+export class NexusBasesComponent extends ChildComponent implements OnInit {
   constructor(private nexusService: NexusService) { super(); }
   @Input() user: User | undefined; 
   @Input() nexusBase: NexusBase | undefined;
@@ -33,6 +33,17 @@ export class NexusBasesComponent extends ChildComponent {
   @Output() emittedUpgrade = new EventEmitter<[NexusBase[], string]>();
 
   @ViewChild('commandSelector') commandSelector!: ElementRef<HTMLSelectElement>;
+  @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('sortingSelect') sortingSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('sortOrderSelect') sortOrderSelect!: ElementRef<HTMLSelectElement>;
+
+  currentPage = 1;
+  totalPages = 1;
+  itemsPerPage = 100;
+  pageNumbers: number[] = [];
+  paginatedData: NexusBase[] = [];
+  sortBy = 'baseName'; // Default sort option
+  sortOrder = 'asc'; // Default sort order (ascending)
 
   attacksMap: { [key: string]: NexusAttackSent[] } = {};
   defenceMap: { [key: string]: NexusAttackSent[] } = {};
@@ -51,7 +62,9 @@ export class NexusBasesComponent extends ChildComponent {
     "Build Marines", "Build Goliath", "Build Siege Tanks", "Build Scouts",
     "Build Wraith", "Build Battlecruisers", "Build Glitcher"
   ];
-
+  ngOnInit() {
+    this.getCurrentBases();
+  }
   selectBase(nexusBase: NexusBase) { 
     this.emittedBaseChange.emit(nexusBase);
   }
@@ -61,8 +74,7 @@ export class NexusBasesComponent extends ChildComponent {
       return this[pictureSrc as keyof this];
     }
     return ''
-  }
-
+  } 
   async selectCommand() {
     if (!confirm(`Command all bases to ${this.commandSelector.nativeElement.value}?`)) return;
 
@@ -133,28 +145,17 @@ export class NexusBasesComponent extends ChildComponent {
 
   getCurrentBases() {
     if (this.mapData && this.nexusBase) {
-      const data = this.mapData
-        .filter(x => x.user?.id === this.user?.id);
-      data.sort((a, b) => {
-        if (this.attacksIncoming) {
-          const aHasIncomingAttacks = this.attacksIncoming.some(attack =>
-            (attack.destinationCoordsX != attack.originCoordsX || attack.destinationCoordsY != attack.originCoordsY) &&
-            attack.destinationCoordsX == a.coordsX && attack.destinationCoordsY == a.coordsY
-          );
-          const bHasIncomingAttacks = this.attacksIncoming.some(attack =>
-            (attack.destinationCoordsX != attack.originCoordsX || attack.destinationCoordsY != attack.originCoordsY) &&
-            attack.destinationCoordsX == b.coordsX && attack.destinationCoordsY == b.coordsY
-          );
+      let data = this.mapData.filter(x => x.user?.id === this.user?.id);
 
-          if (aHasIncomingAttacks && !bHasIncomingAttacks) return -1;
-          if (!aHasIncomingAttacks && bHasIncomingAttacks) return 1;
-        }
+      // Sort the data
+      data = this.sortData(data, (this.sortBy as keyof NexusBase), (this.sortOrder as "asc" | "desc"));
 
-        return 0;
-      });
-      return data;
+      // Paginate the data
+      this.updatePagination(data.length, this.itemsPerPage);
+      const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+      this.paginatedData = data.slice(startIndex, startIndex + this.itemsPerPage);
     } else {
-      return [];
+      this.paginatedData = [];
     }
   }
 
@@ -179,7 +180,7 @@ export class NexusBasesComponent extends ChildComponent {
   getSupportForBase = this.memoize((coordsX: number, coordsY: number) => {
     if (this.defenceIncoming && this.defenceMap && Object.keys(this.defenceMap).length == 0) {
       this.defenceMap = {};
-      const pertinentDefences = this.defenceIncoming.filter(x => x.destinationUser?.id == this.user?.id);
+      const pertinentDefences = this.defenceIncoming.filter(x => x.destinationUser?.id == this.user?.id && !x.arrived);
       for (let defence of pertinentDefences) {
         const key = `${defence.destinationCoordsX},${defence.destinationCoordsY}`;
         if (!this.defenceMap[key]) {
@@ -236,6 +237,48 @@ export class NexusBasesComponent extends ChildComponent {
   isHighlightedBase = this.memoize((base: any) => {
     return (this.nexusBase && base.coordsX === this.nexusBase.coordsX && base.coordsY === this.nexusBase.coordsY) ? true : false;
   });
+
+  sortData(
+    data: NexusBase[],
+    sortBy: string, // This is now a string to handle dynamic keys
+    sortOrder: 'asc' | 'desc'
+  ): NexusBase[] {
+    return data.sort((a, b) => {
+      // Determine the value for sorting
+      const aValue = this.getSortValue(a, sortBy);
+      const bValue = this.getSortValue(b, sortBy);
+
+      if (aValue === undefined || bValue === undefined) return 0;
+
+      // Determine comparison method based on type
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+      }
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      return 0;
+    });
+  }
+
+// Helper function to get the sorting value based on sortBy
+getSortValue(base: NexusBase, sortBy: string): number | string | undefined {
+  // Check if sortBy is a property of NexusBase
+  if (sortBy in base) {
+    return base[sortBy as keyof NexusBase] as number | string | undefined;
+  }
+
+  // If not, assume it needs to be computed from allNexusUnits
+  const units = this.allNexusUnits?.find(u => u.coordsX === base.coordsX && u.coordsY === base.coordsY);
+  if (units) {
+    return (units as any)[sortBy]; // Access dynamic property
+  }
+
+  return undefined;
+}
+
   override sortTable(columnIndex: number, tableId: string): void {
     const table = document.getElementById(tableId) as HTMLTableElement;
     if (!table) return;
@@ -294,5 +337,40 @@ export class NexusBasesComponent extends ChildComponent {
       cache.set(key, result);
       return result;
     };
+  }
+
+  sortByCriterion(): void {
+    this.sortBy = this.sortingSelect.nativeElement.value;
+    this.getCurrentBases(); // Refresh data based on the selected sort criterion
+  }
+   
+  updatePagination(totalItems: number, itemsPerPage: number): void {
+    this.totalPages = Math.ceil(totalItems / itemsPerPage);
+    this.pageNumbers = Array.from({ length: this.totalPages }, (_, i) => i + 1);
+  }
+
+  // Method to handle page selection from dropdown
+  goToPage(page: string): void {
+    const pageNumber = parseInt(page, 10);
+    if (pageNumber >= 1 && pageNumber <= this.totalPages) {
+      this.currentPage = pageNumber;
+      this.getCurrentBases();
+    }
+  }
+
+  // Method to go to the previous page
+  previousPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.getCurrentBases();
+    }
+  }
+
+  // Method to go to the next page
+  nextPage(): void {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.getCurrentBases();
+    }
   }
 }

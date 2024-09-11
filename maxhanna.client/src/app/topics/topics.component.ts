@@ -20,7 +20,8 @@ export class TopicsComponent extends ChildComponent {
 
   showAddTopicButton = false;
   topics: Topic[] = [];
-  matchingTopics: Topic[] = []; 
+  matchingTopics: Topic[] = [];
+  isDropdownShowing = false;
   private searchTimer: any;
 
   constructor(private topicService: TopicService) { super(); }
@@ -90,6 +91,7 @@ export class TopicsComponent extends ChildComponent {
 
           if (this.parent) {
             this.parent.showOverlay = true;
+            this.isDropdownShowing = true;
           }
           
         }
@@ -109,6 +111,7 @@ export class TopicsComponent extends ChildComponent {
     }
     if (this.parent?.showOverlay) {
       this.parent.closeOverlay();
+      this.isDropdownShowing = false;
     }
   }
   searchInputClick() {
@@ -127,6 +130,7 @@ export class TopicsComponent extends ChildComponent {
     this.showAddTopicButton = false;
   }
   cancelSearch() { 
-    this.clearSearch(); 
+    this.clearSearch();
+    this.isDropdownShowing = false;
   }
 }

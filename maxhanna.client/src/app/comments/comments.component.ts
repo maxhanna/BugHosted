@@ -122,10 +122,14 @@ export class CommentsComponent extends ChildComponent {
         (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display = "block";
         (document.getElementById('commentTextEditConfirmButton' + comment.id) as HTMLTextAreaElement).style.display = "block";
         (document.getElementById('commentText' + comment.id) as HTMLDivElement).style.display = "none";
+        (document.getElementById('commentEditButtonSpan' + comment.id) as HTMLButtonElement).style.display = "block";
+        (document.getElementById('commentAcceptButtonSpan' + comment.id) as HTMLButtonElement).style.display = "block";
       } else { 
         (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display = "none";
         (document.getElementById('commentTextEditConfirmButton' + comment.id) as HTMLTextAreaElement).style.display = "none";
         (document.getElementById('commentText' + comment.id) as HTMLDivElement).style.display = "block";
+        (document.getElementById('commentEditButtonSpan' + comment.id) as HTMLButtonElement).style.display = "none";
+        (document.getElementById('commentAcceptButtonSpan' + comment.id) as HTMLButtonElement).style.display = "none";
       }
     }
   } 

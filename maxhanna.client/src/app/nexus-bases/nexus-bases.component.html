@@ -1,29 +1,65 @@
+<div class="pagination-container">
+  <button (click)="previousPage()" [disabled]="currentPage === 1">Previous</button>
+  <select (change)="goToPage(pageSelect.value)" [value]="currentPage" #pageSelect>
+    <option *ngFor="let page of pageNumbers" [value]="page">{{ page }}</option>
+  </select>
+  <button (click)="nextPage()" [disabled]="currentPage === totalPages">Next</button>
+</div>
+<div class="pagination-container">
+  <select (change)="sortByCriterion()" #sortingSelect>
+    <option value="baseName">Base Name</option>
+    <option value="commandCenterLevel">Command Center Level</option>
+    <option value="minesLevel">Mines Level</option>
+    <option value="engineeringBayLevel">Engineering Bay Level</option>
+    <option value="factoryLevel">Factory Level</option>
+    <option value="starportLevel">Starport Level</option>
+    <option value="warehouseLevel">Warehouse Level</option>
+    <option value="supplyDepotLevel">Supply Depot Level</option>
+    <option value="gold">Gold</option>
+    <option value="marineTotal">Marine Total</option>
+    <option value="goliathTotal">Goliath Total</option>
+    <option value="siegeTankTotal">Siege Tank Total</option>
+    <option value="scoutTotal">Scout Total</option>
+    <option value="wraithTotal">Wraith Total</option>
+    <option value="battlecruiserTotal">Battlecruiser Total</option>
+    <option value="glitcherTotal">Glitcher Total</option>
+  </select>
+
+  <select (change)="sortOrder = sortOrderSelect.value; sortByCriterion()" #sortOrderSelect>
+    <option value="asc">Ascending</option>
+    <option value="desc">Descending</option>
+  </select>
+</div>
+<div class="pagination-container">
+  <select #commandSelector (change)="selectCommand()">
+    <option selected disabled>Send a command to all your bases</option>
+    <option *ngFor="let command of commands">{{command}}</option>
+  </select>
+</div>
 <div class="overallDisplay">
   <table id="baseTable">
     <thead>
-      <tr>
-        <th style="background-color: var(--primary-font-color); opacity: 50%" (click)="sortTable(0, 'baseTable')"></th>
-        <th style="background-color: var(--secondary-font-color); opacity: 50%" (click)="sortTable(1, 'baseTable')"></th>
-        <th (click)="sortTable(2, 'baseTable')"><span class="rotated-header">Base Name</span></th>
-        <th (click)="sortTable(3, 'baseTable')"><span class="rotated-header">Command Center</span></th>
-        <th (click)="sortTable(4, 'baseTable')"><span class="rotated-header">Mines</span></th>
-        <th (click)="sortTable(5, 'baseTable')"><span class="rotated-header">Engineering Bay</span></th>
-        <th (click)="sortTable(6, 'baseTable')"><span class="rotated-header">Factory</span></th>
-        <th (click)="sortTable(7, 'baseTable')"><span class="rotated-header">Starport</span></th>
-        <th (click)="sortTable(8, 'baseTable')"><span class="rotated-header">Warehouse</span></th>
-        <th (click)="sortTable(9, 'baseTable')"><span class="rotated-header">Supply Depot</span></th>
-        <th (click)="sortTable(10, 'baseTable')"><span class="rotated-header">📀</span></th>
-        <th (click)="sortTable(11, 'baseTable')"><span class="rotated-header">Incoming</span></th>
+      <tr> 
+        <th style="background-color: var(--secondary-font-color); opacity: 50%" (click)="sortTable(0, 'baseTable')"></th>
+        <th (click)="sortTable(1, 'baseTable')"><span class="rotated-header">Base Name</span></th>
+        <th (click)="sortTable(2, 'baseTable')"><span class="rotated-header">Command Center</span></th>
+        <th (click)="sortTable(3, 'baseTable')"><span class="rotated-header">Mines</span></th>
+        <th (click)="sortTable(4, 'baseTable')"><span class="rotated-header">Engineering Bay</span></th>
+        <th (click)="sortTable(5, 'baseTable')"><span class="rotated-header">Factory</span></th>
+        <th (click)="sortTable(6, 'baseTable')"><span class="rotated-header">Starport</span></th>
+        <th (click)="sortTable(7, 'baseTable')"><span class="rotated-header">Warehouse</span></th>
+        <th (click)="sortTable(8, 'baseTable')"><span class="rotated-header">Supply Depot</span></th>
+        <th (click)="sortTable(9, 'baseTable')"><span class="rotated-header">📀</span></th>
+        <th (click)="sortTable(10, 'baseTable')"><span class="rotated-header">Incoming</span></th>
       </tr>
     </thead>
-    <tbody *ngFor="let base of getCurrentBases(); let i = index; trackBy: trackByCoords" (click)="selectBase(base)" class="pointer">
-      <tr [ngClass]="getBaseClass(base)">
-        <td class="greyText">{{i}}</td>
+    <tbody *ngFor="let base of paginatedData; let i = index; trackBy: trackByCoords" (click)="selectBase(base)" class="pointer">
+      <tr [ngClass]="getBaseClass(base)"> 
         <td class="smallFont invertedHighlights">
           {{'{' + base.coordsX + ',' + base.coordsY + '}'}}
         </td>
         <td>
-          <span class="baseNameSpan usernameProfileLink">{{base.baseName}}</span>
+          <span class="baseNameSpan invertedHighlights">{{base.baseName}}</span>
         </td>
         <td>{{base.commandCenterLevel}}</td>
         <td>{{base.minesLevel}}</td>
@@ -35,24 +71,22 @@
         <td class="goldText">{{base.gold | number:'1.2-2'}}</td>
         <td><span [ngClass]="getAttackClass(base)">{{getAttacksCount(base)}}</span> <span [ngClass]="getDefenceClass(base)">{{getDefenceCount(base)}}</span></td>
       </tr>
-      <tr [ngClass]="getBaseClass(base)"> 
+      <tr [ngClass]="getBaseClass(base)">
         <td colspan="12">
-          <div class="unitsListTdDiv"> 
+          <div class="unitsListTdDiv">
             <ng-container *ngFor="let unitType of unitTypes">
               <span [ngClass]="getUnitClass(base, unitType.code)">
-                <img [src]="getUnitPictureSrc(unitType.pictureSrc)" class="unitPic" />:{{getUnitTotalSafe(base, unitType.code)}}
+                <img [src]="getUnitPictureSrc(unitType.pictureSrc)"
+                     class="unitPic"
+                     loading="lazy"
+                     decoding="asynchronous" />:{{getUnitTotalSafe(base, unitType.code)}}
               </span>
-            </ng-container> 
-          </div> 
+            </ng-container>
+          </div>
         </td>
       </tr>
     </tbody>
   </table>
-</div>
-<div class="xxSmallFont">Note: <span class="reorderNote">Click on column headers to reorder the list.</span></div>
-<div>
-  <select #commandSelector (change)="selectCommand()">
-    <option selected disabled>Send a command to all your bases</option>
-    <option *ngFor="let command of commands">{{command}}</option>
-  </select>
-</div>
+</div>  
+<div class="xxSmallFont">Note: <span class="reorderNote">Click on column headers to reorder the list. Max 100 bases per page.</span></div>
+

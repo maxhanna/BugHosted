@@ -1,11 +1,11 @@
 .componentMain {
   width: 700px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
 }
 
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+@media only screen and (max-device-width:800px) {
   .componentMain {
-    max-width: 90vw !important;
+    max-width: 98vw !important;
   }
 }
 

@@ -4,21 +4,23 @@ button {
 
 .componentMain {
   width: 800px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
 }
 
 .notifications {
   position: absolute;
-  top: 30px;
-  right: 0px;
+  right: 35px;
+  top: 4px;
+  width: 40px;
+  text-align: right;
 }
 
 .memeResultsDiv {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 140px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
   overflow: auto;
 }
 
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+@media only screen and (max-device-width:800px) {
   .componentMain {
     width: 99vw;
   }

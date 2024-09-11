@@ -1,12 +1,4 @@
-﻿using System;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+﻿using System.Text; 
 using MySqlConnector;
 using Newtonsoft.Json;
 
@@ -19,6 +11,7 @@ namespace maxhanna.Server.Services
         private readonly string _url = "https://api.livecoinwatch.com/coins/list";
         private readonly string _connectionString;
         private readonly HttpClient _httpClient;
+        private DateTime _lastDailyTaskRun = DateTime.MinValue; // Keep track of when daily tasks were last run
 
         public CoinValueBackgroundService(ILogger<CoinValueBackgroundService> logger, IConfiguration config)
         {
@@ -31,14 +24,72 @@ namespace maxhanna.Server.Services
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Refreshing system information: {time}", DateTimeOffset.Now);
+                _logger.LogInformation("Refreshing system information: {time}", DateTimeOffset.Now); 
                 await FetchAndStoreCoinValues();
-                await DeleteOldBattleReports();
+                 
+                if ((DateTime.Now - _lastDailyTaskRun).TotalHours >= 24)
+                {
+                    await DeleteOldBattleReports();
+                    await DeleteOldGuests();
+                    _lastDailyTaskRun = DateTime.Now; 
+                } 
                 await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
             }
         }
 
         private async Task DeleteOldBattleReports()
+        {
+            try
+            {
+                await using MySqlConnection conn = new MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+
+                await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+                try
+                { 
+                    string deleteSqlReportsAndBattles = @"
+                        DELETE rd, b
+                        FROM nexus_reports_deleted rd
+                        JOIN nexus_battles b ON rd.battle_id = b.battle_id
+                        WHERE b.timestamp < NOW() - INTERVAL 10 DAY;";
+
+                    await using (var deleteCmd = new MySqlCommand(deleteSqlReportsAndBattles, conn, transaction))
+                    {
+                        int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+                        _logger.LogInformation($"Deleted {affectedRows} old battle reports and references.");
+                    }
+                     
+                    string deleteSqlBaseUpgrades = @"
+                        DELETE FROM nexus_base_upgrades
+                        WHERE command_center_upgraded IS NULL
+                        AND mines_upgraded IS NULL
+                        AND supply_depot_upgraded IS NULL
+                        AND factory_upgraded IS NULL
+                        AND starport_upgraded IS NULL
+                        AND engineering_bay_upgraded IS NULL
+                        AND warehouse_upgraded IS NULL;";
+
+                    await using (var deleteCmd = new MySqlCommand(deleteSqlBaseUpgrades, conn, transaction))
+                    {
+                        int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+                        _logger.LogInformation($"Deleted {affectedRows} null nexus base upgrade rows.");
+                    }
+                     
+                    await transaction.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error occurred while deleting old battle reports or base upgrades. Rolling back transaction.");
+                    await transaction.RollbackAsync();  
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
+            }
+        }
+
+        private async Task DeleteOldGuests()
         {
             try
             {
@@ -48,24 +99,20 @@ namespace maxhanna.Server.Services
 
                     // SQL statement to delete from nexus_reports_deleted and nexus_battles in one go
                     var deleteSql = @"
-                        DELETE rd, b
-                        FROM nexus_reports_deleted rd
-                        JOIN nexus_battles b ON rd.battle_id = b.battle_id
-                        WHERE b.timestamp < NOW() - INTERVAL 10 DAY;
-                
-                        DELETE FROM nexus_battles
-                        WHERE timestamp < NOW() - INTERVAL 10 DAY;";
+                        DELETE FROM maxhanna.users 
+                        WHERE username LIKE 'Guest%'
+                        AND (last_seen < (NOW() - INTERVAL 10 DAY));";
 
                     using (var deleteCmd = new MySqlCommand(deleteSql, conn))
                     {
                         int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-                        _logger.LogInformation($"Deleted {affectedRows} battle reports and their references older than 10 days.");
+                        _logger.LogInformation($"Deleted {affectedRows} guest accounts older than 10 days.");
                     }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while deleting old battle reports.");
+                _logger.LogError(ex, "Error occurred while deleting old guest accounts.");
             }
         }
 

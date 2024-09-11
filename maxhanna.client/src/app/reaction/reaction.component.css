@@ -7,6 +7,7 @@
   display: inline-block;
 }
 .addReactionSpan {
+  white-space: nowrap;
   font-size: small;
   border: 1px solid;
   border-radius: 15px;
@@ -50,4 +51,12 @@
   align-items: center;
   gap: 10px;
   font-size: x-large;
+}
+.reactionsContainer {
+  display: flex;
+  align-items: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  justify-content: center;
 }

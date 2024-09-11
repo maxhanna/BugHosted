@@ -1,7 +1,7 @@
 
 .componentMain {
   min-width: 350px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
 }
  
 
@@ -71,22 +71,34 @@
 }
 .moreInfoTitle {
     font-size: xx-small;
+    margin-top: 25px;
+}
+.bughostedHeader {
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  padding-left: 2px;
+  padding-right: 2px;
 }
 .profileControls {
   text-align: center;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 .aboutTable {
     text-align:center;
 }
 .bugHostedLogo {
-  margin-top: -39px; 
+  margin-top: -47px;
   width: 100%;
   text-align: center;
   z-index: 2;
   position: relative;
-  font-size: 20px;
+  font-size: 20px; 
+  left: 2px;
 }
 .loginOnlyInstructionDiv {
     width: 100%;
@@ -100,17 +112,20 @@
     text-align:center;
 }
 .notificationCounterDiv {
-  position: absolute; 
-  right: 5px;
+  position: absolute;
+  right: 35px;
+  top: 4px;
+  width: 40px;
+  text-align: right;
 }
 .profileHeader {
   width: 100%;
   display: flex;
   flex-direction: row;
-  justify-content: flex-start;
   align-items: center;
   flex-wrap: nowrap;
-  gap: 10px;
+  gap: 10px; 
+  justify-content: center;
 }
 .emptyUserTagLogo {
   display: flex;

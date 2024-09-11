@@ -11,6 +11,7 @@ import { AttackEventPayload } from '../../services/datacontracts/nexus/attack-ev
 import { ChildComponent } from '../child.component';
 import { NexusTimer } from '../../services/datacontracts/nexus/nexus-timer';
 import { Subject, debounceTime } from 'rxjs';
+import { NexusAttackScreenComponent } from '../nexus-attack-screen/nexus-attack-screen.component';
 
 
 @Component({
@@ -18,7 +19,7 @@ import { Subject, debounceTime } from 'rxjs';
   templateUrl: './nexus-map.component.html',
   styleUrl: './nexus-map.component.css'
 })
-export class NexusMapComponent extends ChildComponent { 
+export class NexusMapComponent extends ChildComponent {
   selectedNexusBase?: NexusBase;
   grid: string[][] = [];
   isAttackScreenOpen = false;
@@ -26,6 +27,7 @@ export class NexusMapComponent extends ChildComponent {
   isReportsHidden = true;
   isSendingDefence = false;
   isMapRendered = false;
+  showWarning = false;
   randomRotations: number[][] = [];
   randomMap: number[][] = [];
   searchTerm = new Subject<string>();
@@ -33,6 +35,10 @@ export class NexusMapComponent extends ChildComponent {
   zoomedOut = false;
   attackTimers: { [key: string]: NexusTimer } = {};
   defenceTimers: { [key: string]: NexusTimer } = {};
+
+  public attackSentStatus: Map<string, boolean> = new Map();
+  public attackReturningStatus: Map<string, boolean> = new Map();
+  public defenseSentStatus: Map<string, boolean> = new Map();
 
   @Input() mapData?: NexusBase[] = [];
   @Input() currentPersonalBases?: NexusBase[] = [];
@@ -60,9 +66,9 @@ export class NexusMapComponent extends ChildComponent {
   @Input() nexusDefencesSent?: NexusAttackSent[];
   @Input() nexusAttacksIncoming?: NexusAttackSent[];
   @Input() nexusDefencesIncoming?: NexusAttackSent[];
-  @Input() isParentLoading?: boolean = false;
+  @Input() isLoadingData?: boolean = false;
 
-  @Output() emittedReloadEvent = new EventEmitter<string>(); 
+  @Output() emittedReloadEvent = new EventEmitter<string>();
   @Output() emittedNotifications = new EventEmitter<string>();
   @Output() emittedGoToBaseEvent = new EventEmitter<NexusBase>();
   @Output() emittedAttackEvent = new EventEmitter<AttackEventPayload>();
@@ -73,7 +79,10 @@ export class NexusMapComponent extends ChildComponent {
   @ViewChild('mapInputY') mapInputY!: ElementRef<HTMLInputElement>;
   @ViewChild('mapContainer') mapContainer!: ElementRef;
   @ViewChild('switchNextBaseCheckbox') switchNextBaseCheckbox!: ElementRef<HTMLInputElement>;
+  @ViewChild('attackModeCheckbox') attackModeCheckbox!: ElementRef<HTMLInputElement>;
+  @ViewChild('engageModeCheckbox') engageModeCheckbox!: ElementRef<HTMLInputElement>;
   @ViewChild(NexusReportsComponent) nexusReports!: NexusReportsComponent;
+  @ViewChild(NexusAttackScreenComponent) nexusAttackScreenComponent!: NexusAttackScreenComponent;
 
 
   constructor(private nexusService: NexusService) {
@@ -88,7 +97,7 @@ export class NexusMapComponent extends ChildComponent {
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
     mapElement.style.transform = `scale(${0.5}) translateX(-50%) translateY(-50%)`;
     mapElement.style.width = "200%";
-    mapElement.style.height = "80vh";
+    mapElement.style.height = "CALC(200vh - 175px)";
     mapElement.style.overflow = "auto";
 
     let styleElement = document.getElementById('dynamic-scrollbar-style') as HTMLStyleElement;
@@ -103,6 +112,15 @@ export class NexusMapComponent extends ChildComponent {
       height: 28px;
     } 
   `;
+    this.resetSwitches();
+  }
+  resetSwitches() {
+    if (this.attackModeCheckbox)
+      this.attackModeCheckbox.nativeElement.checked = false;
+    if (this.switchNextBaseCheckbox)
+      this.switchNextBaseCheckbox.nativeElement.checked = false;
+    if (this.engageModeCheckbox)
+      this.engageModeCheckbox.nativeElement.checked = false;
   }
   zoomIn() {
     this.zoomedOut = false
@@ -115,6 +133,7 @@ export class NexusMapComponent extends ChildComponent {
     if (styleElement) {
       styleElement.parentNode?.removeChild(styleElement);
     }
+    this.resetSwitches();
   }
   scrollToCoordinates(coordsX: number, coordsY: number, hideAttackButton?: boolean) {
     if (!this.user || !this.mapData || this.mapData.length === 0) return;
@@ -125,6 +144,8 @@ export class NexusMapComponent extends ChildComponent {
     if (hideAttackButton) {
       this.selectedNexusBase = undefined;
     }
+
+    this.resetSwitches();
   }
 
   scrollToCoordinatesByString(coordsX: string, coordsY: string, hideAttackButton?: boolean) {
@@ -159,6 +180,8 @@ export class NexusMapComponent extends ChildComponent {
     this.generateRandomRotations();
     this.tileSources = [this.mapTileSrc3, this.mapTileSrc, this.mapTileSrc2];
     this.randomMap = this.generateRandomMap(100, 100);
+
+    this.computeStatuses();
     this.stopLoading();
   }
 
@@ -171,7 +194,7 @@ export class NexusMapComponent extends ChildComponent {
   }
 
   showAttackScreen(isDefence: boolean) {
-    const isChecked = this.switchNextBaseCheckbox.nativeElement.checked;
+    const isChecked = this.switchNextBaseCheckbox?.nativeElement?.checked;
 
     if (this.zoomedOut) {
       this.zoomIn();
@@ -188,7 +211,9 @@ export class NexusMapComponent extends ChildComponent {
     this.isAttackScreenOpen = true;
     this.showAttackButton = false;
     this.isSendingDefence = isDefence;
-    this.switchNextBaseCheckbox.nativeElement.checked = isChecked;
+    if (this.switchNextBaseCheckbox) {
+      this.switchNextBaseCheckbox.nativeElement.checked = isChecked;
+    }
 
     this.stopLoading();
   }
@@ -196,21 +221,40 @@ export class NexusMapComponent extends ChildComponent {
   emittedClosedAttackScreen() {
     this.showAttackButton = true;
     this.isAttackScreenOpen = false;
-
     this.updateAttackTimers();
     this.updateDefenceTimers();
   }
 
   emittedGoToCoords(coords: [number, number]) {
-    this.scrollToCoordinates(coords[0], coords[1]); 
+    this.scrollToCoordinates(coords[0], coords[1]);
   }
 
   emittedAttack(attack: NexusAttackSent) {
-    this.startLoading(); 
+    this.startLoading();
+    this.updateStatusForAttack(attack);
+
     setTimeout(() => {
       this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence, switchBase: this.switchNextBaseCheckbox.nativeElement.checked } as AttackEventPayload);
-      this.stopLoading();
-    }, 10);
+      this.stopLoading(); 
+    }, 10); 
+  }
+
+  private updateStatusForAttack(attack: NexusAttackSent) {
+    const key = `${attack.destinationCoordsX},${attack.destinationCoordsY}`;
+
+    if (this.isSendingDefence) {
+      // Update defenseSentStatus
+      const isDefense = !attack.arrived; // Adjust this based on your defense logic
+      this.defenseSentStatus.set(key, isDefense);
+    } else {
+      // Update attackSentStatus
+      const isSent = attack.originCoordsX !== attack.destinationCoordsX || attack.originCoordsY !== attack.destinationCoordsY;
+      this.attackSentStatus.set(key, isSent);
+
+      // Update attackReturningStatus
+      const isReturning = attack.originCoordsX === attack.destinationCoordsX && attack.originCoordsY === attack.destinationCoordsY;
+      this.attackReturningStatus.set(key, isReturning);
+    }
   }
 
   clearMapInputs() {
@@ -247,10 +291,10 @@ export class NexusMapComponent extends ChildComponent {
     const lcg = (seed * 1664525 + 1013904223) & 0xffffffff;
     return (lcg % 3) + 1;
   }
-  getRandomEmptyMapTile(x: number, y: number) { 
+  getRandomEmptyMapTile(x: number, y: number) {
     return this.tileSources[this.randomMap[y][x]] || this.mapTileSrc3;
   }
-   
+
   generateRandomMap(gridSizeX: number, gridSizeY: number): number[][] {
     const randomMap: number[][] = new Array(gridSizeY);
 
@@ -269,11 +313,12 @@ export class NexusMapComponent extends ChildComponent {
     if (this.selectedNexusBase?.coordsX === coordsX && this.selectedNexusBase?.coordsY === coordsY) {
       return;
     }
-
     this.selectedNexusBase = undefined;
     this.showAttackButton = true;
+    if (!this.attackModeCheckbox || !this.attackModeCheckbox.nativeElement.checked) {
+      this.isAttackScreenOpen = false;
+    }
     this.isReportsHidden = true;
-    this.isAttackScreenOpen = false;
     if (this.unitStats) {
       this.unitStats.forEach(stat => stat.sentValue = undefined);
     }
@@ -296,38 +341,47 @@ export class NexusMapComponent extends ChildComponent {
       wraithLevel: 0,
       battlecruiserLevel: 0,
       glitcherLevel: 0,
-    };
-    if (!this.isAttackScreenOpen) { 
-      this.updateAttackTimers();
-      this.updateDefenceTimers();
-    }
-  }
-  getAttackTimers(): NexusTimer[] {
-    if (this.isAttackScreenOpen) return [];
-
-    const timers: NexusTimer[] = [];
-    let count = 0;
-
-    for (const key in this.attackTimers) { 
-        timers.push(this.attackTimers[key]);
-        count++; 
-     
-    }
-    return timers; 
-  }
-
-  getDefenceTimers(): NexusTimer[] {
-    if (this.isAttackScreenOpen) return [];
-
-    const timers: NexusTimer[] = [];
-    let count = 0;
-
-    for (const key in this.defenceTimers) { 
-        timers.push(this.defenceTimers[key]);
-        count++; 
-       
+    }; 
+    if (this.engageModeCheckbox && this.engageModeCheckbox.nativeElement.checked && this.nexusAttackScreenComponent) {
+      this.nexusAttackScreenComponent.engageAttackAllUnits();
     } 
-    return timers;
+    setTimeout(() => {
+      if (!this.isAttackScreenOpen) {
+        this.updateAttackTimers();
+        this.updateDefenceTimers();
+      }
+    }, 100)
+  }
+
+
+  getRelevantAttacksForSelectedBase(): NexusAttackSent[] {
+    if (!this.selectedNexusBase) return [];
+
+    const coordsX = this.selectedNexusBase.coordsX;
+    const coordsY = this.selectedNexusBase.coordsY;
+    const key = `${coordsX},${coordsY}`;
+
+    // Initialize an empty array to store the relevant attacks
+    const relevantAttacks: NexusAttackSent[] = [];
+
+    // Check if the map contains the key for attackSentStatus
+    if (this.attackSentStatus.get(key) && this.nexusAttacksSent) {
+      // Find attacks that are sent to the selected coordinates
+      relevantAttacks.push(...this.nexusAttacksSent.filter(attack =>
+        attack.destinationCoordsX === coordsX && attack.destinationCoordsY === coordsY
+      ));
+    }
+
+    // Check if the map contains the key for attackReturningStatus
+    if (this.attackReturningStatus.get(key) && this.nexusAttacksSent) {
+      // Find attacks that are returning to the selected coordinates
+      relevantAttacks.push(...this.nexusAttacksSent.filter(attack =>
+        attack.originCoordsX === coordsX && attack.originCoordsY === coordsY &&
+        attack.destinationCoordsX !== attack.originCoordsX && attack.destinationCoordsY !== attack.originCoordsY
+      ));
+    }
+
+    return relevantAttacks;
   }
 
   formatTimer(allSeconds?: number): string {
@@ -353,6 +407,8 @@ export class NexusMapComponent extends ChildComponent {
     if (!this.isReportsHidden && this.selectedNexusBase && this.nexusReports) {
       this.nexusReports.loadBattleReports(this.selectedNexusBase);
     }
+
+    this.resetSwitches();
   }
   getBaseAllianceSpanClass(x: number, y: number) {
     if (!this.mapData) return "emptyBase";
@@ -366,57 +422,27 @@ export class NexusMapComponent extends ChildComponent {
     return targetBase.user.id === this.user.id ? "myBase" : "enemyBase";
   }
 
-  isAttackSentOn(x: number, y: number): boolean {
-    if ((!this.nexusAttacksSent || this.nexusAttacksSent.length === 0) &&
-      (!this.nexusAttacksIncoming || this.nexusAttacksIncoming.length === 0)) {
-      return false;
-    }
+  computeStatuses() {
+    console.log("compute status");
+    const attackSentStatus = this.attackSentStatus;
+    const attackReturningStatus = this.attackReturningStatus;
+    const defenseSentStatus = this.defenseSentStatus;
 
-    if (this.nexusAttacksSent) {
-      const relevantAttack = this.nexusAttacksSent.find(nb =>
-        nb.destinationCoordsX === x &&
-        nb.destinationCoordsY === y &&
-        (nb.originCoordsX !== nb.destinationCoordsX || nb.originCoordsY !== nb.destinationCoordsY)
-      );
-      if (relevantAttack) {
-        return true;
-      }
-    }
+    for (const attack of this.nexusAttacksSent ?? []) {
+      const destinationKey = `${attack.destinationCoordsX},${attack.destinationCoordsY}`;
+      const isSent = attack.originCoordsX !== attack.destinationCoordsX || attack.originCoordsY !== attack.destinationCoordsY;
+      const isReturning = attack.originCoordsX === attack.destinationCoordsX && attack.originCoordsY === attack.destinationCoordsY;
 
-    if (this.nexusAttacksIncoming) {
-      return this.nexusAttacksIncoming.some(nb =>
-        nb.destinationCoordsX === x &&
-        nb.destinationCoordsY === y &&
-        ((nb.originUser?.id ?? 0) !== (this.user?.id ?? 0)) &&
-        (nb.originCoordsX !== nb.destinationCoordsX || nb.originCoordsY !== nb.destinationCoordsY)
-      );
+      attackSentStatus.set(destinationKey, isSent);
+      attackReturningStatus.set(destinationKey, isReturning);
+    } 
+     
+    for (const defense of this.nexusDefencesSent ?? []) {
+      const destinationKey = `${defense.destinationCoordsX},${defense.destinationCoordsY}`;
+      defenseSentStatus.set(destinationKey, !defense.arrived);
     }
-
-    return false;
   }
-  isAttackReturningOn(x: number, y: number): boolean {
-    if (!this.nexusAttacksSent || this.nexusAttacksSent.length === 0) {
-      return false;
-    }
 
-    return this.nexusAttacksSent.some(nb =>
-      nb.destinationCoordsX === x &&
-      nb.destinationCoordsY === y &&
-      nb.originCoordsX === x &&
-      nb.originCoordsY === y
-    );
-  }
-  isDefenceSentOn(x: number, y: number): boolean {
-    if (!this.nexusDefencesSent || this.nexusDefencesSent.length === 0) {
-      return false;
-    }
-
-    return this.nexusDefencesSent.some(nb =>
-      nb.destinationCoordsX === x &&
-      nb.destinationCoordsY === y &&
-      !nb.arrived
-    );
-  }
   private async reinitializeAttackTimers() {
     Object.keys(this.attackTimers).forEach(attack => {
       if (this.attackTimers[attack]) {
@@ -451,6 +477,7 @@ export class NexusMapComponent extends ChildComponent {
         clearInterval(this.attackTimers[attack].interval);
         clearTimeout(this.attackTimers[attack].timeout);
         delete this.attackTimers[attack];
+        this.computeStatuses();
         this.updateAttackTimers();
       }, endTime * 1000),
       interval: setInterval(() => {
@@ -458,8 +485,7 @@ export class NexusMapComponent extends ChildComponent {
           this.attackTimers[attack].endTime--;
         }
       }, 1000)
-    };
-
+    }; 
     this.attackTimers[attack] = timer;
   }
 
@@ -477,6 +503,7 @@ export class NexusMapComponent extends ChildComponent {
         clearInterval(this.defenceTimers[defence].interval);
         clearTimeout(this.defenceTimers[defence].timeout);
         delete this.defenceTimers[defence];
+        this.computeStatuses();
         this.updateDefenceTimers();
       }, endTime * 1000),
       interval: setInterval(() => {
@@ -489,24 +516,44 @@ export class NexusMapComponent extends ChildComponent {
     this.defenceTimers[defence] = timer;
   }
 
-  private updateAttackTimers(forceUpdateDefenceTimers?: boolean) {
-    if (this.isAttackScreenOpen) return;
+
+  private updateAttackTimers(forceUpdateDefenceTimers?: boolean) { 
+    if (this.isAttackScreenOpen) return; 
+
     this.reinitializeAttackTimers();
 
-    if (this.nexusAttacksSent && this.nexusAttacksSent.length > 0 && this.nexusBase) {
-      this.processAttackTimers(this.nexusAttacksSent, this.selectedNexusBase, 5);
-    }
+    if (this.selectedNexusBase) {
 
-    if (this.nexusAttacksIncoming && this.nexusAttacksIncoming.length > 0 && this.nexusBase) {
-      this.processAttackTimers(this.nexusAttacksIncoming, this.selectedNexusBase, 5, true);
-    }
+      const coordsX = this.selectedNexusBase.coordsX;
+      const coordsY = this.selectedNexusBase.coordsY;
+      const key = `${coordsX},${coordsY}`;
 
-    if (forceUpdateDefenceTimers) {
-      this.updateAttackDefenceTimers();
+      // Filter attacks based on the map
+      let relevantAttacks: NexusAttackSent[] = [];
+
+      // Find defenses sent to the selected coordinates
+      if (this.attackSentStatus.get(key)) {
+        relevantAttacks.push(...this.nexusAttacksSent?.filter(defense =>
+          defense.destinationCoordsX === coordsX && defense.destinationCoordsY === coordsY
+        ) || []);
+      }
+
+      let relevantAttacksIncoming = this.nexusAttacksIncoming?.filter(attack =>
+        attack.destinationCoordsX === this.selectedNexusBase?.coordsX &&
+        attack.destinationCoordsY === this.selectedNexusBase?.coordsY
+      );
+       
+      this.processAttackTimers(relevantAttacks ?? [], this.selectedNexusBase, 5);
+      this.processAttackTimers(relevantAttacksIncoming ?? [], this.selectedNexusBase, 5, true);
+
+      if (forceUpdateDefenceTimers) {
+        this.updateAttackDefenceTimers();
+      }
     }
-  }
+  } 
 
   private processAttackTimers(attacks: any[], base: any, maxCount: number, isIncoming: boolean = false) {
+    if (!attacks || attacks.length == 0) return;
     let count = 0;
     const uniqueAttacks = new Set<number>();
     const utcNow = Date.now();
@@ -515,8 +562,7 @@ export class NexusMapComponent extends ChildComponent {
       if (count >= maxCount) break;
 
       const { originCoordsX, originCoordsY, destinationCoordsX, destinationCoordsY, timestamp, duration, id, originUser, destinationUser } = attack;
-      if (destinationCoordsX !== base.coordsX || destinationCoordsY !== base.coordsY) continue;
-
+ 
       const elapsedTimeInSeconds = (utcNow - new Date(timestamp).getTime()) / 1000;
       const remainingTimeInSeconds = duration - elapsedTimeInSeconds;
       if (remainingTimeInSeconds <= 0) continue;
@@ -533,22 +579,70 @@ export class NexusMapComponent extends ChildComponent {
       }
     }
   }
-
   private updateAttackDefenceTimers() {
-    if (this.isAttackScreenOpen) return;
+    if (this.isAttackScreenOpen || !this.selectedNexusBase) return;
 
-    const relevantAttacksReceived = this.nexusAttacksIncoming?.filter(x =>
-      x.destinationCoordsX === this.selectedNexusBase?.coordsX &&
-      x.destinationCoordsY === this.selectedNexusBase.coordsY &&
-      x.originUser?.id !== this.inputtedParentRef?.user?.id
-    );
+    const coordsKey = `${this.selectedNexusBase.coordsX},${this.selectedNexusBase.coordsY}`;
 
-    if (relevantAttacksReceived && relevantAttacksReceived.length > 0) {
-      this.processDefenceTimers(relevantAttacksReceived, 5);
+    if (this.attackReturningStatus.has(coordsKey)) {
+      const relevantAttacksReceived = this.nexusAttacksIncoming?.filter(attack => 
+        attack.originUser?.id !== this.inputtedParentRef?.user?.id
+      );
+
+      if (relevantAttacksReceived && relevantAttacksReceived.length > 0) {
+        this.processDefenceTimers(relevantAttacksReceived, 5);
+      }
     }
   }
 
+  private updateDefenceTimers() {
+    if (this.isAttackScreenOpen || !this.selectedNexusBase) return;
+    console.log("updating defence tiemrs");
+    this.reinitializeDefenceTimers();
+
+    const coordsKey = `${this.selectedNexusBase.coordsX},${this.selectedNexusBase.coordsY}`;
+
+    if (this.defenseSentStatus.has(coordsKey)) {
+      const defences = [
+        ...(this.nexusDefencesIncoming?.filter(defense =>
+          !defense.arrived &&
+          defense.destinationCoordsX === this.selectedNexusBase?.coordsX &&
+          defense.destinationCoordsY === this.selectedNexusBase?.coordsY
+        ) || []),
+        ...(this.nexusDefencesSent?.filter(defense =>
+          !defense.arrived &&
+          defense.destinationCoordsX === this.selectedNexusBase?.coordsX &&
+          defense.destinationCoordsY === this.selectedNexusBase?.coordsY
+        ) || [])
+      ];
+
+      if (defences.length > 0) {
+        this.processDefenceTimers(defences, 5);
+      }
+    }
+  }
+
+  private incomingFromNexusDefencesIncoming() {
+    return this.nexusDefencesIncoming?.some(x =>
+      !x.arrived &&
+      x.destinationCoordsX === this.selectedNexusBase?.coordsX &&
+      x.destinationCoordsY === this.selectedNexusBase.coordsY &&
+      (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)
+    );
+  }
+
+  private incomingFromNexusDefencesSent() {
+    return this.nexusDefencesSent?.some(x =>
+      !x.arrived &&
+      x.destinationCoordsX === this.selectedNexusBase?.coordsX &&
+      x.destinationCoordsY === this.selectedNexusBase.coordsY &&
+      (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)
+    );
+  }
+
   private processDefenceTimers(attacks: any[], maxCount: number) {
+    if (!attacks || attacks.length == 0) return;
+
     let count = 0;
     const uniqueDefenses = new Set<number>();
     const utcNow = Date.now();
@@ -574,50 +668,36 @@ export class NexusMapComponent extends ChildComponent {
     }
   }
 
-  private incomingFromNexusDefencesIncoming() {
-    return this.nexusDefencesIncoming?.some(x =>
-      !x.arrived &&
-      x.destinationCoordsX === this.selectedNexusBase?.coordsX &&
-      x.destinationCoordsY === this.selectedNexusBase.coordsY &&
-      (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)
-    );
+
+  getRestOfAttackLabel(label: any): string {
+    const obj = label as NexusAttackSent;
+    return `{${obj.destinationCoordsX},${obj.destinationCoordsY}}`;
   }
 
-  private incomingFromNexusDefencesSent() {
-    return this.nexusDefencesSent?.some(x =>
-      !x.arrived &&
-      x.destinationCoordsX === this.selectedNexusBase?.coordsX &&
-      x.destinationCoordsY === this.selectedNexusBase.coordsY &&
-      (x.marineTotal > 0 || x.siegeTankTotal > 0 || x.goliathTotal > 0 || x.scoutTotal > 0 || x.wraithTotal > 0 || x.battlecruiserTotal > 0 || x.glitcherTotal > 0)
-    );
-  }
-
-  private updateDefenceTimers() {
-    if (this.isAttackScreenOpen) return;
-    this.reinitializeDefenceTimers();
-
-    if (this.incomingFromNexusDefencesIncoming() || this.incomingFromNexusDefencesSent()) {
-      const defences = [...(this.nexusDefencesIncoming || []), ...(this.nexusDefencesSent || [])];
-      this.processDefenceTimers(defences, 5);
-    }
-  }
-
-
-  getRestOfAttackLabel(label: NexusTimer): string {
-    const parts = label.key.split('.');
-    return parts[1] ? parts[1].trim() : '';
+  getAttackOrReturnLabel(attackTimer: any) {
+    const attack = attackTimer as NexusAttackSent;
+    return (attack.destinationCoordsX == attack.originCoordsX && attack.destinationCoordsY == attack.originCoordsY) ? "Returning" : "Attacking";
   }
   getAttackerLabel(label: NexusTimer): string {
-    const as = (label.object as NexusAttackSent);
-    return `{${as.originCoordsX},${as.originCoordsY}}`;
+    const obj = label.object as NexusAttackSent;
+    return `{${obj.originCoordsX},${obj.originCoordsY}}`;
   }
 
-  scrollToCoordinatesFromAttackTimer(attackTimer: NexusTimer) {
-    const key = attackTimer.key;
-    const coordPart = key.split(' ')[0];
-    const coordX = coordPart.substring(1, coordPart.indexOf(','));
-    const coordY = coordPart.substring(coordPart.indexOf(',') + 1, coordPart.length - 1);
-    this.scrollToCoordinatesByString(coordX, coordY);
+  getAttackTimers(): NexusTimer[] {
+    if (this.isAttackScreenOpen || !this.selectedNexusBase) return []; 
+    return Object.values(this.attackTimers);
+  }
+
+  getDefenceTimers(): NexusTimer[] {
+    if (this.isAttackScreenOpen || !this.selectedNexusBase) return []; 
+    return Object.values(this.defenceTimers);
+  }
+  scrollToCoordinatesFromAttackTimer(attackTimer: any, fromOrigin: boolean) {
+    const attack = attackTimer.object as NexusAttackSent;
+    if (fromOrigin)
+      this.scrollToCoordinates(attack.originCoordsX, attack.originCoordsY);
+    else
+      this.scrollToCoordinates(attack.destinationCoordsX, attack.destinationCoordsY);
   }
   trackByIndex(index: number): number {
     return index;
@@ -638,34 +718,10 @@ export class NexusMapComponent extends ChildComponent {
   }
   sendBackAttack(attackObject: object) {
     this.startLoading();
-    this.reinitializeAttackTimers();
     this.emittedSendBackAttackEvent.emit(attackObject);
 
     const waitForParentLoadingToComplete = () => {
-      if (!this.isParentLoading) {
-        const x = this.selectedNexusBase?.coordsX;
-        const y = this.selectedNexusBase?.coordsY;
-        this.selectedNexusBase = undefined;
-        setTimeout(() => {
-          if (x && y)
-          this.selectCoordinates(x, y);
-        }, 500);
-        this.stopLoading();
-      } else {
-        setTimeout(waitForParentLoadingToComplete, 10); // Adjust the delay as needed
-      }
-    };
-    setTimeout(() => {
-      waitForParentLoadingToComplete();
-    }, 100);
-  }
-  sendBackDefence(attackObject: object) {
-    this.startLoading();
-    this.reinitializeDefenceTimers();
-    this.emittedSendBackDefenceEvent.emit(attackObject);
-
-    const waitForParentLoadingToComplete = () => {
-      if (!this.isParentLoading) {
+      if (!this.isLoadingData) {
         const x = this.selectedNexusBase?.coordsX;
         const y = this.selectedNexusBase?.coordsY;
         this.selectedNexusBase = undefined;
@@ -680,13 +736,42 @@ export class NexusMapComponent extends ChildComponent {
     };
     setTimeout(() => {
       waitForParentLoadingToComplete();
-    }, 100); 
+    }, 100);
   }
+  sendBackDefence(attackObject: object) {
+    this.startLoading();
+    this.emittedSendBackDefenceEvent.emit(attackObject);
 
+    const waitForParentLoadingToComplete = () => {
+      if (!this.isLoadingData) {
+        const x = this.selectedNexusBase?.coordsX;
+        const y = this.selectedNexusBase?.coordsY;
+        this.selectedNexusBase = undefined;
+        setTimeout(() => {
+          if (x && y)
+            this.selectCoordinates(x, y);
+        }, 500);
+        this.stopLoading();
+      } else {
+        setTimeout(waitForParentLoadingToComplete, 10); // Adjust the delay as needed
+      }
+    };
+    setTimeout(() => {
+      waitForParentLoadingToComplete();
+    }, 100);
+  }
+  checkModes() {
+    if (this.attackModeCheckbox.nativeElement.checked) {
+      this.engageModeCheckbox.nativeElement.disabled = false;
+    } else {
+      this.engageModeCheckbox.nativeElement.checked = false;
+      this.engageModeCheckbox.nativeElement.disabled = true;
+    }
+  }
   onMapInputChange(value: string) {
     this.searchTerm.next(value);
   }
   trackByTimerId(index: number, timer: NexusTimer): any {
-    return timer.key;  
+    return timer.key;
   }
 }

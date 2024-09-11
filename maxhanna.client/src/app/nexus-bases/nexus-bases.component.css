@@ -3,8 +3,7 @@ table thead th {
   top: 0;
 }
 
-.overallDisplay {
-  height: 66vh;
+.overallDisplay { 
   display: flex;
   justify-content: center;
   align-items: center;
@@ -104,3 +103,19 @@ tbody {
   width: 20px;
   height: 20px;
 }
+
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center; 
+}
+
+  .pagination-container button {  
+    margin: 0 5px;
+    cursor: pointer; 
+  }
+
+    .pagination-container button:disabled { 
+      cursor: not-allowed;
+    }

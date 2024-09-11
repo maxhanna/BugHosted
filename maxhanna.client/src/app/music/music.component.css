@@ -3,13 +3,16 @@
   max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
   margin-left: auto;
   margin-right: auto;
+  position: sticky;
+  top: -25px; /* Stick to the top of the parent container */
+  z-index: 10;
 }
 .smallIframeDiv {
   width: 100%;
   height: 75px; 
 }
 
-@media only screen and (min-device-width: 300px) and (max-device-width:800px) {
+@media only screen and (max-device-width:800px) {
   .iframeDiv { 
     height: 200px; 
   }
@@ -37,5 +40,5 @@ iframe {
     margin: 4px;
   }
 .mainTableDiv {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 480px);
+  max-height: CALC(50% - 50vh);
 }
