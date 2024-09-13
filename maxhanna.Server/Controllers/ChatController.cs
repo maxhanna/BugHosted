@@ -125,12 +125,16 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("/Chat/GetMessageHistory", Name = "GetMessageHistory")]
         public async Task<IActionResult> GetMessageHistory([FromBody] MessageHistoryRequest request)
-        {  
+        {
+            string user2Ids = (request.user2?.Length > 1)
+                ? string.Join(",", request.user2.Select(u => u.Id))   
+                : request.user2?.FirstOrDefault()?.Id.ToString() ?? "0";   
+
             int pageSize = request.PageSize.HasValue && request.PageSize > 0 ? request.PageSize.Value : 20;
             int pageNumber = request.PageNumber.HasValue && request.PageNumber > 0 ? request.PageNumber.Value : 1; // Default to the first page
             int totalRecords = 0;
 
-            _logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.user1?.Id} and {request.user2?.Id} pageNumber: {pageNumber} pageSize: {pageSize}");
+            _logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.user1?.Id} and {user2Ids} pageNumber: {pageNumber} pageSize: {pageSize}");
             List<Message> messages = new List<Message>();
 
             using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -148,7 +152,7 @@ namespace maxhanna.Server.Controllers
 
                     MySqlCommand countCmd = new MySqlCommand(countSql, conn);
                     countCmd.Parameters.AddWithValue("@User1Id", request.user1?.Id ?? 0);
-                    countCmd.Parameters.AddWithValue("@User2Id", request.user2?.Id ?? 0);
+                    countCmd.Parameters.AddWithValue("@User2Id", user2Ids);
                     totalRecords = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 
                     // Calculate total number of pages
@@ -210,7 +214,7 @@ namespace maxhanna.Server.Controllers
 
                     MySqlCommand cmd = new MySqlCommand(sql, conn);
                     cmd.Parameters.AddWithValue("@User1Id", request.user1?.Id ?? 0);
-                    cmd.Parameters.AddWithValue("@User2Id", request.user2?.Id ?? 0);
+                    cmd.Parameters.AddWithValue("@User2Id", request.user2?.First().Id ?? 0);
                     cmd.Parameters.AddWithValue("@PageSize", pageSize);
                     cmd.Parameters.AddWithValue("@PageOffset", offset);
 
@@ -237,7 +241,7 @@ namespace maxhanna.Server.Controllers
                                     reader["sender_username"].ToString() ?? "Anonymous",
                                     null,
                                     senderDisplayPicture.Id == 0 ? null : senderDisplayPicture,
-                                    null
+                                    null, null, null
                                 );
 
                                 var receiverDisplayPicture = new FileEntry
@@ -253,14 +257,14 @@ namespace maxhanna.Server.Controllers
                                     reader["receiver_username"].ToString() ?? "Anonymous",
                                     null,
                                     receiverDisplayPicture.Id == 0 ? null : receiverDisplayPicture,
-                                    null
+                                    null, null, null
                                 );
 
                                 var message = new Message
                                 {
                                     Id = messageId,
                                     Sender = sender,
-                                    Receiver = receiver,
+                                    Receiver = [receiver],
                                     Content = reader["content"].ToString(),
                                     Timestamp = Convert.ToDateTime(reader["timestamp"]),
                                     Reactions = new List<Reaction>()
@@ -330,7 +334,7 @@ namespace maxhanna.Server.Controllers
 
                     MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
                     updateCmd.Parameters.AddWithValue("@User1Id", request.user1?.Id ?? 0);
-                    updateCmd.Parameters.AddWithValue("@User2Id", request.user2?.Id ?? 0);
+                    updateCmd.Parameters.AddWithValue("@User2Id", request.user2?.First().Id ?? 0);
 
                     await updateCmd.ExecuteNonQueryAsync();
                 }
@@ -381,8 +385,12 @@ namespace maxhanna.Server.Controllers
 
         [HttpPost("/Chat/SendMessage", Name = "SendMessage")]
         public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
-        {
-            _logger.LogInformation($"POST /Chat/SendMessage from user: {request.Sender?.Id} to user: {request.Receiver?.Id} with {request.Files?.Count ?? 0} # of files");
+        { 
+            string receiverIds = (request.Receiver?.Length > 1)
+                ? string.Join(",", request.Receiver.Select(u => u.Id))
+                : request.Receiver?.FirstOrDefault()?.Id.ToString() ?? "0";
+
+            _logger.LogInformation($"POST /Chat/SendMessage from user: {request.Sender?.Id} to user: {receiverIds} with {request.Files?.Count ?? 0} # of files");
 
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
@@ -417,7 +425,7 @@ namespace maxhanna.Server.Controllers
                 using (var checkCommand = new MySqlCommand(checkSql, conn))
                 {
                     checkCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
-                    checkCommand.Parameters.AddWithValue("@Receiver", request.Receiver?.Id ?? 0);
+                    checkCommand.Parameters.AddWithValue("@Receiver", receiverIds);
                     checkCommand.Parameters.AddWithValue("@Content", request.Content);
 
                     var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
@@ -427,7 +435,7 @@ namespace maxhanna.Server.Controllers
                         using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
                         {
                             updateCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
-                            updateCommand.Parameters.AddWithValue("@Receiver", request.Receiver?.Id ?? 0);
+                            updateCommand.Parameters.AddWithValue("@Receiver", receiverIds);
                             updateCommand.Parameters.AddWithValue("@Content", request.Content);
 
                             await updateCommand.ExecuteNonQueryAsync();
@@ -439,7 +447,7 @@ namespace maxhanna.Server.Controllers
                         using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
                         {
                             insertCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
-                            insertCommand.Parameters.AddWithValue("@Receiver", request.Receiver?.Id ?? 0);
+                            insertCommand.Parameters.AddWithValue("@Receiver", receiverIds);
                             insertCommand.Parameters.AddWithValue("@Content", request.Content);
 
                             await insertCommand.ExecuteNonQueryAsync();
@@ -450,7 +458,7 @@ namespace maxhanna.Server.Controllers
 
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
-                cmd.Parameters.AddWithValue("@Receiver", request.Receiver?.Id ?? 0);
+                cmd.Parameters.AddWithValue("@Receiver", receiverIds);
                 cmd.Parameters.AddWithValue("@Content", request.Content);
 
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
@@ -497,7 +505,7 @@ namespace maxhanna.Server.Controllers
         public class SendMessageRequest
         {
             public User? Sender { get; set; }
-            public User? Receiver { get; set; }
+            public User[]? Receiver { get; set; }
             public string? Content { get; set; }
             public List<FileEntry>? Files { get; set; }
         }

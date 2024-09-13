@@ -75,10 +75,7 @@ namespace maxhanna.Server.Services
             }
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            // Load existing attacks from the database and schedule them
-            await LoadAndScheduleExistingUnitUpgrades(stoppingToken);
-
+        { 
             _checkForNewUnitUpgradesTimer = new Timer(
                 async _ => await CheckForNewUnitUpgrades(stoppingToken),
                 null,

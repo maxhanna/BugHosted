@@ -87,3 +87,12 @@
   font-weight: bolder;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
 }
+.searchUploadButtonChoiceDiv {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: space-between;
+  justify-content: space-between;
+  align-items: center;
+  width: 80%;
+}

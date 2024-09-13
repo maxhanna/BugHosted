@@ -9,14 +9,32 @@
   margin-right: 4px; /* Adjust spacing between the emoji and the username */
   margin-top: 2px;
   font-size: small;
-} 
+}
 
 .userList {
   overflow-y: auto;
-}
-
-.user {
   border: var(--main-border);
   cursor: pointer;
   padding: 5px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user {
+    width:100%;
+}
+.searchDiv {
+  display: flex;
+  flex-direction: row;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.searchResults {
+    margin-top: 10px;
 }

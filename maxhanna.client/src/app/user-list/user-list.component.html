@@ -1,7 +1,25 @@
-<input #searchInput type="text" class="searchInput" placeholder="Search for users" (input)="search()" />
-<button (click)="search()">🔍</button>
-<div *ngFor="let user of users" (click)="click(user);" class="user">
-  {{ user.username }}
-  <span class="chatIcon" *ngIf="getChatNotificationsByUser(user.id)">💬<span class="chatNotificationNumber">{{ getChatNotificationsByUser(user.id) }}</span></span>
+<div class="searchDiv"> 
+  <input #searchInput type="text" class="searchInput" placeholder="Search for users" (input)="search()" />
+  <button (click)="search()">🔍</button>
 </div>
-<button id="closeOverlay" style="display:none" (click)="click()"></button>
+<div class="searchDiv" *ngIf="displayRadioFilters">
+  <label>
+    <input type="radio" name="userFilter" value="friends" (change)="filterUsers()" #friendsRadio [checked]="displayOnlyFriends" />
+    Show Friends
+  </label>
+  <label>
+    <input type="radio" name="userFilter" value="all" (change)="filterUsers()" #allUsersRadio [checked]="!displayOnlyFriends" />
+    Show All Users
+  </label>
+</div>
+<div class="searchResults">
+  <div *ngFor="let user of users" class="userList">
+    <span (click)="click(user);" class="user">
+      {{ user.username }}
+      <span class="chatIcon" *ngIf="getChatNotificationsByUser(user.id)">💬<span class="chatNotificationNumber">{{ getChatNotificationsByUser(user.id) }}</span></span>
+    </span>
+    <span *ngIf="friendsRadio && friendsRadio.nativeElement.checked"><input type="checkbox" (change)="selectFriend(user); $event.stopPropagation()" class="userCheckbox" /></span>
+  </div>
+</div>
+
+<button id="closeOverlay" style="display:none" (click)="click()"></button> 

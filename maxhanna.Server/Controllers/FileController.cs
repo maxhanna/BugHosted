@@ -173,14 +173,12 @@ namespace maxhanna.Server.Controllers
                                 User = new User(
                                     reader.IsDBNull("fileUserId") ? 0 : reader.GetInt32("fileUserId"),
                                     reader.IsDBNull("fileUsername") ? "" : reader.GetString("fileUsername"),
-                                    null,
                                     new FileEntry
                                     {
                                         Id = reader.IsDBNull("fileUserDisplayPictureFileId") ? 0 : reader.GetInt32("fileUserDisplayPictureFileId"),
                                         FileName = reader.IsDBNull("fileUserDisplayPictureFileName") ? null : reader.GetString("fileUserDisplayPictureFileName"),
                                         Directory = reader.IsDBNull("fileUserDisplayPictureFolderPath") ? null : reader.GetString("fileUserDisplayPictureFolderPath")
-                                    },
-                                    null
+                                    }
                                 ),
                                 SharedWith = reader.IsDBNull("shared_with") ? "" : reader.GetString("shared_with"),
                                 Date = reader.IsDBNull("date") ? DateTime.Now : reader.GetDateTime("date"),
@@ -282,7 +280,7 @@ namespace maxhanna.Server.Controllers
                                         FileName = commentUserDisplayPicFileName,
                                         Directory = commentUserDisplayPicFolderPath
                                     },
-                                    null
+                                    null, null, null
                                 ),
                                 CommentText = reader.GetString("commentText"),
                                 Date = reader.GetDateTime("commentDate")
@@ -1074,7 +1072,7 @@ namespace maxhanna.Server.Controllers
                 FileName = Path.GetFileName(filePath),
                 Directory = uploadDirectory,
                 Visibility = isPublic ? "Public" : "Private",
-                User = new User(user.Id, user.Username ?? "Anonymous", null, user.DisplayPictureFile, user.About),
+                User = new User(user.Id, user.Username ?? "Anonymous", null, user.DisplayPictureFile, user.About, null, null),
                 IsFolder = false, 
                 FileComments = new List<FileComment>(),
                 Date = DateTime.UtcNow,
@@ -1206,7 +1204,12 @@ namespace maxhanna.Server.Controllers
                                 {
                                     Id = commentId,
                                     FileId = id,
-                                    User = new User(commentUserId, commentUsername ?? "Anonymous", null, displayPicId != null ? dpFileEntry : null, null),
+                                    User = new User(
+                                        commentUserId, 
+                                        commentUsername ?? "Anonymous", 
+                                        null, 
+                                        displayPicId != null ? dpFileEntry : null, 
+                                        null, null, null),
                                     CommentText = commentText, 
                                 };
 

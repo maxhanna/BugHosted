@@ -202,9 +202,7 @@ namespace maxhanna.Server.Services
             {
                 _logger.LogError(ex, "Error occurred while storing coin values.");
             }
-        }
-
-
+        } 
     }
 
     public class CoinResponse

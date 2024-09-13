@@ -54,6 +54,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
+  @ViewChild(MediaSelectorComponent) postMediaSelector!: MediaSelectorComponent;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
   @Input() storyId: number | null = null;
@@ -221,9 +222,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
 
   async post() {
-    this.startLoading();
     const storyText = this.story.nativeElement.value!;
     if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
+
+    this.startLoading();
     const newStory: Story = {
       id: 0,
       user: this.parentRef?.user!,
@@ -242,6 +244,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     this.attachedFiles = [];
     this.attachedTopics = [];
+    this.postMediaSelector.selectedFiles = [];
     this.mediaSelectorComponent.closeMediaSelector();
     this.story.nativeElement.value = '';
 

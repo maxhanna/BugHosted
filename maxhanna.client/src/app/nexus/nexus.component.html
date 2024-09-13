@@ -50,6 +50,7 @@
     <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen " class="battleReportComponentDiv">
       <app-nexus-reports [user]="parentRef.user"
+                         [inputtedParentRef]="parentRef"
                          [mapData]="mapData" 
                          [marinePictureSrc]="marinePictureSrc"
                          [goliathPictureSrc]="goliathPictureSrc"
@@ -108,7 +109,8 @@
       </app-nexus-map>
     </div>
     <!-- Bases screen -->
-    <app-nexus-bases *ngIf="parentRef && parentRef.user && currentPersonalBases && nexusBase && isBasesOpen"
+    <app-nexus-bases #nexusBasesComponent
+                     *ngIf="parentRef && parentRef.user && currentPersonalBases && nexusBase && isBasesOpen"
                      class="baseListComponentDiv"  
                      [mapData]="currentPersonalBases"
                      [nexusBase]="nexusBase"

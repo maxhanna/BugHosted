@@ -4,6 +4,8 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Wordler;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Data;
+using static maxhanna.Server.Controllers.ChatController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -72,16 +74,26 @@ namespace maxhanna.Server.Controllers
             }
             return Ok(notifications);
         }
-
+         
         private UserNotification MapReaderToNotification(MySqlDataReader reader)
         {
             int? displayPicId = reader.IsDBNull(reader.GetOrdinal("user_display_picture")) ? null : reader.GetInt32("user_display_picture");
             FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
-            User tUser = new User(reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"), reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString("username"), null, dpFileEntry, null);
+            User tUser = 
+                new User(
+                    reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"), 
+                    reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString("username"), 
+                    null, dpFileEntry, 
+                    null, null, null);
 
             int? sentDisplayPicId = reader.IsDBNull(reader.GetOrdinal("sent_user_display_picture")) ? null : reader.GetInt32("sent_user_display_picture");
             FileEntry? sentDpFileEntry = sentDisplayPicId != null ? new FileEntry() { Id = (Int32)(sentDisplayPicId) } : null;
-            User sentUser = new User(reader.IsDBNull(reader.GetOrdinal("from_user_id")) ? 0 : reader.GetInt32("from_user_id"), reader.IsDBNull(reader.GetOrdinal("from_user_name")) ? "Anonymous" : reader.GetString("from_user_name"), null, sentDpFileEntry, null);
+            User sentUser = 
+                new User(
+                    reader.IsDBNull(reader.GetOrdinal("from_user_id")) ? 0 : reader.GetInt32("from_user_id"), 
+                    reader.IsDBNull(reader.GetOrdinal("from_user_name")) ? "Anonymous" : reader.GetString("from_user_name"),
+                    null, sentDpFileEntry, 
+                    null, null, null);
 
             return new UserNotification
             {

@@ -5,6 +5,7 @@ import { ChatService } from '../../services/chat.service';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
+import { FriendService } from '../../services/friend.service';
 
 @Component({
   selector: 'app-user-list',
@@ -16,24 +17,49 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @Input() inputtedParentRef?: AppComponent;
   @Input() chatNotifications?: ChatNotification[];
   @Input() friendsOnly: boolean = false;
+  @Input() displayOnlyFriends: boolean = false;
+  @Input() displayRadioFilters: boolean = false;
   @Input() contactsOnly: boolean = false;
   @Output() userClickEvent = new EventEmitter<User | undefined>();
+  @Output() userSelectClickEvent = new EventEmitter<User[] | undefined>();
 
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('allUsersRadio') allUsersRadio!: ElementRef<HTMLInputElement>;
+  @ViewChild('friendsRadio') friendsRadio!: ElementRef<HTMLInputElement>;
 
   private chatInfoInterval: any;
   users: Array<User> = [];
-  constructor(private userService: UserService, private chatService: ChatService) {
+  selectedUsers: Array<User> = [];
+  filterOption: string = 'all';
+  friendSelected = false;
+
+  constructor(private userService: UserService, private chatService: ChatService, private friendService: FriendService) {
     super();
   }
   async ngOnInit() {
     this.getChatInfo();
-    this.chatInfoInterval = setInterval(() => this.getChatInfo(), 30 * 1000); // every 30 seconds 
-    this.users = await this.userService.getAllUsers(this.user!);
+    this.chatInfoInterval = setInterval(() => this.getChatInfo(), 30 * 1000);
+    this.getUsers();
     await this.sortUsersByNotifications();
   }
   async ngOnDestroy() {
     clearInterval(this.chatInfoInterval);
+  }
+
+  async getUsers() {
+    if (!this.user) {
+      this.users = await this.userService.getAllUsers(new User(0, "Anonymous")); 
+    } else {
+      let search = undefined;
+      if (this.searchInput && this.searchInput.nativeElement.value && this.searchInput.nativeElement.value.trim() != '') {
+        search = this.searchInput.nativeElement.value;
+      }
+      if (!search && (this.friendsRadio ? this.friendsRadio.nativeElement.checked : this.displayOnlyFriends)) {
+        this.users = await this.friendService.getFriends(this.user!);
+      } else {
+        this.users = await this.userService.getAllUsers(this.user!, search);
+      }
+    } 
   }
   click(value?: User) {
     this.userClickEvent.emit(value);
@@ -73,16 +99,18 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       });
     }
   }
-
   async search() {
-    try {
-      const search = this.searchInput.nativeElement.value.trim();
-      if (this.user) {
-        const res = await this.userService.getAllUsers(this.user!, search);
-        if (res) {
-          this.users = res;
-        }
-      }
-    } catch { }
+    this.getUsers();
+  } 
+  async filterUsers() {
+    this.getUsers();
   }
+  selectFriend(user: User) {
+    if (this.selectedUsers.some(x => x.id == user.id)) {
+      this.selectedUsers = this.selectedUsers.filter(x => x.id != user.id);
+    } else {
+      this.selectedUsers.push(user);
+    }
+    this.userSelectClickEvent.emit(this.selectedUsers);
+  } 
 }

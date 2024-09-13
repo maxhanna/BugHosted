@@ -32,29 +32,28 @@ export class MediaSelectorComponent {
   constructor() { }
 
   toggleMediaChoices() {
-    this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
-    console.log("toggle");
-    if (this.inputtedParentRef) {
-      console.log("toggle parent");
+    this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen; 
+    if (this.inputtedParentRef) { 
       this.inputtedParentRef.showOverlay = this.viewMediaChoicesOpen;
     }
-    this.displaySearchButton = true;
     if (this.selectMediaDiv) {
       this.selectMediaDiv.nativeElement.classList.toggle("open");
     }
   }
 
+  displaySearchDiv() {
+    this.displaySearch = true;
+    this.viewMediaChoicesOpen = false; 
 
-  selectFile(file: FileEntry) {
-    this.displaySearch = false;
+  }
+
+  selectFile(file: FileEntry) { 
     if (this.selectedFiles.length > this.maxSelectedFiles) {
       return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
     }
     this.selectedFiles.push(file);
-    if (this.selectedFiles.length == this.maxSelectedFiles) {
-      this.viewMediaChoicesOpen = true;
-      this.displaySearchButton = false;
-    }
+    this.displaySearch = false; 
+    this.viewMediaChoicesOpen = true;  
   }
 
   removeFile(file: FileEntry) {
@@ -109,8 +108,7 @@ export class MediaSelectorComponent {
     this.closeMediaSelector();
   }
   closeMediaSelector() {
-    console.log("closing selector"); 
-      this.selectedFiles = [];
+    console.log("closing selector");  
       this.displaySearchButton = false;
       this.viewMediaChoicesOpen = false;
     this.displaySearch = false;

@@ -23,6 +23,8 @@
     <option value="wraithTotal">Wraith Total</option>
     <option value="battlecruiserTotal">Battlecruiser Total</option>
     <option value="glitcherTotal">Glitcher Total</option>
+    <option value="incomingAttacks">Incoming Attacks</option>
+    <option value="incomingDefences">Incoming Defences</option>
   </select>
 
   <select (change)="sortOrder = sortOrderSelect.value; sortByCriterion()" #sortOrderSelect>
@@ -30,7 +32,7 @@
     <option value="desc">Descending</option>
   </select>
 </div>
-<div class="pagination-container">
+<div class="pagination-container commandSelector">
   <select #commandSelector (change)="selectCommand()">
     <option selected disabled>Send a command to all your bases</option>
     <option *ngFor="let command of commands">{{command}}</option>
@@ -38,19 +40,18 @@
 </div>
 <div class="overallDisplay">
   <table id="baseTable">
-    <thead>
+    <thead class="stickyHeader">
       <tr> 
-        <th style="background-color: var(--secondary-font-color); opacity: 50%" (click)="sortTable(0, 'baseTable')"></th>
-        <th (click)="sortTable(1, 'baseTable')"><span class="rotated-header">Base Name</span></th>
-        <th (click)="sortTable(2, 'baseTable')"><span class="rotated-header">Command Center</span></th>
-        <th (click)="sortTable(3, 'baseTable')"><span class="rotated-header">Mines</span></th>
-        <th (click)="sortTable(4, 'baseTable')"><span class="rotated-header">Engineering Bay</span></th>
-        <th (click)="sortTable(5, 'baseTable')"><span class="rotated-header">Factory</span></th>
-        <th (click)="sortTable(6, 'baseTable')"><span class="rotated-header">Starport</span></th>
-        <th (click)="sortTable(7, 'baseTable')"><span class="rotated-header">Warehouse</span></th>
-        <th (click)="sortTable(8, 'baseTable')"><span class="rotated-header">Supply Depot</span></th>
-        <th (click)="sortTable(9, 'baseTable')"><span class="rotated-header">📀</span></th>
-        <th (click)="sortTable(10, 'baseTable')"><span class="rotated-header">Incoming</span></th>
+        <th colspan="2"><span class="rotated-header">Base Name</span></th>
+        <th><span class="rotated-header">Command Center</span></th>
+        <th><span class="rotated-header">Mines</span></th>
+        <th><span class="rotated-header">Engineering Bay</span></th>
+        <th><span class="rotated-header">Factory</span></th>
+        <th><span class="rotated-header">Starport</span></th>
+        <th><span class="rotated-header">Warehouse</span></th>
+        <th><span class="rotated-header">Supply Depot</span></th>
+        <th><span class="rotated-header">📀</span></th>
+        <th><span class="rotated-header">Incoming</span></th>
       </tr>
     </thead>
     <tbody *ngFor="let base of paginatedData; let i = index; trackBy: trackByCoords" (click)="selectBase(base)" class="pointer">

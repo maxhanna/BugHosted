@@ -112,7 +112,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   ngOnInit() {
     if (this.getCookie("user")) {
-      this.user = JSON.parse(this.getCookie("user"));
+      this.user = JSON.parse(this.getCookie("user")); 
     }
     window.addEventListener('resize', this.updateHeight);
     this.updateHeight();

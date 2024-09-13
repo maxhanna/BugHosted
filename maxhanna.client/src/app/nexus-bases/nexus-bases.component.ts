@@ -9,16 +9,16 @@ import { ChildComponent } from '../child.component';
 @Component({
   selector: 'app-nexus-bases',
   templateUrl: './nexus-bases.component.html',
-  styleUrl: './nexus-bases.component.css', 
+  styleUrl: './nexus-bases.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NexusBasesComponent extends ChildComponent implements OnInit {
   constructor(private nexusService: NexusService) { super(); }
-  @Input() user: User | undefined; 
+  @Input() user: User | undefined;
   @Input() nexusBase: NexusBase | undefined;
   @Input() allNexusUnits: NexusUnits[] | undefined;
   @Input() mapData: NexusBase[] | undefined;
-  @Input() attacksIncoming: NexusAttackSent[] | undefined;   
+  @Input() attacksIncoming: NexusAttackSent[] | undefined;
   @Input() defenceIncoming: NexusAttackSent[] | undefined;
   @Input() marinePictureSrc: string | undefined;
   @Input() goliathPictureSrc: string | undefined;
@@ -55,7 +55,7 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
     { code: 'wraithTotal', shortName: 'W', pictureSrc: 'wraithPictureSrc' },
     { code: 'battlecruiserTotal', shortName: 'B', pictureSrc: 'battlecruiserPictureSrc' },
     { code: 'glitcherTotal', shortName: 'GL', pictureSrc: 'glitcherPictureSrc' }
-  ]; 
+  ];
   commands = [
     "Upgrade Command Center", "Upgrade Mines", "Upgrade Supply Depot", "Upgrade Warehouse",
     "Upgrade Engineering Bay", "Upgrade Factory", "Upgrade Starport",
@@ -65,7 +65,7 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
   ngOnInit() {
     this.getCurrentBases();
   }
-  selectBase(nexusBase: NexusBase) { 
+  selectBase(nexusBase: NexusBase) {
     this.emittedBaseChange.emit(nexusBase);
   }
 
@@ -74,7 +74,7 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
       return this[pictureSrc as keyof this];
     }
     return ''
-  } 
+  }
   async selectCommand() {
     if (!confirm(`Command all bases to ${this.commandSelector.nativeElement.value}?`)) return;
 
@@ -162,7 +162,7 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
   getAttacksForBase = this.memoize((coordsX: number, coordsY: number) => {
     if (this.attacksIncoming && this.attacksMap && Object.keys(this.attacksMap).length == 0) {
       this.attacksMap = {};
-      const pertinentAttacks = this.attacksIncoming.filter(x => x.destinationUser?.id != this.user?.id);
+      const pertinentAttacks = this.attacksIncoming.filter(x => x.destinationUser?.id != this.user?.id || (x.destinationCoordsX != x.originCoordsX && x.destinationCoordsY != x.originCoordsY));
       for (let attack of pertinentAttacks) {
         const key = `${attack.destinationCoordsX},${attack.destinationCoordsY}`;
         if (!this.attacksMap[key]) {
@@ -193,7 +193,7 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
     const key = `${coordsX},${coordsY}`;
     return this.defenceMap[key] || [];
   });
-  getUnitsForBase = this.memoize((coordsX: number, coordsY: number) => { 
+  getUnitsForBase = this.memoize((coordsX: number, coordsY: number) => {
     return this.allNexusUnits?.find(x => x.coordsX == coordsX && x.coordsY == coordsY) ?? undefined;
   });
 
@@ -214,7 +214,7 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
       return `baseUnitCountSpan ${hasUnits ? 'gameNotification' : 'greyText'}`;
     }
     return 'baseUnitCountSpan greyText';
-  }); 
+  });
 
   private isValidUnitCode(code: string): code is keyof NexusUnits {
     return ['marineTotal', 'goliathTotal', 'siegeTankTotal', 'scoutTotal', 'wraithTotal', 'battlecruiserTotal', 'glitcherTotal'].includes(code);
@@ -248,7 +248,8 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
       const aValue = this.getSortValue(a, sortBy);
       const bValue = this.getSortValue(b, sortBy);
 
-      if (aValue === undefined || bValue === undefined) return 0;
+      if (aValue === null || aValue === undefined) return 1;
+      if (bValue === null || bValue === undefined) return -1;
 
       // Determine comparison method based on type
       if (typeof aValue === 'string' && typeof bValue === 'string') {
@@ -263,69 +264,24 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
     });
   }
 
-// Helper function to get the sorting value based on sortBy
-getSortValue(base: NexusBase, sortBy: string): number | string | undefined {
-  // Check if sortBy is a property of NexusBase
-  if (sortBy in base) {
-    return base[sortBy as keyof NexusBase] as number | string | undefined;
-  }
-
-  // If not, assume it needs to be computed from allNexusUnits
-  const units = this.allNexusUnits?.find(u => u.coordsX === base.coordsX && u.coordsY === base.coordsY);
-  if (units) {
-    return (units as any)[sortBy]; // Access dynamic property
-  }
-
-  return undefined;
-}
-
-  override sortTable(columnIndex: number, tableId: string): void {
-    const table = document.getElementById(tableId) as HTMLTableElement;
-    if (!table) return;
-
-    const tbodyArray = Array.from(table.tBodies) as HTMLTableSectionElement[];
-    const isAscending = this.asc.some(([table, column]) => table === tableId && column === columnIndex);
-
-    // Custom comparator for sorting tbody elements
-    const compare = (tbodyA: HTMLTableSectionElement, tbodyB: HTMLTableSectionElement) => {
-      const getCellValue = (tbody: HTMLTableSectionElement) => {
-        const cellText = tbody.rows[0].cells[columnIndex].textContent?.trim().toLowerCase() || '';
-
-        // Remove commas and handle periods for numeric conversion
-        const numericValue = parseFloat(cellText.replace(/,/g, ''));
-        return isNaN(numericValue) ? cellText : numericValue;
-      };
-
-      const valueA = getCellValue(tbodyA);
-      const valueB = getCellValue(tbodyB);
-
-      // If both values are numeric, compare as numbers
-      if (typeof valueA === 'number' && typeof valueB === 'number') {
-        return isAscending ? valueA - valueB : valueB - valueA;
-      }
-
-      // Otherwise, compare as strings
-      return isAscending ? (valueA as string).localeCompare(valueB as string) : (valueB as string).localeCompare(valueA as string);
-    };
-
-    // Sort tbody elements in memory
-    tbodyArray.sort(compare);
-
-    // Rebuild the table using a DocumentFragment
-    const fragment = document.createDocumentFragment();
-    tbodyArray.forEach(tbody => fragment.appendChild(tbody));
-
-    // Append sorted tbody elements back to the table
-    table.appendChild(fragment);
-
-    // Update sort direction tracking
-    if (isAscending) {
-      this.asc = this.asc.filter(([table, column]) => !(table === tableId && column === columnIndex));
-    } else {
-      this.asc.push([tableId, columnIndex]);
+  getSortValue(base: NexusBase, sortBy: string): number | string | undefined {
+    if (sortBy === 'incomingAttacks') {
+      return this.getAttacksCount(base); 
+    } else if (sortBy === 'incomingDefences') {
+      return this.getDefenceCount(base); 
     }
-  }
 
+    if (sortBy in base) {
+      return base[sortBy as keyof NexusBase] as number | string | undefined;
+    }
+    const units = this.allNexusUnits?.find(u => u.coordsX === base.coordsX && u.coordsY === base.coordsY);
+    if (units) {
+      return (units as any)[sortBy]; // Access dynamic property
+    }
+
+    return undefined;
+  }
+   
   memoize(fn: Function) {
     const cache = new Map();
     return function (...args: any[]) {
@@ -341,9 +297,9 @@ getSortValue(base: NexusBase, sortBy: string): number | string | undefined {
 
   sortByCriterion(): void {
     this.sortBy = this.sortingSelect.nativeElement.value;
-    this.getCurrentBases(); // Refresh data based on the selected sort criterion
+    this.getCurrentBases(); 
   }
-   
+
   updatePagination(totalItems: number, itemsPerPage: number): void {
     this.totalPages = Math.ceil(totalItems / itemsPerPage);
     this.pageNumbers = Array.from({ length: this.totalPages }, (_, i) => i + 1);

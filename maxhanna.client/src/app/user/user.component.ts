@@ -443,6 +443,14 @@ export class UserComponent extends ChildComponent implements OnInit {
   hasFriendRequests() {
     return this.friendRequests.find(x => x.status == '3') ? true : false;
   }
+  daysSince(date?: Date) {
+    if (!date) return; 
+    const today = new Date();
+    const givenDate = new Date(date);
+    const diffInMs = today.getTime() - givenDate.getTime();
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    return diffInDays;
+  }
   copyLink() {
     const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;
     const link = `https://bughosted.com/${userId ? `User/${userId}` : ''}`;

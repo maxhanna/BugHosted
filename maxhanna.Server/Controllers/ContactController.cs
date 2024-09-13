@@ -94,7 +94,7 @@ namespace maxhanna.Server.Controllers
                                             Email = rdr.IsDBNull("about_email") ? "" : rdr.GetString("about_email"),
                                             Phone = rdr.IsDBNull("about_phone") ? "" : rdr.GetString("about_phone"),
                                             Birthday = rdr.IsDBNull("about_birthday") ? null : rdr.GetDateTime("about_birthday")
-                                        }
+                                        }, null, null
                                     )
                                 };
 

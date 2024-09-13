@@ -175,8 +175,10 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     }
     if (!this.user) {
       return alert('Must be logged in!');
-    }
-    const selectedReportArray = Array.from(this.selectedReportIds);
+    } 
+
+    await this.nexusService.deleteReport(this.user, Array.from(this.selectedReportIds));
+    await this.loadBattleReports(this.targetBase);
 
     this.selectAllCheckbox.nativeElement.checked = false;
     const checkboxes = (document.getElementsByTagName('input'));
@@ -184,9 +186,6 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
       (checkboxes[x] as HTMLInputElement).checked = false;
     }
     this.selectedReportIds.clear();
-
-    await this.nexusService.deleteReport(this.user, Array.from(selectedReportArray));
-    await this.loadBattleReports(this.targetBase); 
   }
   selectAllCheckboxes(event: Event) {
     const selectAllChecked = (event.target as HTMLInputElement).checked;
@@ -212,13 +211,19 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     if (!user) return;
     console.log(user);
     this.targetUser = user;
-    this.userSearchOpen = false; 
+    this.userSearchOpen = false;
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.showOverlay = false;
+    }
     this.loadBattleReports(this.targetBase);
   }
   showUserSearchOverlay() {
     this.userSearchOpen = !this.userSearchOpen;
-    if (this.inputtedParentRef) {
+    if (this.inputtedParentRef && this.userSearchOpen) {
       this.inputtedParentRef.showOverlay = true;
+    }
+    else if (this.inputtedParentRef) { 
+      this.inputtedParentRef.showOverlay = false;
     }
   }
   clearTargetUser() { 

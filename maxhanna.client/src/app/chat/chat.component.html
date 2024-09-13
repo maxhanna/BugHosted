@@ -3,21 +3,27 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Chat</div>
 
+  <div *ngIf="selectedUsers.length > 1 && !currentChatUser && !currentChatUsers" class="messageInput">
+    <button (click)="openGroupChat()">Group Chat</button>
+  </div>
 
   <app-user-list (userClickEvent)="openChat($event);"
-                 [user]="parentRef?.user" 
+                 (userSelectClickEvent)="userSelectClickEvent($event)"
+                 [user]="parentRef?.user"
                  [class.expanded]="isPanelExpanded"
+                 [displayOnlyFriends]="true"
+                 [displayRadioFilters]="true"
                  class="userPanel"
                  *ngIf="isPanelExpanded">
   </app-user-list>
 
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
-    <div *ngIf="currentChatUser">
+    <div *ngIf="currentChatUser || currentChatUsers">
       <div class="chatHeader">
         <span style="margin-right:10px;">
           Chat with
-          <span class="usernameProfileLink cursorPointer" (click)="viewProfile(currentChatUser);">
-            {{ currentChatUser.username }}
+          <span class="usernameProfileLink cursorPointer" (click)="currentChatUsers ? viewProfile(currentChatUsers[0]) : viewProfile(currentChatUser)">
+            {{ getCommaSeperatedGroupChatUserNames() }}
           </span>
         </span>
         <div class="pagination-controls" *ngIf="!isPanelExpanded">
@@ -25,7 +31,7 @@
             <option *ngFor="let page of totalPagesArray; let i = index" [value]="i+1">{{ i+1 }}</option>
           </select>
         </div>
-        <button (click)="closeChat()">Close Chat with {{ currentChatUser.username }}</button>
+        <button (click)="closeChat()">Close Chat with {{ getCommaSeperatedGroupChatUserNames() }}</button>
       </div>
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
         <div *ngFor="let message of chatHistory" [class]="{'align-left': message.sender.id === parentRef?.user?.id, 'align-right': message.sender.id !== parentRef?.user?.id, 'messageContainer': true}">
@@ -80,7 +86,7 @@
                               [user]="parentRef?.user"
                               [inputtedParentRef]="parentRef"
                               [currentReactions]="message.reactions"></app-reaction>
-              </div> 
+              </div>
             </div>
             <div class="profileTag">
               <div class="usernameProfileLink">
@@ -108,7 +114,7 @@
           </app-media-selector>
         </div>
       </div>
-      <div *ngIf="attachedFiles && attachedFiles.length > 0">Attachments : {{attachedFiles.length}}</div> 
+      <div *ngIf="attachedFiles && attachedFiles.length > 0">Attachments : {{attachedFiles.length}}</div>
     </div>
   </div>
 </div>

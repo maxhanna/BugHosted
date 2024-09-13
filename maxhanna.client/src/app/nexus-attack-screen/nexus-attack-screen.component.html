@@ -1,94 +1,16 @@
-<div *ngIf="originBase && selectedNexus">
-  <div class="unitsTableDiv">
-    <div class="titleMessage">
-      Send
-      <span class="usernameProfileLink">{{isSendingDefence ? 'defence' : 'attack'}}</span>
-      from
-      <span (click)="goToCoords(originBase.coordsX, originBase.coordsY)" class="invertedHighlights pointer">
-        {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}}
-      </span>
-      to
-      <span (click)="goToCoords(selectedNexus.coordsX, selectedNexus.coordsY)" class="invertedHighlights pointer"> 
-        {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}
-      </span>
-      :
-    </div>
-    <table class="mainTable" *ngIf="!isLoading && !isLoadingData && getAvailableUnitStats().length > 0">
-      <tbody *ngFor="let unit of getAvailableUnitStats(); trackBy: trackByUnit">
-        <tr>
-          <td class="unitPictureTd">
-            <ng-container [ngSwitch]="unit.unitType">
-              <app-nexus-base-units *ngSwitchCase="'marine'"
-                                    [showOnlyMarine]="true"
-                                    [nexusAvailableUnits]="nexusAvailableUnits"
-                                    [parentRef]="parentRef"
-                                    [marinePictureSrc]="marinePictureSrc">
-              </app-nexus-base-units>
-
-              <app-nexus-base-units *ngSwitchCase="'goliath'"
-                                    [showOnlyGoliath]="true"
-                                    [nexusAvailableUnits]="nexusAvailableUnits"
-                                    [parentRef]="parentRef"
-                                    [goliathPictureSrc]="goliathPictureSrc">
-              </app-nexus-base-units>
-
-              <app-nexus-base-units *ngSwitchCase="'siege_tank'"
-                                    [showOnlySiegeTank]="true"
-                                    [nexusAvailableUnits]="nexusAvailableUnits"
-                                    [parentRef]="parentRef"
-                                    [siegeTankPictureSrc]="siegeTankPictureSrc">
-              </app-nexus-base-units>
-              <app-nexus-base-units *ngSwitchCase="'scout'"
-                                    [showOnlyScout]="true"
-                                    [nexusAvailableUnits]="nexusAvailableUnits"
-                                    [parentRef]="parentRef"
-                                    [scoutPictureSrc]="scoutPictureSrc">
-              </app-nexus-base-units>
-              <app-nexus-base-units *ngSwitchCase="'wraith'"
-                                    [showOnlyWraith]="true"
-                                    [nexusAvailableUnits]="nexusAvailableUnits"
-                                    [parentRef]="parentRef"
-                                    [wraithPictureSrc]="wraithPictureSrc">
-              </app-nexus-base-units>
-              <app-nexus-base-units *ngSwitchCase="'battlecruiser'"
-                                    [showOnlyBattlecruiser]="true"
-                                    [nexusAvailableUnits]="nexusAvailableUnits"
-                                    [parentRef]="parentRef"
-                                    [battlecruiserPictureSrc]="battlecruiserPictureSrc">
-              </app-nexus-base-units>
-              <app-nexus-base-units *ngSwitchCase="'glitcher'"
-                                    [showOnlyGlitcher]="true"
-                                    [nexusAvailableUnits]="nexusAvailableUnits"
-                                    [parentRef]="parentRef"
-                                    [glitcherPictureSrc]="glitcherPictureSrc">
-              </app-nexus-base-units>
-            </ng-container>
-          </td>
-          <td class="unitPictureTd capitalize">
-            {{ unit.unitType }}
-          </td>
-          <td class="unitSliderTd">
-            <input type="range" class="unitSliderTd" [value]="unit.sentValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
-          </td>
-          <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer centeredText" (click)="unit.sentValue = maxSliderValue(unit)">
-            {{maxSliderValue(unit)}}
-          </td>
-          <td>
-            <input [value]="unit.sentValue ? unit.sentValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
-          </td>
-        </tr>
-        <tr *ngIf="unit.sentValue">
-          <td class="smallFont" colspan="5">
-            <div class="unitStatsDiv">
-              <span>⏱️ETA:{{ formatTimer(calculateAttackDuration(unit))}}</span>
-              <span>⚔️:{{ unit.groundDamage * (unit.sentValue ? unit.sentValue : 1)}}</span>
-              <span>🚀:{{ unit.airDamage * (unit.sentValue ? unit.sentValue : 1)}}</span>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div *ngIf="!isLoading && !isLoadingData && getAvailableUnitStats().length == 0" class="notification">No units currently in base</div>
+<div class="unitsTableDiv" *ngIf="originBase && selectedNexus">
+  <div class="titleMessage">
+    Send
+    <span class="usernameProfileLink">{{isSendingDefence ? 'defence' : 'attack'}}</span>
+    from
+    <span (click)="goToCoords(originBase.coordsX, originBase.coordsY)" class="invertedHighlights pointer">
+      {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}}
+    </span>
+    to
+    <span (click)="goToCoords(selectedNexus.coordsX, selectedNexus.coordsY)" class="invertedHighlights pointer">
+      {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}
+    </span>
+    :
   </div>
   <div class="bottomButtons" *ngIf="!isLoading && !isLoadingData ">
     <div>
@@ -97,4 +19,80 @@
       <button (click)="closeAttackScreen()">Close</button>
     </div>
   </div>
+  <table class="mainTable" *ngIf="!isLoading && !isLoadingData && getAvailableUnitStats().length > 0">
+    <tbody *ngFor="let unit of getAvailableUnitStats(); trackBy: trackByUnit">
+      <tr>
+        <td class="unitPictureTd">
+          <ng-container [ngSwitch]="unit.unitType">
+            <app-nexus-base-units *ngSwitchCase="'marine'"
+                                  [showOnlyMarine]="true"
+                                  [nexusAvailableUnits]="nexusAvailableUnits"
+                                  [parentRef]="parentRef"
+                                  [marinePictureSrc]="marinePictureSrc">
+            </app-nexus-base-units>
+
+            <app-nexus-base-units *ngSwitchCase="'goliath'"
+                                  [showOnlyGoliath]="true"
+                                  [nexusAvailableUnits]="nexusAvailableUnits"
+                                  [parentRef]="parentRef"
+                                  [goliathPictureSrc]="goliathPictureSrc">
+            </app-nexus-base-units>
+
+            <app-nexus-base-units *ngSwitchCase="'siege_tank'"
+                                  [showOnlySiegeTank]="true"
+                                  [nexusAvailableUnits]="nexusAvailableUnits"
+                                  [parentRef]="parentRef"
+                                  [siegeTankPictureSrc]="siegeTankPictureSrc">
+            </app-nexus-base-units>
+            <app-nexus-base-units *ngSwitchCase="'scout'"
+                                  [showOnlyScout]="true"
+                                  [nexusAvailableUnits]="nexusAvailableUnits"
+                                  [parentRef]="parentRef"
+                                  [scoutPictureSrc]="scoutPictureSrc">
+            </app-nexus-base-units>
+            <app-nexus-base-units *ngSwitchCase="'wraith'"
+                                  [showOnlyWraith]="true"
+                                  [nexusAvailableUnits]="nexusAvailableUnits"
+                                  [parentRef]="parentRef"
+                                  [wraithPictureSrc]="wraithPictureSrc">
+            </app-nexus-base-units>
+            <app-nexus-base-units *ngSwitchCase="'battlecruiser'"
+                                  [showOnlyBattlecruiser]="true"
+                                  [nexusAvailableUnits]="nexusAvailableUnits"
+                                  [parentRef]="parentRef"
+                                  [battlecruiserPictureSrc]="battlecruiserPictureSrc">
+            </app-nexus-base-units>
+            <app-nexus-base-units *ngSwitchCase="'glitcher'"
+                                  [showOnlyGlitcher]="true"
+                                  [nexusAvailableUnits]="nexusAvailableUnits"
+                                  [parentRef]="parentRef"
+                                  [glitcherPictureSrc]="glitcherPictureSrc">
+            </app-nexus-base-units>
+          </ng-container>
+        </td>
+        <td class="unitPictureTd capitalize">
+          {{ unit.unitType }}
+        </td>
+        <td class="unitSliderTd">
+          <input type="range" class="unitSliderTd" [value]="unit.sentValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
+        </td>
+        <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer centeredText" (click)="unit.sentValue = maxSliderValue(unit)">
+          {{maxSliderValue(unit)}}
+        </td>
+        <td>
+          <input [value]="unit.sentValue ? unit.sentValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
+        </td>
+      </tr>
+      <tr *ngIf="unit.sentValue">
+        <td class="smallFont" colspan="5">
+          <div class="unitStatsDiv">
+            <span>⏱️ETA:{{ formatTimer(calculateAttackDuration(unit))}}</span>
+            <span>⚔️:{{ unit.groundDamage * (unit.sentValue ? unit.sentValue : 1)}}</span>
+            <span>🚀:{{ unit.airDamage * (unit.sentValue ? unit.sentValue : 1)}}</span>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div *ngIf="!isLoading && !isLoadingData && getAvailableUnitStats().length == 0" class="notification">No units currently in base</div>
 </div>

@@ -18,14 +18,14 @@ import { MiningSpeed } from './datacontracts/nexus/mining-speed';
 })
 export class NexusService {
 
-  private async fetchData(url: string, body: any) {
+  private async fetchData(url: string, body?: any) {
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body)
+        body: body ? JSON.stringify(body) : body
       });
 
       const res = await response;
@@ -50,13 +50,17 @@ export class NexusService {
       nexusUnitsPurchasedList: NexusUnitsPurchased[];
       nexusAttacksSent: NexusAttackSent[], nexusDefencesSent: NexusAttackSent[],
       nexusAttacksIncoming: NexusAttackSent[], nexusDefencesIncoming: NexusAttackSent[],
-      nexusUnitUpgrades: NexusUnitUpgrades[]
+      nexusUnitUpgrades: NexusUnitUpgrades[], nexusUnits: NexusUnits
     } | undefined> {
     return await this.fetchData('/nexus', { User: user, Nexus: nexus });
   }
 
   async getMap(user: User): Promise<NexusBase[]> {
     return await this.fetchData('/nexus/getmap', user);
+  }
+
+  async refreshGoldInBackend(): Promise<void> {
+    return await this.fetchData('/nexus/refreshgold');
   }
 
   async upgradeCommandCenter(user: User, nexus: NexusBase): Promise<any> {

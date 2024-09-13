@@ -22,12 +22,12 @@
                         [user]="user">
       </app-media-viewer>
     </div>
-    <div>
+    <div class="profileHeaderInfo" *ngIf="!loginOnly">
       <div>
         {{user?.about?.description}} 
       </div>
       <div>
-        {{weatherLocation}}
+        <span class="invertedHighlights xxSmallFont">Location: </span>{{weatherLocation || 'Unknown'}} <span class="invertedHighlights xxSmallFont">Since: </span>{{(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')}} <span class="invertedHighlights xxSmallFont">({{user && user.created ? daysSince(user.created) : '0'}} days)</span>
       </div>
       <div>
         <div class="profileControls" *ngIf="user || parentRef?.user">
@@ -78,7 +78,7 @@
           </div>
         </div>
         <div *ngIf="!usersCount && !isLoading">Server down</div>
-        <p class="moreInfoTitle welcomeTitle cursorPointer" (click)="isAboutOpen = !isAboutOpen">{{ !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
+        <p *ngIf="!loginOnly" class="moreInfoTitle welcomeTitle cursorPointer" (click)="isAboutOpen = !isAboutOpen">{{ !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
         <div *ngIf="isAboutOpen" class="aboutSiteDiv">
           <ul>
             <li>

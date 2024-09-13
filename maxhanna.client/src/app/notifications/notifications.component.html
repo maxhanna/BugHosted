@@ -13,6 +13,10 @@
       <div class="closeButton" id="closeOverlay" (click)="showNotifications = false;  (inputtedParentRef ? inputtedParentRef.closeOverlay() : '')" *ngIf="minimalInterface"></div>
     </div>
     <div [class]="minimalInterface ? 'notificationsList' : ''">
+      <!--<div class="noNotificationsDiv">
+        <button (click)="subscribeToPush()">Enable Push Notifications</button> 
+      </div>-->
+
       <div *ngFor="let notification of notifications" class="notificationListItem">
         <div><button title="Delete Notification" (click)="delete(notification)">❌</button></div>
         <div>

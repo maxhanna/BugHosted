@@ -177,5 +177,9 @@
 </div>
 
 <div class="userSearchOverlay" *ngIf="userSearchOpen">
-  <app-user-list (userClickEvent)="searchReports($event);" [user]="user" [inputtedParentRef]="inputtedParentRef"></app-user-list>
+  <button id="closeOverlay" (click)="showUserSearchOverlay()">Close</button>
+  <app-user-list (userClickEvent)="searchReports($event);"
+                 [user]="user"
+                 [inputtedParentRef]="inputtedParentRef"> 
+  </app-user-list>
 </div>

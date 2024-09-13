@@ -3,8 +3,20 @@
   flex-direction: column;
   min-height: 300px;
   min-width: 300px;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
-  max-width: 99vw;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px); 
+}
+
+@media only screen and (min-device-width:800px) {
+  .componentMain {
+    min-width: 500px;
+    max-width: 40vw;
+  }
+}
+
+@media only screen and (max-device-width:800px) {
+  .componentMain { 
+    width: 100vw;
+  }
 }
 
 .userPanel {  
@@ -78,13 +90,7 @@
   border-radius: 12px;
   border: var(--main-border);
   word-break: break-word;
-  width: CALC(100% - 120px);
-  max-width: 30vw;
-}
-@media only screen and (max-device-width:800px) {
-  .messageContent {
-    max-width: 99vw;
-  }
+  width: 100%; 
 }
 .messageSender {
   color: var(--secondary-font-color);

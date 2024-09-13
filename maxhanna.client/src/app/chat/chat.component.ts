@@ -15,9 +15,11 @@ import { AppComponent } from '../app.component';
 export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   users: Array<User> = [];
   isPanelExpanded: boolean = true;
-  currentChatUser: User | null = null;
+  currentChatUser: User | undefined = undefined;
+  currentChatUsers: User[] | undefined = undefined;
   chatHistory: Message[] = [];
   attachedFiles: FileEntry[] = [];
+  selectedUsers: User[] = []
   @ViewChild('newMessage') newMessage!: ElementRef<HTMLInputElement>;
   @ViewChild('chatWindow') chatWindow!: ElementRef;
   hasManuallyScrolled = false;
@@ -72,7 +74,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    this.currentChatUser = null;
+    this.currentChatUser = undefined;
     clearInterval(this.pollingInterval); 
   }
 
@@ -106,10 +108,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
+    if (!this.currentChatUser) return;
     try { 
       const res = await this.chatService.getMessageHistory(
         this.parentRef?.user!,
-        this.currentChatUser,
+        [this.currentChatUser!],
         pageNumber,
         pageSize);
       if (res && res.status && res.status == "404") {
@@ -162,10 +165,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isPanelExpanded = true;
     this.chatHistory = [];
     this.currentChatUser = user;
-    const res = await this.chatService.getMessageHistory(this.parentRef?.user ? this.parentRef.user : null, this.currentChatUser, undefined, this.pageSize);
+    const res = await this.chatService.getMessageHistory(this.parentRef?.user ? this.parentRef.user : null, [this.currentChatUser], undefined, this.pageSize);
 
     this.getChatNotifications();
-    this.stopLoading(); 
+    this.stopLoading();
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];
       this.togglePanel();
@@ -181,8 +184,38 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.pollForMessages();
       }, 410);
     }
-    
-    this.togglePanel(); 
+
+    this.togglePanel();
+  }
+
+  async openGroupChat() {
+    if (!this.selectedUsers || this.selectedUsers.length == 0) { return alert("You must select more than one user."); }
+    this.startLoading();
+    console.log("loading messages");
+    this.isPanelExpanded = true;
+    this.chatHistory = [];
+    this.currentChatUsers = this.selectedUsers;
+    const res = await this.chatService.getMessageHistory(this.parentRef?.user ? this.parentRef.user : null, this.currentChatUsers, undefined, this.pageSize);
+
+    this.getChatNotifications();
+    this.stopLoading();
+    if (res && res.status && res.status == "404") {
+      this.chatHistory = [];
+      this.togglePanel();
+      return;
+    }
+    if (res) {
+      this.chatHistory = (res.messages as Message[]).reverse();
+      this.pageNumber = res.currentPage;
+      this.totalPages = res.totalPages;
+      this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
+      setTimeout(() => {
+        this.scrollToBottomIfNeeded();
+        this.pollForMessages();
+      }, 410);
+    }
+
+    this.togglePanel();
   }
 
   async getChatNotifications() { 
@@ -210,7 +243,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   closeChat() {
     this.closeChatEvent.emit();
     this.hasManuallyScrolled = false;
-    this.currentChatUser = null;
+    this.currentChatUser = undefined;
+    this.currentChatUsers = undefined;
     this.chatHistory = [];
     this.pageNumber = 0;
     this.totalPages = 0;
@@ -235,10 +269,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error(error);
     } 
-  }
-
-  selectFile(files: FileEntry[]) {
-    console.log("selected files : " + files);
-    this.attachedFiles = files;
   } 
+  selectFile(files: FileEntry[]) { 
+    this.attachedFiles = files;
+  }
+  userSelectClickEvent(users: User[] | undefined) {
+    if (!users) this.selectedUsers = [];
+    else this.selectedUsers = users; 
+  }
+  getCommaSeperatedGroupChatUserNames() {
+    return this.currentChatUsers?.map(user => user.username).join(', ') ?? this.currentChatUser?.username;
+  }
 }

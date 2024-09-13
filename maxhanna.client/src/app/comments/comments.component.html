@@ -19,7 +19,7 @@
             ✏️Edit
           </button>
 
-          <div class="commentDate">{{comment.date!.toString().replace('T', ' ')}}</div>
+          <div class="commentDate">{{comment.date | date: 'y/MM/d HH:mm'}}</div>
 
           <app-reaction [commentId]="comment.id"
                         [user]="inputtedParentRef?.user"

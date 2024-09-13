@@ -138,3 +138,11 @@
   flex-wrap: wrap;
   font-size:small;
 }
+.profileHeaderInfo {
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+}

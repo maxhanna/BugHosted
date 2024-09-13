@@ -196,7 +196,7 @@ namespace maxhanna.Server.Controllers
                             var story = new Story
                             {
                                 Id = storyId,
-                                User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null),
+                                User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
                                 StoryText = rdr.GetString("story_text"),
                                 Date = rdr.GetDateTime("date"),
                                 CommentsCount = rdr.GetInt32("comments_count"),
@@ -596,7 +596,7 @@ namespace maxhanna.Server.Controllers
                                         Id = commentId,
                                         CommentText = commentText,
                                         StoryId = storyId,
-                                        User = new User(userId, userName, null, dpFileEntry, null),
+                                        User = new User(userId, userName, null, dpFileEntry, null, null, null),
                                         Date = date,
                                         CommentFiles = new List<FileEntry>(), 
                                         Reactions = new List<Reaction>() // Initialize reactions list

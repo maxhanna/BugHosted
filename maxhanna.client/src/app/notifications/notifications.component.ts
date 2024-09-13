@@ -4,7 +4,7 @@ import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { Location } from '@angular/common'; 
 import { AppComponent } from '../app.component';
-import { User } from '../../services/datacontracts/user/user';
+import { User } from '../../services/datacontracts/user/user';  
 
 @Component({
   selector: 'app-notifications',
@@ -18,7 +18,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   @Input() inputtedParentRef?: AppComponent;
 
   showNotifications = false;
-  notifications?: UserNotification[] = [];
+  notifications?: UserNotification[] = []; 
   private pollingInterval: any;
 
   ngOnInit() {
@@ -56,6 +56,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       super.remove_me(type);
     }
   }
+
   createComponent(name: string, args: any) {
     if (this.parentRef || this.inputtedParentRef) { 
       if (this.parentRef)

@@ -75,7 +75,7 @@ namespace maxhanna.Server.Controllers
                             username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString(rdr.GetOrdinal("username")),
                             null,
                             displayPic,
-                            null
+                            null, null, null
                         ),
                         characterClass: rdr.IsDBNull(rdr.GetOrdinal("character_class")) ? 0 : rdr.GetInt16(rdr.GetOrdinal("character_class")),
                         level: rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt64(rdr.GetOrdinal("level")),
@@ -184,8 +184,8 @@ namespace maxhanna.Server.Controllers
                     }
 
                     var graveyardHero = new GraveyardHero();
-                    graveyardHero.Hero = new User(user_id, user_username, null, userDisplayPicture, null);
-                    graveyardHero.Killer = new User(killer_id, killer_username, null, killerDisplayPicture, null);
+                    graveyardHero.Hero = new User(user_id, user_username, null, userDisplayPicture, null, null, null);
+                    graveyardHero.Killer = new User(killer_id, killer_username, null, killerDisplayPicture, null, null, null);
                     graveyardHero.Timestamp = timestamp;
                     return Ok(graveyardHero); 
                 }
@@ -380,7 +380,7 @@ namespace maxhanna.Server.Controllers
                     username: rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString(rdr.GetOrdinal("username")),
                     null,
                     displayPicture,
-                    null
+                    null, null, null
                 );
 
                 opponents.Add(new ArrayCharacter(

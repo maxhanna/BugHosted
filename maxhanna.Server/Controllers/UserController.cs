@@ -117,7 +117,9 @@ namespace maxhanna.Server.Controllers
                             reader["username"].ToString()!,
                             reader["pass"].ToString(),
                             displayPic.Id != 0 ? displayPic : null,
-                            tmpAbout
+                            tmpAbout, 
+                            (DateTime)reader["created"],
+                            (DateTime)reader["last_seen"]
                         ));
                     }
                     else
@@ -199,7 +201,9 @@ namespace maxhanna.Server.Controllers
                             reader["username"].ToString()!,
                             null, // Password is not returned in this method, you might need to adjust this based on your requirements
                             displayPic.Id == 0 ? null : displayPic,
-                            tmpAbout
+                            tmpAbout,
+                            (DateTime)reader["created"],
+                            (DateTime)reader["last_seen"]
                         ));
                     }
                     else
