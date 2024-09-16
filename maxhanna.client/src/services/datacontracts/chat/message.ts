@@ -6,6 +6,7 @@ import { User } from "../user/user";
 
 export class Message {
   id: number;
+  chatId: number;
   sender: User;
   receiver: User;
   content: string;
@@ -13,8 +14,9 @@ export class Message {
   reactions?: Reaction[];
   files?: FileEntry[];
 
-  constructor(id: number, sender: User, receiver: User, content: string, timestamp: Date, reactions?: Reaction[], files?: FileEntry[]) {
+  constructor(id: number, chatId: number, sender: User, receiver: User, content: string, timestamp: Date, reactions?: Reaction[], files?: FileEntry[]) {
     this.id = id;
+    this.chatId = chatId;
     this.sender = sender;
     this.receiver = receiver;
     this.content = content;

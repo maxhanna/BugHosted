@@ -1,46 +1,46 @@
-﻿using maxhanna.Server.Controllers; 
+﻿using maxhanna.Server.Controllers;
 
 namespace maxhanna.Server.Services
 {
     public class NexusGoldUpdateBackgroundService : BackgroundService
     {
-        private readonly IConfiguration _config; 
+        private readonly IConfiguration _config;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<NexusController> _logger;
- 
+
         private Timer _checkForNewBaseUpdates;
         private int timerDuration = 20;
- 
+
         private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
 
 
         public NexusGoldUpdateBackgroundService(IConfiguration config)
-        { 
-            _config = config; 
+        {
+            _config = config;
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
             _serviceProvider = serviceCollection.BuildServiceProvider();
-            _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>(); 
+            _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
         }
 
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken); // random initail delay
-            _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(timerDuration), TimeSpan.FromSeconds(timerDuration)); 
-        } 
+            _checkForNewBaseUpdates = new Timer(CheckForNewUpdates, null, TimeSpan.FromSeconds(timerDuration), TimeSpan.FromSeconds(timerDuration));
+        }
         private async void CheckForNewUpdates(object state)
         {
-            _checkForNewBaseUpdates?.Change(Timeout.Infinite, Timeout.Infinite);  
+            _checkForNewBaseUpdates?.Change(Timeout.Infinite, Timeout.Infinite);
             try
             {
                 await ProcessNexusGold();
             }
             finally
             {
-                _checkForNewBaseUpdates?.Change(TimeSpan.FromSeconds(timerDuration), TimeSpan.FromSeconds(timerDuration));  
+                _checkForNewBaseUpdates?.Change(TimeSpan.FromSeconds(timerDuration), TimeSpan.FromSeconds(timerDuration));
             }
-        } 
+        }
 
         private void ConfigureServices(IServiceCollection services)
         {
@@ -51,31 +51,31 @@ namespace maxhanna.Server.Services
             // Configure configuration
             services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .Build()); 
-        } 
+                .Build());
+        }
 
         public async Task ProcessNexusGold()
-        { 
-            await _semaphore.WaitAsync(); 
+        {
+            await _semaphore.WaitAsync();
 
             try
-            {  
-                var nexusController = new NexusController(_logger, _config); 
+            {
+                var nexusController = new NexusController(_logger, _config);
                 int basesUpdated = await nexusController.UpdateNexusGold();
-                Console.WriteLine($"Updated gold for {basesUpdated} bases.");
+                //Console.WriteLine($"Updated gold for {basesUpdated} bases.");
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);  
+                Console.WriteLine(ex.Message);
             }
             finally
             {
                 _semaphore.Release();
             }
-        } 
+        }
         public override void Dispose()
         {
-            _checkForNewBaseUpdates?.Dispose(); 
+            _checkForNewBaseUpdates?.Dispose();
             _semaphore.Dispose();
             base.Dispose();
         }

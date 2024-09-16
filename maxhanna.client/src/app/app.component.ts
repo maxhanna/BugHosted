@@ -24,6 +24,7 @@ import { UpdateUserSettingsComponent } from './update-user-settings/update-user-
 import { EmulationComponent } from './emulation/emulation.component';
 import { ArrayComponent } from './array/array.component';
 import { NexusComponent } from './nexus/nexus.component';
+import { MetaComponent } from './meta/meta.component';
 import { User } from '../services/datacontracts/user/user';
 import { ModalComponent } from './modal/modal.component';
 import { NotificationsComponent } from './notifications/notifications.component';
@@ -56,6 +57,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🌍", title: "Social", content: undefined },
     { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
     { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
+    { ownership: 0, icon: "🤖", title: "Meta-Bots", content: undefined },
     { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
     { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
@@ -96,6 +98,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Emulation": EmulationComponent,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
+    "Meta-Bots": MetaComponent,
     "Wordler": WordlerComponent,
     "News": NewsComponent,
     "Coin-Wallet": CoinWalletComponent,
@@ -148,6 +151,10 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (this.router.url.includes('War')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Bug-Wars');
+        }
+        if (this.router.url.includes('Meta')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Meta-Bots');
         }
         if (this.router.url.includes('Wordler')) {
           this.checkAndClearRouterOutlet();

@@ -15,8 +15,8 @@ import { AppComponent } from '../app.component';
 export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   users: Array<User> = [];
   isPanelExpanded: boolean = true;
-  currentChatUser: User | undefined = undefined;
   currentChatUsers: User[] | undefined = undefined;
+  currentChatId?: number = undefined;
   chatHistory: Message[] = [];
   attachedFiles: FileEntry[] = [];
   selectedUsers: User[] = []
@@ -69,26 +69,26 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef = this.inputtedParentRef;
       }
       console.log("on init");
-      await this.openChat(this.selectedUser);
+      await this.openChat([this.selectedUser]);
     }
   }
 
   ngOnDestroy() {
-    this.currentChatUser = undefined;
+    this.currentChatUsers = undefined;
     clearInterval(this.pollingInterval); 
   }
 
   pollForMessages() {
-     if (this.currentChatUser) {
+    if (this.currentChatUsers) {
       this.pollingInterval = setInterval(async () => {
         if (!this.isComponentInView()) {
           clearInterval(this.pollingInterval);
           return;
         }
-        if (this.currentChatUser && this.pageNumber == 1) {
+        if (this.currentChatUsers && this.pageNumber == 1) { 
           this.getMessageHistory(); 
-        }
-      }, 5000);
+        } 
+      }, 3000);
     }
   }
 
@@ -107,12 +107,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
-    if (!this.currentChatUser) return;
+  async getMessageHistory(chatId?: number, pageNumber?: number, pageSize: number = 10) {
+    if (!this.currentChatUsers) return;
     try { 
       const res = await this.chatService.getMessageHistory(
-        this.parentRef?.user!,
-        [this.currentChatUser!],
+        this.parentRef?.user ?? new User(0, "Anonymous"),
+        this.currentChatUsers,
+        chatId,
         pageNumber,
         pageSize);
       if (res && res.status && res.status == "404") {
@@ -124,7 +125,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
         this.chatHistory = [...this.chatHistory, ...newMessages];
         this.pageNumber = res.currentPage; 
-
+        
         this.scrollToBottomIfNeeded();
       }
     } catch { }
@@ -156,16 +157,24 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   changePage(event: any) {
     this.pageNumber = +event.target.value;
     this.chatHistory = [];
-    this.getMessageHistory(this.pageNumber, this.pageSize);
+    this.getMessageHistory(
+      this.currentChatId, this.pageNumber, this.pageSize);
   }
-  async openChat(user?: User) {
-    if (!user) { return; }
+  async openChat(users?: User[]) {
+    if (!users) { return; }
+    this.currentChatId = undefined;
+
     this.startLoading();
     console.log("loading messages");
     this.isPanelExpanded = true;
     this.chatHistory = [];
-    this.currentChatUser = user;
-    const res = await this.chatService.getMessageHistory(this.parentRef?.user ? this.parentRef.user : null, [this.currentChatUser], undefined, this.pageSize);
+    this.currentChatUsers = users;
+    const res = await this.chatService.getMessageHistory(
+      this.parentRef?.user ?? new User(0, "Anonymous"),
+      this.currentChatUsers,
+      this.currentChatId,
+      undefined,
+      this.pageSize);
 
     this.getChatNotifications();
     this.stopLoading();
@@ -175,48 +184,21 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return;
     }
     if (res) {
-      this.chatHistory = (res.messages as Message[]).reverse();
+      if (res.messages && res.messages.length > 0) {
+        this.chatHistory = (res.messages as Message[]).reverse();
+      } else {
+        this.chatHistory = [];
+      }
       this.pageNumber = res.currentPage;
       this.totalPages = res.totalPages;
-      this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
-      setTimeout(() => {
-        this.scrollToBottomIfNeeded();
-        this.pollForMessages();
-      }, 410);
+      this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1); 
     }
-
+    setTimeout(() => {
+      this.scrollToBottomIfNeeded();
+    }, 410); 
+    this.pollForMessages();
     this.togglePanel();
-  }
-
-  async openGroupChat() {
-    if (!this.selectedUsers || this.selectedUsers.length == 0) { return alert("You must select more than one user."); }
-    this.startLoading();
-    console.log("loading messages");
-    this.isPanelExpanded = true;
-    this.chatHistory = [];
-    this.currentChatUsers = this.selectedUsers;
-    const res = await this.chatService.getMessageHistory(this.parentRef?.user ? this.parentRef.user : null, this.currentChatUsers, undefined, this.pageSize);
-
-    this.getChatNotifications();
-    this.stopLoading();
-    if (res && res.status && res.status == "404") {
-      this.chatHistory = [];
-      this.togglePanel();
-      return;
-    }
-    if (res) {
-      this.chatHistory = (res.messages as Message[]).reverse();
-      this.pageNumber = res.currentPage;
-      this.totalPages = res.totalPages;
-      this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
-      setTimeout(() => {
-        this.scrollToBottomIfNeeded();
-        this.pollForMessages();
-      }, 410);
-    }
-
-    this.togglePanel();
-  }
+  } 
 
   async getChatNotifications() { 
     if (this.parentRef?.user || this.inputtedParentRef?.user) {
@@ -242,8 +224,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   closeChat() {
     this.closeChatEvent.emit();
-    this.hasManuallyScrolled = false;
-    this.currentChatUser = undefined;
+    this.hasManuallyScrolled = false; 
     this.currentChatUsers = undefined;
     this.chatHistory = [];
     this.pageNumber = 0;
@@ -253,6 +234,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.togglePanel();
   } 
   async sendMessage() {
+    if (!this.currentChatUsers || this.currentChatUsers.length == 0) return;
     let msg = this.newMessage.nativeElement.value.trim();
     console.log("sendMessage");
     if (msg) {
@@ -261,11 +243,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (msg.trim() == "" && (!this.attachedFiles || this.attachedFiles.length == 0)) {
       return alert("Message content cannot be empty.");
     }
+    let chatUsers = this.currentChatUsers;  
     try {
       this.newMessage.nativeElement.value = '';
-      await this.chatService.sendMessage(this.parentRef?.user!, this.currentChatUser!, msg, this.attachedFiles);
+      await this.chatService.sendMessage(this.parentRef?.user!, chatUsers, msg, this.attachedFiles).then(res => {
+        this.currentChatId = res; 
+        this.getMessageHistory(this.currentChatId!); 
+      });
       this.attachedFiles = [];
-      await this.getMessageHistory();
+     
     } catch (error) {
       console.error(error);
     } 
@@ -277,7 +263,24 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!users) this.selectedUsers = [];
     else this.selectedUsers = users; 
   }
+  groupChatEvent(users: User[] | undefined) { 
+    if (!users) {
+      this.selectedUsers = [];
+      return;
+    }
+    else this.selectedUsers = users;
+    this.openGroupChat();
+  }
+  singleUserSelected(user?: User) {
+    if (!user) return;
+    this.openChat([user]);
+  }
+
+  async openGroupChat() {
+    if (!this.selectedUsers || this.selectedUsers.length == 0) { return alert("You must select more than one user."); }
+    this.openChat(this.selectedUsers);
+  }
   getCommaSeperatedGroupChatUserNames() {
-    return this.currentChatUsers?.map(user => user.username).join(', ') ?? this.currentChatUser?.username;
+    return this.currentChatUsers?.map(user => user.username).join(', ');
   }
 }

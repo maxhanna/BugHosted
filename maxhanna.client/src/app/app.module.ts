@@ -49,7 +49,8 @@ import { NexusMapComponent } from './nexus-map/nexus-map.component';
 import { ModalComponent } from './modal/modal.component';
 import { NexusSupportScreenComponent } from './nexus-support-screen/nexus-support-screen.component';
 import { NotificationsComponent } from './notifications/notifications.component';
-import { InViewDirective } from './in-view.directive';  
+import { InViewDirective } from './in-view.directive';
+import { MetaComponent } from './meta/meta.component';  
 
 @NgModule({
   declarations: [
@@ -95,6 +96,7 @@ import { InViewDirective } from './in-view.directive';
     NexusSupportScreenComponent,
     NotificationsComponent,
     InViewDirective,
+    MetaComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

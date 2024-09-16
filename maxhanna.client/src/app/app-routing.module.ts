@@ -13,6 +13,7 @@ const routes: Routes = [
   { path: 'Wordler', component: AppComponent },
   { path: 'Array', component: AppComponent },
   { path: 'War', component: AppComponent },
+  { path: 'Meta', component: AppComponent },
 ];
 
 @NgModule({

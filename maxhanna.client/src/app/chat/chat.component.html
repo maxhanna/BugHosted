@@ -3,12 +3,13 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Chat</div>
 
-  <div *ngIf="selectedUsers.length > 1 && !currentChatUser && !currentChatUsers" class="messageInput">
+  <div *ngIf="selectedUsers.length > 1 && !currentChatUsers" class="messageInput">
     <button (click)="openGroupChat()">Group Chat</button>
   </div>
 
-  <app-user-list (userClickEvent)="openChat($event);"
+  <app-user-list (userClickEvent)="singleUserSelected($event);"
                  (userSelectClickEvent)="userSelectClickEvent($event)"
+                 (groupChatEvent)="groupChatEvent($event)"
                  [user]="parentRef?.user"
                  [class.expanded]="isPanelExpanded"
                  [displayOnlyFriends]="true"
@@ -18,11 +19,11 @@
   </app-user-list>
 
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
-    <div *ngIf="currentChatUser || currentChatUsers">
+    <div *ngIf="currentChatUsers">
       <div class="chatHeader">
         <span style="margin-right:10px;">
           Chat with
-          <span class="usernameProfileLink cursorPointer" (click)="currentChatUsers ? viewProfile(currentChatUsers[0]) : viewProfile(currentChatUser)">
+          <span class="usernameProfileLink cursorPointer" (click)="currentChatUsers.length == 1 ? viewProfile(currentChatUsers[0]) : $event.preventDefault();">
             {{ getCommaSeperatedGroupChatUserNames() }}
           </span>
         </span>

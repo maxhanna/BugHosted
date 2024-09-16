@@ -22,6 +22,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @Input() contactsOnly: boolean = false;
   @Output() userClickEvent = new EventEmitter<User | undefined>();
   @Output() userSelectClickEvent = new EventEmitter<User[] | undefined>();
+  @Output() groupChatEvent = new EventEmitter<User[] | undefined>();
 
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('allUsersRadio') allUsersRadio!: ElementRef<HTMLInputElement>;
@@ -29,6 +30,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   private chatInfoInterval: any;
   users: Array<User> = [];
+  userRows: Array<User[]> = [];
   selectedUsers: Array<User> = [];
   filterOption: string = 'all';
   friendSelected = false;
@@ -56,6 +58,16 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       }
       if (!search && (this.friendsRadio ? this.friendsRadio.nativeElement.checked : this.displayOnlyFriends)) {
         this.users = await this.friendService.getFriends(this.user!);
+        this.userRows = [];
+        this.chatService.getGroupChats(this.user).then(res => {
+          for (let gx = 0; gx < res.length; gx++) {
+            if (res[gx] && res[gx].receiver) {
+              const receiverUsers = res[gx].receiver as User[];
+              this.userRows.push(receiverUsers);
+              console.log(receiverUsers);
+            }
+          }
+        });
       } else {
         this.users = await this.userService.getAllUsers(this.user!, search);
       }
@@ -65,7 +77,12 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     this.userClickEvent.emit(value);
     if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
       this.inputtedParentRef.closeOverlay();
-    } 
+    }
+  }
+
+  clickMany(value?: User[]) {
+    console.log(value);
+    this.groupChatEvent.emit(value); 
   }
   getChatNotificationsByUser(userId?: number) {
     if (userId && this.chatNotifications && this.chatNotifications.length > 0) {
@@ -112,5 +129,16 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       this.selectedUsers.push(user);
     }
     this.userSelectClickEvent.emit(this.selectedUsers);
-  } 
+  }
+   getCommaSeparatedGroupChatUserNames(users: User | User[]): string { 
+    let userArray: User[];
+
+    if (Array.isArray(users)) {
+      userArray = users;
+    } else {
+      userArray = [users]; // Convert single user to an array
+    }
+
+    return userArray.map(user => user.username).join(', ');
+  }
 }

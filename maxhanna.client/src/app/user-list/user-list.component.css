@@ -38,3 +38,8 @@
 .searchResults {
     margin-top: 10px;
 }
+.prevChatMessages {
+    color: var(--secondary-font-color);
+    text-align:center;
+
+}
