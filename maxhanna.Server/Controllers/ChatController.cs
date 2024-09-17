@@ -234,6 +234,7 @@ namespace maxhanna.Server.Controllers
             int pageSize = request.PageSize.HasValue && request.PageSize > 0 ? request.PageSize.Value : 20;
             int pageNumber = request.PageNumber.HasValue && request.PageNumber > 0 ? request.PageNumber.Value : 1; // Default to the first page
             int totalRecords = 0;
+            int totalPages = 0;
 
             string receiverList = request.Receivers != null && request.Receivers.Any()
                 ? string.Join(",", request.Receivers.Select(r => r.Id))
@@ -253,32 +254,46 @@ namespace maxhanna.Server.Controllers
                         return BadRequest("Receiver list is empty.");
                     }
 
-                    // Query to find the chatId that matches the receiver list
+                    // Query to find the chatId that matches the sorted receiver list
                     string findChatIdQuery = @"
-                        SELECT chat_id
+                        SELECT chat_id, receiver
                         FROM messages
-                        WHERE receiver = @ReceiverId
-                        GROUP BY chat_id 
-                    ";
+                        GROUP BY chat_id, receiver";
 
                     MySqlCommand findChatIdCmd = new MySqlCommand(findChatIdQuery, conn);
-                    findChatIdCmd.Parameters.AddWithValue("@ReceiverId", receiverList); 
 
-                    object result = await findChatIdCmd.ExecuteScalarAsync();
-
-                    if (result != null)
+                    using (var reader = await findChatIdCmd.ExecuteReaderAsync())
                     {
-                        chatId = Convert.ToInt32(result);
+                        while (await reader.ReadAsync())
+                        {
+                            string dbReceiver = reader["receiver"].ToString();
+                            List<string> dbReceiverList = dbReceiver.Split(',').OrderBy(id => id).ToList(); // Sort the db receiver list
+
+                            // Compare sorted lists as strings
+                            if (request.Receivers != null && request.Receivers.Length > 0 && new HashSet<string>(dbReceiverList).SetEquals(request.Receivers.Select(r => r.Id.ToString())))
+                            {
+                                chatId = Convert.ToInt32(reader["chat_id"]);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (chatId == null)
+                    {
+                        Console.WriteLine("No matching chatId found for receivers: " + receiverList);
+                        return Ok(messages);
                     }
                     Console.WriteLine("Found chatId: " + chatId);
                 }
-            } else
+            }
+            else
             {
                 chatId = request.ChatId;
             }
 
             if (chatId == null)
             {
+                Console.WriteLine("returning no messages because chatId is null");
                 return Ok(messages);
             } 
             else if (chatId != null)
@@ -304,11 +319,10 @@ namespace maxhanna.Server.Controllers
                         {
                             Console.WriteLine("Found a pre-existing chat history");
 
-                            int totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
-                            if (pageNumber > totalPages) pageNumber = totalPages;
-
+                            totalPages = (int)Math.Ceiling((double)totalRecords / pageSize); 
+ 
                             int offset = (pageNumber - 1) * pageSize;
-                            //_logger.LogInformation($"totalPages: {totalPages} offset: {offset} totalRecords: {totalRecords}");
+                            Console.WriteLine($"totalPages: {totalPages} offset: {offset} totalRecords: {totalRecords}, pageNumber: {pageNumber}");
 
                             string sql = @"
                         SELECT 
@@ -473,7 +487,7 @@ namespace maxhanna.Server.Controllers
                         UPDATE
                             maxhanna.messages m
                         SET 
-                            seen = 1
+                            seen = CONCAT(seen, ',', @SenderId)
                         WHERE chat_id = @ChatId AND sender != @SenderId AND receiver = @ReceiverId;";
 
                         MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
@@ -499,9 +513,7 @@ namespace maxhanna.Server.Controllers
                 {
                     var safeMessages = messages ?? new List<Message>();
                     int safePageNumber = pageNumber > 0 ? pageNumber : 1;
-                    int safePageSize = pageSize > 0 ? pageSize : 10;
-                    totalRecords = totalRecords > 0 ? totalRecords : 0;
-                    int totalPages = (int)Math.Ceiling((double)totalRecords / safePageSize);
+                    int safePageSize = pageSize > 0 ? pageSize : 10; 
                     safePageNumber = safePageNumber > totalPages ? totalPages : safePageNumber;
 
                     var response = new
@@ -582,6 +594,16 @@ namespace maxhanna.Server.Controllers
                 else
                 {
                     newChatId = request.ChatId.Value; 
+                }
+                string receiverSql = @"
+                        SELECT receiver 
+                        FROM maxhanna.messages
+                        WHERE chat_id = @ChatId  
+                        LIMIT 1;";
+                using (var idcmd = new MySqlCommand(receiverSql, conn))
+                {
+                    idcmd.Parameters.AddWithValue("@ChatId", newChatId);
+                    receiverList = Convert.ToString(await idcmd.ExecuteScalarAsync());
                 }
 
                 string sql = "INSERT INTO maxhanna.messages (sender, receiver, chat_id, content) VALUES (@Sender, @Receiver, @ChatId, @Content)";

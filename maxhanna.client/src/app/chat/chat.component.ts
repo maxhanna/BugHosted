@@ -16,7 +16,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   users: Array<User> = [];
   isPanelExpanded: boolean = true;
   currentChatUsers: User[] | undefined = undefined;
-  currentChatId?: number = undefined;
+  currentChatId?: number;
   chatHistory: Message[] = [];
   attachedFiles: FileEntry[] = [];
   selectedUsers: User[] = []
@@ -79,16 +79,21 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   pollForMessages() {
+    console.log("polling");
     if (this.currentChatUsers) {
       this.pollingInterval = setInterval(async () => {
+        console.log("interval");
+        console.log(this.currentChatUsers);
         if (!this.isComponentInView()) {
+          console.log("component not in view");
           clearInterval(this.pollingInterval);
           return;
         }
-        if (this.currentChatUsers && this.pageNumber == 1) { 
+        if (this.currentChatUsers ) {
+          console.log("wont hit");
           this.getMessageHistory(); 
-        } 
-      }, 3000);
+        }
+      }, 5000);
     }
   }
 
@@ -107,13 +112,22 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  async getMessageHistory(chatId?: number, pageNumber?: number, pageSize: number = 10) {
+  async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
+    console.log("pre get message history");
+
     if (!this.currentChatUsers) return;
-    try { 
+    try {
+      console.log("get message history");
+
+      const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
+      if (!this.currentChatUsers.some(x => x.id == this.parentRef?.user?.id)) {
+        this.currentChatUsers.push(user);
+      }
+      console.log("current chat id : " + this.currentChatId);
       const res = await this.chatService.getMessageHistory(
-        this.parentRef?.user ?? new User(0, "Anonymous"),
+        user,
         this.currentChatUsers,
-        chatId,
+        this.currentChatId,
         pageNumber,
         pageSize);
       if (res && res.status && res.status == "404") {
@@ -124,8 +138,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         // Concatenate new messages that are not already in chatHistory
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
         this.chatHistory = [...this.chatHistory, ...newMessages];
-        this.pageNumber = res.currentPage; 
-        
+        this.pageNumber = res.currentPage;
+        console.log((res.messages[0] as Message));
+        console.log(":thats message");
+        if (!this.currentChatId && (res.messages[0] as Message).chatId) {
+          this.currentChatId = (res.messages[0] as Message).chatId;
+        }
         this.scrollToBottomIfNeeded();
       }
     } catch { }
@@ -157,55 +175,54 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   changePage(event: any) {
     this.pageNumber = +event.target.value;
     this.chatHistory = [];
-    this.getMessageHistory(
-      this.currentChatId, this.pageNumber, this.pageSize);
+    this.getMessageHistory(this.pageNumber, this.pageSize);
   }
   async openChat(users?: User[]) {
     if (!users) { return; }
-    this.currentChatId = undefined;
-
     this.startLoading();
     console.log("loading messages");
     this.isPanelExpanded = true;
     this.chatHistory = [];
+    this.currentChatId = undefined;
+    const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
     this.currentChatUsers = users;
-    const res = await this.chatService.getMessageHistory(
-      this.parentRef?.user ?? new User(0, "Anonymous"),
-      this.currentChatUsers,
-      this.currentChatId,
-      undefined,
-      this.pageSize);
+    if (!this.currentChatUsers.some(x => x.id == user.id)) {
+      this.currentChatUsers.push(user);
+    }
+    const res = await this.chatService.getMessageHistory(user, this.currentChatUsers, undefined, undefined, this.pageSize);
 
-    this.getChatNotifications();
-    this.stopLoading();
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];
       this.togglePanel();
       return;
     }
-    if (res) {
-      if (res.messages && res.messages.length > 0) {
-        this.chatHistory = (res.messages as Message[]).reverse();
-      } else {
-        this.chatHistory = [];
-      }
+    if (res && res.messages) {
+      this.chatHistory = (res.messages as Message[]).reverse();
       this.pageNumber = res.currentPage;
       this.totalPages = res.totalPages;
-      this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1); 
+      this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
+      const message0 = (res.messages[0] as Message);
+ 
+      if (!this.currentChatId && message0.chatId) {
+        this.currentChatId = message0.chatId; 
+      }
+      console.log("after chat id " + this.currentChatId); 
     }
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
-    }, 410); 
-    this.pollForMessages();
+      this.pollForMessages();
+    }, 410);
     this.togglePanel();
+
+    this.getChatNotifications();
+    this.stopLoading();
   } 
 
   async getChatNotifications() { 
     if (this.parentRef?.user || this.inputtedParentRef?.user) {
       const res = await this.chatService.getChatNotifications(this.parentRef && this.parentRef.user ? this.parentRef.user : this.inputtedParentRef!.user!);
-      console.log(res);
-      console.log("thats chat notifs");
-      if (res && res != 0 && res != "NaN") {
+ 
+       if (res && res != 0 && res != "NaN") {
         if (this.parentRef) {
           this.parentRef.navigationItems.filter(x => x.title == "Chat")[0].content = res + '';
         } else {
@@ -243,15 +260,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (msg.trim() == "" && (!this.attachedFiles || this.attachedFiles.length == 0)) {
       return alert("Message content cannot be empty.");
     }
-    let chatUsers = this.currentChatUsers;  
+    let chatUsers = this.currentChatUsers; 
+    if (this.parentRef && this.parentRef.user && !chatUsers.includes(this.parentRef.user)) {
+      chatUsers.push(this.parentRef.user);
+    }
     try {
       this.newMessage.nativeElement.value = '';
-      await this.chatService.sendMessage(this.parentRef?.user!, chatUsers, msg, this.attachedFiles).then(res => {
-        this.currentChatId = res; 
-        this.getMessageHistory(this.currentChatId!); 
-      });
+      await this.chatService.sendMessage(this.parentRef?.user!, chatUsers, this.currentChatId, msg, this.attachedFiles);
       this.attachedFiles = [];
-     
+      await this.getMessageHistory();
     } catch (error) {
       console.error(error);
     } 
