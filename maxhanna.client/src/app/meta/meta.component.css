@@ -1,0 +1,29 @@
+.componentMain {
+    width: 99vw;
+}
+.gameCanvas {
+  width: 100vw; /* Full viewport width */
+  height: 80vh; /* 80% of viewport height */
+  border: 1px solid #000; /* Optional: Border for visibility */
+  display: block; /* Prevents extra space below the canvas */
+  margin: 0 auto; /* Center canvas horizontally */
+}
+.gameCanvasContainer {
+  position: relative;
+  width: 100%; /* Adjust this based on the canvas size */
+}
+.enterNameInput {
+  position: absolute;
+  top: 200px;
+  width: 100px;
+  left: CALC(50% - 75px);
+}
+.nextStoryTextButton {
+  position: absolute;
+  top: 165px;
+  right: 10%;
+  transform: translateX(-50%);
+  font-size: 1.5rem;
+  padding: 10px 20px;
+  z-index: 10;
+}

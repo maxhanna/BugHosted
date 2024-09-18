@@ -132,3 +132,6 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Notification/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/Meta/
+Accept: application/json
+###

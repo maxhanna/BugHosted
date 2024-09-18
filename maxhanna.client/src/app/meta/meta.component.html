@@ -2,5 +2,19 @@
   <div class="closeButton" (click)="remove_me('MetaComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Meta-Bots</div>
-   Meta-Bots works!
+
+  <div class="gameCanvasContainer"> 
+    <canvas #gameCanvas class="gameCanvas"></canvas>
+    <button (click)="advanceStartingStoryText()" class="nextStoryTextButton" *ngIf="showingNarrationText">{{advanceStoryButtonText}}</button>
+  </div>
+
+  <div *ngIf="hero">
+    <button (mousedown)="startMoveUp()" (mouseup)="stopMoveUp()" (mouseleave)="stopMoveUp()">Up</button>
+    <button (mousedown)="startMoveLeft()" (mouseup)="stopMoveLeft()" (mouseleave)="stopMoveLeft()">Left</button>
+    <button (mousedown)="startMoveRight()" (mouseup)="stopMoveRight()" (mouseleave)="stopMoveRight()">Right</button>
+    <button (mousedown)="startMoveDown()" (mouseup)="stopMoveDown()" (mouseleave)="stopMoveDown()">Down</button>
+  </div>
+  <div *ngIf="hero || showNameInput" [class]="showNameInput ? 'enterNameInput' : ''">
+    <input type="text" [placeholder]="showNameInput ? 'Name' : 'Chat'" #chatInput />
+  </div> 
 </div>

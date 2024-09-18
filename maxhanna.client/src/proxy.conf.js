@@ -27,6 +27,7 @@ const PROXY_CONFIG = [
       "/array",
       "/nexus",
       "/notification",
+      "/meta",
     ],
     target,
     secure: false

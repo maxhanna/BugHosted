@@ -40,7 +40,7 @@ namespace maxhanna.Server.Controllers
                         @"SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar 
                         WHERE Ownership = @Owner AND 
                             (
-                                (Date BETWEEN (@StartDate - interval 1 day) AND @EndDate) 
+                                (Date BETWEEN @StartDate AND @EndDateWithTime) 
                                 OR 
                                 (Type = 'weekly' OR Type = 'monthly') 
                                 OR 
@@ -61,7 +61,8 @@ namespace maxhanna.Server.Controllers
                     {
                         cmd.Parameters.AddWithValue("@Owner", user.Id);
                         cmd.Parameters.AddWithValue("@StartDate", startDate);
-                        cmd.Parameters.AddWithValue("@EndDate", endDate);
+                        cmd.Parameters.AddWithValue("@EndDateWithTime", endDate.AddDays(1).AddSeconds(-1)); // Adds 23:59:59
+
 
                         using (var rdr = await cmd.ExecuteReaderAsync())
                         {
