@@ -23,7 +23,7 @@
       <div class="chatHeader">
         <span style="margin-right:10px;">
           Chat with
-          <span class="usernameProfileLink cursorPointer" (click)="currentChatUsers.length == 1 ? viewProfile(currentChatUsers[0]) : $event.preventDefault();">
+          <span class="usernameProfileLink cursorPointer" (click)="!getCommaSeperatedGroupChatUserNames().includes(',') ? viewProfile(currentChatUsers[0]) : $event.preventDefault();">
             {{ getCommaSeperatedGroupChatUserNames() }}
           </span>
         </span>

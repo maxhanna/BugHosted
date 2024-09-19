@@ -13,8 +13,7 @@ export class ChildComponent {
   isLoading = false;
   debounceTimer: any;
    
-  remove_me(componentTitle: string) {
-    console.log("remove me !");
+  remove_me(componentTitle: string) { 
     this.isLoading = false;
     if (this.parentRef && this.unique_key) {
       this.parentRef.removeComponent(this.unique_key);
@@ -78,10 +77,8 @@ export class ChildComponent {
     }
     this.isLoading = false;
   } 
-  viewProfile(user?: User) {
-    console.log("view profile :" + user!.id);
-    if (user && user.id != 0) {
-      console.log("creating component for user");
+  viewProfile(user?: User) { 
+    if (user && user.id != 0) { 
       this.parentRef?.createComponent("User", { "userId": user.id });
     }
   }

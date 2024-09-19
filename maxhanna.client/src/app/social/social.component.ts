@@ -359,8 +359,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.parentRef.showOverlay = true;
     }
   }
-  closeSearchSocialsPanel() {
-    console.log("ccloseSearchSocialsPanel"); 
+  closeSearchSocialsPanel() { 
     this.isSearchSocialsPanelOpen = false;
     if (this.parentRef && this.parentRef.showOverlay) {
       this.parentRef.showOverlay = false;

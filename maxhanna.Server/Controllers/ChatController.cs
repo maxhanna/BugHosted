@@ -603,7 +603,11 @@ namespace maxhanna.Server.Controllers
                 using (var idcmd = new MySqlCommand(receiverSql, conn))
                 {
                     idcmd.Parameters.AddWithValue("@ChatId", newChatId);
-                    receiverList = Convert.ToString(await idcmd.ExecuteScalarAsync());
+                    string tmpList = Convert.ToString(await idcmd.ExecuteScalarAsync());
+                    if (!string.IsNullOrEmpty(tmpList))
+                    {
+                        receiverList = tmpList;
+                    } 
                 }
 
                 string sql = "INSERT INTO maxhanna.messages (sender, receiver, chat_id, content) VALUES (@Sender, @Receiver, @ChatId, @Content)";

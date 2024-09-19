@@ -17,7 +17,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @Input() inputtedParentRef?: AppComponent;
   @Input() chatNotifications?: ChatNotification[];
   @Input() friendsOnly: boolean = false;
-  @Input() displayOnlyFriends: boolean = false;
+  @Input() displayOnlyFriends: boolean = true;
   @Input() displayRadioFilters: boolean = false;
   @Input() contactsOnly: boolean = false;
   @Output() userClickEvent = new EventEmitter<User | undefined>();
@@ -50,7 +50,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   async getUsers() {
     if (!this.user) {
-      this.users = await this.userService.getAllUsers(new User(0, "Anonymous")); 
+      this.users = await this.userService.getAllUsers(new User(0, "Anonymous"));
     } else {
       let search = undefined;
       if (this.searchInput && this.searchInput.nativeElement.value && this.searchInput.nativeElement.value.trim() != '') {
@@ -64,14 +64,13 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
             if (res[gx] && res[gx].receiver) {
               const receiverUsers = res[gx].receiver as User[];
               this.userRows.push(receiverUsers);
-              console.log(receiverUsers);
             }
           }
         });
       } else {
         this.users = await this.userService.getAllUsers(this.user!, search);
       }
-    } 
+    }
   }
   click(value?: User) {
     this.userClickEvent.emit(value);
@@ -81,8 +80,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   clickMany(value?: User[]) {
-    console.log(value);
-    this.groupChatEvent.emit(value); 
+    this.groupChatEvent.emit(value);
   }
   getChatNotificationsByUser(userId?: number) {
     if (userId && this.chatNotifications && this.chatNotifications.length > 0) {
@@ -95,16 +93,16 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   async getChatInfo() {
-    if (this.user) { 
+    if (this.user) {
       this.chatNotifications = await this.chatService.getChatNotificationsByUser(this.user);
     }
   }
   private async sortUsersByNotifications() {
-    if (this.chatNotifications && this.chatNotifications.length > 0) { 
+    if (this.chatNotifications && this.chatNotifications.length > 0) {
       const userNotificationCount = this.chatNotifications!.reduce((acc: { [key: number]: number }, notification) => {
         acc[notification.senderId] = (acc[notification.senderId] || 0) + 1;
         return acc;
-      }, {});  
+      }, {});
       this.users.sort((a, b) => {
         const countA = userNotificationCount[a.id!] || 0;
         const countB = userNotificationCount[b.id!] || 0;
@@ -118,7 +116,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
   async search() {
     this.getUsers();
-  } 
+  }
   async filterUsers() {
     this.getUsers();
   }
@@ -130,15 +128,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     }
     this.userSelectClickEvent.emit(this.selectedUsers);
   }
-   getCommaSeparatedGroupChatUserNames(users: User | User[]): string { 
-    let userArray: User[];
-
-    if (Array.isArray(users)) {
-      userArray = users;
-    } else {
-      userArray = [users]; // Convert single user to an array
-    }
-
-    return userArray.map(user => user.username).join(', ');
+  getCommaSeparatedGroupChatUserNames(users: User | User[]): string {
+    return this.chatService.getCommaSeparatedGroupChatUserNames(users, this.user);
   }
 }

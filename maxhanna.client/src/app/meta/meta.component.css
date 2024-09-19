@@ -1,5 +1,6 @@
 .componentMain {
-    width: 99vw;
+  width: 99vw;
+  height: calc(100vh - 40px);
 }
 .gameCanvas {
   width: 100vw; /* Full viewport width */
@@ -14,9 +15,9 @@
 }
 .enterNameInput {
   position: absolute;
-  top: 200px;
+  top: CALC(50% - 50px);
   width: 100px;
-  left: CALC(50% - 75px);
+  left: CALC(50% - 50px);
 }
 .nextStoryTextButton {
   position: absolute;
@@ -26,4 +27,84 @@
   font-size: 1.5rem;
   padding: 10px 20px;
   z-index: 10;
+}
+
+.joystick-container {
+  position: absolute;
+  right: 25px;
+  bottom: 25px;
+  width: 100px;
+  height: 100px;
+  background-color: lightgrey;
+  border-radius: 50%;
+}
+
+.joystick {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background-color: blue;
+  border-radius: 50%;
+  top: 30px; /* Centering joystick */
+  left: 30px; /* Centering joystick */
+  cursor: pointer;
+}
+.chatInputDiv {
+    display:flex;
+    justify-content:center;
+    align-content: center;
+}
+.chatInput {
+  width: 350px;
+  max-width: 50%;
+}
+.loadingModal {
+  position: absolute;
+  left: CALC(50vw - 150px);
+  top: CALC(50vh - 225px);
+  width: 300px;
+  height: 250px;
+  border: var(--main-border);
+  background-color: var(--main-bg-color);
+  display:flex;
+  justify-content:center;
+  align-content:center;
+  align-items:center;
+}
+.chatBox {
+  background-color: var(--main-bg-color);
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%);
+  height: calc(20vh - 40px - 35px);
+  width: 350px;
+  max-width: 50%;
+  overflow: auto;
+  scroll-behavior: revert-layer;
+  direction: rtl;
+  text-align: left;
+  border: var(--main-border);
+  border-width: 4px;
+}
+.heroName {
+    color: chartreuse;
+}
+.heroCanvasContainer {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  width: 64px;
+  height: 80px;
+  overflow: hidden;
+  transform-origin: bottom left;
+  border: var(--main-border);
+}
+
+.heroCanvas {
+  position: absolute;
+  left: -60px;  
+  height: 60px;
+  transform: scale(4) translateY(22px) translateX(60px);
+  background-color: transparent;
 }

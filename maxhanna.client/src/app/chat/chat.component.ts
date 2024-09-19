@@ -67,8 +67,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.selectedUser) {
       if (this.inputtedParentRef) {
         this.parentRef = this.inputtedParentRef;
-      }
-      console.log("on init");
+      } 
       await this.openChat([this.selectedUser]);
     }
   }
@@ -78,19 +77,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     clearInterval(this.pollingInterval); 
   }
 
-  pollForMessages() {
-    console.log("polling");
+  pollForMessages() { 
     if (this.currentChatUsers) {
-      this.pollingInterval = setInterval(async () => {
-        console.log("interval");
-        console.log(this.currentChatUsers);
-        if (!this.isComponentInView()) {
-          console.log("component not in view");
+      this.pollingInterval = setInterval(async () => { 
+        if (!this.isComponentInView()) { 
           clearInterval(this.pollingInterval);
           return;
         }
-        if (this.currentChatUsers ) {
-          console.log("wont hit");
+        if (this.currentChatUsers ) { 
           this.getMessageHistory(); 
         }
       }, 5000);
@@ -112,18 +106,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
-    console.log("pre get message history");
-
+  async getMessageHistory(pageNumber?: number, pageSize: number = 10) {  
     if (!this.currentChatUsers) return;
-    try {
-      console.log("get message history");
-
+    try {  
       const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
       if (!this.currentChatUsers.some(x => x.id == this.parentRef?.user?.id)) {
         this.currentChatUsers.push(user);
-      }
-      console.log("current chat id : " + this.currentChatId);
+      } 
       const res = await this.chatService.getMessageHistory(
         user,
         this.currentChatUsers,
@@ -134,13 +123,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.chatHistory = [];
         return;
       }
-      if (res) {
-        // Concatenate new messages that are not already in chatHistory
+      if (res) { 
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
         this.chatHistory = [...this.chatHistory, ...newMessages];
-        this.pageNumber = res.currentPage;
-        console.log((res.messages[0] as Message));
-        console.log(":thats message");
+        this.pageNumber = res.currentPage; 
         if (!this.currentChatId && (res.messages[0] as Message).chatId) {
           this.currentChatId = (res.messages[0] as Message).chatId;
         }
@@ -179,8 +165,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async openChat(users?: User[]) {
     if (!users) { return; }
-    this.startLoading();
-    console.log("loading messages");
+    this.startLoading(); 
     this.isPanelExpanded = true;
     this.chatHistory = [];
     this.currentChatId = undefined;
@@ -205,8 +190,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
  
       if (!this.currentChatId && message0.chatId) {
         this.currentChatId = message0.chatId; 
-      }
-      console.log("after chat id " + this.currentChatId); 
+      } 
     }
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
@@ -252,8 +236,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   } 
   async sendMessage() {
     if (!this.currentChatUsers || this.currentChatUsers.length == 0) return;
-    let msg = this.newMessage.nativeElement.value.trim();
-    console.log("sendMessage");
+    let msg = this.newMessage.nativeElement.value.trim(); 
     if (msg) {
       msg = this.replaceEmojisInMessage(msg);
     }
@@ -298,6 +281,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.openChat(this.selectedUsers);
   }
   getCommaSeperatedGroupChatUserNames() {
-    return this.currentChatUsers?.map(user => user.username).join(', ');
+    if (this.currentChatUsers) {
+      return this.chatService.getCommaSeparatedGroupChatUserNames(this.currentChatUsers, this.parentRef?.user);
+    }
+    else return "";
   }
 }

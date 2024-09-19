@@ -2,6 +2,7 @@
 import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user/user';
 import { MetaHero } from './datacontracts/meta/meta-hero';
+import { MetaChat } from './datacontracts/meta/meta-chat';
  
 @Injectable({
   providedIn: 'root'
@@ -34,13 +35,19 @@ export class MetaService {
     }
   }
 
-  async getHero(user: User): Promise<{ MetaHero: MetaHero; } | undefined> {
-    return await this.fetchData('/meta', { User: user });
+  async getHero(user: User): Promise<MetaHero | undefined> {
+    return this.fetchData('/meta', user);
   }
-  async updateHero(user: User, hero: MetaHero): Promise<{ MetaHero: MetaHero; } | undefined> {
-    return await this.fetchData('/meta/updatehero', { User: user, Hero: hero });
+  async updateHero(user: User, hero: MetaHero): Promise< MetaHero | undefined> {
+    return this.fetchData('/meta/updatehero', { User: user, Hero: hero });
   }
-  async createHero(user: User, name: string): Promise<{ MetaHero: MetaHero; } | undefined> {
-    return await this.fetchData('/meta/create', { User: user, Name: name });
-  } 
+  async createHero(user: User, name: string): Promise<MetaHero | undefined> {
+    return this.fetchData('/meta/create', { User: user, Name: name });
+  }
+  async fetchGameData(hero: MetaHero): Promise<{ heroes: MetaHero[], chat: MetaChat[] } | undefined> {
+    return this.fetchData('/meta/fetchgamedata', hero);
+  }
+  async chat(hero: MetaHero, content: string) {
+    return this.fetchData('/meta/chat', {Hero: hero, Content: content});
+  }
 }

@@ -3,18 +3,36 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Meta-Bots</div>
 
-  <div class="gameCanvasContainer"> 
+  <div *ngIf="isLoading" class="loadingModal">The game is loading...</div>
+
+  <div class="gameCanvasContainer">
     <canvas #gameCanvas class="gameCanvas"></canvas>
     <button (click)="advanceStartingStoryText()" class="nextStoryTextButton" *ngIf="showingNarrationText">{{advanceStoryButtonText}}</button>
   </div>
+  <div>
+    <div class="heroCanvasContainer">
+      <canvas #heroCanvas class="heroCanvas"></canvas>
+    </div>
 
-  <div *ngIf="hero">
-    <button (mousedown)="startMoveUp()" (mouseup)="stopMoveUp()" (mouseleave)="stopMoveUp()">Up</button>
-    <button (mousedown)="startMoveLeft()" (mouseup)="stopMoveLeft()" (mouseleave)="stopMoveLeft()">Left</button>
-    <button (mousedown)="startMoveRight()" (mouseup)="stopMoveRight()" (mouseleave)="stopMoveRight()">Right</button>
-    <button (mousedown)="startMoveDown()" (mouseup)="stopMoveDown()" (mouseleave)="stopMoveDown()">Down</button>
-  </div>
-  <div *ngIf="hero || showNameInput" [class]="showNameInput ? 'enterNameInput' : ''">
-    <input type="text" [placeholder]="showNameInput ? 'Name' : 'Chat'" #chatInput />
+    <div class="chatBox" id="chatBox">
+      <div *ngFor="let msg of chat">
+        <span class="xxSmallFont">({{msg.timestamp | date: 'd/MM/yyyy@HH:mm'}})</span> <span class="heroName">{{msg.hero.name}}</span>: {{msg.content}}
+      </div>
+    </div>
+    <div *ngIf="hero || showNameInput" [class]="showNameInput ? 'enterNameInput' : 'chatInputDiv'">
+      <input type="text" [placeholder]="showNameInput ? 'Name' : 'Chat'" #chatInput (keydown)="handleInputKeydown($event)" class="chatInput" />
+    </div>
+
+    <div class="joystick-container" *ngIf="hero">
+      <div class="joystick"
+           (touchstart)="startJoystick($event)"
+           (touchmove)="moveJoystick($event)"
+           (touchend)="stopJoystick()"
+           (touchcancel)="stopJoystick()"
+           (mousedown)="startJoystick($event)"
+           (mousemove)="moveJoystick($event)"
+           (mouseup)="stopJoystick()"
+           (mouseleave)="stopJoystick()"></div>
+    </div>
   </div> 
 </div>

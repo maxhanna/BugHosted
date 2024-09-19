@@ -20,11 +20,13 @@
     </span>
     <span *ngIf="friendsRadio && friendsRadio.nativeElement.checked"><input type="checkbox" (change)="selectFriend(user); $event.stopPropagation()" class="userCheckbox" /></span>
   </div>
-  <div class="prevChatMessages" *ngIf="userRows.length > 0">
-    Previous Messages
-  </div>
-  <div *ngFor="let row of userRows" (click)="clickMany(row);"  class="userList"> 
-    {{getCommaSeparatedGroupChatUserNames(row)}}
+  <div *ngIf="userRows.length > 0 && friendsRadio && friendsRadio.nativeElement.checked">
+    <div class="prevChatMessages" *ngIf="userRows.length > 0">
+      Previous Messages
+    </div>
+    <div *ngFor="let row of userRows" (click)="clickMany(row);" class="userList">
+      {{getCommaSeparatedGroupChatUserNames(row)}}
+    </div>
   </div>
 </div>
 

@@ -81,5 +81,19 @@ export class ChatService {
     } catch (error) {
       return null; 
     }
-  } 
+  }
+  getCommaSeparatedGroupChatUserNames(users: User | User[], currentUser?: User): string {
+    let userArray: User[];
+
+    if (Array.isArray(users)) {
+      userArray = users;
+    } else {
+      userArray = [users]; // Convert single user to an array
+    }
+
+    return userArray
+      .filter(user => user.username !== currentUser?.username) // Exclude matching username
+      .map(user => user.username) // Map to usernames
+      .join(', '); // Join with commas
+  }
 }
