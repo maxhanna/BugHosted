@@ -135,7 +135,8 @@ export class UserService {
     }); 
     return await response.json();
   } 
-  isValidIpAddress(value: string): boolean {
+  isValidIpAddress(value?: string): boolean {
+    if (!value) return false;
     const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipPattern.test(value);
   }

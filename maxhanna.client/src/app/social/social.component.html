@@ -81,7 +81,7 @@
               <span class="storyEditSpans storyRejectEdit" [style.display]="'none'" [id]="'storyRejectEditButtonSpan' + story.id">❌</span>
               ✏️Edit
             </button>
-            <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || user?.id == parentRef?.user?.id" title="Delete Post" style="display:inline-block">❌Delete</button>
+            <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id)" title="Delete Post" style="display:inline-block">❌Delete</button>
           </div>
         </div>
 

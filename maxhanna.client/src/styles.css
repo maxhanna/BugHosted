@@ -1,27 +1,21 @@
 /* You can add global styles to this file, and also import other style files */
-:root {
-  /*  --main-bg-color: rgba(54, 25, 25, .5);
-*/
+:root { 
   --main-bg-color: #0e0e0e;
   --main-bg-color-quarter-opacity: #202020;
   --main-highlight-color: #3a3a3a;
   --main-highlight-color-quarter-opacity: #a9a9a987;
   --secondary-bg-color: rgba(54, 25, 25, .2);
-  /*  --main-bg-color-full-opacity: rgba(54, 25, 25);
-*/ --main-bg-color-full-opacity: #011300;
-  /*  --table-thead-color: rgba(54, 25, 25);
-*/ --table-thead-color: var(--main-highlight-color-quarter-opacity);
-  --main-font-family: Arial;
-  /*  --main-font-color: chartreuse;
-*/ --main-font-color: #b0c2b1;
+  --main-bg-color-full-opacity: #011300;
+  --table-thead-color: var(--main-highlight-color-quarter-opacity);
+  --main-font-family: Arial; 
+  --main-font-color: #b0c2b1;
   --main-link-color: chartreuse;
   --primary-font-color: var(--main-font-color);
   --secondary-font-color: #ffffff;
   --third-font-color: cornflowerblue;
   --main-border: 2px ridge var(--main-highlight-color);
   --gameboyBgColor: darkgrey;
-  /*  --main-font-size: 14px;
-*/ --main-font-weight: 400;
+  --main-font-weight: 400;
   --component-max-width: 90vw;
   --component-max-height: CALC(100% - 67px);
   --nexus-gamescreen-height: 275px;

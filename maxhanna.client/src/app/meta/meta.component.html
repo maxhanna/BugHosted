@@ -1,3 +1,10 @@
+
+<div class="gameCanvasContainer" [style.display]="parentRef && parentRef.user ? 'block' : 'none'">
+  <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width="320" height="180"></canvas>
+  <button (click)="advanceStartingStoryText()" class="nextStoryTextButton" *ngIf="showingNarrationText">{{advanceStoryButtonText}}</button>
+</div>
+
+
 <div class="componentMain" #componentMain>
   <div class="closeButton" (click)="remove_me('MetaComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
@@ -5,21 +12,25 @@
 
   <div *ngIf="isLoading" class="loadingModal">The game is loading...</div>
 
-  <div class="gameCanvasContainer">
-    <canvas #gameCanvas class="gameCanvas"></canvas>
-    <button (click)="advanceStartingStoryText()" class="nextStoryTextButton" *ngIf="showingNarrationText">{{advanceStoryButtonText}}</button>
-  </div>
-  <div>
-    <div class="heroCanvasContainer">
+  <app-user *ngIf="isUserComponentOpen"
+            [loginOnly]="true"
+            [inputtedParentRef]="parentRef"
+            [canClose]="false"
+            (closeUserComponentEvent)="closeUserComponent($event)"
+            [loginReasonMessage]="'You must log in to play Meta-Bots.'"></app-user>
+
+
+  <div *ngIf="parentRef && parentRef.user">
+    <div class="heroCanvasContainer" (click)="heroCanvasClicked()">
       <canvas #heroCanvas class="heroCanvas"></canvas>
     </div>
 
-    <div class="chatBox" id="chatBox">
+    <div class="chatBox" id="chatBox" *ngIf="!(showingNarrationText || showStartingStory)">
       <div *ngFor="let msg of chat">
         <span class="xxSmallFont">({{msg.timestamp | date: 'd/MM/yyyy@HH:mm'}})</span> <span class="heroName">{{msg.hero.name}}</span>: {{msg.content}}
       </div>
     </div>
-    <div *ngIf="hero || showNameInput" [class]="showNameInput ? 'enterNameInput' : 'chatInputDiv'">
+    <div [class]="showNameInput ? 'enterNameInput' : 'chatInputDiv'">
       <input type="text" [placeholder]="showNameInput ? 'Name' : 'Chat'" #chatInput (keydown)="handleInputKeydown($event)" class="chatInput" />
     </div>
 
@@ -34,5 +45,5 @@
            (mouseup)="stopJoystick()"
            (mouseleave)="stopJoystick()"></div>
     </div>
-  </div> 
+  </div>
 </div>

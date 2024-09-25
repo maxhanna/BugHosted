@@ -53,7 +53,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>();
   navigationItems: MenuItem[] = [
-    { ownership: 0, icon: "📕", title: "Close Menu", content: '' },
+    /*{ ownership: 0, icon: "📕", title: "Close Menu", content: '' },*/
     { ownership: 0, icon: "🌍", title: "Social", content: undefined },
     { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
     { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
@@ -166,7 +166,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   async getSelectedMenuItems() {
     if (!this.user) {
       this.userSelectedNavigationItems = [
-        { ownership: 0, icon: "📕", title: "Close Menu", content: '' },
+        /*{ ownership: 0, icon: "📕", title: "Close Menu", content: '' },*/
         { ownership: 0, icon: "🌍", title: "Social", content: undefined },
         { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
         { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },

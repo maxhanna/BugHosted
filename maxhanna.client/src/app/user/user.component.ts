@@ -491,7 +491,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     } else {
       const ip = await this.userService.getUserIp();
       const weatherLocation = await this.weatherService.getWeatherLocation(tmpUser) as WeatherLocation;
-      if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
+      if (weatherLocation && weatherLocation.location && (this.userService.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
         await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"], ip["city"]);
       }
     }

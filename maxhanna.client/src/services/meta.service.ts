@@ -44,7 +44,7 @@ export class MetaService {
   async createHero(user: User, name: string): Promise<MetaHero | undefined> {
     return this.fetchData('/meta/create', { User: user, Name: name });
   }
-  async fetchGameData(hero: MetaHero): Promise<{ heroes: MetaHero[], chat: MetaChat[] } | undefined> {
+  async fetchGameData(hero: MetaHero): Promise<{ map: number, coordsX: number, coordsY: number, heroes: MetaHero[], chat: MetaChat[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);
   }
   async chat(hero: MetaHero, content: string) {

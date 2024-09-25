@@ -10,5 +10,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Meta
         public int CoordsX { get; set; }
         public int CoordsY { get; set; } 
         public int Speed { get; set; } 
+        public int Map { get; set; } 
     }
 }

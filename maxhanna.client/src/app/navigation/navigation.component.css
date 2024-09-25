@@ -1,8 +1,8 @@
 #navbar {
   position: absolute;
   top: 0px;
-  left: 2px; 
-  height: 95vh;
+  left: 0px;
+  max-height: CALC(var(--vh, 1vh) * 100);
   display: flex;
   flex-wrap: wrap;
   flex-direction: unset;

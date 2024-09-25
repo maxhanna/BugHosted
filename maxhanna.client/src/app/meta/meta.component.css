@@ -1,63 +1,85 @@
 .componentMain {
-  width: 99vw;
-  height: calc(100vh - 40px);
+    width:100%;
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none; 
 }
+
 .gameCanvas {
-  width: 100vw; /* Full viewport width */
-  height: 80vh; /* 80% of viewport height */
-  border: 1px solid #000; /* Optional: Border for visibility */
-  display: block; /* Prevents extra space below the canvas */
-  margin: 0 auto; /* Center canvas horizontally */
+  position: fixed;
+  top: 65px;
+  left: calc(50% - 155px);
+  border: var(--main-border);
+  display: block;
+  margin: 0 auto;
+  background-color: black;
 }
+ 
+
 .gameCanvasContainer {
   position: relative;
-  width: 100%; /* Adjust this based on the canvas size */
+  width: 100%;
 }
+
 .enterNameInput {
-  position: absolute;
-  top: CALC(50% - 50px);
-  width: 100px;
-  left: CALC(50% - 50px);
+  position: fixed;
+  top: 150px;
+  width: 280px;
+  left: CALC(50% - 70px);
 }
+
 .nextStoryTextButton {
-  position: absolute;
-  top: 165px;
-  right: 10%;
-  transform: translateX(-50%);
+  position: fixed;
+  top: 180px;
+  right: CALC(50% - 150px);
   font-size: 1.5rem;
   padding: 10px 20px;
   z-index: 10;
 }
 
 .joystick-container {
-  position: absolute;
-  right: 25px;
-  bottom: 25px;
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
   width: 100px;
   height: 100px;
-  background-color: lightgrey;
+  background: radial-gradient(circle, var(--main-font-color) 10%, var(--main-highlight-color) 70%, var(--secondary-font-color) 100%);
   border-radius: 50%;
+  border: var(--main-border);
+  border-style: solid;
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
 }
-
 .joystick {
   position: absolute;
   width: 40px;
-  height: 40px;
-  background-color: blue;
+  height: 40px; 
   border-radius: 50%;
-  top: 30px; /* Centering joystick */
-  left: 30px; /* Centering joystick */
-  cursor: pointer;
+  border: var(--main-border);
+  top: CALC(50% - 21px);
+  left: CALC(50% - 21px); 
+  background-color: var(--main-font-color);
+  background: radial-gradient(circle, rgb(0, 0, 0, 0.40) 20%, rgba(0, 0, 0, 0.1) 100%), url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="5" height="5" viewBox="0 0 5 5"%3E%3Ccircle cx="2.5" cy="2.5" r="1" fill="%23000000" opacity="0.1"/%3E%3C/svg%3E') repeat; /* Add subtle dots */
+  box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5); 
+  cursor: all-scroll;
+  user-select: none; 
 }
+
 .chatInputDiv {
-    display:flex;
-    justify-content:center;
-    align-content: center;
+  display: flex;
+  justify-content: center;
+  align-content: center;
 }
+
 .chatInput {
   width: 350px;
   max-width: 50%;
 }
+
 .loadingModal {
   position: absolute;
   left: CALC(50vw - 150px);
@@ -66,14 +88,15 @@
   height: 250px;
   border: var(--main-border);
   background-color: var(--main-bg-color);
-  display:flex;
-  justify-content:center;
-  align-content:center;
-  align-items:center;
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
 }
+
 .chatBox {
   background-color: var(--main-bg-color);
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 50%;
   transform: translate(-50%);
@@ -87,9 +110,11 @@
   border: var(--main-border);
   border-width: 4px;
 }
+
 .heroName {
-    color: chartreuse;
+  color: chartreuse;
 }
+
 .heroCanvasContainer {
   position: fixed;
   bottom: 10px;
@@ -103,7 +128,7 @@
 
 .heroCanvas {
   position: absolute;
-  left: -60px;  
+  left: -60px;
   height: 60px;
   transform: scale(4) translateY(22px) translateX(60px);
   background-color: transparent;

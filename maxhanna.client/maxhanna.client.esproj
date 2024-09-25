@@ -6,5 +6,8 @@
     <ShouldRunBuildScript>false</ShouldRunBuildScript>
     <!-- Folder where production build objects will be placed -->
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist\maxhanna.client\</BuildOutputFolder>
-  </PropertyGroup> 
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="src\assets\metabots\" />
+  </ItemGroup>
 </Project>

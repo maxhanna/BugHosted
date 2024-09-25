@@ -31,6 +31,7 @@ namespace maxhanna.Server.Services
                 {
                     await DeleteOldBattleReports();
                     await DeleteOldGuests();
+                    await DeleteOldMetaChat();
                     _lastDailyTaskRun = DateTime.Now; 
                 } 
                 await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
@@ -46,7 +47,7 @@ namespace maxhanna.Server.Services
 
                 await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
                 try
-                { 
+                {
                     string deleteSqlReportsAndBattles = @"
                         DELETE rd, b
                         FROM nexus_reports_deleted rd
@@ -58,7 +59,7 @@ namespace maxhanna.Server.Services
                         int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
                         _logger.LogInformation($"Deleted {affectedRows} old battle reports and references.");
                     }
-                     
+
                     string deleteSqlBaseUpgrades = @"
                         DELETE FROM nexus_base_upgrades
                         WHERE command_center_upgraded IS NULL
@@ -74,13 +75,48 @@ namespace maxhanna.Server.Services
                         int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
                         _logger.LogInformation($"Deleted {affectedRows} null nexus base upgrade rows.");
                     }
-                     
+
                     await transaction.CommitAsync();
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error occurred while deleting old battle reports or base upgrades. Rolling back transaction.");
-                    await transaction.RollbackAsync();  
+                    await transaction.RollbackAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
+            }
+        }
+
+        private async Task DeleteOldMetaChat()
+        {
+            try
+            {
+                await using MySqlConnection conn = new MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+
+                await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+                try
+                {
+                    string deleteSqlReportsAndBattles = @"
+                        DELETE  
+                        FROM meta_chat 
+                        WHERE timestamp < NOW() - INTERVAL 1 DAY;";
+
+                    await using (var deleteCmd = new MySqlCommand(deleteSqlReportsAndBattles, conn, transaction))
+                    {
+                        int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+                        _logger.LogInformation($"Deleted {affectedRows} old meta-bot chats.");
+                    } 
+
+                    await transaction.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error occurred while deleting old battle reports or base upgrades. Rolling back transaction.");
+                    await transaction.RollbackAsync();
                 }
             }
             catch (Exception ex)

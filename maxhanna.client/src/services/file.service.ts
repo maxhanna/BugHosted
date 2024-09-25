@@ -378,12 +378,17 @@ export class FileService {
   getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
     if (!contentDisposition) return '';
     try {
-      // Match the filename* pattern first to handle UTF-8 encoding
       const filenameStarMatch = contentDisposition.match(/filename\*=['"]?UTF-8''([^'";\s]+)['"]?/);
-      if (filenameStarMatch && filenameStarMatch[1]) {
+      if (filenameStarMatch && filenameStarMatch[1] && filenameStarMatch[1] !== '') {
         try {
-          const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
-          return utf8Filename.split('.').pop() || '';
+          const isUriEncoded = /^[A-Za-z0-9\-._~%!$&'()*+,;=:@]+$/.test(filenameStarMatch[1]);
+          if (isUriEncoded) {
+            const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
+            return utf8Filename.split('.').pop() || '';
+          } else {
+            console.log('Filename is not properly URI-encoded:', filenameStarMatch[1]);
+            return '';
+          } 
         } catch (error) {
           console.log('Error decoding UTF-8 filename:', error);
           return ''; // Return an empty string or handle the error as needed
@@ -392,7 +397,7 @@ export class FileService {
 
       // Match the filename pattern
       const filenameMatch = contentDisposition.match(/filename=['"]?([^'";\s]+)['"]?/);
-      if (filenameMatch && filenameMatch[1]) {
+      if (filenameMatch && filenameMatch[1] && filenameMatch[1] != '') {
         const filename = filenameMatch[1];
         return filename.split('.').pop() || '';
       }

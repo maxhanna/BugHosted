@@ -188,7 +188,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async ngOnInit() {
     this.isUserNew = true;
-    this.isUserComponentOpen = (!this.parentRef || !this.parentRef.user || this.parentRef.user.id == 0);
+    this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
     this.loadPictureSrcs();

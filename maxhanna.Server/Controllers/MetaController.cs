@@ -13,11 +13,15 @@ namespace maxhanna.Server.Controllers
         private readonly IConfiguration _config;
         private readonly string _connectionString; 
 
+        private List<VectorM> map0Boundaries = new List<VectorM>();
+        private List<VectorM> map1Boundaries = new List<VectorM>();
+
         public MetaController(ILogger<MetaController> logger, IConfiguration config)
         {
             _logger = logger;
             _config = config;
             _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+            SetMapBoundaries();
         }
 
         [HttpPost("/Meta", Name = "GetHero")]
@@ -50,9 +54,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Meta/FetchGameData", Name = "FetchGameData")]
         public async Task<IActionResult> FetchGameData([FromBody] MetaHero hero)
         {
-            Console.WriteLine($"POST /Meta/FetchGameData (HeroId: {hero.Id})");
-
-
+           // Console.WriteLine($"POST /Meta/FetchGameData (HeroId: {hero.Id})"); 
             using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
@@ -60,12 +62,14 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        await UpdateHeroInDB(hero, connection, transaction);
+                        hero = await UpdateHeroInDB(hero, connection, transaction);
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
                         List<MetaChat> chat = await GetChatFromDB(connection, transaction);
-
                         await transaction.CommitAsync(); 
-                        return Ok(new { 
+                        return Ok(new {  
+                            map = hero.Map,
+                            coordsX = hero.CoordsX,
+                            coordsY = hero.CoordsY,
                             heroes,
                             chat, 
                         });
@@ -118,8 +122,8 @@ namespace maxhanna.Server.Controllers
                             VALUES (@Name, @UserId, @CoordsX, @CoordsY, @Speed);";
                         Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
-                            { "@CoordsX", 15 },
-                            { "@CoordsY", 15 },
+                            { "@CoordsX", 105 },
+                            { "@CoordsY", 60 },
                             { "@Speed", 5 },
                             { "@Name", req.Name ?? "Anonymous"},
                             { "@UserId", req.User?.Id ?? 0}
@@ -128,10 +132,11 @@ namespace maxhanna.Server.Controllers
                         await transaction.CommitAsync();
                         if (botId != null) {
                             MetaHero hero = new MetaHero();
-                            hero.CoordsX = 15;
-                            hero.CoordsY = 15;
+                            hero.CoordsX = 105;
+                            hero.CoordsY = 60;
                             hero.Id = (int)botId;
                             hero.Speed = 5;
+                            hero.Map = 0;
                             hero.Name = req.Name;
                             hero.User = req.User;
                             return Ok(hero);
@@ -172,43 +177,41 @@ namespace maxhanna.Server.Controllers
                 }
             }
         }
-        private async Task UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
+        private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
         {
-            string sql = @"
-                            UPDATE maxhanna.meta_hero 
+            GetNewMapIfInBoundaries(hero);
+            //Console.WriteLine("hero coords X " + hero.CoordsX + " hero coordsY" + hero.CoordsY);
+            string sql = @"UPDATE maxhanna.meta_hero 
                             SET coordsX = @CoordsX, 
-                                coordsY = @CoordsY, 
-                                speed = @Speed, 
-                                name = @Name 
+                                coordsY = @CoordsY,  
+                                map = @Map 
                             WHERE 
                                 id = @HeroId";
             Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                        {
-                            { "@CoordsX", hero.CoordsX },
-                            { "@CoordsY", hero.CoordsY },
-                            { "@Speed", hero.Speed },
-                            { "@Name", hero.Name },
-                            { "@HeroId", hero.Id }
-                        };
+            {
+                { "@CoordsX", hero.CoordsX },
+                { "@CoordsY", hero.CoordsY }, 
+                { "@Map", hero.Map },
+                { "@HeroId", hero.Id }
+            };
             await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+            return hero;
         }
+
 
         private async Task InsertChatInDB(MetaHero hero, string? content, MySqlConnection connection, MySqlTransaction transaction)
         {
-            string sql = @"
-                            INSERT INTO maxhanna.meta_chat (hero_id, content)
-                            VALUES (@HeroId, @Content)";
-            Dictionary<string, object?> parameters = new Dictionary<string, object?>
-                        {
-                            { "@HeroId", hero.Id },
-                            { "@Content", string.IsNullOrEmpty(content) ? DBNull.Value : content},
-                        };
+            string sql = @"INSERT INTO maxhanna.meta_chat (hero_id, content)
+                           VALUES (@HeroId, @Content)";
+            Dictionary<string, object?> parameters = new Dictionary<string, object?> {
+                { "@HeroId", hero.Id },
+                { "@Content", string.IsNullOrEmpty(content) ? DBNull.Value : content},
+            };
             await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
         }
 
         private async Task<List<MetaChat>> GetChatFromDB(MySqlConnection connection, MySqlTransaction transaction)
-        {
-            // Ensure the connection is open
+        { 
             if (connection.State != System.Data.ConnectionState.Open)
             {
                 await connection.OpenAsync();
@@ -218,31 +221,23 @@ namespace maxhanna.Server.Controllers
                 _logger.LogError("Transaction is null.");
                 throw new InvalidOperationException("Transaction is required for this operation.");
             }
-            string sql = @"SELECT * FROM maxhanna.meta_chat ORDER BY timestamp DESC LIMIT 100"; 
+            string sql = @"
+                SELECT m.*, h.name as hero_name
+                FROM maxhanna.meta_chat m
+                LEFT JOIN maxhanna.meta_hero h on h.id = m.hero_id
+                ORDER BY timestamp DESC 
+                LIMIT 100;"; 
             MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
             List<MetaChat> chat = new List<MetaChat>();
             using (var reader = await cmd.ExecuteReaderAsync())
             {
                 while (reader.Read())
                 {
-                    MetaChat tmpChat = new MetaChat(); 
-                    MetaHero? tmpHero = new MetaHero();
-                    tmpHero.Id = Convert.ToInt32(reader["hero_id"]);
-
-                    tmpChat.Hero = tmpHero;
-                    tmpChat.Content = Convert.ToString(reader["content"]); 
-                    tmpChat.Timestamp = Convert.ToDateTime(reader["timestamp"]); 
+                    MetaHero? tmpHero = new MetaHero() { Id = Convert.ToInt32(reader["hero_id"]), Name = Convert.ToString(reader["hero_name"]) };
+                    MetaChat tmpChat = new MetaChat() { Hero = tmpHero, Content = Convert.ToString(reader["content"]) , Timestamp = Convert.ToDateTime(reader["timestamp"]) };
                     chat.Add(tmpChat);
                 }
             }
-
-            for(int x = 0; x < chat.Count; x++)
-            {
-                int heroId = chat[x].Hero.Id;
-                MetaHero? tmpHero = await GetHeroData(null, heroId, connection, transaction);
-                chat[x].Hero = tmpHero;
-            }
-
             return chat;
         }
         private async Task<MetaHero?> GetHeroData(User? user, int? heroId, MySqlConnection conn, MySqlTransaction transaction)
@@ -266,7 +261,7 @@ namespace maxhanna.Server.Controllers
                         maxhanna.meta_hero 
                     WHERE 
                         {(heroId == null ? "user_id = @UserId" : "id = @UserId")} 
-                    LIMIT 1";
+                    LIMIT 1;";
 
             MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
             cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : (user?.Id ?? 0));
@@ -284,6 +279,7 @@ namespace maxhanna.Server.Controllers
                     hero.CoordsY = Convert.ToInt32(reader["coordsY"]);
                     hero.Speed = Convert.ToInt32(reader["speed"]);
                     hero.Id = Convert.ToInt32(reader["id"]);
+                    hero.Map = Convert.ToInt32(reader["map"]);
                     hero.Name = Convert.ToString(reader["name"]);
                     hero.User = user;
                     return hero;
@@ -307,35 +303,61 @@ namespace maxhanna.Server.Controllers
             List<MetaHero> heroes = new List<MetaHero>();
             string sql = @"
                     SELECT 
-                        m.*, u.username
+                        m.* 
                     FROM 
-                        maxhanna.meta_hero m
-                    LEFT JOIN
-                        maxhanna.users u ON u.id = m.user_id
-                    WHERE 
-                        m.id != @HeroId;";
+                        maxhanna.meta_hero m 
+                    WHERE m.map = @HeroMapId
+                    ORDER BY m.coordsY asc;";
 
-            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
-            cmd.Parameters.AddWithValue("@HeroId", hero.Id);
+            MySqlCommand cmd = new MySqlCommand(sql, conn, transaction); 
+            cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
 
             using (var reader = await cmd.ExecuteReaderAsync())
             {
                 while (reader.Read())
                 {
-                    User tmpUser = new User(Convert.ToInt32(reader["user_id"]), Convert.ToString(reader["username"]) ?? "Anonymous");
+                    //User tmpUser = new User(Convert.ToInt32(reader["user_id"]), Convert.ToString(reader["username"]) ?? "Anonymous");
                     MetaHero tmpHero = new MetaHero();
                     tmpHero.CoordsX = Convert.ToInt32(reader["coordsX"]);
                     tmpHero.CoordsY = Convert.ToInt32(reader["coordsY"]);
                     tmpHero.Speed = Convert.ToInt32(reader["speed"]);
                     tmpHero.Id = Convert.ToInt32(reader["id"]);
                     tmpHero.Name = Convert.ToString(reader["name"]);
-                    tmpHero.User = tmpUser;
+                    tmpHero.Map = Convert.ToInt32(reader["map"]);
+                    //tmpHero.User = tmpUser;
                     heroes.Add(tmpHero);
                 }
             }
             return heroes.ToArray();
         }
-
+        private void GetNewMapIfInBoundaries(MetaHero hero)
+        {   
+            if (hero.Map == 0 && map0Boundaries.Where(bound => bound.x == hero.CoordsX && bound.y == hero.CoordsY).Count() > 0)
+            {
+                Console.WriteLine("changing map");
+                hero.Map = 1;
+                hero.CoordsX = 105;
+                hero.CoordsY = 60;
+            }
+            if (hero.Map == 1 && map1Boundaries.Where(bound => bound.x == hero.CoordsX && bound.y == hero.CoordsY).Count() > 0)
+            {
+                Console.WriteLine("changing map");
+                hero.Map = 0;
+                hero.CoordsX = 105;
+                hero.CoordsY = 60;
+            } 
+        }
+        private void SetMapBoundaries()
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                map0Boundaries.Add(new VectorM(210 + (i * 5), 45));
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                map1Boundaries.Add(new VectorM(210 + (i * 5), 35));
+            }
+        }
         private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
         {
             string cmdText = "";
