@@ -1,4 +1,5 @@
-import { Vector2 } from "./vector2";
+import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+import { Animations } from "../helpers/animations"; 
 
 export class Sprite {
   objectId: number;
@@ -10,8 +11,9 @@ export class Sprite {
   frameMap: Map<number, Vector2>;
   scale: number;
   position: Vector2;
+  animations?: Animations;
 
-  constructor(objectId: number, resource: Resource, position?: Vector2, scale?: number, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?: number) {
+  constructor(objectId: number, resource: Resource, position?: Vector2, scale?: number, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?: number, animations?: Animations) {
     this.objectId = objectId;
     this.position = position ?? new Vector2(0, 0);
     this.frame = frame ?? 1;
@@ -19,7 +21,8 @@ export class Sprite {
     this.hFrames = hFrames ?? 1;
     this.vFrames = vFrames ?? 1;
     this.scale = scale ?? 1;
-    this.frameSize = frameSize ?? new Vector2(16,16);
+    this.frameSize = frameSize ?? new Vector2(16, 16);
+    this.animations = animations;
     this.frameMap = new Map();
     this.buildFrameMap();
   }
@@ -37,8 +40,16 @@ export class Sprite {
     }
   }
 
-  drawImage(ctx: CanvasRenderingContext2D, x: number, y: number) {
-    if (!this.resource?.isLoaded) {
+  step(delta: number) {
+    if (!this.animations) {
+      return;
+    } 
+    this.animations.step(delta); 
+    this.frame = this.animations.frame; 
+  }
+
+  drawImage(x: number, y: number, ctx?: CanvasRenderingContext2D) {
+    if (!ctx || !this.resource?.isLoaded) {
       return;
     }
 

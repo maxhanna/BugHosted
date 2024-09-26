@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user/user';
 import { MetaHero } from './datacontracts/meta/meta-hero';
 import { MetaChat } from './datacontracts/meta/meta-chat';
+import { Vector2 } from './datacontracts/meta/vector2';
  
 @Injectable({
   providedIn: 'root'
@@ -44,7 +45,7 @@ export class MetaService {
   async createHero(user: User, name: string): Promise<MetaHero | undefined> {
     return this.fetchData('/meta/create', { User: user, Name: name });
   }
-  async fetchGameData(hero: MetaHero): Promise<{ map: number, coordsX: number, coordsY: number, heroes: MetaHero[], chat: MetaChat[] } | undefined> {
+  async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);
   }
   async chat(hero: MetaHero, content: string) {

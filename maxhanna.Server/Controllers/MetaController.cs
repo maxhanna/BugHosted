@@ -13,8 +13,8 @@ namespace maxhanna.Server.Controllers
         private readonly IConfiguration _config;
         private readonly string _connectionString; 
 
-        private List<VectorM> map0Boundaries = new List<VectorM>();
-        private List<VectorM> map1Boundaries = new List<VectorM>();
+        private List<Vector2> map0Boundaries = new List<Vector2>();
+        private List<Vector2> map1Boundaries = new List<Vector2>();
 
         public MetaController(ILogger<MetaController> logger, IConfiguration config)
         {
@@ -68,8 +68,7 @@ namespace maxhanna.Server.Controllers
                         await transaction.CommitAsync(); 
                         return Ok(new {  
                             map = hero.Map,
-                            coordsX = hero.CoordsX,
-                            coordsY = hero.CoordsY,
+                            hero.Position,
                             heroes,
                             chat, 
                         });
@@ -132,8 +131,7 @@ namespace maxhanna.Server.Controllers
                         await transaction.CommitAsync();
                         if (botId != null) {
                             MetaHero hero = new MetaHero();
-                            hero.CoordsX = 105;
-                            hero.CoordsY = 60;
+                            hero.Position = new Vector2(105, 60);
                             hero.Id = (int)botId;
                             hero.Speed = 5;
                             hero.Map = 0;
@@ -189,8 +187,8 @@ namespace maxhanna.Server.Controllers
                                 id = @HeroId";
             Dictionary<string, object?> parameters = new Dictionary<string, object?>
             {
-                { "@CoordsX", hero.CoordsX },
-                { "@CoordsY", hero.CoordsY }, 
+                { "@CoordsX", hero.Position.x },
+                { "@CoordsY", hero.Position.y }, 
                 { "@Map", hero.Map },
                 { "@HeroId", hero.Id }
             };
@@ -275,8 +273,7 @@ namespace maxhanna.Server.Controllers
                         user.Pass = null;
                     }
                     MetaHero hero = new MetaHero();
-                    hero.CoordsX = Convert.ToInt32(reader["coordsX"]);
-                    hero.CoordsY = Convert.ToInt32(reader["coordsY"]);
+                    hero.Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"]));
                     hero.Speed = Convert.ToInt32(reader["speed"]);
                     hero.Id = Convert.ToInt32(reader["id"]);
                     hero.Map = Convert.ToInt32(reader["map"]);
@@ -318,8 +315,7 @@ namespace maxhanna.Server.Controllers
                 {
                     //User tmpUser = new User(Convert.ToInt32(reader["user_id"]), Convert.ToString(reader["username"]) ?? "Anonymous");
                     MetaHero tmpHero = new MetaHero();
-                    tmpHero.CoordsX = Convert.ToInt32(reader["coordsX"]);
-                    tmpHero.CoordsY = Convert.ToInt32(reader["coordsY"]);
+                    tmpHero.Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])); 
                     tmpHero.Speed = Convert.ToInt32(reader["speed"]);
                     tmpHero.Id = Convert.ToInt32(reader["id"]);
                     tmpHero.Name = Convert.ToString(reader["name"]);
@@ -332,30 +328,30 @@ namespace maxhanna.Server.Controllers
         }
         private void GetNewMapIfInBoundaries(MetaHero hero)
         {   
-            if (hero.Map == 0 && map0Boundaries.Where(bound => bound.x == hero.CoordsX && bound.y == hero.CoordsY).Count() > 0)
+            if (hero.Map == 0 && map0Boundaries.Where(bound => bound.x == hero.Position.x && bound.y == hero.Position.y).Count() > 0)
             {
                 Console.WriteLine("changing map");
                 hero.Map = 1;
-                hero.CoordsX = 105;
-                hero.CoordsY = 60;
+                hero.Position.x = 105;
+                hero.Position.y = 60;
             }
-            if (hero.Map == 1 && map1Boundaries.Where(bound => bound.x == hero.CoordsX && bound.y == hero.CoordsY).Count() > 0)
+            if (hero.Map == 1 && map1Boundaries.Where(bound => bound.x == hero.Position.x && bound.y == hero.Position.y).Count() > 0)
             {
                 Console.WriteLine("changing map");
                 hero.Map = 0;
-                hero.CoordsX = 105;
-                hero.CoordsY = 60;
+                hero.Position.x = 105;
+                hero.Position.y = 60;
             } 
         }
         private void SetMapBoundaries()
         {
             for (int i = 0; i < 4; i++)
             {
-                map0Boundaries.Add(new VectorM(210 + (i * 5), 45));
+                map0Boundaries.Add(new Vector2(210 + (i * 5), 45));
             }
             for (int i = 0; i < 4; i++)
             {
-                map1Boundaries.Add(new VectorM(210 + (i * 5), 35));
+                map1Boundaries.Add(new Vector2(210 + (i * 5), 35));
             }
         }
         private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)

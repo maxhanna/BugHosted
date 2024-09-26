@@ -7,8 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Meta
         public User? User { get; set; } 
         public string? Name { get; set; }
         public int Id { get; set; }
-        public int CoordsX { get; set; }
-        public int CoordsY { get; set; } 
+        public Vector2 Position { get; set; } = new Vector2(0,0);
         public int Speed { get; set; } 
         public int Map { get; set; } 
     }

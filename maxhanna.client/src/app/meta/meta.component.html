@@ -1,4 +1,3 @@
-
 <div class="gameCanvasContainer" [style.display]="parentRef && parentRef.user ? 'block' : 'none'">
   <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width="320" height="180"></canvas>
   <button (click)="advanceStartingStoryText()" class="nextStoryTextButton" *ngIf="showingNarrationText">{{advanceStoryButtonText}}</button>
@@ -36,14 +35,14 @@
 
     <div class="joystick-container" *ngIf="hero">
       <div class="joystick"
-           (touchstart)="startJoystick($event)"
-           (touchmove)="moveJoystick($event)"
-           (touchend)="stopJoystick()"
-           (touchcancel)="stopJoystick()"
-           (mousedown)="startJoystick($event)"
-           (mousemove)="moveJoystick($event)"
-           (mouseup)="stopJoystick()"
-           (mouseleave)="stopJoystick()"></div>
+           (touchstart)="input.startJoystick($event)"
+           (touchmove)="input.moveJoystick($event)"
+           (touchend)="input.stopJoystick()"
+           (touchcancel)="input.stopJoystick()"
+           (mousedown)="input.startJoystick($event)"
+           (mousemove)="input.moveJoystick($event)"
+           (mouseup)="input.stopJoystick()"
+           (mouseleave)="input.stopJoystick()"></div>
     </div>
   </div>
 </div>

@@ -189,19 +189,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   createComponent(componentType: string, inputs?: { [key: string]: any; }) { 
-    if (!this.isNavigationInitialized) {
-      setTimeout(() => {
-        if (!this.isNavigationInitialized) {
-          setTimeout(() => {
-            this.navigationComponent.minimizeNav();
-          }, 95)
-        } else { 
-          this.navigationComponent.minimizeNav();
-        }
-      }, 75)
-    } else {
-      this.navigationComponent.minimizeNav();
-    }
+    this.navigationComponent.minimizeNav();
+
     if (!componentType || componentType.trim() === "") {
       console.log("returning null due to invalid componentType");
       return null;
