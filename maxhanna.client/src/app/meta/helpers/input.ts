@@ -60,14 +60,16 @@ export class Input {
 
         break;
       case 'Enter':
-        //if (document.activeElement === this.chatInput.nativeElement) {
-        //  if (this.showingNarrationText) {
-        //    this.advanceStartingStoryText();
-        //  }
-        //  this.chatInput.nativeElement.blur();
-        //} else {
-        //  this.focusOnChatInput();
-        //}
+        const chatInput = document.getElementById("chatInput");
+        console.log(document.activeElement?.id);
+        if (chatInput && document.activeElement?.id === chatInput.id) {
+          //if (this.showingNarrationText) {
+          //  this.advanceStartingStoryText();
+          //}
+          chatInput.blur();
+        } else if (chatInput) {
+          chatInput.focus();
+        }
         break;
     }
   }
@@ -77,18 +79,15 @@ export class Input {
     switch (key) {
       case 'ArrowUp':
       case 'w':
-        this.onArrowReleased(UP);
-
+        this.onArrowReleased(UP); 
         break;
       case 'ArrowDown':
       case 's':
-        this.onArrowReleased(DOWN);
-
+        this.onArrowReleased(DOWN); 
         break;
       case 'ArrowLeft':
       case 'a':
-        this.onArrowReleased(LEFT);
-
+        this.onArrowReleased(LEFT); 
         break;
       case 'ArrowRight':
       case 'd':

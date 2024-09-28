@@ -7,15 +7,21 @@ import { User } from '../../services/datacontracts/user/user';
 import { MetaService } from '../../services/meta.service';
 import { MetaChat } from '../../services/datacontracts/meta/meta-chat';
 import { Sprite } from './objects/sprite';
+import { GameObject } from './objects/game-object';
+import { Camera } from './objects/camera';
+import { Inventory } from './objects/inventory';
+import { Watch } from './objects/Watch/watch';
+import { Exit } from './objects/Exit/exit';
 import { Animations } from './helpers/animations';
 import { UP, DOWN, LEFT, RIGHT, gridCells, isSpaceFree } from './helpers/grid-cells';
-import { walls } from './levels/hero-room';
-import { WALK_DOWN, WALK_LEFT, WALK_RIGHT, WALK_UP, STAND_DOWN, STAND_LEFT, STAND_RIGHT, STAND_UP } from './objects/Hero/hero-animations';
 import { FrameIndexPattern } from './helpers/frame-index-pattern';
 import { GameLoop } from './helpers/game-loop';
 import { resources } from './helpers/resources';
 import { Input } from './helpers/input';
 import { moveTowards } from './helpers/move-towards';
+import { events } from './helpers/events';
+import { walls } from './levels/hero-room'; 
+import { Hero } from './objects/Hero/hero';
 
 @Component({
   selector: 'app-meta',
@@ -31,14 +37,34 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
   constructor(private metaService: MetaService) {
     super();
-    this.hero = {} as MetaHero; 
+    this.hero = {} as Hero;
+    this.mainScene = new GameObject({ position: new Vector2(0, 0) });
+    const levelSprite = new Sprite(
+      0, resources.images["heroRoom"], new Vector2(0, 0), 1, 1, new Vector2(320, 420)
+    );
+    this.mainScene.addChild(levelSprite);
+    this.mainScene.input = new Input();
+
+    this.watch = new Watch(gridCells(2), gridCells(6));
+    this.mainScene.addChild(this.watch);
+
+    this.exit = new Exit(gridCells(2), gridCells(4));
+    this.mainScene.addChild(this.exit);
+
+    this.inventory = new Inventory();
+
+    events.on("HERO_EXITS", this.mainScene, () => {
+      console.log("CHANGE THE MAP");
+    })
+
   }
 
   @HostListener('window:resize')
   onResize() {
     this.resizeCanvas();
-  } 
-
+  }
+  canvas!: HTMLCanvasElement;
+  ctx!: CanvasRenderingContext2D;
   canvasWidth = 320;
   canvasHeight = 220;
   canvasCenterX = this.gameCanvas?.nativeElement.width ?? 320 / 2;
@@ -53,12 +79,11 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   isRunning: boolean = false;
 
 
-  hero: MetaHero;
+  hero: Hero;
   otherHeroes: MetaHero[] = [];
   chat: MetaChat[] = [];
   latestMessagesMap = new Map<number, MetaChat>();
-  currentMap = 0;
-  showingNarrationText = false;
+  currentMap = 0; 
   advanceStoryButtonText = "Next";
   showStartingStory = false;
   showNameInput: boolean = false;
@@ -77,24 +102,21 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   startingConfirmNameStoryCurrentMessage: string = this.startingConfirmNameStoryMessages[0];
   startingConfirmNameStoryMessageIndex: number = 0;
 
-  npc = new MetaHero(0, new User(0, "Anonymous"), "Referee", new Vector2(gridCells(5), gridCells(5)), 5, 1);
-  sprites: Sprite[] = [];
-  heroSprite?: Sprite = undefined;
+  npc = new MetaHero(0, "Referee", new Vector2(gridCells(5), gridCells(5)), 5, 1);
+  heroSprites: Sprite[] = [];
+  mainScene : GameObject;
+  camera?: Camera;
+  inventory?: Inventory;
+  watch: Watch;
+  exit: Exit;
 
-  mapBoundaries?: Vector2[] = undefined;
-  input = new Input();
-
-  private pollingInterval: any;
-  private moveInterval: any;
-  joystickActive = false;
-  joystickOrigin = new Vector2(0, 0);
-  joystickCurrentPos = new Vector2(0, 0);
-  heldDirections: string[] = [];
-
+  private pollingInterval: any; 
   heroDestinationPosition = new Map<number, Vector2>;
   heroFacing = DOWN;
 
-  async ngOnInit() { 
+  async ngOnInit() {
+    this.canvas = this.gameCanvas.nativeElement;
+    this.ctx = this.canvas.getContext("2d")!;
     if (!this.parentRef?.user) {
       this.isUserComponentOpen = true;
     } else {
@@ -106,89 +128,53 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  update = async (delta: number) => { 
-    const spriteMap = new Map<number, Sprite>();
-    for (const sprite of this.sprites) {
-      spriteMap.set(sprite.objectId, sprite);
-    } 
-    //console.log(this.heroSprite?.frame);
-
-    for (let x = 0; x < this.otherHeroes.length; x++) {
-      const hero = this.otherHeroes[x]; 
-      const sprite = spriteMap.get(hero.id); 
-      const heroDestination = this.heroDestinationPosition.get(hero.id);
-
-      if (hero && sprite) {
-        sprite.step(this.timeStep); 
-      }
-      if (!heroDestination) {
-        this.heroDestinationPosition.set(hero.id, new Vector2(hero.position.x, hero.position.y));
-      }
-      if (hero && sprite && heroDestination) {
-        const distance = moveTowards(sprite, heroDestination, 1);
-        const hasArrived = (distance ?? 0) <= 1;
-        if (hasArrived && hero.id === this.hero.id) {
-          this.tryMove(hero, sprite);
-        }
-      }
-    }
-    
-
+  update = async (delta: number) => {
+    this.mainScene.stepEntry(delta, this.mainScene);
+     
     if (this.showStartingStory) {
       this.drawStoryChatBubble(this.currentDisplayedStoryMessage);
-    }
-    //console.log(this.direction);
-  }
-  
-  render = () => { 
-    if (!this.showStartingStory) {  
-      const levelSprite = new Sprite(0, resources.images["heroRoom"], new Vector2(0, 0), 1, 1, new Vector2(320, 420));
-     
-      const heroOffset = new Vector2(-8, -21);
-      
-      const ctx = this.getCtx();
-       
-      levelSprite.drawImage(0, -100, ctx);  
-      
-       
-      if (this.sprites && this.sprites.length > 0) {
-        const sortedSprites = [...this.sprites].sort((a, b) => a.position.y - b.position.y); 
-
-        for (const sprite of sortedSprites) {
-          const heroPos = sprite.position ?? new Vector2(gridCells(1), gridCells(1)); 
-          const heroPosX = heroPos.x + heroOffset.x;
-          const heroPosY = heroPos.y + heroOffset.y;
-          sprite.drawImage(heroPosX, heroPosY, ctx);  
-        }
-      }
-    }
+    } 
   } 
+  render = () => {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    //Anything that needs to be statically drawn (regardless of camera position) like a sky, goes here, before CTX save/translation
+
+
+    //Save the current state for camera offset;
+    this.ctx.save();
+
+    //Offset by camera position:
+    this.ctx.translate(this.camera?.position?.x ?? 0, this.camera?.position?.y ?? 0);
+
+    this.mainScene.draw(this.ctx, 0, 0);
+
+    //Restore to original state
+    this.ctx.restore();
+
+    //Draw anything above the game world
+    this.inventory?.draw(this.ctx, 0, 0);
+  }  
   gameLoop = new GameLoop(this.update, this.render);
 
   private updatePlayers() { 
     if (this.hero) {
-      const heroSprite = this.sprites.find(x => x.objectId === this.hero.id);
-      if (heroSprite) { 
-        this.hero.position.x = parseInt(heroSprite.position.x.toFixed(0));
-        this.hero.position.y = parseInt(heroSprite.position.y.toFixed(0));
-      }
-      this.metaService.fetchGameData(this.hero).then(res => {
+      const metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), 5, 0);
+      this.metaService.fetchGameData(metaHero).then(res => {
         if (res) {
           this.updateOtherHeroesBasedOnFetchedData(res);
           this.updateMissingOrNewHeroSprites();
            
           if (res.chat) { 
             this.chat = res.chat.reverse();
-            if (this.hero) {
-              this.hero.map = res.map;
-            }
+            //if (this.hero) {
+            //  this.hero.map = res.map;
+            //}
           }
-          if (this.hero && this.currentMap != this.hero.map) {
-            this.mapBoundaries = undefined;
-            this.currentMap = this.hero.map;
-            this.hero.position = res.position;  
-          }
+          //if (this.hero && this.currentMap != this.hero.map) { 
+          //  this.currentMap = this.hero.map;
+          //  this.hero.position = res.position;  
+          //}
           this.scrollToBottomOfChat();
           this.getLatestMessages();
         }
@@ -199,131 +185,52 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
 
-  tryMove = (hero: MetaHero, sprite: Sprite) => {
-    if (!this.input.direction) { 
-      //console.log("stand" + this.heroFacing.charAt(0) + this.heroFacing.substring(1, this.heroFacing.length).toLowerCase());
-      sprite.animations?.play("stand" + this.heroFacing.charAt(0) + this.heroFacing.substring(1, this.heroFacing.length).toLowerCase());
-      return;
-    }
-
-    const gridSize = gridCells(1);
-    const destPos = this.heroDestinationPosition.get(hero.id);
-    if (destPos) {
-      let position = destPos.duplicate();
-
-      if (this.input.direction === DOWN) {
-        position.y += gridSize;
-        sprite.animations?.play("walkDown");
-      }
-      else if (this.input.direction === UP) {
-        position.y -= gridSize;
-        sprite.animations?.play("walkUp");
-      }
-      else if (this.input.direction === LEFT) {
-        position.x -= gridSize;
-        sprite.animations?.play("walkLeft");
-      }
-      else if (this.input.direction === RIGHT) {
-        position.x += gridSize;
-        sprite.animations?.play("walkRight");
-      } 
-
-      this.heroFacing = this.input.direction ?? this.heroFacing;
-
-      if (isSpaceFree(walls, position.x, position.y)) {
-        this.heroDestinationPosition.set(hero.id, position);
-      } 
-    } 
-  }
-
   private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; chat: MetaChat[]; }) {
     if (!res || !res.heroes) {
       this.otherHeroes = [];
       return;
-    } 
-    const updatedHeroes: MetaHero[] = [];
-    const currentHeroesMap = new Map(this.otherHeroes.map(hero => [hero.id, hero])); 
-    const thisHeroId = this.hero.id;
-
-    for (const newHero of res.heroes) {
-      const existingHero = currentHeroesMap.get(newHero.id);
-
-      if (existingHero) {
-        if ((existingHero.id != thisHeroId) && (existingHero.position.x !== newHero.position.x || existingHero.position.y !== newHero.position.y)) {
-          //existingHero.position = newHero.position;
-          this.heroDestinationPosition.set(existingHero.id, new Vector2(newHero.position.x, newHero.position.y)); 
-        }
-        updatedHeroes.push(existingHero);
-      } else {
-        updatedHeroes.push(newHero); 
-      }
-    }
-    this.otherHeroes = updatedHeroes;
+    }  
+    this.otherHeroes = res.heroes;
   }
 
 
-  private updateMissingOrNewHeroSprites() {
-    const spriteMap = new Map<number, Sprite>();
-    for (const sprite of this.sprites) {
-      spriteMap.set(sprite.objectId, sprite);
-    }
-
-    // Step 2: Process the heroes
+  private updateMissingOrNewHeroSprites() { 
     for (const hero of this.otherHeroes) {
-      let sprite = spriteMap.get(hero.id);
-      const pos = hero?.position ?? new Vector2(gridCells(1), gridCells(1));   
-      // Step 3: If no sprite exists for the hero, create and add it
-      if (!sprite) {
-        sprite = new Sprite(
-          hero.id,
-          resources.images["hero"],
-          new Vector2(pos.x, pos.y),
-          1,
-          1,
-          new Vector2(32, 32),
-          4,
-          4,
-          new Animations(
-          {
-            walkDown: new FrameIndexPattern(WALK_DOWN),
-            walkUp: new FrameIndexPattern(WALK_UP),
-            walkLeft: new FrameIndexPattern(WALK_LEFT),
-            walkRight: new FrameIndexPattern(WALK_RIGHT),
-            standDown: new FrameIndexPattern(STAND_DOWN),
-            standRight: new FrameIndexPattern(STAND_RIGHT),
-            standLeft: new FrameIndexPattern(STAND_LEFT),
-            standUp: new FrameIndexPattern(STAND_UP),
-          })
-        );
-        sprite.animations?.play("standDown");
-        this.sprites.push(sprite); 
+      const existingHero = this.mainScene.children.find((x: any) => x.id === hero.id);
+      if (existingHero) {
+        if (existingHero.id != this.hero.id) { 
+          existingHero.position = hero.position;
+        }
+      } else {
+        const tmpHero = new Hero(hero.position.x, hero.position.y);
+        tmpHero.id = hero.id;
+        tmpHero.name = hero.name ?? "Anon";
+        this.mainScene.addChild(tmpHero); 
       } 
     }
   }
+  private snapToGrid(value: number, gridSize: number): number {
+    return Math.round(value / gridSize) * gridSize;
+  }
 
   ngOnDestroy() {
-    clearInterval(this.pollingInterval);
-    clearInterval(this.moveInterval);
+    clearInterval(this.pollingInterval); 
     stop();
   }
 
-  resizeCanvas() {
-    const canvas = this.gameCanvas.nativeElement;
-    const ctx = canvas.getContext('2d');
+  resizeCanvas() { 
 
     // Set the canvas size to match the CSS size
     const canvasWidth = 320;
     const canvasHeight = 220;
 
-    canvas.style.width = `${canvasWidth}px`;
-    canvas.style.height = `${canvasHeight}px`;
+    this.canvas.style.width = `${canvasWidth}px`;
+    this.canvas.style.height = `${canvasHeight}px`;
 
     const devicePixelRatio = window.devicePixelRatio || 1;
-    canvas.width = canvasWidth * devicePixelRatio;
-    canvas.height = canvasHeight * devicePixelRatio;
-    if (ctx) {
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-    }
+    this.canvas.width = canvasWidth * devicePixelRatio;
+    this.canvas.height = canvasHeight * devicePixelRatio; 
+    this.ctx.scale(devicePixelRatio, devicePixelRatio); 
   }
 
 
@@ -331,8 +238,21 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!this.hero.id && this.parentRef?.user) {
       const rz = await this.metaService.getHero(this.parentRef.user);
       if (rz) {
-        this.hero = rz;
-        console.log("set hero " + this.hero.id);
+        this.hero = new Hero(rz.position.x, rz.position.y);
+        this.hero.id = rz.id;
+        this.hero.name = rz.name ?? "Anon";
+        this.mainScene.addChild(this.hero);
+         
+        const personHalf = 8;
+        const canvasWidth = 320;
+        const canvasHeight = 220;
+        const halfWidth = -personHalf + (canvasWidth / 2);
+        const halfHeight = -personHalf + (canvasHeight / 2);
+
+        this.camera = new Camera(-rz.position.x + halfWidth, -rz.position.y + halfHeight);
+        this.mainScene.addChild(this.camera);
+      } else {
+        this.startStory();
       }
     } 
 
@@ -342,37 +262,21 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       this.updatePlayers();
     }, this.pollSeconds * 1000);
   }
-
-  handleInputKeydown(event: KeyboardEvent) {
-    const inputValue = this.chatInput?.nativeElement?.value?.trim();
-
-    if (event.key === 'Enter' && inputValue) {
-      if (this.hero) {
-        this.metaService.chat(this.hero, this.chatInput.nativeElement.value);
-        this.chatInput.nativeElement.value = "";
-      }
-      event.preventDefault();
-    }
-  }
-    
-    
+   
     
   startStory() {
-    this.showStartingStory = true;
-    this.showingNarrationText = true;
+    this.showStartingStory = true; 
     this.drawStoryChatBubble(this.currentDisplayedStoryMessage);
   }
   drawStoryChatBubble(message: string) {
-    if (!message || message == '') return;
-    const ctx = this.getCtx();
-    if (!ctx) return;
+    if (!message || message == '') return; 
 
     const canvasWidth = this.canvasWidth;
     const canvasHeight = this.canvasHeight;
     const padding = 10;
 
-    ctx.fillStyle = "#333";
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    this.ctx.fillStyle = "#333";
+    this.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     const bubbleWidth = canvasWidth - 2 * padding; // Adjust bubble width to fit within padding
     const bubbleHeight = 100; // Adjust as needed
@@ -382,26 +286,26 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     const bubbleY = 10; // Vertically center the bubble
 
     // Draw the bubble
-    ctx.fillStyle = '#FFFFFF';
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(bubbleX + padding, bubbleY);
-    ctx.lineTo(bubbleX + bubbleWidth - padding, bubbleY);
-    ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + padding);
-    ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - padding);
-    ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - padding, bubbleY + bubbleHeight);
-    ctx.lineTo(bubbleX + padding, bubbleY + bubbleHeight);
-    ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - padding);
-    ctx.lineTo(bubbleX, bubbleY + padding);
-    ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + padding, bubbleY);
-    ctx.stroke();
-    ctx.fill();
+    this.ctx.fillStyle = '#FFFFFF';
+    this.ctx.strokeStyle = '#000000';
+    this.ctx.lineWidth = 4;
+    this.ctx.beginPath();
+    this.ctx.moveTo(bubbleX + padding, bubbleY);
+    this.ctx.lineTo(bubbleX + bubbleWidth - padding, bubbleY);
+    this.ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + padding);
+    this.ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - padding);
+    this.ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - padding, bubbleY + bubbleHeight);
+    this.ctx.lineTo(bubbleX + padding, bubbleY + bubbleHeight);
+    this.ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - padding);
+    this.ctx.lineTo(bubbleX, bubbleY + padding);
+    this.ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + padding, bubbleY);
+    this.ctx.stroke();
+    this.ctx.fill();
     // Draw message text, adjusting font size based on canvas width
     const fontSize = Math.floor(canvasWidth / 12); // Dynamic font size
-    ctx.fillStyle = '#000000';
-    ctx.font = `${fontSize}px Arial`;
-    ctx.textAlign = 'center';
+    this.ctx.fillStyle = '#000000';
+    this.ctx.font = `${fontSize}px Arial`;
+    this.ctx.textAlign = 'center';
 
     // Split message into multiple lines if needed
     const words = message.split(' ');
@@ -410,7 +314,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     const maxWidth = bubbleWidth - 40; // Padding for the bubble
     for (const word of words) {
       const testLine = currentLine + word + ' ';
-      const testWidth = ctx.measureText(testLine).width;
+      const testWidth = this.ctx.measureText(testLine).width;
       if (testWidth > maxWidth) {
         lines.push(currentLine);
         currentLine = word + ' ';
@@ -425,7 +329,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     const textStartY = bubbleY + padding + lineHeight;
 
     lines.forEach((line, i) => {
-      ctx.fillText(line, bubbleX + bubbleWidth / 2, textStartY + (i * lineHeight));
+      this.ctx.fillText(line, bubbleX + bubbleWidth / 2, textStartY + (i * lineHeight));
     });
 
     // Draw placeholder for sprites (still a simple square for now)
@@ -435,10 +339,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
 
-  advanceStartingStoryText(): void {
-    this.showingNarrationText = true;
-    if (this.advanceStoryButtonText == "Start!") {
-      this.showingNarrationText = false;
+  advanceStartingStoryText(): void { 
+    if (this.advanceStoryButtonText == "Start!") { 
       this.showStartingStory = false;
       if (this.hero?.name) {
         this.metaService.createHero(this.parentRef?.user ?? new User(0, 'Anonymous'), this.hero.name).then(res => {
@@ -450,7 +352,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.showNameInput && this.chatInput && this.chatInput.nativeElement.value.trim() == "") {
       return this.focusOnChatInput();
     } else if (this.showNameInput && this.chatInput && this.chatInput.nativeElement.value.trim().length > 2) {
-      this.hero = { name: this.chatInput.nativeElement.value, user: (this.parentRef?.user ?? new User(0, "Anonymous")) } as MetaHero;
+     // this.hero = { name: this.chatInput.nativeElement.value, user: (this.parentRef?.user ?? new User(0, "Anonymous")) } as MetaHero;
       this.startingConfirmNameStoryMessages[0] = this.startingConfirmNameStoryMessages[0] + `${this.hero.name} is it?`;
       this.showNameInput = false;
       this.chatInput.nativeElement.value = "";
@@ -497,8 +399,6 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   promptForName(): void {
-    const ctx = this.getCtx();
-    if (!ctx) return;
     this.showNameInput = true;
     const namePrompt = "Please enter your:";
     this.drawStoryChatBubble(namePrompt);
@@ -517,18 +417,18 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         this.chatInput.nativeElement.focus();
       }
     }, 0);
-  }
-  getCtx(): CanvasRenderingContext2D | undefined {
-    const canvas: HTMLCanvasElement = this.gameCanvas.nativeElement;
-    const ctx = canvas?.getContext('2d');
-    return ctx ? ctx : undefined;
-  }
+  } 
   scrollToBottomOfChat() {
     const chatContent = document.getElementById("chatBox");
     if (chatContent) {
-      chatContent.scrollTop = chatContent.scrollHeight;
+      const isUserScrolled = chatContent.scrollTop > 0 && (chatContent.scrollTop + chatContent.clientHeight < chatContent.scrollHeight);
+       
+      if (!isUserScrolled) {
+        chatContent.scrollTop = chatContent.scrollHeight;
+      }
     }
   }
+
   closeUserComponent(user: User) {
     this.isUserComponentOpen = false;
     if (this.parentRef) {

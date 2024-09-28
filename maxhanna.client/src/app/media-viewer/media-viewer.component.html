@@ -21,7 +21,7 @@
       <video #mediaContainer
              *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)"
              [src]="selectedFileSrc" 
-             controls
+             controls muted
              preload="auto" 
              [autoplay]="autoplay"
              class="video media">

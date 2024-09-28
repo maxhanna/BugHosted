@@ -1,6 +1,6 @@
 <div class="gameCanvasContainer" [style.display]="parentRef && parentRef.user ? 'block' : 'none'">
   <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width="320" height="180"></canvas>
-  <button (click)="advanceStartingStoryText()" class="nextStoryTextButton" *ngIf="showingNarrationText">{{advanceStoryButtonText}}</button>
+  <button (click)="advanceStartingStoryText()" class="nextStoryTextButton" [style.display]="'none'">{{advanceStoryButtonText}}</button>
 </div>
 
 
@@ -24,25 +24,25 @@
       <canvas #heroCanvas class="heroCanvas"></canvas>
     </div>
 
-    <div class="chatBox" id="chatBox" *ngIf="!(showingNarrationText || showStartingStory)">
+    <div class="chatBox" id="chatBox" *ngIf="!showStartingStory">
       <div *ngFor="let msg of chat">
         <span class="xxSmallFont">({{msg.timestamp | date: 'd/MM/yyyy@HH:mm'}})</span> <span class="heroName">{{msg.hero.name}}</span>: {{msg.content}}
       </div>
     </div>
     <div [class]="showNameInput ? 'enterNameInput' : 'chatInputDiv'">
-      <input type="text" [placeholder]="showNameInput ? 'Name' : 'Chat'" #chatInput (keydown)="handleInputKeydown($event)" class="chatInput" />
+      <input type="text" [placeholder]="showNameInput ? 'Name' : 'Chat'" #chatInput id="chatInput" class="chatInput" />
     </div>
 
     <div class="joystick-container" *ngIf="hero">
       <div class="joystick"
-           (touchstart)="input.startJoystick($event)"
-           (touchmove)="input.moveJoystick($event)"
-           (touchend)="input.stopJoystick()"
-           (touchcancel)="input.stopJoystick()"
-           (mousedown)="input.startJoystick($event)"
-           (mousemove)="input.moveJoystick($event)"
-           (mouseup)="input.stopJoystick()"
-           (mouseleave)="input.stopJoystick()"></div>
+           (touchstart)="mainScene.input.startJoystick($event)"
+           (touchmove)="mainScene.input.moveJoystick($event)"
+           (touchend)="mainScene.input.stopJoystick()"
+           (touchcancel)="mainScene.input.stopJoystick()"
+           (mousedown)="mainScene.input.startJoystick($event)"
+           (mousemove)="mainScene.input.moveJoystick($event)"
+           (mouseup)="mainScene.input.stopJoystick()"
+           (mouseleave)="mainScene.input.stopJoystick()"></div>
     </div>
   </div>
 </div>

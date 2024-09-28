@@ -40,22 +40,22 @@ const makeSideWalkingFrames = (rootFrame = 0) => {
 
 const makeStandingDownFrames = (rootFrame = 0) => {
   return {
-    duration: 400,
+    duration: 2200,
     frames: [
       {
         time: 0,
         frame: rootFrame + 1
       },
       {
-        time: 100,
+        time: 1000,
         frame: rootFrame
       },
       {
-        time: 200,
+        time: 1200,
         frame: rootFrame + 1
       },
       {
-        time: 300,
+        time: 2200,
         frame: rootFrame + 2
       }
     ]
@@ -83,3 +83,17 @@ export const STAND_DOWN = makeStandingDownFrames(1);
 export const STAND_RIGHT = makeStandingFrames(11);
 export const STAND_UP = makeStandingFrames(12);
 export const STAND_LEFT = makeStandingFrames(9);
+
+export const PICK_UP_DOWN = { 
+  duration: 2500,
+  frames: [
+    {
+      time: 0,
+      frame: 16
+    },
+    {
+      time: 400,
+      frame: 17
+    },
+  ] 
+}

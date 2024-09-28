@@ -62,7 +62,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       if (this.abortFileRequestController) {
         this.abortFileRequestController.abort();
       } 
-    }
+    }   
   }
   async fetchFileSrc() {
     if (this.fileSrc) {
@@ -192,7 +192,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
           //console.log("adding file src to inputtedParentRef.pictureSrcs " + fileId);  
           this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
-        } 
+        }
+        setTimeout(() => {
+          if (this.mediaContainer)
+            this.mediaContainer.nativeElement.muted = true;
+        }, 10)
+        
       };
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {

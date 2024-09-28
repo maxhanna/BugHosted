@@ -1,4 +1,3 @@
-import { WALK_DOWN } from "../objects/Hero/hero-animations";
 import { Sprite } from "../objects/sprite";
 import { FrameIndexPattern } from "./frame-index-pattern";
 

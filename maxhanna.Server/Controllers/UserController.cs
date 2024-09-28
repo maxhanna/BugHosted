@@ -115,7 +115,7 @@ namespace maxhanna.Server.Controllers
                         (
                             Convert.ToInt32(reader["id"]),
                             reader["username"].ToString()!,
-                            reader["pass"].ToString(),
+                            null,
                             displayPic.Id != 0 ? displayPic : null,
                             tmpAbout, 
                             (DateTime)reader["created"],
@@ -199,7 +199,7 @@ namespace maxhanna.Server.Controllers
                         (
                             Convert.ToInt32(reader["id"]),
                             reader["username"].ToString()!,
-                            null, // Password is not returned in this method, you might need to adjust this based on your requirements
+                            null, // Password is not returned in this method 
                             displayPic.Id == 0 ? null : displayPic,
                             tmpAbout,
                             (DateTime)reader["created"],

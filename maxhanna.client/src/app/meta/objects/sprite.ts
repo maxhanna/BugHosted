@@ -1,7 +1,8 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { Animations } from "../helpers/animations"; 
+import { GameObject } from "./game-object";
 
-export class Sprite {
+export class Sprite extends GameObject {
   objectId: number;
   resource?: Resource; //Spritesheet
   frameSize: Vector2; //Size of a cropped image on spritesheet
@@ -10,10 +11,11 @@ export class Sprite {
   frame: number; //Which frame we want to show
   frameMap: Map<number, Vector2>;
   scale: number;
-  position: Vector2;
   animations?: Animations;
+  name?: string;
 
-  constructor(objectId: number, resource: Resource, position?: Vector2, scale?: number, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?: number, animations?: Animations) {
+  constructor( objectId: number, resource: Resource, position?: Vector2, scale?: number, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?: number, animations?: Animations, name?: string ) {
+    super({ position: position ?? new Vector2(0, 0)});
     this.objectId = objectId;
     this.position = position ?? new Vector2(0, 0);
     this.frame = frame ?? 1;
@@ -22,6 +24,7 @@ export class Sprite {
     this.vFrames = vFrames ?? 1;
     this.scale = scale ?? 1;
     this.frameSize = frameSize ?? new Vector2(16, 16);
+    this.name = name;
     this.animations = animations;
     this.frameMap = new Map();
     this.buildFrameMap();
@@ -40,7 +43,7 @@ export class Sprite {
     }
   }
 
-  step(delta: number) {
+  override step(delta: number) {
     if (!this.animations) {
       return;
     } 
@@ -48,7 +51,7 @@ export class Sprite {
     this.frame = this.animations.frame; 
   }
 
-  drawImage(x: number, y: number, ctx?: CanvasRenderingContext2D) {
+  override drawImage(ctx: CanvasRenderingContext2D, x: number, y: number) {
     if (!ctx || !this.resource?.isLoaded) {
       return;
     }

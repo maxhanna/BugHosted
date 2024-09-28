@@ -415,6 +415,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       const tmpUser = await this.userService.getUser(tmpLoginUser);
 
       if (tmpUser && tmpUser.username) {
+        tmpUser.password = undefined;
         this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
         this.parentRef!.user = tmpUser;
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);

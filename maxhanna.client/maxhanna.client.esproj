@@ -8,6 +8,7 @@
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist\maxhanna.client\</BuildOutputFolder>
   </PropertyGroup>
   <ItemGroup>
+    <Folder Include="src\app\meta\objects\Watch\" />
     <Folder Include="src\assets\metabots\" />
   </ItemGroup>
 </Project>

@@ -1,7 +1,8 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+import { GameObject } from "../objects/game-object";
 import { Sprite } from "../objects/sprite";
 
-export function moveTowards(sprite: Sprite, destinationPosition: Vector2, speed: number) {
+export function moveTowards(sprite: GameObject, destinationPosition: Vector2, speed: number) {
   if (!sprite || !sprite.position || !destinationPosition || !destinationPosition.x || !destinationPosition.y) return;
   let distanceToTravelX = destinationPosition.x - sprite.position.x;
   let distanceToTravelY = destinationPosition.y - sprite.position.y;

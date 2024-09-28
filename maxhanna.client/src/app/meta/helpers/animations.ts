@@ -1,4 +1,3 @@
-import { WALK_DOWN } from "../objects/Hero/hero-animations";
 import { FrameIndexPattern } from "./frame-index-pattern";
 
 export class Animations {

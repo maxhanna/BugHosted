@@ -8,6 +8,6 @@ export class Vector2 {
   }
 
   duplicate() {
-    return new Vector2(this.x, this.y);
+    return new Vector2(parseInt(this.x.toFixed(0)), parseInt(this.y.toFixed(0)));
   }
 }

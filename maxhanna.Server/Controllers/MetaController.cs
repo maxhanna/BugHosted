@@ -85,7 +85,7 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Meta/Update", Name = "UpdateHero")]
         public async Task<IActionResult> UpdateHero([FromBody] MetaHero hero)
         {
-            Console.WriteLine($"POST /Meta/Update (UserId: {hero.User?.Id ?? 0}, Hero Id: {hero.Id}");
+            Console.WriteLine($"POST /Meta/Update (Hero Id: {hero.Id})");
             using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
@@ -119,10 +119,12 @@ namespace maxhanna.Server.Controllers
                         string sql = @"
                             INSERT INTO maxhanna.meta_hero (name, user_id, coordsX, coordsY, speed)
                             VALUES (@Name, @UserId, @CoordsX, @CoordsY, @Speed);";
+                        int posX = 1 * 16;
+                        int posY = 1 * 16;
                         Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
-                            { "@CoordsX", 105 },
-                            { "@CoordsY", 60 },
+                            { "@CoordsX", posX },
+                            { "@CoordsY", posY },
                             { "@Speed", 5 },
                             { "@Name", req.Name ?? "Anonymous"},
                             { "@UserId", req.User?.Id ?? 0}
@@ -131,12 +133,11 @@ namespace maxhanna.Server.Controllers
                         await transaction.CommitAsync();
                         if (botId != null) {
                             MetaHero hero = new MetaHero();
-                            hero.Position = new Vector2(105, 60);
+                            hero.Position = new Vector2(posX, posY);
                             hero.Id = (int)botId;
                             hero.Speed = 5;
                             hero.Map = 0;
-                            hero.Name = req.Name;
-                            hero.User = req.User;
+                            hero.Name = req.Name; 
                             return Ok(hero);
                         }
                         
@@ -267,18 +268,13 @@ namespace maxhanna.Server.Controllers
             using (var reader = await cmd.ExecuteReaderAsync())
             {
                 while (reader.Read())
-                {
-                    if (user != null)
-                    { 
-                        user.Pass = null;
-                    }
+                { 
                     MetaHero hero = new MetaHero();
                     hero.Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"]));
                     hero.Speed = Convert.ToInt32(reader["speed"]);
                     hero.Id = Convert.ToInt32(reader["id"]);
                     hero.Map = Convert.ToInt32(reader["map"]);
-                    hero.Name = Convert.ToString(reader["name"]);
-                    hero.User = user;
+                    hero.Name = Convert.ToString(reader["name"]); 
                     return hero;
                 }
             }
@@ -313,14 +309,12 @@ namespace maxhanna.Server.Controllers
             {
                 while (reader.Read())
                 {
-                    //User tmpUser = new User(Convert.ToInt32(reader["user_id"]), Convert.ToString(reader["username"]) ?? "Anonymous");
                     MetaHero tmpHero = new MetaHero();
                     tmpHero.Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])); 
                     tmpHero.Speed = Convert.ToInt32(reader["speed"]);
                     tmpHero.Id = Convert.ToInt32(reader["id"]);
                     tmpHero.Name = Convert.ToString(reader["name"]);
-                    tmpHero.Map = Convert.ToInt32(reader["map"]);
-                    //tmpHero.User = tmpUser;
+                    tmpHero.Map = Convert.ToInt32(reader["map"]); 
                     heroes.Add(tmpHero);
                 }
             }

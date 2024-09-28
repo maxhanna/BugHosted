@@ -5,9 +5,14 @@ export class Resources {
 
   constructor() {
     this.toLoad = {
-      hero: "assets/metabots/herospritesheet.png",
+      cave: "assets/metabots/cave.png",
+      caveGround: "assets/metabots/cave-ground.png",
+      exit: "assets/metabots/exit.png",
       gangster: "assets/metabots/gangsprite.png",
+      hero: "assets/metabots/herospritesheet.png",
       heroRoom: "assets/metabots/redroom.jpg",
+      shadow: "assets/metabots/shadow.png", 
+      watch: "assets/metabots/watch.png",
     };
     this.images = {};
      
