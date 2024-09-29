@@ -1,16 +1,25 @@
-<div class="gameCanvasContainer" [style.display]="parentRef && parentRef.user ? 'block' : 'none'">
-  <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width="320" height="180"></canvas>
-  <button (click)="advanceStartingStoryText()" class="nextStoryTextButton" [style.display]="'none'">{{advanceStoryButtonText}}</button>
-</div>
-
-
 <div class="componentMain" #componentMain>
   <div class="closeButton" (click)="remove_me('MetaComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Meta-Bots</div>
 
   <div *ngIf="isLoading" class="loadingModal">The game is loading...</div>
+  <div class="gameCanvasContainer" [style.display]="parentRef && parentRef.user ? 'block' : 'none'">
+    <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
+    <!--<button (click)="advanceStartingStoryText()" class="nextStoryTextButton" [style.display]="'none'">{{advanceStoryButtonText}}</button>-->
 
+
+    <div class="chatArea">
+      <div class="chatBox" id="chatBox">
+        <div *ngFor="let msg of chat">
+          <span class="xxSmallFont">({{msg.timestamp | date: 'd/MM/yyyy@HH:mm'}})</span> <span class="heroName">{{msg.hero.name}}</span>: {{msg.content}}
+        </div>
+      </div>
+      <div class="chatInputDiv">
+        <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput" />
+      </div>
+    </div>
+  </div>
   <app-user *ngIf="isUserComponentOpen"
             [loginOnly]="true"
             [inputtedParentRef]="parentRef"
@@ -19,30 +28,49 @@
             [loginReasonMessage]="'You must log in to play Meta-Bots.'"></app-user>
 
 
-  <div *ngIf="parentRef && parentRef.user">
-    <div class="heroCanvasContainer" (click)="heroCanvasClicked()">
-      <canvas #heroCanvas class="heroCanvas"></canvas>
-    </div>
+  <div *ngIf="parentRef && parentRef.user" class="inputArea">
 
-    <div class="chatBox" id="chatBox" *ngIf="!showStartingStory">
-      <div *ngFor="let msg of chat">
-        <span class="xxSmallFont">({{msg.timestamp | date: 'd/MM/yyyy@HH:mm'}})</span> <span class="heroName">{{msg.hero.name}}</span>: {{msg.content}}
+
+    <div class="controls">
+      <div class="controls">
+        <div class="dpad">
+          <div class="up-left" (mousedown)="mainScene.input.handleControl('UP_LEFT', 'press')" (mouseup)="mainScene.input.handleControl('UP_LEFT', 'release')" (touchstart)="mainScene.input.handleControl('UP_LEFT', 'press', $event)" (touchend)="mainScene.input.handleControl('UP_LEFT', 'release', $event)">
+            <div class="up-left-triangle"></div>
+          </div>
+          <div class="up" (mousedown)="mainScene.input.handleControl('UP', 'press')" (mouseup)="mainScene.input.handleControl('UP', 'release')" (touchstart)="mainScene.input.handleControl('UP', 'press', $event)" (touchend)="mainScene.input.handleControl('UP', 'release', $event)">
+            <div class="up-triangle"></div>
+          </div>
+          <div class="up-right" (mousedown)="mainScene.input.handleControl('UP_RIGHT', 'press')" (mouseup)="mainScene.input.handleControl('UP_RIGHT', 'release')" (touchstart)="mainScene.input.handleControl('UP_RIGHT', 'press', $event)" (touchend)="mainScene.input.handleControl('UP_RIGHT', 'release', $event)">
+            <div class="up-right-triangle"></div>
+          </div>
+          <div class="right" (mousedown)="mainScene.input.handleControl('RIGHT', 'press')" (mouseup)="mainScene.input.handleControl('RIGHT', 'release')" (touchstart)="mainScene.input.handleControl('RIGHT', 'press', $event)" (touchend)="mainScene.input.handleControl('RIGHT', 'release', $event)">
+            <div class="right-triangle"></div>
+          </div>
+          <div class="down" (mousedown)="mainScene.input.handleControl('DOWN', 'press')" (mouseup)="mainScene.input.handleControl('DOWN', 'release')" (touchstart)="mainScene.input.handleControl('DOWN', 'press', $event)" (touchend)="mainScene.input.handleControl('DOWN', 'release', $event)">
+            <div class="down-triangle"></div>
+          </div>
+          <div class="down-left" (mousedown)="mainScene.input.handleControl('DOWN_LEFT', 'press')" (mouseup)="mainScene.input.handleControl('DOWN_LEFT', 'release')" (touchstart)="mainScene.input.handleControl('DOWN_LEFT', 'press', $event)" (touchend)="mainScene.input.handleControl('DOWN_LEFT', 'release', $event)">
+            <div class="down-left-triangle"></div>
+          </div>
+          <div class="left" (mousedown)="mainScene.input.handleControl('LEFT', 'press')" (mouseup)="mainScene.input.handleControl('LEFT', 'release')" (touchstart)="mainScene.input.handleControl('LEFT', 'press', $event)" (touchend)="mainScene.input.handleControl('LEFT', 'release', $event)">
+            <div class="left-triangle"></div>
+          </div>
+          <div class="down-right" (mousedown)="mainScene.input.handleControl('DOWN_RIGHT', 'press')" (mouseup)="mainScene.input.handleControl('DOWN_RIGHT', 'release')" (touchstart)="mainScene.input.handleControl('DOWN_RIGHT', 'press', $event)" (touchend)="mainScene.input.handleControl('DOWN_RIGHT', 'release', $event)">
+            <div class="down-right-triangle"></div>
+          </div>
+          <div class="middle">
+          </div>
+        </div>
       </div>
-    </div>
-    <div [class]="showNameInput ? 'enterNameInput' : 'chatInputDiv'">
-      <input type="text" [placeholder]="showNameInput ? 'Name' : 'Chat'" #chatInput id="chatInput" class="chatInput" />
-    </div>
+    </div> 
 
-    <div class="joystick-container" *ngIf="hero">
-      <div class="joystick"
-           (touchstart)="mainScene.input.startJoystick($event)"
-           (touchmove)="mainScene.input.moveJoystick($event)"
-           (touchend)="mainScene.input.stopJoystick()"
-           (touchcancel)="mainScene.input.stopJoystick()"
-           (mousedown)="mainScene.input.startJoystick($event)"
-           (mousemove)="mainScene.input.moveJoystick($event)"
-           (mouseup)="mainScene.input.stopJoystick()"
-           (mouseleave)="mainScene.input.stopJoystick()"></div>
+    <div class="controls">
+      <div class="a-b">
+        <div class="b">B</div>
+        <div class="a" (mouseup)='mainScene.input.pressA()' (touchend)='mainScene.input.pressA()'>A</div>
+      </div>
+
+      <div class="start">START</div>
     </div>
   </div>
 </div>

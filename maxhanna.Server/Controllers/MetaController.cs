@@ -136,7 +136,7 @@ namespace maxhanna.Server.Controllers
                             hero.Position = new Vector2(posX, posY);
                             hero.Id = (int)botId;
                             hero.Speed = 5;
-                            hero.Map = 0;
+                            hero.Map = "HeroRoom";
                             hero.Name = req.Name; 
                             return Ok(hero);
                         }
@@ -177,8 +177,7 @@ namespace maxhanna.Server.Controllers
             }
         }
         private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
-        {
-            GetNewMapIfInBoundaries(hero);
+        { 
             //Console.WriteLine("hero coords X " + hero.CoordsX + " hero coordsY" + hero.CoordsY);
             string sql = @"UPDATE maxhanna.meta_hero 
                             SET coordsX = @CoordsX, 
@@ -273,7 +272,7 @@ namespace maxhanna.Server.Controllers
                     hero.Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"]));
                     hero.Speed = Convert.ToInt32(reader["speed"]);
                     hero.Id = Convert.ToInt32(reader["id"]);
-                    hero.Map = Convert.ToInt32(reader["map"]);
+                    hero.Map = Convert.ToString(reader["map"]);
                     hero.Name = Convert.ToString(reader["name"]); 
                     return hero;
                 }
@@ -314,29 +313,13 @@ namespace maxhanna.Server.Controllers
                     tmpHero.Speed = Convert.ToInt32(reader["speed"]);
                     tmpHero.Id = Convert.ToInt32(reader["id"]);
                     tmpHero.Name = Convert.ToString(reader["name"]);
-                    tmpHero.Map = Convert.ToInt32(reader["map"]); 
+                    tmpHero.Map = Convert.ToString(reader["map"]); 
                     heroes.Add(tmpHero);
                 }
             }
             return heroes.ToArray();
         }
-        private void GetNewMapIfInBoundaries(MetaHero hero)
-        {   
-            if (hero.Map == 0 && map0Boundaries.Where(bound => bound.x == hero.Position.x && bound.y == hero.Position.y).Count() > 0)
-            {
-                Console.WriteLine("changing map");
-                hero.Map = 1;
-                hero.Position.x = 105;
-                hero.Position.y = 60;
-            }
-            if (hero.Map == 1 && map1Boundaries.Where(bound => bound.x == hero.Position.x && bound.y == hero.Position.y).Count() > 0)
-            {
-                Console.WriteLine("changing map");
-                hero.Map = 0;
-                hero.Position.x = 105;
-                hero.Position.y = 60;
-            } 
-        }
+       
         private void SetMapBoundaries()
         {
             for (int i = 0; i < 4; i++)

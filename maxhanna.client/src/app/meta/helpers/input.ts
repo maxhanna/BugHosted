@@ -1,4 +1,5 @@
 import { Vector2 } from '../../../services/datacontracts/meta/vector2';
+import { events } from './events';
 import { UP, DOWN, LEFT, RIGHT } from './grid-cells';
 
 export class Input {
@@ -7,12 +8,20 @@ export class Input {
   joystickOrigin = new Vector2(0, 0);
   joystickCurrentPos = new Vector2(0, 0);
   heldDirections: string[] = [];
+  keys: Record<string, boolean> = {};
+  lastKeys: Record<string, boolean> = {};
 
   constructor() {
     document.addEventListener("keydown", (e) => {
+      const chatInput = document.getElementById("chatInput") as HTMLInputElement;
+      if (document.activeElement === chatInput && e.code != "Enter") {
+        return;
+      }
+      this.keys[e.code] = true;  
       this.handleKeydown(e);
     });
     document.addEventListener("keyup", (e) => {
+      this.keys[e.code] = false; 
       this.handleKeyup(e);
     });
 
@@ -20,6 +29,18 @@ export class Input {
 
   get direction() {
     return this.heldDirections[0];
+  }
+
+  update() {
+    this.lastKeys = { ... this.keys };
+  }
+
+  getActionJustPressed(keyCode: string) {
+    let justPressed = false;
+    if (this.keys[keyCode] && !this.lastKeys[keyCode]) {
+      justPressed = true;
+    }
+    return justPressed;
   }
 
   onArrowPressed(direction: string) {
@@ -36,39 +57,39 @@ export class Input {
   }
 
   handleKeydown(event: KeyboardEvent) {
+    const chatInput = document.getElementById("chatInput") as HTMLInputElement; 
+    if (chatInput?.value.trim() != "" && !this.getActionJustPressed("Enter")) {
+      return;
+    }
     const key = event.key;
     switch (key) {
       case 'ArrowUp':
-      case 'w':
-        //this.moveUp();
-        this.onArrowPressed(UP);
-
+      case 'w': 
+      case 'W': 
+        this.onArrowPressed(UP); 
         break;
       case 'ArrowDown':
       case 's':
-        this.onArrowPressed(DOWN);
-
+      case 'S':
+        this.onArrowPressed(DOWN); 
         break;
       case 'ArrowLeft':
       case 'a':
-        this.onArrowPressed(LEFT);
-
+      case 'A':
+        this.onArrowPressed(LEFT); 
         break;
       case 'ArrowRight':
       case 'd':
-        this.onArrowPressed(RIGHT);
-
+      case 'D':
+        this.onArrowPressed(RIGHT); 
         break;
       case 'Enter':
-        const chatInput = document.getElementById("chatInput");
-        console.log(document.activeElement?.id);
-        if (chatInput && document.activeElement?.id === chatInput.id) {
-          //if (this.showingNarrationText) {
-          //  this.advanceStartingStoryText();
-          //}
-          chatInput.blur();
-        } else if (chatInput) {
-          chatInput.focus();
+        if (this.getActionJustPressed("Enter")) {
+          if (chatInput && chatInput.value == '') {
+            chatInput.focus();
+          } else if (chatInput.value != '') {
+            events.emit("SEND_CHAT_MESSAGE", chatInput.value);
+          }
         }
         break;
     }
@@ -79,127 +100,104 @@ export class Input {
     switch (key) {
       case 'ArrowUp':
       case 'w':
+      case 'W':
         this.onArrowReleased(UP); 
         break;
       case 'ArrowDown':
       case 's':
+      case 'S':
         this.onArrowReleased(DOWN); 
         break;
       case 'ArrowLeft':
       case 'a':
+      case 'A':
         this.onArrowReleased(LEFT); 
         break;
       case 'ArrowRight':
       case 'd':
+      case 'D':
         this.onArrowReleased(RIGHT); 
         break;
     }
   }
-
-  startJoystick(event: TouchEvent | MouseEvent): void {
-    event.preventDefault();
-    this.joystickActive = true;
-
-    // For touch events
-    if (event instanceof TouchEvent) {
-      const touch = event.touches[0];
-      this.joystickOrigin = new Vector2(touch.clientX, touch.clientY);
+  pressA() {
+    this.keys["Space"] = true;
+    setTimeout(() => {
+      this.keys["Space"] = false;
+    }, 100);
+  }
+  handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {
+    // Prevent the default action to avoid any unwanted scrolling behavior on mobile
+    if (event) {
+      event.preventDefault();
     }
-    // For mouse events
-    else if (event instanceof MouseEvent) {
-      this.joystickOrigin = new Vector2(event.clientX, event.clientY);
-    }
-    this.startContinuousMovement();
-  }
 
-  moveJoystick(event: Event) {
-    if (!this.joystickActive) return;
-    let touch = undefined;
-
-    if ((event as TouchEvent).touches) {
-      touch = (event as TouchEvent).touches[0];
-    }
-    const mousePos = (event as MouseEvent);
-    const deltaX = (touch?.clientX ?? mousePos.clientX) - (this.joystickOrigin.x);
-    const deltaY = (touch?.clientY ?? mousePos.clientY) - (this.joystickOrigin.y);
-
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    const angle = Math.atan2(deltaY, deltaX);
-
-    const maxDistance = 40;
-    const limitedDistance = Math.min(distance, maxDistance);
-    const newX = Math.cos(angle) * limitedDistance;
-    const newY = Math.sin(angle) * limitedDistance;
-
-    // Move joystick visually
-    const joystickElement = document.querySelector('.joystick') as HTMLElement;
-    joystickElement.style.transform = `translate(${newX}px, ${newY}px)`;
-
-    // Update current joystick position for continuous movement logic
-    this.joystickCurrentPos = new Vector2(newX, newY);
-  }
-
-  stopJoystick() {
-    this.joystickActive = false;
-    // Stop continuous movement
-    this.stopContinuousMovement();
-    // Reset joystick position
-    const joystickElement = document.querySelector('.joystick') as HTMLElement;
-    joystickElement.style.transform = 'translate(0px, 0px)';
-  }
-
-  startContinuousMovement() {
-    this.moveInterval = setInterval(() => {
-      this.moveHeroBasedOnJoystick();
-    }, 1000 / 35);
-  }
-
-  stopContinuousMovement() {
-    if (this.moveInterval) {
-      clearInterval(this.moveInterval);
-      this.moveInterval = null;
-      this.onArrowReleased(UP);
-      this.onArrowReleased(DOWN);
-      this.onArrowReleased(LEFT);
-      this.onArrowReleased(RIGHT);
-    }
-  }
-
-  moveHeroBasedOnJoystick() {
-    const threshold = 10;
-    if (Math.abs(this.joystickCurrentPos.x) > threshold || Math.abs(this.joystickCurrentPos.y) > threshold) {
-
-      if (Math.abs(this.joystickCurrentPos.x) > Math.abs(this.joystickCurrentPos.y)) {
-        // Moving horizontally
-        if (this.joystickCurrentPos.x > 0) {
-          //this.moveRight(); 
-          this.onArrowPressed(RIGHT);
-          this.onArrowReleased(LEFT);
-          this.onArrowReleased(UP);
-          this.onArrowReleased(DOWN);
-        } else {
-          // this.moveLeft();
-          this.onArrowPressed(LEFT);
-          this.onArrowReleased(RIGHT);
-          this.onArrowReleased(UP);
-          this.onArrowReleased(DOWN);
-        }
-      } else {
-        // Moving vertically
-        if (this.joystickCurrentPos.y > 0) {
-          //this.moveDown(); 
-          this.onArrowPressed(DOWN);
-          this.onArrowReleased(LEFT);
-          this.onArrowReleased(UP);
-          this.onArrowReleased(RIGHT);
-        } else {
-          //this.moveUp(); 
-          this.onArrowPressed(UP);
-          this.onArrowReleased(LEFT);
-          this.onArrowReleased(RIGHT);
-          this.onArrowReleased(DOWN);
-        }
+    if (action === 'press') {
+      switch (direction) {
+        case 'UP':
+          this.onArrowPressed('UP');
+          break;
+        case 'UP_LEFT':
+          this.onArrowPressed('UP');
+          this.onArrowPressed('LEFT');
+          break;
+        case 'UP_RIGHT':
+          this.onArrowPressed('UP');
+          this.onArrowPressed('RIGHT');
+          break;
+        case 'DOWN':
+          this.onArrowPressed('DOWN');
+          break;
+        case 'DOWN_LEFT':
+          this.onArrowPressed('DOWN');
+          this.onArrowPressed('LEFT');
+          break;
+        case 'DOWN_RIGHT':
+          this.onArrowPressed('DOWN');
+          this.onArrowPressed('RIGHT');
+          break;
+        case 'LEFT':
+          this.onArrowPressed('LEFT');
+          break;
+        case 'RIGHT':
+          this.onArrowPressed('RIGHT');
+          break;
+        default:
+          break;
+      }
+    } else if (action === 'release') {
+      switch (direction) {
+        case 'UP':
+          this.onArrowReleased('UP');
+          break;
+        case 'UP_LEFT':
+          this.onArrowReleased('UP');
+          this.onArrowReleased('LEFT');
+          break;
+        case 'UP_RIGHT':
+          this.onArrowReleased('UP');
+          this.onArrowReleased('RIGHT');
+          break;
+        case 'DOWN':
+          this.onArrowReleased('DOWN');
+          break;
+        case 'DOWN_LEFT':
+          this.onArrowReleased('DOWN');
+          this.onArrowReleased('LEFT');
+          break;
+        case 'DOWN_RIGHT':
+          this.onArrowReleased('DOWN');
+          this.onArrowReleased('RIGHT');
+          break;
+        case 'LEFT':
+          this.onArrowReleased('LEFT');
+          break;
+        case 'RIGHT':
+          this.onArrowReleased('RIGHT');
+          break;
+        default:
+          break;
       }
     }
-  }
+  } 
 }

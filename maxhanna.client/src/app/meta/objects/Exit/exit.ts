@@ -13,6 +13,7 @@ export class Exit extends GameObject {
       0,
       resources.images["exit"]
     ));
+    this.drawLayer = "FLOOR";
   }
 
   override ready() {

@@ -11,7 +11,11 @@ export class Resources {
       gangster: "assets/metabots/gangsprite.png",
       hero: "assets/metabots/herospritesheet.png",
       heroRoom: "assets/metabots/redroom.jpg",
+      knight: "assets/metabots/knight-sheet-1.png",
+      portraits: "assets/metabots/portraits-sheet.png",
       shadow: "assets/metabots/shadow.png", 
+      fontWhite: "assets/metabots/sprite-font-white.png", 
+      textBox: "assets/metabots/text-box.png",  
       watch: "assets/metabots/watch.png",
     };
     this.images = {};

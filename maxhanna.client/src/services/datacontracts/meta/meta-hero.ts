@@ -6,10 +6,10 @@ export class MetaHero {
   name?: string;
   position: Vector2; 
   speed: number;
-  map: number;
+  map: string;
    
 
-  constructor(id: number, name: string, position: Vector2, speed: number, map: number) {
+  constructor(id: number, name: string, position: Vector2, speed: number, map: string) {
     this.id = id; 
     this.name = name;
     this.position = position; 

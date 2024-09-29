@@ -3,17 +3,16 @@ import { events } from "../helpers/events";
 import { Input } from "../helpers/input";
 
 export class GameObject {
-  parent: any;
-  children: any;
+  parent?: any;
+  children: any = [];
   position: Vector2;
-  input: Input;
+  input: Input = new Input();;
   hasReadyBeenCalled = false;
+  isSolid = false;
+  drawLayer?: any;
 
   constructor({ position }: { position: Vector2 }) {
-    this.position = position ?? new Vector2(0, 0);
-    this.children = [];
-    this.input = new Input();
-    this.parent = null;
+    this.position = position ?? new Vector2(0, 0);   
   }
 
   stepEntry(delta: number, root: any) {
@@ -48,9 +47,16 @@ export class GameObject {
 
     this.drawImage(ctx, drawPosX, drawPosY);
 
-    this.children.forEach((child: any) => child.draw(ctx, drawPosX, drawPosY));
+    this.getOrderedChildrenForDraw().forEach((child: any) => child.draw(ctx, drawPosX, drawPosY));
   }
+  getOrderedChildrenForDraw() {
+    return [...this.children].sort((a, b) => {
+      if (b.drawLayer === "FLOOR")
+        return 1;
 
+      return a.position.y > b.position.y ? 1 : -1
+    })
+  }
   drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
 
   }

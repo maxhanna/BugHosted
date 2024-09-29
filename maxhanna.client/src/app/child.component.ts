@@ -37,7 +37,7 @@ export class ChildComponent {
         func.apply(this, args);
       }, wait);
     };
-  }
+  } 
 
   replaceEmojisInMessage(msg: string) {
     const emojiMap: { [key: string]: string } =
