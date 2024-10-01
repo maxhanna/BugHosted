@@ -95,5 +95,9 @@ export const PICK_UP_DOWN = {
       time: 400,
       frame: 17
     },
+    {
+      time: 800,
+      frame: 18
+    },
   ] 
 }

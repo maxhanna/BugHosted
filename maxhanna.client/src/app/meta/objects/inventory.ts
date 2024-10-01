@@ -11,14 +11,14 @@ export class Inventory extends GameObject {
     super({ position: new Vector2(0, 0) });
     this.drawLayer = "HUD";
     this.items = [
-      {
-        id: -1,
-        image: resources.images["watch"]
-      },
-      {
-        id: -2,
-        image: resources.images["watch"]
-      }
+      //{
+      //  id: -1,
+      //  image: resources.images["watch"]
+      //},
+      //{
+      //  id: -2,
+      //  image: resources.images["watch"]
+      //}
     ]
 
     //React to picking up an item

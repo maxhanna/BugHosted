@@ -100,7 +100,7 @@ export class HeroHomeLevel extends Level {
         } as Scenario
       ],
       portraitFrame: 1
-    });
+    }, "knight");
     this.addChild(npc1); 
 
     const exitBackToRoom = new Exit(gridCells(18), gridCells(2), true, (Math.PI * 3) / 2);

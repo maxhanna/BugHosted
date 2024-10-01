@@ -5,7 +5,8 @@ export class Resources {
 
   constructor() {
     this.toLoad = {
-      blinds: "assets/metabots/blinds.png",
+      blinds: "assets/metabots/blinds.png", 
+      bedroomFloor: "assets/metabots/bedroom-floor.png",
       cave: "assets/metabots/cave.png",
       caveGround: "assets/metabots/cave-ground.png",
       carpet: "assets/metabots/carpet.png",
@@ -18,10 +19,10 @@ export class Resources {
       goldenPath: "assets/metabots/golden-path.png",
       hero: "assets/metabots/herospritesheet.png",
       heroHome: "assets/metabots/hero-home.png",
-      bedroomFloor: "assets/metabots/bedroom-floor.png",
       knight: "assets/metabots/knight-sheet-1.png",
       painting: "assets/metabots/painting.png",
       portraits: "assets/metabots/portraits-sheet.png",
+      referee: "assets/metabots/referee-spritesheet.png", 
       shadow: "assets/metabots/shadow.png", 
       shrub: "assets/metabots/shrub.png", 
       fontWhite: "assets/metabots/sprite-font-white.png", 

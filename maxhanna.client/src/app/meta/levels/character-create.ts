@@ -45,8 +45,8 @@ export class CharacterCreate extends Level {
         addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
       } as Scenario
     ],
-    portraitFrame: 1
-  });
+    portraitFrame: 2
+  }, "referee");
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
   constructor(params: { heroPosition?: Vector2 } = {}) {
     super();
