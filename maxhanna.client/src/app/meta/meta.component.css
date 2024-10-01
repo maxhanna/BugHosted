@@ -14,7 +14,7 @@ html, body {
 }
 .componentMain {
   width: 99vw;
-  height: 99vh;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px); 
   max-height: calc(100vh - 40px);
   overflow: hidden;
   user-select: none;
@@ -22,15 +22,15 @@ html, body {
   flex-direction: column;
 }
 
-.gameCanvas { 
+.gameCanvas {
   border: var(--main-border);
   display: block;
   background-color: black;
   width: 100%;
-  max-width: calc(100vh * (1024 / 910)); /* Sets max-width based on the height */
-  max-height: CALC(100vh - 325px);
-  margin-left:auto;
-  margin-right:auto;
+  max-width: calc(CALC(var(--vh, 1vh) * 100) * (1024 / 910)); /* Sets max-width based on the height */
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 325px);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .chatArea { 

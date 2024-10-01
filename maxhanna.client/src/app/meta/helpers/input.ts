@@ -2,19 +2,18 @@ import { Vector2 } from '../../../services/datacontracts/meta/vector2';
 import { events } from './events';
 import { UP, DOWN, LEFT, RIGHT } from './grid-cells';
 
-export class Input { 
+export var inputKeyPressedDate = new Date();
+export class Input {
   displayChat? = true;
   heldDirections: string[] = [];
   keys: Record<string, boolean> = {};
   lastKeys: Record<string, boolean> = {};
-  inputKeyPressedDate = new Date();
   inputKeyPressedTimeout = 300;
+  chatSelected = false;
 
   constructor() {
-    document.addEventListener("keydown", (e) => { 
-      if (document.activeElement === this.chatInput && e.code != "Enter") {
-        return;
-      }
+    document.addEventListener("keydown", (e) => {
+
       if (e.code != " ") {
         this.keys[e.code] = true;
         this.handleKeydown(e);
@@ -27,7 +26,7 @@ export class Input {
       if (e.code != " ") {
         this.keys[e.code] = false;
         this.handleKeyup(e);
-      } 
+      }
     });
 
   }
@@ -61,71 +60,99 @@ export class Input {
     this.heldDirections.splice(index, 1);
   }
 
-  handleKeydown(event: KeyboardEvent) { 
-    if (this.chatInput?.value.trim() != "" && !this.getActionJustPressed("Enter")) {
-      return;
-    }
-    const key = event.key; 
-    switch (key) {
-      case 'ArrowUp':
-      case 'w': 
-      case 'W': 
-        this.onArrowPressed(UP); 
-        break;
-      case 'ArrowDown':
-      case 's':
-      case 'S':
-        this.onArrowPressed(DOWN); 
-        break;
-      case 'ArrowLeft':
-      case 'a':
-      case 'A':
-        this.onArrowPressed(LEFT); 
-        break;
-      case 'ArrowRight':
-      case 'd':
-      case 'D':
-        this.onArrowPressed(RIGHT); 
-        break;
-      case 'Enter':
-        this.handleEnter();
-        break; 
-    } 
-  }
-
   private handleEnter() {
     const currentTime = new Date();
-    if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > this.inputKeyPressedTimeout) {
-      this.inputKeyPressedDate = new Date();
+    let moveLock = false;
+    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
+      inputKeyPressedDate = new Date();
 
-      if (this.getActionJustPressed("Enter")) {
-        if (this.chatInput && this.chatInput.value == '') {
-            this.chatInput.focus();
-        } else if (this.chatInput.value != '') {
-            events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
+      if (this.chatInput && this.chatInput.value == '') {
+        if (!this.chatSelected) {
+          this.chatInput.focus();
+          this.chatSelected = true;
+          moveLock = true;
+        } else {
+          this.chatInput.blur();
+          this.chatSelected = false;
+          moveLock = false;
         }
       }
-
+      else if (this.chatInput.value != '') {
+        if (this.chatInput == document.activeElement) {
+          events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
+          this.chatInput.value = '';
+          this.chatInput.blur();
+          this.chatSelected = false;
+          moveLock = false;
+        }
+        else { 
+          this.chatInput.focus();
+          this.chatSelected = true;
+          moveLock = true;
+        } 
+      } 
+      if (moveLock) {
+        events.emit("HERO_MOVEMENT_LOCK");
+      } else {
+        events.emit("HERO_MOVEMENT_UNLOCK");
+      }
     }
   }
 
-  handleKeyup(event: KeyboardEvent) {
+  handleKeydown(event: KeyboardEvent) {
+    if (this.chatSelected) {
+      return;
+    }
     const key = event.key;
     switch (key) {
       case 'ArrowUp':
       case 'w':
       case 'W':
-        this.onArrowReleased(UP); 
+        this.onArrowPressed(UP);
         break;
       case 'ArrowDown':
       case 's':
       case 'S':
-        this.onArrowReleased(DOWN); 
+        this.onArrowPressed(DOWN);
         break;
       case 'ArrowLeft':
       case 'a':
       case 'A':
-        this.onArrowReleased(LEFT); 
+        this.onArrowPressed(LEFT);
+        break;
+      case 'ArrowRight':
+      case 'd':
+      case 'D':
+        this.onArrowPressed(RIGHT);
+        break;
+      case 'Enter':
+      case 'NumpadEnter':
+        this.handleEnter();
+        break;
+      case 'Backspace':
+        this.pressBackspace();
+        break;
+    }
+  }
+
+  handleKeyup(event: KeyboardEvent) {
+    const key = event.key;
+    //console.log(key);
+    switch (key) {
+      case 'ArrowUp':
+      case 'w':
+      case 'W':
+        this.onArrowReleased(UP);
+        break;
+      case 'ArrowDown':
+      case 's':
+      case 'S':
+        this.onArrowReleased(DOWN);
+        break;
+      case 'ArrowLeft':
+      case 'a':
+      case 'A':
+        this.onArrowReleased(LEFT);
         break;
       case 'ArrowRight':
       case 'd':
@@ -135,14 +162,24 @@ export class Input {
       case ' ':
         this.pressA(false);
         break;
-    } 
+      case 'Enter':
+      case 'NumpadEnter':
+        this.handleEnter();
+        break;
+      case 'Backspace':
+        this.pressBackspace();
+        break; 
+      case 'Escape':
+        this.pressEscape();
+        break;
+    }
   }
   pressA(sendChat: boolean = true) {
-    const currentTime = new Date(); 
+    const currentTime = new Date();
 
-    if ((currentTime.getTime() - this.inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
+    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
       console.log("pressed A");
-      this.inputKeyPressedDate = new Date(); 
+      inputKeyPressedDate = new Date();
 
       if (sendChat && this.chatInput && this.chatInput.value.trim() != "") {
         events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
@@ -157,9 +194,36 @@ export class Input {
     }
   }
   pressStart(sendChat: boolean = true) {
-    this.pressA(sendChat);
+    const currentTime = new Date();
+    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
+      inputKeyPressedDate = new Date();
+      this.pressA(sendChat);
+      events.emit("START_PRESSED");
+    }
   }
-   
+  pressBackspace() {
+    const currentTime = new Date();
+    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > 100) {
+      inputKeyPressedDate = new Date();
+      if (this.chatInput.value.trim() == "") {
+        this.chatInput.blur();
+        this.chatSelected = false;
+        events.emit("HERO_MOVEMENT_UNLOCK");
+      }
+    }
+  }
+
+  pressEscape() {
+    const currentTime = new Date();
+    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > 100) {
+      inputKeyPressedDate = new Date();
+      console.log("Pressed Escape"); 
+      this.chatInput.blur();
+      this.chatSelected = false;
+      events.emit("HERO_MOVEMENT_UNLOCK"); 
+    }
+  }
+
   handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {
     // Prevent the default action to avoid any unwanted scrolling behavior on mobile
     if (event) {
@@ -233,15 +297,8 @@ export class Input {
           break;
       }
     }
-  }
-  focusOnChatInput(placeholder: string) { 
-    setTimeout(() => {
-      if (this.chatInput) {
-        this.chatInput.focus();
-      }
-    }, 100);
-  }
+  } 
   get chatInput() {
-    return document.getElementById("chatInput") as HTMLInputElement; 
+    return document.getElementById("chatInput") as HTMLInputElement;
   }
 }

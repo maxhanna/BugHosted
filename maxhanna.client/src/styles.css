@@ -31,25 +31,15 @@
       overscroll-behavior-y: none;
     }
   }
-}
-/* prevent pull-to-refresh for Safari 9~15 */
-@media screen and (pointer: coarse) {
-  @supports (-webkit-backdrop-filter: blur(1px)) and (not (overscroll-behavior-y: none)) {
-    html {
-      height: 100%;
-      overflow: hidden;
-    }
-
-    body {
-      margin: 0px;
-      max-height: 100%;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-  }
+} 
+html {
+  height: 100%; 
 }
 
 body {
+  margin: 0px;
+  max-height: 100%; 
+  -webkit-overflow-scrolling: touch; 
   overscroll-behavior-y: none;
   font-family: var(--main-font-family), Arial;
   background-color: var(--main-bg-color);

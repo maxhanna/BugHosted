@@ -12,7 +12,7 @@ import { Camera } from './objects/camera';
 import { Inventory } from './objects/inventory'; 
 import { Exit } from './objects/Exit/exit';
 import { Animations } from './helpers/animations';
-import { UP, DOWN, LEFT, RIGHT, gridCells, isSpaceFree } from './helpers/grid-cells';
+import { UP, DOWN, LEFT, RIGHT, gridCells, isSpaceFree, snapToGrid } from './helpers/grid-cells';
 import { FrameIndexPattern } from './helpers/frame-index-pattern';
 import { GameLoop } from './helpers/game-loop';
 import { resources } from './helpers/resources';
@@ -59,15 +59,14 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     });
 
-    events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
-      const currentTime = new Date();
-      if (currentTime.getTime() - this.keyPressedDate.getTime() > 300 && this.parentRef?.user) {
-        this.keyPressedDate = new Date();
-        console.log("send chat message" + chat);
+    events.on("SEND_CHAT_MESSAGE", this, (chat: string) => { 
+      const msg = chat.trim();
+      if (this.parentRef?.user) {
+        console.log("Chat: " + msg);
         if (this.chatInput.nativeElement.placeholder === "Enter your name") {
-          this.metaService.createHero(this.parentRef.user, chat); 
+          this.metaService.createHero(this.parentRef.user, msg); 
         } else {
-          this.metaService.chat(this.metaHero, chat);
+          this.metaService.chat(this.metaHero, msg);
           this.chatInput.nativeElement.value = '';
           setTimeout(() => {
             this.chatInput.nativeElement.blur();
@@ -88,11 +87,17 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   otherHeroes: MetaHero[] = [];
   chat: MetaChat[] = [];
   latestMessagesMap = new Map<number, MetaChat>();
-  stopChatScroll = false;
-  keyPressedDate = new Date();
+  stopChatScroll = false; 
     
   private pollingInterval: any;
+   
+  ngOnDestroy() {
+    clearInterval(this.pollingInterval);
+    stop();
 
+    this.mainScene.destroy();
+    this.remove_me('MetaComponent');
+  } 
 
   async ngOnInit() {
     this.canvas = this.gameCanvas.nativeElement;
@@ -112,24 +117,15 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.mainScene.input?.update();
   } 
   render = () => {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    //Anything that needs to be statically drawn (regardless of camera position) like a sky, goes here, before CTX save/translation
-    this.mainScene.drawBackground(this.ctx);
-
-    //Save the current state for camera offset;
-    this.ctx.save();
-
-    //Offset by camera position:
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); 
+    this.mainScene.drawBackground(this.ctx); //Anything that needs to be statically drawn (regardless of camera position) like a sky, goes here, before CTX save/translation
+    this.ctx.save(); //Save the current state for camera offset;
     if (this.mainScene.camera) { 
-      this.ctx.translate(this.mainScene.camera.position?.x ?? 0, this.mainScene.camera.position?.y ?? 0);
+      this.ctx.translate(this.mainScene.camera.position?.x ?? 0, this.mainScene.camera.position?.y ?? 0); //Offset by camera position:
     } 
-    this.mainScene.drawObjects(this.ctx);
-
-    //Restore to original state
-    this.ctx.restore();
-
-    //Draw anything above the game world
-    this.mainScene.drawForeground(this.ctx);
+    this.mainScene.drawObjects(this.ctx); 
+    this.ctx.restore(); //Restore to original state 
+    this.mainScene.drawForeground(this.ctx); //Draw anything above the game world
   }  
   gameLoop = new GameLoop(this.update, this.render);
 
@@ -148,18 +144,14 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         }
       });
     }
-  }
-   
-
+  } 
   private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; chat: MetaChat[]; }) {
     if (!res || !res.heroes) {
       this.otherHeroes = [];
       return;
     }  
     this.otherHeroes = res.heroes;
-  }
-
-
+  } 
   private updateMissingOrNewHeroSprites() {
     let ids: number[] = [];
     for (const hero of this.otherHeroes) {
@@ -180,10 +172,11 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         } else {
           existingHero.latestMessage = ""; 
         }
-      } else {
-        const posX = hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x;
-        const posY = hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y;
-        const tmpHero = new Hero(posX, posY);
+      } else { 
+        const tmpHero = new Hero(
+          hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x,
+          hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y
+        );
         tmpHero.id = hero.id;
         tmpHero.name = hero.name ?? "Anon";
         if (hero.id === this.metaHero.id) {
@@ -200,31 +193,16 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         }
       });
     }
-  }
-  private snapToGrid(value: number, gridSize: number): number {
-    return Math.round(value / gridSize) * gridSize;
-  }
-
-  ngOnDestroy() {
-    clearInterval(this.pollingInterval);
-    stop();
-
-    this.mainScene.destroy();
-    this.remove_me('MetaComponent');
-  } 
+  }  
 
   async pollForChanges() {
     if (!this.hero.id && this.parentRef?.user) {
       const rz = await this.metaService.getHero(this.parentRef.user);
       if (rz) {
-        this.hero = new Hero(this.snapToGrid(rz.position.x, 16), this.snapToGrid(rz.position.y, 16));
-        this.hero.id = rz.id;
-        this.hero.name = rz.name ?? "Anon";
-        this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map);
-        this.setInitialScene(rz); 
+        this.reinitializeHero(rz); 
       }
       else {
-        this.mainScene.setLevel(new CharacterCreate())
+        this.mainScene.setLevel(new CharacterCreate());
       }
     } 
 
@@ -236,7 +214,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   }
    
     
-  private setInitialScene(rz: MetaHero) {
+  private reinitializeHero(rz: MetaHero) {
+    this.hero = new Hero(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16));
+    this.hero.id = rz.id;
+    this.hero.name = rz.name ?? "Anon";
+    this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map);
+
     const levelMap: { [key: string]: () => Level } = {
       "HEROROOM": () => new HeroRoomLevel(),
       "CAVELEVEL1": () => new CaveLevel1(),
@@ -299,19 +282,5 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.parentRef) {
       this.ngOnInit();
     }
-  }
-   
-
-  isDayTime() {
-    const now = new Date();
-    const hours = now.getHours(); // Get the current hour (0 - 23)
-
-    // Day is considered between 6 AM (6) and 6 PM (18)
-    if (hours >= 6 && hours < 18) {
-      return true; // It's daytime
-    } else {
-      return false; // It's nighttime
-    }
-  } 
-  
+  }  
 }

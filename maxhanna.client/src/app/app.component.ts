@@ -302,7 +302,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     }, 100);
   }
   updateHeight() {
-    document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+    console.log("setting inner height " + window.innerHeight * 0.01);
+    const vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
   }
   closeOverlay() { 
     if ((document.getElementById("closeOverlay") as HTMLButtonElement)) { 

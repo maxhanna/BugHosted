@@ -49,27 +49,27 @@ export class BoltonLevel1 extends Level {
 
     for (let x = 0; x < 38; x++) {
       const fence = new Sprite(
-        0, resources.images["fenceHorizontal"], new Vector2(x * gridCells(1), gridCells(1)), 1, 1, new Vector2(8, 15)
+        0, resources.images["fenceHorizontal"], new Vector2(x * gridCells(1), gridCells(1)), 1, 1, new Vector2(16, 16)
       );
       fence.isSolid = true;
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        0, resources.images["fenceHorizontal"], new Vector2(x * gridCells(1), gridCells(18)), 1, 1, new Vector2(8, 15)
+        0, resources.images["fenceHorizontal"], new Vector2(x * gridCells(1), gridCells(18)), 1, 1, new Vector2(16, 16)
       );
       fence2.isSolid = true;
       this.addChild(fence2);
     }
 
-    for (let y = 0; y < 27; y++) {
+    for (let y = 0; y < 37; y++) {
       const fence = new Sprite(
-        0, resources.images["fenceVertical"], new Vector2(gridCells(1), y * 11), 1, 1, new Vector2(6, 11)
+        0, resources.images["fenceVertical"], new Vector2(gridCells(2), y * gridCells(1) / 2), 1, 1, new Vector2(16, 16)
       );
       fence.isSolid = true;
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        0, resources.images["fenceVertical"], new Vector2(gridCells(36), y * 11), 1, 1, new Vector2(6, 11)
+        0, resources.images["fenceVertical"], new Vector2(gridCells(36), y * gridCells(1) / 2), 1, 1, new Vector2(16, 16)
       );
       fence2.isSolid = true;
       this.addChild(fence2);

@@ -31,7 +31,7 @@ export class CharacterCreate extends Level {
         addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
       } as Scenario,
       {
-        string: "Now, young one, before your journey truly begins... What shall be your name, the name the world will know?",
+        string: "Now, before we begin your journey ... What shall be your name, the name the world will know?",
         requires: [CHARACTER_CREATE_STORY_TEXT_2],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
       } as Scenario,

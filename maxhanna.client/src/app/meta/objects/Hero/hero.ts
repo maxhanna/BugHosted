@@ -163,10 +163,16 @@ export class Hero extends GameObject {
   override ready() {
     events.on("START_TEXT_BOX", this, () => {
       this.isLocked = true;
-    })
+    });
     events.on("END_TEXT_BOX", this, () => {
       this.isLocked = false;
-    })
+    });
+    events.on("HERO_MOVEMENT_LOCK", this, () => {
+      this.isLocked = true;
+    }); 
+    events.on("HERO_MOVEMENT_UNLOCK", this, () => {
+      this.isLocked = false;
+    });
   }
 
   override step(delta: number, root: any) {

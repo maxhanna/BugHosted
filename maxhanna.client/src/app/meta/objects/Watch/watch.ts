@@ -1,14 +1,12 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { GameObject } from "../game-object";
+import { InventoryItem } from "../InventoryItem/inventory-item";
 import { Sprite } from "../sprite";
 import { resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
 
-export class Watch extends GameObject {
+export class Watch extends InventoryItem {
   constructor(x: number, y: number) {
-    super({
-      position: new Vector2(x, y)
-    });
+    super(x,y);
 
     const sprite = new Sprite(
       0,

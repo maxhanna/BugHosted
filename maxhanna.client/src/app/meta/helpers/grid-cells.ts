@@ -10,3 +10,6 @@ export const RIGHT = "RIGHT";
 export const isSpaceFree = (walls: any, x: number, y: number) => { 
   return !walls.has(`${x},${y}`);
 }
+export const snapToGrid = (value: number, gridSize: number): number => {
+  return Math.round(value / gridSize) * gridSize;
+}
