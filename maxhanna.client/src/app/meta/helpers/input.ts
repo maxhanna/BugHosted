@@ -2,27 +2,32 @@ import { Vector2 } from '../../../services/datacontracts/meta/vector2';
 import { events } from './events';
 import { UP, DOWN, LEFT, RIGHT } from './grid-cells';
 
-export class Input {
-  moveInterval: any;
-  joystickActive = false;
-  joystickOrigin = new Vector2(0, 0);
-  joystickCurrentPos = new Vector2(0, 0);
+export class Input { 
+  displayChat? = true;
   heldDirections: string[] = [];
   keys: Record<string, boolean> = {};
   lastKeys: Record<string, boolean> = {};
+  inputKeyPressedDate = new Date();
+  inputKeyPressedTimeout = 300;
 
   constructor() {
-    document.addEventListener("keydown", (e) => {
-      const chatInput = document.getElementById("chatInput") as HTMLInputElement;
-      if (document.activeElement === chatInput && e.code != "Enter") {
+    document.addEventListener("keydown", (e) => { 
+      if (document.activeElement === this.chatInput && e.code != "Enter") {
         return;
       }
-      this.keys[e.code] = true;  
-      this.handleKeydown(e);
+      if (e.code != " ") {
+        this.keys[e.code] = true;
+        this.handleKeydown(e);
+      } else {
+        this.pressA();
+      }
     });
     document.addEventListener("keyup", (e) => {
-      this.keys[e.code] = false; 
-      this.handleKeyup(e);
+
+      if (e.code != " ") {
+        this.keys[e.code] = false;
+        this.handleKeyup(e);
+      } 
     });
 
   }
@@ -56,12 +61,11 @@ export class Input {
     this.heldDirections.splice(index, 1);
   }
 
-  handleKeydown(event: KeyboardEvent) {
-    const chatInput = document.getElementById("chatInput") as HTMLInputElement; 
-    if (chatInput?.value.trim() != "" && !this.getActionJustPressed("Enter")) {
+  handleKeydown(event: KeyboardEvent) { 
+    if (this.chatInput?.value.trim() != "" && !this.getActionJustPressed("Enter")) {
       return;
     }
-    const key = event.key;
+    const key = event.key; 
     switch (key) {
       case 'ArrowUp':
       case 'w': 
@@ -84,14 +88,24 @@ export class Input {
         this.onArrowPressed(RIGHT); 
         break;
       case 'Enter':
-        if (this.getActionJustPressed("Enter")) {
-          if (chatInput && chatInput.value == '') {
-            chatInput.focus();
-          } else if (chatInput.value != '') {
-            events.emit("SEND_CHAT_MESSAGE", chatInput.value);
-          }
+        this.handleEnter();
+        break; 
+    } 
+  }
+
+  private handleEnter() {
+    const currentTime = new Date();
+    if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > this.inputKeyPressedTimeout) {
+      this.inputKeyPressedDate = new Date();
+
+      if (this.getActionJustPressed("Enter")) {
+        if (this.chatInput && this.chatInput.value == '') {
+            this.chatInput.focus();
+        } else if (this.chatInput.value != '') {
+            events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
         }
-        break;
+      }
+
     }
   }
 
@@ -116,16 +130,36 @@ export class Input {
       case 'ArrowRight':
       case 'd':
       case 'D':
-        this.onArrowReleased(RIGHT); 
+        this.onArrowReleased(RIGHT);
         break;
+      case ' ':
+        this.pressA(false);
+        break;
+    } 
+  }
+  pressA(sendChat: boolean = true) {
+    const currentTime = new Date(); 
+
+    if ((currentTime.getTime() - this.inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
+      console.log("pressed A");
+      this.inputKeyPressedDate = new Date(); 
+
+      if (sendChat && this.chatInput && this.chatInput.value.trim() != "") {
+        events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
+      }
+      else {
+        events.emit("SPACEBAR_PRESSED");
+        this.keys["Space"] = true;
+        setTimeout(() => {
+          this.keys["Space"] = false;
+        }, 50);
+      }
     }
   }
-  pressA() {
-    this.keys["Space"] = true;
-    setTimeout(() => {
-      this.keys["Space"] = false;
-    }, 100);
+  pressStart(sendChat: boolean = true) {
+    this.pressA(sendChat);
   }
+   
   handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {
     // Prevent the default action to avoid any unwanted scrolling behavior on mobile
     if (event) {
@@ -199,5 +233,15 @@ export class Input {
           break;
       }
     }
-  } 
+  }
+  focusOnChatInput(placeholder: string) { 
+    setTimeout(() => {
+      if (this.chatInput) {
+        this.chatInput.focus();
+      }
+    }, 100);
+  }
+  get chatInput() {
+    return document.getElementById("chatInput") as HTMLInputElement; 
+  }
 }

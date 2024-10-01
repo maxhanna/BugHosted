@@ -50,14 +50,14 @@ export class CaveLevel1 extends Level {
           requires: [TALKED_TO_B],
           bypass: [TALKED_TO_A],
           addsFlag: TALKED_TO_A,
-        },
+        } as Scenario,
         {
           string: "He is the worst.",
           requires: [TALKED_TO_A], 
-        },
+        } as Scenario,
         {
           string: "Grumble grumble, another day at work!", 
-        }
+        } as Scenario
       ],
       portraitFrame: 1
     });
@@ -86,7 +86,7 @@ export class CaveLevel1 extends Level {
   override ready() {
     events.on("HERO_EXITS", this, () => { 
       events.emit("CHANGE_LEVEL", new HeroRoomLevel({
-        heroPosition: new Vector2(gridCells(8), gridCells(8))
+        heroPosition: new Vector2(gridCells(18), gridCells(2))
       }));
     })
   }

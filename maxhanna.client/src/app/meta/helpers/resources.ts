@@ -5,18 +5,30 @@ export class Resources {
 
   constructor() {
     this.toLoad = {
+      blinds: "assets/metabots/blinds.png",
       cave: "assets/metabots/cave.png",
       caveGround: "assets/metabots/cave-ground.png",
+      carpet: "assets/metabots/carpet.png",
+      chair: "assets/metabots/chair.png",
       exit: "assets/metabots/exit.png",
+      exit2: "assets/metabots/exit2.png",
+      fenceHorizontal: "assets/metabots/fence-horizontal.png",
+      fenceVertical: "assets/metabots/fence-vertical.png",
       gangster: "assets/metabots/gangsprite.png",
+      goldenPath: "assets/metabots/golden-path.png",
       hero: "assets/metabots/herospritesheet.png",
-      heroRoom: "assets/metabots/redroom.jpg",
+      heroHome: "assets/metabots/hero-home.png",
+      bedroomFloor: "assets/metabots/bedroom-floor.png",
       knight: "assets/metabots/knight-sheet-1.png",
+      painting: "assets/metabots/painting.png",
       portraits: "assets/metabots/portraits-sheet.png",
       shadow: "assets/metabots/shadow.png", 
+      shrub: "assets/metabots/shrub.png", 
       fontWhite: "assets/metabots/sprite-font-white.png", 
       textBox: "assets/metabots/text-box.png",  
       watch: "assets/metabots/watch.png",
+      white: "assets/metabots/white.png",
+      xbox: "assets/metabots/xbox.png",
     };
     this.images = {};
      

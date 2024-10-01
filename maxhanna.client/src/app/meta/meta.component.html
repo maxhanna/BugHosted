@@ -6,31 +6,21 @@
   <div *ngIf="isLoading" class="loadingModal">The game is loading...</div>
   <div class="gameCanvasContainer" [style.display]="parentRef && parentRef.user ? 'block' : 'none'">
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
-    <!--<button (click)="advanceStartingStoryText()" class="nextStoryTextButton" [style.display]="'none'">{{advanceStoryButtonText}}</button>-->
-
-
-    <div class="chatArea">
-      <div class="chatBox" id="chatBox">
-        <div *ngFor="let msg of chat">
-          <span class="xxSmallFont">({{msg.timestamp | date: 'd/MM/yyyy@HH:mm'}})</span> <span class="heroName">{{msg.hero.name}}</span>: {{msg.content}}
-        </div>
-      </div>
-      <div class="chatInputDiv">
-        <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput" />
+  </div>
+  <div class="chatArea" [style.display]="mainScene.input.displayChat ? 'block' : 'none'">
+    <div class="chatBox" id="chatBox" (scroll)="handleChatScroll()">
+      <div *ngFor="let msg of chat">
+        <span class="heroName">{{msg.hero.name}}
+        <span class="xxSmallFont">({{msg.timestamp | date: 'HH:mm'}})</span></span>:
+        <span class="chatBoxMessage">{{msg.content}}</span>
       </div>
     </div>
+    <div class="chatInputDiv">
+      <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput" />
+    </div>
   </div>
-  <app-user *ngIf="isUserComponentOpen"
-            [loginOnly]="true"
-            [inputtedParentRef]="parentRef"
-            [canClose]="false"
-            (closeUserComponentEvent)="closeUserComponent($event)"
-            [loginReasonMessage]="'You must log in to play Meta-Bots.'"></app-user>
-
 
   <div *ngIf="parentRef && parentRef.user" class="inputArea">
-
-
     <div class="controls">
       <div class="controls">
         <div class="dpad">
@@ -62,7 +52,7 @@
           </div>
         </div>
       </div>
-    </div> 
+    </div>
 
     <div class="controls">
       <div class="a-b">
@@ -70,7 +60,13 @@
         <div class="a" (mouseup)='mainScene.input.pressA()' (touchend)='mainScene.input.pressA()'>A</div>
       </div>
 
-      <div class="start">START</div>
+      <div class="start" (mouseup)='mainScene.input.pressStart()' (touchend)='mainScene.input.pressStart()'>START</div>
     </div>
   </div>
+  <app-user *ngIf="isUserComponentOpen"
+            [loginOnly]="true"
+            [inputtedParentRef]="parentRef"
+            [canClose]="false"
+            (closeUserComponentEvent)="closeUserComponent($event)"
+            [loginReasonMessage]="'You must log in to play Meta-Bots.'"></app-user>
 </div>

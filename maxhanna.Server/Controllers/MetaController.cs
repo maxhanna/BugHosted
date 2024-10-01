@@ -118,9 +118,12 @@ namespace maxhanna.Server.Controllers
                     {
                         string sql = @"
                             INSERT INTO maxhanna.meta_hero (name, user_id, coordsX, coordsY, speed)
-                            VALUES (@Name, @UserId, @CoordsX, @CoordsY, @Speed);";
+                            SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM maxhanna.meta_hero WHERE user_id = @UserId
+                            );";
                         int posX = 1 * 16;
-                        int posY = 1 * 16;
+                        int posY = 11 * 16;
                         Dictionary<string, object?> parameters = new Dictionary<string, object?>
                         {
                             { "@CoordsX", posX },
@@ -131,17 +134,14 @@ namespace maxhanna.Server.Controllers
                         };
                         long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
                         await transaction.CommitAsync();
-                        if (botId != null) {
-                            MetaHero hero = new MetaHero();
-                            hero.Position = new Vector2(posX, posY);
-                            hero.Id = (int)botId;
-                            hero.Speed = 5;
-                            hero.Map = "HeroRoom";
-                            hero.Name = req.Name; 
-                            return Ok(hero);
-                        }
-                        
-                        return BadRequest("Error, cannot retrieve added hero!");
+                         
+                        MetaHero hero = new MetaHero();
+                        hero.Position = new Vector2(posX, posY);
+                        hero.Id = (int)botId;
+                        hero.Speed = 5;
+                        hero.Map = "HeroRoom";
+                        hero.Name = req.Name; 
+                        return Ok(hero); 
                     }
                     catch (Exception ex)
                     {

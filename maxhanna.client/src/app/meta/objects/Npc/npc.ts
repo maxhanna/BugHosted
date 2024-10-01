@@ -37,6 +37,7 @@ export class Npc extends GameObject {
       return null;
     }
 
+    console.log("Getting content " + match.string);
     return {
       portraitFrame: this.textPortraitFrame,
       string: match.string,

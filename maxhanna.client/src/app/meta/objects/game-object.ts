@@ -38,7 +38,9 @@ export class GameObject {
     this.children.forEach((child: any) => {
       child.destroy();
     });
-    this.parent.removeChild(this);
+    if (this.parent) { 
+      this.parent.removeChild(this);
+    }
   }
 
   draw(ctx: CanvasRenderingContext2D, x: number, y:number) {
