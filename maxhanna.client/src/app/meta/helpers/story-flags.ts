@@ -1,3 +1,5 @@
+import { events } from "./events";
+
 export interface Scenario {
   string: string;
   requires?: string[]; // Flags that are required
@@ -39,16 +41,19 @@ class StoryFlags {
   }
 }
 
-export const TALKED_TO_A = 'TALKED_TO_A';
-export const TALKED_TO_B = 'TALKED_TO_B';
+
 export const CHARACTER_CREATE_STORY_TEXT_1 = "CHARACTER_CREATE_STORY_TEXT_1";
 export const CHARACTER_CREATE_STORY_TEXT_2 = "CHARACTER_CREATE_STORY_TEXT_2";
 export const CHARACTER_CREATE_STORY_TEXT_3 = "CHARACTER_CREATE_STORY_TEXT_3";
 export const CHARACTER_CREATE_STORY_TEXT_4 = "CHARACTER_CREATE_STORY_TEXT_4";
 export const CHARACTER_CREATE_STORY_TEXT_5 = "CHARACTER_CREATE_STORY_TEXT_5";
-export const CHARACTER_CREATE_STORY_TEXT_6 = "CHARACTER_CREATE_STORY_TEXT_6";
-export const GOT_WATCH = "GOT_WATCH";
+export const CHARACTER_CREATE_STORY_TEXT_6 = "CHARACTER_CREATE_STORY_TEXT_6"; 
+export const GOT_WATCH = "GOT_WATCH"; 
+export const TALKED_TO_A = 'TALKED_TO_A';
+export const TALKED_TO_B = 'TALKED_TO_B';
 export const TALKED_TO_MOM_ABOUT_DAD = "TALKED_TO_MOM_ABOUT_DAD";
 export const TALKED_TO_MOM_ABOUT_WATCH = "TALKED_TO_MOM_ABOUT_WATCH";
-export const TALKED_TO_MOM = "TALKED_TO_MOM"; 
+export const TALKED_TO_MOM = "TALKED_TO_MOM";
+export const START_REFEREE_FIGHT = "START_REFEREE_FIGHT";
+
 export const storyFlags = new StoryFlags();

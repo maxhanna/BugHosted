@@ -5,8 +5,7 @@ import { Input } from "../helpers/input";
 export class GameObject {
   parent?: any;
   children: any = [];
-  position: Vector2;
-  input: Input = new Input();;
+  position: Vector2; 
   hasReadyBeenCalled = false;
   isSolid = false;
   drawLayer?: any;
@@ -69,7 +68,7 @@ export class GameObject {
   }
 
   removeChild(gameObject: GameObject) {
-    console.log(`removing gameObject child : ${gameObject.position.x}, ${gameObject.position.y}`);
+    //console.log(`removing gameObject child : ${gameObject.position.x}, ${gameObject.position.y}`);
     events.unsubscribe(gameObject);
 
     this.children = this.children.filter((x:any) => {

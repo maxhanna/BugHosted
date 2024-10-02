@@ -12,10 +12,10 @@ import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
 
 export class Main extends GameObject {
   level?: Level = undefined;
-  camera: Camera = new Camera(0,0); 
+  camera: Camera = new Camera(0, 0);
+  input: Input = new Input();
   constructor(x: number, y: number) {
-    super({ position: new Vector2(x, y) }); 
-    this.input = new Input();
+    super({ position: new Vector2(x, y) });  
   }
 
   override ready() {
@@ -61,8 +61,7 @@ export class Main extends GameObject {
   setLevel(newLevelInstance: Level) {
     if (this.level) {
       this.level.destroy();
-    }
-
+    } 
     this.level = newLevelInstance;
     this.addChild(this.level);
   }

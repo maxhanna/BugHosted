@@ -96,7 +96,7 @@
           </div>
           <div class="storyContentDiv">
             <div class="storyUserDetails">
-              <div class="storyText" [class]="'hidden'" [innerHtml]="createClickableUrls(story.storyText)" [id]="'storyText' + story.id"></div>
+              <div class="storyText" [class]="'hidden'" [innerHtml]="story.storyText | clickableUrls" [id]="'storyText' + story.id"></div>
               <textarea [style.display]="'none'" [id]="'storyTextTextarea' + story.id">{{story.storyText}}</textarea>
               <button [style.display]="'none'" [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)"> 
                 <span class="storyEditSpans storyAcceptEdit" [style.display]="'none'" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
@@ -138,7 +138,7 @@
           </div>
           <div *ngIf="story.metadata" class="metadataContent">
             <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
-            <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="createClickableUrls(story?.metadata?.description)"></div>
+            <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="story?.metadata?.description | clickableUrls"></div>
             <div *ngIf="story.metadata.imageUrl" (click)="goToLink(story)" class="cursorPointer metaImgDiv"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
           </div>
         </div>

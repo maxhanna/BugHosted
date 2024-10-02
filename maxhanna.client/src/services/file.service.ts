@@ -382,8 +382,10 @@ export class FileService {
       if (filenameStarMatch && filenameStarMatch[1] && filenameStarMatch[1] !== '') {
         try {
           const isUriEncoded = /^[A-Za-z0-9\-._~%!$&'()*+,;=:@]+$/.test(filenameStarMatch[1]);
-          if (isUriEncoded) {
-            const utf8Filename = decodeURIComponent(filenameStarMatch[1]);
+          if (isUriEncoded) { 
+            const content = filenameStarMatch[1].replace(/(%[0-9a-f]{2})+/gi, a => { try { return decodeURIComponent(a) } catch (e) { return a } });
+
+            const utf8Filename = content;
             return utf8Filename.split('.').pop() || '';
           } else {
             console.log('Filename is not properly URI-encoded:', filenameStarMatch[1]);

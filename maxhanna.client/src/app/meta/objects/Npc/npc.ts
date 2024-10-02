@@ -52,7 +52,9 @@ export class Npc extends GameObject {
       console.log("No matches found in this list!", this.textContent);
       return null;
     }
-
+    if (match.addsFlag && match.addsFlag == "START_FIGHT") { 
+      events.emit("START_FIGHT", this); 
+    }
     console.log("Getting content " + match.string);
     return {
       portraitFrame: this.textPortraitFrame,

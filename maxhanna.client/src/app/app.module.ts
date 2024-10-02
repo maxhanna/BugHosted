@@ -24,7 +24,7 @@ import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
 import { MemeComponent } from './meme/meme.component';
-import { SocialComponent } from './social/social.component';
+import { ClickableUrlsPipe, SocialComponent } from './social/social.component';
 import { FileUploadComponent } from './file-upload/file-upload.component';
 import { NewsComponent } from './news/news.component';
 import { TopicsComponent } from './topics/topics.component';
@@ -97,13 +97,15 @@ import { MetaComponent } from './meta/meta.component';
     NotificationsComponent,
     InViewDirective,
     MetaComponent,
+    ClickableUrlsPipe,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
     LineGraphComponent,
     AppRoutingModule],
   exports: [
-    InViewDirective
+    InViewDirective,
+    ClickableUrlsPipe
   ],
   providers: [
     provideHttpClient(withInterceptorsFromDi()),

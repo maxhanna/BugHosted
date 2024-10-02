@@ -114,29 +114,29 @@ export class CharacterCreate extends Level {
 
   private returnChatInputToNormal() {
     setTimeout(() => {
-      const chatInput = this.input.chatInput;
+      const chatInput = this.parent.input.chatInput;
       if (chatInput) {
         chatInput.value = "";
         chatInput.placeholder = "Chat";
         chatInput.style.setProperty('position', 'unset', 'important');
         chatInput.style.setProperty('top', 'unset', 'important');
-        this.input.chatInput.blur();
+        this.parent.input.chatInput.blur();
       }
     }, 0);
   }
   private hideChatInput() {
     setTimeout(() => {
-      const chatInput = this.input.chatInput;
+      const chatInput = this.parent.input.chatInput;
       if (chatInput) {
         chatInput.value = ""; 
         chatInput.style.setProperty('display', 'none', 'important'); 
-        this.input.chatInput.blur();
+        this.parent.input.chatInput.blur();
       }
     }, 0);
   }
 
   private createNameChatInput() {
-    const chatInput = this.input.chatInput; 
+    const chatInput = this.parent.input.chatInput; 
     setTimeout(() => {
       if (chatInput) {
         document.getElementsByClassName("chatArea")[0].setAttribute("style", "display: block !important;");

@@ -64,7 +64,14 @@ export class SpriteTextString extends GameObject {
 
   override step(delta: number, root: GameObject) {
     //listen for user input
-    const input = root.input as Input;
+    //get parentmost object
+    let parent = root?.parent ?? root;
+    if (parent) { 
+      while (parent.parent) {
+        parent = parent.parent;
+      }
+    }
+    const input = parent?.input as Input;
     if (input?.getActionJustPressed("Space")) {
       if (this.showingIndex < this.finalIndex) {
         //skip text

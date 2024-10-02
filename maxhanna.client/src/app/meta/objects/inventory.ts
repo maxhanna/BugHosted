@@ -48,9 +48,9 @@ export class Inventory extends GameObject {
     });
 
 
-    events.on("SPACEBAR_PRESSED", this, (data: any) => {
-      console.log("space pressed");
-    });
+    //events.on("SPACEBAR_PRESSED", this, (data: any) => {
+    //  console.log("space pressed");
+    //});
     //DEMO of removing an item from inventory
     //setTimeout(() => {
     //  this.removeFromInventory(-2);

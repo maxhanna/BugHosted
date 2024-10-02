@@ -22,6 +22,7 @@ import { events } from './helpers/events';
 import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
+import { Fight } from './levels/fight';
 import { CharacterCreate } from './levels/character-create';
 import { Level } from './objects/Level/level';
 import { SpriteTextString } from './objects/SpriteTextString/sprite-text-string';
@@ -43,38 +44,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     super();
     this.hero = {} as Hero;
     this.metaHero = {} as MetaHero;
-    this.mainScene = new Main(0, 0);
-
-    events.on("CHANGE_LEVEL", this.mainScene, (newLevelInstance: Level) => {
-      if (newLevelInstance.name == "HeroRoom") {
-        this.pollForChanges()
-      }
-      if (this.mainScene.level?.name) {
-        this.metaHero.map = newLevelInstance?.name;
-        console.log(this.metaHero.map);
-        const hero = this.mainScene.level.children.filter((x: any) => x.id == this.metaHero.id) as Hero;
-        hero.position = newLevelInstance.getDefaultHeroPosition();
-        this.metaHero.position = newLevelInstance.getDefaultHeroPosition();
-        console.log(hero.position);
-      }
-    });
-
-    events.on("SEND_CHAT_MESSAGE", this, (chat: string) => { 
-      const msg = chat.trim();
-      if (this.parentRef?.user) {
-        console.log("Chat: " + msg);
-        if (this.chatInput.nativeElement.placeholder === "Enter your name") {
-          this.metaService.createHero(this.parentRef.user, msg); 
-        } else {
-          this.metaService.chat(this.metaHero, msg);
-          this.chatInput.nativeElement.value = '';
-          setTimeout(() => {
-            this.chatInput.nativeElement.blur();
-            this.gameCanvas.nativeElement.focus();
-          }, 0);
-        }
-      } 
-    });
+    this.mainScene = new Main(0, 0); 
+    this.subscribeToMainGameEvents();
   } 
   canvas!: HTMLCanvasElement;
   ctx!: CanvasRenderingContext2D; 
@@ -90,12 +61,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   stopChatScroll = false; 
     
   private pollingInterval: any;
-   
+    
+
   ngOnDestroy() {
     clearInterval(this.pollingInterval);
-    stop();
-
-    this.mainScene.destroy();
+    this.mainScene.destroy(); 
+    stop(); 
     this.remove_me('MetaComponent');
   } 
 
@@ -225,6 +196,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       "CAVELEVEL1": () => new CaveLevel1(),
       "HEROHOME": () => new HeroHomeLevel(),
       "BOLTONLEVEL1": () => new BoltonLevel1(),
+      "FIGHT": () => new Fight(),
     };
     const levelKey = rz.map.toUpperCase();
     const level = levelMap[levelKey]?.();
@@ -236,6 +208,47 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
   }
 
+  private subscribeToMainGameEvents() {
+    events.on("CHANGE_LEVEL", this.mainScene, (newLevelInstance: Level) => {
+      if (newLevelInstance.name == "HeroRoom") {
+        this.pollForChanges();
+      }
+      if (this.mainScene.level?.name) {
+        if (newLevelInstance.name != "Fight") { 
+          this.metaHero.map = newLevelInstance?.name;
+        }
+        console.log(this.metaHero.map);
+        const hero = this.mainScene.level.children.filter((x: any) => x.id == this.metaHero.id) as Hero;
+        hero.position = newLevelInstance.getDefaultHeroPosition();
+        this.metaHero.position = newLevelInstance.getDefaultHeroPosition();
+        console.log(hero.position);
+      }
+    });
+
+    events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
+      const msg = chat.trim();
+      if (this.parentRef?.user) {
+        console.log("Chat: " + msg);
+        if (this.chatInput.nativeElement.placeholder === "Enter your name") {
+          this.metaService.createHero(this.parentRef.user, msg);
+        } else {
+          this.metaService.chat(this.metaHero, msg);
+          this.chatInput.nativeElement.value = '';
+          setTimeout(() => {
+            this.chatInput.nativeElement.blur();
+            this.gameCanvas.nativeElement.focus();
+          }, 0);
+        }
+      }
+    });
+
+    events.on("START_FIGHT", this, (source: any) => {
+      events.emit("CHANGE_LEVEL", new Fight({
+        heroPosition: new Vector2(gridCells(10), gridCells(11)),
+        source: source
+      }));  
+    });
+  }
        
   private getLatestMessages() {
     this.latestMessagesMap.clear();

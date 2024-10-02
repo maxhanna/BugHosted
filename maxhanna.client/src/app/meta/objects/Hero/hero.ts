@@ -169,6 +169,7 @@ export class Hero extends GameObject {
     });
     events.on("HERO_MOVEMENT_LOCK", this, () => {
       this.isLocked = true;
+      console.log("locking movement");
     }); 
     events.on("HERO_MOVEMENT_UNLOCK", this, () => {
       this.isLocked = false;

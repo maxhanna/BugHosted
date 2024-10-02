@@ -5,10 +5,10 @@ import { events } from "../helpers/events";
 import { Exit } from "../objects/Exit/exit";
 import { Level } from "../objects/Level/level";
 import { Watch } from "../objects/Watch/watch";
-import { Sprite } from "../objects/sprite";
+import { Sprite } from "../objects/sprite"; 
 import { CaveLevel1 } from "./cave-level1";
 import { HeroHomeLevel } from "./hero-home";
-import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
+import { GOT_WATCH, START_REFEREE_FIGHT, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc";
  
 
@@ -82,12 +82,21 @@ export class BoltonLevel1 extends Level {
       this.addChild(shrub);
     }
     
+    const referee = new Npc(gridCells(5), gridCells(5), {
+      content: [ 
+        {
+          string: "You want a fight?!",
+          addsFlag: START_REFEREE_FIGHT,
+        } as Scenario
+      ],
+      portraitFrame: 2
+    });
+    this.addChild(referee);
 
 
-
-    const enterHeroHome = new Exit(gridCells(18), gridCells(2), true, (Math.PI * 3) / 2);
-    enterHeroHome.targetMap = "HeroHome";
-    this.addChild(enterHeroHome);
+    const heroHomeExit = new Exit(gridCells(18), gridCells(2), true, (Math.PI * 3) / 2);
+    heroHomeExit.targetMap = "HeroHome";
+    this.addChild(heroHomeExit);
 
     this.walls = new Set();
     //walls:
