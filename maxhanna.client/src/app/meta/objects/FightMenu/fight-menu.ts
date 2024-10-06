@@ -70,20 +70,19 @@ export class FightMenu extends GameObject {
 
 
     const input = parent.input as Input;
-    if (input?.getActionJustPressed("Space")) {
-      if (input?.verifyCanPressKey()) {
-        console.log(this.selectedFightMenuIndex)
-        if (this.showFightMenu && this.selectedFightMenuIndex == (this.fightMenuOptions.length - 1)) {
-          console.log("Running from fight");
-          this.leaveFight();
-        } else if (this.showFighterSelectionMenu && this.selectedFighterIndex == this.metabotChoices.length) {
-          console.log("Running from fight");
-          this.leaveFight();
-        }
-        if (this.showFighterSelectionMenu) {
-          this.selectFighter();
-        } 
+    if (input?.keys["Space"]) { 
+      console.log(this.selectedFightMenuIndex)
+      if (this.showFightMenu && this.selectedFightMenuIndex == (this.fightMenuOptions.length - 1)) {
+        console.log("Running from fight");
+        this.leaveFight();
+      } else if (this.showFighterSelectionMenu && this.selectedFighterIndex == this.metabotChoices.length) {
+        console.log("Running from fight");
+        this.leaveFight();
+      }
+      if (this.showFighterSelectionMenu) {
+        this.selectFighter();
       } 
+     
     }
 
 
