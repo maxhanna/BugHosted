@@ -8,7 +8,7 @@ import { gridCells } from "../../helpers/grid-cells";
  
 export class InventoryItem extends GameObject { 
   isItemSelected = false;
-
+  name = "";
   constructor(x: number, y: number) {
     super({ position: new Vector2(x,y) });
   }  

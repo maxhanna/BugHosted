@@ -22,7 +22,7 @@ export class CaveLevel1 extends Level {
     this.background = new Sprite(
       0, resources.images["cave"],
       new Vector2(0, 0),
-      1,
+      undefined,
       1,
       new Vector2(320, 220)
     );
@@ -31,7 +31,7 @@ export class CaveLevel1 extends Level {
       0,
       resources.images["caveGround"],
       new Vector2(0, 0),
-      1,
+      undefined,
       1,
       new Vector2(320, 220)
     ); 

@@ -60,8 +60,9 @@ export class CharacterCreate extends Level {
   }
 
   override ready() {
-    events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {  
+    events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
       this.characterName = chat;
+      if (!this.verifyCharacterName(this.characterName)) { return; }
       console.log(this.characterName);
       this.returnChatInputToNormal();
       storyFlags.add(CHARACTER_CREATE_STORY_TEXT_4);
@@ -147,5 +148,22 @@ export class CharacterCreate extends Level {
         chatInput.focus();
       }
     }, 100);
+  }
+  private verifyCharacterName(name: string) {
+    let outcome = undefined;
+    const n = name.toLowerCase();
+    const badWords = ["fuck", "shit", "pussy", "dick", "cunt", "spick", "nigger", "dumb"]
+    if (!name) {
+      outcome = "Enter a valid name.";
+    }
+    else if (badWords.some(bw => n.includes(bw))) { 
+      outcome = "No bad words allowed."; 
+    }
+
+    if (outcome) {
+      alert(outcome);
+      return false;
+    }
+    return true;
   }
 }

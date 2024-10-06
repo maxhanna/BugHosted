@@ -12,34 +12,38 @@ export class Watch extends InventoryItem {
       0,
       resources.images["watch"],
       new Vector2(0, -10),
-      0.85,
-      0,
+      new Vector2(0.85, 0.85),
+      undefined,
       new Vector2(22, 24),
-      0,
-      0,
+      undefined,
+      undefined,
       undefined
     );
     this.addChild(sprite);
-      
+    this.name = "Watch";
   }
 
   override ready() {
     console.log("Watch is ready!");
-    events.on("HERO_POSITION", this, (pos: any) => {
-      const roundedHeroX = Math.round(pos.x);
-      const roundedHeroY = Math.round(pos.y);
-      if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {
-        this.onCollideWithHero();
-      }
+    events.on("HERO_POSITION", this, (hero: any) => {
+      if (hero.isUserControlled) {
+        const roundedHeroX = Math.round(hero.position.x);
+        const roundedHeroY = Math.round(hero.position.y);
+        if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {
+          this.onCollideWithHero(hero);
+        }
+      } 
     });
   }
 
-  onCollideWithHero() {
+  onCollideWithHero(hero: any) {
     //remove this instance from scene
     this.destroy();
     events.emit("HERO_PICKS_UP_ITEM", {
       image: resources.images["watch"],
       position: this.position,
+      hero: hero,
+      name: this.name
     });
     //alert other things we picked up a rod
 

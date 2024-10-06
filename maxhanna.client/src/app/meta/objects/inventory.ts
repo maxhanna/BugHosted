@@ -4,8 +4,8 @@ import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 export class Inventory extends GameObject {
-  nextId: number = Math.random() * 19999;
-  items: { id: number; image: any }[] = [];
+  nextId: number = parseInt((Math.random() * 19999).toFixed(0));
+  items: { id: number; image: any, name?: string }[] = [];
   currentlySelectedId?: number = undefined;
   constructor() {
     super({ position: new Vector2(0, 0) });
@@ -13,23 +13,24 @@ export class Inventory extends GameObject {
     this.items = [
       {
         id: -1,
-        image: resources.images["watch"]
+        image: resources.images["watch"],
+        name: "Watch"
       },
-      {
-        id: -2,
-        image: resources.images["watch"]
-      }
     ]
 
     //React to picking up an item
-    events.on("HERO_PICKS_UP_ITEM", this, (data: any) => {
+    events.on("HERO_PICKS_UP_ITEM", this, (data: { image: any, position: Vector2, name:string, hero: any }) => {
       //Show something on the screen.
-      this.items.push(data);
-      this.renderInventory();
+      if (data.hero?.isUserControlled) { 
+        const itemData = { id: this.nextId++, image: data.image, name: data.name };
+        this.items.push(itemData);
+        this.renderInventory();
+      }
     });
 
     events.on("START_PRESSED", this, (data: any) => {
-      if (!this.items || this.items.length === 0) return; 
+      if (!this.items || this.items.length === 0) return;
+      let currentId = undefined;
       let itemIndex = this.children.findIndex((x: any) => x.isItemSelected); 
       if (itemIndex > -1) {
         this.children[itemIndex].isItemSelected = false;
@@ -37,25 +38,41 @@ export class Inventory extends GameObject {
         const nextItem = this.children[itemIndex];
         if (nextItem) {
           nextItem.isItemSelected = true;
+          currentId = nextItem.objectId;
         } else { 
           itemIndex = 0;
         }
       } else if (this.children && this.children.length > 0) {
         this.children[0].isItemSelected = true;
+        currentId = this.children[0].objectId;
         itemIndex = 0;
       }
-      //console.log("current item selected: " + itemIndex); 
+      this.currentlySelectedId = currentId;
+      console.log("current item selected: " + this.currentlySelectedId);
+      console.log("current items: ", this.items); 
     });
 
 
-    //events.on("SPACEBAR_PRESSED", this, (data: any) => {
-    //  console.log("space pressed");
-    //});
+    events.on("SPACEBAR_PRESSED", this, (data: any) => { 
+      if (this.getCurrentlySelectedItem().toLowerCase() == "watch") { 
+        events.emit("REPOSITION_SAFELY");
+        this.deselectSelectedItem();
+      }
+    });
     //DEMO of removing an item from inventory
     //setTimeout(() => {
     //  this.removeFromInventory(-2);
     //}, 1000);
     this.renderInventory();
+  }
+
+  private deselectSelectedItem() {
+      this.children.forEach((x: any) => x.isItemSelected = false);
+      this.currentlySelectedId = undefined;
+  }
+
+  getCurrentlySelectedItem() {
+    return this.items.find(x => x.id == this.currentlySelectedId)?.name ?? "";
   }
 
   renderInventory() {
@@ -64,7 +81,7 @@ export class Inventory extends GameObject {
 
     this.items.forEach((item, index) => {
       const sprite = new Sprite(
-        item.id, item.image, new Vector2(index * 24, 2), 1, 1, new Vector2(24, 22)
+        item.id, item.image, new Vector2(index * 24, 2), undefined, undefined, new Vector2(24, 22)
       );
       this.addChild(sprite);
     })

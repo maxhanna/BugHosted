@@ -1,4 +1,4 @@
-import { getCharacterWidth, getCharacterFrame } from "./sprite-font-map";
+import { getCharacterWidth, getCharacterFrame, calculateWords } from "./sprite-font-map";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
 import { resources } from "../../helpers/resources";
@@ -9,7 +9,12 @@ import { Input } from "../../helpers/input";
 
 export class SpriteTextString extends GameObject {
   backdrop = new Sprite(
-    0, resources.images["textBox"], new Vector2(0, 0), 1, 1, new Vector2(256, 64)
+    0,
+    resources.images["textBox"],
+    new Vector2(0, 0),
+    undefined,
+    undefined,
+    new Vector2(256, 64)
   );
 
   portrait: Sprite;
@@ -24,39 +29,17 @@ export class SpriteTextString extends GameObject {
     this.drawLayer = "HUD";
 
     const content = config.string ?? "Default text!";
-    this.words = content.split(" ").map((word: string) => {
-      let wordWidth = 0;
-      const chars = word.split("").map((char: string) => {
-        const charWidth = getCharacterWidth(char);
-        wordWidth += charWidth; 
-
-        const objectId = 0;
-        const position = undefined;
-        const frame = getCharacterFrame(char);
-        const resource = resources.images["fontWhite"];
-        const hFrames = 13;
-        const vFrames = 6;
-        const scale = undefined;
-        const frameSize = undefined;
-        const name = undefined;
-        const animations = undefined;
-
-        return {
-          width: charWidth,
-          sprite: new Sprite(
-            objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name
-          )
-        }
-      });
-
-      return {
-        wordWidth,
-        chars
-      }
-    })
+    this.words = calculateWords(content);
 
     this.portrait = new Sprite(
-      0, resources.images["portraits"], new Vector2(0, 0), 1, (config.portraitFrame ?? 0), undefined, 4, 1
+      0,
+      resources.images["portraits"],
+      new Vector2(0, 0),
+      undefined,
+      (config.portraitFrame ?? 0),
+      undefined,
+      4,
+      1
     );
 
     this.finalIndex = this.words.reduce((acc, word) => acc + word.chars.length, 0);

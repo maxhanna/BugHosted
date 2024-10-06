@@ -10,12 +10,12 @@ export class Sprite extends GameObject {
   vFrames: number; //Where it is arranged vertically on spritesheet
   frame: number; //Which frame we want to show
   frameMap: Map<number, Vector2>;
-  scale: number;
+  scale: Vector2; 
   animations?: Animations;
   name?: string;
   rotation = 0;
 
-  constructor( objectId: number, resource: Resource, position?: Vector2, scale?: number, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?: number, animations?: Animations, name?: string ) {
+  constructor(objectId: number, resource: Resource, position?: Vector2, scale?: Vector2, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?: number, animations?: Animations, name?: string ) {
     super({ position: position ?? new Vector2(0, 0)});
     this.objectId = objectId;
     this.position = position ?? new Vector2(0, 0);
@@ -23,7 +23,7 @@ export class Sprite extends GameObject {
     this.resource = resource;
     this.hFrames = hFrames ?? 1;
     this.vFrames = vFrames ?? 1;
-    this.scale = scale ?? 1;
+    this.scale = scale ?? new Vector2(1,1); 
     this.frameSize = frameSize ?? new Vector2(16, 16);
     this.name = name;
     this.animations = animations;
@@ -72,8 +72,8 @@ export class Sprite extends GameObject {
     ctx.save();
 
     // Translate to the desired rotation point (center of the image)
-    const centerX = x + (frameSizeX * this.scale) / 2;
-    const centerY = y + (frameSizeY * this.scale) / 2;
+    const centerX = x + (frameSizeX * this.scale.x) / 2;
+    const centerY = y + (frameSizeY * this.scale.y) / 2;
     ctx.translate(centerX, centerY);
 
     // Rotate the canvas by the given rotation angle (in radians)
@@ -86,10 +86,10 @@ export class Sprite extends GameObject {
       frameCoordY,
       frameSizeX,
       frameSizeY,
-      -frameSizeX * this.scale / 2, // Draw image relative to the new origin
-      -frameSizeY * this.scale / 2,
-      frameSizeX * this.scale,
-      frameSizeY * this.scale
+      -frameSizeX * this.scale.x / 2, // Draw image relative to the new origin
+      -frameSizeY * this.scale.y / 2,
+      frameSizeX * this.scale.x,
+      frameSizeY * this.scale.y
     );
 
     // Restore the canvas to its previous state

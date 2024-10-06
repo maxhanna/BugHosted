@@ -1,5 +1,5 @@
-import { Vector2 } from "../../../../services/datacontracts/meta/vector2"; 
-import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
+import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
+import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
 import { Input } from "../../helpers/input";
@@ -9,16 +9,14 @@ import { moveTowards } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events"; 
-import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
-
-export class Hero extends GameObject {
+import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./bot-animations";
+export class Bot extends GameObject {
   facingDirection: string;
   destinationPosition: Vector2;
   body: Sprite;
-  isUserControlled = false;
   id: number;
   name: string;
-  metabots?: MetaBot[];
+  isDead: boolean;
   lastPosition: Vector2;
   itemPickupTime: number;
   lastStandAnimationTime = 0;
@@ -29,7 +27,7 @@ export class Hero extends GameObject {
     super({
       position: new Vector2(x, y)
     })
-    console.log("New Hero at position : " + x + '; ' + y);
+    console.log("New Bot at position : " + x + '; ' + y);
     this.facingDirection = DOWN;
     this.position = new Vector2(x, y);
     this.destinationPosition = this.position.duplicate();
@@ -37,7 +35,7 @@ export class Hero extends GameObject {
     this.name = "Anon";
     this.id = 0;
     this.itemPickupTime = 0;
-    this.metabots = [];
+    this.isDead = false;
     const shadow = new Sprite(
       0,
       resources.images["shadow"],
@@ -53,33 +51,15 @@ export class Hero extends GameObject {
 
     this.body = new Sprite(
       this.id,
-      resources.images["hero"],
+      resources.images["botFrame"],
       new Vector2(-8, -20),
       undefined,
       undefined,
       new Vector2(32, 32),
-      4,
-      5,
-      new Animations(
-        {
-          walkDown: new FrameIndexPattern(WALK_DOWN),
-          walkUp: new FrameIndexPattern(WALK_UP),
-          walkLeft: new FrameIndexPattern(WALK_LEFT),
-          walkRight: new FrameIndexPattern(WALK_RIGHT),
-          standDown: new FrameIndexPattern(STAND_DOWN),
-          standRight: new FrameIndexPattern(STAND_RIGHT),
-          standLeft: new FrameIndexPattern(STAND_LEFT),
-          standUp: new FrameIndexPattern(STAND_UP),
-          pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
-        })
+      undefined,
+      undefined, 
     );
-    this.addChild(this.body); 
-    this.body.animations?.play("standDown");
-
-    events.on("HERO_PICKS_UP_ITEM", this, (data: any) => {
-      this.onPickupItem(data);
-    });
-
+    this.addChild(this.body);  
   }
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Draw the player's name
@@ -170,58 +150,25 @@ export class Hero extends GameObject {
     }
   } 
 
-  override ready() {
-    events.on("START_TEXT_BOX", this, () => {
-      this.isLocked = true;
-    });
-    events.on("END_TEXT_BOX", this, () => {
-      this.isLocked = false;
-    });
-    events.on("HERO_MOVEMENT_LOCK", this, () => {
-      this.isLocked = true; 
-    }); 
-    events.on("HERO_MOVEMENT_UNLOCK", this, () => {
-      this.isLocked = false;
-    }); 
+  override ready() { 
   }
 
   override step(delta: number, root: any) {
     if (this.isLocked) return;
-
-    if (this.itemPickupTime > 0) {
-      this.workOnItemPickup(delta);
-      return;
-    }
-    const input = root.input as Input;
-    if (input?.getActionJustPressed("Space") && this.isUserControlled) {
-      //look for an object at the next space (according to where the hero is facing)
-      const objectAtPosition = this.parent.children.find((child: GameObject) => {
-        return child.position.matches(this.position.toNeighbour(this.facingDirection))
-      });
-
-      if (objectAtPosition) { 
-        events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
-      } 
-    }
-
-    const distance = moveTowards(this, this.destinationPosition, 1);
-    const hasArrived = (distance ?? 0) <= 1;
-    if (hasArrived) {
-      if (this.isUserControlled) {
-        this.tryMove(root);
-      } else {
-        this.otherPlayerMove();
+     
+    if (!this.destinationPosition.matches(this.position)) {
+      const distance = moveTowards(this, this.destinationPosition, 1);
+      const hasArrived = (distance ?? 0) <= 1; 
+      if (hasArrived) {
+        this.moveBot();
       }
-    }
-      
-    this.tryEmitPosition();
-    
-    
+      this.tryEmitPosition();
+    } 
   }
-  updateAnimation() { 
+  updateAnimation() {
     setTimeout(() => {
       const currentTime = new Date().getTime();
-      if (currentTime - this.lastStandAnimationTime >= (this.isUserControlled ? 1000 : 2000)) {  
+      if (currentTime - this.lastStandAnimationTime >= 1000) { // Throttle by 1 second
         if (this.destinationPosition.matches(this.position)) {
           this.body.animations?.play(
             "stand" + this.facingDirection.charAt(0) +
@@ -230,122 +177,53 @@ export class Hero extends GameObject {
         }
         this.lastStandAnimationTime = currentTime; // Update the last time it was run
       }
-    }, (this.isUserControlled ? 1000 : 2000));
+    }, 1000);
   } 
   tryEmitPosition() {
     if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
       return;
-    }
-    if (this.isUserControlled) { 
-      events.emit("HERO_POSITION", this);
-    }
+    } 
     this.lastPosition = this.position.duplicate();
   }
-
-  tryMove(root: any) {
-    const { input } = root;
-    if (!input.direction || !this.isUserControlled) {
-      //console.log("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
-      this.body.animations?.play("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
-      return;
-    }
-
-    const gridSize = gridCells(1);
-    const destPos = this.destinationPosition;
-    if (destPos) {
-      let position = destPos.duplicate();
-
-      if (input.direction === DOWN) {
-        position.y = this.snapToGrid(position.y + gridSize, gridSize);
-        this.body.animations?.play("walkDown");
-      }
-      else if (input.direction === UP) {
-        position.y = this.snapToGrid(position.y - gridSize, gridSize);
-        this.body.animations?.play("walkUp");
-      }
-      else if (input.direction === LEFT) {
-        position.x = this.snapToGrid(position.x - gridSize, gridSize);
-        this.body.animations?.play("walkLeft");
-      }
-      else if (input.direction === RIGHT) {
-        position.x = this.snapToGrid(position.x + gridSize, gridSize);
-        this.body.animations?.play("walkRight");
-      }
-
-      this.facingDirection = input.direction ?? this.facingDirection;
-      const spaceIsFree = isSpaceFree(root.level?.walls, position.x, position.y);
-      const solidBodyAtSpace = this.parent.children.find((c: any) => {
-        return c.isSolid
-          && c.position.x == position.x
-          && c.position.y == position.y
-      })
-      if (spaceIsFree && !solidBodyAtSpace) {
-        this.destinationPosition = position;
-      }
-    }
-  }
-
-  otherPlayerMove() { 
+   
+  moveBot() {
+    console.log("moveBot");
     this.position = this.position.duplicate();
     this.destinationPosition = this.destinationPosition.duplicate();
-      
+
+    if (this.destinationPosition.matches(this.position)) {
+      this.body.animations?.play("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
+      return;
+    } 
+    const gridSize = gridCells(1);
     const destPos = this.destinationPosition;
 
     if (destPos) {
       // Calculate the difference between destination and current position
       const deltaX = destPos.x - this.position.x;
-      const deltaY = destPos.y - this.position.y;
-      if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        if (deltaX > 0) {
+      const deltaY = destPos.y - this.position.y; 
+      if (Math.abs(deltaX) > Math.abs(deltaY)) { 
+        if (deltaX > 0) { 
           this.facingDirection = RIGHT;
-          this.body.animations?.play("walkRight");
-        } else if (deltaX < 0) {
+          this.body.animations?.play("walkRight"); 
+        } else if (deltaX < 0) { 
           this.facingDirection = LEFT;
-          this.body.animations?.play("walkLeft");
+          this.body.animations?.play("walkLeft"); 
         }
-      } else {
-        if (deltaY > 0) {
+      } else { 
+        if (deltaY > 0) { 
           this.facingDirection = DOWN;
-          this.body.animations?.play("walkDown");
-        } else if (deltaY < 0) {
+          this.body.animations?.play("walkDown"); 
+        } else if (deltaY < 0) { 
           this.facingDirection = UP;
-          this.body.animations?.play("walkUp");
+          this.body.animations?.play("walkUp"); 
         }
       }
       this.updateAnimation();
 
-      this.position = destPos.duplicate();
+      this.position = destPos.duplicate(); 
     }
   } 
-
-
-
-  onPickupItem(data: { image: any, position: Vector2, hero: any }) {
-    if (data.hero?.id == this.id) {
-      this.destinationPosition = data.position.duplicate();
-      this.itemPickupTime = 2500;
-      this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
-      this.itemPickupShell.addChild(new Sprite(
-        0,
-        data.image,
-        new Vector2(0, -30),
-        new Vector2(0.85, 0.85),
-        undefined,
-        new Vector2(22, 24),
-        undefined,
-        undefined,
-        undefined
-      ));
-      this.addChild(this.itemPickupShell);
-    } 
-  }
-  workOnItemPickup(delta: number) {
-    this.itemPickupTime -= delta;
-    this.body.animations?.play("pickupDown");
-    if (this.itemPickupTime <= 0) {
-      this.itemPickupShell.destroy();
-    }
-  }
   private snapToGrid(value: number, gridSize: number): number {
     return Math.round(value / gridSize) * gridSize;
   }

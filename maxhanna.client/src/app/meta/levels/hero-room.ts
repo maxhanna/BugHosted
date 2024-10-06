@@ -19,7 +19,7 @@ export class HeroRoomLevel extends Level {
       this.defaultHeroPosition = params.heroPosition;
     }
     const room = new Sprite(
-      0, resources.images["bedroomFloor"], new Vector2(0, 0), 1, 1, new Vector2(320, 220)
+      0, resources.images["bedroomFloor"], new Vector2(0, 0), undefined, 1, new Vector2(320, 220)
     );
     this.addChild(room);
 
@@ -28,13 +28,13 @@ export class HeroRoomLevel extends Level {
 
 
     const painting = new Sprite(
-      0, resources.images["painting"], new Vector2(gridCells(15), 0.01), 0.75, 1, new Vector2(30, 28)
+      0, resources.images["painting"], new Vector2(gridCells(15), 0.01), new Vector2(0.75, 0.75), 1, new Vector2(30, 28)
     );
     this.addChild(painting);
 
 
     const xbox = new Sprite(
-      0, resources.images["xbox"], new Vector2(gridCells(8), gridCells(3)), 0.5, 1, new Vector2(32, 28)
+      0, resources.images["xbox"], new Vector2(gridCells(8), gridCells(3)), new Vector2(0.5, 0.5), 1, new Vector2(32, 28)
     );
     this.addChild(xbox);
 

@@ -9,8 +9,7 @@ export class Input {
   keys: Record<string, boolean> = {};
   lastKeys: Record<string, boolean> = {};
   inputKeyPressedTimeout = 300;
-  chatSelected = false;
-
+  chatSelected = false; 
   constructor() {
     document.addEventListener("keydown", (e) => {
 
@@ -60,12 +59,9 @@ export class Input {
     this.heldDirections.splice(index, 1);
   }
 
-  private handleEnter() {
-    const currentTime = new Date();
+  private handleEnter() { 
     let moveLock = false;
-    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
-      inputKeyPressedDate = new Date();
-
+    if (this.verifyCanPressKey()) {  
       if (this.chatInput && this.chatInput.value == '') {
         if (!this.chatSelected) {
           this.chatInput.focus();
@@ -176,11 +172,8 @@ export class Input {
   }
   pressA(sendChat: boolean = true) {
     const currentTime = new Date();
-
-    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
+    if (this.verifyCanPressKey()) {
       console.log("pressed A");
-      inputKeyPressedDate = new Date();
-
       if (sendChat && this.chatInput && this.chatInput.value.trim() != "") {
         events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
       }
@@ -201,10 +194,8 @@ export class Input {
       events.emit("START_PRESSED");
     }
   }
-  pressBackspace() {
-    const currentTime = new Date();
-    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > 100) {
-      inputKeyPressedDate = new Date();
+  pressBackspace() {  
+    if (this.verifyCanPressKey()) { 
       if (this.chatInput.value.trim() == "") {
         this.chatInput.blur();
         this.chatSelected = false;
@@ -214,9 +205,7 @@ export class Input {
   }
 
   pressEscape() {
-    const currentTime = new Date();
-    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > 100) {
-      inputKeyPressedDate = new Date();
+    if (this.verifyCanPressKey()) {
       console.log("Pressed Escape"); 
       this.chatInput.blur();
       this.chatSelected = false;
@@ -301,4 +290,14 @@ export class Input {
   get chatInput() {
     return document.getElementById("chatInput") as HTMLInputElement;
   }
+
+  verifyCanPressKey() {
+    const currentTime = new Date();
+    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > 100) {
+      inputKeyPressedDate = new Date();
+      return true;
+  }
+  return false;
+  }
+
 }

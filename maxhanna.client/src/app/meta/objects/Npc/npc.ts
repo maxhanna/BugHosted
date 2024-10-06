@@ -8,22 +8,38 @@ import { gridCells } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "../Hero/hero-animations";
+import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 
 export class Npc extends GameObject {
   textContent?: Scenario[];
   textPortraitFrame?: number;
+  metabots: MetaBot[];
+  body: Sprite;
+  type: string;
+  partnerNpcs: Npc[]
+
   constructor(x: number, y: number, textConfig?: { content?: Scenario[], portraitFrame?: number }, type = "referee") {
     super({ position: new Vector2(x, y) });
     this.isSolid = true;
     this.textContent = textConfig?.content;
     this.textPortraitFrame = textConfig?.portraitFrame;
-
+    this.metabots = [];
+    this.type = type;
     const shadow = new Sprite(
-      0, resources.images["shadow"], new Vector2(-8, -19), 1, 0, new Vector2(32, 32), 0, 0, undefined
+      0,
+      resources.images["shadow"],
+      new Vector2(-8, -19),
+      undefined,
+      undefined,
+      new Vector2(32, 32),
+      undefined,
+      undefined,
+      undefined
     );
+    this.partnerNpcs = [];
     this.addChild(shadow);
 
-    const animations = type == "referee" ? new Animations(
+    const animations = type.toLowerCase() == "referee" ? new Animations(
       {
         walkDown: new FrameIndexPattern(WALK_DOWN),
         walkUp: new FrameIndexPattern(WALK_UP),
@@ -35,11 +51,20 @@ export class Npc extends GameObject {
         standUp: new FrameIndexPattern(STAND_UP),
         pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
       }) : undefined;
-    const body = new Sprite(
-      0, resources.images[type], new Vector2(-8, -20), 1, 1, new Vector2(32, 32), 2, 1, animations, type,
+    this.body = new Sprite(
+      0,
+      resources.images[type],
+      new Vector2(-8, -20),
+      undefined,
+      undefined,
+      new Vector2(32, 32),
+      4,
+      5,
+      animations,
+      type,
     );
-    body.animations?.play("standDown");
-    this.addChild(body);
+    this.body.animations?.play("standDown");
+    this.addChild(this.body);
 
   }
   getContent() {
@@ -53,7 +78,8 @@ export class Npc extends GameObject {
       return null;
     }
     if (match.addsFlag && match.addsFlag == "START_FIGHT") { 
-      events.emit("START_FIGHT", this); 
+      events.emit("START_FIGHT", this);
+
     }
     console.log("Getting content " + match.string);
     return {

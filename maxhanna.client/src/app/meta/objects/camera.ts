@@ -7,12 +7,11 @@ export class Camera extends GameObject {
     super({ position: new Vector2(x, y) }); 
 
 
-    events.on("HERO_POSITION", this, (heroPosition: any) => {
-      this.centerPositionOnTarget(heroPosition);
+    events.on("HERO_POSITION", this, (hero: any) => {
+      this.centerPositionOnTarget(hero.position);
     })
 
-    events.on("CHANGE_LEVEL", this, (newLevelInstance: Level) => {
-      console.log(`setting hero map name : ${newLevelInstance?.name}`);
+    events.on("CHANGE_LEVEL", this, (newLevelInstance: Level) => { 
       this.centerPositionOnTarget(newLevelInstance.getDefaultHeroPosition()); 
     })
   }

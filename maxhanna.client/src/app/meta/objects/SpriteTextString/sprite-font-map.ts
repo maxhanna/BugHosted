@@ -1,3 +1,5 @@
+import { resources } from "../../helpers/resources";  
+import { Sprite } from "../sprite";
 /*export class SpriteFontMap extends*/
 //WIDTHS
 const DEFAULT_WIDTH = 5;
@@ -32,6 +34,38 @@ export const getCharacterWidth = (char: string): number => {
   return width.get(char) ?? DEFAULT_WIDTH;
 }
 
+export const calculateWords = (content: string) => {
+  return content.split(" ").map((word: string) => {
+    let wordWidth = 0;
+    const chars = word.split("").map((char: string) => {
+      const charWidth = getCharacterWidth(char);
+      wordWidth += charWidth;
+
+      const objectId = 0;
+      const position = undefined;
+      const frame = getCharacterFrame(char);
+      const resource = resources.images["fontWhite"];
+      const hFrames = 13;
+      const vFrames = 6;
+      const scale = undefined;
+      const frameSize = undefined;
+      const name = undefined;
+      const animations = undefined;
+
+      return {
+        width: charWidth,
+        sprite: new Sprite(
+          objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name
+        )
+      }
+    });
+
+    return {
+      wordWidth,
+      chars
+    }
+  })
+}
  
 const frameMap = new Map();
 [

@@ -54,6 +54,7 @@ export const TALKED_TO_B = 'TALKED_TO_B';
 export const TALKED_TO_MOM_ABOUT_DAD = "TALKED_TO_MOM_ABOUT_DAD";
 export const TALKED_TO_MOM_ABOUT_WATCH = "TALKED_TO_MOM_ABOUT_WATCH";
 export const TALKED_TO_MOM = "TALKED_TO_MOM";
-export const START_REFEREE_FIGHT = "START_REFEREE_FIGHT";
+export const START_FIGHT = "START_FIGHT";
+export const START_FIGHT_REFEREE2 = "START_FIGHT_REFEREE2";
 
 export const storyFlags = new StoryFlags();

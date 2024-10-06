@@ -10,69 +10,141 @@ import { BoltonLevel1 } from "./bolton-level1";
 import { HeroRoomLevel } from "./hero-room";
 import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc";
- 
+
 
 export class HeroHomeLevel extends Level {
   walls: Set<string>;
   override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
   constructor(params: { heroPosition?: Vector2 } = {}) {
-    super(); 
+    super();
     this.name = "HeroHome";
-    if (params.heroPosition) { 
+    if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
-    } 
+    }
     const room = new Sprite(
-      0, resources.images["heroHome"], new Vector2(0, 0), 1, 1, new Vector2(320, 220)
+      0, resources.images["heroHome"], new Vector2(0, 0), undefined, undefined, new Vector2(320, 220)
     );
     this.addChild(room);
 
+    const cornercounter = new Sprite(
+      0, resources.images["cornercounter"], new Vector2(gridCells(0), gridCells(1)), undefined, undefined, new Vector2(33, 49)
+    );
+    cornercounter.isSolid = true;
+    this.addChild(cornercounter);
+
+    const stove = new Sprite(
+      0, resources.images["stove"], new Vector2(gridCells(2), gridCells(1)), undefined, undefined, new Vector2(32, 34)
+    );
+    stove.isSolid = true;
+    this.addChild(stove);
+
+    const sink = new Sprite(
+      0, resources.images["sink"],
+      new Vector2(gridCells(4), gridCells(1)),
+      undefined,
+      undefined,
+      new Vector2(65, 34)
+    );
+    sink.isSolid = true;
+    this.addChild(sink);
+
+    const fridge = new Sprite(
+      0, resources.images["fridge"],
+      new Vector2(gridCells(0), gridCells(3)),
+      new Vector2(1.25, 1.25),
+      undefined,
+      new Vector2(22, 41)
+    );
+    fridge.isSolid = true;
+    this.addChild(fridge);
+
     const blinds = new Sprite(
-      0, resources.images["blinds"], new Vector2(gridCells(5), 0.01), 0.75, 1, new Vector2(30, 26)
+      0, resources.images["blinds"],
+      new Vector2(gridCells(5), 0.01),
+      new Vector2(0.75, 0.75),
+      undefined,
+      new Vector2(30, 26)
     );
     this.addChild(blinds);
 
     const painting = new Sprite(
-      0, resources.images["painting"], new Vector2(gridCells(9), 0.01), 0.75, 1, new Vector2(30, 28)
+      0, resources.images["painting"],
+      new Vector2(gridCells(9), 0.01),
+      new Vector2(0.75, 0.75),
+      undefined,
+      new Vector2(30, 28)
     );
     this.addChild(painting);
 
 
     const blinds2 = new Sprite(
-      0, resources.images["blinds"], new Vector2(gridCells(13), 0.01), 0.75, 1, new Vector2(30, 26)
+      0, resources.images["blinds"],
+      new Vector2(gridCells(13), 0.01),
+      new Vector2(0.75, 0.75),
+      undefined,
+      new Vector2(30, 26)
     );
     this.addChild(blinds2);
 
     const chair = new Sprite(
-      0, resources.images["chair"], new Vector2(gridCells(5), gridCells(5)), 1, 1, new Vector2(32, 32)
+      0,
+      resources.images["chair"],
+      new Vector2(gridCells(5), gridCells(5)),
+      undefined,
+      undefined,
+      new Vector2(32, 32)
     );
     chair.drawLayer = "FLOOR";
     this.addChild(chair);
 
     const chair2 = new Sprite(
-      0, resources.images["chair"], new Vector2(gridCells(5), gridCells(8)), 1, 1, new Vector2(32, 32)
+      0, resources.images["chair"],
+      new Vector2(gridCells(5), gridCells(8)),
+      undefined,
+      undefined,
+      new Vector2(32, 32)
     );
     chair2.drawLayer = "FLOOR";
     this.addChild(chair2);
     const chair3 = new Sprite(
-      0, resources.images["chair"], new Vector2(gridCells(13), gridCells(5)), 1, 1, new Vector2(32, 32)
+      0,
+      resources.images["chair"],
+      new Vector2(gridCells(13), gridCells(5)),
+      undefined,
+      undefined,
+      new Vector2(32, 32)
     );
     chair3.drawLayer = "FLOOR";
     this.addChild(chair3);
 
     const chair4 = new Sprite(
-      0, resources.images["chair"], new Vector2(gridCells(13), gridCells(8)), 1, 1, new Vector2(32, 32)
+      0, resources.images["chair"],
+      new Vector2(gridCells(13), gridCells(8)),
+      undefined,
+      undefined,
+      new Vector2(32, 32)
     );
     chair4.drawLayer = "FLOOR";
     this.addChild(chair4);
 
 
     const carpet1 = new Sprite(
-      0, resources.images["carpet"], new Vector2(gridCells(10), gridCells(12)), 1, 1, new Vector2(32, 32)
+      0,
+      resources.images["carpet"],
+      new Vector2(gridCells(10), gridCells(12)),
+      undefined,
+      undefined,
+      new Vector2(32, 32)
     );
     carpet1.drawLayer = "FLOOR";
     this.addChild(carpet1);
     const carpet2 = new Sprite(
-      0, resources.images["carpet"], new Vector2(gridCells(9), gridCells(12)), 1, 1, new Vector2(32, 32)
+      0,
+      resources.images["carpet"],
+      new Vector2(gridCells(9), gridCells(12)),
+      undefined,
+      undefined,
+      new Vector2(32, 32)
     );
     carpet2.drawLayer = "FLOOR";
     this.addChild(carpet2);
@@ -82,7 +154,7 @@ export class HeroHomeLevel extends Level {
       content: [
         {
           string: "Your father still uses that old tech, but as he always says its all in how you use it! He uses that watch to command our farm-bots.",
-          requires: [GOT_WATCH], 
+          requires: [GOT_WATCH],
           addsFlag: TALKED_TO_MOM_ABOUT_DAD,
         } as Scenario,
         {
@@ -101,7 +173,7 @@ export class HeroHomeLevel extends Level {
       ],
       portraitFrame: 1
     }, "knight");
-    this.addChild(npc1); 
+    this.addChild(npc1);
 
     const exitBackToRoom = new Exit(gridCells(18), gridCells(2), true, (Math.PI * 3) / 2);
     exitBackToRoom.targetMap = "HeroRoom";

@@ -28,7 +28,7 @@ html, body {
   background-color: black;
   width: 100%;
   max-width: calc(CALC(var(--vh, 1vh) * 100) * (1024 / 910)); /* Sets max-width based on the height */
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 325px);
+/*  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 325px);*/
   margin-left: auto;
   margin-right: auto;
 }
@@ -78,6 +78,29 @@ html, body {
   border-radius: 5px;
   margin-left:auto;
   margin-right:auto; 
+}
+@media (min-width: 670px) and (max-width: 1400px) {
+  .chatBox {
+    height: CALC(CALC(var(--vh, 1vh) * 100) - CALC(CALC(var(--vh, 1vh)* 100) - 325px) - 215px);
+  }
+}
+@media (min-height: 0px) and (max-height: 500px) {
+  .chatBox {
+    height: 20px;
+  }
+  .chatArea {
+    height: CALC(100% - 630px);
+    position: relative;
+    top: -25px;
+  }
+  .gameCanvas {
+    height: CALC(100% - 30px) !important;
+    max-width: unset !important; 
+  }
+  .gameCanvasContainer {
+    height: unset !important;
+    max-height: CALC(100% - 30px) !important;
+  }
 }
 
 .chatBoxMessage {

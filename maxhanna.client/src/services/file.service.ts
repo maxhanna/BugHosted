@@ -377,37 +377,49 @@ export class FileService {
   }
   getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
     if (!contentDisposition) return '';
+
     try {
+      // Match the UTF-8 filename* pattern
       const filenameStarMatch = contentDisposition.match(/filename\*=['"]?UTF-8''([^'";\s]+)['"]?/);
-      if (filenameStarMatch && filenameStarMatch[1] && filenameStarMatch[1] !== '') {
-        try {
-          const isUriEncoded = /^[A-Za-z0-9\-._~%!$&'()*+,;=:@]+$/.test(filenameStarMatch[1]);
-          if (isUriEncoded) { 
-            const content = filenameStarMatch[1].replace(/(%[0-9a-f]{2})+/gi, a => { try { return decodeURIComponent(a) } catch (e) { return a } });
 
-            const utf8Filename = content;
-            return utf8Filename.split('.').pop() || '';
-          } else {
-            console.log('Filename is not properly URI-encoded:', filenameStarMatch[1]);
-            return '';
-          } 
-        } catch (error) {
-          console.log('Error decoding UTF-8 filename:', error);
-          return ''; // Return an empty string or handle the error as needed
-        }
+      if (filenameStarMatch && filenameStarMatch[1]) {
+        const utf8Filename = this.customDecodeURIComponent(filenameStarMatch[1]);
+        if (utf8Filename) return utf8Filename.split('.').pop() || '';
       }
 
-      // Match the filename pattern
+      // Fallback: match the regular filename pattern
       const filenameMatch = contentDisposition.match(/filename=['"]?([^'";\s]+)['"]?/);
-      if (filenameMatch && filenameMatch[1] && filenameMatch[1] != '') {
-        const filename = filenameMatch[1];
-        return filename.split('.').pop() || '';
-      }
-    } catch (error) {
-      console.log('Error processing Content-Disposition header:', error);
-    }
 
+      if (filenameMatch && filenameMatch[1]) {
+        return filenameMatch[1].split('.').pop() || '';
+      }
+
+    } catch (error) {
+      console.error('Error processing Content-Disposition header:', error);
+    }
+    // Match the filename pattern
+
+    const filenameMatch = contentDisposition.match(/filename=['"]?([^'";\s]+)['"]?/);
+    if (filenameMatch && filenameMatch[1] && filenameMatch[1] != '') {
+      const filename = filenameMatch[1];
+      return filename.split('.').pop() || '';
+    }
     return '';
+  }
+  customDecodeURIComponent(encodedString: string): string {
+    return encodedString.replace(/%([0-9a-fA-F]{2})/g, (match, hex) => {
+      // Convert hex to a character
+      const charCode = parseInt(hex, 16);
+
+      // Handle safe range of characters (excluding control chars, etc.)
+      if (charCode > 31 && charCode < 127) {
+        return String.fromCharCode(charCode);
+      } else {
+        // Leave the percent encoding as-is if it's not a valid printable character
+        console.warn('Skipping invalid percent-encoded character:', match);
+        return match;
+      }
+    });
   }
 
 }

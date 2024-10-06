@@ -52,10 +52,9 @@ export class Main extends GameObject {
           textBox.destroy();
           events.off(endingSub);
         });
-      }
+      } 
+    });
 
-     
-    }); 
   }
 
   setLevel(newLevelInstance: Level) {

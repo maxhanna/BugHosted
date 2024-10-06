@@ -109,66 +109,66 @@ export class FileComponent extends ChildComponent {
     return filePath.split('.').pop();
   }
 
-  getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
-    if (!contentDisposition) return '';
+  //getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
+  //  if (!contentDisposition) return '';
 
-    // Match the filename pattern
-    const filenameMatch = contentDisposition.match(/filename\*?=['"]?([^'";\s]+)['"]?/);
-    if (filenameMatch && filenameMatch[1]) {
-      const filename = filenameMatch[1];
-      return filename.split('.').pop() || '';
-    }
-    return '';
-  }
+  //  // Match the filename pattern
+  //  const filenameMatch = contentDisposition.match(/filename\*?=['"]?([^'";\s]+)['"]?/);
+  //  if (filenameMatch && filenameMatch[1]) {
+  //    const filename = filenameMatch[1];
+  //    return filename.split('.').pop() || '';
+  //  }
+  //  return '';
+  //}
   setThumbnailSrc(url: string) {
     if (this.thumbnailContainer && this.thumbnailContainer.nativeElement) {
       this.thumbnailContainer.nativeElement.src = url;
     }
   }
 
-  async displayPictureThumbnail(fileName: string) {
-    const directoryValue = this.currentDirectory  ?? "";
-    let target = directoryValue.replace(/\\/g, "/");
-    target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? fileName : directoryValue.length > 0 ? this.fS + fileName : fileName;
-    this.selectedThumbnail = target;
-    this.loading = true;
-    this.startLoading();
-    try {
-      // Cancel any ongoing thumbnail request
-      if (this.abortThumbnailRequestController) {
-        this.abortThumbnailRequestController.abort();
-      }
+  //async displayPictureThumbnail(fileName: string) {
+  //  const directoryValue = this.currentDirectory  ?? "";
+  //  let target = directoryValue.replace(/\\/g, "/");
+  //  target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? fileName : directoryValue.length > 0 ? this.fS + fileName : fileName;
+  //  this.selectedThumbnail = target;
+  //  this.loading = true;
+  //  this.startLoading();
+  //  try {
+  //    // Cancel any ongoing thumbnail request
+  //    if (this.abortThumbnailRequestController) {
+  //      this.abortThumbnailRequestController.abort();
+  //    }
 
-      // Create a new AbortController for the thumbnail request
-      this.abortThumbnailRequestController = new AbortController();
+  //    // Create a new AbortController for the thumbnail request
+  //    this.abortThumbnailRequestController = new AbortController();
 
-      const response = await this.fileService.getFile(target, {
-        signal: this.abortThumbnailRequestController.signal
-      }, this.parentRef?.user);
+  //    const response = await this.fileService.getFile(target, {
+  //      signal: this.abortThumbnailRequestController.signal
+  //    }, this.parentRef?.user);
 
-      if (!response || response == null) return;
-      const contentDisposition = response.headers["content-disposition"];
-      this.selectedThumbnailFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
-      const type = this.selectedFileType = this.videoFileExtensions.includes(this.selectedThumbnailFileExtension)
-        ? `video/${this.selectedThumbnailFileExtension}`
-        : `image/${this.selectedThumbnailFileExtension}`;
+  //    if (!response || response == null) return;
+  //    const contentDisposition = response.headers["content-disposition"];
+  //    this.selectedThumbnailFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
+  //    const type = this.selectedFileType = this.videoFileExtensions.includes(this.selectedThumbnailFileExtension)
+  //      ? `video/${this.selectedThumbnailFileExtension}`
+  //      : `image/${this.selectedThumbnailFileExtension}`;
 
-      const blob = new Blob([response.blob], { type });
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = () => {
-        this.showThumbnail = true;
-        setTimeout(() => { this.setThumbnailSrc(reader.result as string); }, 1);
-        this.thumbnailFileName = fileName;
-      };
+  //    const blob = new Blob([response.blob], { type });
+  //    const reader = new FileReader();
+  //    reader.readAsDataURL(blob);
+  //    reader.onloadend = () => {
+  //      this.showThumbnail = true;
+  //      setTimeout(() => { this.setThumbnailSrc(reader.result as string); }, 1);
+  //      this.thumbnailFileName = fileName;
+  //    };
 
 
-    } catch (ex) {
-      console.error(ex);
-    }
-    this.loading = false;
-    this.stopLoading();
-  }
+  //  } catch (ex) {
+  //    console.error(ex);
+  //  }
+  //  this.loading = false;
+  //  this.stopLoading();
+  //}
 
   
   async makeDirectory() {

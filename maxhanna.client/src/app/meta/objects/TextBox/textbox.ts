@@ -15,7 +15,12 @@ export class TextBox extends GameObject {
     this.content = "Hi. How are you? THIS IS THE WORLD OF META BOTS! ";
 
     this.backdrop = new Sprite(
-      0, resources.images["textBox"], undefined, 1, 1, new Vector2(256,64)
+      0,
+      resources.images["textBox"],
+      undefined,
+      undefined,
+      undefined,
+      new Vector2(256, 64)
     ); 
   }
 

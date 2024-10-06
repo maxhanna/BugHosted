@@ -7,7 +7,7 @@
   <div class="gameCanvasContainer" [style.display]="parentRef && parentRef.user ? 'block' : 'none'">
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
   </div>
-  <div class="chatArea" [style.display]="mainScene.input.displayChat ? 'block' : 'none'">
+  <div class="chatArea" [style.display]="parentRef && parentRef.user && mainScene.input.displayChat ? 'block' : 'none'">
     <div class="chatBox" id="chatBox" (scroll)="handleChatScroll()">
       <div *ngFor="let msg of chat">
         <span class="heroName">{{msg.hero.name}}

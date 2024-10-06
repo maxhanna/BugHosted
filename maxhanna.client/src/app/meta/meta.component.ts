@@ -19,6 +19,7 @@ import { resources } from './helpers/resources';
 import { Input } from './helpers/input';
 import { moveTowards } from './helpers/move-towards';
 import { events } from './helpers/events'; 
+import { storyFlags } from './helpers/story-flags'; 
 import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
@@ -125,6 +126,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   } 
   private updateMissingOrNewHeroSprites() {
     let ids: number[] = [];
+    if (storyFlags.flags.has("START_FIGHT")) {
+      return;
+    } 
     for (const hero of this.otherHeroes) {
       const existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id);
       if (existingHero) {
@@ -134,7 +138,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
             existingHero.destinationPosition = newPos;
           }
         }
-        else {
+        else { 
           this.metaHero.position = new Vector2(existingHero.position.x, existingHero.position.y).duplicate(); 
         }
         const latestMsg = this.latestMessagesMap.get(existingHero.id);
@@ -143,7 +147,10 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         } else {
           existingHero.latestMessage = ""; 
         }
-      } else { 
+      } else {
+        if (hero.id == this.metaHero.id) { 
+          console.log("could not find existing hero for user so creating new one.");
+        }
         const tmpHero = new Hero(
           hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x,
           hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y
@@ -152,7 +159,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         tmpHero.name = hero.name ?? "Anon";
         if (hero.id === this.metaHero.id) {
           tmpHero.isUserControlled = true;
-        } 
+        }
         this.mainScene.level?.addChild(tmpHero); 
       }
       ids.push(hero.id);
@@ -189,17 +196,10 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.hero = new Hero(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16));
     this.hero.id = rz.id;
     this.hero.name = rz.name ?? "Anon";
-    this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map);
-
-    const levelMap: { [key: string]: () => Level } = {
-      "HEROROOM": () => new HeroRoomLevel(),
-      "CAVELEVEL1": () => new CaveLevel1(),
-      "HEROHOME": () => new HeroHomeLevel(),
-      "BOLTONLEVEL1": () => new BoltonLevel1(),
-      "FIGHT": () => new Fight(),
-    };
+    this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map, []);
+     
     const levelKey = rz.map.toUpperCase();
-    const level = levelMap[levelKey]?.();
+    const level = this.getLevelFromLevelName(rz.map);
 
     if (level) {
       this.mainScene.setLevel(level);
@@ -208,20 +208,33 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
   }
 
+  private getLevelFromLevelName(key: string): Level {
+    const upperKey = key.toUpperCase();
+    if (upperKey === "HEROROOM") return new HeroRoomLevel();
+    else if (upperKey == "CAVELEVEL1") return new CaveLevel1();
+    else if (upperKey == "HEROHOME") return new HeroHomeLevel();
+    else if (upperKey == "BOLTONLEVEL1") return new BoltonLevel1();
+    else if (upperKey == "FIGHT") return new Fight(
+      {
+        heroPosition: this.metaHero.position,
+        entryLevel: (this.metaHero.map == "FIGHT" ? new BoltonLevel1() : this.getLevelFromLevelName(this.metaHero.map)),
+        enemies: undefined,
+        party: [this.metaHero]
+      }
+    );
+    return new HeroRoomLevel();
+  }
+
   private subscribeToMainGameEvents() {
     events.on("CHANGE_LEVEL", this.mainScene, (newLevelInstance: Level) => {
-      if (newLevelInstance.name == "HeroRoom") {
-        this.pollForChanges();
-      }
+      this.pollForChanges();
       if (this.mainScene.level?.name) {
         if (newLevelInstance.name != "Fight") { 
           this.metaHero.map = newLevelInstance?.name;
-        }
-        console.log(this.metaHero.map);
+          this.metaHero.position = newLevelInstance.getDefaultHeroPosition();
+        } 
         const hero = this.mainScene.level.children.filter((x: any) => x.id == this.metaHero.id) as Hero;
-        hero.position = newLevelInstance.getDefaultHeroPosition();
-        this.metaHero.position = newLevelInstance.getDefaultHeroPosition();
-        console.log(hero.position);
+        hero.position = newLevelInstance.getDefaultHeroPosition(); 
       }
     });
 
@@ -243,10 +256,24 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     });
 
     events.on("START_FIGHT", this, (source: any) => {
+      console.log("got fight event, starting fight .."); 
+      //this.mainScene.level?.children.forEach();
       events.emit("CHANGE_LEVEL", new Fight({
-        heroPosition: new Vector2(gridCells(10), gridCells(11)),
-        source: source
+        heroPosition: this.metaHero.position,
+        entryLevel: (this.metaHero.map == "FIGHT" ? new BoltonLevel1() : this.getLevelFromLevelName(this.metaHero.map)),
+        enemies: [source],
+        party: [this.metaHero]
       }));  
+    });
+
+    //Reposition Safely handler
+    events.on("REPOSITION_SAFELY", this, () => {
+      if (this.metaHero) {
+        const levelName = this.mainScene.level?.name; // Get the class reference
+        if (levelName && levelName != "Fight") {
+          events.emit("CHANGE_LEVEL", this.getLevelFromLevelName(levelName));
+        }
+      }
     });
   }
        

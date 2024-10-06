@@ -15,7 +15,7 @@ export class Exit extends GameObject {
         0,
         resources.images[sprite],
         sprite == "exit2" ? new Vector2(0, -10) : new Vector2(0, 0),
-        0.85,
+        new Vector2(0.85, 0.85),
         undefined,
         new Vector2(42, 45),
       );
@@ -27,9 +27,9 @@ export class Exit extends GameObject {
   }
 
   override ready() {
-    events.on("HERO_POSITION", this, (pos: any) => {
-      const roundedHeroX = Math.round(pos.x);
-      const roundedHeroY = Math.round(pos.y);
+    events.on("HERO_POSITION", this, (hero: any) => {
+      const roundedHeroX = Math.round(hero.position.x);
+      const roundedHeroY = Math.round(hero.position.y);
       if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {
         console.log("HERO ENTERS EXIT SPACE");
         events.emit("HERO_EXITS", this.targetMap);
