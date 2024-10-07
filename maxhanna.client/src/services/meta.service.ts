@@ -4,6 +4,7 @@ import { User } from './datacontracts/user/user';
 import { MetaHero } from './datacontracts/meta/meta-hero';
 import { MetaChat } from './datacontracts/meta/meta-chat';
 import { Vector2 } from './datacontracts/meta/vector2';
+import { MetaEvent } from './datacontracts/meta/meta-event';
  
 @Injectable({
   providedIn: 'root'
@@ -45,10 +46,13 @@ export class MetaService {
   async createHero(user: User, name: string): Promise<MetaHero | undefined> {
     return this.fetchData('/meta/create', { User: user, Name: name });
   }
-  async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[] } | undefined> {
+  async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);
   }
   async chat(hero: MetaHero, content: string) {
     return this.fetchData('/meta/chat', {Hero: hero, Content: content});
+  }
+  async updateEvents(event: MetaEvent) {
+    return this.fetchData('/meta/updateevents', event);
   }
 }

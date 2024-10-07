@@ -3,7 +3,7 @@ import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
 import { Input } from "../../helpers/input";
-import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "../../helpers/grid-cells";
+import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { moveTowards } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
@@ -29,7 +29,7 @@ export class Hero extends GameObject {
     super({
       position: new Vector2(x, y)
     })
-    console.log("New Hero at position : " + x + '; ' + y);
+   // console.log("New Hero at position : " + x + '; ' + y);
     this.facingDirection = DOWN;
     this.position = new Vector2(x, y);
     this.destinationPosition = this.position.duplicate();
@@ -171,18 +171,29 @@ export class Hero extends GameObject {
   } 
 
   override ready() {
-    events.on("START_TEXT_BOX", this, () => {
-      this.isLocked = true;
-    });
-    events.on("END_TEXT_BOX", this, () => {
-      this.isLocked = false;
-    });
-    events.on("HERO_MOVEMENT_LOCK", this, () => {
-      this.isLocked = true; 
-    }); 
-    events.on("HERO_MOVEMENT_UNLOCK", this, () => {
-      this.isLocked = false;
-    }); 
+    if (this.isUserControlled) {
+      events.on("START_TEXT_BOX", this, () => {
+        this.isLocked = true;
+      });
+      events.on("END_TEXT_BOX", this, () => {
+        this.isLocked = false;
+      });
+      events.on("HERO_MOVEMENT_LOCK", this, () => {
+        this.isLocked = true; 
+      }); 
+      events.on("HERO_MOVEMENT_UNLOCK", this, () => {
+        this.isLocked = false;
+      }); 
+      events.on("SELECTED_ITEM", this, (selectedItem: string) => {
+        console.log(selectedItem);
+        if (selectedItem === "Party Up") {
+          const objectAtPosition = this.parent.children.find((child: GameObject) => {
+            return child.position.matches(this.position.toNeighbour(this.facingDirection))
+          });
+          events.emit("PARTY_UP", objectAtPosition);
+        }
+      })
+    }
   }
 
   override step(delta: number, root: any) {
@@ -256,19 +267,19 @@ export class Hero extends GameObject {
       let position = destPos.duplicate();
 
       if (input.direction === DOWN) {
-        position.y = this.snapToGrid(position.y + gridSize, gridSize);
+        position.y = snapToGrid(position.y + gridSize, gridSize);
         this.body.animations?.play("walkDown");
       }
       else if (input.direction === UP) {
-        position.y = this.snapToGrid(position.y - gridSize, gridSize);
+        position.y = snapToGrid(position.y - gridSize, gridSize);
         this.body.animations?.play("walkUp");
       }
       else if (input.direction === LEFT) {
-        position.x = this.snapToGrid(position.x - gridSize, gridSize);
+        position.x = snapToGrid(position.x - gridSize, gridSize);
         this.body.animations?.play("walkLeft");
       }
       else if (input.direction === RIGHT) {
-        position.x = this.snapToGrid(position.x + gridSize, gridSize);
+        position.x = snapToGrid(position.x + gridSize, gridSize);
         this.body.animations?.play("walkRight");
       }
 
@@ -316,9 +327,7 @@ export class Hero extends GameObject {
 
       this.position = destPos.duplicate();
     }
-  } 
-
-
+  }   
 
   onPickupItem(data: { image: any, position: Vector2, hero: any }) {
     if (data.hero?.id == this.id) {
@@ -346,7 +355,13 @@ export class Hero extends GameObject {
       this.itemPickupShell.destroy();
     }
   }
-  private snapToGrid(value: number, gridSize: number): number {
-    return Math.round(value / gridSize) * gridSize;
+  getContent() { 
+      
+    console.log("Getting content " );
+    return {
+      portraitFrame: 0,
+      string: ["Party Up", "Whisper", "Wave"],
+      canSelectItems: true
+    }
   }
  }

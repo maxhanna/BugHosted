@@ -4,16 +4,16 @@ using Newtonsoft.Json;
 
 namespace maxhanna.Server.Services
 {
-    public class CoinValueBackgroundService : BackgroundService
+    public class SystemBackgroundService : BackgroundService
     {
-        private readonly ILogger<CoinValueBackgroundService> _logger;
+        private readonly ILogger<SystemBackgroundService> _logger;
         private readonly string _apiKey = "49965ff1-ebed-48b2-8ee3-796c390fcde1";
-        private readonly string _url = "https://api.livecoinwatch.com/coins/list";
+        private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
         private readonly string _connectionString;
         private readonly HttpClient _httpClient;
         private DateTime _lastDailyTaskRun = DateTime.MinValue; // Keep track of when daily tasks were last run
 
-        public CoinValueBackgroundService(ILogger<CoinValueBackgroundService> logger, IConfiguration config)
+        public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config)
         {
             _logger = logger; 
             _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
@@ -103,7 +103,7 @@ namespace maxhanna.Server.Services
                     string deleteSqlReportsAndBattles = @"
                         DELETE  
                         FROM meta_chat 
-                        WHERE timestamp < NOW() - INTERVAL 1 DAY;";
+                        WHERE timestamp < NOW() - INTERVAL 2 MINUTE;";
 
                     await using (var deleteCmd = new MySqlCommand(deleteSqlReportsAndBattles, conn, transaction))
                     {
@@ -171,7 +171,7 @@ namespace maxhanna.Server.Services
 
             try
             {
-                var response = await _httpClient.PostAsync(_url, content);
+                var response = await _httpClient.PostAsync(_coinwatchUrl, content);
                 if (response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();

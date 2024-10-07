@@ -9,7 +9,7 @@ import { Watch } from "../objects/Watch/watch";
 import { Sprite } from "../objects/sprite";
 import { Npc } from "../objects/Npc/npc";
 import { HeroRoomLevel } from "./hero-room";
-import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
+import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
 import { GameObject } from "../objects/game-object";
 import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
@@ -23,7 +23,7 @@ import { BoltonLevel1 } from "./bolton-level1";
 export class Fight extends Level { 
   walls: Set<string>; 
   characterName = "";
-  enemies?: any[] = undefined;
+  enemies?: Npc[] = undefined;
   party?: MetaHero[] = [];
   selectedFighterIndex = 0;
 
@@ -45,7 +45,7 @@ export class Fight extends Level {
   constructor(params: {
     heroPosition: Vector2,
     entryLevel: Level,
-    enemies?: any,
+    enemies?: Npc[],
     party?: MetaHero[]
   }) {
     super();
@@ -61,7 +61,12 @@ export class Fight extends Level {
       this.loadPartyMembers(params);
     }
     if (params.enemies) { 
-      this.loadEnemies(params);
+      this.enemies = params.enemies;
+      for (let x = 0; x < this.enemies.length; x++) {
+        const tmpNpc = new Npc(gridCells(10-x), gridCells(1 + x), undefined, this.enemies[x].type); 
+        this.addChild(tmpNpc);
+        console.log("added enemy: ", this.enemies[x]);
+      }
     } 
   }
 
@@ -83,13 +88,14 @@ export class Fight extends Level {
        
     } 
 
-    if (storyFlags.flags.has("START_FIGHT") && !this.fightHasStarted && !this.fightMenu.showFightMenu) { 
+    if (storyFlags.flags.has("START_FIGHT") && !this.fightHasStarted && !this.fightMenu.showFightMenu) {
+      console.log("Fight started");
       this.fightHasStarted = true;
       root.camera.position.x -= 50;
-      this.startFightStance();  
       setTimeout(() => {
+        this.startFightStance();  
         if (!this.fightMenu.showFightMenu) {
-          input?.pressA();
+          events.emit("END_TEXT_BOX");
           setTimeout(() => {
             this.fightMenu.showFighterSelectionMenu = true;
             this.fightMenu.showFightMenu = true;
@@ -108,9 +114,13 @@ export class Fight extends Level {
         newHero.name = metaHero.name ?? "Anon";
         newHero.id = metaHero.id;
         if (x === 0) {
-          const bot1 = new MetaBot(1, this.party[0].id, 1, "Bee", false, new Vector2(1, 1));
-          const bot2 = new MetaBot(2, this.party[0].id, 1, "Jaguar", false, new Vector2(1, 1));
-          const bot3 = new MetaBot(3, this.party[0].id, 1, "Rhino", false, new Vector2(1, 1));
+          const bot1 = new MetaBot(1, this.party[0].id, 1, "Bee", false, new Vector2(gridCells(-1), gridCells(1)));
+          const bot2 = new MetaBot(2, this.party[0].id, 1, "Jaguar", false, new Vector2(gridCells(-1), gridCells(1)));
+          const bot3 = new MetaBot(3, this.party[0].id, 1, "Rhino", false, new Vector2(gridCells(-1), gridCells(1)));
+          bot1.hp = bot2.hp = bot3.hp = 100;
+          bot2.exp = 80;
+          bot3.exp = 20; 
+          bot1.exp = 40; 
           this.party[x].metabots = [bot1, bot2, bot3];
           this.fightMenu.metabotChoices = this.party[x].metabots;
         }
@@ -118,29 +128,9 @@ export class Fight extends Level {
       }
     } 
   }
-
-  private loadEnemies(params: { heroPosition?: Vector2 | undefined; entryLevel?: Level | undefined; enemies?: any; party?: MetaHero[] | undefined; }) {
-    if (!this.enemies) {
-      this.enemies = [];
-    }
-    const npc = new Npc(0, 0, params.enemies[0].textPortraitFrame, params.enemies[0].type);
-    npc.position = new Vector2(-100, 15);
-    if (!this.enemies) {
-      this.enemies = [];
-    }
-    this.enemies.push(npc);
-    this.addChild(npc);
-
-    const partners = params.enemies[0].partnerNpcs;
-    for (let x = 0; x < partners.length; x++) {
-      const partner = new Npc(0, 0, params.enemies[x].textPortraitFrame, params.enemies[x].type);
-      partner.position = new Vector2(-100 - (x * gridCells(1)), 15 + ((x + 1) * gridCells(1)));
-      this.enemies.push(partner);
-      this.addChild(partner);
-    }
-  }
-
+   
   private startFightStance() {
+    console.log("start fiht stance");
     if (this.party) {
       for (let x = 0; x < this.party.length; x++) {
         const metaHero = this.party[x];
@@ -154,21 +144,20 @@ export class Fight extends Level {
         }, 2000);
       }
     }
-    if (this.enemies) {
-      console.log("setting enemies in position");
-      for (let x = 0; x < this.enemies.length; x++) {
-        this.enemies[x].position.x = gridCells(8) + (x * gridCells(1));
-        const child = this.children.find((child: any) => this.enemies && this.enemies[x].position.matches(child.position));
-        if (child) {
-          console.log("found child");
-          child.position = this.enemies[x].position.duplicate();
-          setTimeout(() => {
-            if (this.enemies) {
-              child.body.animations?.play("standLeft");
-              console.log("setting animation for child ", child.body.animations);
-            }
-          }, 1000);
+    if (this.enemies) { 
+      for (let x = 0; x < this.enemies.length; x++) { 
+        let child = this.children.find((child: any) => this.enemies && this.enemies[x].position.matches(child.position));
+        if (!child) {
+          this.addChild(this.enemies[x]);
+          child = this.enemies[x];
         }
+        if (child) {
+          child.position = this.enemies[x].position.duplicate(); 
+          setTimeout(() => { 
+            child.body.animations?.play("standLeft");
+            console.log("setting animation for child ", child.body.animations); 
+          }, 1000);
+        } 
       }
     }
   }
@@ -193,24 +182,25 @@ export class Fight extends Level {
       this.partyBots.push(newBot);
       this.addChild(newBot);
 
+      const fighterStats = new FightStatBox({ position: new Vector2(-100, 50), bot: metabot, showExp: true });
+      this.addChild(fighterStats);
+
       if (this.partyBots.length == this.party?.length) {
         this.deployEnemyBots();
       }
     }
-    const fighterStats = new FightStatBox({ position: new Vector2(-100, 80), bot: metabot });
-    this.addChild(fighterStats);
   }
 
-  private deployEnemyBots() {
-    console.log("Deploy enemy bots");
+  private deployEnemyBots() { 
     if (this.enemies) {
-      for (let x = 0; x < this.enemies.length; x++) {
+      for (let x = 0; x < this.enemies.length; x++) { 
         if (this.enemies[x].metabots[0]) {
           const metabot = this.enemies[x].metabots[0];
+          metabot.position = new Vector2(gridCells(7) - gridCells(x), gridCells(x)); 
           const newBot = new Sprite(
             0,
             resources.images["botFrame"],
-            new Vector2(100, 0),
+            metabot.position,
             undefined,
             undefined,
             new Vector2(32, 32),
@@ -218,10 +208,11 @@ export class Fight extends Level {
             undefined,
             undefined,
             metabot.name
-          ); 
-          const fighterStats = new FightStatBox({ position: new Vector2(-100, 80), bot: metabot });
+          );
+          this.addChild(newBot);
+          const fighterStats = new FightStatBox({ position: new Vector2(110, -65), bot: metabot, showExp: false });
           this.addChild(fighterStats);
-          console.log(`deployed ${this.enemies[x].name}'s bot'`);
+          console.log(`deployed ${this.enemies[x].type}'s bot @ ${metabot.position.x},${metabot.position.y}'`);
         }
       }
     }

@@ -10,7 +10,7 @@
   <ItemGroup>
     <Folder Include="src\app\meta\objects\Main\" />
     <Folder Include="src\app\meta\objects\InventoryItem\" />
-    <Folder Include="src\app\meta\objects\SpriteTextString\" />
+    <Folder Include="src\app\meta\objects\FightStatBox\" />
     <Folder Include="src\app\meta\objects\TextBox\" />
     <Folder Include="src\app\meta\objects\Npc\" />
     <Folder Include="src\app\meta\objects\Watch\" />

@@ -10,6 +10,7 @@ import { storyFlags } from "../../helpers/story-flags";
 import { BoltonLevel1 } from "../../levels/bolton-level1";
 import { Level } from "../Level/level";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
+import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
 
 export class FightStatBox extends GameObject {
   backdrop = new Sprite(
@@ -22,19 +23,61 @@ export class FightStatBox extends GameObject {
     undefined,
     undefined
   );
-   
+  metabot: MetaBot;
+  showExp: boolean = false;
 
-  constructor(config: { bot: MetaBot, position: Vector2 }) { 
+  constructor(config: { bot: MetaBot, position: Vector2, showExp?: boolean}) { 
     super({ position: config.position }); 
-    this.drawLayer = "HUD";
-    console.log("new fight stat box made at location ", config.position);
+    this.drawLayer = "HUD"; 
+    this.metabot = config.bot;
+    if (config.showExp) {
+      this.showExp = config.showExp;
+    }
+
+    const botNameSprite = new SpriteTextString(this.metabot.name ?? "Bot", new Vector2(-15, -5));
+    botNameSprite.drawLayer = "HUD";
+    this.addChild(botNameSprite);
+
+    const healthNameSprite = new SpriteTextString("HP", new Vector2(-15, 10));
+    healthNameSprite.drawLayer = "HUD";
+    this.addChild(healthNameSprite);
+
+    if (this.showExp) {
+      const expNameSprite = new SpriteTextString("EXP", new Vector2(-15, 20));
+      expNameSprite.drawLayer = "HUD";
+      this.addChild(expNameSprite);
+    }
   }
 
   override step(delta: number, root: GameObject) {
   }
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    this.backdrop.drawImage(ctx, drawPosX, drawPosY);
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
+    this.backdrop.drawImage(ctx, drawPosX, drawPosY); 
+    const PADDING = 10;
+    // Draw Health Bar
+    const healthBarWidth = 80;
+    const healthPercentage = Math.max(0, Math.min(this.metabot.hp / 100, 1));
+    ctx.fillStyle = 'red';
+    ctx.fillRect(drawPosX + PADDING, drawPosY + PADDING + 10, healthBarWidth * healthPercentage, 10);
 
+    // Draw Health Bar Outline
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(drawPosX + PADDING, drawPosY + PADDING + 10, healthBarWidth, 10);
+
+    if (this.showExp) {
+      // Draw Experience Bar
+      const expBarWidth = 80;
+      const expPercentage = Math.max(0, Math.min(this.metabot.exp / this.metabot.expForNextLevel, 1));
+      ctx.fillStyle = 'gold';
+      ctx.fillRect(drawPosX + PADDING, drawPosY + PADDING + 20, expBarWidth * expPercentage, 10);
+
+      // Draw Experience Bar Outline
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(drawPosX + PADDING, drawPosY + PADDING + 20, expBarWidth, 10); 
+    } 
   }
+
   
 }

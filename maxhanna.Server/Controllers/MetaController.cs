@@ -65,12 +65,14 @@ namespace maxhanna.Server.Controllers
                         hero = await UpdateHeroInDB(hero, connection, transaction);
                         MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
                         List<MetaChat> chat = await GetChatFromDB(connection, transaction);
+                        List<MetaEvent> events = await GetEventsFromDb(hero.Map, connection, transaction);
                         await transaction.CommitAsync(); 
                         return Ok(new {  
                             map = hero.Map,
                             hero.Position,
                             heroes,
-                            chat, 
+                            chat,
+                            events
                         });
                     }
                     catch (Exception ex)
@@ -81,11 +83,11 @@ namespace maxhanna.Server.Controllers
                 }
             }
         }
-
-        [HttpPost("/Meta/Update", Name = "UpdateHero")]
-        public async Task<IActionResult> UpdateHero([FromBody] MetaHero hero)
+         
+        [HttpPost("/Meta/UpdateEvents", Name = "UpdateEvents")]
+        public async Task<IActionResult> UpdateEvents([FromBody] MetaEvent @event)
         {
-            Console.WriteLine($"POST /Meta/Update (Hero Id: {hero.Id})");
+            Console.WriteLine($"POST /Meta/UpdateEvents (Hero Id: {@event.HeroId})");
             using (var connection = new MySqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
@@ -93,7 +95,9 @@ namespace maxhanna.Server.Controllers
                 {
                     try
                     {
-                        await UpdateHeroInDB(hero, connection, transaction); 
+                        await UpdateEventsInDB(@event, connection, transaction);
+                        await transaction.CommitAsync();
+
                         return Ok();
                     }
                     catch (Exception ex)
@@ -103,7 +107,7 @@ namespace maxhanna.Server.Controllers
                     }
                 }
             }
-        } 
+        }
 
         [HttpPost("/Meta/Create", Name = "CreateHero")]
         public async Task<IActionResult> CreateHero([FromBody] CreateMetaHeroRequest req)
@@ -177,7 +181,7 @@ namespace maxhanna.Server.Controllers
             }
         }
         private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
-        { 
+        {
             //Console.WriteLine("hero coords X " + hero.CoordsX + " hero coordsY" + hero.CoordsY);
             string sql = @"UPDATE maxhanna.meta_hero 
                             SET coordsX = @CoordsX, 
@@ -188,12 +192,27 @@ namespace maxhanna.Server.Controllers
             Dictionary<string, object?> parameters = new Dictionary<string, object?>
             {
                 { "@CoordsX", hero.Position.x },
-                { "@CoordsY", hero.Position.y }, 
+                { "@CoordsY", hero.Position.y },
                 { "@Map", hero.Map },
                 { "@HeroId", hero.Id }
             };
             await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
             return hero;
+        }
+        private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
+        { 
+            string sql = @"DELETE FROM maxhanna.meta_event WHERE timestamp < NOW() - INTERVAL 20 SECOND;
+                            INSERT INTO maxhanna.meta_event (hero_id, event, map, data)
+                            VALUES (@HeroId, @Event, @Map, @Data);";
+            Dictionary<string, object?> parameters = new Dictionary<string, object?>
+            {
+                { "@HeroId", @event.HeroId },
+                { "@Event", @event.Event },
+                { "@Map", @event.Map },
+                { "@Data", Newtonsoft.Json.JsonConvert.SerializeObject(@event.Data) }
+            };
+            await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+            return;
         }
 
 
@@ -209,7 +228,7 @@ namespace maxhanna.Server.Controllers
         }
 
         private async Task<List<MetaChat>> GetChatFromDB(MySqlConnection connection, MySqlTransaction transaction)
-        { 
+        {
             if (connection.State != System.Data.ConnectionState.Open)
             {
                 await connection.OpenAsync();
@@ -224,7 +243,7 @@ namespace maxhanna.Server.Controllers
                 FROM maxhanna.meta_chat m
                 LEFT JOIN maxhanna.meta_hero h on h.id = m.hero_id
                 ORDER BY timestamp DESC 
-                LIMIT 100;"; 
+                LIMIT 100;";
             MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
             List<MetaChat> chat = new List<MetaChat>();
             using (var reader = await cmd.ExecuteReaderAsync())
@@ -232,11 +251,48 @@ namespace maxhanna.Server.Controllers
                 while (reader.Read())
                 {
                     MetaHero? tmpHero = new MetaHero() { Id = Convert.ToInt32(reader["hero_id"]), Name = Convert.ToString(reader["hero_name"]) };
-                    MetaChat tmpChat = new MetaChat() { Hero = tmpHero, Content = Convert.ToString(reader["content"]) , Timestamp = Convert.ToDateTime(reader["timestamp"]) };
+                    MetaChat tmpChat = new MetaChat() { Hero = tmpHero, Content = Convert.ToString(reader["content"]), Timestamp = Convert.ToDateTime(reader["timestamp"]) };
                     chat.Add(tmpChat);
                 }
             }
             return chat;
+        }
+
+        private async Task<List<MetaEvent>> GetEventsFromDb(string map, MySqlConnection connection, MySqlTransaction transaction)
+        {
+            if (connection.State != System.Data.ConnectionState.Open)
+            {
+                await connection.OpenAsync();
+            }
+            if (transaction == null)
+            {
+                _logger.LogError("Transaction is null.");
+                throw new InvalidOperationException("Transaction is required for this operation.");
+            }
+            string sql = @"
+                DELETE FROM maxhanna.meta_event WHERE timestamp < NOW() - INTERVAL 20 SECOND;
+                SELECT *
+                FROM maxhanna.meta_event 
+                WHERE map = @Map;";
+            MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
+            cmd.Parameters.AddWithValue("@Map", map);
+            List<MetaEvent> events = new List<MetaEvent>();
+            using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (reader.Read())
+                {
+                    MetaEvent tmpEvent = new MetaEvent(
+                        Convert.ToInt32(reader["id"]),
+                        Convert.ToInt32(reader["hero_id"]),
+                        Convert.ToDateTime(reader["timestamp"]),
+                        Convert.ToString(reader["event"]) ?? "",
+                        Convert.ToString(reader["map"]) ?? "",
+                        Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.GetString("data")) ?? new Dictionary<string, string>()
+                    );
+                    events.Add(tmpEvent);
+                }
+            }
+            return events;
         }
         private async Task<MetaHero?> GetHeroData(User? user, int? heroId, MySqlConnection conn, MySqlTransaction transaction)
         {

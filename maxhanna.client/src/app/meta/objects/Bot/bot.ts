@@ -61,102 +61,11 @@ export class Bot extends GameObject {
     );
     this.addChild(this.body);  
   }
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    // Draw the player's name
-    if (this.name) {
-      // Set the font style and size for the name
-      ctx.font = "8px fontRetroGaming"; // Font and size
-      ctx.fillStyle = "chartreuse";  // Text color
-      ctx.textAlign = "center"; // Center the text
-
-      // Measure the width of the text
-      const textWidth = ctx.measureText(this.name).width;
-
-      // Set box properties for name
-      const boxPadding = 4; // Padding around the text
-      const boxWidth = textWidth + boxPadding * 2; // Box width
-      const boxHeight = 12; // Box height (fixed height)
-      const boxX = drawPosX - (boxWidth / 2) + 6; // Center the box horizontally
-      const boxY = drawPosY + 10; // Position the box below the player
-
-      // Draw the dark background box for the name
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
-      ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
-
-      // Draw the name text on top of the box
-      ctx.fillStyle = "chartreuse"; // Set text color again
-      ctx.fillText(this.name, drawPosX + 6, boxY + boxHeight - 3); // Position the text slightly above the bottom of the box
-    }
-
-    // Draw the latest message as a chat bubble above the player
-    if (this.latestMessage) {
-      // Set the font style and size for the message
-      ctx.font = "8px fontRetroGaming"; // Font and size
-      ctx.fillStyle = "black";  // Text color
-      ctx.textAlign = "center"; // Center the text
-
-      // Split the message into words
-      const words = this.latestMessage.split(" ");
-      const maxLineWidth = 120; // Maximum width for the bubble
-      let lines = [];
-      let currentLine = "";
-
-      // Loop through each word to build lines
-      for (let word of words) {
-        const testLine = currentLine + word + " ";
-        const testLineWidth = ctx.measureText(testLine).width;
-
-        // If the test line exceeds the max line width, push the current line to lines and reset
-        if (testLineWidth > maxLineWidth && currentLine.length > 0) {
-          lines.push(currentLine.trim());
-          currentLine = word + " "; // Start a new line
-        } else {
-          currentLine = testLine; // Continue building the line
-        }
-      }
-      // Push any remaining text as the last line
-      if (currentLine.length > 0) {
-        lines.push(currentLine.trim());
-      }
-
-      // Calculate bubble dimensions based on the number of lines
-      const bubblePadding = 6; // Padding around the message
-      const bubbleWidth = Math.max(...lines.map(line => ctx.measureText(line).width)) + bubblePadding * 2; // Bubble width based on longest line
-      const bubbleHeight = (lines.length * 12) + bubblePadding * 2; // Height based on number of lines (assuming 12px line height)
-      const bubbleX = drawPosX - (bubbleWidth / 2) + 8; // Center the bubble horizontally
-      const bubbleY = drawPosY - bubbleHeight - 25; // Position the bubble above the player
-
-      // Draw the chat bubble background
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // Semi-transparent white for the bubble
-      ctx.beginPath();
-      ctx.moveTo(bubbleX + 10, bubbleY); // Rounded corners
-      ctx.lineTo(bubbleX + bubbleWidth - 10, bubbleY);
-      ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + 10);
-      ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 10);
-      ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 10, bubbleY + bubbleHeight);
-      ctx.lineTo(bubbleX + 10, bubbleY + bubbleHeight);
-      ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - 10);
-      ctx.lineTo(bubbleX, bubbleY + 10);
-      ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + 10, bubbleY);
-      ctx.closePath();
-      ctx.fill(); // Fill the bubble
-
-      // Draw the message text on top of the bubble
-      ctx.fillStyle = "black"; // Set text color for the message
-      // Draw each line of the message
-      lines.forEach((line, index) => {
-        ctx.fillText(line, drawPosX + 6, bubbleY + bubblePadding + (index * 12) + 10); // Position each line inside the bubble
-      });
-    }
-  } 
-
-  override ready() { 
-  }
 
   override step(delta: number, root: any) {
     if (this.isLocked) return;
      
-    if (!this.destinationPosition.matches(this.position)) {
+    if (!this.destinationPosition.matches(this.position)) { 
       const distance = moveTowards(this, this.destinationPosition, 1);
       const hasArrived = (distance ?? 0) <= 1; 
       if (hasArrived) {
@@ -165,6 +74,7 @@ export class Bot extends GameObject {
       this.tryEmitPosition();
     } 
   }
+
   updateAnimation() {
     setTimeout(() => {
       const currentTime = new Date().getTime();
@@ -178,7 +88,8 @@ export class Bot extends GameObject {
         this.lastStandAnimationTime = currentTime; // Update the last time it was run
       }
     }, 1000);
-  } 
+  }
+
   tryEmitPosition() {
     if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
       return;
@@ -223,8 +134,5 @@ export class Bot extends GameObject {
 
       this.position = destPos.duplicate(); 
     }
-  } 
-  private snapToGrid(value: number, gridSize: number): number {
-    return Math.round(value / gridSize) * gridSize;
-  }
+  }   
  }

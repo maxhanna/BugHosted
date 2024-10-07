@@ -7,41 +7,23 @@ import { gridCells } from "../../helpers/grid-cells";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Input } from "../../helpers/input";
 
-export class SpriteTextString extends GameObject {
-  backdrop = new Sprite(
-    0,
-    resources.images["textBox"],
-    new Vector2(0, 0),
-    undefined,
-    undefined,
-    new Vector2(256, 64)
-  );
-
-  portrait: Sprite;
+export class SpriteTextString extends GameObject {   
   words: { wordWidth: number; chars: { width: number, sprite: Sprite }[] }[];
   showingIndex = 0;
   finalIndex = 0;
   textSpeed = 80;
   timeUntilNextShow = this.textSpeed;
-
-  constructor(config: {string?: string, portraitFrame?: number } = { }) {
-    super({ position: new Vector2(32, 118) });
+  PADDING_LEFT = 27;
+  PADDING_TOP = 9;
+  LINE_WIDTH_MAX = 240;
+  LINE_VERTICAL_WIDTH = 14;
+  constructor(wordToWrite: string, position: Vector2) {
+    super({ position: position });
     this.drawLayer = "HUD";
 
-    const content = config.string ?? "Default text!";
+    const content = wordToWrite ?? "Default text!";
     this.words = calculateWords(content);
-
-    this.portrait = new Sprite(
-      0,
-      resources.images["portraits"],
-      new Vector2(0, 0),
-      undefined,
-      (config.portraitFrame ?? 0),
-      undefined,
-      4,
-      1
-    );
-
+ 
     this.finalIndex = this.words.reduce((acc, word) => acc + word.chars.length, 0);
   }
 
@@ -54,56 +36,47 @@ export class SpriteTextString extends GameObject {
         parent = parent.parent;
       }
     }
-    const input = parent?.input as Input;
-    if (input?.getActionJustPressed("Space")) {
-      if (this.showingIndex < this.finalIndex) {
-        //skip text
-        this.showingIndex = this.finalIndex;
-        return;
+    if (!(this.showingIndex = this.finalIndex)) {
+      const input = parent?.input as Input;
+      if (input?.getActionJustPressed("Space")) {
+        if (this.showingIndex < this.finalIndex) {
+          //skip text
+          this.showingIndex = this.finalIndex;
+          return;
+        } 
       }
-
-      events.emit("END_TEXT_BOX");
-    }
-    this.timeUntilNextShow -= delta;
-    if (this.timeUntilNextShow <= 0) {
-      this.showingIndex += 3;
-      //reset time counter for next char
-      this.timeUntilNextShow = this.textSpeed;
-    }
+      this.timeUntilNextShow -= delta;
+      if (this.timeUntilNextShow <= 0) {
+        this.showingIndex += 3;
+        this.timeUntilNextShow = this.textSpeed;
+      }
+    } 
   }
 
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    //Draw the backdrop
-    this.backdrop.drawImage(ctx, drawPosX, drawPosY);
-    this.portrait.drawImage(ctx, drawPosX + 6, drawPosY + 6);
-    //configuration options
-    const PADDING_LEFT = 27;
-    const PADDING_TOP = 9;
-    const LINE_WIDTH_MAX = 240;
-    const LINE_VERTICAL_WIDTH = 14;
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
+    //configuration options    
+    const initialCursorX = drawPosX + this.PADDING_LEFT;
+    const maxCursorX = drawPosX + this.LINE_WIDTH_MAX;
 
-    let cursorX = drawPosX + PADDING_LEFT;
-    let cursorY = drawPosY + PADDING_TOP;
+    let cursorX = initialCursorX;
+    let cursorY = drawPosY + this.PADDING_TOP;
     let currentShowingIndex = 0;
 
     this.words.forEach(word => {
       //Decide if we can fit this next word on this line
-      const spaceRemaining = drawPosX + LINE_WIDTH_MAX - cursorX;
+      const spaceRemaining = maxCursorX - cursorX;
       if (spaceRemaining < word.wordWidth) {
-        cursorX = drawPosX + PADDING_LEFT;
-        cursorY += LINE_VERTICAL_WIDTH;
+        cursorX = initialCursorX;
+        cursorY += this.LINE_VERTICAL_WIDTH;
       }
 
       word.chars.forEach((char: { width: number, sprite: Sprite }) => {
         if (currentShowingIndex > this.showingIndex) {
           return;
         }
-        const withCharOffset = cursorX - 5;
-        char.sprite.draw(ctx, withCharOffset, cursorY);
-        // add width of the character we just printed to cursor pos
-        cursorX += char.width;
-        //add a little space after each char
-        cursorX++;
+
+        char.sprite.draw(ctx, cursorX - 5, cursorY); 
+        cursorX += char.width + 1; 
         currentShowingIndex++;
       });
       cursorX += 3;

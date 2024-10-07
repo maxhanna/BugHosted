@@ -27,21 +27,31 @@ export class FightMenu extends GameObject {
   metabotChoices: MetaBot[] = [];
 
   startLevel: Level = new BoltonLevel1({ heroPosition: new Vector2(gridCells(1), gridCells(1)) });
-  entrancePosition: Vector2 = new Vector2(gridCells(1), gridCells(1));
+  entrancePosition: Vector2 = new Vector2(gridCells(1), gridCells(1)); 
 
-
-  fightMenuOptions = ["Attack", "Item", "Run"];
+  fightMenuOptions = ["Attack", "Item", "Meta-Bots", "Run"];
   showFightMenuOptions = false;
   selectedFightMenuIndex = 0;
 
   showFighterSelectionMenu = false;
   selectedFighterIndex = 0;
 
+  showAttackMenuOptions = false;
+  selectedAttackIndex = 0;
+
+  showWaitingForOthers = false; 
+
   botDeployed = false;
 
+  leftArmSkill = "Left Punch";
+  rightArmSkill = "Right Punch";
+  legsSkill = "Kick";
+  headSkill = "Headbutt";
+  skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill, "Cancel"];
+
   constructor(config: { entranceLevel: Level, entrancePosition: Vector2 }) {
-    super({ position: new Vector2(0, 75) });
-    this.backdrop.scale = new Vector2(0.75, 0.75);
+    super({ position: new Vector2(-95, 100) });
+    this.backdrop.scale = new Vector2(1.2, 0.75);
     this.drawLayer = "HUD";
     this.startLevel = config.entranceLevel;
     this.startLevel.defaultHeroPosition = config.entrancePosition;
@@ -68,73 +78,103 @@ export class FightMenu extends GameObject {
       }
     }
 
-
     const input = parent.input as Input;
+
     if (input?.keys["Space"]) { 
-      console.log(this.selectedFightMenuIndex)
-      if (this.showFightMenu && this.selectedFightMenuIndex == (this.fightMenuOptions.length - 1)) {
-        console.log("Running from fight");
-        this.leaveFight();
-      } else if (this.showFighterSelectionMenu && this.selectedFighterIndex == this.metabotChoices.length) {
-        console.log("Running from fight");
-        this.leaveFight();
+      if (input?.verifyCanPressKey()) {
+        if (this.showFightMenuOptions) {
+          if (this.selectedFightMenuIndex == (this.fightMenuOptions.length - 1)) {
+            this.leaveFight();
+          }
+          else if (this.selectedFightMenuIndex == 0) {
+            this.showFightMenuOptions = false;
+            this.showAttackMenuOptions = true;
+          }
+          else if (this.selectedFightMenuIndex == 2) {
+            this.showFightMenuOptions = false;
+            this.showFighterSelectionMenu = true;
+          }
+        }
+        else if (this.showFighterSelectionMenu) {
+          if (this.selectedFighterIndex == this.metabotChoices.length) {
+            this.leaveFight();
+          } else {
+            this.selectFighter();
+          }
+        }
+        else if (this.showAttackMenuOptions) {
+          if (this.selectedAttackIndex == 4) {
+            this.showAttackMenuOptions = false;
+            this.showFightMenuOptions = true;
+          }
+          else { // USER HAS SELECTED AN ATTACK
+            this.showAttackMenuOptions = false;
+            this.showWaitingForOthers = true;
+            const skill = this.selectedAttackIndex == 0 ? this.leftArmSkill
+              : this.selectedAttackIndex == 1 ? this.rightArmSkill
+                : this.selectedAttackIndex == 2 ? this.legsSkill
+                  : this.headSkill;
+            events.emit("USER_ATTACK_SELECTED", skill);
+          }
+        }
       }
-      if (this.showFighterSelectionMenu) {
-        this.selectFighter();
-      } 
-     
     }
 
-
-    if (input?.getActionJustPressed("ArrowUp")
-      || input?.heldDirections.includes("UP")
-      || input?.getActionJustPressed("KeyW")) {
-      if (input?.verifyCanPressKey()) {
+    if (input?.verifyCanPressKey()) {
+      if (input?.getActionJustPressed("ArrowUp")
+        || input?.heldDirections.includes("UP")
+        || input?.getActionJustPressed("KeyW")) {
         if (this.showFighterSelectionMenu) {
           this.cycleDownSelectedFighter();
         }
-        if (this.showFightMenuOptions) {
+        else if (this.showFightMenuOptions) {
           this.selectedFightMenuIndex = (this.selectedFightMenuIndex - 1 + this.fightMenuOptions.length) % this.fightMenuOptions.length;
         }
-      }
-    }
-    else if (input?.getActionJustPressed("ArrowDown")
-      || input?.heldDirections.includes("DOWN")
-      || input?.getActionJustPressed("KeyS")) {
-      if (input?.verifyCanPressKey()) {
-        console.log(this.showFighterSelectionMenu)
-        if (this.showFighterSelectionMenu) {
-          this.cycleUpSelectedFighter();
-        }
-        if (this.showFightMenuOptions) {
-          this.selectedFightMenuIndex = (this.selectedFightMenuIndex + 1) % this.fightMenuOptions.length;
+        else if (this.showAttackMenuOptions) {
+          this.selectedAttackIndex = (this.selectedAttackIndex - 1 + 5) % 5;
         }
       }
-    }
-    else if (input?.getActionJustPressed("ArrowLeft")
-      || input?.heldDirections.includes("LEFT")
-      || input?.getActionJustPressed("KeyA")) {
-      if (input?.verifyCanPressKey()) {
-        if (this.showFighterSelectionMenu) {
-          this.cycleDownSelectedFighter();
-        }
-        if (this.showFightMenuOptions) {
-          this.selectedFightMenuIndex = (this.selectedFightMenuIndex - 1 + this.fightMenuOptions.length) % this.fightMenuOptions.length;
-        }
-      }
-    }
-    else if (input?.getActionJustPressed("ArrowRight")
-      || input?.heldDirections.includes("RIGHT")
-      || input?.getActionJustPressed("KeyD")) {
-      if (input?.verifyCanPressKey()) {
+      else if (input?.getActionJustPressed("ArrowDown")
+        || input?.heldDirections.includes("DOWN")
+        || input?.getActionJustPressed("KeyS")) {
         if (this.showFighterSelectionMenu) {
           this.cycleUpSelectedFighter();
         }
         else if (this.showFightMenuOptions) {
           this.selectedFightMenuIndex = (this.selectedFightMenuIndex + 1) % this.fightMenuOptions.length;
         }
+        else if (this.showAttackMenuOptions) {
+          this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5;
+          console.log(this.selectedAttackIndex)
+        }
       }
-      console.log("pressed right!", this.selectedFighterIndex);
+      else if (input?.getActionJustPressed("ArrowLeft")
+        || input?.heldDirections.includes("LEFT")
+        || input?.getActionJustPressed("KeyA")) {
+        if (this.showFighterSelectionMenu) {
+          this.cycleDownSelectedFighter();
+        }
+        else if (this.showFightMenuOptions) {
+          this.selectedFightMenuIndex = (this.selectedFightMenuIndex - 1 + this.fightMenuOptions.length) % this.fightMenuOptions.length;
+        }
+        else if (this.showAttackMenuOptions) {
+          this.selectedAttackIndex = (this.selectedAttackIndex - 1 + 5) % 5;
+        }
+      }
+      else if (input?.getActionJustPressed("ArrowRight")
+        || input?.heldDirections.includes("RIGHT")
+        || input?.getActionJustPressed("KeyD")) {
+        if (this.showFighterSelectionMenu) {
+          this.cycleUpSelectedFighter();
+        }
+        else if (this.showFightMenuOptions) {
+          this.selectedFightMenuIndex = (this.selectedFightMenuIndex + 1) % this.fightMenuOptions.length;
+        }
+        else if (this.showAttackMenuOptions) {
+          this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5;
+        }
+      }
+
     }
   }
 
@@ -145,35 +185,91 @@ export class FightMenu extends GameObject {
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     if (this.showFightMenu) {
-      this.backdrop.drawImage(ctx, drawPosX, drawPosY);
-      //this.portrait.drawImage(ctx, drawPosX + 6, drawPosY + 6);
-      let column = 0; // Track current column (0 or 1)
-      let row = 0; // Track current row 
-
-      //configuration options
-      const PADDING_LEFT = 15;
-      const PADDING_TOP = 9;
-      const LINE_WIDTH_MAX = 240;
-      const LINE_VERTICAL_WIDTH = 14;
-      const BOT_SPRITE_WIDTH = 32;
-
-      let cursorX = 0 + PADDING_LEFT;
-      let cursorY = 0 + PADDING_TOP;
-      let currentShowingIndex = 0;
-
-      if (this.showFighterSelectionMenu) { 
-        this.paintFighterSelectionMenu(cursorX, BOT_SPRITE_WIDTH, ctx, PADDING_LEFT, cursorY);
+      this.backdrop.drawImage(ctx, drawPosX, drawPosY); 
+       
+      if (this.showFighterSelectionMenu) {
+        this.paintFighterSelectionMenu(ctx);
         return;
       }
-      if (this.showFightMenuOptions) {
-        this.paintFightMenuOptions(drawPosX, LINE_WIDTH_MAX, cursorX, column, PADDING_LEFT, row, cursorY, drawPosY, PADDING_TOP, LINE_VERTICAL_WIDTH, ctx);
+      else if (this.showFightMenuOptions) {
+        this.paintFightMenuOptions(ctx);
         return;
+      }
+      else if (this.showAttackMenuOptions) {
+        this.paintAttackMenuOptions(ctx);
+        return;
+      }
+      else if (this.showWaitingForOthers) {
+        this.paintWaitingForOthers(ctx);
       }
     }
   }
 
+  private paintWaitingForOthers(ctx: CanvasRenderingContext2D) {
+    const run = calculateWords("Waiting for others to finish selecting moves.");
+    const PADDING_LEFT = 5;
+    let runWidth = 0;
+    let cursorX = -90;
+    let boxY = 120;
+    run.forEach((word: any) => {
+      word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
+        char.sprite.draw(ctx, cursorX, boxY);
+        cursorX += char.width + 1; // Add width of the character and some space
+        runWidth += char.width + 1;
+      }); 
+      cursorX += PADDING_LEFT; 
+    });
 
-  private paintFightMenuOptions(drawPosX: number, LINE_WIDTH_MAX: number, cursorX: number, column: number, PADDING_LEFT: number, row: number, cursorY: number, drawPosY: number, PADDING_TOP: number, LINE_VERTICAL_WIDTH: number, ctx: CanvasRenderingContext2D) {
+  }
+
+  private paintAttackMenuOptions(ctx: CanvasRenderingContext2D) { 
+    const PADDING_LEFT = 15;
+    const PADDING_TOP = 9;
+    const LINE_WIDTH_MAX = 240;
+    const LINE_VERTICAL_WIDTH = 14;
+    const BOT_SPRITE_WIDTH = 32;
+
+    let drawPosX = -90;
+    let drawPosY = 120;
+    let cursorX = -90;
+    let cursorY = 120;
+    let column = 0;
+    let row = 0;
+
+
+    for (let x = 0; x < this.skillOptions.length; x++) {
+      const word = this.skillOptions[x];
+      const words = calculateWords(word); 
+      let wordWidth = 0;
+      words.forEach((word: any) => {
+        word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
+          wordWidth += char.width;
+          char.sprite.draw(ctx, cursorX - 5, cursorY);
+          cursorX += char.width + 1; // Add width of the character and some space
+        }); 
+      });
+      if (x === this.selectedAttackIndex) {
+        // Draw a red square beside the selected word
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cursorX - wordWidth - PADDING_LEFT, cursorY, wordWidth + 20, LINE_VERTICAL_WIDTH);
+      }
+      cursorX += PADDING_LEFT; 
+    }
+  }
+
+  private paintFightMenuOptions(ctx: CanvasRenderingContext2D) {
+    const PADDING_LEFT = 15;
+    const PADDING_TOP = 9;
+    const LINE_WIDTH_MAX = 240;
+    const LINE_VERTICAL_WIDTH = 14;
+    const BOT_SPRITE_WIDTH = 32;
+    let drawPosX = -100;
+    let drawPosY = 120; 
+    let row = 0;
+    let cursorX = drawPosX + PADDING_LEFT;
+    let cursorY = drawPosY + PADDING_TOP;
+
     for (let x = 0; x < this.fightMenuOptions.length; x++) {
       const word = this.fightMenuOptions[x];
       const words = calculateWords(word);
@@ -181,71 +277,69 @@ export class FightMenu extends GameObject {
       words.forEach((word: any) => {
         // Decide if we can fit this next word on this line
         const spaceRemaining = drawPosX + LINE_WIDTH_MAX - cursorX;
-        if (spaceRemaining < word.wordWidth && column < 1) {
-          // Move to the next column
-          column++;
+        if (spaceRemaining < word.wordWidth) { 
           cursorX = drawPosX + PADDING_LEFT + LINE_WIDTH_MAX / 2 + 10; // Adjust x to the next column
-        } else if (spaceRemaining < word.wordWidth && column >= 1) {
-          // Move to the next row
-          column = 0;
+        } else if (spaceRemaining < word.wordWidth) { 
           row++;
           cursorX = drawPosX + PADDING_LEFT; // Reset x to start of line
           cursorY = 0 + PADDING_TOP + row * (LINE_VERTICAL_WIDTH + 10); // Move to next row
         }
-
         if (x === this.selectedFightMenuIndex) {
           // Draw a red square beside the selected word
           ctx.strokeStyle = 'red';
           ctx.lineWidth = 2;
-          ctx.strokeRect(cursorX, 80, word.wordWidth + 20, LINE_VERTICAL_WIDTH + 10);
+          ctx.strokeRect(cursorX, drawPosY, word.wordWidth + 20, LINE_VERTICAL_WIDTH);
         }
 
         word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
           const withCharOffset = cursorX - 5;
-          char.sprite.draw(ctx, withCharOffset, 80);
+          char.sprite.draw(ctx, withCharOffset, drawPosY);
           cursorX += char.width + 1; // Add width of the character and some space
         });
 
         cursorX += 3 + PADDING_LEFT;
       });
 
-      if (column === 1) {
-        // Move to next column if we're done with the first column in this row
-        column = 0;
-        row++;
-        cursorX = drawPosX + PADDING_LEFT;
-        cursorY = drawPosY + PADDING_TOP + row * (LINE_VERTICAL_WIDTH + 10);
-      }
-    }
-    return { cursorX, column, row, cursorY };
+     
+    } 
   }
 
-  private paintFighterSelectionMenu(cursorX: number, BOT_SPRITE_WIDTH: number, ctx: CanvasRenderingContext2D, PADDING_LEFT: number, cursorY: number) {
+  private paintFighterSelectionMenu(ctx: CanvasRenderingContext2D) {
+    const PADDING_LEFT = 15;
+    const PADDING_TOP = 9;
+    const LINE_WIDTH_MAX = 240;
+    const LINE_VERTICAL_WIDTH = 14;
+    const BOT_SPRITE_WIDTH = 32;
+
+    let cursorX = 0 + PADDING_LEFT;
+    let cursorY = 0 + PADDING_TOP;
+    const boxY = 100 + BOT_SPRITE_WIDTH;
+
     for (let x = 0; x < this.metabotChoices.length; x++) {
-      const metabotSprite = new Sprite(
-        x+1,
-        resources.images["botFrame"],
-        new Vector2((cursorX), 5),
-        undefined,
-        undefined,
-        new Vector2(BOT_SPRITE_WIDTH, 32),
-        undefined,
-        undefined,
-        undefined,
-        this.metabotChoices[x].name
-      );
-      const existingBot = this.children.some((z: any) => z.objectId === (x+1));
+      const existingBot = this.children.some((z: any) => z.objectId === (x + 1));
       if (!existingBot) {
+        const metabotSprite = new Sprite(
+          x + 1,
+          resources.images["botFrame"],
+          new Vector2((cursorX), 5),
+          undefined,
+          undefined,
+          new Vector2(BOT_SPRITE_WIDTH, BOT_SPRITE_WIDTH),
+          undefined,
+          undefined,
+          undefined,
+          this.metabotChoices[x].name
+        );
         this.addChild(metabotSprite);
-        console.log(`added : ${x} @ ${cursorX}`);
       }
+
+      const boxX = -100 + cursorX; // Center the box horizontally
 
       if (this.metabotChoices[x].name) {
         // Set the font style and size for the name
         ctx.font = "8px fontRetroGaming"; // Font and size
         ctx.fillStyle = "chartreuse"; // Text color
-        ctx.textAlign = "center"; // Center the text
-
+        ctx.textAlign = "center"; // Center the text 
 
         // Measure the width of the text
         const textWidth = ctx.measureText(this.metabotChoices[x].name ?? "Anon").width;
@@ -254,43 +348,42 @@ export class FightMenu extends GameObject {
         const boxPadding = 4; // Padding around the text
         const boxWidth = textWidth + boxPadding * 2; // Box width
         const boxHeight = 12; // Box height (fixed height)
-        const boxX = cursorX; // Center the box horizontally
-        const boxY = 115; // Position the box below the player
-
 
         // Draw the dark background box for the name
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
         ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
 
-
         // Draw the name text on top of the box
         ctx.fillStyle = "chartreuse"; // Set text color again
         ctx.fillText(this.metabotChoices[x].name ?? "Anon", boxX + boxPadding + textWidth / 2, boxY + boxHeight - 3); // Position the text slightly above the bottom of the box
+
+        if (x === this.selectedFighterIndex) {
+          // Draw a red square beside the selected bot
+          ctx.strokeStyle = 'red';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        }
       }
 
-      if (x === this.selectedFighterIndex) {
-        // Draw a red square beside the selected bot
-        ctx.strokeStyle = 'red';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(cursorX, 80, 32, 32);
-      }
       cursorX += BOT_SPRITE_WIDTH + PADDING_LEFT;
     }
 
     //draw the run option
+    const run = calculateWords("Run");
+    let runWidth = 0;
+    run.forEach((word: any) => {
+      word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
+        char.sprite.draw(ctx, cursorX, boxY);
+        cursorX += char.width + 1; // Add width of the character and some space
+        runWidth += char.width + 1;
+      });
+    });
     if (this.metabotChoices.length === this.selectedFighterIndex) {
       // Draw a red square beside the selected word
       ctx.strokeStyle = 'red';
       ctx.lineWidth = 2;
-      ctx.strokeRect(cursorX, 80, 32, 32);
+      ctx.strokeRect(cursorX - (runWidth / 2) - 8, boxY - 2, runWidth + 8, 16);
     }
-    const run = calculateWords("Run");
-    run.forEach((word: any) => {
-      word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
-        char.sprite.draw(ctx, cursorX, 80);
-        cursorX += char.width + 1; // Add width of the character and some space
-      });
-    });
     return cursorX;
   }
 
@@ -324,9 +417,13 @@ export class FightMenu extends GameObject {
       const selectedMetabot = metabots.splice(this.selectedFighterIndex, 1)[0]; // Remove the selected Metabot
       metabots.unshift(selectedMetabot); // Add the selected Metabot to the beginning of the array
     }
-    events.emit("FIGHTER_SELECTED", metabots[0]); 
+    this.leftArmSkill = metabots[0].leftArm?.skill ?? "Left Punch";
+    this.rightArmSkill = metabots[0].rightArm?.skill ?? "Right Punch";
+    this.legsSkill = metabots[0].legs?.skill ?? "Kick";
+    this.headSkill = metabots[0].head?.skill ?? "Headbutt";
+    events.emit("FIGHTER_SELECTED", metabots[0]);
     this.showFightMenuOptions = true;
     this.showFighterSelectionMenu = false;
     this.removeFighterSelectionSprites();
-  } 
+  }
 }

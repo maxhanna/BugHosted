@@ -1,5 +1,6 @@
 import { User } from "../user/user"; 
 import { Vector2 } from "./vector2";
+import { MetaBotPart } from "./meta-bot-part";
 
 export class MetaBot {
   id: number;  
@@ -12,6 +13,11 @@ export class MetaBot {
   name?: string;
   isDead: boolean;
   position?: Vector2;
+  head?: MetaBotPart;
+  legs?: MetaBotPart;
+  leftArm?: MetaBotPart;
+  rightArm?: MetaBotPart;
+
 
   constructor(id: number, heroId: number, type:number, name: string, isDead: boolean, position?: Vector2) {
     this.id = id; 

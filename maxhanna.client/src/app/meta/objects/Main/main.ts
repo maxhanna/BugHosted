@@ -8,7 +8,7 @@ import { events } from "../../helpers/events";
 import { Input } from "../../helpers/input";
 import { storyFlags } from "../../helpers/story-flags";
 import { Level } from "../Level/level";
-import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
+import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
 
 export class Main extends GameObject {
   level?: Level = undefined;
@@ -41,9 +41,10 @@ export class Main extends GameObject {
           storyFlags.add(content.addsFlag);
         }
 
-        const textBox = new SpriteTextString({
+        const textBox = new SpriteTextStringWithBackdrop({
           portraitFrame: content.portraitFrame,
-          string: content.string
+          string: content.string,
+          canSelectItems: content.canSelectItems
         });
         this.addChild(textBox);
         events.emit("START_TEXT_BOX");

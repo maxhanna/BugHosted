@@ -78,8 +78,7 @@ export class Npc extends GameObject {
       return null;
     }
     if (match.addsFlag && match.addsFlag == "START_FIGHT") { 
-      events.emit("START_FIGHT", this);
-
+      events.emit("START_FIGHT", this); 
     }
     console.log("Getting content " + match.string);
     return {

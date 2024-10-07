@@ -9,12 +9,12 @@ import { Watch } from "../objects/Watch/watch";
 import { Sprite } from "../objects/sprite";
 import { Npc } from "../objects/Npc/npc";
 import { HeroRoomLevel } from "./hero-room";
-import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
+import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
 import { input } from "@angular/core";
 
 export class CharacterCreate extends Level {
   walls: Set<string>;
-  textBox = new SpriteTextString({});
+  textBox = new SpriteTextStringWithBackdrop({});
   inputKeyPressedDate = new Date();
   characterName = ""; 
   npc = new Npc(gridCells(5), gridCells(5), {
@@ -106,9 +106,9 @@ export class CharacterCreate extends Level {
     if (content.addsFlag) {
       storyFlags.add(content.addsFlag);
     }
-    this.textBox = new SpriteTextString({
+    this.textBox = new SpriteTextStringWithBackdrop({
       portraitFrame: content.portraitFrame,
-      string: content.string.replace("Ah, ", `Ah, ${this.characterName} `)
+      string: [content.string.replace("Ah, ", `Ah, ${this.characterName} `)]
     });
     this.addChild(this.textBox);
   }

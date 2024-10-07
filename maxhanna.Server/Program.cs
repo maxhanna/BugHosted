@@ -16,7 +16,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpClient();
-builder.Services.AddHostedService<CoinValueBackgroundService>();
+builder.Services.AddHostedService<SystemBackgroundService>();
 builder.Services.AddHostedService<NexusAttackBackgroundService>();
 builder.Services.AddHostedService<NexusGoldUpdateBackgroundService>();
 builder.Services.AddHostedService<NexusUnitUpgradeBackgroundService>();

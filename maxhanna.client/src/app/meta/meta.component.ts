@@ -26,10 +26,11 @@ import { HeroRoomLevel } from './levels/hero-room';
 import { Fight } from './levels/fight';
 import { CharacterCreate } from './levels/character-create';
 import { Level } from './objects/Level/level';
-import { SpriteTextString } from './objects/SpriteTextString/sprite-text-string';
+import { SpriteTextStringWithBackdrop } from './objects/SpriteTextString/sprite-text-string-with-backdrop';
 import { CaveLevel1 } from './levels/cave-level1';
 import { HeroHomeLevel } from './levels/hero-home';
 import { BoltonLevel1 } from './levels/bolton-level1';
+import { MetaEvent } from '../../services/datacontracts/meta/meta-event';
 
 @Component({
   selector: 'app-meta',
@@ -57,7 +58,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   metaHero: MetaHero;
   hero: Hero;
   otherHeroes: MetaHero[] = [];
+  partyMembers: MetaHero[] = [];
   chat: MetaChat[] = [];
+  events: MetaEvent[] = [];
   latestMessagesMap = new Map<number, MetaChat>();
   stopChatScroll = false; 
     
@@ -109,10 +112,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           this.updateMissingOrNewHeroSprites();
            
           if (res.chat) {
-            this.chat = res.chat.reverse();
+            this.chat = res.chat;
+            this.getLatestMessages();
           }
-          this.scrollToBottomOfChat();
-          this.getLatestMessages();
+          if (res.events) { 
+            this.actionEvents(res.events);
+          }
         }
       });
     }
@@ -190,8 +195,27 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       this.updatePlayers();
     }, this.pollSeconds * 1000);
   }
-   
-    
+
+  private actionEvents(events: MetaEvent[]) {
+    const currentEvents = this.events;
+    if (events.length > 0) {
+      for (let event of events) { 
+        const existingEvent = currentEvents.find(e => e.id == event.id);
+        if (!existingEvent) {
+          //do something with this fresh event.
+          if (event.event === "PARTY_UP" && event.data && event.data["hero_id"] == `${this.metaHero.id}`) {
+            const otherPlayer = this.otherHeroes.find(hero => hero.id === event.heroId);
+            if (otherPlayer) { 
+              this.partyMembers.push(otherPlayer);
+              console.log("Added party member: ", otherPlayer);
+            }
+          } 
+        }
+      } 
+    }
+    this.events = events;
+  }
+
   private reinitializeHero(rz: MetaHero) {
     this.hero = new Hero(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16));
     this.hero.id = rz.id;
@@ -256,12 +280,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     });
 
     events.on("START_FIGHT", this, (source: any) => {
-      console.log("got fight event, starting fight .."); 
+      console.log("got fight event, starting fight ..", source); 
       //this.mainScene.level?.children.forEach();
       events.emit("CHANGE_LEVEL", new Fight({
         heroPosition: this.metaHero.position,
         entryLevel: (this.metaHero.map == "FIGHT" ? new BoltonLevel1() : this.getLevelFromLevelName(this.metaHero.map)),
-        enemies: [source],
+        enemies: source.partnerNpcs?.concat(source) ?? source,
         party: [this.metaHero]
       }));  
     });
@@ -275,6 +299,15 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         }
       }
     });
+
+    events.on("USER_ATTACK_SELECTED", this, (skill: string) => {
+      const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "USER_ATTACK_SELECTED", this.metaHero.map, { "skill": skill })
+      this.metaService.updateEvents(metaEvent);
+    })
+    events.on("PARTY_UP", this, (person: Hero) => {
+      const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "PARTY_UP", this.metaHero.map, { "hero_id": `${person.id}` })
+      this.metaService.updateEvents(metaEvent);
+    })
   }
        
   private getLatestMessages() {
@@ -293,30 +326,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     });
   }
-
-
-  handleChatScroll() {
-    const chatContent = document.getElementById("chatBox");
-    if (chatContent) {
-      const isUserAtBottom = chatContent.scrollHeight - chatContent.scrollTop <= chatContent.clientHeight + 10; 
-         
-      if (!isUserAtBottom) {
-        this.stopChatScroll = true;
-      } else {
-        this.stopChatScroll = false;
-      }
-    }
-  }
-
-  scrollToBottomOfChat() { 
-    if (!this.stopChatScroll) { 
-      const chatContent = document.getElementById("chatBox");
-      if (chatContent) {
-        chatContent.scrollTop = chatContent.scrollHeight;
-      }
-    }
-  }
-
+   
   closeUserComponent(user: User) {
     this.isUserComponentOpen = false;
     if (this.parentRef) {

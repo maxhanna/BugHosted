@@ -8,16 +8,25 @@
     <canvas #gameCanvas id="gameCanvas" class="gameCanvas" width=320 height="220"></canvas>
   </div>
   <div class="chatArea" [style.display]="parentRef && parentRef.user && mainScene.input.displayChat ? 'block' : 'none'">
-    <div class="chatBox" id="chatBox" (scroll)="handleChatScroll()">
-      <div *ngFor="let msg of chat">
-        <span class="heroName">{{msg.hero.name}}
-        <span class="xxSmallFont">({{msg.timestamp | date: 'HH:mm'}})</span></span>:
-        <span class="chatBoxMessage">{{msg.content}}</span>
-      </div>
-    </div>
     <div class="chatInputDiv">
       <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput" />
     </div>
+    <div class="chatBox" id="chatBox">
+      <div *ngFor="let msg of chat">
+        <span class="heroName">
+          {{msg.hero.name}}
+          <span class="xxSmallFont">({{msg.timestamp | date: 'HH:mm'}})</span>
+        </span>:
+        <span class="chatBoxMessage">{{msg.content}}</span>
+      </div>
+      <div *ngFor="let msg of chat">
+        <span class="heroName">
+          {{msg.hero.name}}
+          <span class="xxSmallFont">({{msg.timestamp | date: 'HH:mm'}})</span>
+        </span>:
+        <span class="chatBoxMessage">{{msg.content}}</span>
+      </div>
+    </div> 
   </div>
 
   <div *ngIf="parentRef && parentRef.user" class="inputArea">

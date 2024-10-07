@@ -102,7 +102,7 @@ export class BoltonLevel1 extends Level {
       ],
       portraitFrame: 2,
     }, "referee");
-    const refereeMetabot = new MetaBot(0, 0, SPEED_TYPE, "Zippy", false, new Vector2(0, 0));
+    const refereeMetabot = new MetaBot(0, 0, SPEED_TYPE, "Zappy", false, new Vector2(0, 0));
     referee.metabots.push(refereeMetabot);
     this.addChild(referee);
 
