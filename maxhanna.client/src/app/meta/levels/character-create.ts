@@ -21,27 +21,27 @@ export class CharacterCreate extends Level {
     content: [
 
       {
-        string: "Wake up... Your journey awaits!",
+        string: ["Wake up... Your journey awaits!"],
         requires: [CHARACTER_CREATE_STORY_TEXT_5],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_6,
       } as Scenario,
       {
-        string: `Ah, ${this.characterName} is it?`,
+        string: [`Ah, ${this.characterName} is it?`],
         requires: [CHARACTER_CREATE_STORY_TEXT_4],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
       } as Scenario,
       {
-        string: "Now, before we begin your journey ... What shall be your name, the name the world will know?",
+        string: ["Now, before we begin your journey ...","What shall be your name, the name the world will know?"],
         requires: [CHARACTER_CREATE_STORY_TEXT_2],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
       } as Scenario,
       {
-        string: "I am Mr. Referee, and I bring fair play to every ro-battle! Even in dreams, justice never sleeps!",
+        string: ["I am Mr. Referee, and I bring fair play to every ro-battle!", " Even in dreams, justice never sleeps!"],
         requires: [CHARACTER_CREATE_STORY_TEXT_1],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
       } as Scenario,
       {
-        string: "Zzz... Huh? Who dares disturb my dreams... oh, it's you!",
+        string: ["Zzz... Huh? Who dares disturb my dreams... oh, it's you!"],
         addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
       } as Scenario
     ],
@@ -96,7 +96,7 @@ export class CharacterCreate extends Level {
     })
   }
 
-  private displayContent(content: { portraitFrame: number | undefined; string: string; addsFlag: string | null; }) {
+  private displayContent(content: { portraitFrame: number | undefined; string: string[]; addsFlag: string | null; }) {
     this.children.forEach((child: any) => {
       if (child.textSpeed) {
         child.destroy();
@@ -106,9 +106,14 @@ export class CharacterCreate extends Level {
     if (content.addsFlag) {
       storyFlags.add(content.addsFlag);
     }
+    for (let x = 0; x < content.string.length; x++) {
+      if (content.string[x].includes("Ah, ")) {
+        content.string[x] = content.string[x].replace("Ah, ", `Ah, ${this.characterName} `); 
+      }
+    } 
     this.textBox = new SpriteTextStringWithBackdrop({
       portraitFrame: content.portraitFrame,
-      string: [content.string.replace("Ah, ", `Ah, ${this.characterName} `)]
+      string: content.string
     });
     this.addChild(this.textBox);
   }

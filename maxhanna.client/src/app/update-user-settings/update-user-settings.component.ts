@@ -116,7 +116,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           const ip = await this.userService.getUserIp();
           const weatherLocation = await this.weatherService.getWeatherLocation(this.parentRef!.user!) as WeatherLocation;
           if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location) || weatherLocation.location?.trim() === '')) {
-            await this.weatherService.updateWeatherLocation(this.parentRef!.user!, ip["ip_address"], ip["city"]);
+            await this.weatherService.updateWeatherLocation(this.parentRef!.user!, ip?.ip, ip?.city);
           }
         }
        

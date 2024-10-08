@@ -128,13 +128,23 @@ export class UserService {
     }
   }
   async getUserIp() {
-    const apiKey = '1872fa51e6924c37a1d2f30cb13f1b83';
+    try {
+      const response = await fetch("http://ip-api.com/json/");
+      if (!response.ok) {
+        throw new Error("Failed to fetch IP information");
+      }
+      const data = await response.json();
+      console.log(data); // Log full response data
+      return {
+        ip: data.query,
+        city: data.city
+      };
+    } catch (error) {
+      console.error(error);
+      return {}
+    }
+  }
 
-    const response = await fetch('https://ipgeolocation.abstractapi.com/v1/?api_key=' + apiKey, {
-      method: 'GET'
-    }); 
-    return await response.json();
-  } 
   isValidIpAddress(value?: string): boolean {
     if (!value) return false;
     const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;

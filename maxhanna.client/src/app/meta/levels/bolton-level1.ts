@@ -96,13 +96,14 @@ export class BoltonLevel1 extends Level {
     const referee = new Npc(gridCells(5), gridCells(5), {
       content: [
         {
-          string: "You want a fight?!",
+          string: ["You want a fight?!"],
           addsFlag: START_FIGHT,
         } as Scenario
       ],
       portraitFrame: 2,
     }, "referee");
-    const refereeMetabot = new MetaBot(0, 0, SPEED_TYPE, "Zappy", false, new Vector2(0, 0));
+    const refereeMetabot = new MetaBot(0, 0, SPEED_TYPE, "Wasp", false, new Vector2(0, 0));
+    refereeMetabot.hp = 100;
     referee.metabots.push(refereeMetabot);
     this.addChild(referee);
 
@@ -110,7 +111,7 @@ export class BoltonLevel1 extends Level {
     const referee2 = new Npc(gridCells(5), gridCells(10), {
       content: [
         {
-          string: "You want to fight both of us huh?!",
+          string: ["You want to fight both of us huh?!"],
           addsFlag: START_FIGHT,
         } as Scenario
       ],

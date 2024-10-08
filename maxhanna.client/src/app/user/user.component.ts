@@ -419,7 +419,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
         this.parentRef!.user = tmpUser;
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
-        this.updateWeatherInBackground(tmpUser, true); 
+        this.updateWeatherInBackground(tmpUser); 
          
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
 
@@ -482,19 +482,11 @@ export class UserComponent extends ChildComponent implements OnInit {
     }
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
   }
-  async updateWeatherInBackground(tmpUser: User, withCity?: boolean) {
-    if (!withCity) { 
-      const ip = await this.userService.getUserIp();
-      const res = await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"]);
-      if (res) {
-        this.notifications.push(res);
-      }
-    } else {
-      const ip = await this.userService.getUserIp();
-      const weatherLocation = await this.weatherService.getWeatherLocation(tmpUser) as WeatherLocation;
-      if (weatherLocation && weatherLocation.location && (this.userService.isValidIpAddress(weatherLocation.location!) || weatherLocation.location!.trim() === '')) {
-        await this.weatherService.updateWeatherLocation(tmpUser, ip["ip_address"], ip["city"]);
-      }
-    }
+  async updateWeatherInBackground(tmpUser: User, withCity?: boolean) { 
+    const ip = await this.userService.getUserIp();
+    const res = await this.weatherService.updateWeatherLocation(tmpUser, ip?.ip, ip?.city);
+    if (res) {
+      this.notifications.push(res);
+    } 
   }
 }

@@ -1,7 +1,7 @@
 import { events } from "./events";
 
 export interface Scenario {
-  string: string;
+  string: string[];
   requires?: string[]; // Flags that are required
   bypass?: string[];   // Flags that can skip conditions
   addsFlag?: string;   // Flag to be added when this scenario is used

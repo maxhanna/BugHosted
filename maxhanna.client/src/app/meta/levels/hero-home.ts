@@ -153,21 +153,21 @@ export class HeroHomeLevel extends Level {
     const npc1 = new Npc(gridCells(13), gridCells(6), {
       content: [
         {
-          string: "Your father still uses that old tech, but as he always says its all in how you use it! He uses that watch to command our farm-bots.",
+          string: ["Your father still uses that old tech, but as he always says its all in how you use it! He uses that watch to command our farm-bots."],
           requires: [GOT_WATCH],
           addsFlag: TALKED_TO_MOM_ABOUT_DAD,
         } as Scenario,
         {
-          string: "Go grab your fathers watch.",
+          string: ["Go grab your fathers watch."],
           requires: [TALKED_TO_MOM_ABOUT_WATCH],
         } as Scenario,
         {
-          string: "We need you to run some errands... Can you grab your fathers watch thats on the counter my sweet little angel cakes?",
+          string: ["We need you to run some errands... Can you grab your fathers watch thats on the counter my sweet little angel cakes?"],
           requires: [TALKED_TO_MOM],
           addsFlag: TALKED_TO_MOM_ABOUT_WATCH,
         } as Scenario,
         {
-          string: `Grumble grumble, another day at work on the farm!... Your dads bot short circuited while trying to water the plants this morning.`,
+          string: [`Grumble grumble, another day at work on the farm!... Your dads bot short circuited while trying to water the plants this morning.`],
           addsFlag: TALKED_TO_MOM,
         } as Scenario
       ],

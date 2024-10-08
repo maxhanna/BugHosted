@@ -421,6 +421,10 @@ export class FightMenu extends GameObject {
     this.rightArmSkill = metabots[0].rightArm?.skill ?? "Right Punch";
     this.legsSkill = metabots[0].legs?.skill ?? "Kick";
     this.headSkill = metabots[0].head?.skill ?? "Headbutt";
+    this.skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill, "Cancel"];
+
+    console.log("fighter selected", metabots[0]);
+    console.log("leftArmSkill", this.leftArmSkill);
     events.emit("FIGHTER_SELECTED", metabots[0]);
     this.showFightMenuOptions = true;
     this.showFighterSelectionMenu = false;

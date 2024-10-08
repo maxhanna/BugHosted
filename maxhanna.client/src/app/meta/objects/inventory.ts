@@ -3,6 +3,7 @@ import { Sprite } from "./sprite";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: { id: number; image: any, name?: string }[] = [];
@@ -19,13 +20,25 @@ export class Inventory extends GameObject {
     ]
 
     //React to picking up an item
-    events.on("HERO_PICKS_UP_ITEM", this, (data: { image: any, position: Vector2, name:string, hero: any }) => {
+    events.on("HERO_PICKS_UP_ITEM", this, (data: { image: any, position: Vector2, name: string, hero: any }) => {
       //Show something on the screen.
-      if (data.hero?.isUserControlled) { 
+      if (data.hero?.isUserControlled) {
         const itemData = { id: this.nextId++, image: data.image, name: data.name };
         this.items.push(itemData);
         this.renderInventory();
       }
+    });
+
+    events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: MetaHero[] }) => {
+      if (data.party) {
+        for (let member of data.party) {
+          const itemData = { id: member.id, image: resources.images["hero"], name: member.name };
+          if (itemData.id != data.playerId) {
+            this.items.push(itemData);
+          }
+        }
+        this.renderInventory();
+      } 
     });
 
     events.on("START_PRESSED", this, (data: any) => {

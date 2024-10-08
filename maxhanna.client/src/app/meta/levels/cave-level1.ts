@@ -46,17 +46,17 @@ export class CaveLevel1 extends Level {
     const npc1 = new Npc(gridCells(5), gridCells(5), {
       content: [
         {
-          string: "I just can't stand that guy.",
+          string: ["I just can't stand that guy."],
           requires: [TALKED_TO_B],
           bypass: [TALKED_TO_A],
           addsFlag: TALKED_TO_A,
         } as Scenario,
         {
-          string: "He is the worst.",
+          string: ["He is the worst."],
           requires: [TALKED_TO_A], 
         } as Scenario,
         {
-          string: "Grumble grumble, another day at work!", 
+          string: ["Grumble grumble, another day at work!"], 
         } as Scenario
       ],
       portraitFrame: 1
@@ -66,11 +66,11 @@ export class CaveLevel1 extends Level {
     const npc2 = new Npc(gridCells(8), gridCells(5), {
       content: [
         {
-          string: "YOU ALREADY TALKED TO ME B!",
+          string: ["YOU ALREADY TALKED TO ME B!"],
           requires: [TALKED_TO_B],
         } as Scenario,
         {
-          string: "Ello mate B!",
+          string: ["Ello mate B!"],
           requires: [],
           bypass: [],
           addsFlag: TALKED_TO_B

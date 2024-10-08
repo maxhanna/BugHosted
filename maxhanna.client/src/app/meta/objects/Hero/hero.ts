@@ -360,7 +360,7 @@ export class Hero extends GameObject {
     console.log("Getting content " );
     return {
       portraitFrame: 0,
-      string: ["Party Up", "Whisper", "Wave"],
+      string: ["Party Up", "Whisper", "Wave", "Cancel"],
       canSelectItems: true
     }
   }

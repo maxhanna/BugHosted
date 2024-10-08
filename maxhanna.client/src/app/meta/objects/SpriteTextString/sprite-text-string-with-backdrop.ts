@@ -26,7 +26,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   canSelectItems = false;
   selectionIndex = 0;
 
-  constructor(config: { string?: string[], portraitFrame?: number, canSelectItems?: boolean } = { }) {
+  constructor(config: { string?: string[], portraitFrame?: number, canSelectItems?: boolean }) {
     super({ position: new Vector2(32, 118) });
     this.drawLayer = "HUD";
     if (config.canSelectItems) { 
@@ -115,17 +115,18 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     let cursorY = drawPosY + PADDING_TOP;
     let currentShowingIndex = 0;
 
+
     for (let x = 0; x < this.content.length; x++) {
-      let words = calculateWords(this.content[x]);
-      if (x === this.selectionIndex) {
+      let words = calculateWords(this.content[x]); 
+      const totalWordWidth = words.reduce((sum, word) => sum + word.wordWidth, 0); 
+      if (x === this.selectionIndex && this.canSelectItems) {
         // Draw a red square beside the selected word
         ctx.strokeStyle = 'red';
         ctx.lineWidth = 2;
-        const totalWordWidth = words.reduce((sum, word) => sum + word.wordWidth, 0); 
         ctx.strokeRect(cursorX, cursorY, totalWordWidth + 10, LINE_VERTICAL_WIDTH);
       }
 
-      words.forEach(word => {
+      words.forEach(word => { 
         //Decide if we can fit this next word on this line
         const spaceRemaining = drawPosX + LINE_WIDTH_MAX - cursorX;
         if (spaceRemaining < word.wordWidth) {
