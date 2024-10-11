@@ -7,26 +7,26 @@ import { Level } from "../objects/Level/level";
 import { Watch } from "../objects/Watch/watch";
 import { Sprite } from "../objects/sprite";
 import { HeroHomeLevel } from "./hero-home";
+import { Inventory } from "../objects/inventory";
  
 
 export class HeroRoomLevel extends Level {
-  walls: Set<string>;
   override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
-  constructor(params: { heroPosition?: Vector2 } = {}) {
+  constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super(); 
     this.name = "HeroRoom";
     if (params.heroPosition) { 
       this.defaultHeroPosition = params.heroPosition;
     }
+    if (params.itemsFound) {
+      this.itemsFound = params.itemsFound;
+    }
+
     const room = new Sprite(
       0, resources.images["bedroomFloor"], new Vector2(0, 0), undefined, 1, new Vector2(320, 220)
     );
     this.addChild(room);
-
-    const watch = new Watch(gridCells(2), gridCells(6));
-    this.addChild(watch);
-
-
+    
     const painting = new Sprite(
       0, resources.images["painting"], new Vector2(gridCells(15), 0.01), new Vector2(0.75, 0.75), 1, new Vector2(30, 28)
     );
@@ -71,7 +71,8 @@ export class HeroRoomLevel extends Level {
   override ready() {
     events.on("HERO_EXITS", this, () => { 
       events.emit("CHANGE_LEVEL", new HeroHomeLevel({ 
-          heroPosition: new Vector2(gridCells(17), gridCells(2))
+        heroPosition: new Vector2(gridCells(17), gridCells(2)),
+        itemsFound: this.itemsFound
         }));
     })
   }

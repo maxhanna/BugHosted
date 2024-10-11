@@ -483,10 +483,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
   }
   async updateWeatherInBackground(tmpUser: User, withCity?: boolean) { 
-    const ip = await this.userService.getUserIp();
-    const res = await this.weatherService.updateWeatherLocation(tmpUser, ip?.ip, ip?.city);
-    if (res) {
-      this.notifications.push(res);
-    } 
+    const ip = await this.userService.getUserIp(tmpUser);
+    const res = await this.weatherService.updateWeatherLocation(tmpUser, ip?.ip, ip?.city); 
   }
 }

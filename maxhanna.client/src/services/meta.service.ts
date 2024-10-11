@@ -5,6 +5,7 @@ import { MetaHero } from './datacontracts/meta/meta-hero';
 import { MetaChat } from './datacontracts/meta/meta-chat';
 import { Vector2 } from './datacontracts/meta/vector2';
 import { MetaEvent } from './datacontracts/meta/meta-event';
+import { InventoryItem } from '../app/meta/objects/InventoryItem/inventory-item';
  
 @Injectable({
   providedIn: 'root'
@@ -49,10 +50,16 @@ export class MetaService {
   async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);
   }
+  async fetchInventoryData(hero: MetaHero): Promise<InventoryItem[]> {
+    return this.fetchData('/meta/fetchinventorydata', hero);
+  }
   async chat(hero: MetaHero, content: string) {
     return this.fetchData('/meta/chat', {Hero: hero, Content: content});
   }
   async updateEvents(event: MetaEvent) {
     return this.fetchData('/meta/updateevents', event);
+  }
+  async updateInventory(hero: MetaHero, name: string, image: string) {
+    return this.fetchData('/meta/updateinventory', { Hero: hero, Name: name, Image: image });
   }
 }

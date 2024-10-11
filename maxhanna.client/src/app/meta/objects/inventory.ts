@@ -12,11 +12,11 @@ export class Inventory extends GameObject {
     super({ position: new Vector2(0, 0) });
     this.drawLayer = "HUD";
     this.items = [
-      {
-        id: -1,
-        image: resources.images["watch"],
-        name: "Watch"
-      },
+      //{
+      //  id: -1,
+      //  image: resources.images["watch"],
+      //  name: "Watch"
+      //},
     ]
 
     //React to picking up an item
@@ -27,6 +27,14 @@ export class Inventory extends GameObject {
         this.items.push(itemData);
         this.renderInventory();
       }
+    });
+
+    events.on("INVENTORY_UPDATED", this, (data: { id: number, image: any, name: string  }) => {
+      //Show something on the screen.
+      console.log("got inventory updated ", data);
+      const itemData = { id: data.id, image: data.image, name: data.name };
+      this.items.push(itemData);
+      this.renderInventory(); 
     });
 
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: MetaHero[] }) => {
@@ -105,6 +113,16 @@ export class Inventory extends GameObject {
     this.renderInventory();
   }
 
+  getItemsFound() {
+    const itemsFound = this.items;
+    const itemsFoundNames = [];
+    for (let item of itemsFound) {
+      if (item.name) {
+        itemsFoundNames.push(item.name);
+      }
+    }
+    return itemsFoundNames;
+  }
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     const selectedChild = this.children.find((x: any) => x.isItemSelected);
     if (selectedChild) {

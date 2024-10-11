@@ -12,41 +12,44 @@ import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
 import { input } from "@angular/core";
 
-export class CharacterCreate extends Level {
-  walls: Set<string>;
+export class CharacterCreate extends Level { 
   textBox = new SpriteTextStringWithBackdrop({});
   inputKeyPressedDate = new Date();
   characterName = ""; 
-  npc = new Npc(gridCells(5), gridCells(5), {
-    content: [
-
-      {
-        string: ["Wake up... Your journey awaits!"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_5],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_6,
-      } as Scenario,
-      {
-        string: [`Ah, ${this.characterName} is it?`],
-        requires: [CHARACTER_CREATE_STORY_TEXT_4],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
-      } as Scenario,
-      {
-        string: ["Now, before we begin your journey ...","What shall be your name, the name the world will know?"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_2],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
-      } as Scenario,
-      {
-        string: ["I am Mr. Referee, and I bring fair play to every ro-battle!", " Even in dreams, justice never sleeps!"],
-        requires: [CHARACTER_CREATE_STORY_TEXT_1],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
-      } as Scenario,
-      {
-        string: ["Zzz... Huh? Who dares disturb my dreams... oh, it's you!"],
-        addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
-      } as Scenario
-    ],
-    portraitFrame: 2
-  }, "referee");
+  npc = new Npc({
+    id: -791,
+    position: new Vector2(gridCells(5), gridCells(5)),
+    textConfig: {
+      content: [
+        {
+          string: ["Wake up... Your journey awaits!"],
+          requires: [CHARACTER_CREATE_STORY_TEXT_5],
+          addsFlag: CHARACTER_CREATE_STORY_TEXT_6,
+        } as Scenario,
+        {
+          string: [`Ah, ${this.characterName} is it?`],
+          requires: [CHARACTER_CREATE_STORY_TEXT_4],
+          addsFlag: CHARACTER_CREATE_STORY_TEXT_5,
+        } as Scenario,
+        {
+          string: ["Now, before we begin your journey ...", "What shall be your name, the name the world will know?"],
+          requires: [CHARACTER_CREATE_STORY_TEXT_2],
+          addsFlag: CHARACTER_CREATE_STORY_TEXT_3,
+        } as Scenario,
+        {
+          string: ["I am Mr. Referee, and I bring fair play to every ro-battle!", " Even in dreams, justice never sleeps!"],
+          requires: [CHARACTER_CREATE_STORY_TEXT_1],
+          addsFlag: CHARACTER_CREATE_STORY_TEXT_2,
+        } as Scenario,
+        {
+          string: ["Zzz... Huh? Who dares disturb my dreams... oh, it's you!"],
+          addsFlag: CHARACTER_CREATE_STORY_TEXT_1,
+        } as Scenario
+      ],
+      portraitFrame: 1
+    },
+    type: "referee"
+  });
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
   constructor(params: { heroPosition?: Vector2 } = {}) {
     super();
@@ -62,7 +65,7 @@ export class CharacterCreate extends Level {
   override ready() {
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
       this.characterName = chat;
-      if (!this.verifyCharacterName(this.characterName)) { return; }
+      if (!this.verifyCharacterName(this.characterName) || storyFlags.flags.get(CHARACTER_CREATE_STORY_TEXT_4)) { return; }
       console.log(this.characterName);
       this.returnChatInputToNormal();
       storyFlags.add(CHARACTER_CREATE_STORY_TEXT_4);

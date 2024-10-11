@@ -75,21 +75,33 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         || input?.heldDirections.includes("UP")
         || input?.getActionJustPressed("KeyW")) {
         this.selectionIndex--;
+        if (this.selectionIndex < 0) {
+          this.selectionIndex = this.content.length - 1;
+        }
       }
       else if (input?.getActionJustPressed("ArrowDown")
         || input?.heldDirections.includes("DOWN")
         || input?.getActionJustPressed("KeyS")) { 
-        this.selectionIndex++;
+        this.selectionIndex++; 
+        if (this.selectionIndex == this.content.length) {
+          this.selectionIndex = 0;
+        }
       }
       else if (input?.getActionJustPressed("ArrowLeft")
         || input?.heldDirections.includes("LEFT")
         || input?.getActionJustPressed("KeyA")) { 
         this.selectionIndex--;
+        if (this.selectionIndex < 0) {
+          this.selectionIndex = this.content.length - 1;
+        }
       }
       else if (input?.getActionJustPressed("ArrowRight")
         || input?.heldDirections.includes("RIGHT")
         || input?.getActionJustPressed("KeyD")) { 
         this.selectionIndex++; 
+        if (this.selectionIndex == this.content.length) {
+          this.selectionIndex = 0;
+        }
       }
 
     }  

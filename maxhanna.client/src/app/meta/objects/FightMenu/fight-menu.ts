@@ -7,7 +7,7 @@ import { gridCells } from "../../helpers/grid-cells";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Input } from "../../helpers/input";
 import { storyFlags } from "../../helpers/story-flags";
-import { BoltonLevel1 } from "../../levels/bolton-level1";
+import { BrushLevel1 } from "../../levels/brush-level1";
 import { Level } from "../Level/level";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 
@@ -26,7 +26,7 @@ export class FightMenu extends GameObject {
   portrait: Sprite;
   metabotChoices: MetaBot[] = [];
 
-  startLevel: Level = new BoltonLevel1({ heroPosition: new Vector2(gridCells(1), gridCells(1)) });
+  startLevel: Level = new BrushLevel1({ heroPosition: new Vector2(gridCells(1), gridCells(1)) });
   entrancePosition: Vector2 = new Vector2(gridCells(1), gridCells(1)); 
 
   fightMenuOptions = ["Attack", "Item", "Meta-Bots", "Run"];

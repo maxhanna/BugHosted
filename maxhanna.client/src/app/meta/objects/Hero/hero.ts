@@ -9,6 +9,7 @@ import { moveTowards } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events"; 
+import { storyFlags, GOT_WATCH } from "../../helpers/story-flags"; 
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 
 export class Hero extends GameObject {
@@ -192,7 +193,7 @@ export class Hero extends GameObject {
           });
           events.emit("PARTY_UP", objectAtPosition);
         }
-      })
+      }); 
     }
   }
 
@@ -206,9 +207,7 @@ export class Hero extends GameObject {
     const input = root.input as Input;
     if (input?.getActionJustPressed("Space") && this.isUserControlled) {
       //look for an object at the next space (according to where the hero is facing)
-      const objectAtPosition = this.parent.children.find((child: GameObject) => {
-        return child.position.matches(this.position.toNeighbour(this.facingDirection))
-      });
+      const objectAtPosition = this.isObjectNeerby();
 
       if (objectAtPosition) { 
         events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
@@ -229,6 +228,25 @@ export class Hero extends GameObject {
     
     
   }
+
+  private isObjectNeerby() {
+      return this.parent.children.find((child: GameObject) => {
+          // Calculate the neighboring position with the facing direction
+          const neighborPosition = this.position.toNeighbour(this.facingDirection);
+
+          // Define the discrepancy value
+          const discrepancy = 0.05;
+
+          // Check if the child's position is within the discrepancy range of the neighbor position
+          return (
+              child.position.x >= neighborPosition.x - discrepancy &&
+              child.position.x <= neighborPosition.x + discrepancy &&
+              child.position.y >= neighborPosition.y - discrepancy &&
+              child.position.y <= neighborPosition.y + discrepancy
+          );
+      });
+  }
+
   updateAnimation() { 
     setTimeout(() => {
       const currentTime = new Date().getTime();
@@ -355,13 +373,14 @@ export class Hero extends GameObject {
       this.itemPickupShell.destroy();
     }
   }
-  getContent() { 
+  override getContent() { 
       
     console.log("Getting content " );
     return {
       portraitFrame: 0,
       string: ["Party Up", "Whisper", "Wave", "Cancel"],
-      canSelectItems: true
+      canSelectItems: true,
+      addsFlag: null
     }
   }
  }

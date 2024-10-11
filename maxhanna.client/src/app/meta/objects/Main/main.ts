@@ -14,13 +14,14 @@ export class Main extends GameObject {
   level?: Level = undefined;
   camera: Camera = new Camera(0, 0);
   input: Input = new Input();
+  inventory: Inventory = new Inventory();
+
   constructor(x: number, y: number) {
     super({ position: new Vector2(x, y) });  
   }
 
-  override ready() {
-    const inventory = new Inventory();
-    this.addChild(inventory);
+  override ready() { 
+    this.addChild(this.inventory);
 
     //CHANGE LEVEL HANDLER
     events.on("CHANGE_LEVEL", this, (newLevelInstance: Level) => {

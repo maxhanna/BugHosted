@@ -6,20 +6,22 @@ import { Exit } from "../objects/Exit/exit";
 import { Level } from "../objects/Level/level";
 import { Watch } from "../objects/Watch/watch";
 import { Sprite } from "../objects/sprite";
-import { BoltonLevel1 } from "./bolton-level1";
+import { BrushLevel1 } from "./brush-level1";
 import { HeroRoomLevel } from "./hero-room";
 import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc";
 
 
-export class HeroHomeLevel extends Level {
-  walls: Set<string>;
+export class HeroHomeLevel extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
-  constructor(params: { heroPosition?: Vector2 } = {}) {
+  constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super();
     this.name = "HeroHome";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
+    }
+    if (params.itemsFound) {
+      this.itemsFound = params.itemsFound;
     }
     const room = new Sprite(
       0, resources.images["heroHome"], new Vector2(0, 0), undefined, undefined, new Vector2(320, 220)
@@ -57,6 +59,11 @@ export class HeroHomeLevel extends Level {
     );
     fridge.isSolid = true;
     this.addChild(fridge);
+     
+    if (!this.itemsFound.includes("watch")) {
+      const watch = new Watch({ id: 0, position: new Vector2(gridCells(3), gridCells(1)) });
+      this.addChild(watch);
+    } 
 
     const blinds = new Sprite(
       0, resources.images["blinds"],
@@ -74,6 +81,11 @@ export class HeroHomeLevel extends Level {
       undefined,
       new Vector2(30, 28)
     );
+    painting.textContent = [
+      {
+        string: ["A picture of dads beautiful garden on display."],
+      } as Scenario,
+    ];
     this.addChild(painting);
 
 
@@ -84,6 +96,12 @@ export class HeroHomeLevel extends Level {
       undefined,
       new Vector2(30, 26)
     );
+    blinds2.textPortraitFrame = 0;
+    blinds2.textContent = [
+      {
+        string: ["Ahh, what a beautiful morning!"], 
+      } as Scenario,
+    ];
     this.addChild(blinds2);
 
     const chair = new Sprite(
@@ -150,29 +168,34 @@ export class HeroHomeLevel extends Level {
     this.addChild(carpet2);
 
 
-    const npc1 = new Npc(gridCells(13), gridCells(6), {
-      content: [
-        {
-          string: ["Your father still uses that old tech, but as he always says its all in how you use it! He uses that watch to command our farm-bots."],
-          requires: [GOT_WATCH],
-          addsFlag: TALKED_TO_MOM_ABOUT_DAD,
-        } as Scenario,
-        {
-          string: ["Go grab your fathers watch."],
-          requires: [TALKED_TO_MOM_ABOUT_WATCH],
-        } as Scenario,
-        {
-          string: ["We need you to run some errands... Can you grab your fathers watch thats on the counter my sweet little angel cakes?"],
-          requires: [TALKED_TO_MOM],
-          addsFlag: TALKED_TO_MOM_ABOUT_WATCH,
-        } as Scenario,
-        {
-          string: [`Grumble grumble, another day at work on the farm!... Your dads bot short circuited while trying to water the plants this morning.`],
-          addsFlag: TALKED_TO_MOM,
-        } as Scenario
-      ],
-      portraitFrame: 1
-    }, "knight");
+    const npc1 = new Npc({
+      id: -1972,
+      position: new Vector2(gridCells(13), gridCells(6)),
+      textConfig: {
+        content: [
+          {
+            string: ["Your father still uses that old tech, but as he always says its all in how you use it! He uses that watch to command our farm-bots."],
+            requires: [GOT_WATCH],
+            addsFlag: TALKED_TO_MOM_ABOUT_DAD,
+          } as Scenario,
+          {
+            string: ["Go grab your fathers watch."],
+            requires: [TALKED_TO_MOM_ABOUT_WATCH],
+          } as Scenario,
+          {
+            string: ["We need you to run some errands... Can you grab your fathers watch thats on the counter my sweet little angel cakes?"],
+            requires: [TALKED_TO_MOM],
+            addsFlag: TALKED_TO_MOM_ABOUT_WATCH,
+          } as Scenario,
+          {
+            string: [`Grumble grumble, another day at work on the farm!... Your dads bot short circuited while trying to water the plants this morning.`],
+            addsFlag: TALKED_TO_MOM,
+          } as Scenario
+        ],
+        portraitFrame: 2
+      },
+      type: "mom"
+    });
     this.addChild(npc1);
 
     const exitBackToRoom = new Exit(gridCells(18), gridCells(2), true, (Math.PI * 3) / 2);
@@ -181,7 +204,7 @@ export class HeroHomeLevel extends Level {
 
 
     const exitOutside = new Exit(gridCells(10), gridCells(13), false, (Math.PI * 3) / 2);
-    exitOutside.targetMap = "BoltonLevel1";
+    exitOutside.targetMap = "BrushLevel1";
     this.addChild(exitOutside);
 
     this.walls = new Set();
@@ -203,8 +226,8 @@ export class HeroHomeLevel extends Level {
           heroPosition: new Vector2(gridCells(18), gridCells(2))
         }));
       }
-      else if (targetMap === "BoltonLevel1") {
-        events.emit("CHANGE_LEVEL", new BoltonLevel1({
+      else if (targetMap === "BrushLevel1") {
+        events.emit("CHANGE_LEVEL", new BrushLevel1({
           heroPosition: new Vector2(gridCells(18), gridCells(2))
         }));
       }

@@ -9,7 +9,9 @@ import { gridCells } from "../../helpers/grid-cells";
 export class Level extends GameObject {
   background: any = null;
   name: string = "";
-  defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
+  defaultHeroPosition = new Vector2(gridCells(1), gridCells(1)); 
+  itemsFound: string[] = [];
+  walls: Set<string> = new Set();
 
   constructor() {
     super({ position: new Vector2(0, 0) });

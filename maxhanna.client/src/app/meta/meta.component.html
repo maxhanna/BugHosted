@@ -59,10 +59,10 @@
     <div class="controls">
       <div class="a-b">
         <div class="b">B</div>
-        <div class="a" (mouseup)='mainScene.input.pressA()' (touchend)='mainScene.input.pressA()'>A</div>
+        <div class="a" (mouseup)='mainScene.input.pressA()'>A</div>
       </div>
 
-      <div class="start" (mouseup)='mainScene.input.pressStart()' (touchend)='mainScene.input.pressStart()'>START</div>
+      <div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
     </div>
   </div>
   <app-user *ngIf="isUserComponentOpen"

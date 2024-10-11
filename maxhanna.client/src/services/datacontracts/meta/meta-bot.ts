@@ -4,14 +4,16 @@ import { MetaBotPart } from "./meta-bot-part";
 
 export class MetaBot {
   id: number;  
-  heroId: number;  
+  parentId: number;  
   type: number;
   hp: number = 1;
   exp: number = 0;
-  expForNextLevel: number = 100;
-  level: number = 0;
+  level: number = 1;
+  expForNextLevel: number = this.level * 5;
+  hasAwardedExp = false
   name?: string;
   isDead: boolean;
+  isDeployed: boolean = false;
   position?: Vector2;
   head?: MetaBotPart;
   legs?: MetaBotPart;
@@ -19,11 +21,11 @@ export class MetaBot {
   rightArm?: MetaBotPart;
 
 
-  constructor(id: number, heroId: number, type:number, name: string, isDead: boolean, position?: Vector2) {
+  constructor(id: number, parentId: number, type:number, name: string, isDead: boolean, position?: Vector2) {
     this.id = id; 
     this.name = name;
     this.isDead = isDead;
-    this.heroId = heroId;
+    this.parentId = parentId;
     this.isDead = isDead;
     this.type = type;
     this.position = position;

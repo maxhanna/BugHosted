@@ -10,15 +10,18 @@ import { Sprite } from "../objects/sprite";
 import { Npc } from "../objects/Npc/npc";
 import { HeroRoomLevel } from "./hero-room";
 
-export class CaveLevel1 extends Level {
-  walls: Set<string>;
+export class CaveLevel1 extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
-  constructor(params: { heroPosition?: Vector2 } = {}) {
+  constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super();
     this.name = "CaveLevel1";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
+    } 
+    if (params.itemsFound) {
+      this.itemsFound = params.itemsFound;
     }
+
     this.background = new Sprite(
       0, resources.images["cave"],
       new Vector2(0, 0),
@@ -40,47 +43,57 @@ export class CaveLevel1 extends Level {
     const exit = new Exit(gridCells(2), gridCells(4));
     this.addChild(exit);
 
-    const watch = new Watch(gridCells(5), gridCells(2));
+    const watch = new Watch({ id: 0, position: new Vector2(gridCells(5), gridCells(2)) });
     this.addChild(watch);
 
-    const npc1 = new Npc(gridCells(5), gridCells(5), {
-      content: [
-        {
-          string: ["I just can't stand that guy."],
-          requires: [TALKED_TO_B],
-          bypass: [TALKED_TO_A],
-          addsFlag: TALKED_TO_A,
-        } as Scenario,
-        {
-          string: ["He is the worst."],
-          requires: [TALKED_TO_A], 
-        } as Scenario,
-        {
-          string: ["Grumble grumble, another day at work!"], 
-        } as Scenario
-      ],
-      portraitFrame: 1
+    const npc1 = new Npc(
+      {
+        id: -512,
+        position: new Vector2(gridCells(5), gridCells(5)),
+        textConfig: {
+          content: [
+            {
+              string: ["I just can't stand that guy."],
+              requires: [TALKED_TO_B],
+              bypass: [TALKED_TO_A],
+              addsFlag: TALKED_TO_A,
+            } as Scenario,
+            {
+              string: ["He is the worst."],
+              requires: [TALKED_TO_A],
+            } as Scenario,
+            {
+              string: ["Grumble grumble, another day at work!"],
+            } as Scenario
+          ],
+          portraitFrame: 1
+        },
+        type: "knight"
     });
     this.addChild(npc1);
 
-    const npc2 = new Npc(gridCells(8), gridCells(5), {
-      content: [
-        {
-          string: ["YOU ALREADY TALKED TO ME B!"],
-          requires: [TALKED_TO_B],
-        } as Scenario,
-        {
-          string: ["Ello mate B!"],
-          requires: [],
-          bypass: [],
-          addsFlag: TALKED_TO_B
-        } as Scenario
-      ],
-      portraitFrame: 0
+    const npc2 = new Npc({
+      id: -652,
+      position: new Vector2(gridCells(8), gridCells(5)),
+      textConfig: {
+        content: [
+          {
+            string: ["YOU ALREADY TALKED TO ME B!"],
+            requires: [TALKED_TO_B],
+          } as Scenario,
+          {
+            string: ["Ello mate B!"],
+            requires: [],
+            bypass: [],
+            addsFlag: TALKED_TO_B
+          } as Scenario
+        ],
+        portraitFrame: 0
+      },
+      type: "knight"
     });
     this.addChild(npc2);
-
-    this.walls = new Set();
+     
   }
 
   override ready() {

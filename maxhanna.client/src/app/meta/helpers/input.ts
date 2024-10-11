@@ -11,17 +11,13 @@ export class Input {
   inputKeyPressedTimeout = 300;
   chatSelected = false;
   constructor() {
-    document.addEventListener("keydown", (e) => {
-
+    document.addEventListener("keydown", (e) => { 
       if (e.code != " ") {
         this.keys[e.code] = true;
         this.handleKeydown(e);
-      } else {
-        this.pressA();
-      }
+      } 
     });
-    document.addEventListener("keyup", (e) => {
-
+    document.addEventListener("keyup", (e) => { 
       if (e.code != " ") {
         this.keys[e.code] = false;
         this.handleKeyup(e);
@@ -46,7 +42,7 @@ export class Input {
     return justPressed;
   }
 
-  onArrowPressed(direction: string) {
+  onArrowPressed(direction: string) { 
     if (this.heldDirections.indexOf(direction) === -1) {
       this.heldDirections.unshift(direction);
     }
@@ -186,8 +182,14 @@ export class Input {
     const currentTime = new Date();
     if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
       inputKeyPressedDate = new Date();
-      this.pressA(sendChat);
-      events.emit("START_PRESSED");
+      if (this.chatInput.value != '') {
+        this.pressA(sendChat);  
+        this.chatInput.blur();
+        this.chatSelected = false;
+        events.emit("HERO_MOVEMENT_UNLOCK");
+      } else { 
+        events.emit("START_PRESSED");
+      }
     }
   }
   pressBackspace() {

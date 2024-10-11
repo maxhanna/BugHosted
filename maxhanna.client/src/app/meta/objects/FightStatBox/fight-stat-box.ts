@@ -1,14 +1,9 @@
 import { getCharacterWidth, getCharacterFrame } from "../SpriteTextString/sprite-font-map";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
-import { resources } from "../../helpers/resources";
-import { events } from "../../helpers/events";
+import { resources } from "../../helpers/resources"; 
 import { gridCells } from "../../helpers/grid-cells";
-import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { Input } from "../../helpers/input";
-import { storyFlags } from "../../helpers/story-flags";
-import { BoltonLevel1 } from "../../levels/bolton-level1";
-import { Level } from "../Level/level";
+import { Vector2 } from "../../../../services/datacontracts/meta/vector2";  
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
 
@@ -25,6 +20,7 @@ export class FightStatBox extends GameObject {
   );
   metabot: MetaBot;
   showExp: boolean = false;
+  botNameSprite: SpriteTextString;
 
   constructor(config: { bot: MetaBot, position: Vector2, showExp?: boolean}) { 
     super({ position: config.position }); 
@@ -33,10 +29,13 @@ export class FightStatBox extends GameObject {
     if (config.showExp) {
       this.showExp = config.showExp;
     }
-
-    const botNameSprite = new SpriteTextString(this.metabot.name ?? "Bot", new Vector2(-15, -5));
-    botNameSprite.drawLayer = "HUD";
-    this.addChild(botNameSprite);
+    if (!this.showExp) {
+      this.backdrop.scale = new Vector2(0.4, 0.6);
+    }
+    const lvlString = " Lvl " + this.metabot.level;
+    this.botNameSprite = new SpriteTextString(this.metabot.name ? this.metabot.name + lvlString : "Bot" + lvlString, new Vector2(-15, -5));
+    this.botNameSprite.drawLayer = "HUD";
+    this.addChild(this.botNameSprite);
 
     const healthNameSprite = new SpriteTextString("HP", new Vector2(-15, 10));
     healthNameSprite.drawLayer = "HUD";

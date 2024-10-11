@@ -8,8 +8,16 @@ import { gridCells } from "../../helpers/grid-cells";
  
 export class InventoryItem extends GameObject { 
   isItemSelected = false;
+  id: number = 0;
   name = "";
-  constructor(x: number, y: number) {
-    super({ position: new Vector2(x,y) });
+  image = "";
+  constructor(params: { position: Vector2, id: number, name: string, image: string, isItemSelected?: boolean }) {
+    super({ position: params.position });
+    this.id = params.id;
+    this.name = params.name;
+    this.image = params.image;
+    if (params.isItemSelected) { 
+      this.isItemSelected = params.isItemSelected;
+    }
   }  
 }

@@ -127,21 +127,19 @@ export class UserService {
       return null; // Return null in case of error
     }
   }
-  async getUserIp() {
+  async getUserIp(user: User) {
     try {
-      const response = await fetch("http://ip-api.com/json/");
-      if (!response.ok) {
-        throw new Error("Failed to fetch IP information");
-      }
-      const data = await response.json();
-      console.log(data); // Log full response data
-      return {
-        ip: data.query,
-        city: data.city
-      };
+      const response = await fetch('/user/getipandlocation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+        },
+        body: JSON.stringify(user), // Convert the user object to JSON string
+      });
+
+      return await response.json();
     } catch (error) {
-      console.error(error);
-      return {}
+      return null; // Return null in case of error
     }
   }
 

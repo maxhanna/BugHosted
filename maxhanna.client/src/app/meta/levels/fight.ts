@@ -18,24 +18,22 @@ import { Bot } from "../objects/Bot/bot";
 import { FightMenu } from "../objects/FightMenu/fight-menu";
 import { FightStatBox } from "../objects/FightStatBox/fight-stat-box";
 import { HeroHomeLevel } from "./hero-home";
-import { BoltonLevel1 } from "./bolton-level1";
+import { BrushLevel1 } from "./brush-level1";
 import { MetaBotPart } from "../../../services/datacontracts/meta/meta-bot-part";
+import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 
-export class Fight extends Level {
-	walls: Set<string>;
+export class Fight extends Level { 
 	characterName = "";
 	enemies?: Npc[] = undefined;
-	party?: MetaHero[] = [];
-	selectedFighterIndex = 0;
-
+	party?: MetaHero[] = []; 
+  leaveFightFlag = false; 
 	fightHasStarted = false;
 	isSelectingFighter = false;
 	playersPositioned = false;
 	botDeployed = false;
 	metabotSelected = false;
 
-	myBots: Sprite[] = [];
-	enemyBots: Sprite[] = [];
+  deployedPartyBots = 0;
 	partySelectedSkills: Record<number, string> = [];
 
 	fightMenu: FightMenu;
@@ -63,14 +61,11 @@ export class Fight extends Level {
 			this.loadPartyMembers(params);
 		}
 		if (params.enemies) {
-			this.enemies = params.enemies;
-			for (let x = 0; x < this.enemies.length; x++) {
-				const tmpNpc = new Npc(gridCells(10 - x), gridCells(1 + x), undefined, this.enemies[x].type);
-				this.addChild(tmpNpc);
-				console.log("added enemy: ", this.enemies[x]);
-			}
+			this.loadEnemies(params);
 		}
 	}
+
+    
 
 	override ready() {
 		events.on("FIGHTER_SELECTED", this, () => {
@@ -95,7 +90,7 @@ export class Fight extends Level {
 
 		if (this.fightMenu.showWaitingForOthers) {
 			if (Object.keys(this.partySelectedSkills).length == this.party?.length) { 
-				this.performAttack();
+				this.performAttackPhase();
 			}
 		}
 	}
@@ -123,23 +118,38 @@ export class Fight extends Level {
 				const newHero = new Hero(-90 + (x * gridCells(1)), 15 + (x * gridCells(1)));
 				newHero.name = metaHero.name ?? "Anon";
 				newHero.id = metaHero.id;
-				if (x === 0) {
-					const bot1 = new MetaBot(1, this.party[0].id, 1, "Bee", false, new Vector2(gridCells(-1), gridCells(1)));
-					const bot2 = new MetaBot(2, this.party[0].id, 1, "Jaguar", false, new Vector2(gridCells(-1), gridCells(1)));
-					const bot3 = new MetaBot(3, this.party[0].id, 1, "Rhino", false, new Vector2(gridCells(-1), gridCells(1)));
-					bot1.hp = bot2.hp = bot3.hp = 100;
-					bot2.exp = 80;
-					bot3.exp = 20;
-					bot1.exp = 40;
-					bot1.leftArm = new MetaBotPart({ id: 0, metabotId: 1, skill: "Sting", type: "Speed", damageMod: 5 })
-					this.party[x].metabots = [bot1, bot2, bot3];
-					this.fightMenu.metabotChoices = this.party[x].metabots;
-				}
+			 
+				const bot1 = new MetaBot(1, this.party[x].id, 1, "Bee", false, new Vector2(gridCells(-1), gridCells(1)));
+				const bot2 = new MetaBot(2, this.party[x].id, 1, "Jaguar", false, new Vector2(gridCells(-1), gridCells(1)));
+				const bot3 = new MetaBot(3, this.party[x].id, 1, "Rhino", false, new Vector2(gridCells(-1), gridCells(1)));
+				bot1.hp = bot2.hp = bot3.hp = 100;
+				bot2.exp = 0;
+				bot3.exp = 1;
+				bot1.exp = 2;
+				bot1.leftArm = new MetaBotPart({ id: 0, metabotId: bot1.id, skill: "Sting", type: "Speed", damageMod: 5 })
+				this.party[x].metabots = [bot1, bot2, bot3];
+				this.fightMenu.metabotChoices = this.party[x].metabots;
+				 
 				this.addChild(newHero);
 			}
 		}
-	}
-	private performAttack() {
+  }
+  private loadEnemies(params: { heroPosition: Vector2; entryLevel: Level; enemies?: Npc[] | undefined; party?: MetaHero[] | undefined; }) {
+    this.enemies = params.enemies;
+    if (this.enemies) {
+      for (let x = 0; x < this.enemies.length; x++) {
+        const tmpNpc = new Npc({
+          id: -11245 + x,
+          position: new Vector2(gridCells(10 - x), gridCells(1 + x)),
+          textConfig: undefined,
+          type: this.enemies[x].type
+        });
+        this.addChild(tmpNpc);
+        console.log("added enemy: ", this.enemies[x]);
+      }
+    }
+  }
+	private performAttackPhase() {
 		this.fightMenu.showWaitingForOthers = false;
 		this.fightMenu.showFightMenuOptions = true;
 		console.log("performing attacks: " , this.partySelectedSkills);
@@ -149,22 +159,22 @@ export class Fight extends Level {
 				const attackingHeroId = parseInt(attackingHero);
 				const attackingHeroSkill = this.partySelectedSkills[attackingHeroId];
 				const player = this.party.find(x => x.id === attackingHeroId);
-				const attackingBot = player?.metabots[0]; 
-				const botParts = ["leftArm", "rightArm", "legs", "head"];
-				let attackingPart = undefined;
-				if (attackingBot) { 
-					for (let part of botParts) {
-						const attackingPart = (attackingBot[part as keyof MetaBot] as MetaBotPart);
-						if (attackingPart?.skill === attackingHeroSkill) { 
-							console.log(attackingPart?.damageMod);
-							if (this.enemies) {
-								for (let enemy of this.enemies) {
-									enemy.metabots[0].hp -= attackingPart.damageMod;
-								} 
-							}
-						}
-					}
-				} 
+				const attackingBot = player?.metabots[0];
+        if (attackingBot && attackingBot.hp > 0) {
+          const botParts = ["leftArm", "rightArm", "legs", "head"];
+          let attackingPart = undefined; 
+          for (let part of botParts) {
+            const attackingPart = (attackingBot[part as keyof MetaBot] as MetaBotPart);
+            if (attackingPart?.skill === attackingHeroSkill) {
+              console.log(attackingPart?.damageMod);
+              if (this.enemies) {
+                for (let enemy of this.enemies) {
+                  enemy.metabots[0].hp -= attackingPart.damageMod;
+                }
+              }
+            } 
+          } 
+        } 
 			}
 			this.partySelectedSkills = [];
 			this.performEnemyAttacks();
@@ -173,21 +183,81 @@ export class Fight extends Level {
 	private performEnemyAttacks() {
 		if (this.enemies) { 
 			for (let attackingEnemy of this.enemies) {
-				const enemyBot = attackingEnemy.metabots[0];
-				const botParts = ["leftArm", "rightArm", "legs", "head"];
-				const randomPart = botParts[Math.floor(Math.random() * botParts.length)];
-				const randomBotPart = enemyBot?.[randomPart as keyof MetaBot] as MetaBotPart;
-				if (randomBotPart && this.party) {
-					for (let member of this.party) {
-						member.metabots[0].hp -= randomBotPart.damageMod;
-					}
-				}
-
+        const enemyBot = attackingEnemy.metabots[0];
+        if (enemyBot.hp > 0) {
+          const botParts = ["leftArm", "rightArm", "legs", "head"];
+          const randomPart = botParts[Math.floor(Math.random() * botParts.length)];
+          const randomBotPart = enemyBot?.[randomPart as keyof MetaBot] as MetaBotPart;
+          if (randomBotPart && this.party) {
+            for (let member of this.party) {
+              member.metabots[0].hp -= randomBotPart.damageMod;
+            }
+          } 
+        } 
 			}
 		}
+    this.performEndOfAttackChecks();
 	}
+
+  performEndOfAttackChecks() {
+    //check who died
+    if (this.enemies) {
+      for (let x = 0; x < this.enemies.length; x++) {
+        if (this.enemies[x].metabots[0].hp <= 0) {  
+          for (let c of this.children) { 
+            if (c.objectId === this.enemies[x].metabots[0].id) { 
+              this.removeChild(c);
+              console.log("removed dead metabot");
+            }
+            if (c.metabot?.id == this.enemies[x].metabots[0].id) { 
+              this.removeChild(c);
+              console.log("removed statbox"); 
+            }
+          }  
+          this.awardExpToPlayers(this.enemies[x].metabots[0]); 
+          this.deployEnemyBots(); 
+        }
+      }
+    }
+    //leave fight if no bots left to fight
+    if (this.leaveFightFlag) {
+      this.fightMenu.leaveFight();
+    }
+  }
+  private awardExpToPlayers(enemyMetabot: MetaBot) {
+    if (!enemyMetabot.hasAwardedExp) {
+      console.log("awarding exp " + enemyMetabot.level)
+      if (this.party) {
+        for (let player of this.party) {
+          for (let bot of player.metabots) {
+            if (bot.isDeployed) {
+              bot.exp += enemyMetabot.level; // Add experience from the enemy metabot
+
+              // Check if the bot's experience exceeds the experience needed for the next level
+              while (bot.exp >= bot.expForNextLevel) {
+                bot.exp -= bot.expForNextLevel; // Subtract the required experience for leveling up
+                bot.level++;
+                bot.expForNextLevel = this.calculateExpForNextLevel(bot.level); // Adjust this based on your level-up logic
+              }
+              for (let c of this.children) {
+                if (c.metabot?.id == bot.id) {
+                  const lvlString = " Lvl " + bot.level;
+                  const newStr = new SpriteTextString(bot.name ? bot.name + lvlString : "Bot" + lvlString, new Vector2(-15, -5));
+                  c.removeChild(c.botNameSprite);
+                  c.botNameSprite = newStr;
+                  c.addChild(c.botNameSprite);
+                  console.log("fixed statbox");
+                }
+              }
+            }
+          }
+        }
+      }
+      enemyMetabot.hasAwardedExp = true;
+    } 
+  }
 	private startFightStance() {
-		console.log("start fiht stance");
+		console.log("start fight stance");
 		if (this.party) {
 			for (let x = 0; x < this.party.length; x++) {
 				const metaHero = this.party[x];
@@ -224,7 +294,8 @@ export class Fight extends Level {
 
 	private deployBot(metabot: MetaBot) {
 		console.log("deploy bot");
-		if (!this.botDeployed && metabot && !metabot.isDead) {
+    if (!this.botDeployed && metabot && !metabot.isDead) {
+      metabot.isDeployed = true;
 			this.botDeployed = true;
 			this.isSelectingFighter = false;
 			const newBot = new Sprite(
@@ -238,42 +309,75 @@ export class Fight extends Level {
 				undefined,
 				undefined,
 			);
-			this.myBots.push(newBot);
+      this.deployedPartyBots++;
 			this.addChild(newBot);
 
 			const fighterStats = new FightStatBox({ position: new Vector2(-100, 50), bot: metabot, showExp: true });
 			this.addChild(fighterStats);
 
-			if (this.myBots.length == this.party?.length) {
+      if (this.deployedPartyBots == this.party?.length) {
 				this.deployEnemyBots();
 			}
 		}
 	}
+  private deployEnemyBots() {
+    let deployedBotCount = 0; // Track total deployed bots across all enemies
 
-	private deployEnemyBots() {
-		if (this.enemies) {
-			for (let x = 0; x < this.enemies.length; x++) {
-				if (this.enemies[x].metabots[0]) {
-					const metabot = this.enemies[x].metabots[0];
-					metabot.position = new Vector2(gridCells(7) - gridCells(x), gridCells(x));
-					const newBot = new Sprite(
-						0,
-						resources.images["botFrame"],
-						metabot.position,
-						undefined,
-						undefined,
-						new Vector2(32, 32),
-						undefined,
-						undefined,
-						undefined,
-						metabot.name
-					);
-					this.addChild(newBot);
-					const fighterStats = new FightStatBox({ position: new Vector2(110, -65), bot: metabot, showExp: false });
-					this.addChild(fighterStats);
-					console.log(`deployed ${this.enemies[x].type}'s bot @ ${metabot.position.x},${metabot.position.y}'`);
-				}
-			}
-		}
-	}
+    if (this.enemies) {
+      for (let x = 0; x < this.enemies.length; x++) {
+        const enemy = this.enemies[x];
+        let enemyDeployedCount = 0; // Track deployed bots for the current enemy
+
+        for (let y = 0; y < enemy.metabots.length; y++) {
+          const metabot = enemy.metabots[y];
+          if (metabot.hp > 0 && metabot.isDeployed) {
+            enemyDeployedCount++;
+            deployedBotCount++;
+          }
+          // Check if metabot has HP and is not already deployed
+          if (metabot.hp > 0 && !metabot.isDeployed && enemyDeployedCount == 0) {
+            // Deploy the metabot
+            enemyDeployedCount++;
+            metabot.isDeployed = true;
+            metabot.position = new Vector2(gridCells(7) - gridCells(x), gridCells(x));
+
+            const newBot = new Sprite(
+              metabot.id,
+              resources.images["botFrame"],
+              metabot.position,
+              undefined,
+              undefined,
+              new Vector2(32, 32),
+              undefined,
+              undefined,
+              undefined,
+              metabot.name
+            );
+
+            this.addChild(newBot);
+
+            const fighterStats = new FightStatBox({ position: new Vector2(110 - (x * 102.4), -65), bot: metabot, showExp: false });
+            this.addChild(fighterStats);
+
+            deployedBotCount++;
+            console.log(`deployed ${enemy.type}'s bot @ ${metabot.position.x},${metabot.position.y}`);
+          }
+        }
+
+        // If no bots were deployed for this enemy, we can log it or take other actions if necessary
+        if (enemyDeployedCount === 0) {
+          console.log(`No bots deployed for ${enemy.type}`);
+        }
+      }
+    }
+
+    // Handle end-game scenario if no bots are deployed
+    if (deployedBotCount === 0) {
+      console.log("No bots left to deploy, ending the match.");
+      this.leaveFightFlag = true;
+    }
+  }
+  calculateExpForNextLevel(level: number) { 
+    return level * 5; // For example, require 100 * level experience to level up
+  }
 }

@@ -1,6 +1,7 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { events } from "../helpers/events";
 import { Input } from "../helpers/input";
+import { Scenario, storyFlags } from "../helpers/story-flags";
 
 export class GameObject {
   parent?: any;
@@ -9,6 +10,8 @@ export class GameObject {
   hasReadyBeenCalled = false;
   isSolid = false;
   drawLayer?: any;
+  textContent?: Scenario[];
+  textPortraitFrame?: number;
 
   constructor({ position }: { position: Vector2 }) {
     this.position = position ?? new Vector2(0, 0);   
@@ -74,5 +77,25 @@ export class GameObject {
     this.children = this.children.filter((x:any) => {
       return gameObject !== x;
     });
+  }
+  getContent() {
+    if (!this.textContent) {
+      return;
+    }
+    //Maybe expand with story flag logic, etc.
+    const match = storyFlags.getRelevantScenario(this.textContent);
+    if (!match) {
+      console.log("No matches found in this list!", this.textContent);
+      return null;
+    }
+    if (match.addsFlag && match.addsFlag == "START_FIGHT") {
+      events.emit("START_FIGHT", this);
+    }
+    console.log("Getting content " + match.string);
+    return {
+      portraitFrame: this.textPortraitFrame,
+      string: match.string,
+      addsFlag: match.addsFlag ?? null
+    }
   }
 }
