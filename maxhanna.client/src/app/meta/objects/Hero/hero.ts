@@ -9,7 +9,6 @@ import { moveTowards } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events"; 
-import { storyFlags, GOT_WATCH } from "../../helpers/story-flags"; 
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 
 export class Hero extends GameObject {
@@ -42,7 +41,7 @@ export class Hero extends GameObject {
     const shadow = new Sprite(
       0,
       resources.images["shadow"],
-      new Vector2(-16.5, -33),
+      new Vector2(-27, -58),
       new Vector2(1.5, 1.5),
       undefined,
       new Vector2(32, 32),
@@ -50,6 +49,7 @@ export class Hero extends GameObject {
       undefined,
       undefined 
     );
+    shadow.drawLayer = "FLOOR";
     this.addChild(shadow);
 
     this.body = new Sprite(
@@ -82,7 +82,7 @@ export class Hero extends GameObject {
     });
 
   }
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
     // Draw the player's name
     if (this.name) {
       // Set the font style and size for the name
@@ -209,34 +209,29 @@ export class Hero extends GameObject {
       //look for an object at the next space (according to where the hero is facing)
       const objectAtPosition = this.isObjectNeerby();
 
-      if (objectAtPosition) { 
+      if (objectAtPosition) {
+        console.log(objectAtPosition);
         events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
       } 
     }
 
     const distance = moveTowards(this, this.destinationPosition, 1);
     const hasArrived = (distance ?? 0) <= 1;
-    if (hasArrived) {
-      if (this.isUserControlled) {
-        this.tryMove(root);
-      } else {
-        this.otherPlayerMove();
-      }
-    }
-      
-    this.tryEmitPosition();
-    
-    
+    if (hasArrived && this.isUserControlled) {
+      this.tryMove(root);
+    }  
+
+    this.otherPlayerMove(root);
+    this.tryEmitPosition(); 
   }
 
   private isObjectNeerby() {
-      return this.parent.children.find((child: GameObject) => {
+      const posibilities = this.parent.children.filter((child: GameObject) => {
           // Calculate the neighboring position with the facing direction
           const neighborPosition = this.position.toNeighbour(this.facingDirection);
 
           // Define the discrepancy value
-          const discrepancy = 0.05;
-
+          const discrepancy = 0.05; 
           // Check if the child's position is within the discrepancy range of the neighbor position
           return (
               child.position.x >= neighborPosition.x - discrepancy &&
@@ -245,12 +240,21 @@ export class Hero extends GameObject {
               child.position.y <= neighborPosition.y + discrepancy
           );
       });
+    const bestChoice = posibilities.find((x: any) => x.textContent);
+    if (bestChoice) {
+      return bestChoice;
+    }
+    const secondBestChoice = posibilities.find((x: any) => x.drawLayer != "FLOOR");
+    if (secondBestChoice) {
+      return secondBestChoice;
+    }
+    return posibilities[0];
   }
 
   updateAnimation() { 
     setTimeout(() => {
       const currentTime = new Date().getTime();
-      if (currentTime - this.lastStandAnimationTime >= (this.isUserControlled ? 1000 : 2000)) {  
+      if (currentTime - this.lastStandAnimationTime >= 300) {  
         if (this.destinationPosition.matches(this.position)) {
           this.body.animations?.play(
             "stand" + this.facingDirection.charAt(0) +
@@ -314,37 +318,55 @@ export class Hero extends GameObject {
     }
   }
 
-  otherPlayerMove() { 
-    this.position = this.position.duplicate();
-    this.destinationPosition = this.destinationPosition.duplicate();
-      
-    const destPos = this.destinationPosition;
+  otherPlayerMove(root: any) {
+    if (!this.isUserControlled) {
+      this.position = this.position.duplicate();
+      this.destinationPosition = this.destinationPosition.duplicate();
 
-    if (destPos) {
-      // Calculate the difference between destination and current position
-      const deltaX = destPos.x - this.position.x;
-      const deltaY = destPos.y - this.position.y;
-      if (Math.abs(deltaX) > Math.abs(deltaY)) {
-        if (deltaX > 0) {
-          this.facingDirection = RIGHT;
-          this.body.animations?.play("walkRight");
-        } else if (deltaX < 0) {
-          this.facingDirection = LEFT;
-          this.body.animations?.play("walkLeft");
+      const destPos = this.destinationPosition;
+      let tmpPosition = this.position;
+      if (destPos) {
+        // Calculate the difference between destination and current position
+        const deltaX = destPos.x - tmpPosition.x;
+        const deltaY = destPos.y - tmpPosition.y;
+        const gridSize = gridCells(1);
+        if (deltaX != 0 || deltaY != 0) {
+          if (deltaX > 0) {
+            tmpPosition.x = (tmpPosition.x);
+            this.facingDirection = RIGHT;
+            this.body.animations?.play("walkRight");
+            console.log("walk right");
+          } else if (deltaX < 0) {
+            tmpPosition.x = (tmpPosition.x);
+            this.facingDirection = LEFT;
+            this.body.animations?.play("walkLeft");
+            console.log("walk left");
+          }
         }
-      } else {
-        if (deltaY > 0) {
-          this.facingDirection = DOWN;
-          this.body.animations?.play("walkDown");
-        } else if (deltaY < 0) {
-          this.facingDirection = UP;
-          this.body.animations?.play("walkUp");
+        if (deltaY != 0) {
+          if (deltaY > 0) {
+            tmpPosition.y = tmpPosition.y;
+            this.facingDirection = DOWN;
+            this.body.animations?.play("walkDown");
+          } else if (deltaY < 0) {
+            tmpPosition.y = tmpPosition.y;
+            this.facingDirection = UP;
+            this.body.animations?.play("walkUp");
+          }
+        }
+        this.updateAnimation();
+        const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
+        const solidBodyAtSpace = this.parent.children.find((c: any) => {
+          return c.isSolid
+            && c.position.x == tmpPosition.x
+            && c.position.y == tmpPosition.y
+        })
+        if (spaceIsFree && !solidBodyAtSpace) {
+          this.position = tmpPosition;
         }
       }
-      this.updateAnimation();
-
-      this.position = destPos.duplicate();
     }
+    
   }   
 
   onPickupItem(data: { image: any, position: Vector2, hero: any }) {

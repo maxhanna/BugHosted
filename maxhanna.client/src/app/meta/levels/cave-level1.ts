@@ -3,16 +3,16 @@ import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Scenario, TALKED_TO_A, TALKED_TO_B } from "../helpers/story-flags";
-import { Exit } from "../objects/Exit/exit";
+import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level"; 
-import { Watch } from "../objects/Watch/watch"; 
+import { Watch } from "../objects/InventoryItem/Watch/watch"; 
 import { Sprite } from "../objects/sprite";
 import { Npc } from "../objects/Npc/npc";
 import { HeroRoomLevel } from "./hero-room";
 
 export class CaveLevel1 extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(1), gridCells(1));
-  constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
+  constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined }) {
     super();
     this.name = "CaveLevel1";
     if (params.heroPosition) {
@@ -99,7 +99,7 @@ export class CaveLevel1 extends Level {
   override ready() {
     events.on("HERO_EXITS", this, () => { 
       events.emit("CHANGE_LEVEL", new HeroRoomLevel({
-        heroPosition: new Vector2(gridCells(18), gridCells(2))
+        heroPosition: new Vector2(gridCells(18), gridCells(2)), 
       }));
     })
   }

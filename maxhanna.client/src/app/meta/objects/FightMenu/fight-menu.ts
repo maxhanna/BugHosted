@@ -1,4 +1,4 @@
-import { getCharacterWidth, getCharacterFrame, calculateWords } from "../SpriteTextString/sprite-font-map";
+import { calculateWords } from "../SpriteTextString/sprite-font-map";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
 import { resources } from "../../helpers/resources";
@@ -28,6 +28,7 @@ export class FightMenu extends GameObject {
 
   startLevel: Level = new BrushLevel1({ heroPosition: new Vector2(gridCells(1), gridCells(1)) });
   entrancePosition: Vector2 = new Vector2(gridCells(1), gridCells(1)); 
+  itemsFound?: string[];
 
   fightMenuOptions = ["Attack", "Item", "Meta-Bots", "Run"];
   showFightMenuOptions = false;
@@ -49,9 +50,10 @@ export class FightMenu extends GameObject {
   headSkill = "Headbutt";
   skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill, "Cancel"];
 
-  constructor(config: { entranceLevel: Level, entrancePosition: Vector2 }) {
-    super({ position: new Vector2(-95, 100) });
-    this.backdrop.scale = new Vector2(1.2, 0.75);
+  constructor(config: { entranceLevel: Level, entrancePosition: Vector2, itemsFound?: string[] }) {
+    super({ position: new Vector2(-95, 120) });
+    this.itemsFound = config.itemsFound;
+    this.backdrop.scale = new Vector2(1, 0.5);
     this.drawLayer = "HUD";
     this.startLevel = config.entranceLevel;
     this.startLevel.defaultHeroPosition = config.entrancePosition;

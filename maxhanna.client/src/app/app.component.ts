@@ -123,26 +123,25 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   ngAfterViewInit() {
     this.router.events.subscribe(event => {
-      if (event instanceof NavigationEnd) {
-        const encodedUriComponent = encodeURIComponent(this.router.url);
-        if (encodedUriComponent.includes('Memes')) {
+      if (event instanceof NavigationEnd) { 
+        if (this.router.url.includes('Memes')) {
           this.checkAndClearRouterOutlet();
-          const memeId = encodedUriComponent.toLowerCase().split('memes/')[1];
+          const memeId = this.router.url.toLowerCase().split('memes/')[1];
           this.createComponent("Meme", { "memeId": memeId });
         }
         if (this.router.url.includes('Social')) {
           this.checkAndClearRouterOutlet();
-          const storyId = encodedUriComponent.toLowerCase().split('social/')[1];
+          const storyId = this.router.url.toLowerCase().split('social/')[1];
           this.createComponent("Social", { "storyId": storyId });
         }
         if (this.router.url.includes('User')) {
           this.checkAndClearRouterOutlet();
-          const userId = encodedUriComponent.toLowerCase().split('user/')[1];
+          const userId = this.router.url.toLowerCase().split('user/')[1];
           this.createComponent("User", { "userId": userId });
         }
         if (this.router.url.includes('File')) {
           this.checkAndClearRouterOutlet();
-          const fileId = encodedUriComponent.toLowerCase().split('file/')[1];
+          const fileId = this.router.url.toLowerCase().split('file/')[1];
           this.createComponent("Files", { "fileId": fileId });
         }
         if (this.router.url.includes('Array')) {

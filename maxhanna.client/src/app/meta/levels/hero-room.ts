@@ -2,9 +2,9 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
-import { Exit } from "../objects/Exit/exit";
+import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
-import { Watch } from "../objects/Watch/watch";
+import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite";
 import { HeroHomeLevel } from "./hero-home";
 import { Inventory } from "../objects/inventory";
@@ -34,7 +34,7 @@ export class HeroRoomLevel extends Level {
 
 
     const xbox = new Sprite(
-      0, resources.images["xbox"], new Vector2(gridCells(8), gridCells(3)), new Vector2(0.5, 0.5), 1, new Vector2(32, 28)
+      0, resources.images["xbox"], new Vector2(gridCells(8), gridCells(3)), new Vector2(0.8, 0.8), 1, new Vector2(32, 28)
     );
     this.addChild(xbox);
 
@@ -69,11 +69,8 @@ export class HeroRoomLevel extends Level {
   }
 
   override ready() {
-    events.on("HERO_EXITS", this, () => { 
-      events.emit("CHANGE_LEVEL", new HeroHomeLevel({ 
-        heroPosition: new Vector2(gridCells(17), gridCells(2)),
-        itemsFound: this.itemsFound
-        }));
-    })
+    events.on("HERO_EXITS", this, () => {
+      events.emit("CHANGE_LEVEL", new HeroHomeLevel({ heroPosition: new Vector2(gridCells(17), gridCells(2)), itemsFound: this.itemsFound }));
+    });
   }
 }

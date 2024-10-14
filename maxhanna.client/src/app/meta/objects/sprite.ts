@@ -14,6 +14,8 @@ export class Sprite extends GameObject {
   animations?: Animations;
   name?: string;
   rotation = 0;
+  flipX = false;
+  flipY = false;
 
   constructor(objectId: number, resource: Resource, position?: Vector2, scale?: Vector2, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?: number, animations?: Animations, name?: string ) {
     super({ position: position ?? new Vector2(0, 0)});
@@ -78,7 +80,10 @@ export class Sprite extends GameObject {
 
     // Rotate the canvas by the given rotation angle (in radians)
     ctx.rotate(this.rotation);
+    const scaleX = this.flipX ? -this.scale.x : this.scale.x;
+    const scaleY = this.flipY ? -this.scale.y : this.scale.y;
 
+    ctx.scale(scaleX, scaleY);
     // Draw the image, adjusting for the translation and rotation
     ctx.drawImage(
       this.resource.image,
@@ -86,8 +91,8 @@ export class Sprite extends GameObject {
       frameCoordY,
       frameSizeX,
       frameSizeY,
-      -frameSizeX * this.scale.x / 2, // Draw image relative to the new origin
-      -frameSizeY * this.scale.y / 2,
+      -frameSizeX / 2, // Draw image relative to the new origin
+      -frameSizeY / 2,
       frameSizeX * this.scale.x,
       frameSizeY * this.scale.y
     );

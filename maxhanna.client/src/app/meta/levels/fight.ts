@@ -3,9 +3,8 @@ import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6 } from "../helpers/story-flags";
-import { Exit } from "../objects/Exit/exit";
-import { Level } from "../objects/Level/level";
-import { Watch } from "../objects/Watch/watch";
+import { Exit } from "../objects/Environment/Exit/exit";
+import { Level } from "../objects/Level/level"; 
 import { Sprite } from "../objects/sprite";
 import { Npc } from "../objects/Npc/npc";
 import { HeroRoomLevel } from "./hero-room";
@@ -36,32 +35,31 @@ export class Fight extends Level {
   deployedPartyBots = 0;
 	partySelectedSkills: Record<number, string> = [];
 
-	fightMenu: FightMenu;
-
-	lastKeyPressedDate = new Date();
-	slots: { slotX?: number, slotY?: number, slotWidth?: number, slotHeight?: number, metabot?: MetaBot }[] = [];
-	override defaultHeroPosition = new Vector2(0, 35);
+  fightMenu: FightMenu;
+   
+  override defaultHeroPosition = new Vector2(0, gridCells(2));
 
 	constructor(params: {
 		heroPosition: Vector2,
 		entryLevel: Level,
 		enemies?: Npc[],
-		party?: MetaHero[]
+    party?: MetaHero[],
+    itemsFound?: string[] | undefined 
 	}) {
 		super();
 		this.name = "Fight";
 		this.background = new Sprite(
 			0, resources.images["bedroomFloor"], new Vector2(-120, -100), undefined, 1, new Vector2(320, 220)
 		);
-		this.walls = new Set<string>();
-		this.fightMenu = new FightMenu({ entranceLevel: params.entryLevel, entrancePosition: params.heroPosition })
+    this.walls = new Set<string>();
+    this.fightMenu = new FightMenu({ entranceLevel: params.entryLevel, entrancePosition: params.heroPosition, itemsFound: params.itemsFound })
 		this.addChild(this.fightMenu);
 		this.fightMenu.showFightMenu = false;
 		if (params.party) {
 			this.loadPartyMembers(params);
 		}
 		if (params.enemies) {
-			this.loadEnemies(params);
+      this.loadEnemies(params.enemies);
 		}
 	}
 
@@ -115,10 +113,9 @@ export class Fight extends Level {
 		if (this.party) {
 			for (let x = 0; x < this.party.length; x++) {
 				const metaHero = this.party[x];
-				const newHero = new Hero(-90 + (x * gridCells(1)), 15 + (x * gridCells(1)));
+        const newHero = new Hero(gridCells(-4) + (x * gridCells(1)), gridCells(2) + (x * gridCells(1)));
 				newHero.name = metaHero.name ?? "Anon";
-				newHero.id = metaHero.id;
-			 
+        newHero.id = metaHero.id;
 				const bot1 = new MetaBot(1, this.party[x].id, 1, "Bee", false, new Vector2(gridCells(-1), gridCells(1)));
 				const bot2 = new MetaBot(2, this.party[x].id, 1, "Jaguar", false, new Vector2(gridCells(-1), gridCells(1)));
 				const bot3 = new MetaBot(3, this.party[x].id, 1, "Rhino", false, new Vector2(gridCells(-1), gridCells(1)));
@@ -134,19 +131,34 @@ export class Fight extends Level {
 			}
 		}
   }
-  private loadEnemies(params: { heroPosition: Vector2; entryLevel: Level; enemies?: Npc[] | undefined; party?: MetaHero[] | undefined; }) {
-    this.enemies = params.enemies;
+  private loadEnemies(enemies?: Npc[]) {
+    console.log("loading enemies : " + enemies?.length);
+    this.enemies = enemies;
+    let tmpEnemies = [];
     if (this.enemies) {
       for (let x = 0; x < this.enemies.length; x++) {
-        const tmpNpc = new Npc({
-          id: -11245 + x,
-          position: new Vector2(gridCells(10 - x), gridCells(1 + x)),
-          textConfig: undefined,
-          type: this.enemies[x].type
-        });
-        this.addChild(tmpNpc);
-        console.log("added enemy: ", this.enemies[x]);
+        tmpEnemies.push(this.enemies[x]);
+        const spriteBody = this.enemies[x].body;
+        if (spriteBody) {
+          const newPosition = new Vector2(gridCells(10) - gridCells(2*x), gridCells(2) + gridCells(x));
+          spriteBody.position = newPosition;
+          const tmpNpc = new Sprite(-11245 + x, spriteBody.resource!, newPosition, spriteBody.scale,
+            spriteBody.frame, spriteBody.frameSize, spriteBody.hFrames, spriteBody.vFrames, spriteBody.animations, spriteBody.name);
+          this.addChild(tmpNpc);
+        } 
+        for (let y = 0; y < this.enemies[x].partnerNpcs.length; y++) {
+          tmpEnemies.push(this.enemies[x].partnerNpcs[y]);
+          const spriteBody2 = this.enemies[x].partnerNpcs[y].body;
+          if (spriteBody2) {
+            const newPosition2 = new Vector2(gridCells(10) - gridCells(2 * x) - gridCells(y) - gridCells(2), gridCells(1) + gridCells(x) + gridCells(y)); 
+            spriteBody2.position = newPosition2;
+            const tmpNpc2 = new Sprite(-12245 + x, spriteBody2.resource!, newPosition2, spriteBody2.scale,
+              spriteBody2.frame, spriteBody2.frameSize, spriteBody2.hFrames, spriteBody2.vFrames, spriteBody2.animations, spriteBody2.name);
+             this.addChild(tmpNpc2);
+          }
+        } 
       }
+      this.enemies = tmpEnemies;
     }
   }
 	private performAttackPhase() {
@@ -265,9 +277,9 @@ export class Fight extends Level {
 					return child.id === metaHero.id;
 				});
 				setTimeout(() => {
-					if (target) {
-						target.position = new Vector2(target.position.x - gridCells(2), 15 + (x * (gridCells(1))));
-						target.body.animations.play("standRight");
+					if (target) { 
+            target.body.animations.play("standRight");
+            target.facingDirection = "RIGHT";
 					}
 					this.playersPositioned = true;
 				}, 2000);

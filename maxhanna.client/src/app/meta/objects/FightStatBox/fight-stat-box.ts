@@ -1,4 +1,3 @@
-import { getCharacterWidth, getCharacterFrame } from "../SpriteTextString/sprite-font-map";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
 import { resources } from "../../helpers/resources"; 
@@ -11,7 +10,7 @@ export class FightStatBox extends GameObject {
   backdrop = new Sprite(
     0, resources.images["textBox"],
     new Vector2(0, 0),
-    new Vector2(0.4, 0.8),
+    new Vector2(0.65, 0.8),
     undefined,
     new Vector2(256, 64),
     undefined,
@@ -30,7 +29,7 @@ export class FightStatBox extends GameObject {
       this.showExp = config.showExp;
     }
     if (!this.showExp) {
-      this.backdrop.scale = new Vector2(0.4, 0.6);
+      this.backdrop.scale = new Vector2(0.6, 0.7);
     }
     const lvlString = " Lvl " + this.metabot.level;
     this.botNameSprite = new SpriteTextString(this.metabot.name ? this.metabot.name + lvlString : "Bot" + lvlString, new Vector2(-15, -5));

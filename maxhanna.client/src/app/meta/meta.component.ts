@@ -1,23 +1,13 @@
-import { Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, input } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { MetaHero } from '../../services/datacontracts/meta/meta-hero';
-import { Vector2 } from '../../services/datacontracts/meta/vector2';
-import { PseudoRandom } from '../../services/datacontracts/meta/pseudorandom';
+import { Vector2 } from '../../services/datacontracts/meta/vector2'; 
 import { User } from '../../services/datacontracts/user/user';
 import { MetaService } from '../../services/meta.service';
 import { MetaChat } from '../../services/datacontracts/meta/meta-chat';
-import { Sprite } from './objects/sprite';
-import { GameObject } from './objects/game-object';
-import { Camera } from './objects/camera';
-import { Inventory } from './objects/inventory';
-import { Exit } from './objects/Exit/exit';
-import { Animations } from './helpers/animations';
-import { UP, DOWN, LEFT, RIGHT, gridCells, isSpaceFree, snapToGrid } from './helpers/grid-cells';
-import { FrameIndexPattern } from './helpers/frame-index-pattern';
+import { gridCells, snapToGrid } from './helpers/grid-cells'; 
 import { GameLoop } from './helpers/game-loop';
 import { resources } from './helpers/resources';
-import { Input } from './helpers/input';
-import { moveTowards } from './helpers/move-towards';
 import { events } from './helpers/events';
 import { GOT_WATCH, storyFlags } from './helpers/story-flags';
 import { Hero } from './objects/Hero/hero';
@@ -26,13 +16,15 @@ import { HeroRoomLevel } from './levels/hero-room';
 import { Fight } from './levels/fight';
 import { CharacterCreate } from './levels/character-create';
 import { Level } from './objects/Level/level';
-import { SpriteTextStringWithBackdrop } from './objects/SpriteTextString/sprite-text-string-with-backdrop';
 import { CaveLevel1 } from './levels/cave-level1';
 import { HeroHomeLevel } from './levels/hero-home';
 import { BrushLevel1 } from './levels/brush-level1';
 import { MetaEvent } from '../../services/datacontracts/meta/meta-event';
 import { Npc } from './objects/Npc/npc';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
+import { RivalHomeLevel1 } from './levels/rival-home-level1';
+import { BrushShop1 } from './levels/brush-shop1';
+import { ShopMenu } from './objects/shop-menu';
 
 @Component({
   selector: 'app-meta',
@@ -65,6 +57,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   events: MetaEvent[] = [];
   latestMessagesMap = new Map<number, MetaChat>();
   stopChatScroll = false;
+  stopPollingForUpdates = false;
   isDecidingOnParty = false;
 
   private pollingInterval: any;
@@ -126,7 +119,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   private updatePlayers() {
-    if (this.metaHero && this.metaHero.id) {
+    if (this.metaHero && this.metaHero.id && !this.stopPollingForUpdates) {
       this.metaService.fetchGameData(this.metaHero).then(res => {
         if (res) {
           this.updateOtherHeroesBasedOnFetchedData(res);
@@ -178,10 +171,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  private addHeroToScene(hero: MetaHero) {
-    if (hero.id == this.metaHero.id) {
-      console.log("could not find existing hero for user so creating new one.");
-    }
+  private addHeroToScene(hero: MetaHero) { 
     const tmpHero = new Hero(
       hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x,
       hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y
@@ -284,15 +274,18 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     const itemsFoundNames = this.mainScene.inventory.getItemsFound();
 
     if (upperKey == "HEROROOM") return new HeroRoomLevel({ itemsFound: itemsFoundNames });
-    else if (upperKey == "CAVELEVEL1") return new CaveLevel1();
+    else if (upperKey == "CAVELEVEL1") return new CaveLevel1({ itemsFound: itemsFoundNames });
     else if (upperKey == "HEROHOME") return new HeroHomeLevel({ itemsFound: itemsFoundNames });
-    else if (upperKey == "BRUSHLEVEL1") return new BrushLevel1();
+    else if (upperKey == "RIVALHOMELEVEL1") return new RivalHomeLevel1({ itemsFound: itemsFoundNames });
+    else if (upperKey == "BRUSHLEVEL1") return new BrushLevel1({ itemsFound: itemsFoundNames });
+    else if (upperKey == "BRUSHSHOP1") return new BrushShop1({ itemsFound: itemsFoundNames });
     else if (upperKey == "FIGHT") return new Fight(
       {
         heroPosition: this.metaHero.position,
-        entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1() : this.getLevelFromLevelName(this.metaHero.map)),
+        entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFoundNames }) : this.getLevelFromLevelName(this.metaHero.map)),
         enemies: undefined,
-        party: [this.metaHero]
+        party: [this.metaHero],
+        itemsFound: itemsFoundNames 
       }
     );
     return new HeroRoomLevel();
@@ -300,20 +293,20 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
   private subscribeToMainGameEvents() {
-    events.on("CHANGE_LEVEL", this.mainScene, (newLevelInstance: Level) => {
+    events.on("CHANGE_LEVEL", this.mainScene, (level: Level) => {
       this.otherHeroes = [];
-      if (!this.pollingInterval) {
+      if (!this.hero.id) {
         this.pollForChanges();
       }
-      if (this.mainScene && this.mainScene.level) {
-        if (newLevelInstance.name != "Fight") {
-          this.metaHero.map = newLevelInstance?.name;
-          this.metaHero.position = newLevelInstance.getDefaultHeroPosition();
+      if (this.mainScene && this.mainScene.level) { 
+        if (level.name != "Fight") {
+          this.metaHero.map = level.name;
+          this.metaHero.position = level.getDefaultHeroPosition();
         }
         let i = 0;
         for (let pM of this.partyMembers) {
           const hero = this.mainScene.level.children.filter((x: any) => x.objectId == pM.id) as Hero;
-          hero.position = newLevelInstance.getDefaultHeroPosition();
+          hero.position = level.getDefaultHeroPosition();
           hero.position.y = hero.position.y + gridCells(i);
           i++;
           pM.position = hero.position.duplicate();
@@ -321,10 +314,17 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           if (otherHero) {
             otherHero.position = pM.position.duplicate();
           }
-        }
-      }
+        } 
+        this.mainScene.level.itemsFound = this.mainScene.inventory.getItemsFound();
+      }  
+    });
 
-
+    events.on("SHOP_OPENED", this, () => {
+      this.mainScene.level?.destroy();
+      const shopMenu = new ShopMenu();
+      this.mainScene.addChild(shopMenu);
+      this.mainScene.level = shopMenu;
+      this.stopPollingForUpdates = true;
     });
 
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
@@ -349,13 +349,16 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
       const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "START_FIGHT", this.metaHero.map, { "party_members": `${JSON.stringify(this.partyMembers)}`, "source": `${source.type}` })
       this.metaService.updateEvents(metaEvent);
-
-      events.emit("CHANGE_LEVEL", new Fight({
-        heroPosition: this.metaHero.position,
-        entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1() : this.getLevelFromLevelName(this.metaHero.map)),
-        enemies: source.partnerNpcs?.concat(source) ?? source,
-        party: this.partyMembers.length > 1 ? this.partyMembers : [this.metaHero]
-      }));
+      const itemsFound = this.mainScene.inventory.getItemsFound();
+      events.emit("CHANGE_LEVEL",  
+          new Fight({
+            heroPosition: this.metaHero.position,
+            entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFound }) : this.getLevelFromLevelName(this.metaHero.map)),
+            enemies: [source],
+            party: this.partyMembers.length > 1 ? this.partyMembers : [this.metaHero],
+            itemsFound: itemsFound
+          }) 
+      );
     });
 
     //Reposition Safely handler

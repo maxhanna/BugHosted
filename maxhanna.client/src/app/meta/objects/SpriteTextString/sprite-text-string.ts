@@ -1,9 +1,6 @@
-import { getCharacterWidth, getCharacterFrame, calculateWords } from "./sprite-font-map";
+import { calculateWords } from "./sprite-font-map";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
-import { resources } from "../../helpers/resources";
-import { events } from "../../helpers/events";
-import { gridCells } from "../../helpers/grid-cells";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Input } from "../../helpers/input";
 
@@ -21,6 +18,7 @@ export class SpriteTextString extends GameObject {
     super({ position: position });
     this.drawLayer = "HUD";
 
+    console.log(`attempting to write ${wordToWrite}`);
     const content = wordToWrite ?? "Default text!";
     this.words = calculateWords(content);
  

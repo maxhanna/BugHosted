@@ -1,6 +1,5 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { events } from "../helpers/events";
-import { Input } from "../helpers/input";
 import { Scenario, storyFlags } from "../helpers/story-flags";
 
 export class GameObject {
@@ -79,6 +78,7 @@ export class GameObject {
     });
   }
   getContent() {
+    console.log(this.textContent);
     if (!this.textContent) {
       return;
     }

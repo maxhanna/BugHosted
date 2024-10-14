@@ -1,9 +1,8 @@
-import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { InventoryItem } from "../InventoryItem/inventory-item";
-import { Sprite } from "../sprite";
-import { resources } from "../../helpers/resources"; 
-import { events } from "../../helpers/events";
-import { GOT_WATCH, storyFlags } from "../../helpers/story-flags";
+import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
+import { InventoryItem } from "../../InventoryItem/inventory-item";
+import { Sprite } from "../../sprite";
+import { resources } from "../../../helpers/resources"; 
+import { events } from "../../../helpers/events";
 
 export class Watch extends InventoryItem {
   constructor(data: { position: Vector2, id: number }) {
@@ -13,12 +12,13 @@ export class Watch extends InventoryItem {
       0,
       resources.images["watch"],
       new Vector2(0, -10),
-      new Vector2(0.65, 0.65),
+      new Vector2(0.6, 0.6),
       undefined,
       new Vector2(22, 24),
       undefined,
       undefined,
-      undefined
+      undefined,
+      'Watch'
     );
     this.addChild(sprite); 
   }

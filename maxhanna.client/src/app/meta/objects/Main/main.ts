@@ -1,9 +1,7 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { GameObject } from "../game-object";
-import { Sprite } from "../sprite";
 import { Camera } from "../camera";
 import { Inventory } from "../inventory";
-import { resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
 import { Input } from "../../helpers/input";
 import { storyFlags } from "../../helpers/story-flags";
@@ -24,15 +22,15 @@ export class Main extends GameObject {
     this.addChild(this.inventory);
 
     //CHANGE LEVEL HANDLER
-    events.on("CHANGE_LEVEL", this, (newLevelInstance: Level) => {
-      this.setLevel(newLevelInstance);
+    events.on("CHANGE_LEVEL", this, (level: Level) => {
+      this.setLevel(level);
     });
 
     //LAUNCH TEXT BOX HANDLER
-    events.on("HERO_REQUESTS_ACTION", this, (withObject: any) => {
-
+    events.on("HERO_REQUESTS_ACTION", this, (withObject: any) => { 
       if (typeof withObject.getContent === "function") {
         const content = withObject.getContent();
+        console.log(content);
         if (!content) {
           return;
         }

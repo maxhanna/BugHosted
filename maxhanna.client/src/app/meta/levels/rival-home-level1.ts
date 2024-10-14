@@ -9,15 +9,14 @@ import { Sprite } from "../objects/sprite";
 import { BrushLevel1 } from "./brush-level1";
 import { HeroRoomLevel } from "./hero-room";
 import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
-import { Npc } from "../objects/Npc/npc";
-import { Mom } from "../objects/Npc/Mom/mom";
+import { Npc } from "../objects/Npc/npc"; 
 
 
-export class HeroHomeLevel extends Level { 
+export class RivalHomeLevel1 extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super(); 
-    this.name = "HeroHome";
+    this.name = "RivalHomeLevel1";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
     }
@@ -170,10 +169,6 @@ export class HeroHomeLevel extends Level {
     this.addChild(carpet2);
 
 
-    const mom = new Mom(gridCells(13), gridCells(6)); 
-    this.addChild(mom);
-
-
     const exitBackToRoom = new Exit(gridCells(18), gridCells(2), true, (Math.PI * 3) / 2);
     exitBackToRoom.targetMap = "HeroRoom";
     this.addChild(exitBackToRoom);
@@ -201,7 +196,7 @@ export class HeroHomeLevel extends Level {
         events.emit("CHANGE_LEVEL", new HeroRoomLevel({ heroPosition: new Vector2(gridCells(18), gridCells(2)), itemsFound: this.itemsFound }));
       }
       else if (targetMap === "BrushLevel1") {
-        events.emit("CHANGE_LEVEL", new BrushLevel1({ itemsFound: this.itemsFound }));
+        events.emit("CHANGE_LEVEL", new BrushLevel1({ heroPosition: new Vector2(gridCells(13), gridCells(10)), itemsFound: this.itemsFound }));
       }
     })
   }

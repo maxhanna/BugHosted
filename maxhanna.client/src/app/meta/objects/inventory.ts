@@ -29,12 +29,10 @@ export class Inventory extends GameObject {
       }
     });
 
-    events.on("INVENTORY_UPDATED", this, (data: { id: number, image: any, name: string  }) => {
-      //Show something on the screen.
-      console.log("got inventory updated ", data);
+    events.on("INVENTORY_UPDATED", this, (data: { id: number, image: any, name: string }) => {
       const itemData = { id: data.id, image: data.image, name: data.name };
       this.items.push(itemData);
-      this.renderInventory(); 
+      this.renderInventory();
     });
 
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: MetaHero[] }) => {
@@ -46,13 +44,13 @@ export class Inventory extends GameObject {
           }
         }
         this.renderInventory();
-      } 
+      }
     });
 
     events.on("START_PRESSED", this, (data: any) => {
       if (!this.items || this.items.length === 0) return;
       let currentId = undefined;
-      let itemIndex = this.children.findIndex((x: any) => x.isItemSelected); 
+      let itemIndex = this.children.findIndex((x: any) => x.isItemSelected);
       if (itemIndex > -1) {
         this.children[itemIndex].isItemSelected = false;
         itemIndex++;
@@ -60,7 +58,7 @@ export class Inventory extends GameObject {
         if (nextItem) {
           nextItem.isItemSelected = true;
           currentId = nextItem.objectId;
-        } else { 
+        } else {
           itemIndex = 0;
         }
       } else if (this.children && this.children.length > 0) {
@@ -69,13 +67,11 @@ export class Inventory extends GameObject {
         itemIndex = 0;
       }
       this.currentlySelectedId = currentId;
-      console.log("current item selected: " + this.currentlySelectedId);
-      console.log("current items: ", this.items); 
     });
 
 
-    events.on("SPACEBAR_PRESSED", this, (data: any) => { 
-      if (this.getCurrentlySelectedItem().toLowerCase() == "watch") { 
+    events.on("SPACEBAR_PRESSED", this, (data: any) => {
+      if (this.getCurrentlySelectedItem().toLowerCase() == "watch") {
         events.emit("REPOSITION_SAFELY");
         this.deselectSelectedItem();
       }
@@ -88,8 +84,8 @@ export class Inventory extends GameObject {
   }
 
   private deselectSelectedItem() {
-      this.children.forEach((x: any) => x.isItemSelected = false);
-      this.currentlySelectedId = undefined;
+    this.children.forEach((x: any) => x.isItemSelected = false);
+    this.currentlySelectedId = undefined;
   }
 
   getCurrentlySelectedItem() {
@@ -124,6 +120,10 @@ export class Inventory extends GameObject {
     return itemsFoundNames;
   }
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+    this.drawItemSelectionBox(ctx);  //Draws a red box around the currently selected inventory item;
+  }
+
+  private drawItemSelectionBox(ctx: CanvasRenderingContext2D) {
     const selectedChild = this.children.find((x: any) => x.isItemSelected);
     if (selectedChild) {
       const drawPos = selectedChild.position.duplicate();
@@ -168,7 +168,5 @@ export class Inventory extends GameObject {
       ctx.lineTo(drawPos.x + width, drawPos.y + height - cornerSize);
       ctx.stroke();
     }
-
-
   }
 }

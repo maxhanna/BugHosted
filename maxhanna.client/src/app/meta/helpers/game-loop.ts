@@ -1,6 +1,3 @@
-import { Sprite } from "../objects/sprite";
-import { FrameIndexPattern } from "./frame-index-pattern";
-
 export class GameLoop {
   lastFrameTime = 0;
   accumulatedTime = 0;

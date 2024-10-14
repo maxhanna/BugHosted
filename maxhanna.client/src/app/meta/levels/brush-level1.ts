@@ -2,27 +2,32 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
-import { Exit } from "../objects/Exit/exit";
+import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
-import { Watch } from "../objects/Watch/watch";
+import { BrushShop1 } from "./brush-shop1";
+import { RivalHomeLevel1 } from "./rival-home-level1";
+import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite"; 
 import { CaveLevel1 } from "./cave-level1";
 import { HeroHomeLevel } from "./hero-home";
 import { GOT_WATCH, START_FIGHT, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc";
+import { Referee } from "../objects/Npc/Referee/referee";
 import { Animations } from "../helpers/animations";
 import { STAND_DOWN } from "../objects/Hero/hero-animations";
 import { FrameIndexPattern } from "../helpers/frame-index-pattern";
 import { MetaBot, SPEED_TYPE } from "../../../services/datacontracts/meta/meta-bot";
-import { Chicken } from "../objects/Chicken/chicken";
-import { House } from "../objects/House/house";
-import { Deer } from "../objects/Deer/deer";
-import { Water } from "../objects/Water/water";
+import { Chicken } from "../objects/Environment/Chicken/chicken";
+import { House } from "../objects/Environment/House/house";
+import { Shop } from "../objects/Environment/Shop/shop";
+import { Deer } from "../objects/Environment/Deer/deer";
+import { Water } from "../objects/Environment/Water/water";
+import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
  
 
 export class BrushLevel1 extends Level { 
-  override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
-  constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
+  override defaultHeroPosition = new Vector2(gridCells(13), gridCells(29));
+  constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined }) {
     super();
     this.name = "BrushLevel1";
     if (params.heroPosition) {
@@ -31,36 +36,79 @@ export class BrushLevel1 extends Level {
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
     }
-
-  
+     
     const whiteBg = new Sprite(
-      0, resources.images["white"], new Vector2(0, 0), new Vector2(1000, 1000), 1, new Vector2(2, 2)
+      0, resources.images["white"], new Vector2(-150, -100), new Vector2(450, 400), 1, new Vector2(2, 2)
     );
     whiteBg.drawLayer = "FLOOR";
     this.addChild(whiteBg);
 
-       
-     
+    for (let x = 0; x < 24; x++) {
+      for (let y = 0; y < 22; y++) {
+        const grass = new Sprite(0, resources.images["shortgrass"], new Vector2(gridCells(2*x), gridCells(2*y)), undefined, undefined, new Vector2(32, 32));
+        grass.drawLayer = "FLOOR";
+        this.addChild(grass);
+      }
+    }
 
-    const house = new House( gridCells(8), gridCells(12) ); 
-    this.addChild(house);
+    for (let x = 0; x < 3; x++) {
+      const water = new Water(gridCells(2 * x) + gridCells(31), gridCells(2));
+      water.drawLayer = "FLOOR";
+      this.addChild(water);
+      const water2 = new Water(gridCells(2 * x) + gridCells(31), gridCells(4));
+      water2.drawLayer = "FLOOR";
+      this.addChild(water2);
+      const water3 = new Water(gridCells(2 * x) + gridCells(31), gridCells(6));
+      water3.drawLayer = "FLOOR";
+      this.addChild(water3);
+    }
 
+
+    for (let x = 0; x < 10; x++) {
+      const brickRoad = new Sprite(
+        0, resources.images["brickRoad"], new Vector2(gridCells(0) + gridCells(2 * x), gridCells(12)), undefined, 1, new Vector2(32, 32)
+      );
+      brickRoad.drawLayer = "FLOOR";
+      this.addChild(brickRoad);
+      const brickRoad2 = new Sprite(
+        0, resources.images["brickRoad"], new Vector2(gridCells(0) + gridCells(2 * x), gridCells(14)), undefined, 1, new Vector2(32, 32)
+      );
+      brickRoad2.drawLayer = "FLOOR";
+      this.addChild(brickRoad2);
+    }
+
+
+    const house = new House(gridCells(8), gridCells(28));
+    this.addChild(house); 
     const sign = new Sprite(
-      0, resources.images["sign"], new Vector2(gridCells(5), gridCells(14)), undefined, 1, new Vector2(16, 16)
+      0, resources.images["sign"], new Vector2(gridCells(17), gridCells(29)), undefined, 1, new Vector2(16, 18)
     );
     sign.isSolid = true; 
     sign.textContent = [
       {
-        string: [`Your House.`],
+        string: [`Home.`],
       } as Scenario,
     ];
     this.addChild(sign); 
 
-    const rivalHouse = new House(gridCells(8), gridCells(3));
-    this.addChild(rivalHouse); 
 
+    const shop = new Shop(gridCells(25), gridCells(17));
+    this.addChild(shop); 
+    const shopSign = new Sprite(
+      0, resources.images["sign2"], new Vector2(gridCells(32), gridCells(18)), undefined, 1, new Vector2(16, 18)
+    );
+    shopSign.isSolid = true;
+    shopSign.textContent = [
+      {
+        string: [`Local Meta-Shop.`],
+      } as Scenario,
+    ];
+    this.addChild(shopSign);
+
+    const rivalHouse = new House(gridCells(8), gridCells(10));
+    this.addChild(rivalHouse);
     const rivalSign = new Sprite(
-      0, resources.images["sign"], new Vector2(gridCells(5), gridCells(8)), undefined, 1, new Vector2(16, 16)
+      0, resources.images["sign"], new Vector2(gridCells(17), gridCells(11)), undefined, 1, new Vector2(16, 18)
     );
     rivalSign.isSolid = true;
     rivalSign.textContent = [
@@ -70,76 +118,39 @@ export class BrushLevel1 extends Level {
     ];
     this.addChild(rivalSign);
 
-
-    for (let x = 0; x < 3; x++) {
-      const water = new Water(gridCells(2 * x) + gridCells(25), gridCells(7));
-      water.drawLayer = "FLOOR";
-      this.addChild(water);
-    }
-    for (let x = 0; x < 3; x++) {
-      const water = new Water(gridCells(2 * x) + gridCells(25), gridCells(9));
-      water.drawLayer = "FLOOR";
-      this.addChild(water);
-    }
-    for (let x = 0; x < 3; x++) {
-      const water = new Water(gridCells(2 * x) + gridCells(25), gridCells(11));
-      water.drawLayer = "FLOOR";
-      this.addChild(water);
-    }
-
-
-    for (let x = 0; x < 3; x++) {
-      const brickRoad = new Sprite(
-        0, resources.images["brickRoad"], new Vector2(gridCells(22) + gridCells(2*x), gridCells(12)), undefined, 1, new Vector2(32, 32)
-      );
-      brickRoad.drawLayer = "FLOOR";
-      this.addChild(brickRoad);
-    }
-
-    const tree = new Sprite(
-      0, resources.images["tree"], new Vector2(gridCells(28), gridCells(8)), undefined, 1, new Vector2(128, 128)
-    );
-    tree.isSolid = true;
+    const tree = new GiantTree(gridCells(32), gridCells(32)); 
     this.addChild(tree);
 
-    const chicken = new Chicken(gridCells(7), gridCells(7));
+    const chicken = new Chicken(gridCells(20), gridCells(25));
     this.addChild(chicken);
+    const chicken2 = new Chicken(gridCells(25), gridCells(20));
+    this.addChild(chicken2);
 
-    const deer = new Deer(gridCells(10), gridCells(8));
+    const deer = new Deer(gridCells(28), gridCells(32));
     this.addChild(deer);
 
-    const referee = new Npc({
-      id: -27, position: new Vector2(gridCells(5), gridCells(5)), textConfig: {
-        content: [
-          {
-            string: ["You want a fight?!"],
-            addsFlag: START_FIGHT,
-          } as Scenario
-        ],
-        portraitFrame: 2,
-      }, type: "referee"
-    });
+    const referee = new Referee(gridCells(5), gridCells(5));
+    referee.textContent = [
+      {
+        string: ["You want a fight?!"],
+        addsFlag: START_FIGHT,
+      } as Scenario
+    ]; 
+
     const refereeMetabot = new MetaBot(-146, referee.id, SPEED_TYPE, "Wasp", false, new Vector2(0, 0));
     refereeMetabot.hp = 10;
     refereeMetabot.level = 5;
     referee.metabots.push(refereeMetabot);
     this.addChild(referee);
 
-
-    const referee2 = new Npc({
-      id: -124,
-      position: new Vector2(gridCells(5), gridCells(10)),
-      textConfig: {
-        content: [
-          {
-            string: ["You want to fight both of us huh?!"],
-            addsFlag: START_FIGHT,
-          } as Scenario
-        ],
-        portraitFrame: 2,
-      },
-      type: "referee"
-    });
+    const referee2 = new Referee(gridCells(5), gridCells(25));
+    referee2.textContent = [
+      {
+        string: ["You want to fight both of us huh?!"],
+        addsFlag: START_FIGHT,
+      } as Scenario
+    ];
+    
     const refereeMetabot2 = new MetaBot(-145, referee2.id, SPEED_TYPE, "Zippy", false, new Vector2(0, 0));
     refereeMetabot2.level = 5;
     referee2.metabots.push(refereeMetabot2);
@@ -164,13 +175,13 @@ export class BrushLevel1 extends Level {
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        0, resources.images["fenceHorizontal"], new Vector2(x * gridCells(1), gridCells(18)), undefined, 1, new Vector2(16, 16)
+        0, resources.images["fenceHorizontal"], new Vector2(x * gridCells(1), gridCells(35)), undefined, 1, new Vector2(16, 16)
       );
       fence2.isSolid = true;
       this.addChild(fence2);
     }
 
-    for (let y = 0; y < 37; y++) {
+    for (let y = 0; y < 70; y++) {
       const fence = new Sprite(
         0, resources.images["fenceVertical"], new Vector2(gridCells(0), y * gridCells(1) / 2), undefined, 1, new Vector2(16, 16)
       );
@@ -184,15 +195,28 @@ export class BrushLevel1 extends Level {
       this.addChild(fence2);
     }
 
-    for (let y = 0; y < 37; y++) {
+    for (let x = 0; x < 38; x++) {
       const bb = new Sprite(
-        0, resources.images["biggerBush"], new Vector2(gridCells(-1), gridCells(y)/2), undefined, 1, new Vector2(15, 17)
+        0, resources.images["biggerBush"], new Vector2(x * gridCells(1), gridCells(0)), undefined, 1, new Vector2(15, 17)
       );
       bb.isSolid = true;
       this.addChild(bb);
 
       const bb2 = new Sprite(
-        0, resources.images["biggerBush"], new Vector2(gridCells(38), gridCells(y)/2), undefined, 1, new Vector2(15, 17)
+        0, resources.images["biggerBush"], new Vector2(x * gridCells(1), gridCells(36)), undefined, 1, new Vector2(15, 17)
+      );
+      bb2.isSolid = true;
+      this.addChild(bb2);
+    }
+    for (let y = 0; y < 72; y++) {
+      const bb = new Sprite(
+        0, resources.images["biggerBush"], new Vector2(gridCells(-1), gridCells(y) / 2), undefined, 1, new Vector2(15, 17)
+      );
+      bb.isSolid = true;
+      this.addChild(bb);
+
+      const bb2 = new Sprite(
+        0, resources.images["biggerBush"], new Vector2(gridCells(38), gridCells(y) / 2), undefined, 1, new Vector2(15, 17)
       );
       bb2.isSolid = true;
       this.addChild(bb2);
@@ -200,7 +224,7 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 10; x++) {
       const shrub = new Sprite(
-        0, resources.images["shrub"], new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(5)), new Vector2(0.45, 0.45), 1, new Vector2(56, 56)
+        0, resources.images["shrub"], new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(15)), new Vector2(0.55, 0.55), 1, new Vector2(56, 56)
       );
       this.addChild(shrub);
     }
@@ -212,9 +236,17 @@ export class BrushLevel1 extends Level {
     this.addChild(flowerBush);
 
 
-    const heroHomeExit = new Exit(gridCells(18), gridCells(2), true, (Math.PI * 3) / 2);
+    const heroHomeExit = new Exit(gridCells(13), gridCells(28), false, (Math.PI * 3) / 2);
     heroHomeExit.targetMap = "HeroHome";
-    this.addChild(heroHomeExit);
+    this.addChild(heroHomeExit); 
+
+    const rivalHomeExit = new Exit(gridCells(13), gridCells(10), true, (Math.PI * 3) / 2);
+    rivalHomeExit.targetMap = "RivalHomeLevel1";
+    this.addChild(rivalHomeExit);
+
+    const shopExit = new Exit(gridCells(30), gridCells(17), false, (Math.PI * 3) / 2);
+    shopExit.targetMap = "BrushShop1";
+    this.addChild(shopExit);
     //Walls: 
   }
 
@@ -222,10 +254,22 @@ export class BrushLevel1 extends Level {
     events.on("HERO_EXITS", this, (targetMap: string) => {
       if (targetMap === "HeroHome") {
         events.emit("CHANGE_LEVEL", new HeroHomeLevel({
-          heroPosition: new Vector2(gridCells(10), gridCells(11))
-        })); 
-      } 
-    })
-
-   }
+          heroPosition: new Vector2(gridCells(10), gridCells(11)), itemsFound: this.itemsFound
+        }));
+      }
+      if (targetMap === "BrushShop1") {
+        events.emit("CHANGE_LEVEL", new BrushShop1({
+          heroPosition: new Vector2(gridCells(3), gridCells(8)), itemsFound: this.itemsFound
+        }));
+      }
+      if (targetMap === "RivalHomeLevel1") {
+        events.emit("CHANGE_LEVEL", new RivalHomeLevel1({
+          heroPosition: new Vector2(gridCells(10), gridCells(11)), itemsFound: this.itemsFound
+        }));
+      }
+    }); 
+  }
+  override getDefaultHeroPosition() {
+    return this.defaultHeroPosition;
+  }
 }
