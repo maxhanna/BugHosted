@@ -38,14 +38,14 @@ export class BrushLevel1 extends Level {
     }
      
     const whiteBg = new Sprite(
-      0, resources.images["white"], new Vector2(-150, -100), new Vector2(450, 400), 1, new Vector2(2, 2)
+      { objectId: 0, resource: resources.images["white"], position: new Vector2(-150, -100), scale: new Vector2(450, 400), frame: 1, frameSize: new Vector2(2, 2) }
     );
     whiteBg.drawLayer = "FLOOR";
     this.addChild(whiteBg);
 
     for (let x = 0; x < 24; x++) {
       for (let y = 0; y < 22; y++) {
-        const grass = new Sprite(0, resources.images["shortgrass"], new Vector2(gridCells(2*x), gridCells(2*y)), undefined, undefined, new Vector2(32, 32));
+        const grass = new Sprite({ objectId: 0, resource: resources.images["shortgrass"], position: new Vector2(gridCells(2 * x), gridCells(2 * y)), frameSize: new Vector2(32, 32) });
         grass.drawLayer = "FLOOR";
         this.addChild(grass);
       }
@@ -66,12 +66,12 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 10; x++) {
       const brickRoad = new Sprite(
-        0, resources.images["brickRoad"], new Vector2(gridCells(0) + gridCells(2 * x), gridCells(12)), undefined, 1, new Vector2(32, 32)
+        { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(0) + gridCells(2 * x), gridCells(12)), frame: 1, frameSize: new Vector2(32, 32) }
       );
       brickRoad.drawLayer = "FLOOR";
       this.addChild(brickRoad);
       const brickRoad2 = new Sprite(
-        0, resources.images["brickRoad"], new Vector2(gridCells(0) + gridCells(2 * x), gridCells(14)), undefined, 1, new Vector2(32, 32)
+        { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(0) + gridCells(2 * x), gridCells(14)), frameSize: new Vector2(32, 32) }
       );
       brickRoad2.drawLayer = "FLOOR";
       this.addChild(brickRoad2);
@@ -81,7 +81,7 @@ export class BrushLevel1 extends Level {
     const house = new House(gridCells(8), gridCells(28));
     this.addChild(house); 
     const sign = new Sprite(
-      0, resources.images["sign"], new Vector2(gridCells(17), gridCells(29)), undefined, 1, new Vector2(16, 18)
+      { objectId: 0, resource: resources.images["sign"], position: new Vector2(gridCells(17), gridCells(29)), frameSize: new Vector2(16, 18) }
     );
     sign.isSolid = true; 
     sign.textContent = [
@@ -95,7 +95,7 @@ export class BrushLevel1 extends Level {
     const shop = new Shop(gridCells(25), gridCells(17));
     this.addChild(shop); 
     const shopSign = new Sprite(
-      0, resources.images["sign2"], new Vector2(gridCells(32), gridCells(18)), undefined, 1, new Vector2(16, 18)
+      { resource: resources.images["sign2"], position: new Vector2(gridCells(32), gridCells(18)), frameSize: new Vector2(16, 18) }
     );
     shopSign.isSolid = true;
     shopSign.textContent = [
@@ -108,7 +108,7 @@ export class BrushLevel1 extends Level {
     const rivalHouse = new House(gridCells(8), gridCells(10));
     this.addChild(rivalHouse);
     const rivalSign = new Sprite(
-      0, resources.images["sign"], new Vector2(gridCells(17), gridCells(11)), undefined, 1, new Vector2(16, 18)
+      { resource: resources.images["sign"], position: new Vector2(gridCells(17), gridCells(11)), frameSize: new Vector2(16, 18) }
     );
     rivalSign.isSolid = true;
     rivalSign.textContent = [
@@ -160,7 +160,7 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 43; x++) {
       const goldPath = new Sprite(
-        0, resources.images["goldenPath"], new Vector2(x * 14, 0), new Vector2(1, 1), 1, new Vector2(14, 16)
+        { resource: resources.images["goldenPath"], position: new Vector2(x * 14, 0), frameSize: new Vector2(14, 16) }
       );
       goldPath.drawLayer = "FLOOR";
       this.addChild(goldPath);
@@ -169,13 +169,13 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 38; x++) {
       const fence = new Sprite(
-        0, resources.images["fenceHorizontal"], new Vector2(x * gridCells(1), gridCells(1)), undefined, 1, new Vector2(16, 16)
+        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16) }
       );
       fence.isSolid = true;
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        0, resources.images["fenceHorizontal"], new Vector2(x * gridCells(1), gridCells(35)), undefined, 1, new Vector2(16, 16)
+        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(35)), frameSize: new Vector2(16, 16) }
       );
       fence2.isSolid = true;
       this.addChild(fence2);
@@ -183,13 +183,13 @@ export class BrushLevel1 extends Level {
 
     for (let y = 0; y < 70; y++) {
       const fence = new Sprite(
-        0, resources.images["fenceVertical"], new Vector2(gridCells(0), y * gridCells(1) / 2), undefined, 1, new Vector2(16, 16)
+        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(0), y * gridCells(1) / 2), frameSize: new Vector2(16, 16) }
       );
       fence.isSolid = true;
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        0, resources.images["fenceVertical"], new Vector2(gridCells(37), y * gridCells(1) / 2), undefined, 1, new Vector2(16, 16)
+        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16) }
       );
       fence2.isSolid = true;
       this.addChild(fence2);
@@ -197,26 +197,26 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 38; x++) {
       const bb = new Sprite(
-        0, resources.images["biggerBush"], new Vector2(x * gridCells(1), gridCells(0)), undefined, 1, new Vector2(15, 17)
+        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(0)), frameSize: new Vector2(15, 17) }
       );
       bb.isSolid = true;
       this.addChild(bb);
 
       const bb2 = new Sprite(
-        0, resources.images["biggerBush"], new Vector2(x * gridCells(1), gridCells(36)), undefined, 1, new Vector2(15, 17)
+        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17) }
       );
       bb2.isSolid = true;
       this.addChild(bb2);
     }
     for (let y = 0; y < 72; y++) {
       const bb = new Sprite(
-        0, resources.images["biggerBush"], new Vector2(gridCells(-1), gridCells(y) / 2), undefined, 1, new Vector2(15, 17)
+        { resource: resources.images["biggerBush"], position: new Vector2(gridCells(-1), gridCells(y) / 2), frameSize: new Vector2(15, 17) }
       );
       bb.isSolid = true;
       this.addChild(bb);
 
       const bb2 = new Sprite(
-        0, resources.images["biggerBush"], new Vector2(gridCells(38), gridCells(y) / 2), undefined, 1, new Vector2(15, 17)
+        { resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17) }
       );
       bb2.isSolid = true;
       this.addChild(bb2);
@@ -224,14 +224,16 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 10; x++) {
       const shrub = new Sprite(
-        0, resources.images["shrub"], new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(15)), new Vector2(0.55, 0.55), 1, new Vector2(56, 56)
+        { resource: resources.images["shrub"], position: new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(15)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
       );
       this.addChild(shrub);
     }
 
     const flowerBush = new Sprite(
-      0, resources.images["flowerbush"], new Vector2(gridCells(2), gridCells(2)), undefined, 1, new Vector2(18, 64), 4, 1,
-      new Animations({ standDown: new FrameIndexPattern(STAND_DOWN) })
+      {
+        resource: resources.images["flowerbush"], position: new Vector2(gridCells(2), gridCells(2)), frameSize: new Vector2(18, 64), hFrames: 4, vFrames: 1,
+        animations: new Animations({ standDown: new FrameIndexPattern(STAND_DOWN) })
+      }
     );
     this.addChild(flowerBush);
 

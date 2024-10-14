@@ -8,25 +8,25 @@ import { events } from "../../../helpers/events";
 import { WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT } from "./salesman-animations";
 import { Npc } from "../npc";
 import { ShopMenu } from "../../shop-menu";
+import { Level } from "../../Level/level";
 
 export class Salesman extends Npc {
   directionIndex = 0;
+  heroPosition: Vector2;
+  entranceLevel: Level;
 
-  constructor(x: number, y: number) {
+  constructor(params: { position: Vector2, heroPosition: Vector2, entranceLevel: Level }) {
     super({
       id: 0,
-      position: new Vector2(x, y),
+      position: params.position,
       type: "salesPerson", 
-      body: new Sprite(
-        0,
-        resources.images["salesPerson"],
-        new Vector2(-7, -20),
-        new Vector2(1, 1),
-        undefined,
-        new Vector2(32, 32),
-        4,
-        4,
-        new Animations(
+      body: new Sprite({
+        resource:  resources.images["salesPerson"],
+        position: new Vector2(-7, -20),
+        frameSize: new Vector2(32, 32),
+        hFrames: 4,
+        vFrames: 4,
+        animations: new Animations(
           { 
             walkLeft: new FrameIndexPattern(WALK_LEFT),
             walkRight: new FrameIndexPattern(WALK_RIGHT),
@@ -34,23 +34,20 @@ export class Salesman extends Npc {
             standRight: new FrameIndexPattern(STAND_RIGHT),
             standLeft: new FrameIndexPattern(STAND_LEFT), 
           })
-      )
+      })
     }) 
     this.name = "salesPerson";
     this.type = "salesPerson";
     this.id = -22274; 
     this.textPortraitFrame = 1;
-    const shadow = new Sprite(
-      0,
-      resources.images["shadow"],
-      new Vector2(-16, -16),
-      new Vector2(1.25, 1),
-      undefined,
-      new Vector2(32, 32),
-      undefined,
-      undefined,
-      undefined
-    );
+    this.entranceLevel = params.entranceLevel;
+    this.heroPosition = params.heroPosition;
+    const shadow = new Sprite({
+      resource: resources.images["shadow"],
+      position: new Vector2(params.position.x - 16, params.position.y-16),
+      scale: new Vector2(1.25, 1),
+      frameSize: new Vector2(32, 32),
+    });
     this.addChild(shadow); 
   }
 
@@ -72,7 +69,7 @@ export class Salesman extends Npc {
     events.on("SELECTED_ITEM", this, (selectedItem: string) => {
       console.log(selectedItem);
       if (selectedItem === "Shop") {
-        events.emit("SHOP_OPENED");
+        events.emit("SHOP_OPENED", { heroPosition: this.heroPosition, entranceLevel: this.entranceLevel });
       }
     }); 
   }

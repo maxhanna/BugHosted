@@ -28,44 +28,46 @@ export class BrushShop1 extends Level {
 
     for (let x = 0; x < gridCells(7); x += gridCells(2)) { // Increment by 25
       for (let y = 0; y < gridCells(7); y += gridCells(2)) { // Increment by 27
-        const shopFloor = new Sprite(0, resources.images["shopFloor"], new Vector2(x, y), undefined, undefined, new Vector2(32, 32));
+        const shopFloor = new Sprite(
+          { resource: resources.images["shopFloor"], position: new Vector2(x, y), frameSize: new Vector2(32, 32) }
+        );
         shopFloor.drawLayer = "FLOOR";
         this.addChild(shopFloor);
       }
     }
 
     const cornercounter = new Sprite(
-      0, resources.images["cornercounter"], new Vector2(gridCells(0), gridCells(-1)), undefined, undefined, new Vector2(33, 49)
+      { resource: resources.images["cornercounter"], position: new Vector2(gridCells(0), gridCells(-1)), frameSize: new Vector2(33, 49) }
     );
     cornercounter.isSolid = true;
     this.addChild(cornercounter);
 
 
     const botCasing = new Sprite(
-      0, resources.images["botcasing"], new Vector2(gridCells(2), gridCells(-1)), undefined, undefined, new Vector2(35, 35)
+      { resource: resources.images["botcasing"], position: new Vector2(gridCells(2), gridCells(-1)), frameSize: new Vector2(35, 35) }
     );
     this.addChild(botCasing);
 
     const botFrame = new Sprite(
-      0, resources.images["botFrame"], new Vector2(gridCells(2), gridCells(-1) + 3), undefined, undefined, new Vector2(32, 32)
+      { resource: resources.images["botFrame"], position: new Vector2(gridCells(2), gridCells(-1) + 3), frameSize: new Vector2(32, 32) }
     );
     this.addChild(botFrame);
 
 
 
     const botCasing2 = new Sprite(
-      0, resources.images["botcasing"], new Vector2(gridCells(4), gridCells(-1)), undefined, undefined, new Vector2(35, 35)
+      { resource: resources.images["botcasing"], position: new Vector2(gridCells(4), gridCells(-1)), frameSize: new Vector2(35, 35) }
     );
     this.addChild(botCasing2);
 
     const botFrame2 = new Sprite(
-      0, resources.images["botFrame"], new Vector2(gridCells(4)+2, gridCells(-1) + 3), undefined, undefined, new Vector2(32, 32)
+      { resource: resources.images["botFrame"], position: new Vector2(gridCells(4) + 2, gridCells(-1) + 3), frameSize: new Vector2(32, 32) }
     );
     this.addChild(botFrame2);
 
 
     const cornercounter2 = new Sprite(
-      0, resources.images["cornercounter"], new Vector2(gridCells(6), gridCells(-1)), undefined, undefined, new Vector2(33, 49)
+      { resource: resources.images["cornercounter"], position: new Vector2(gridCells(6), gridCells(-1)), frameSize: new Vector2(33, 49) }
     );
     cornercounter2.flipX = true;
     cornercounter2.isSolid = true;
@@ -75,14 +77,14 @@ export class BrushShop1 extends Level {
     for (let x = 0; x < 3; x++) {
 
       const counterNoLedge = new Sprite(
-        0, resources.images["counterNoLedge"], new Vector2(gridCells(5), gridCells(2) + gridCells(x)), undefined, undefined, new Vector2(16, 32)
+        { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5), gridCells(2) + gridCells(x)), frameSize: new Vector2(16, 32) }
       ); 
       counterNoLedge.isSolid = true;
       this.addChild(counterNoLedge); 
     }
 
 
-    const salesman = new Salesman(gridCells(5), gridCells(3));
+    const salesman = new Salesman({ position: new Vector2(gridCells(5), gridCells(3)), heroPosition: new Vector2(gridCells(3), gridCells(3)), entranceLevel: this });
     if (salesman.body) {
       salesman.body.position.x += 16;
     }
@@ -96,23 +98,21 @@ export class BrushShop1 extends Level {
     salesman.body?.animations?.play("standLeft"); 
     this.addChild(salesman);
 
-    const carpet1 = new Sprite(
-      0,
-      resources.images["carpet"],
-      new Vector2(gridCells(2), gridCells(6)),
-      undefined,
-      undefined,
-      new Vector2(32, 32)
+    const carpet1 = new Sprite(  
+       {
+        resource: resources.images["carpet"],
+        position: new Vector2(gridCells(2), gridCells(6)),
+        frameSize: new Vector2(32, 32)
+      }
     );
     carpet1.drawLayer = "FLOOR";
     this.addChild(carpet1);
     const carpet2 = new Sprite(
-      0,
-      resources.images["carpet"],
-      new Vector2(gridCells(3), gridCells(6)), 
-      undefined,
-      undefined,
-      new Vector2(32, 32)
+      {
+        resource: resources.images["carpet"],
+        position: new Vector2(gridCells(3), gridCells(6)),
+        frameSize: new Vector2(32, 32)
+      }
     );
     carpet2.drawLayer = "FLOOR";
     this.addChild(carpet2);

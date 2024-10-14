@@ -49,7 +49,7 @@ export class Fight extends Level {
 		super();
 		this.name = "Fight";
 		this.background = new Sprite(
-			0, resources.images["bedroomFloor"], new Vector2(-120, -100), undefined, 1, new Vector2(320, 220)
+      { resource: resources.images["bedroomFloor"], position: new Vector2(-120, -100), frameSize: new Vector2(320, 220) }
 		);
     this.walls = new Set<string>();
     this.fightMenu = new FightMenu({ entranceLevel: params.entryLevel, entrancePosition: params.heroPosition, itemsFound: params.itemsFound })
@@ -113,7 +113,7 @@ export class Fight extends Level {
 		if (this.party) {
 			for (let x = 0; x < this.party.length; x++) {
 				const metaHero = this.party[x];
-        const newHero = new Hero(gridCells(-4) + (x * gridCells(1)), gridCells(2) + (x * gridCells(1)));
+        const newHero = new Hero({ position: new Vector2(gridCells(-4) + (x * gridCells(1)), gridCells(2) + (x * gridCells(1))) });
 				newHero.name = metaHero.name ?? "Anon";
         newHero.id = metaHero.id;
 				const bot1 = new MetaBot(1, this.party[x].id, 1, "Bee", false, new Vector2(gridCells(-1), gridCells(1)));
@@ -142,8 +142,10 @@ export class Fight extends Level {
         if (spriteBody) {
           const newPosition = new Vector2(gridCells(10) - gridCells(2*x), gridCells(2) + gridCells(x));
           spriteBody.position = newPosition;
-          const tmpNpc = new Sprite(-11245 + x, spriteBody.resource!, newPosition, spriteBody.scale,
-            spriteBody.frame, spriteBody.frameSize, spriteBody.hFrames, spriteBody.vFrames, spriteBody.animations, spriteBody.name);
+          const tmpNpc = new Sprite({
+            objectId: -11245 + x, resource: spriteBody.resource!, position: newPosition, scale: spriteBody.scale, frame: spriteBody.frame, frameSize: spriteBody.frameSize,
+            hFrames: spriteBody.hFrames, vFrames: spriteBody.vFrames, animations: spriteBody.animations, name: spriteBody.name
+          });
           this.addChild(tmpNpc);
         } 
         for (let y = 0; y < this.enemies[x].partnerNpcs.length; y++) {
@@ -152,8 +154,10 @@ export class Fight extends Level {
           if (spriteBody2) {
             const newPosition2 = new Vector2(gridCells(10) - gridCells(2 * x) - gridCells(y) - gridCells(2), gridCells(1) + gridCells(x) + gridCells(y)); 
             spriteBody2.position = newPosition2;
-            const tmpNpc2 = new Sprite(-12245 + x, spriteBody2.resource!, newPosition2, spriteBody2.scale,
-              spriteBody2.frame, spriteBody2.frameSize, spriteBody2.hFrames, spriteBody2.vFrames, spriteBody2.animations, spriteBody2.name);
+            const tmpNpc2 = new Sprite({
+              objectId: -12245 + x, resource: spriteBody2.resource!, position: newPosition2, scale: spriteBody2.scale, frame: spriteBody2.frame, frameSize: spriteBody2.frameSize,
+              hFrames: spriteBody2.hFrames, vFrames: spriteBody2.vFrames, animations: spriteBody2.animations, name: spriteBody2.name
+            });
              this.addChild(tmpNpc2);
           }
         } 
@@ -310,16 +314,13 @@ export class Fight extends Level {
       metabot.isDeployed = true;
 			this.botDeployed = true;
 			this.isSelectingFighter = false;
-			const newBot = new Sprite(
-				metabot.id,
-				resources.images["botFrame"],
-				metabot.position,
-				undefined,
-				undefined,
-				new Vector2(32, 32),
-				undefined,
-				undefined,
-				undefined,
+      const newBot = new Sprite(
+        {
+          objectId: metabot.id,
+          resource: resources.images["botFrame"],
+          position: metabot.position,
+          frameSize: new Vector2(32, 32)
+        }
 			);
       this.deployedPartyBots++;
 			this.addChild(newBot);
@@ -354,16 +355,13 @@ export class Fight extends Level {
             metabot.position = new Vector2(gridCells(7) - gridCells(x), gridCells(x));
 
             const newBot = new Sprite(
-              metabot.id,
-              resources.images["botFrame"],
-              metabot.position,
-              undefined,
-              undefined,
-              new Vector2(32, 32),
-              undefined,
-              undefined,
-              undefined,
-              metabot.name
+              {
+                objectId: metabot.id,
+                resource: resources.images["botFrame"],
+                position: metabot.position,
+                frameSize: new Vector2(32, 32),
+                name: metabot.name
+              }
             );
 
             this.addChild(newBot);

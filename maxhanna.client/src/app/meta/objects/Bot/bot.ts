@@ -36,29 +36,20 @@ export class Bot extends GameObject {
     this.id = 0;
     this.itemPickupTime = 0;
     this.isDead = false;
-    const shadow = new Sprite(
-      0,
-      resources.images["shadow"],
-      new Vector2(-16.5, -33),
-      new Vector2(1.5, 1.5),
-      undefined,
-      new Vector2(32, 32),
-      undefined,
-      undefined,
-      undefined 
-    );
+    const shadow = new Sprite({
+      resource: resources.images["shadow"],
+      position: new Vector2(-16.5, -33),
+      scale: new Vector2(1.5, 1.5),
+      frameSize: new Vector2(32, 32),
+    });
     this.addChild(shadow);
 
-    this.body = new Sprite(
-      this.id,
-      resources.images["botFrame"],
-      new Vector2(-8, -20),
-      undefined,
-      undefined,
-      new Vector2(32, 32),
-      undefined,
-      undefined, 
-    );
+    this.body = new Sprite({
+      objectId: this.id,
+      resource: resources.images["botFrame"],
+      position: new Vector2(-8, -20),
+      frameSize: new Vector2(32, 32)
+    });
     this.addChild(this.body);  
   }
 

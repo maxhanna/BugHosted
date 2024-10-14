@@ -7,14 +7,10 @@ import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Input } from "../../helpers/input";
 
 export class SpriteTextStringWithBackdrop extends GameObject {
-  backdrop = new Sprite(
-    0,
-    resources.images["textBox"],
-    new Vector2(0, 0),
-    undefined,
-    undefined,
-    new Vector2(256, 64)
-  );
+  backdrop = new Sprite({
+    resource: resources.images["textBox"],
+    frameSize: new Vector2(256, 64)
+  });
 
   portrait: Sprite;
   content: string[] = []; 
@@ -23,8 +19,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   textSpeed = 80;
   timeUntilNextShow = this.textSpeed;
   canSelectItems = false;
-  selectionIndex = 0;
-
+  selectionIndex = 0; 
   constructor(config: { string?: string[], portraitFrame?: number, canSelectItems?: boolean }) {
     super({ position: new Vector2(32, 118) });
     this.drawLayer = "HUD";
@@ -35,16 +30,16 @@ export class SpriteTextStringWithBackdrop extends GameObject {
       this.content = config.string;
     }
     
-    this.portrait = new Sprite(
-      0,
-      resources.images["portraits"],
-      new Vector2(0, 0),
-      undefined,
-      (config.portraitFrame ?? 0),
-      undefined,
-      4,
-      1
-    ); 
+    this.portrait = new Sprite({
+      resource: resources.images["portraits"],
+      frame: (config.portraitFrame ?? 0),
+      hFrames: 4,
+      vFrames: 1
+    }); 
+  }
+
+  override ready() {
+
   }
 
   override step(delta: number, root: GameObject) {
@@ -128,7 +123,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
 
 
     for (let x = 0; x < this.content.length; x++) {
-      let words = calculateWords(this.content[x]); 
+      let words = calculateWords({ content: this.content[x], color: "White"}); 
       const totalWordWidth = words.reduce((sum, word) => sum + word.wordWidth, 0); 
       if (x === this.selectionIndex && this.canSelectItems) {
         // Draw a red square beside the selected word

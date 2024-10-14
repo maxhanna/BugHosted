@@ -34,8 +34,8 @@ export const getCharacterWidth = (char: string): number => {
   return width.get(char) ?? DEFAULT_WIDTH;
 }
 
-export const calculateWords = (content: string) => {
-  return content.split(" ").map((word: string) => {
+export const calculateWords = ( params: {content: string, color: string}) => {
+  return params.content.split(" ").map((word: string) => {
     let wordWidth = 0;
     const chars = word.split("").map((char: string) => {
       const charWidth = getCharacterWidth(char);
@@ -44,7 +44,7 @@ export const calculateWords = (content: string) => {
       const objectId = 0;
       const position = undefined;
       const frame = getCharacterFrame(char);
-      const resource = resources.images["fontWhite"];
+      const resource = resources.images["font"+params.color];
       const hFrames = 13;
       const vFrames = 6;
       const scale = undefined;
@@ -55,7 +55,7 @@ export const calculateWords = (content: string) => {
       return {
         width: charWidth,
         sprite: new Sprite(
-          objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name
+          { objectId, resource, position, scale, frame, frameSize, hFrames, vFrames, animations, name }
         )
       }
     });

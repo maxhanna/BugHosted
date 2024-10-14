@@ -10,6 +10,7 @@ import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events"; 
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
+import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 
 export class Hero extends GameObject {
   facingDirection: string;
@@ -25,43 +26,36 @@ export class Hero extends GameObject {
   itemPickupShell: any;
   isLocked = false;
   latestMessage = "";
-  constructor(x: number, y: number) {
+  constructor(params: { position: Vector2, colorSwap?: ColorSwap }) {
     super({
-      position: new Vector2(x, y)
+      position: params.position,
+      colorSwap: params.colorSwap
     })
    // console.log("New Hero at position : " + x + '; ' + y);
-    this.facingDirection = DOWN;
-    this.position = new Vector2(x, y);
+    this.facingDirection = DOWN; 
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
     this.name = "Anon";
     this.id = 0;
     this.itemPickupTime = 0;
     this.metabots = [];
-    const shadow = new Sprite(
-      0,
-      resources.images["shadow"],
-      new Vector2(-27, -58),
-      new Vector2(1.5, 1.5),
-      undefined,
-      new Vector2(32, 32),
-      undefined,
-      undefined,
-      undefined 
-    );
+    const shadow = new Sprite({
+      resource: resources.images["shadow"],
+      position: new Vector2(-27, -58),
+      scale: new Vector2(1.5, 1.5),
+      frameSize: new Vector2(32, 32),
+    });
     shadow.drawLayer = "FLOOR";
     this.addChild(shadow);
 
-    this.body = new Sprite(
-      this.id,
-      resources.images["hero"],
-      new Vector2(-8, -20),
-      undefined,
-      undefined,
-      new Vector2(32, 32),
-      4,
-      5,
-      new Animations(
+    this.body = new Sprite({
+      objectId: this.id,
+      resource: resources.images["hero"],
+      position: new Vector2(-8, -20),
+      frameSize: new Vector2(32, 32),
+      hFrames: 4,
+      vFrames: 5,
+      animations: new Animations(
         {
           walkDown: new FrameIndexPattern(WALK_DOWN),
           walkUp: new FrameIndexPattern(WALK_UP),
@@ -72,8 +66,9 @@ export class Hero extends GameObject {
           standLeft: new FrameIndexPattern(STAND_LEFT),
           standUp: new FrameIndexPattern(STAND_UP),
           pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
-        })
-    );
+        }),
+      colorSwap: this.colorSwap
+    }); 
     this.addChild(this.body); 
     this.body.animations?.play("standDown");
 
@@ -374,17 +369,12 @@ export class Hero extends GameObject {
       this.destinationPosition = data.position.duplicate();
       this.itemPickupTime = 2500;
       this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
-      this.itemPickupShell.addChild(new Sprite(
-        0,
-        data.image,
-        new Vector2(0, -30),
-        new Vector2(0.85, 0.85),
-        undefined,
-        new Vector2(22, 24),
-        undefined,
-        undefined,
-        undefined
-      ));
+      this.itemPickupShell.addChild(new Sprite({
+        resource: data.image,
+        position: new Vector2(0, -30),
+        scale: new Vector2(0.85, 0.85),
+        frameSize: new Vector2(22, 24),
+      }));
       this.addChild(this.itemPickupShell);
     } 
   }

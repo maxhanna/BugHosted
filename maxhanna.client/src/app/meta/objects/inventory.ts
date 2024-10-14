@@ -98,7 +98,7 @@ export class Inventory extends GameObject {
 
     this.items.forEach((item, index) => {
       const sprite = new Sprite(
-        item.id, item.image, new Vector2(index * 24, 2), undefined, undefined, new Vector2(24, 22)
+        { objectId: item.id, resource: item.image, position: new Vector2(index * 24, 2), frameSize: new Vector2(24, 22) }
       );
       this.addChild(sprite);
     })

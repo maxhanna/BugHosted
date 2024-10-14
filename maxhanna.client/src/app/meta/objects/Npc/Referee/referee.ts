@@ -17,16 +17,13 @@ export class Referee extends Npc {
       position: new Vector2(x, y),
       type: "referee",
       partners: partners ? partners : [],
-      body: new Sprite(
-        0,
-        resources.images["referee"],
-        new Vector2(-7, -20),
-        new Vector2(1, 1),
-        undefined,
-        new Vector2(32, 32),
-        4,
-        4,
-        new Animations(
+      body: new Sprite({
+        resource: resources.images["referee"],
+        position: new Vector2(-7, -20),
+        frameSize: new Vector2(32, 32),
+        hFrames: 4,
+        vFrames: 4,
+        animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
             walkUp: new FrameIndexPattern(WALK_UP),
@@ -37,23 +34,18 @@ export class Referee extends Npc {
             standLeft: new FrameIndexPattern(STAND_LEFT),
             standUp: new FrameIndexPattern(STAND_UP),
           })
-      )
+      })
     }) 
     this.name = "referee";
     this.type = "referee";
     this.id = -22974; 
     this.textPortraitFrame = 1;
-    const shadow = new Sprite(
-      0,
-      resources.images["shadow"],
-      new Vector2(-16, -16),
-      new Vector2(1.25, 1),
-      undefined,
-      new Vector2(32, 32),
-      undefined,
-      undefined,
-      undefined
-    );
+    const shadow = new Sprite({
+      resource: resources.images["shadow"],
+      position: new Vector2(-16, -16),
+      scale: new Vector2(1.25, 1),
+      frameSize: new Vector2(32, 32),
+    });
     this.addChild(shadow); 
   }
 

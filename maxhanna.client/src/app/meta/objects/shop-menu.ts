@@ -6,81 +6,100 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Level } from "./Level/level";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
+import { Input } from "../helpers/input";
  
 
 export class ShopMenu extends Level {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: ShopItem[] = [];
-  currentlySelectedId?: number = undefined;
+  currentlySelectedId: number = 0;
   selectedCategory: string = "all"; // Track the selected item category
-
-  constructor() {
-    super(); 
-    console.log("shop menu created");
-    // Listen for item selection (e.g., SPACEBAR pressed)
-    events.on("SPACEBAR_PRESSED", this, (data: any) => {
-      this.selectNextItem();
-      console.log(this.nextId);
-    });
-
+  selectorSprite = new Sprite({ resource: resources.images["pointer"], frameSize: new Vector2(12, 10), position: new Vector2(22, 10) });
+  override defaultHeroPosition = new Vector2(0, 0);
+  entranceLevel: Level;
+  constructor(params: { heroPosition: Vector2, entranceLevel: Level }) {
+    super();
+    this.defaultHeroPosition = params.heroPosition;
+    this.entranceLevel = params.entranceLevel;
     // Sample inventory with different categories
     this.items.push(
       new ShopItem(1, "Frame2 Canister", resources.images["metabotFrame"], "metabot frames2"),
       new ShopItem(2, "Robot Frame", resources.images["metabotFrame"], "metabot frames"),
-      new ShopItem(3, "Frame3 Parts", resources.images["metabotFrame"], "metabot frames3")
-    );0
+      new ShopItem(3, "Frame3 Parts", resources.images["metabotFrame"], "metabot frames3"),
+      new ShopItem(4, "Exit", undefined, "Exit"),
+    ); 
 
-    const shopFrame = new Sprite(0, resources.images["white"], new Vector2(-500, -200), new Vector2(100, 170)); 
+    const shopFrame = new Sprite({ resource: resources.images["white"], position: new Vector2(-100,  -60), scale: new Vector2(100, 170) });
+   // shopFrame.drawLayer = "FLOOR";
     this.addChild(shopFrame);
-
+    this.addChild(this.selectorSprite);
     for (let x = 0; x < this.items.length; x++) {
-      const sts = new SpriteTextString(this.items[x].name, new Vector2(10, 15 * x));
-      sts.drawLayer = "HUD";
+      const sts = new SpriteTextString(this.items[x].name, new Vector2(10, 15 * x), "Black");
+     // sts.drawLayer = "HUD";
       this.addChild(sts);
-    }
+    } 
   }
 
 
   // Handles item selection logic
-  selectNextItem() {
-    const filteredItems = this.selectedCategory === "all"
-      ? this.items
-      : this.items.filter(item => item.category === this.selectedCategory);
-
-    const currentIndex = filteredItems.findIndex(item => item.id === this.currentlySelectedId);
-    this.currentlySelectedId = filteredItems[(currentIndex + 1) % filteredItems.length].id; 
+  selectNextItem() {  
+    this.currentlySelectedId = (this.currentlySelectedId > (this.items.length - 2) ? 0 : ++this.currentlySelectedId);
+    this.selectorSprite.position.y = 10 + (this.currentlySelectedId * 15);
+    console.log(this.currentlySelectedId);
   }
-
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-
-    this.drawItemSelectionBox(ctx);  // Draw the selection box around selected item
+  selectPreviousItem() { 
+    this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.items.length - 1 : --this.currentlySelectedId);
+    this.selectorSprite.position.y = 10 + (this.currentlySelectedId * 15);
+    console.log(this.currentlySelectedId);
   }
+  override step(delta: number, root: GameObject) {
+    //listen for user input
+    //get parentmost object
+    let parent = root?.parent ?? root;
+    if (parent) {
+      while (parent.parent) {
+        parent = parent.parent;
+      }
+    }
 
-  private drawItemSelectionBox(ctx: CanvasRenderingContext2D) {
-    const selectedChild = this.children.find((x: any) => x.isItemSelected);
-    if (selectedChild) {
-      const drawPos = selectedChild.position.duplicate();
+    const input = parent.input as Input;
 
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = 2;
+    if (input?.keys["Space"]) {
+      if (input?.verifyCanPressKey()) {
+        if (this.currentlySelectedId == this.items.length - 1) {
+          this.leaveShop();
+        }
+      }
+    }
 
-      const width = 22;
-      const height = 24;
-      const cornerSize = 5;
-
-      // Draw selection box around item
-      ctx.beginPath();
-      ctx.moveTo(drawPos.x, drawPos.y);
-      ctx.lineTo(drawPos.x + cornerSize, drawPos.y);
-      ctx.lineTo(drawPos.x, drawPos.y + cornerSize);
-      ctx.stroke();
-      ctx.closePath();
+    if (input?.verifyCanPressKey()) {
+      if (input?.getActionJustPressed("ArrowUp")
+        || input?.heldDirections.includes("UP")
+        || input?.getActionJustPressed("KeyW")) {
+        this.selectPreviousItem();
+      }
+      else if (input?.getActionJustPressed("ArrowDown")
+        || input?.heldDirections.includes("DOWN")
+        || input?.getActionJustPressed("KeyS")) { 
+        this.selectNextItem();
+      }
+      else if (input?.getActionJustPressed("ArrowLeft")
+        || input?.heldDirections.includes("LEFT")
+        || input?.getActionJustPressed("KeyA")) { 
+        this.selectPreviousItem();
+      }
+      else if (input?.getActionJustPressed("ArrowRight")
+        || input?.heldDirections.includes("RIGHT")
+        || input?.getActionJustPressed("KeyD")) {
+        this.selectNextItem(); 
+      } 
     }
   }
 
-  // Change item category
-  changeCategory(newCategory: string) {
-    this.selectedCategory = newCategory; 
+  private leaveShop() {
+    console.log("leave shop");
+    this.entranceLevel.defaultHeroPosition = this.defaultHeroPosition;
+    events.emit("SHOP_CLOSED", { entranceLevel: this.entranceLevel, heroPosition: this.defaultHeroPosition }); 
   }
 } 
 

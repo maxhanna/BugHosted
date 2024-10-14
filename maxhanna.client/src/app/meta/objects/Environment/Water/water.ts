@@ -16,20 +16,16 @@ export class Water extends GameObject {
     
     this.position = new Vector2(x, y); 
 
-    this.body = new Sprite(
-      0,
-      resources.images["water"],
-      new Vector2(0, 0),
-      new Vector2(1, 1),
-      undefined,
-      new Vector2(32, 32),
-      16,
-      1,
-      new Animations(
+    this.body = new Sprite({
+      resource: resources.images["water"],
+      frameSize: new Vector2(32, 32),
+      hFrames: 16,
+      vFrames: 1,
+      animations: new Animations(
         {
           waterStill: new FrameIndexPattern(WATER_STILL)
         })
-    );
+    });
     this.addChild(this.body); 
     this.body.animations?.play("waterStill"); 
   } 

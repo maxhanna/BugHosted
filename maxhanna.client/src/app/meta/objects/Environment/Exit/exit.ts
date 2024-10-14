@@ -11,14 +11,12 @@ export class Exit extends GameObject {
       position: new Vector2(x, y)
     });
     if (showSprite) {
-      const exitSprite = new Sprite(
-        0,
-        resources.images[sprite],
-        sprite == "exit2" ? new Vector2(0, -10) : new Vector2(0, 0),
-        new Vector2(0.85, 0.85),
-        undefined,
-        new Vector2(42, 45),
-      );
+      const exitSprite = new Sprite({
+        resource: resources.images[sprite],
+        position: sprite == "exit2" ? new Vector2(0, -10) : new Vector2(0, 0),
+        scale: new Vector2(0.85, 0.85),
+        frameSize: new Vector2(42, 45),
+      });
       exitSprite.rotation = rotation;
 
       this.addChild(exitSprite);

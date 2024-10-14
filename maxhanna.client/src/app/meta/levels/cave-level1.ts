@@ -23,20 +23,16 @@ export class CaveLevel1 extends Level {
     }
 
     this.background = new Sprite(
-      0, resources.images["cave"],
-      new Vector2(0, 0),
-      undefined,
-      1,
-      new Vector2(320, 220)
+      {
+        resource: resources.images["cave"], 
+        frameSize: new Vector2(320, 220)
+      }
     );
 
-    const ground = new Sprite(
-      0,
-      resources.images["caveGround"],
-      new Vector2(0, 0),
-      undefined,
-      1,
-      new Vector2(320, 220)
+    const ground = new Sprite({
+      resource: resources.images["caveGround"],  
+      frameSize: new Vector2(320, 220)
+    }
     ); 
     this.addChild(ground);
 

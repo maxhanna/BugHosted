@@ -12,16 +12,10 @@ import { Level } from "../Level/level";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 
 export class FightMenu extends GameObject {
-  backdrop = new Sprite(
-    0, resources.images["textBox"],
-    new Vector2(0, 0),
-    undefined,
-    undefined,
-    new Vector2(256, 64),
-    undefined,
-    undefined,
-    undefined
-  );
+  backdrop = new Sprite({
+    resource: resources.images["textBox"],
+    frameSize: new Vector2(256, 64),
+  });
   showFightMenu: boolean = true;
   portrait: Sprite;
   metabotChoices: MetaBot[] = [];
@@ -57,16 +51,10 @@ export class FightMenu extends GameObject {
     this.drawLayer = "HUD";
     this.startLevel = config.entranceLevel;
     this.startLevel.defaultHeroPosition = config.entrancePosition;
-    this.portrait = new Sprite(
-      0,
-      resources.images["portraits"],
-      new Vector2(0, 0),
-      undefined,
-      undefined,
-      undefined,
-      4,
-      undefined
-    );
+    this.portrait = new Sprite({
+      resource: resources.images["portraits"],
+      hFrames: 4
+    });
 
   }
 
@@ -208,7 +196,7 @@ export class FightMenu extends GameObject {
   }
 
   private paintWaitingForOthers(ctx: CanvasRenderingContext2D) {
-    const run = calculateWords("Waiting for others to finish selecting moves.");
+    const run = calculateWords({ content: "Waiting for others to finish selecting moves.", color: "White"});
     const PADDING_LEFT = 5;
     let runWidth = 0;
     let cursorX = -90;
@@ -241,7 +229,7 @@ export class FightMenu extends GameObject {
 
     for (let x = 0; x < this.skillOptions.length; x++) {
       const word = this.skillOptions[x];
-      const words = calculateWords(word); 
+      const words = calculateWords({content: word, color: "White"}); 
       let wordWidth = 0;
       words.forEach((word: any) => {
         word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
@@ -274,7 +262,7 @@ export class FightMenu extends GameObject {
 
     for (let x = 0; x < this.fightMenuOptions.length; x++) {
       const word = this.fightMenuOptions[x];
-      const words = calculateWords(word);
+      const words = calculateWords({ content: word, color: "White" });
 
       words.forEach((word: any) => {
         // Decide if we can fit this next word on this line
@@ -320,18 +308,13 @@ export class FightMenu extends GameObject {
     for (let x = 0; x < this.metabotChoices.length; x++) {
       const existingBot = this.children.some((z: any) => z.objectId === (x + 1));
       if (!existingBot) {
-        const metabotSprite = new Sprite(
-          x + 1,
-          resources.images["botFrame"],
-          new Vector2((cursorX), 5),
-          undefined,
-          undefined,
-          new Vector2(BOT_SPRITE_WIDTH, BOT_SPRITE_WIDTH),
-          undefined,
-          undefined,
-          undefined,
-          this.metabotChoices[x].name
-        );
+        const metabotSprite = new Sprite({
+          objectId: x + 1,
+          resource: resources.images["botFrame"],
+          position: new Vector2((cursorX), 5),
+          frameSize: new Vector2(BOT_SPRITE_WIDTH, BOT_SPRITE_WIDTH),
+          name: this.metabotChoices[x].name
+        });
         this.addChild(metabotSprite);
       }
 
@@ -371,7 +354,7 @@ export class FightMenu extends GameObject {
     }
 
     //draw the run option
-    const run = calculateWords("Run");
+    const run = calculateWords({ content: "Run", color: "White" });
     let runWidth = 0;
     run.forEach((word: any) => {
       word.chars.forEach((char: { width: number; sprite: Sprite; }) => {

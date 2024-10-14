@@ -11,14 +11,11 @@ export class House extends GameObject {
     })
     
     this.isSolid = true; 
-    this.body = new Sprite(
-      0,
-      resources.images["house"],
-      new Vector2(2, -80),
-      new Vector2(1, 1),
-      undefined,
-      new Vector2(169, 102), 
-    );
+    this.body = new Sprite({
+      resource: resources.images["house"],
+      position: new Vector2(2, -80),
+      frameSize: new Vector2(169, 102),
+    });
     this.addChild(this.body);   
   } 
  }

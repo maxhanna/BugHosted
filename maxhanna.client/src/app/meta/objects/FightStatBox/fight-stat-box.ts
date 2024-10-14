@@ -7,16 +7,11 @@ import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
 
 export class FightStatBox extends GameObject {
-  backdrop = new Sprite(
-    0, resources.images["textBox"],
-    new Vector2(0, 0),
-    new Vector2(0.65, 0.8),
-    undefined,
-    new Vector2(256, 64),
-    undefined,
-    undefined,
-    undefined
-  );
+  backdrop = new Sprite({
+    resource: resources.images["textBox"],
+    scale: new Vector2(0.65, 0.8),
+    frameSize: new Vector2(256, 64)
+  });
   metabot: MetaBot;
   showExp: boolean = false;
   botNameSprite: SpriteTextString;

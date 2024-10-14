@@ -14,13 +14,16 @@ export class SpriteTextString extends GameObject {
   PADDING_TOP = 9;
   LINE_WIDTH_MAX = 240;
   LINE_VERTICAL_WIDTH = 14;
-  constructor(wordToWrite: string, position: Vector2) {
+  color: string = "White";
+  constructor(wordToWrite: string, position: Vector2, color?: string) {
     super({ position: position });
     this.drawLayer = "HUD";
-
+    if (color) { 
+      this.color = color;
+    }
     console.log(`attempting to write ${wordToWrite}`);
     const content = wordToWrite ?? "Default text!";
-    this.words = calculateWords(content);
+    this.words = calculateWords({ content: content, color: this.color });
  
     this.finalIndex = this.words.reduce((acc, word) => acc + word.chars.length, 0);
   }

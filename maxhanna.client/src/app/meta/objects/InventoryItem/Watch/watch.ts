@@ -8,18 +8,13 @@ export class Watch extends InventoryItem {
   constructor(data: { position: Vector2, id: number }) {
     super({ id: data.id, position: data.position, name: "Watch", image: "watch" });
     
-    const sprite = new Sprite(
-      0,
-      resources.images["watch"],
-      new Vector2(0, -10),
-      new Vector2(0.6, 0.6),
-      undefined,
-      new Vector2(22, 24),
-      undefined,
-      undefined,
-      undefined,
-      'Watch'
-    );
+    const sprite = new Sprite({
+      resource: resources.images["watch"],
+      position: new Vector2(0, -10),
+      scale: new Vector2(0.6, 0.6),
+      frameSize: new Vector2(22, 24),
+      name: "Watch"
+    });
     this.addChild(sprite); 
   }
 

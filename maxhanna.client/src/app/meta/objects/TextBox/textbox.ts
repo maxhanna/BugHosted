@@ -12,14 +12,10 @@ export class TextBox extends GameObject {
     });
     this.content = "Hi. How are you? THIS IS THE WORLD OF META BOTS! ";
 
-    this.backdrop = new Sprite(
-      0,
-      resources.images["textBox"],
-      undefined,
-      undefined,
-      undefined,
-      new Vector2(256, 64)
-    ); 
+    this.backdrop = new Sprite({
+      resource: resources.images["textBox"],
+      frameSize: new Vector2(256, 64)
+    }); 
   }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {

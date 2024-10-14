@@ -25,6 +25,7 @@ import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { RivalHomeLevel1 } from './levels/rival-home-level1';
 import { BrushShop1 } from './levels/brush-shop1';
 import { ShopMenu } from './objects/shop-menu';
+import { ColorSwap } from '../../services/datacontracts/meta/color-swap';
 
 @Component({
   selector: 'app-meta',
@@ -172,15 +173,15 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   private addHeroToScene(hero: MetaHero) { 
-    const tmpHero = new Hero(
-      hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x,
-      hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y
-    );
+    const tmpHero = new Hero({
+      position: new Vector2(hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x, hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y),
+      colorSwap: (hero.id === this.metaHero.id ? new ColorSwap([0, 160, 200], [255, 0, 0]) : undefined)
+    });
     tmpHero.id = hero.id;
     tmpHero.name = hero.name ?? "Anon";
     if (hero.id === this.metaHero.id) {
       tmpHero.isUserControlled = true;
-    }
+    } 
     this.mainScene.level?.addChild(tmpHero);
   }
 
@@ -235,7 +236,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
   private async reinitializeHero(rz: MetaHero) {
-    this.hero = new Hero(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16));
+    this.hero = new Hero({ position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)) });
     this.hero.id = rz.id;
     this.hero.name = rz.name ?? "Anon";
     this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map, []);
@@ -297,7 +298,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       this.otherHeroes = [];
       if (!this.hero.id) {
         this.pollForChanges();
-      }
+      } 
       if (this.mainScene && this.mainScene.level) { 
         if (level.name != "Fight") {
           this.metaHero.map = level.name;
@@ -319,12 +320,15 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       }  
     });
 
-    events.on("SHOP_OPENED", this, () => {
-      this.mainScene.level?.destroy();
-      const shopMenu = new ShopMenu();
-      this.mainScene.addChild(shopMenu);
-      this.mainScene.level = shopMenu;
+    events.on("SHOP_OPENED", this, (params: {heroPosition: Vector2, entranceLevel: Level }) => { 
+      this.mainScene.setLevel(new ShopMenu(params)); 
       this.stopPollingForUpdates = true;
+    }); 
+    events.on("SHOP_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
+      this.stopPollingForUpdates = false;
+      const newLevel = this.getLevelFromLevelName(params.entranceLevel.name);
+      newLevel.defaultHeroPosition = params.heroPosition;
+      events.emit("CHANGE_LEVEL", newLevel);
     });
 
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {

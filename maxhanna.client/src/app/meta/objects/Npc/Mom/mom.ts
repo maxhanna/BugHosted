@@ -16,16 +16,14 @@ export class Mom extends Npc {
     super({
       id: -1972,
       position: new Vector2(x, y),
-      body: new Sprite(
-        -1973,
-        resources.images["mom"],
-        new Vector2(-7, -20),
-        new Vector2(1, 1),
-        undefined,
-        new Vector2(32, 32),
-        4,
-        4,
-        new Animations(
+      body: new Sprite({
+        objectId: -1973,
+        resource: resources.images["mom"],
+        scale: new Vector2(-7, -20),
+        frameSize: new Vector2(32, 32),
+        hFrames: 4,
+        vFrames: 4,
+        animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
             walkUp: new FrameIndexPattern(WALK_UP),
@@ -36,21 +34,16 @@ export class Mom extends Npc {
             standLeft: new FrameIndexPattern(STAND_LEFT),
             standUp: new FrameIndexPattern(STAND_UP),
           })
-      )
+      })
     })
       
     this.name = "Mom";  
-    const shadow = new Sprite(
-      0,
-      resources.images["shadow"],
-      new Vector2(-25, -16),
-      new Vector2(2, 1),
-      undefined,
-      new Vector2(32, 32),
-      undefined,
-      undefined,
-      undefined
-    );
+    const shadow = new Sprite({
+      resource: resources.images["shadow"],
+      position: new Vector2(-25, -16),
+      scale: new Vector2(2, 1),
+      frameSize: new Vector2(32, 32),
+    });
     this.addChild(shadow);  
     this.body?.animations?.play("standLeft");
 

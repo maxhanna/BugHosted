@@ -22,29 +22,22 @@ export class Deer extends Npc {
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
     this.name = "Deer"; 
-    const shadow = new Sprite(
-      0,
-      resources.images["shadow"],
-      new Vector2(-25, -16),
-      new Vector2(2, 1),
-      undefined,
-      new Vector2(32, 32),
-      undefined,
-      undefined,
-      undefined 
-    );
+    const shadow = new Sprite({
+      resource: resources.images["shadow"],
+      position: new Vector2(-25, -16),
+      scale: new Vector2(2, 1),
+      frameSize: new Vector2(32, 32),
+    });
     this.addChild(shadow);
 
-    this.body = new Sprite(
-      this.id,
-      resources.images["deer"],
-      new Vector2(-7, -20),
-      new Vector2(1, 1),
-      undefined,
-      new Vector2(32, 32),
-      5,
-      5,
-      new Animations(
+    this.body = new Sprite({
+      objectId: this.id,
+      resource: resources.images["deer"],
+      position: new Vector2(-7, -20),
+      frameSize: new Vector2(32, 32),
+      hFrames: 5,
+      vFrames: 5,
+      animations: new Animations(
         {
           walkDown: new FrameIndexPattern(WALK_DOWN),
           walkUp: new FrameIndexPattern(WALK_UP),
@@ -56,7 +49,7 @@ export class Deer extends Npc {
           standUp: new FrameIndexPattern(STAND_UP),
           pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
         })
-    );
+    });
     this.addChild(this.body); 
     this.body.animations?.play("standDown");
 

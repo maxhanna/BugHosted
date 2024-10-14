@@ -24,29 +24,22 @@ export class Chicken extends Npc {
     this.lastPosition = this.position.duplicate();
     this.name = "Anon";
     this.id = 0; 
-    const shadow = new Sprite(
-      0,
-      resources.images["shadow"],
-      new Vector2(-3.5, -6),
-      new Vector2(0.7, 0.7),
-      undefined,
-      new Vector2(32, 32),
-      undefined,
-      undefined,
-      undefined 
-    );
+    const shadow = new Sprite({
+      resource: resources.images["shadow"],
+      position: new Vector2(-3.5, -6),
+      scale: new Vector2(0.7, 0.7),
+      frameSize: new Vector2(32, 32),
+    });
     this.addChild(shadow);
 
-    this.body = new Sprite(
-      this.id,
-      resources.images["chicken"],
-      new Vector2(0, 0),
-      new Vector2(1, 1),
-      undefined,
-      new Vector2(15, 15),
-      4,
-      8,
-      new Animations(
+    this.body = new Sprite({
+      objectId: this.id,
+      resource: resources.images["chicken"],
+      position: new Vector2(0, 0),
+      frameSize: new Vector2(15, 15),
+      hFrames: 4,
+      vFrames: 8,
+      animations: new Animations(
         {
           walkDown: new FrameIndexPattern(WALK_DOWN),
           walkUp: new FrameIndexPattern(WALK_UP),
@@ -58,7 +51,7 @@ export class Chicken extends Npc {
           standUp: new FrameIndexPattern(STAND_UP),
           pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
         })
-    );
+    });
     this.addChild(this.body); 
     this.body.animations?.play("standDown");
 
@@ -94,9 +87,7 @@ export class Chicken extends Npc {
     }, this.randomMovementInterval);
   }
    
-  override getContent() { 
-      
-    console.log("Getting content " );
+  override getContent() {  
     return {
       portraitFrame: 0,
       string: ["Bkaaaaaw"],

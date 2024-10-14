@@ -13,14 +13,11 @@ export class GiantTree extends GameObject {
     
     this.position = new Vector2(x, y); 
     this.isSolid = true;
-    this.body = new Sprite(
-      0,
-      resources.images["tree"],
-      new Vector2(-50, -100),
-      undefined,
-      undefined,
-      new Vector2(128, 128)
-    );
+    this.body = new Sprite({
+      resource: resources.images["tree"],
+      position: new Vector2(-50, -100),
+      frameSize: new Vector2(128, 128)
+    });
     this.addChild(this.body);  
   } 
  }

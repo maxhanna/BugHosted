@@ -1,3 +1,4 @@
+import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { events } from "../helpers/events";
 import { Scenario, storyFlags } from "../helpers/story-flags";
@@ -11,9 +12,11 @@ export class GameObject {
   drawLayer?: any;
   textContent?: Scenario[];
   textPortraitFrame?: number;
+  colorSwap?: ColorSwap = undefined;
 
-  constructor({ position }: { position: Vector2 }) {
-    this.position = position ?? new Vector2(0, 0);   
+  constructor(params: { position: Vector2, colorSwap?: ColorSwap }) {
+    this.position = params.position ?? new Vector2(0, 0);
+    this.colorSwap = params.colorSwap; 
   }
 
   stepEntry(delta: number, root: any) {

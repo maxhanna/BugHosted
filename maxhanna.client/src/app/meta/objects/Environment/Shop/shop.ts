@@ -11,14 +11,11 @@ export class Shop extends GameObject {
     })
     
     this.isSolid = true; 
-    this.body = new Sprite(
-      0,
-      resources.images["shop"],
-      new Vector2(2, -100),
-      new Vector2(1, 1),
-      undefined,
-      new Vector2(134, 118), 
-    );
+    this.body = new Sprite({
+      resource: resources.images["shop"],
+      position: new Vector2(2, -100),
+      frameSize: new Vector2(134, 118),
+    });
     this.addChild(this.body);   
   } 
  }

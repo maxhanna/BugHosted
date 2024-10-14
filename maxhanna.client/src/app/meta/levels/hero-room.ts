@@ -23,18 +23,18 @@ export class HeroRoomLevel extends Level {
     }
 
     const room = new Sprite(
-      0, resources.images["bedroomFloor"], new Vector2(0, 0), undefined, 1, new Vector2(320, 220)
+      { resource: resources.images["bedroomFloor"], frameSize: new Vector2(320, 220) }
     );
     this.addChild(room);
     
     const painting = new Sprite(
-      0, resources.images["painting"], new Vector2(gridCells(15), 0.01), new Vector2(0.75, 0.75), 1, new Vector2(30, 28)
+      { resource: resources.images["painting"], position: new Vector2(gridCells(15), 0.01), scale: new Vector2(0.75, 0.75), frameSize: new Vector2(30, 28) }
     );
     this.addChild(painting);
 
 
     const xbox = new Sprite(
-      0, resources.images["xbox"], new Vector2(gridCells(8), gridCells(3)), new Vector2(0.8, 0.8), 1, new Vector2(32, 28)
+      { resource: resources.images["xbox"], position: new Vector2(gridCells(8), gridCells(3)), scale: new Vector2(0.8, 0.8), frameSize: new Vector2(32, 28) }
     );
     this.addChild(xbox);
 
