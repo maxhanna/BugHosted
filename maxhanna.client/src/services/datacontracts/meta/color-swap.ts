@@ -1,8 +1,8 @@
 export class ColorSwap {
-  original: number[];
-  replacement: number[];
-  constructor(original: number[], replacement: number[]) {
-  this.original = original;
-  this.replacement = replacement;
-  } 
+  originalRGB: number[];
+  replacementRGB: number[];
+  constructor(originalRGBValue: number[], replacementRGBValue: number[]) {
+    this.originalRGB = originalRGBValue;
+    this.replacementRGB = replacementRGBValue;
+  }
 }

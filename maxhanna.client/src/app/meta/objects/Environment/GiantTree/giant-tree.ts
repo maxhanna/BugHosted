@@ -13,6 +13,14 @@ export class GiantTree extends GameObject {
     
     this.position = new Vector2(x, y); 
     this.isSolid = true;
+    const shadow = new Sprite({
+      resource: resources.images["shadow"],
+      position: new Vector2(-50,-80),
+      scale: new Vector2(2,2),
+      frameSize: new Vector2(32,32)});
+    this.addChild(shadow);
+
+
     this.body = new Sprite({
       resource: resources.images["tree"],
       position: new Vector2(-50, -100),

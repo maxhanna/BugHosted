@@ -4,9 +4,10 @@ import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
+import { InventoryItem } from "./InventoryItem/inventory-item";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
-  items: { id: number; image: any, name?: string }[] = [];
+  items: InventoryItem[] = [];
   currentlySelectedId?: number = undefined;
   constructor() {
     super({ position: new Vector2(0, 0) });
@@ -20,17 +21,22 @@ export class Inventory extends GameObject {
     ]
 
     //React to picking up an item
-    events.on("HERO_PICKS_UP_ITEM", this, (data: { image: any, position: Vector2, name: string, hero: any }) => {
+    events.on("HERO_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string }) => {
+      console.log("got HERO_PICKS_UP_ITEM in inventory: ", data);
       //Show something on the screen.
       if (data.hero?.isUserControlled) {
-        const itemData = { id: this.nextId++, image: data.image, name: data.name };
+        const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category } as InventoryItem;
+        console.log("pshuing item in hero inventory: ", itemData);
         this.items.push(itemData);
         this.renderInventory();
       }
     });
 
-    events.on("INVENTORY_UPDATED", this, (data: { id: number, image: any, name: string }) => {
-      const itemData = { id: data.id, image: data.image, name: data.name };
+    events.on("INVENTORY_UPDATED", this, (data: InventoryItem) => {
+      console.log("inventory updated: ",data);
+      const itemData = {
+        id: data.id, image: data.category, name: data.name, category: data.category
+      } as InventoryItem;
       this.items.push(itemData);
       this.renderInventory();
     });
@@ -38,7 +44,7 @@ export class Inventory extends GameObject {
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: MetaHero[] }) => {
       if (data.party) {
         for (let member of data.party) {
-          const itemData = { id: member.id, image: resources.images["hero"], name: member.name };
+          const itemData = { id: member.id, image: resources.images["hero"], name: member.name, category: "partyMember" } as InventoryItem;
           if (itemData.id != data.playerId) {
             this.items.push(itemData);
           }
@@ -98,7 +104,7 @@ export class Inventory extends GameObject {
 
     this.items.forEach((item, index) => {
       const sprite = new Sprite(
-        { objectId: item.id, resource: item.image, position: new Vector2(index * 24, 2), frameSize: new Vector2(24, 22) }
+        { objectId: item.id, resource: resources.images[item.image], position: new Vector2(index * 24, 2), frameSize: new Vector2(24, 22) }
       );
       this.addChild(sprite);
     })

@@ -76,8 +76,7 @@ export class HeroHomeLevel extends Level {
       position: new Vector2(gridCells(9), 0.01),
       scale: new Vector2(0.75, 0.75),
       frameSize: new Vector2(30, 28)
-    });
-    painting.textPortraitFrame = 0;
+    }); 
     painting.textContent = [
       {
         string: ["A picture of a beautiful hiking trail."],
@@ -91,8 +90,7 @@ export class HeroHomeLevel extends Level {
       position: new Vector2(gridCells(13), 0.01),
       scale: new Vector2(0.75, 0.75),
       frameSize: new Vector2(30, 26)
-    });
-    blinds2.textPortraitFrame = 0;
+    }); 
     blinds2.textContent = [
       {
         string: ["Ahh, what a beautiful morning!"],

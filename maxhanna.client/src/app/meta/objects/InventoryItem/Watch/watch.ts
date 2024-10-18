@@ -6,7 +6,7 @@ import { events } from "../../../helpers/events";
 
 export class Watch extends InventoryItem {
   constructor(data: { position: Vector2, id: number }) {
-    super({ id: data.id, position: data.position, name: "Watch", image: "watch" });
+    super({ id: data.id, position: data.position, name: "Watch", image: "watch", category: "watch" });
     
     const sprite = new Sprite({
       resource: resources.images["watch"],
@@ -34,11 +34,12 @@ export class Watch extends InventoryItem {
     //remove this instance from scene
     this.destroy();
     events.emit("HERO_PICKS_UP_ITEM", {
-      image: resources.images["watch"],
+      image: resources.images[this.image],
       position: this.position,
       hero: hero,
       name: this.name,
-      imageName: this.image
+      imageName: this.image,
+      category: this.category,
     });
     //alert other things we picked up a rod
 

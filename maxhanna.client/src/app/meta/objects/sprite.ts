@@ -28,7 +28,7 @@ export class Sprite extends GameObject {
     this.position = params.position ?? new Vector2(0, 0);
     this.frame = params.frame ?? 1;
     this.resource = params.resource;
-    this.hFrames = params.hFrames ?? 1;
+    this.hFrames = params.hFrames ?? (this.frame > 1 ? this.frame + 1 : this.frame);
     this.vFrames = params.vFrames ?? 1;
     this.scale = params.scale ?? new Vector2(1,1); 
     this.frameSize = params.frameSize ?? new Vector2(16, 16);

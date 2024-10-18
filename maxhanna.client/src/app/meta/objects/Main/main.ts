@@ -29,14 +29,12 @@ export class Main extends GameObject {
     //LAUNCH TEXT BOX HANDLER
     events.on("HERO_REQUESTS_ACTION", this, (withObject: any) => { 
       if (typeof withObject.getContent === "function") {
-        const content = withObject.getContent();
-        console.log(content);
+        const content = withObject.getContent(); 
         if (!content) {
           return;
         }
         //potentially add a story flag
-        if (content.addsFlag) {
-          console.log("add flag", content.addsFlag);
+        if (content.addsFlag) { 
           storyFlags.add(content.addsFlag);
         }
 

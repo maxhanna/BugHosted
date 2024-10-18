@@ -116,15 +116,8 @@ export class Fight extends Level {
         const newHero = new Hero({ position: new Vector2(gridCells(-4) + (x * gridCells(1)), gridCells(2) + (x * gridCells(1))) });
 				newHero.name = metaHero.name ?? "Anon";
         newHero.id = metaHero.id;
-				const bot1 = new MetaBot(1, this.party[x].id, 1, "Bee", false, new Vector2(gridCells(-1), gridCells(1)));
-				const bot2 = new MetaBot(2, this.party[x].id, 1, "Jaguar", false, new Vector2(gridCells(-1), gridCells(1)));
-				const bot3 = new MetaBot(3, this.party[x].id, 1, "Rhino", false, new Vector2(gridCells(-1), gridCells(1)));
-				bot1.hp = bot2.hp = bot3.hp = 100;
-				bot2.exp = 0;
-				bot3.exp = 1;
-				bot1.exp = 2;
-				bot1.leftArm = new MetaBotPart({ id: 0, metabotId: bot1.id, skill: "Sting", type: "Speed", damageMod: 5 })
-				this.party[x].metabots = [bot1, bot2, bot3];
+        newHero.metabots = metaHero.metabots;
+        this.party[x].metabots = metaHero.metabots;
 				this.fightMenu.metabotChoices = this.party[x].metabots;
 				 
 				this.addChild(newHero);

@@ -9,13 +9,15 @@ import { WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT } from "./sa
 import { Npc } from "../npc";
 import { ShopMenu } from "../../shop-menu";
 import { Level } from "../../Level/level";
+import { Scenario, TALKED_TO_BRUSH_SHOP_OWNER1 } from "../../../helpers/story-flags";
+import { InventoryItem } from "../../InventoryItem/inventory-item";
 
 export class Salesman extends Npc {
   directionIndex = 0;
   heroPosition: Vector2;
   entranceLevel: Level;
-
-  constructor(params: { position: Vector2, heroPosition: Vector2, entranceLevel: Level }) {
+  items?: InventoryItem[];
+  constructor(params: { position: Vector2, heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) {
     super({
       id: 0,
       position: params.position,
@@ -39,12 +41,14 @@ export class Salesman extends Npc {
     this.name = "salesPerson";
     this.type = "salesPerson";
     this.id = -22274; 
-    this.textPortraitFrame = 1;
+    this.textPortraitFrame = 3;
     this.entranceLevel = params.entranceLevel;
-    this.heroPosition = params.heroPosition;
+    this.heroPosition = params.heroPosition; 
+    this.items = params.items;
+   
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(params.position.x - 16, params.position.y-16),
+      position: new Vector2(0, -16),
       scale: new Vector2(1.25, 1),
       frameSize: new Vector2(32, 32),
     });
@@ -52,6 +56,21 @@ export class Salesman extends Npc {
   }
 
   override ready() {
+    //fix the content to allow for shop
+    if (this.textContent) {
+      this.textContent = this.textContent.concat({ 
+        string: ["Shop", "Repair", "Cancel"],
+        canSelectItems: true,
+        addsFlag: undefined, 
+      } as Scenario);
+    } else {
+      this.textContent = [{ 
+        string: ["Shop", "Repair", "Cancel"],
+        canSelectItems: true,
+        addsFlag: undefined
+      } as Scenario]
+    }
+    //add animation/functionality for hero talking to salesman
     events.on("HERO_REQUESTS_ACTION", this, (objectAtPosition: any) => {
       if (objectAtPosition.id === this.id) {
         const oldKey = this.body?.animations?.activeKey;
@@ -69,16 +88,11 @@ export class Salesman extends Npc {
     events.on("SELECTED_ITEM", this, (selectedItem: string) => {
       console.log(selectedItem);
       if (selectedItem === "Shop") {
-        events.emit("SHOP_OPENED", { heroPosition: this.heroPosition, entranceLevel: this.entranceLevel });
+        events.emit("SHOP_OPENED", { heroPosition: this.heroPosition, entranceLevel: this.entranceLevel, items: this.items });
+      }
+      if (selectedItem === "Repair") {
+        events.emit("REPAIR_ALL_METABOTS");
       }
     }); 
-  }
-  override getContent() { 
-    return {
-      portraitFrame: 0,
-      string: ["Shop", "Repair", "Cancel"],
-      canSelectItems: true,
-      addsFlag: null
-    }
-  }
+  } 
 }

@@ -153,7 +153,7 @@ export class CharacterCreate extends Level {
   private verifyCharacterName(name: string) {
     let outcome = undefined;
     const n = name.toLowerCase();
-    const badWords = ["fuck", "shit", "pussy", "dick", "cunt", "spick", "nigger", "dumb"]
+    const badWords = ["fuck", "shit", "pussy", "dick", "cunt", "spick", "nigger", "dumb", "lick", "taint", "mofo", "bitch", "ass", "coke"]
     if (!name) {
       outcome = "Enter a valid name.";
     }

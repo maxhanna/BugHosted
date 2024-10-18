@@ -24,8 +24,8 @@ export class Deer extends Npc {
     this.name = "Deer"; 
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(-25, -16),
-      scale: new Vector2(2, 1),
+      scale: new Vector2(1.4,1.1),
+      position: new Vector2(-25, -23), 
       frameSize: new Vector2(32, 32),
     });
     this.addChild(shadow);

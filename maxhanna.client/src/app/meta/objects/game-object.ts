@@ -80,8 +80,7 @@ export class GameObject {
       return gameObject !== x;
     });
   }
-  getContent() {
-    console.log(this.textContent);
+  getContent() { 
     if (!this.textContent) {
       return;
     }
@@ -93,12 +92,12 @@ export class GameObject {
     }
     if (match.addsFlag && match.addsFlag == "START_FIGHT") {
       events.emit("START_FIGHT", this);
-    }
-    console.log("Getting content " + match.string);
+    } 
     return {
       portraitFrame: this.textPortraitFrame,
       string: match.string,
-      addsFlag: match.addsFlag ?? null
+      addsFlag: match.addsFlag ?? null,
+      canSelectItems: match.canSelectItems
     }
   }
 }

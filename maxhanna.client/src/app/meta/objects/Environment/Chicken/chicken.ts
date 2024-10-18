@@ -26,8 +26,7 @@ export class Chicken extends Npc {
     this.id = 0; 
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(-3.5, -6),
-      scale: new Vector2(0.7, 0.7),
+      position: new Vector2(-9, -14), 
       frameSize: new Vector2(32, 32),
     });
     this.addChild(shadow);

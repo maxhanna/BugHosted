@@ -274,12 +274,13 @@ namespace maxhanna.Server.Controllers
 		{
 			if (request.Hero != null)
 			{
-				string sql = @"INSERT INTO meta_hero_inventory (meta_hero_id, name, image) VALUES (@HeroId, @Name, @Image);";
+				string sql = @"INSERT INTO meta_hero_inventory (meta_hero_id, name, image, category) VALUES (@HeroId, @Name, @Image, @Category);";
 				Dictionary<string, object?> parameters = new Dictionary<string, object?>
 						{
 								{ "@HeroId", request.Hero.Id },
 								{ "@Name", request.Name },
-								{ "@Image", request.Image != null ? request.Image : DBNull.Value }
+								{ "@Image", request.Image  },
+								{ "@Category", request.Category },
 						};
 				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
@@ -473,11 +474,12 @@ namespace maxhanna.Server.Controllers
 				while (reader.Read())
 				{
 					MetaInventoryItem tmpInventoryItem = new MetaInventoryItem(
-						Convert.ToInt32(reader["id"]),
-						Convert.ToInt32(reader["meta_hero_id"]), 
-						Convert.ToDateTime(reader["created"]),
-						Convert.ToString(reader["name"]),
-						reader.IsDBNull(reader.GetOrdinal("image")) ? null : Convert.ToString(reader["image"])
+						id: Convert.ToInt32(reader["id"]),
+						heroId: Convert.ToInt32(reader["meta_hero_id"]),
+						created: Convert.ToDateTime(reader["created"]),
+						name: Convert.ToString(reader["name"]),
+						image: Convert.ToString(reader["image"]),
+						category: Convert.ToString(reader["category"])
 					);
 	 
 					inventory.Add(tmpInventoryItem);

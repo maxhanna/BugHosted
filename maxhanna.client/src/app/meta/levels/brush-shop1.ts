@@ -9,9 +9,11 @@ import { Sprite } from "../objects/sprite";
 import { Salesman } from "../objects/Npc/Salesman/salesman";
 import { BrushLevel1 } from "./brush-level1";
 import { HeroRoomLevel } from "./hero-room";
-import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
+import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER1, TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc";
 import { Mom } from "../objects/Npc/Mom/mom";
+import { Bot } from "../objects/Bot/bot"; 
+import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 
 
 export class BrushShop1 extends Level { 
@@ -48,9 +50,15 @@ export class BrushShop1 extends Level {
     );
     this.addChild(botCasing);
 
-    const botFrame = new Sprite(
-      { resource: resources.images["botFrame"], position: new Vector2(gridCells(2), gridCells(-1) + 3), frameSize: new Vector2(32, 32) }
+ 
+    const botFrame = new Bot(
+      { position: new Vector2(gridCells(2) + 1, gridCells(-1) + 3), frameNumber: 2 }
     );
+    botFrame.textContent = [
+      {
+        string: ["Ahh, This one looks so cool!"],
+      } as Scenario,
+    ];
     this.addChild(botFrame);
 
 
@@ -60,9 +68,14 @@ export class BrushShop1 extends Level {
     );
     this.addChild(botCasing2);
 
-    const botFrame2 = new Sprite(
-      { resource: resources.images["botFrame"], position: new Vector2(gridCells(4) + 2, gridCells(-1) + 3), frameSize: new Vector2(32, 32) }
+    const botFrame2 = new Bot(
+      { position: new Vector2(gridCells(4) + 2, gridCells(-1) + 3), frameNumber: 5 }
     );
+    botFrame2.textContent = [
+      {
+        string: ["OH, I saw this in a competition on TV once!"],
+      } as Scenario,
+    ];
     this.addChild(botFrame2);
 
 
@@ -84,14 +97,30 @@ export class BrushShop1 extends Level {
     }
 
 
-    const salesman = new Salesman({ position: new Vector2(gridCells(5), gridCells(3)), heroPosition: new Vector2(gridCells(3), gridCells(3)), entranceLevel: this });
+    const salesman = new Salesman({
+      position: new Vector2(gridCells(5), gridCells(3)),
+      heroPosition: new Vector2(gridCells(3), gridCells(3)),
+      entranceLevel: this,
+      items: [
+        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame" }),
+        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame" }),
+        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame" }),
+      ]
+    });
     if (salesman.body) {
       salesman.body.position.x += 16;
-    }
-    salesman.textPortraitFrame = 0;
+    } 
     salesman.textContent = [
       {
         string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
+        addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
+        bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_BRUSH_SHOP_OWNER1, GOT_FIRST_METABOT]
+      } as Scenario,
+      {
+        string: ["Oh? Youre here to buy your FIRST Meta-Bot?!!"],
+        addsFlag: TALKED_TO_BRUSH_SHOP_OWNER2,
+        requires: [TALKED_TO_BRUSH_SHOP_OWNER1],
+        bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
       } as Scenario,
     ];
     salesman.facingDirection = "LEFT";

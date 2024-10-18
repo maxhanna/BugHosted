@@ -9,7 +9,7 @@ import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
 import { resources } from './helpers/resources';
 import { events } from './helpers/events';
-import { GOT_WATCH, storyFlags } from './helpers/story-flags';
+import { GOT_FIRST_METABOT, GOT_WATCH, storyFlags } from './helpers/story-flags';
 import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
@@ -26,6 +26,7 @@ import { RivalHomeLevel1 } from './levels/rival-home-level1';
 import { BrushShop1 } from './levels/brush-shop1';
 import { ShopMenu } from './objects/shop-menu';
 import { ColorSwap } from '../../services/datacontracts/meta/color-swap';
+import { MetaBot, SPEED_TYPE } from '../../services/datacontracts/meta/meta-bot';
 
 @Component({
   selector: 'app-meta',
@@ -131,7 +132,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
             this.getLatestMessages();
           }
           if (res.events) {
-            this.actionEvents(res.events);
+            this.actionMultiplayerEvents(res.events);
           }
         }
       });
@@ -206,7 +207,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  private actionEvents(metaEvents: MetaEvent[]) {
+  private actionMultiplayerEvents(metaEvents: MetaEvent[]) {
     const currentEvents = this.events;
     if (metaEvents.length > 0) {
       for (let event of metaEvents) {
@@ -228,6 +229,13 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
               events.emit("SKILL_USED", { heroId: event.heroId, skill: (event.data ? event.data["skill"] : "") })
             }
           }
+          if (event.event === "BUY_ITEM") {
+            console.log("got buy item event");
+            const player = this.partyMembers.find(x => x.id === event.heroId);
+            if (player || event.heroId === this.metaHero.id) {
+              events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
+            }
+          }
         }
       }
     }
@@ -236,7 +244,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
   private async reinitializeHero(rz: MetaHero) {
-    this.hero = new Hero({ position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)) });
+    this.hero = new Hero({ position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)), isUserControlled: true });
     this.hero.id = rz.id;
     this.hero.name = rz.name ?? "Anon";
     this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map, []);
@@ -258,12 +266,20 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       if (inventoryData) {
         for (let item of (inventoryData as InventoryItem[])) {
           events.emit("INVENTORY_UPDATED", {
-            image: resources.images[item.image],
+            image: item.image,
             name: item.name,
-            id: item.id
-          });
+            id: item.id,
+            category: item.category,
+          } as InventoryItem);
           if (item.image === "watch") {
             storyFlags.add(GOT_WATCH);
+          }
+          console.log(item);
+          if (item.category === "botFrame") { 
+            storyFlags.add(GOT_FIRST_METABOT);
+            this.metaHero.metabots.push(
+              new MetaBot({ id: this.metaHero.metabots?.length, parentId: this.metaHero.id, isDead: false, name: item.name, type: SPEED_TYPE })
+            )
           }
         }
       }
@@ -298,8 +314,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       this.otherHeroes = [];
       if (!this.hero.id) {
         this.pollForChanges();
-      } 
-      if (this.mainScene && this.mainScene.level) { 
+      }
+      if (this.mainScene && this.mainScene.level) {
         if (level.name != "Fight") {
           this.metaHero.map = level.name;
           this.metaHero.position = level.getDefaultHeroPosition();
@@ -315,15 +331,15 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           if (otherHero) {
             otherHero.position = pM.position.duplicate();
           }
-        } 
+        }
         this.mainScene.level.itemsFound = this.mainScene.inventory.getItemsFound();
-      }  
+      }
     });
 
-    events.on("SHOP_OPENED", this, (params: {heroPosition: Vector2, entranceLevel: Level }) => { 
-      this.mainScene.setLevel(new ShopMenu(params)); 
+    events.on("SHOP_OPENED", this, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
+      this.mainScene.setLevel(new ShopMenu(params));
       this.stopPollingForUpdates = true;
-    }); 
+    });
     events.on("SHOP_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
       this.stopPollingForUpdates = false;
       const newLevel = this.getLevelFromLevelName(params.entranceLevel.name);
@@ -346,6 +362,52 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           }, 0);
         }
       }
+    });
+
+    events.on("REPAIR_ALL_METABOTS", this, () => {
+      for (let bot of this.metaHero.metabots) {
+        bot.hp = 100;
+      }
+      if (this.hero && this.hero.metabots) { 
+        for (let bot of this.hero.metabots) {
+          bot.hp = 100;
+        }
+      }
+    })
+
+    events.on("ITEM_PURCHASED", this, (item: InventoryItem) => {
+      const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "BUY_ITEM", this.metaHero.map, { "item": `${JSON.stringify(item)}` })
+      this.metaService.updateEvents(metaEvent);
+
+      console.log("received item purchased event");
+    });
+
+    events.on("BUY_ITEM_CONFIRMED", this, (params: { heroId: number, item: string }) => {
+      console.log("confirmed item purchase : ", params);
+      const shopItem = JSON.parse(params.item) as InventoryItem;
+      console.log("purchase : ", shopItem);
+      if (params.heroId === this.metaHero.id) {
+        let alreadyAddedItem = false;
+
+        if (shopItem.category == "botFrame") {
+          if (!storyFlags.flags.get(GOT_FIRST_METABOT)) {
+            storyFlags.add(GOT_FIRST_METABOT);
+          } else {
+            alreadyAddedItem = true;
+          }
+        }
+        if (!alreadyAddedItem) {
+          events.emit("HERO_PICKS_UP_ITEM", {
+            position: new Vector2(0, 0),
+            id: this.mainScene.inventory.nextId,
+            hero: this.hero,
+            name: shopItem.name,
+            imageName: shopItem.image,
+            category: shopItem.category
+          }); 
+        }
+
+      } 
     });
 
     events.on("START_FIGHT", this, (source: Npc) => {
@@ -387,9 +449,17 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "PARTY_UP", this.metaHero.map, { "hero_id": `${person.id}`, "party_members": `${JSON.stringify(this.partyMembers)}` })
       this.metaService.updateEvents(metaEvent);
     });
-    events.on("HERO_PICKS_UP_ITEM", this, (item: any) => {
-      console.log(item);
-      this.metaService.updateInventory(this.metaHero, item.name, item.imageName);
+    events.on("HERO_PICKS_UP_ITEM", this, (data:
+      {
+        image: any,
+        position: Vector2,
+        hero: Hero,
+        name: string,
+        imageName: string,
+        category: string
+      }) => {
+      console.log(data);
+      this.metaService.updateInventory(this.metaHero, data.name, data.imageName, data.category);
     });
   } 
 

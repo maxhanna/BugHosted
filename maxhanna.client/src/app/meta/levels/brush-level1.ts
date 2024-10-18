@@ -137,7 +137,7 @@ export class BrushLevel1 extends Level {
       } as Scenario
     ]; 
 
-    const refereeMetabot = new MetaBot(-146, referee.id, SPEED_TYPE, "Wasp", false, new Vector2(0, 0));
+    const refereeMetabot = new MetaBot({ id: -146, parentId: referee.id, type: SPEED_TYPE, name: "Wasp", isDead: false, position: new Vector2(0, 0) });
     refereeMetabot.hp = 10;
     refereeMetabot.level = 5;
     referee.metabots.push(refereeMetabot);
@@ -150,8 +150,8 @@ export class BrushLevel1 extends Level {
         addsFlag: START_FIGHT,
       } as Scenario
     ];
-    
-    const refereeMetabot2 = new MetaBot(-145, referee2.id, SPEED_TYPE, "Zippy", false, new Vector2(0, 0));
+
+    const refereeMetabot2 = new MetaBot({ id: -145, parentId: referee2.id, type: SPEED_TYPE, name: "Zippy", isDead: false, position: new Vector2(0, 0) });
     refereeMetabot2.level = 5;
     referee2.metabots.push(refereeMetabot2);
     referee2.partnerNpcs.push(referee);

@@ -26,11 +26,14 @@ export class Hero extends GameObject {
   itemPickupShell: any;
   isLocked = false;
   latestMessage = "";
-  constructor(params: { position: Vector2, colorSwap?: ColorSwap }) {
+  constructor(params: { position: Vector2, colorSwap?: ColorSwap, isUserControlled?: boolean }) {
     super({
       position: params.position,
       colorSwap: params.colorSwap
     })
+    if (params.isUserControlled) {
+      this.isUserControlled = params.isUserControlled;
+    }
    // console.log("New Hero at position : " + x + '; ' + y);
     this.facingDirection = DOWN; 
     this.destinationPosition = this.position.duplicate();
@@ -41,8 +44,8 @@ export class Hero extends GameObject {
     this.metabots = [];
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(-27, -58),
-      scale: new Vector2(1.5, 1.5),
+      position: new Vector2(-18, -18),
+      scale: new Vector2(1.25, 1),
       frameSize: new Vector2(32, 32),
     });
     shadow.drawLayer = "FLOOR";
@@ -72,7 +75,15 @@ export class Hero extends GameObject {
     this.addChild(this.body); 
     this.body.animations?.play("standDown");
 
-    events.on("HERO_PICKS_UP_ITEM", this, (data: any) => {
+    events.on("HERO_PICKS_UP_ITEM", this, (data:
+      {
+        image: any,
+        position: Vector2,
+        hero: Hero,
+        name: string,
+        imageName: string,
+        category: string
+      }) => {
       this.onPickupItem(data);
     });
 
@@ -385,9 +396,7 @@ export class Hero extends GameObject {
       this.itemPickupShell.destroy();
     }
   }
-  override getContent() { 
-      
-    console.log("Getting content " );
+  override getContent() {  
     return {
       portraitFrame: 0,
       string: ["Party Up", "Whisper", "Wave", "Cancel"],

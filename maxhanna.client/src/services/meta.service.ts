@@ -59,7 +59,7 @@ export class MetaService {
   async updateEvents(event: MetaEvent) {
     return this.fetchData('/meta/updateevents', event);
   }
-  async updateInventory(hero: MetaHero, name: string, image: string) {
-    return this.fetchData('/meta/updateinventory', { Hero: hero, Name: name, Image: image });
+  async updateInventory(hero: MetaHero, name: string, image: string, category: string) {
+    return this.fetchData('/meta/updateinventory', { Hero: hero, Name: name, Image: image, Category: category});
   }
 }

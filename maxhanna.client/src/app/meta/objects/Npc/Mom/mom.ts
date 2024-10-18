@@ -15,11 +15,13 @@ export class Mom extends Npc {
   constructor(x: number, y: number) {
     super({
       id: -1972,
+      type: "mom",
+      partners: [],
       position: new Vector2(x, y),
       body: new Sprite({
-        objectId: -1973,
+        objectId: -19173,
         resource: resources.images["mom"],
-        scale: new Vector2(-7, -20),
+        position: new Vector2(-7, -20),
         frameSize: new Vector2(32, 32),
         hFrames: 4,
         vFrames: 4,
@@ -35,9 +37,10 @@ export class Mom extends Npc {
             standUp: new FrameIndexPattern(STAND_UP),
           })
       })
-    })
+    });
       
-    this.name = "Mom";  
+    this.name = "mom";  
+    this.type = "mom";  
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       position: new Vector2(-25, -16),
@@ -77,7 +80,8 @@ export class Mom extends Npc {
         string: [`Another beautiful day!... Oh, good morning sweet pee, your dads bot short circuited while trying to water the plants this morning.`],
         addsFlag: TALKED_TO_MOM,
       } as Scenario
-    ]
+    ];
+    console.log("mom created");
   }
 
   override ready() {

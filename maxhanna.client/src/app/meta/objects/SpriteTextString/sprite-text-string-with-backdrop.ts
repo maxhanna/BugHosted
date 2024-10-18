@@ -28,20 +28,14 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     }
     if (config.string) {
       this.content = config.string;
-    }
-    
+    } 
     this.portrait = new Sprite({
       resource: resources.images["portraits"],
-      frame: (config.portraitFrame ?? 0),
-      hFrames: 4,
+      frame: (config.portraitFrame ?? 0), 
       vFrames: 1
     }); 
   }
-
-  override ready() {
-
-  }
-
+   
   override step(delta: number, root: GameObject) {
     //listen for user input
     //get parentmost object

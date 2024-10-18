@@ -7,67 +7,88 @@ import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Level } from "./Level/level";
 import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { Input } from "../helpers/input";
- 
+import { Main } from "./Main/main";
+import { InventoryItem } from "./InventoryItem/inventory-item";
+import { storyFlags } from "../helpers/story-flags";
+
 
 export class ShopMenu extends Level {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
-  items: ShopItem[] = [];
+  items: InventoryItem[] = [];
   currentlySelectedId: number = 0;
   selectedCategory: string = "all"; // Track the selected item category
   selectorSprite = new Sprite({ resource: resources.images["pointer"], frameSize: new Vector2(12, 10), position: new Vector2(22, 10) });
   override defaultHeroPosition = new Vector2(0, 0);
   entranceLevel: Level;
-  constructor(params: { heroPosition: Vector2, entranceLevel: Level }) {
+  blockSelection = true;
+
+  constructor(params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) {
     super();
     this.defaultHeroPosition = params.heroPosition;
     this.entranceLevel = params.entranceLevel;
-    // Sample inventory with different categories
-    this.items.push(
-      new ShopItem(1, "Frame2 Canister", resources.images["metabotFrame"], "metabot frames2"),
-      new ShopItem(2, "Robot Frame", resources.images["metabotFrame"], "metabot frames"),
-      new ShopItem(3, "Frame3 Parts", resources.images["metabotFrame"], "metabot frames3"),
-      new ShopItem(4, "Exit", undefined, "Exit"),
-    ); 
+    if (params.items) {
+      const hasFirstMetabot = storyFlags.flags.get("GOT_FIRST_METABOT");
+      console.log(
+        "has first metabot?", hasFirstMetabot
+      )
+      if (hasFirstMetabot) {
+        for (let x = 0; x < params.items.length; x++) {
+          if (params.items[x].category != "botFrame") {
+            this.items.push(params.items[x]);
+          }
+        }
+      } else { 
+        this.items = params.items;
+      }
 
-    const shopFrame = new Sprite({ resource: resources.images["white"], position: new Vector2(-100,  -60), scale: new Vector2(100, 170) });
-   // shopFrame.drawLayer = "FLOOR";
+      if (!this.items.find(x => x.category === "Exit")) {
+        this.items.push(new InventoryItem({ id: this.items.length + 1, name: "Exit", category: "Exit" }));
+      }
+    } else {
+      this.items.push(
+        new InventoryItem({ id: 1, name: "Frame2 Canister", category: "botFrame", image: "botFrame2" }),
+        new InventoryItem({ id: 4, name: "Exit", category: "Exit" }),
+      );
+    }
+
+    const shopFrame = new Sprite({ resource: resources.images["white"], position: new Vector2(-100, -60), scale: new Vector2(100, 170) }); 
     this.addChild(shopFrame);
     this.addChild(this.selectorSprite);
     for (let x = 0; x < this.items.length; x++) {
-      const sts = new SpriteTextString(this.items[x].name, new Vector2(10, 15 * x), "Black");
-     // sts.drawLayer = "HUD";
+      const sts = new SpriteTextString(this.items[x].name, new Vector2(10, 32 * x), "Black"); 
       this.addChild(sts);
-    } 
-  }
-
-
-  // Handles item selection logic
-  selectNextItem() {  
-    this.currentlySelectedId = (this.currentlySelectedId > (this.items.length - 2) ? 0 : ++this.currentlySelectedId);
-    this.selectorSprite.position.y = 10 + (this.currentlySelectedId * 15);
-    console.log(this.currentlySelectedId);
-  }
-  selectPreviousItem() { 
-    this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.items.length - 1 : --this.currentlySelectedId);
-    this.selectorSprite.position.y = 10 + (this.currentlySelectedId * 15);
-    console.log(this.currentlySelectedId);
-  }
-  override step(delta: number, root: GameObject) {
-    //listen for user input
-    //get parentmost object
-    let parent = root?.parent ?? root;
-    if (parent) {
-      while (parent.parent) {
-        parent = parent.parent;
+    }
+    for (let x = 0; x < this.items.length; x++) {
+      if (this.items[x].image) {
+        const sprite = new Sprite({
+          position: new Vector2(80, 32 * x),
+          resource: resources.images[this.items[x].image],
+          frameSize: new Vector2(32, 32)
+        });
+        this.addChild(sprite);
       }
     }
-
-    const input = parent.input as Input;
-
-    if (input?.keys["Space"]) {
+    setTimeout(() => {
+      this.blockSelection = false; 
+    }, 700);
+  }
+   
+  incrementCurrentlySelectedId() {
+    this.currentlySelectedId = (this.currentlySelectedId > (this.items.length - 2) ? 0 : ++this.currentlySelectedId);
+    this.selectorSprite.position.y = 10 + (this.currentlySelectedId * 32); 
+  }
+  decrementCurrentlySelectedId() {
+    this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.items.length - 1 : --this.currentlySelectedId);
+    this.selectorSprite.position.y = 10 + (this.currentlySelectedId * 32); 
+  }
+  override step(delta: number, root: GameObject) { 
+    const input = (root as Main).input as Input; 
+    if (input?.keys["Space"] && !this.blockSelection) {
       if (input?.verifyCanPressKey()) {
-        if (this.currentlySelectedId == this.items.length - 1) {
+        if (this.items[this.currentlySelectedId].name === "Exit") {
           this.leaveShop();
+        } else {
+          this.purchaseItem(this.items[this.currentlySelectedId]);
         }
       }
     }
@@ -76,43 +97,40 @@ export class ShopMenu extends Level {
       if (input?.getActionJustPressed("ArrowUp")
         || input?.heldDirections.includes("UP")
         || input?.getActionJustPressed("KeyW")) {
-        this.selectPreviousItem();
+        this.decrementCurrentlySelectedId();
       }
       else if (input?.getActionJustPressed("ArrowDown")
         || input?.heldDirections.includes("DOWN")
-        || input?.getActionJustPressed("KeyS")) { 
-        this.selectNextItem();
+        || input?.getActionJustPressed("KeyS")) {
+        this.incrementCurrentlySelectedId();
       }
       else if (input?.getActionJustPressed("ArrowLeft")
         || input?.heldDirections.includes("LEFT")
-        || input?.getActionJustPressed("KeyA")) { 
-        this.selectPreviousItem();
+        || input?.getActionJustPressed("KeyA")) {
+        this.decrementCurrentlySelectedId();
       }
       else if (input?.getActionJustPressed("ArrowRight")
         || input?.heldDirections.includes("RIGHT")
         || input?.getActionJustPressed("KeyD")) {
-        this.selectNextItem(); 
-      } 
+        this.incrementCurrentlySelectedId();
+      }
     }
   }
 
   private leaveShop() {
     console.log("leave shop");
     this.entranceLevel.defaultHeroPosition = this.defaultHeroPosition;
-    events.emit("SHOP_CLOSED", { entranceLevel: this.entranceLevel, heroPosition: this.defaultHeroPosition }); 
+    events.emit("SHOP_CLOSED", { entranceLevel: this.entranceLevel, heroPosition: this.defaultHeroPosition });
+  }
+  private purchaseItem(item: InventoryItem) {
+    console.log("purchaseItem ", item);
+    events.emit("ITEM_PURCHASED", item);
+    if (item.category == "botFrame") {
+      this.leaveShop();
+    }
+    this.blockSelection = true; 
+    setTimeout(() => {
+      this.blockSelection = false;
+    }, 700);
   }
 } 
-
-class ShopItem {
-  id: number;
-  name: string;
-  image: any; // Image resource
-  category: string; // e.g., "oil", "parts", "metabot frames"
-
-  constructor(id: number, name: string, image: any, category: string) {
-    this.id = id;
-    this.name = name;
-    this.image = image;
-    this.category = category;
-  }
-}

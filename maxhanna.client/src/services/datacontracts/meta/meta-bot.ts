@@ -3,8 +3,8 @@ import { Vector2 } from "./vector2";
 import { MetaBotPart } from "./meta-bot-part";
 
 export class MetaBot {
-  id: number;  
-  parentId: number;  
+  id: number;
+  parentId: number;
   type: number;
   hp: number = 1;
   exp: number = 0;
@@ -21,14 +21,14 @@ export class MetaBot {
   rightArm?: MetaBotPart;
 
 
-  constructor(id: number, parentId: number, type:number, name: string, isDead: boolean, position?: Vector2) {
-    this.id = id; 
-    this.name = name;
-    this.isDead = isDead;
-    this.parentId = parentId;
-    this.isDead = isDead;
-    this.type = type;
-    this.position = position;
+  constructor(params: { id: number, parentId: number, type: number, name: string, isDead: boolean, position?: Vector2 }) {
+    this.id = params.id; 
+    this.name = params.name;
+    this.isDead = params.isDead;
+    this.parentId = params.parentId;
+    this.isDead = params.isDead;
+    this.type = params.type;
+    this.position = params.position;
     this.head = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Headbutt", damageMod: 1 })
     this.legs = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Kick", damageMod: 1 })
     this.leftArm = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Left punch", damageMod: 1 })
