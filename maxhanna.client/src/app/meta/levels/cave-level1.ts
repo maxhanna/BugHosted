@@ -36,7 +36,7 @@ export class CaveLevel1 extends Level {
     ); 
     this.addChild(ground);
 
-    const exit = new Exit(gridCells(2), gridCells(4));
+    const exit = new Exit({ position: new Vector2(gridCells(2), gridCells(4)) });
     this.addChild(exit);
 
     const watch = new Watch({ id: 0, position: new Vector2(gridCells(5), gridCells(2)) });

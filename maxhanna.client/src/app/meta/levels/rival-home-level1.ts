@@ -145,13 +145,13 @@ export class RivalHomeLevel1 extends Level {
     this.addChild(carpet2);
 
 
-    const exitBackToRoom = new Exit(gridCells(18), gridCells(2), true, (Math.PI * 3) / 2);
-    exitBackToRoom.targetMap = "HeroRoom";
+    const exitBackToRoom = new Exit({ position: new Vector2(gridCells(18), gridCells(2)), showSprite: true, rotation: (Math.PI * 3) / 2, targetMap: "HeroRoom" }); 
     this.addChild(exitBackToRoom);
 
 
-    const exitOutside = new Exit(gridCells(10), gridCells(13), false, (Math.PI * 3) / 2);
-    exitOutside.targetMap = "BrushLevel1";
+    const exitOutside = new Exit({
+      position: new Vector2(gridCells(10), gridCells(13)), showSprite: false, targetMap: "BrushLevel1"
+    }); 
     this.addChild(exitOutside);
 
     this.walls = new Set();

@@ -1,4 +1,4 @@
-import { Vector2 } from "../../../../services/datacontracts/meta/vector2"; 
+import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
@@ -8,7 +8,7 @@ import { Animations } from "../../helpers/animations";
 import { moveTowards } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
-import { events } from "../../helpers/events"; 
+import { events } from "../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 
@@ -34,8 +34,8 @@ export class Hero extends GameObject {
     if (params.isUserControlled) {
       this.isUserControlled = params.isUserControlled;
     }
-   // console.log("New Hero at position : " + x + '; ' + y);
-    this.facingDirection = DOWN; 
+    //console.log("New Hero at position : ", this.position);
+    this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
     this.name = "Anon";
@@ -71,8 +71,8 @@ export class Hero extends GameObject {
           pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
         }),
       colorSwap: this.colorSwap
-    }); 
-    this.addChild(this.body); 
+    });
+    this.addChild(this.body);
     this.body.animations?.play("standDown");
 
     events.on("HERO_PICKS_UP_ITEM", this, (data:
@@ -88,7 +88,7 @@ export class Hero extends GameObject {
     });
 
   }
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Draw the player's name
     if (this.name) {
       // Set the font style and size for the name
@@ -175,7 +175,7 @@ export class Hero extends GameObject {
         ctx.fillText(line, drawPosX + 6, bubbleY + bubblePadding + (index * 12) + 10); // Position each line inside the bubble
       });
     }
-  } 
+  }
 
   override ready() {
     if (this.isUserControlled) {
@@ -186,11 +186,12 @@ export class Hero extends GameObject {
         this.isLocked = false;
       });
       events.on("HERO_MOVEMENT_LOCK", this, () => {
-        this.isLocked = true; 
-      }); 
+        console.log("LOCKING MOVEMENT");
+        this.isLocked = true;
+      });
       events.on("HERO_MOVEMENT_UNLOCK", this, () => {
         this.isLocked = false;
-      }); 
+      });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => {
         console.log(selectedItem);
         if (selectedItem === "Party Up") {
@@ -199,7 +200,7 @@ export class Hero extends GameObject {
           });
           events.emit("PARTY_UP", objectAtPosition);
         }
-      }); 
+      });
     }
   }
 
@@ -218,34 +219,34 @@ export class Hero extends GameObject {
       if (objectAtPosition) {
         console.log(objectAtPosition);
         events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
-      } 
+      }
     }
 
     const distance = moveTowards(this, this.destinationPosition, 1);
     const hasArrived = (distance ?? 0) <= 1;
     if (hasArrived && this.isUserControlled) {
       this.tryMove(root);
-    }  
+    }
 
     this.otherPlayerMove(root);
-    this.tryEmitPosition(); 
+    this.tryEmitPosition();
   }
 
   private isObjectNeerby() {
-      const posibilities = this.parent.children.filter((child: GameObject) => {
-          // Calculate the neighboring position with the facing direction
-          const neighborPosition = this.position.toNeighbour(this.facingDirection);
+    const posibilities = this.parent.children.filter((child: GameObject) => {
+      // Calculate the neighboring position with the facing direction
+      const neighborPosition = this.position.toNeighbour(this.facingDirection);
 
-          // Define the discrepancy value
-          const discrepancy = 0.05; 
-          // Check if the child's position is within the discrepancy range of the neighbor position
-          return (
-              child.position.x >= neighborPosition.x - discrepancy &&
-              child.position.x <= neighborPosition.x + discrepancy &&
-              child.position.y >= neighborPosition.y - discrepancy &&
-              child.position.y <= neighborPosition.y + discrepancy
-          );
-      });
+      // Define the discrepancy value
+      const discrepancy = 0.05;
+      // Check if the child's position is within the discrepancy range of the neighbor position
+      return (
+        child.position.x >= neighborPosition.x - discrepancy &&
+        child.position.x <= neighborPosition.x + discrepancy &&
+        child.position.y >= neighborPosition.y - discrepancy &&
+        child.position.y <= neighborPosition.y + discrepancy
+      );
+    });
     const bestChoice = posibilities.find((x: any) => x.textContent);
     if (bestChoice) {
       return bestChoice;
@@ -257,10 +258,10 @@ export class Hero extends GameObject {
     return posibilities[0];
   }
 
-  updateAnimation() { 
+  updateAnimation() {
     setTimeout(() => {
       const currentTime = new Date().getTime();
-      if (currentTime - this.lastStandAnimationTime >= 300) {  
+      if (currentTime - this.lastStandAnimationTime >= 300) {
         if (this.destinationPosition.matches(this.position)) {
           this.body.animations?.play(
             "stand" + this.facingDirection.charAt(0) +
@@ -270,12 +271,12 @@ export class Hero extends GameObject {
         this.lastStandAnimationTime = currentTime; // Update the last time it was run
       }
     }, (this.isUserControlled ? 1000 : 2000));
-  } 
+  }
   tryEmitPosition() {
     if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
       return;
     }
-    if (this.isUserControlled) { 
+    if (this.isUserControlled) {
       events.emit("HERO_POSITION", this);
     }
     this.lastPosition = this.position.duplicate();
@@ -285,14 +286,16 @@ export class Hero extends GameObject {
     const { input } = root;
     if (!input.direction || !this.isUserControlled) {
       //console.log("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
+      if (this.destinationPosition.x == 0 && this.destinationPosition.y == 0) { 
+        this.destinationPosition = this.position.duplicate();
+      } 
       this.body.animations?.play("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
       return;
     }
 
     const gridSize = gridCells(1);
-    const destPos = this.destinationPosition;
-    if (destPos) {
-      let position = destPos.duplicate();
+    if (this.destinationPosition) {
+      let position = this.destinationPosition.duplicate();
 
       if (input.direction === DOWN) {
         position.y = snapToGrid(position.y + gridSize, gridSize);
@@ -317,9 +320,9 @@ export class Hero extends GameObject {
         return c.isSolid
           && c.position.x == position.x
           && c.position.y == position.y
-      })
+      }); 
       if (spaceIsFree && !solidBodyAtSpace) {
-        this.destinationPosition = position;
+        this.destinationPosition = position; 
       }
     }
   }
@@ -327,8 +330,7 @@ export class Hero extends GameObject {
   otherPlayerMove(root: any) {
     if (!this.isUserControlled) {
       this.position = this.position.duplicate();
-      this.destinationPosition = this.destinationPosition.duplicate();
-
+      this.destinationPosition = this.destinationPosition.duplicate(); 
       const destPos = this.destinationPosition;
       let tmpPosition = this.position;
       if (destPos) {
@@ -372,8 +374,8 @@ export class Hero extends GameObject {
         }
       }
     }
-    
-  }   
+
+  }
 
   onPickupItem(data: { image: any, position: Vector2, hero: any }) {
     if (data.hero?.id == this.id) {
@@ -387,7 +389,7 @@ export class Hero extends GameObject {
         frameSize: new Vector2(22, 24),
       }));
       this.addChild(this.itemPickupShell);
-    } 
+    }
   }
   workOnItemPickup(delta: number) {
     this.itemPickupTime -= delta;
@@ -396,7 +398,7 @@ export class Hero extends GameObject {
       this.itemPickupShell.destroy();
     }
   }
-  override getContent() {  
+  override getContent() {
     return {
       portraitFrame: 0,
       string: ["Party Up", "Whisper", "Wave", "Cancel"],
@@ -404,4 +406,4 @@ export class Hero extends GameObject {
       addsFlag: null
     }
   }
- }
+}

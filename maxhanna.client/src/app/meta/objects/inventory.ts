@@ -5,6 +5,7 @@ import { events } from "../helpers/events";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { InventoryItem } from "./InventoryItem/inventory-item";
+import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../helpers/story-flags";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: InventoryItem[] = [];
@@ -21,23 +22,25 @@ export class Inventory extends GameObject {
     ]
 
     //React to picking up an item
-    events.on("HERO_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string }) => {
-      console.log("got HERO_PICKS_UP_ITEM in inventory: ", data);
-      //Show something on the screen.
+    events.on("HERO_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string, stats?: any }) => { 
       if (data.hero?.isUserControlled) {
-        const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category } as InventoryItem;
-        console.log("pshuing item in hero inventory: ", itemData);
+        const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category, stats: data.stats } as InventoryItem;
+        this.updateStoryFlags(itemData);
         this.items.push(itemData);
+
+        //Show on the screen.
         this.renderInventory();
       }
     });
 
     events.on("INVENTORY_UPDATED", this, (data: InventoryItem) => {
-      console.log("inventory updated: ",data);
       const itemData = {
-        id: data.id, image: data.category, name: data.name, category: data.category
+        id: data.id, image: data.category, name: data.name, category: data.category, stats: data.stats
       } as InventoryItem;
+
+      this.updateStoryFlags(itemData);
       this.items.push(itemData);
+
       this.renderInventory();
     });
 
@@ -89,10 +92,6 @@ export class Inventory extends GameObject {
     this.renderInventory();
   }
 
-  private deselectSelectedItem() {
-    this.children.forEach((x: any) => x.isItemSelected = false);
-    this.currentlySelectedId = undefined;
-  }
 
   getCurrentlySelectedItem() {
     return this.items.find(x => x.id == this.currentlySelectedId)?.name ?? "";
@@ -174,5 +173,15 @@ export class Inventory extends GameObject {
       ctx.lineTo(drawPos.x + width, drawPos.y + height - cornerSize);
       ctx.stroke();
     }
+  }
+
+  private updateStoryFlags(itemData: InventoryItem) {
+    if (itemData.category === "watch" && !storyFlags.contains(GOT_WATCH)) { storyFlags.add(GOT_WATCH); }
+    else if (itemData.category === "botFrame" && !storyFlags.contains(GOT_FIRST_METABOT)) { storyFlags.add(GOT_FIRST_METABOT); }
+  }
+
+  private deselectSelectedItem() {
+    this.children.forEach((x: any) => x.isItemSelected = false);
+    this.currentlySelectedId = undefined;
   }
 }

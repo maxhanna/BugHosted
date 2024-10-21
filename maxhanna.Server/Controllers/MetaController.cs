@@ -3,6 +3,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
+using System.Text;
 
 namespace maxhanna.Server.Controllers
 {
@@ -211,6 +212,48 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+		[HttpPost("/Meta/CreateBot", Name = "CreateBot")]
+		public async Task<IActionResult> CreateBot([FromBody] MetaBot bot)
+		{
+			Console.WriteLine($"POST /Meta/CreateBot (UserId: {bot.HeroId}, Bot Name: {bot.Name})");
+			using (var connection = new MySqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+				using (var transaction = connection.BeginTransaction())
+				{
+					try
+					{
+						string sql = @"INSERT INTO maxhanna.meta_bot (hero_id, name, type, hp, exp, level) VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level);"; 
+						Dictionary<string, object?> parameters = new Dictionary<string, object?>
+												{
+														{ "@HeroId", bot.HeroId },
+														{ "@Name", bot.Name },
+														{ "@Type", bot.Type },
+														{ "@Hp", bot.Hp},
+														{ "@Exp", bot.Exp},
+														{ "@Level", bot.Level}
+												};
+						long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+						await transaction.CommitAsync();
+
+						MetaBot heroBot = new MetaBot();
+						heroBot.Id = (int)botId;
+						heroBot.HeroId = bot.HeroId;
+						heroBot.Name = bot.Name;
+						heroBot.Hp = bot.Hp;
+						heroBot.Type = bot.Type;
+						return Ok(heroBot);
+					}
+					catch (Exception ex)
+					{
+						await transaction.RollbackAsync();
+						return StatusCode(500, "Internal server error: " + ex.Message);
+					}
+				}
+			}
+		}
+
 		[HttpPost("/Meta/Chat", Name = "Chat")]
 		public async Task<IActionResult> Chat([FromBody] MetaHeroChatRequest request)
 		{
@@ -237,10 +280,11 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			//Console.WriteLine("hero coords X " + hero.CoordsX + " hero coordsY" + hero.CoordsY);
+			//Console.WriteLine("hero coords X " + hero.Position.x + " hero coordsY" + hero.Position.y  + " bots: " + hero.Metabots);
 			string sql = @"UPDATE maxhanna.meta_hero 
                             SET coordsX = @CoordsX, 
-                                coordsY = @CoordsY,  
+                                coordsY = @CoordsY, 
+                                color = @Color,  
                                 map = @Map 
                             WHERE 
                                 id = @HeroId";
@@ -248,11 +292,51 @@ namespace maxhanna.Server.Controllers
 						{
 								{ "@CoordsX", hero.Position.x },
 								{ "@CoordsY", hero.Position.y },
+								{ "@Color", hero.Color },
 								{ "@Map", hero.Map },
 								{ "@HeroId", hero.Id }
 						};
 			await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-			return hero;
+
+			if (hero.Metabots != null && hero.Metabots.Count > 0)
+			{
+				StringBuilder botSqlBuilder = new StringBuilder();
+				Dictionary<string, object?> botParameters = new Dictionary<string, object?>();
+
+				int botIndex = 0;
+				foreach (MetaBot bot in hero.Metabots)
+				{
+					// Building SQL for both insert and update
+					string botSql = $@"
+						INSERT INTO maxhanna.meta_bot (id, name, type, hp, level, exp, hero_id) 
+						VALUES (@BotId{botIndex}, @Name{botIndex}, @Type{botIndex}, @Hp{botIndex}, @Level{botIndex}, @Exp{botIndex}, @HeroId{botIndex})
+						ON DUPLICATE KEY UPDATE 
+								name = VALUES(name),
+								type = VALUES(type),
+								hp = VALUES(hp),
+								level = VALUES(level),
+								exp = VALUES(exp);";
+
+					// Append each bot's insert or update statement to the query builder
+					botSqlBuilder.Append(botSql);
+
+					// Add parameters for each bot
+					botParameters.Add($"@BotId{botIndex}", bot.Id);
+					botParameters.Add($"@Name{botIndex}", bot.Name);
+					botParameters.Add($"@Type{botIndex}", bot.Type);
+					botParameters.Add($"@Hp{botIndex}", bot.Hp);
+					botParameters.Add($"@Level{botIndex}", bot.Level);
+					botParameters.Add($"@Exp{botIndex}", bot.Exp); 
+					botParameters.Add($"@HeroId{botIndex}", bot.HeroId);
+
+					botIndex++;
+				}
+
+				// Execute the combined MetaBot update queries
+				await ExecuteInsertOrUpdateOrDeleteAsync(botSqlBuilder.ToString(), botParameters, connection, transaction);
+			}
+
+			return hero; 
 		}
 		private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -373,39 +457,81 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 			}
+
 			if (transaction == null)
 			{
 				_logger.LogError("Transaction is null.");
 				throw new InvalidOperationException("Transaction is required for this operation.");
 			}
-			if (user == null && heroId == null) { return null; }
 
+			if (user == null && heroId == null)
+			{
+				return null;
+			}
+
+			// Fetch hero and associated metabots
 			string sql = $@"
-                    SELECT 
-                        *
-                    FROM 
-                        maxhanna.meta_hero 
-                    WHERE 
-                        {(heroId == null ? "user_id = @UserId" : "id = @UserId")} 
-                    LIMIT 1;";
+        SELECT 
+            h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color,
+            b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, 
+            b.level as bot_level, b.exp as bot_exp 
+        FROM 
+            maxhanna.meta_hero h
+        LEFT JOIN 
+            maxhanna.meta_bot b ON h.id = b.hero_id
+        WHERE 
+            {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")}
+        ;";
 
 			MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
 			cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : (user?.Id ?? 0));
+
+			MetaHero? hero = null;
+			List<MetaBot> metabots = new List<MetaBot>();
 
 			using (var reader = await cmd.ExecuteReaderAsync())
 			{
 				while (reader.Read())
 				{
-					MetaHero hero = new MetaHero();
-					hero.Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"]));
-					hero.Speed = Convert.ToInt32(reader["speed"]);
-					hero.Id = Convert.ToInt32(reader["id"]);
-					hero.Map = Convert.ToString(reader["map"]);
-					hero.Name = Convert.ToString(reader["name"]);
-					return hero;
+					// Initialize hero if it hasn't been done yet
+					if (hero == null)
+					{
+						hero = new MetaHero
+						{
+							Id = Convert.ToInt32(reader["hero_id"]),
+							Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
+							Speed = Convert.ToInt32(reader["speed"]),
+							Map = Convert.ToString(reader["map"]),
+							Name = Convert.ToString(reader["hero_name"]),
+							Color = Convert.ToString(reader["hero_color"]),
+							Metabots = new List<MetaBot>()
+						};
+					}
+
+					// Check if there's a MetaBot associated with this hero
+					if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
+					{
+						MetaBot bot = new MetaBot
+						{
+							Id = Convert.ToInt32(reader["bot_id"]),
+							Name = Convert.ToString(reader["bot_name"]),
+							Type = Convert.ToInt32(reader["bot_type"]),
+							Hp = Convert.ToInt32(reader["bot_hp"]),
+							Level = Convert.ToInt32(reader["bot_level"]),
+							Exp = Convert.ToInt32(reader["bot_exp"]), 
+							HeroId = hero.Id
+						};
+						metabots.Add(bot);
+					}
 				}
 			}
-			return null;
+
+			if (hero != null)
+			{
+				hero.Metabots = metabots; // Attach metabots to the hero
+			}
+
+			return hero;
 		}
 
 		private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
@@ -420,32 +546,65 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError("Transaction is null.");
 				throw new InvalidOperationException("Transaction is required for this operation.");
 			}
-			List<MetaHero> heroes = new List<MetaHero>();
+
+			Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
 			string sql = @"
-                    SELECT 
-                        m.* 
-                    FROM 
-                        maxhanna.meta_hero m 
-                    WHERE m.map = @HeroMapId
-                    ORDER BY m.coordsY asc;";
+        SELECT 
+            m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color,
+            b.id as metabot_id, b.name as metabot_name, b.type as metabot_type, b.hp as metabot_hp, b.level as metabot_level, b.exp as metabot_exp 
+        FROM 
+            maxhanna.meta_hero m 
+        LEFT JOIN
+            maxhanna.meta_bot b on b.hero_id = m.id
+        WHERE m.map = @HeroMapId
+        ORDER BY m.coordsY ASC;";
 
 			MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
 			cmd.Parameters.AddWithValue("@HeroMapId", hero.Map);
 
 			using (var reader = await cmd.ExecuteReaderAsync())
 			{
-				while (reader.Read())
+				while (await reader.ReadAsync())
 				{
-					MetaHero tmpHero = new MetaHero();
-					tmpHero.Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"]));
-					tmpHero.Speed = Convert.ToInt32(reader["speed"]);
-					tmpHero.Id = Convert.ToInt32(reader["id"]);
-					tmpHero.Name = Convert.ToString(reader["name"]);
-					tmpHero.Map = Convert.ToString(reader["map"]);
-					heroes.Add(tmpHero);
+					int heroId = Convert.ToInt32(reader["hero_id"]);
+
+					// Check if the hero already exists in the dictionary
+					if (!heroesDict.TryGetValue(heroId, out MetaHero? tmpHero))
+					{
+						// Create a new hero if not already in the dictionary
+						tmpHero = new MetaHero
+						{
+							Id = heroId,
+							Name = Convert.ToString(reader["hero_name"]),
+							Map = Convert.ToString(reader["hero_map"]),
+							Color = Convert.ToString(reader["color"]),
+							Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
+							Speed = Convert.ToInt32(reader["speed"]),
+							Metabots = []
+						};
+						heroesDict[heroId] = tmpHero;
+					}
+
+					// If there's a MetaBot in this row, add it to the MetaHero's MetaBots list
+					if (!reader.IsDBNull(reader.GetOrdinal("metabot_id")))
+					{
+						MetaBot metaBot = new MetaBot
+						{
+							Id = Convert.ToInt32(reader["metabot_id"]),
+							Name = Convert.ToString(reader["metabot_name"]),
+							HeroId = heroId,
+							Type = Convert.ToInt32(reader["metabot_type"]),
+							Hp = Convert.ToInt32(reader["metabot_hp"]),
+							Exp = Convert.ToInt32(reader["metabot_exp"]),
+							Level = Convert.ToInt32(reader["metabot_level"]), 
+						};
+
+						tmpHero.Metabots.Add(metaBot);
+					}
 				}
 			}
-			return heroes.ToArray();
+
+			return heroesDict.Values.ToArray();
 		}
 		private async Task<MetaInventoryItem[]?> GetInventoryFromDB(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
 		{

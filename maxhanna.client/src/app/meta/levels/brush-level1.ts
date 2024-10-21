@@ -9,8 +9,8 @@ import { RivalHomeLevel1 } from "./rival-home-level1";
 import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite"; 
 import { CaveLevel1 } from "./cave-level1";
-import { HeroHomeLevel } from "./hero-home";
-import { GOT_WATCH, START_FIGHT, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
+import { HeroHome } from "./hero-home";
+import { GOT_FIRST_METABOT, GOT_WATCH, START_FIGHT, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH, storyFlags } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc";
 import { Referee } from "../objects/Npc/Referee/referee";
 import { Animations } from "../helpers/animations";
@@ -129,6 +129,8 @@ export class BrushLevel1 extends Level {
     const deer = new Deer(gridCells(28), gridCells(32));
     this.addChild(deer);
 
+    //Npcs
+
     const referee = new Referee(gridCells(5), gridCells(5));
     referee.textContent = [
       {
@@ -137,7 +139,7 @@ export class BrushLevel1 extends Level {
       } as Scenario
     ]; 
 
-    const refereeMetabot = new MetaBot({ id: -146, parentId: referee.id, type: SPEED_TYPE, name: "Wasp", isDead: false, position: new Vector2(0, 0) });
+    const refereeMetabot = new MetaBot({ id: -146, heroId: referee.id, type: SPEED_TYPE, name: "Wasp",position: new Vector2(0, 0)});
     refereeMetabot.hp = 10;
     refereeMetabot.level = 5;
     referee.metabots.push(refereeMetabot);
@@ -151,12 +153,14 @@ export class BrushLevel1 extends Level {
       } as Scenario
     ];
 
-    const refereeMetabot2 = new MetaBot({ id: -145, parentId: referee2.id, type: SPEED_TYPE, name: "Zippy", isDead: false, position: new Vector2(0, 0) });
+    const refereeMetabot2 = new MetaBot({ id: -145, heroId: referee2.id, type: SPEED_TYPE, name: "Zippy", position: new Vector2(0, 0) });
     refereeMetabot2.level = 5;
     referee2.metabots.push(refereeMetabot2);
     referee2.partnerNpcs.push(referee);
     this.addChild(referee2);
 
+
+    //road
 
     for (let x = 0; x < 43; x++) {
       const goldPath = new Sprite(
@@ -164,10 +168,95 @@ export class BrushLevel1 extends Level {
       );
       goldPath.drawLayer = "FLOOR";
       this.addChild(goldPath);
+    } 
+
+    //plants alongside road
+    for (let x = 0; x < 10; x++) {
+      const shrub = new Sprite(
+        { resource: resources.images["shrub"], position: new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(15)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
+      );
+      this.addChild(shrub);
     }
 
+    const flowerBush = new Sprite(
+      {
+        resource: resources.images["flowerbush"], position: new Vector2(gridCells(7), gridCells(11)), frameSize: new Vector2(18, 16), hFrames: 4, vFrames: 1,
+        animations: new Animations({ standDown: new FrameIndexPattern(STAND_DOWN) })
+      }
+    );
+    this.addChild(flowerBush);
 
+    //hero's home fence
+    for (let x = 0; x < 12; x++) {
+      const fence = new Sprite(
+        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1) + gridCells(8), gridCells(20)), frameSize: new Vector2(16, 16) }
+      );
+      fence.isSolid = true;
+      this.addChild(fence);
+
+      const fence2 = new Sprite(
+        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1) + gridCells(8), gridCells(25)), frameSize: new Vector2(16, 16) }
+      );
+      fence2.isSolid = true;
+      this.addChild(fence2);
+    }
+    for (let y = 0; y < 6; y++) {
+      const fence = new Sprite(
+        { resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(8), y * gridCells(1) + gridCells(20)), frameSize: new Vector2(16, 16) }
+      );
+      fence.isSolid = true;
+      this.addChild(fence);
+
+      const fence2 = new Sprite(
+        { resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(19), y * gridCells(1) + gridCells(20)), frameSize: new Vector2(16, 16) }
+      );
+      fence2.isSolid = true;
+      this.addChild(fence2);
+    }
+    //hero's home chickens
+    const chicken3 = new Chicken(gridCells(13), gridCells(21));
+    this.addChild(chicken3);
+    const chicken4 = new Chicken(gridCells(15), gridCells(22));
+    this.addChild(chicken4);
+    const chicken5 = new Chicken(gridCells(12), gridCells(22));
+    this.addChild(chicken5);
+
+
+    //exits 
+    const rivalHomeExit = new Exit({ position: new Vector2(gridCells(13), gridCells(10)), showSprite: false, targetMap: "RivalHomeLevel1" }); 
+    this.addChild(rivalHomeExit);
+
+    const shopExit = new Exit({ position: new Vector2(gridCells(30), gridCells(17)), showSprite: false, targetMap: "BrushShop1" }); 
+    this.addChild(shopExit);
+
+    const heroHomeExit = new Exit({ position: new Vector2(gridCells(13), gridCells(28)), showSprite: false, targetMap: "HeroHome" }); 
+    this.addChild(heroHomeExit);
+
+    if (storyFlags.contains("GOT_FIRST_METABOT")) {
+      for (let x = 0; x < 5; x++) {
+        const brushRoad1 = new Exit(
+          { position: new Vector2(gridCells(- 1), gridCells(x) + gridCells(12)), showSprite: false, targetMap: "BrushShop1" }
+        );
+        this.addChild(brushRoad1); 
+      }
+    }
+     
+
+    //Walls:  
+    //map perimeter fences/bushes
     for (let x = 0; x < 38; x++) {
+      const bb = new Sprite(
+        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(0)), frameSize: new Vector2(15, 17) }
+      );
+      bb.isSolid = true;
+      this.addChild(bb);
+
+      const bb2 = new Sprite(
+        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17) }
+      );
+      bb2.isSolid = true;
+      this.addChild(bb2);
+
       const fence = new Sprite(
         { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16) }
       );
@@ -182,11 +271,27 @@ export class BrushLevel1 extends Level {
     }
 
     for (let y = 0; y < 70; y++) {
-      const fence = new Sprite(
-        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(0), y * gridCells(1) / 2), frameSize: new Vector2(16, 16) }
+      if (storyFlags.contains(GOT_FIRST_METABOT) && y >= 23 && y <= 32) {
+
+      } else {
+        const bb = new Sprite(
+          { resource: resources.images["biggerBush"], position: new Vector2(gridCells(-1), gridCells(y) / 2), frameSize: new Vector2(15, 17) }
+        );
+        bb.isSolid = true;
+        this.addChild(bb);
+
+        const fence = new Sprite(
+          { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(0), y * gridCells(1) / 2), frameSize: new Vector2(16, 16) }
+        );
+        fence.isSolid = true;
+        this.addChild(fence);
+      }
+
+      const bb2 = new Sprite(
+        { resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17) }
       );
-      fence.isSolid = true;
-      this.addChild(fence);
+      bb2.isSolid = true;
+      this.addChild(bb2);
 
       const fence2 = new Sprite(
         { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16) }
@@ -194,68 +299,12 @@ export class BrushLevel1 extends Level {
       fence2.isSolid = true;
       this.addChild(fence2);
     }
-
-    for (let x = 0; x < 38; x++) {
-      const bb = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(0)), frameSize: new Vector2(15, 17) }
-      );
-      bb.isSolid = true;
-      this.addChild(bb);
-
-      const bb2 = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17) }
-      );
-      bb2.isSolid = true;
-      this.addChild(bb2);
-    }
-    for (let y = 0; y < 72; y++) {
-      const bb = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(gridCells(-1), gridCells(y) / 2), frameSize: new Vector2(15, 17) }
-      );
-      bb.isSolid = true;
-      this.addChild(bb);
-
-      const bb2 = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17) }
-      );
-      bb2.isSolid = true;
-      this.addChild(bb2);
-    }
-
-    for (let x = 0; x < 10; x++) {
-      const shrub = new Sprite(
-        { resource: resources.images["shrub"], position: new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(15)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
-      );
-      this.addChild(shrub);
-    }
-
-    const flowerBush = new Sprite(
-      {
-        resource: resources.images["flowerbush"], position: new Vector2(gridCells(2), gridCells(2)), frameSize: new Vector2(18, 64), hFrames: 4, vFrames: 1,
-        animations: new Animations({ standDown: new FrameIndexPattern(STAND_DOWN) })
-      }
-    );
-    this.addChild(flowerBush);
-
-
-    const heroHomeExit = new Exit(gridCells(13), gridCells(28), false, (Math.PI * 3) / 2);
-    heroHomeExit.targetMap = "HeroHome";
-    this.addChild(heroHomeExit); 
-
-    const rivalHomeExit = new Exit(gridCells(13), gridCells(10), true, (Math.PI * 3) / 2);
-    rivalHomeExit.targetMap = "RivalHomeLevel1";
-    this.addChild(rivalHomeExit);
-
-    const shopExit = new Exit(gridCells(30), gridCells(17), false, (Math.PI * 3) / 2);
-    shopExit.targetMap = "BrushShop1";
-    this.addChild(shopExit);
-    //Walls: 
   }
 
   override ready() {
     events.on("HERO_EXITS", this, (targetMap: string) => {
       if (targetMap === "HeroHome") {
-        events.emit("CHANGE_LEVEL", new HeroHomeLevel({
+        events.emit("CHANGE_LEVEL", new HeroHome({
           heroPosition: new Vector2(gridCells(10), gridCells(11)), itemsFound: this.itemsFound
         }));
       }

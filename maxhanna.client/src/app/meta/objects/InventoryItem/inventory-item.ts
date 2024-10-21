@@ -8,7 +8,8 @@ export class InventoryItem extends GameObject {
   name = "";
   image = "";
   category = "";
-  constructor(params: { id: number, name: string, image?: string, category?: string, isItemSelected?: boolean, position?: Vector2 }) {
+  stats: any;
+  constructor(params: { id: number, name: string, image?: string, category?: string, isItemSelected?: boolean, position?: Vector2, stats?: any }) {
     super({ position: params.position ?? new Vector2(0,0) });
     this.id = params.id;
     this.name = params.name;
@@ -18,6 +19,7 @@ export class InventoryItem extends GameObject {
     if (params.category) { 
       this.category = params.category;
     }
+    this.stats = params.stats;
     if (params.isItemSelected) { 
       this.isItemSelected = params.isItemSelected;
     }

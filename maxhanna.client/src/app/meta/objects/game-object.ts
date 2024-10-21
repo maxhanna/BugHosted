@@ -53,14 +53,15 @@ export class GameObject {
 
     this.drawImage(ctx, drawPosX, drawPosY);
 
-    this.getOrderedChildrenForDraw().forEach((child: any) => child.draw(ctx, drawPosX, drawPosY));
+    this.getOrderedChildrenForDraw().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY));
   }
   getOrderedChildrenForDraw() {
     return [...this.children].sort((a, b) => {
-      if (b.drawLayer === "FLOOR")
+      if (b.drawLayer === "FLOOR") {
         return 1;
-
-      return a.position.y > b.position.y ? 1 : -1
+      } else { 
+        return a.position.y >= b.position.y ? 1 : -1
+      }
     })
   }
   drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {

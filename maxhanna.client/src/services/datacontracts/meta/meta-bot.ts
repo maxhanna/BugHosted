@@ -4,15 +4,14 @@ import { MetaBotPart } from "./meta-bot-part";
 
 export class MetaBot {
   id: number;
-  parentId: number;
+  heroId: number;
   type: number;
-  hp: number = 1;
+  hp: number;
   exp: number = 0;
-  level: number = 1;
-  expForNextLevel: number = this.level * 5;
+  level: number = 1; 
+  expForNextLevel: number = (this.level + 1) * 5;
   hasAwardedExp = false
-  name?: string;
-  isDead: boolean;
+  name?: string; 
   isDeployed: boolean = false;
   position?: Vector2;
   head?: MetaBotPart;
@@ -21,20 +20,26 @@ export class MetaBot {
   rightArm?: MetaBotPart;
 
 
-  constructor(params: { id: number, parentId: number, type: number, name: string, isDead: boolean, position?: Vector2 }) {
+  constructor(params: { id: number, heroId: number, type: number, name: string, position?: Vector2, hp?: number }) {
     this.id = params.id; 
-    this.name = params.name;
-    this.isDead = params.isDead;
-    this.parentId = params.parentId;
-    this.isDead = params.isDead;
-    this.type = params.type;
+    this.name = params.name; 
+    this.heroId = params.heroId; 
+    this.type = params.type; 
     this.position = params.position;
+    this.hp = params.hp ?? 1;
     this.head = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Headbutt", damageMod: 1 })
     this.legs = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Kick", damageMod: 1 })
     this.leftArm = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Left punch", damageMod: 1 })
-    this.rightArm = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Right punch", damageMod: 1 })
-  } 
+    this.rightArm = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Right punch", damageMod: 1 }) 
+  }
+
+  calculateExpForNextLevel() {
+    console.log("calculateExpForNextLevel ");
+    this.expForNextLevel = (this.level + 1) * 5;
+    return this.expForNextLevel; // For example, require 100 * level experience to level up
+  }
 }
+
 
 export const SPEED_TYPE = 1;
 export const STRENGTH_TYPE = 2;

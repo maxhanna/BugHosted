@@ -303,7 +303,7 @@ export class FightMenu extends GameObject {
 
     let cursorX = 0 + PADDING_LEFT;
     let cursorY = 0 + PADDING_TOP;
-    const boxY = 100 + BOT_SPRITE_WIDTH;
+    const boxY = 90 + BOT_SPRITE_WIDTH;
 
     for (let x = 0; x < this.metabotChoices.length; x++) {
       const existingBot = this.children.some((z: any) => z.objectId === (x + 1));
@@ -311,7 +311,7 @@ export class FightMenu extends GameObject {
         const metabotSprite = new Sprite({
           objectId: x + 1,
           resource: resources.images["botFrame"],
-          position: new Vector2((cursorX), 5),
+          position: new Vector2((cursorX), -33),
           frameSize: new Vector2(BOT_SPRITE_WIDTH, BOT_SPRITE_WIDTH),
           name: this.metabotChoices[x].name
         });
@@ -347,6 +347,17 @@ export class FightMenu extends GameObject {
           ctx.strokeStyle = 'red';
           ctx.lineWidth = 2;
           ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+          if (this.metabotChoices[x].hp <= 0) {
+            ctx.beginPath();
+            ctx.moveTo(boxX, boxY); // Top-left corner
+            ctx.lineTo(boxX + boxWidth, boxY + boxHeight); // Bottom-right corner
+            ctx.moveTo(boxX + boxWidth, boxY); // Top-right corner
+            ctx.lineTo(boxX, boxY + boxHeight); // Bottom-left corner
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.closePath();
+          } 
         }
       }
 
@@ -397,19 +408,23 @@ export class FightMenu extends GameObject {
   }
 
   private selectFighter() {
-    const metabots = this.metabotChoices ?? [];
+    const metabots = this.metabotChoices ?? []; 
     if (this.selectedFighterIndex !== undefined && metabots.length > this.selectedFighterIndex) {
       const selectedMetabot = metabots.splice(this.selectedFighterIndex, 1)[0]; // Remove the selected Metabot
       metabots.unshift(selectedMetabot); // Add the selected Metabot to the beginning of the array
     }
+    if (metabots[0].hp <= 0) {
+      return; //should play a sound or display, to update.
+    }
+
     this.leftArmSkill = metabots[0].leftArm?.skill ?? "Left Punch";
     this.rightArmSkill = metabots[0].rightArm?.skill ?? "Right Punch";
     this.legsSkill = metabots[0].legs?.skill ?? "Kick";
     this.headSkill = metabots[0].head?.skill ?? "Headbutt";
     this.skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill, "Cancel"];
 
-    console.log("fighter selected", metabots[0]);
-    console.log("leftArmSkill", this.leftArmSkill);
+    //console.log("fighter selected", metabots[0]);
+    //console.log("leftArmSkill", this.leftArmSkill);
     events.emit("FIGHTER_SELECTED", metabots[0]);
     this.showFightMenuOptions = true;
     this.showFighterSelectionMenu = false;

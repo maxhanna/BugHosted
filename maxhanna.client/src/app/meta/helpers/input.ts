@@ -291,7 +291,7 @@ export class Input {
 
   verifyCanPressKey() {
     const currentTime = new Date();
-    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > 100) {
+    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > 125) {
       inputKeyPressedDate = new Date();
       return true;
     }

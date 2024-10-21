@@ -43,10 +43,11 @@ export class Mom extends Npc {
     this.type = "mom";  
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(-25, -16),
-      scale: new Vector2(2, 1),
+      position: new Vector2(-10, -30),
+      scale: new Vector2(1.2, 1.2),
       frameSize: new Vector2(32, 32),
     });
+    shadow.drawLayer = "FLOOR";
     this.addChild(shadow);  
     this.body?.animations?.play("standLeft");
 
@@ -77,7 +78,7 @@ export class Mom extends Npc {
         addsFlag: TALKED_TO_MOM_ABOUT_WATCH,
       } as Scenario,
       {
-        string: [`Another beautiful day!... Oh, good morning sweet pee, your dads bot short circuited while trying to water the plants this morning.`],
+        string: [`Another beautiful day! Good morning sweetpea, your dads out repairing a bot that short circuited.`],
         addsFlag: TALKED_TO_MOM,
       } as Scenario
     ];

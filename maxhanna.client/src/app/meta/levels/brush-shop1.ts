@@ -9,11 +9,13 @@ import { Sprite } from "../objects/sprite";
 import { Salesman } from "../objects/Npc/Salesman/salesman";
 import { BrushLevel1 } from "./brush-level1";
 import { HeroRoomLevel } from "./hero-room";
-import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER1, TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
+import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER0, TALKED_TO_BRUSH_SHOP_OWNER1, TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH, storyFlags } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc";
 import { Mom } from "../objects/Npc/Mom/mom";
 import { Bot } from "../objects/Bot/bot"; 
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
+import { ARMOR_TYPE, SPEED_TYPE, STRENGTH_TYPE } from "../../../services/datacontracts/meta/meta-bot";
+import { Tv } from "../objects/Environment/Tv/tv";
 
 
 export class BrushShop1 extends Level { 
@@ -95,34 +97,64 @@ export class BrushShop1 extends Level {
       counterNoLedge.isSolid = true;
       this.addChild(counterNoLedge); 
     }
+    for (let x = 0; x < 3; x++) { 
+      const counterNoLedgeTV = new Sprite(
+        { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5) + gridCells(x), gridCells(2)), frameSize: new Vector2(16, 32) }
+      );
+      counterNoLedgeTV.isSolid = true;
+      this.addChild(counterNoLedgeTV); 
+    }
 
+    const tv = new Tv({ position: new Vector2(gridCells(5), gridCells(2)), spritePosition: new Vector2(gridCells(1), gridCells(-1)) });
+    tv.textContent = [
+      {
+        string: ["Wow, two Meta-Bots are battling on TV!"], 
+      } as Scenario
+    ];
+    this.addChild(tv);
 
     const salesman = new Salesman({
-      position: new Vector2(gridCells(5), gridCells(3)),
-      heroPosition: new Vector2(gridCells(3), gridCells(3)),
+      position: new Vector2(gridCells(5), gridCells(5)),
+      heroPosition: new Vector2(gridCells(3), gridCells(5)),
       entranceLevel: this,
-      items: [
-        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame" }),
-        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame" }),
-        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame" }),
-      ]
+      items: storyFlags.contains(GOT_WATCH) ? [
+        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: STRENGTH_TYPE } }),
+        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: ARMOR_TYPE } }),
+        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SPEED_TYPE } }),
+      ] : []
     });
     if (salesman.body) {
       salesman.body.position.x += 16;
-    } 
-    salesman.textContent = [
-      {
-        string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
-        addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
-        bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_BRUSH_SHOP_OWNER1, GOT_FIRST_METABOT]
-      } as Scenario,
-      {
-        string: ["Oh? Youre here to buy your FIRST Meta-Bot?!!"],
-        addsFlag: TALKED_TO_BRUSH_SHOP_OWNER2,
-        requires: [TALKED_TO_BRUSH_SHOP_OWNER1],
-        bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
-      } as Scenario,
-    ];
+    }
+    if (!storyFlags.contains(GOT_WATCH)) {
+      salesman.textContent = [
+        {
+          string: ["Top of the morning to you! Did you get a Meta-Bot yet?"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER0,
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER0]
+        } as Scenario,
+        {
+          string: ["Ah, I see. Soon, then, I know it!"], 
+          requires: [TALKED_TO_BRUSH_SHOP_OWNER0], 
+        } as Scenario,
+      ];
+    } else {
+      salesman.textContent = [
+        {
+          string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_BRUSH_SHOP_OWNER1, GOT_FIRST_METABOT],
+          requires: [GOT_WATCH]
+        } as Scenario,
+        {
+          string: ["Oh? Youre here to buy your FIRST Meta-Bot?!!"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER2,
+          requires: [TALKED_TO_BRUSH_SHOP_OWNER1],
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
+        } as Scenario,
+      ];
+    }
+   
     salesman.facingDirection = "LEFT";
     salesman.body?.animations?.play("standLeft"); 
     this.addChild(salesman);
@@ -147,8 +179,9 @@ export class BrushShop1 extends Level {
     this.addChild(carpet2);
 
 
-    const exitOutside = new Exit(gridCells(3), gridCells(8), false, (Math.PI * 3) / 2);
-    exitOutside.targetMap = "BrushLevel1";
+    const exitOutside = new Exit({
+      position: new Vector2(gridCells(3), gridCells(8)), showSprite: false, targetMap: "BrushLevel1"
+    }); 
     this.addChild(exitOutside);
 
     //walls:

@@ -64,8 +64,7 @@ html, body {
   height: 100px; 
   max-width: calc(100vh*(1024 / 910));
   overflow: auto;
-  scroll-behavior: revert-layer;
-  direction: rtl;
+  scroll-behavior: revert-layer; 
   text-align: left;
   border: var(--main-border);
   border-width: 4px;
@@ -73,10 +72,7 @@ html, body {
   margin-left: auto;
   margin-right: auto; 
 }
-@media (min-width: 670px) and (max-width: 1400px) {
-}
-@media (min-width: 0px) and (max-width: 669px) {
-}
+ 
 @media (min-height: 0px) and (max-height: 500px) {
   .chatArea {
     height: CALC(100% - 630px);
@@ -95,6 +91,13 @@ html, body {
 
 .chatBoxMessage {
   font-family: fontRetroGaming;
+}
+
+.colorInput {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: none
 }
 
 .heroName {

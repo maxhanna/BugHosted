@@ -3,11 +3,14 @@ import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
+import { Wardrobe } from "../objects/Environment/Wardrobe/wardrobe";
 import { Level } from "../objects/Level/level";
 import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite";
-import { HeroHomeLevel } from "./hero-home";
+import { HeroHome } from "./hero-home";
 import { Inventory } from "../objects/inventory";
+import { Tv } from "../objects/Environment/Tv/tv";
+import { Scenario } from "../helpers/story-flags";
  
 
 export class HeroRoomLevel extends Level {
@@ -38,13 +41,27 @@ export class HeroRoomLevel extends Level {
     );
     this.addChild(xbox);
 
-    const exit = new Exit(gridCells(18), gridCells(1), false);
+    for (let x = 0; x < 4; x++) {
+      const wardrobe = new Wardrobe({ position: new Vector2(gridCells(x+1), gridCells(3)), isVisible: x === 0 });
+      this.addChild(wardrobe);
+    } 
+
+    const tv = new Tv({ position: new Vector2(gridCells(6), gridCells(5)), spritePosition: new Vector2(gridCells(-0.25), gridCells(-2)) });
+    tv.textContent = [
+      {
+        string: ["A movie is playing showing four young boys on a train track."],
+      } as Scenario,
+    ]; 
+    this.addChild(tv);
+
+    const exit = new Exit({
+      position: new Vector2(gridCells(18), gridCells(1)), showSprite: false
+    });
     this.addChild(exit);
      
 
     this.walls = new Set();
-    //walls
-    const pixelSize = gridCells(1);
+    //walls 
     //table:
     for (let y = 48; y <= 80; y += 16) {
       for (let x = 80; x <= 176; x += 16) {
@@ -56,21 +73,21 @@ export class HeroRoomLevel extends Level {
     this.walls.add(`16,144`); this.walls.add(`32,144`);
     //walls:
     for (let x = 0; x < 21; x++) {
-      if (x != 19) { 
-        this.walls.add(`${-16 + (x * pixelSize)},32`);
+      if (x != 18) { 
+        this.walls.add(`${gridCells(x)},32`);
       }
-      this.walls.add(`${-16 + (x * pixelSize)},224`);
+      this.walls.add(`${gridCells(x)},224`);
     }
     for (let y = 0; y < 21; y++) { 
-      this.walls.add(`-16,${(y * pixelSize)}`);
-      this.walls.add(`320,${(y * pixelSize)}`);
+      this.walls.add(`${gridCells(-1)},${gridCells(y)}`);
+      this.walls.add(`320,${(gridCells(y))}`);
     }  
 
   }
 
   override ready() {
     events.on("HERO_EXITS", this, () => {
-      events.emit("CHANGE_LEVEL", new HeroHomeLevel({ heroPosition: new Vector2(gridCells(17), gridCells(2)), itemsFound: this.itemsFound }));
+      events.emit("CHANGE_LEVEL", new HeroHome({ heroPosition: new Vector2(gridCells(17), gridCells(2)), itemsFound: this.itemsFound }));
     });
   }
 }

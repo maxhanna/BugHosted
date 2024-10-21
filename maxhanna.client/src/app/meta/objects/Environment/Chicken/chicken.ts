@@ -9,8 +9,8 @@ import { Npc } from "../../Npc/npc";
 
 export class Chicken extends Npc {  
   directionIndex = Math.floor(Math.random() * 4);
-  soundIndex = 0;
-  chickenSounds = ["Cluck cluck...", "Bawk bawk...", "Buk buk buk...", "Squawk..."]; 
+  chickenSounds = ["Cluck cluck...", "Bawk bawk...", "Buk buk buk...", "Squawk..."];
+  soundIndex = Math.max(0, Math.floor(Math.random() * this.chickenSounds.length));
   randomMovementInterval = Math.max(2000, Math.floor(Math.random() * 15000));
   constructor(x: number, y: number) {
     super({
@@ -61,7 +61,7 @@ export class Chicken extends Npc {
       setTimeout(() => {
         this.latestMessage = ""; // Clear message after 20 seconds
       }, 5000); // Wait for 5 seconds to clear the message
-    }, 10000); // Repeat every 10 seconds
+    }, Math.max(10000, Math.floor(Math.random() * 25000))); // Repeat every 10 seconds
     setInterval(() => {
       this.randomMovementInterval = Math.max(2000, Math.floor(Math.random() * 25000));
       const currentPosition = this.position;

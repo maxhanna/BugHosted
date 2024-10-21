@@ -6,6 +6,7 @@ import { MetaChat } from './datacontracts/meta/meta-chat';
 import { Vector2 } from './datacontracts/meta/vector2';
 import { MetaEvent } from './datacontracts/meta/meta-event';
 import { InventoryItem } from '../app/meta/objects/InventoryItem/inventory-item';
+import { MetaBot } from './datacontracts/meta/meta-bot';
  
 @Injectable({
   providedIn: 'root'
@@ -46,6 +47,9 @@ export class MetaService {
   }
   async createHero(user: User, name: string): Promise<MetaHero | undefined> {
     return this.fetchData('/meta/create', { User: user, Name: name });
+  }
+  async createBot(bot: MetaBot): Promise<MetaBot | undefined> {
+    return this.fetchData('/meta/createbot', bot);
   }
   async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);

@@ -9,7 +9,7 @@ import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
 import { Input } from "../helpers/input";
 import { Main } from "./Main/main";
 import { InventoryItem } from "./InventoryItem/inventory-item";
-import { storyFlags } from "../helpers/story-flags";
+import { GOT_FIRST_METABOT, storyFlags } from "../helpers/story-flags";
 
 
 export class ShopMenu extends Level {
@@ -17,8 +17,7 @@ export class ShopMenu extends Level {
   items: InventoryItem[] = [];
   currentlySelectedId: number = 0;
   selectedCategory: string = "all"; // Track the selected item category
-  selectorSprite = new Sprite({ resource: resources.images["pointer"], frameSize: new Vector2(12, 10), position: new Vector2(22, 10) });
-  override defaultHeroPosition = new Vector2(0, 0);
+  selectorSprite = new Sprite({ resource: resources.images["pointer"], frameSize: new Vector2(12, 10), position: new Vector2(-10, 10) }); 
   entranceLevel: Level;
   blockSelection = true;
 
@@ -27,10 +26,7 @@ export class ShopMenu extends Level {
     this.defaultHeroPosition = params.heroPosition;
     this.entranceLevel = params.entranceLevel;
     if (params.items) {
-      const hasFirstMetabot = storyFlags.flags.get("GOT_FIRST_METABOT");
-      console.log(
-        "has first metabot?", hasFirstMetabot
-      )
+      const hasFirstMetabot = storyFlags.contains(GOT_FIRST_METABOT); 
       if (hasFirstMetabot) {
         for (let x = 0; x < params.items.length; x++) {
           if (params.items[x].category != "botFrame") {
@@ -45,27 +41,38 @@ export class ShopMenu extends Level {
         this.items.push(new InventoryItem({ id: this.items.length + 1, name: "Exit", category: "Exit" }));
       }
     } else {
-      this.items.push(
-        new InventoryItem({ id: 1, name: "Frame2 Canister", category: "botFrame", image: "botFrame2" }),
+      this.items.push( 
         new InventoryItem({ id: 4, name: "Exit", category: "Exit" }),
       );
     }
-
     const shopFrame = new Sprite({ resource: resources.images["white"], position: new Vector2(-100, -60), scale: new Vector2(100, 170) }); 
     this.addChild(shopFrame);
     this.addChild(this.selectorSprite);
-    for (let x = 0; x < this.items.length; x++) {
-      const sts = new SpriteTextString(this.items[x].name, new Vector2(10, 32 * x), "Black"); 
-      this.addChild(sts);
-    }
+
     for (let x = 0; x < this.items.length; x++) {
       if (this.items[x].image) {
         const sprite = new Sprite({
-          position: new Vector2(80, 32 * x),
+          position: new Vector2(-70, 32 * x),
           resource: resources.images[this.items[x].image],
           frameSize: new Vector2(32, 32)
         });
         this.addChild(sprite);
+      }
+    }
+    for (let x = 0; x < this.items.length; x++) {
+      const sts = new SpriteTextString(this.items[x].name, new Vector2(-20, 32 * x), "Black"); 
+      this.addChild(sts);
+    }
+    for (let x = 0; x < this.items.length; x++) { 
+      if (this.items[x].stats) {
+        console.log(this.items[x].stats);
+        const keys = Object.keys(this.items[x].stats);
+        let statTmp = "";
+        for (let key of keys) {
+          statTmp += `${key} ${this.items[x].stats[key]}`
+        }
+        const sts = new SpriteTextString(statTmp, new Vector2(80, 32 * x), "Black");
+        this.addChild(sts);
       }
     }
     setTimeout(() => {
@@ -116,11 +123,14 @@ export class ShopMenu extends Level {
       }
     }
   }
-
+  override ready() { 
+    events.emit("HERO_MOVEMENT_LOCK");
+  }
   private leaveShop() {
-    console.log("leave shop");
     this.entranceLevel.defaultHeroPosition = this.defaultHeroPosition;
+    console.log("leave shop", this.entranceLevel, this.defaultHeroPosition); 
     events.emit("SHOP_CLOSED", { entranceLevel: this.entranceLevel, heroPosition: this.defaultHeroPosition });
+    events.emit("HERO_MOVEMENT_UNLOCK");
   }
   private purchaseItem(item: InventoryItem) {
     console.log("purchaseItem ", item);

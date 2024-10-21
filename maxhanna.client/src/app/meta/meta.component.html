@@ -64,6 +64,8 @@
 
       <div class="start" (mouseup)='mainScene.input.pressStart()'>START</div>
     </div>
+
+    <input type="color" (change)='changeColor()' #colorInput class="colorInput" [value]="metaHero.color" *ngIf="metaHero" />
   </div>
   <app-user *ngIf="isUserComponentOpen"
             [loginOnly]="true"

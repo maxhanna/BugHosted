@@ -17,6 +17,10 @@ class StoryFlags {
     this.flags.set(flag, true);
   }
 
+  contains(flag: string): boolean {
+    return this.flags.has(flag);
+  }
+
   getRelevantScenario(scenarios: Scenario[]) {
     return scenarios.find(scenario => { 
       //disqualify when any bypass flags are present
@@ -53,6 +57,7 @@ export const GOT_FIRST_METABOT = "GOT_FIRST_METABOT"
 export const GOT_WATCH = "GOT_WATCH"; 
 export const TALKED_TO_A = 'TALKED_TO_A';
 export const TALKED_TO_B = 'TALKED_TO_B';
+export const TALKED_TO_BRUSH_SHOP_OWNER0 = "TALKED_TO_BRUSH_SHOP_OWNER0";
 export const TALKED_TO_BRUSH_SHOP_OWNER1 = "TALKED_TO_BRUSH_SHOP_OWNER1";
 export const TALKED_TO_BRUSH_SHOP_OWNER2 = "TALKED_TO_BRUSH_SHOP_OWNER2";
 export const TALKED_TO_MOM_ABOUT_DAD = "TALKED_TO_MOM_ABOUT_DAD";

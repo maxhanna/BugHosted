@@ -9,7 +9,7 @@ import { WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT } from "./sa
 import { Npc } from "../npc";
 import { ShopMenu } from "../../shop-menu";
 import { Level } from "../../Level/level";
-import { Scenario, TALKED_TO_BRUSH_SHOP_OWNER1 } from "../../../helpers/story-flags";
+import { GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER1, storyFlags } from "../../../helpers/story-flags";
 import { InventoryItem } from "../../InventoryItem/inventory-item";
 
 export class Salesman extends Npc {
@@ -58,8 +58,8 @@ export class Salesman extends Npc {
   override ready() {
     //fix the content to allow for shop
     if (this.textContent) {
-      this.textContent = this.textContent.concat({ 
-        string: ["Shop", "Repair", "Cancel"],
+      this.textContent = this.textContent.concat({
+        string: storyFlags.contains(GOT_WATCH) ? ["Shop", "Repair", "Cancel"] : ["Cancel"],
         canSelectItems: true,
         addsFlag: undefined, 
       } as Scenario);

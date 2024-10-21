@@ -58,8 +58,10 @@ export class Resources {
       stove: "assets/metabots/stove.png", 
       textBox: "assets/metabots/text-box.png",  
       tree: "assets/metabots/tree.png",  
+      tv: "assets/metabots/tv.png",  
       watch: "assets/metabots/watch.png",
       water: "assets/metabots/Water.png",
+      wardrobe: "assets/metabots/wardrobe.png",
       white: "assets/metabots/white.png",
       xbox: "assets/metabots/xbox.png",
     };

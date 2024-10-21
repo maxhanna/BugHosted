@@ -1,6 +1,6 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
-import { Animations } from "../helpers/animations"; 
+import { Animations } from "../helpers/animations";
 import { GameObject } from "./game-object";
 
 export class Sprite extends GameObject {
@@ -18,19 +18,20 @@ export class Sprite extends GameObject {
   flipX = false;
   flipY = false;
   recolorCache: Map<string, HTMLCanvasElement> = new Map();
+  precomputedCanvases: Map<string, HTMLCanvasElement> = new Map(); // Cache for precomputed frames
 
   constructor(params: {
     objectId?: number, resource: Resource, position?: Vector2, scale?: Vector2, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?:
     number, animations?: Animations, name?: string, colorSwap?: ColorSwap
   }) {
-    super({ position: params.position ?? new Vector2(0, 0)});
+    super({ position: params.position ?? new Vector2(0, 0) });
     this.objectId = params.objectId ?? 0;
     this.position = params.position ?? new Vector2(0, 0);
     this.frame = params.frame ?? 1;
     this.resource = params.resource;
     this.hFrames = params.hFrames ?? (this.frame > 1 ? this.frame + 1 : this.frame);
     this.vFrames = params.vFrames ?? 1;
-    this.scale = params.scale ?? new Vector2(1,1); 
+    this.scale = params.scale ?? new Vector2(1, 1);
     this.frameSize = params.frameSize ?? new Vector2(16, 16);
     this.name = params.name;
     this.animations = params.animations;
@@ -38,8 +39,8 @@ export class Sprite extends GameObject {
     this.frameMap = new Map();
     this.buildFrameMap();
   }
-   
-  buildFrameMap() { 
+
+  buildFrameMap() {
     let frameCount = 0;
     for (let v = 0; v < this.vFrames; v++) {
       for (let h = 0; h < this.hFrames; h++) {
@@ -47,23 +48,66 @@ export class Sprite extends GameObject {
           frameCount,
           new Vector2(this.frameSize.x * h, this.frameSize.y * v)
         )
-        frameCount++; 
+        frameCount++;
       }
     }
   }
 
-  getRecolorCacheKey(originalColor: [number, number, number], replacementColor: [number, number, number], frame: number): string {
-    // Create a unique cache key based on the original color, replacement color, and the frame number
-    return `${originalColor.join(',')}-${replacementColor.join(',')}-frame-${frame}`;
+  precomputeRecoloredFrames(originalColor: number[], replacementColor: number[]) {
+    for (let frame = 0; frame < this.hFrames * this.vFrames; frame++) {
+      const frameCoord = this.frameMap.get(frame);
+      if (frameCoord) {
+        const canvasKey = `${originalColor.join(',')}-${replacementColor.join(',')}-frame-${frame}`;
+        let cachedCanvas = this.precomputedCanvases.get(canvasKey);
+        if (!cachedCanvas) {
+          // Create a new offscreen canvas for this frame
+          cachedCanvas = document.createElement('canvas');
+          cachedCanvas.width = this.frameSize.x;
+          cachedCanvas.height = this.frameSize.y;
+          const offscreenCtx = cachedCanvas.getContext('2d');
+
+          // Draw the original sprite frame onto the offscreen canvas
+          if (offscreenCtx && this.resource) {
+            offscreenCtx.drawImage(
+              this.resource.image,
+              frameCoord.x,
+              frameCoord.y,
+              this.frameSize.x,
+              this.frameSize.y,
+              0,
+              0,
+              this.frameSize.x,
+              this.frameSize.y
+            );
+
+            // Get image data for recoloring
+            const imageData = offscreenCtx.getImageData(0, 0, this.frameSize.x, this.frameSize.y);
+            const data = imageData.data;
+
+            // Replace the colors in the image data
+            this.replaceColorWith(data, originalColor, replacementColor);
+
+            // Put the modified image data back onto the offscreen canvas
+            offscreenCtx.putImageData(imageData, 0, 0);
+
+            // Cache the recolored version of the current frame
+            this.precomputedCanvases.set(canvasKey, cachedCanvas);
+          }
+        }
+      }
+    }
   }
-
-
+  override ready() {
+    if (this.colorSwap) {
+      this.precomputeRecoloredFrames(this.colorSwap.originalRGB, this.colorSwap.replacementRGB);
+    }
+  }
   override step(delta: number) {
     if (!this.animations) {
       return;
-    } 
-    this.animations.step(delta); 
-    this.frame = this.animations.frame; 
+    }
+    this.animations.step(delta);
+    this.frame = this.animations.frame;
   }
 
 
@@ -73,75 +117,20 @@ export class Sprite extends GameObject {
     }
 
     // Retrieve the current frame from the frame map
-    const frame = this.frameMap.get(this.frame); 
+    const frame = this.frameMap.get(this.frame);
 
     const frameCoordX = frame?.x ?? 0;
     const frameCoordY = frame?.y ?? 0;
     const frameSizeX = this.frameSize.x;
     const frameSizeY = this.frameSize.y;
-     
+
     if (this.colorSwap) {
-      const cacheKey = this.getRecolorCacheKey([0, 160, 200], [0, 255, 0], this.frame);
-
-      let cachedCanvas = this.recolorCache.get(cacheKey);
-
-      if (!cachedCanvas) {
-        // Create a new offscreen canvas for this frame
-        cachedCanvas = document.createElement('canvas');
-        cachedCanvas.width = frameSizeX;
-        cachedCanvas.height = frameSizeY;
-        const offscreenCtx = cachedCanvas.getContext('2d');
-
-        // Draw the original sprite frame onto the offscreen canvas
-        if (offscreenCtx) {
-          offscreenCtx.drawImage(
-            this.resource.image,
-            frameCoordX, // Use the correct frame coordinates
-            frameCoordY,
-            frameSizeX,
-            frameSizeY,
-            0,
-            0,
-            frameSizeX,
-            frameSizeY
-          );
-
-          // Get image data for recoloring
-          const imageData = offscreenCtx.getImageData(0, 0, frameSizeX, frameSizeY);
-          const data = imageData.data;
-
-          // Replace the colors in the image data
-          this.replaceColorWith(data, [0, 160, 200], [255, 0, 0]);
-
-          // Put the modified image data back onto the offscreen canvas
-          offscreenCtx.putImageData(imageData, 0, 0);
-
-          // Cache the recolored version of the current frame
-          this.recolorCache.set(cacheKey, cachedCanvas);
-        }
+      const cacheKey = `${this.colorSwap.originalRGB.join(',')}-${this.colorSwap.replacementRGB.join(',')}-frame-${this.frame}`;
+      const cachedCanvas = this.precomputedCanvases.get(cacheKey);
+      if (cachedCanvas) {
+        ctx.drawImage(cachedCanvas, x, y);
       }
-
-      // Save the canvas state before transformations
-      ctx.save();
-
-      // Translate to the desired rotation point (center of the image)
-      const centerX = x + (frameSizeX * this.scale.x) / 2;
-      const centerY = y + (frameSizeY * this.scale.y) / 2;
-      ctx.translate(centerX, centerY);
-
-      // Apply rotation and scale transformations
-      ctx.rotate(this.rotation);
-      const scaleX = this.flipX ? -this.scale.x : this.scale.x;
-      const scaleY = this.flipY ? -this.scale.y : this.scale.y;
-      ctx.scale(scaleX, scaleY);
-
-      // Draw the cached recolored sprite for the current frame
-      ctx.drawImage(cachedCanvas, -frameSizeX / 2, -frameSizeY / 2);
-
-      // Restore the canvas state
-      ctx.restore();
-    }
-    else {
+    } else {
       ctx.save();
 
       // Translate to the desired rotation point (center of the image)
@@ -169,23 +158,23 @@ export class Sprite extends GameObject {
       );
 
       // Restore the canvas to its previous state
-      ctx.restore(); 
-    } 
+      ctx.restore();
+    }
   }
 
 
-  replaceColorWith(data: Uint8ClampedArray, original: [number, number, number], replacement: [number, number, number]) {
+  replaceColorWith(data: Uint8ClampedArray, original: number[], replacement: number[]) {
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
-
       // If the pixel color matches the original color
+
       if (r === original[0] && g === original[1] && b === original[2]) {
         // Replace it with the new color
         data[i] = replacement[0];
         data[i + 1] = replacement[1];
-        data[i + 2] = replacement[2];
+        data[i + 2] = replacement[2]; 
       }
     }
   }
