@@ -11,6 +11,7 @@ import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
+import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
 
 export class Hero extends GameObject {
   facingDirection: string;
@@ -25,7 +26,7 @@ export class Hero extends GameObject {
   lastStandAnimationTime = 0;
   itemPickupShell: any;
   isLocked = false;
-  latestMessage = "";
+  latestMessage = ""; 
   constructor(params: { position: Vector2, colorSwap?: ColorSwap, isUserControlled?: boolean }) {
     super({
       position: params.position,
@@ -71,56 +72,26 @@ export class Hero extends GameObject {
           pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
         }),
       colorSwap: this.colorSwap
-    });
+    }); 
     this.addChild(this.body);
-    this.body.animations?.play("standDown");
-
-    events.on("HERO_PICKS_UP_ITEM", this, (data:
-      {
-        image: any,
-        position: Vector2,
-        hero: Hero,
-        name: string,
-        imageName: string,
-        category: string
-      }) => {
-      this.onPickupItem(data);
-    });
-
+    this.body.animations?.play("standDown"); 
   }
+
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Draw the player's name
-    if (this.name) {
-      // Set the font style and size for the name
-      ctx.font = "8px fontRetroGaming"; // Font and size
-      ctx.fillStyle = "chartreuse";  // Text color
-      ctx.textAlign = "center"; // Center the text
-
-      // Measure the width of the text
-      const textWidth = ctx.measureText(this.name).width;
-
-      // Set box properties for name
-      const boxPadding = 4; // Padding around the text
-      const boxWidth = textWidth + boxPadding * 2; // Box width
-      const boxHeight = 12; // Box height (fixed height)
-      const boxX = drawPosX - (boxWidth / 2) + 6; // Center the box horizontally
-      const boxY = drawPosY + 10; // Position the box below the player
-
-      // Draw the dark background box for the name
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
-      ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
-
-      // Draw the name text on top of the box
-      ctx.fillStyle = "chartreuse"; // Set text color again
-      ctx.fillText(this.name, drawPosX + 6, boxY + boxHeight - 3); // Position the text slightly above the bottom of the box
-    }
+    this.drawName(ctx, drawPosX, drawPosY);
 
     // Draw the latest message as a chat bubble above the player
+    this.drawLatestMessage(ctx, drawPosX, drawPosY);
+  }
+
+  private drawLatestMessage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     if (this.latestMessage) {
       // Set the font style and size for the message
       ctx.font = "8px fontRetroGaming"; // Font and size
-      ctx.fillStyle = "black";  // Text color
+      ctx.fillStyle = "black"; // Text color
       ctx.textAlign = "center"; // Center the text
+
 
       // Split the message into words
       const words = this.latestMessage.split(" ");
@@ -138,7 +109,7 @@ export class Hero extends GameObject {
           lines.push(currentLine.trim());
           currentLine = word + " "; // Start a new line
         } else {
-          currentLine = testLine; // Continue building the line
+          currentLine = testLine; // Continue building the linea
         }
       }
       // Push any remaining text as the last line
@@ -152,6 +123,7 @@ export class Hero extends GameObject {
       const bubbleHeight = (lines.length * 12) + bubblePadding * 2; // Height based on number of lines (assuming 12px line height)
       const bubbleX = drawPosX - (bubbleWidth / 2) + 8; // Center the bubble horizontally
       const bubbleY = drawPosY - bubbleHeight - 25; // Position the bubble above the player
+
 
       // Draw the chat bubble background
       ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // Semi-transparent white for the bubble
@@ -168,16 +140,59 @@ export class Hero extends GameObject {
       ctx.closePath();
       ctx.fill(); // Fill the bubble
 
+
       // Draw the message text on top of the bubble
       ctx.fillStyle = "black"; // Set text color for the message
+
       // Draw each line of the message
       lines.forEach((line, index) => {
-        ctx.fillText(line, drawPosX + 6, bubbleY + bubblePadding + (index * 12) + 10); // Position each line inside the bubble
+        ctx.fillText(line, drawPosX + 6, bubbleY + bubblePadding + (index * 12) + 10);
       });
     }
   }
 
+  private drawName(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+    if (this.name) {
+      // Set the font style and size for the name
+      ctx.font = "7px fontRetroGaming"; // Font and size
+      ctx.fillStyle = "chartreuse"; // Text color
+      ctx.textAlign = "center"; // Center the text
+
+
+      // Measure the width of the text
+      const textWidth = ctx.measureText(this.name).width;
+
+      // Set box properties for name
+      const boxPadding = 2; // Padding around the text
+      const boxWidth = textWidth + boxPadding * 2; // Box width
+      const boxHeight = 8; // Box height (fixed height)
+      const boxX = drawPosX - (boxWidth / 2) + 6; // Center the box horizontally
+      const boxY = drawPosY + 10; // Position the box below the player
+
+
+      // Draw the dark background box for the name
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
+      ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
+       
+      // Draw the name text on top of the box
+      ctx.fillStyle = "chartreuse";  
+      ctx.fillText(this.name, drawPosX + 6, boxY + boxHeight - 1);
+    }
+  }
+
   override ready() {
+    events.on("HERO_PICKS_UP_ITEM", this, (data:
+      {
+        image: any,
+        position: Vector2,
+        hero: Hero,
+        name: string,
+        imageName: string,
+        category: string
+      }) => {
+      this.onPickupItem(data);
+    });
+
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
         this.isLocked = true;
@@ -286,9 +301,9 @@ export class Hero extends GameObject {
     const { input } = root;
     if (!input.direction || !this.isUserControlled) {
       //console.log("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
-      if (this.destinationPosition.x == 0 && this.destinationPosition.y == 0) { 
+      if (this.destinationPosition.x == 0 && this.destinationPosition.y == 0) {
         this.destinationPosition = this.position.duplicate();
-      } 
+      }
       this.body.animations?.play("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
       return;
     }
@@ -320,9 +335,9 @@ export class Hero extends GameObject {
         return c.isSolid
           && c.position.x == position.x
           && c.position.y == position.y
-      }); 
+      });
       if (spaceIsFree && !solidBodyAtSpace) {
-        this.destinationPosition = position; 
+        this.destinationPosition = position;
       }
     }
   }
@@ -330,7 +345,7 @@ export class Hero extends GameObject {
   otherPlayerMove(root: any) {
     if (!this.isUserControlled) {
       this.position = this.position.duplicate();
-      this.destinationPosition = this.destinationPosition.duplicate(); 
+      this.destinationPosition = this.destinationPosition.duplicate();
       const destPos = this.destinationPosition;
       let tmpPosition = this.position;
       if (destPos) {

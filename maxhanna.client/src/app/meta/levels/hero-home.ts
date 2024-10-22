@@ -30,32 +30,30 @@ export class HeroHome extends Level {
     this.addChild(room);
 
     const cornercounter = new Sprite(
-      { resource: resources.images["cornercounter"], position: new Vector2(gridCells(0), gridCells(1)), frameSize: new Vector2(33, 49) }
-    );
-    cornercounter.isSolid = true;
+      { resource: resources.images["cornercounter"], position: new Vector2(gridCells(0), gridCells(1)), frameSize: new Vector2(33, 49), isSolid: true }
+    ); 
     this.addChild(cornercounter);
 
     const stove = new Sprite(
-      { resource: resources.images["stove"], position: new Vector2(gridCells(2), gridCells(1)), frameSize: new Vector2(32, 34) }
-    );
-    stove.isSolid = true;
+      { resource: resources.images["stove"], position: new Vector2(gridCells(2), gridCells(1)), frameSize: new Vector2(32, 34), isSolid: true }
+    ); 
     this.addChild(stove);
 
     const sink = new Sprite({
       resource: resources.images["sink"],
       position: new Vector2(gridCells(4), gridCells(1)),
-      frameSize: new Vector2(65, 34)
-    });
-    sink.isSolid = true;
+      frameSize: new Vector2(65, 34),
+      isSolid: true 
+    }); 
     this.addChild(sink);
 
     const fridge = new Sprite({
       resource: resources.images["fridge"],
       position: new Vector2(gridCells(0), gridCells(3)),
       scale: new Vector2(1.25, 1.25),
-      frameSize: new Vector2(22, 41)
+      frameSize: new Vector2(22, 41),
+      isSolid: true 
     });
-    fridge.isSolid = true;
     this.addChild(fridge);
 
     if (!this.itemsFound.includes("Watch")) {

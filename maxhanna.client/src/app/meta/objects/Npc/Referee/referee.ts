@@ -13,11 +13,12 @@ export class Referee extends Npc {
 
   constructor(x: number, y: number, partners?: Npc[]) {
     super({
-      id: 0,
+      id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       position: new Vector2(x, y),
       type: "referee",
       partners: partners ? partners : [],
       body: new Sprite({
+        objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["referee"],
         position: new Vector2(-7, -20),
         frameSize: new Vector2(32, 32),
@@ -35,10 +36,9 @@ export class Referee extends Npc {
             standUp: new FrameIndexPattern(STAND_UP),
           })
       })
-    }) 
+    })
     this.name = "referee";
-    this.type = "referee";
-    this.id = -22974; 
+    this.type = "referee"; 
     this.textPortraitFrame = 1;
     const shadow = new Sprite({
       resource: resources.images["shadow"],
@@ -46,7 +46,8 @@ export class Referee extends Npc {
       scale: new Vector2(1.25, 1),
       frameSize: new Vector2(32, 32),
     });
-    this.addChild(shadow); 
+    this.addChild(shadow);
+    this.body?.animations?.play("standDown"); 
   }
 
   override ready() {

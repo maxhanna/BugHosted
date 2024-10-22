@@ -5,10 +5,11 @@ import { Scenario } from "../../helpers/story-flags";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { moveTowards } from "../../helpers/move-towards";
+import { resources } from "../../helpers/resources";
 
 export class Npc extends GameObject {
   metabots: MetaBot[];
-  body?: Sprite;
+  body: Sprite;
   type?: string;
   partnerNpcs: Npc[] = [];
   id: number;
@@ -36,9 +37,11 @@ export class Npc extends GameObject {
     this.partnerNpcs = config.partners ? config.partners : []; 
 
     if (config.body) {
-      this.body = config.body;
+      this.body = config.body; 
       this.addChild(this.body);
-      this.body.animations?.play("standDown");
+      this.body.animations?.play("standDown"); 
+    } else {
+      this.body = new Sprite({ resource: resources.images["white"] });
     }
   }
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 

@@ -41,9 +41,8 @@ export class BrushShop1 extends Level {
     }
 
     const cornercounter = new Sprite(
-      { resource: resources.images["cornercounter"], position: new Vector2(gridCells(0), gridCells(-1)), frameSize: new Vector2(33, 49) }
-    );
-    cornercounter.isSolid = true;
+      { resource: resources.images["cornercounter"], position: new Vector2(gridCells(0), gridCells(-1)), frameSize: new Vector2(33, 49), isSolid: true }
+    ); 
     this.addChild(cornercounter);
 
 
@@ -82,26 +81,22 @@ export class BrushShop1 extends Level {
 
 
     const cornercounter2 = new Sprite(
-      { resource: resources.images["cornercounter"], position: new Vector2(gridCells(6), gridCells(-1)), frameSize: new Vector2(33, 49) }
-    );
-    cornercounter2.flipX = true;
-    cornercounter2.isSolid = true;
+      { resource: resources.images["cornercounter"], position: new Vector2(gridCells(6), gridCells(-1)), frameSize: new Vector2(33, 49), flipX: true, isSolid: true }
+    ); 
     this.addChild(cornercounter2);
 
 
     for (let x = 0; x < 3; x++) {
 
       const counterNoLedge = new Sprite(
-        { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5), gridCells(2) + gridCells(x)), frameSize: new Vector2(16, 32) }
-      ); 
-      counterNoLedge.isSolid = true;
+        { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5), gridCells(2) + gridCells(x)), frameSize: new Vector2(16, 32), isSolid: true }
+      );  
       this.addChild(counterNoLedge); 
     }
     for (let x = 0; x < 3; x++) { 
       const counterNoLedgeTV = new Sprite(
-        { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5) + gridCells(x), gridCells(2)), frameSize: new Vector2(16, 32) }
-      );
-      counterNoLedgeTV.isSolid = true;
+        { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5) + gridCells(x), gridCells(2)), frameSize: new Vector2(16, 32), isSolid: true }
+      ); 
       this.addChild(counterNoLedgeTV); 
     }
 
@@ -112,52 +107,6 @@ export class BrushShop1 extends Level {
       } as Scenario
     ];
     this.addChild(tv);
-
-    const salesman = new Salesman({
-      position: new Vector2(gridCells(5), gridCells(5)),
-      heroPosition: new Vector2(gridCells(3), gridCells(5)),
-      entranceLevel: this,
-      items: storyFlags.contains(GOT_WATCH) ? [
-        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: STRENGTH_TYPE } }),
-        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: ARMOR_TYPE } }),
-        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SPEED_TYPE } }),
-      ] : []
-    });
-    if (salesman.body) {
-      salesman.body.position.x += 16;
-    }
-    if (!storyFlags.contains(GOT_WATCH)) {
-      salesman.textContent = [
-        {
-          string: ["Top of the morning to you! Did you get a Meta-Bot yet?"],
-          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER0,
-          bypass: [TALKED_TO_BRUSH_SHOP_OWNER0]
-        } as Scenario,
-        {
-          string: ["Ah, I see. Soon, then, I know it!"], 
-          requires: [TALKED_TO_BRUSH_SHOP_OWNER0], 
-        } as Scenario,
-      ];
-    } else {
-      salesman.textContent = [
-        {
-          string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
-          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
-          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_BRUSH_SHOP_OWNER1, GOT_FIRST_METABOT],
-          requires: [GOT_WATCH]
-        } as Scenario,
-        {
-          string: ["Oh? Youre here to buy your FIRST Meta-Bot?!!"],
-          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER2,
-          requires: [TALKED_TO_BRUSH_SHOP_OWNER1],
-          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
-        } as Scenario,
-      ];
-    }
-   
-    salesman.facingDirection = "LEFT";
-    salesman.body?.animations?.play("standLeft"); 
-    this.addChild(salesman);
 
     const carpet1 = new Sprite(  
        {
@@ -193,6 +142,98 @@ export class BrushShop1 extends Level {
         }
       }
     }
+     
+
+    const salesman = new Salesman({
+      position: new Vector2(gridCells(5), gridCells(5)),
+      heroPosition: new Vector2(gridCells(3), gridCells(5)),
+      entranceLevel: this,
+      items: storyFlags.contains(GOT_WATCH) ? [
+        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: STRENGTH_TYPE } }),
+        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: ARMOR_TYPE } }),
+        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SPEED_TYPE } }),
+      ] : []
+    });
+    if (salesman.body) {
+      salesman.body.position.x += 16;
+    }
+    if (!storyFlags.contains(GOT_WATCH)) {
+      salesman.textContent = [
+        {
+          string: ["Top of the morning to you! Did you get a Meta-Bot yet?"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER0,
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER0]
+        } as Scenario,
+        {
+          string: ["Ah, I see. Soon, then, I know it!"],
+          requires: [TALKED_TO_BRUSH_SHOP_OWNER0],
+        } as Scenario,
+      ];
+    } else {
+      salesman.textContent = [
+        {
+          string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_BRUSH_SHOP_OWNER1, GOT_FIRST_METABOT],
+          requires: [GOT_WATCH]
+        } as Scenario,
+        {
+          string: ["Oh? Youre here to buy your FIRST Meta-Bot?!!"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER2,
+          requires: [TALKED_TO_BRUSH_SHOP_OWNER1],
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
+        } as Scenario,
+      ];
+    }
+
+    salesman.facingDirection = "LEFT";
+    salesman.body?.animations?.play("standLeft");
+    this.addChild(salesman);
+
+
+    const invisibleSalesman = new Salesman({
+      position: new Vector2(gridCells(6), gridCells(5)),
+      heroPosition: new Vector2(gridCells(3), gridCells(5)),
+      entranceLevel: this,
+      items: storyFlags.contains(GOT_WATCH) ? [
+        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: STRENGTH_TYPE } }),
+        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: ARMOR_TYPE } }),
+        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SPEED_TYPE } }),
+      ] : []
+    }); 
+    if (!storyFlags.contains(GOT_WATCH)) {
+      invisibleSalesman.textContent = [
+        {
+          string: ["Top of the morning to you! Did you get a Meta-Bot yet?"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER0,
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER0]
+        } as Scenario,
+        {
+          string: ["Ah, I see. Soon, then, I know it!"],
+          requires: [TALKED_TO_BRUSH_SHOP_OWNER0],
+        } as Scenario,
+      ];
+    } else {
+      invisibleSalesman.textContent = [
+        {
+          string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_BRUSH_SHOP_OWNER1, GOT_FIRST_METABOT],
+          requires: [GOT_WATCH]
+        } as Scenario,
+        {
+          string: ["Oh? Youre here to buy your FIRST Meta-Bot?!!"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER2,
+          requires: [TALKED_TO_BRUSH_SHOP_OWNER1],
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
+        } as Scenario,
+      ];
+    }
+
+    invisibleSalesman.facingDirection = "LEFT";
+    invisibleSalesman.body?.animations?.play("standLeft");
+    this.addChild(invisibleSalesman);
+
   }
 
   override ready() {

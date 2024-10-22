@@ -5,26 +5,26 @@ import { Animations } from "../../../helpers/animations";
 import { resources } from "../../../helpers/resources";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { events } from "../../../helpers/events";
-import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP } from "./mom-animations";
+import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP } from "./gangster-animations";
 import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../../../helpers/story-flags";
 import { Npc } from "../../Npc/npc";
 
-export class Mom extends Npc {
+export class Gangster extends Npc {
   directionIndex = 0;
 
   constructor(x: number, y: number) {
     super({
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-      type: "mom",
+      type: "gangster", 
       partners: [],
       position: new Vector2(x, y),
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-        resource: resources.images["mom"],
+        resource: resources.images["gangster"],
         position: new Vector2(-7, -20),
-        frameSize: new Vector2(32, 32),
+        frameSize: new Vector2(32, 31),
         hFrames: 4,
-        vFrames: 4,
+        vFrames: 2,
         animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
@@ -38,9 +38,8 @@ export class Mom extends Npc {
           })
       })
     });
-      
-    this.name = "mom";  
-    this.type = "mom";  
+    this.isSolid = true;
+
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       position: new Vector2(this.body.position.x - 9, -30),
@@ -48,41 +47,20 @@ export class Mom extends Npc {
       frameSize: new Vector2(32, 32),
     });
     shadow.drawLayer = "FLOOR";
-    this.addChild(shadow);  
-    this.body?.animations?.play("standLeft");
+    this.addChild(shadow);   
 
     setInterval(() => {
-      this.latestMessage = "*Quietly humming a tune*";
+      this.latestMessage = "*Glare*";
       setTimeout(() => {
         this.latestMessage = "";
       }, 2000);
-    }, 15000);
-    this.textPortraitFrame = 2;
+    }, 15000); 
     this.textContent = [
       {
-        string: [`You finally saved enough for it with your allowance. Go and pick one out from the store next door.`],
-        requires: [TALKED_TO_MOM_ABOUT_DAD],
-      } as Scenario,
-      {
-        string: ["Your father still uses that old watch. But he decided to pass it down to you today! Thats right! Your very first meta-bot!"],
-        requires: [GOT_WATCH],
-        addsFlag: TALKED_TO_MOM_ABOUT_DAD,
-      } as Scenario,
-      {
-        string: ["Go grab your fathers watch."],
-        requires: [TALKED_TO_MOM_ABOUT_WATCH],
-      } as Scenario,
-      {
-        string: ["We need you to run some errands... Can you grab your fathers watch thats on the counter my sweet little angel cakes?"],
-        requires: [TALKED_TO_MOM],
-        addsFlag: TALKED_TO_MOM_ABOUT_WATCH,
-      } as Scenario,
-      {
-        string: [`Another beautiful day! Good morning sweetpea, your dads out repairing a bot that short circuited.`],
-        addsFlag: TALKED_TO_MOM,
-      } as Scenario
-    ];
-    console.log("mom created");
+        string: [`Are you here alone?`],
+      
+      } as Scenario, 
+    ]; 
   }
 
   override ready() {

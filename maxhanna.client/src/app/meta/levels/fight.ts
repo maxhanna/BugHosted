@@ -1,8 +1,8 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
-import { resources } from "../helpers/resources";
+import { hexToRgb, resources } from "../helpers/resources";
 import { events } from "../helpers/events";
-import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6 } from "../helpers/story-flags";
+import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, START_FIGHT } from "../helpers/story-flags";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
 import { Sprite } from "../objects/sprite";
@@ -20,6 +20,7 @@ import { HeroHome } from "./hero-home";
 import { BrushLevel1 } from "./brush-level1";
 import { MetaBotPart } from "../../../services/datacontracts/meta/meta-bot-part";
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
+import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 
 export class Fight extends Level {
   characterName = "";
@@ -36,11 +37,12 @@ export class Fight extends Level {
   partySelectedSkills: Record<number, string> = [];
 
   fightMenu: FightMenu;
+  metaHero: MetaHero;
 
   override defaultHeroPosition = new Vector2(0, gridCells(2));
 
   constructor(params: {
-    heroPosition: Vector2,
+    metaHero: MetaHero,
     entryLevel: Level,
     enemies?: Npc[],
     party?: MetaHero[],
@@ -51,8 +53,9 @@ export class Fight extends Level {
     this.background = new Sprite(
       { resource: resources.images["bedroomFloor"], position: new Vector2(-120, -100), frameSize: new Vector2(320, 220) }
     );
+    this.metaHero = params.metaHero;
     this.walls = new Set<string>();
-    this.fightMenu = new FightMenu({ entranceLevel: params.entryLevel, entrancePosition: params.heroPosition, itemsFound: params.itemsFound })
+    this.fightMenu = new FightMenu({ entranceLevel: params.entryLevel, entrancePosition: params.metaHero.position, itemsFound: params.itemsFound })
     this.addChild(this.fightMenu);
     this.fightMenu.showFightMenu = false;
     if (params.party) {
@@ -70,7 +73,7 @@ export class Fight extends Level {
   override ready() {
     events.on("FIGHTER_SELECTED", this, () => {
       if (this.party) {
-        this.deployBot(this.party[0].metabots[0]);
+        this.deployBot(this.party[0], this.party[0].metabots[0]);
         this.fightMenu.showFighterSelectionMenu = false;
       }
     });
@@ -83,7 +86,7 @@ export class Fight extends Level {
   override step(delta: number, root: any) {
     // const input = root.input;
 
-    if (storyFlags.flags.has("START_FIGHT") && !this.fightHasStarted && !this.fightMenu.showFightMenu) {
+    if (storyFlags.contains(START_FIGHT) && !this.fightHasStarted && !this.fightMenu.showFightMenu) {
       this.setupNewFight(root);
     }
 
@@ -109,15 +112,21 @@ export class Fight extends Level {
     }, 1000);
   }
 
-  private loadPartyMembers(params: { heroPosition: Vector2; entryLevel: Level; enemies?: any; party?: MetaHero[] | undefined; }) {
+  private loadPartyMembers(params: { metaHero: MetaHero; entryLevel: Level; enemies?: any; party?: MetaHero[] | undefined; }) {
     this.party = params.party;
     if (this.party) {
       for (let x = 0; x < this.party.length; x++) {
         const metaHero = this.party[x];
-        const newHero = new Hero({ position: new Vector2(gridCells(-4) + (x * gridCells(1)), gridCells(2) + (x * gridCells(1))) });
+        const newHero = new Hero(
+          {
+            position: new Vector2(gridCells(-4) + (x * gridCells(1)), gridCells(2) + (x * gridCells(1))),
+            colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) : undefined)
+          }
+        );
         newHero.name = metaHero.name ?? "Anon";
         newHero.id = metaHero.id;
-        newHero.metabots = metaHero.metabots;
+        newHero.metabots = metaHero.metabots; 
+
         this.party[x].metabots = metaHero.metabots;
         this.fightMenu.metabotChoices = this.party[x].metabots;
 
@@ -194,7 +203,7 @@ export class Fight extends Level {
         } else { //NO PART ATTACHED, USING BASE DAMAGE OF 1
           if (this.enemies) {
             for (let enemy of this.enemies) {
-              enemy.metabots[0].hp -= 1;
+              enemy.metabots[0].hp -= attackingBot.level;
             }
           }
         }
@@ -332,7 +341,7 @@ export class Fight extends Level {
   }
 
 
-  private deployBot(metabot: MetaBot) { 
+  private deployBot(metaHero: MetaHero, metabot: MetaBot) { 
     if (this.botDeployed && this.party) {
       const member = this.party.find(x => x.id == metabot.heroId);
       if (member) { 
@@ -346,11 +355,12 @@ export class Fight extends Level {
       this.botDeployed = true;
       this.isSelectingFighter = false;
       const newBot = new Sprite(
-        {
-          objectId: metabot.id,
+        { 
           resource: resources.images["botFrame"],
-          position: metabot.position,
-          frameSize: new Vector2(32, 32)
+          position: metabot.position, 
+          name: metabot.name, 
+          frameSize: new Vector2(32, 32),
+          colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) : undefined) 
         }
       );
       this.addChild(newBot);

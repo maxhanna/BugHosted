@@ -170,6 +170,7 @@ export class FightMenu extends GameObject {
 
   leaveFight() {
     storyFlags.flags.delete("START_FIGHT");
+    events.emit("END_FIGHT", this.startLevel);
     events.emit("CHANGE_LEVEL", this.startLevel);
   }
 

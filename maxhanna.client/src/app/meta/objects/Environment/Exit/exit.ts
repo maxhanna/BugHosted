@@ -6,27 +6,25 @@ import { events } from "../../../helpers/events";
 import { ColorSwap } from "../../../../../services/datacontracts/meta/color-swap";
 
 export class Exit extends GameObject {
-  targetMap = "HeroRoom";
-  constructor(params: { position: Vector2, showSprite?: boolean, rotation?: number, sprite?: string, targetMap?: string }) {
+  targetMap: string;
+  constructor(params: { position: Vector2, showSprite?: boolean, rotation?: number, sprite?: string, targetMap?: string, colorSwap?: ColorSwap }) {
     super({
       position: params.position
     });
     const sprite = params.sprite ?? "exit2";
-    const rotation = params.rotation ?? 0;
     this.targetMap = params.targetMap ?? "HeroRoom";
 
     if (params.showSprite) {
       const exitSprite = new Sprite({
         resource: resources.images[sprite],
         position: sprite === "exit2" ? new Vector2(0, -10) : new Vector2(0, 0),
-        scale: sprite === "exit2" ? new Vector2(0.85, 0.85) : sprite === "white" ? new Vector2(4, 4) : undefined,
-        frameSize: sprite === "exit2" ? new Vector2(42, 45) : new Vector2(32, 32), 
+        scale: sprite === "exit2" ? new Vector2(0.85, 0.85) : sprite === "white" ? new Vector2(8, 8) : undefined,
+        frameSize: sprite === "exit2" ? new Vector2(42, 45) : sprite === "white" ? new Vector2(2, 2) : new Vector2(32, 32),
+        colorSwap: params.colorSwap,
+        name: "exit"
       });
-      exitSprite.rotation = rotation;
-      exitSprite.name = sprite;
-      this.addChild(exitSprite); 
-    }
-    this.drawLayer = "FLOOR";
+      this.addChild(exitSprite);
+    } 
   }
 
   override ready() {

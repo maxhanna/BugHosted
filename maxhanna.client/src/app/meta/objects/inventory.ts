@@ -13,16 +13,18 @@ export class Inventory extends GameObject {
   constructor() {
     super({ position: new Vector2(0, 0) });
     this.drawLayer = "HUD";
-    this.items = [
-      //{
-      //  id: -1,
-      //  image: resources.images["watch"],
-      //  name: "Watch"
-      //},
-    ]
+    this.items = [];
+     
+   
+    //DEMO of removing an item from inventory
+    //setTimeout(() => {
+    //  this.removeFromInventory(-2);
+    //}, 1000);
+    this.renderInventory();
+  }
 
-    //React to picking up an item
-    events.on("HERO_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string, stats?: any }) => { 
+  override ready() {
+    events.on("HERO_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string, stats?: any }) => {
       if (data.hero?.isUserControlled) {
         const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category, stats: data.stats } as InventoryItem;
         this.updateStoryFlags(itemData);
@@ -85,11 +87,13 @@ export class Inventory extends GameObject {
         this.deselectSelectedItem();
       }
     });
-    //DEMO of removing an item from inventory
-    //setTimeout(() => {
-    //  this.removeFromInventory(-2);
-    //}, 1000);
-    this.renderInventory();
+
+    events.on("START_FIGHT", this, () => {
+      this.preventDraw = true;
+    });
+    events.on("END_FIGHT", this, () => {
+      this.preventDraw = false;
+    });
   }
 
 

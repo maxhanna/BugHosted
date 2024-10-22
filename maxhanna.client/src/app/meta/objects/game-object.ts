@@ -13,6 +13,7 @@ export class GameObject {
   textContent?: Scenario[];
   textPortraitFrame?: number;
   colorSwap?: ColorSwap = undefined;
+  preventDraw: boolean = false;
 
   constructor(params: { position: Vector2, colorSwap?: ColorSwap }) {
     this.position = params.position ?? new Vector2(0, 0);
@@ -47,7 +48,8 @@ export class GameObject {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, x: number, y:number) {
+  draw(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    if (this.preventDraw) return;
     const drawPosX = x + this.position.x;
     const drawPosY = y + this.position.y;
 

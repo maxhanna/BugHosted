@@ -48,7 +48,7 @@ export class Deer extends Npc {
           standLeft: new FrameIndexPattern(STAND_LEFT),
           standUp: new FrameIndexPattern(STAND_UP),
           pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
-        })
+        }), 
     });
     this.addChild(this.body); 
     this.body.animations?.play("standDown");

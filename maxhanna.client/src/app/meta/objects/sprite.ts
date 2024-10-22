@@ -14,15 +14,16 @@ export class Sprite extends GameObject {
   scale: Vector2;
   animations?: Animations;
   name?: string;
-  rotation = 0;
-  flipX = false;
-  flipY = false;
-  recolorCache: Map<string, HTMLCanvasElement> = new Map();
+  rotation: number;
+  flipX?: boolean;
+  flipY?: boolean;
+  offsetX: number;
+  offsetY: number;
   precomputedCanvases: Map<string, HTMLCanvasElement> = new Map(); // Cache for precomputed frames
 
   constructor(params: {
     objectId?: number, resource: Resource, position?: Vector2, scale?: Vector2, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?:
-    number, animations?: Animations, name?: string, colorSwap?: ColorSwap
+    number, animations?: Animations, name?: string, colorSwap?: ColorSwap, flipX?: boolean, flipY?: boolean, rotation?: number, isSolid?: boolean, offsetX? : number, offsetY?: number
   }) {
     super({ position: params.position ?? new Vector2(0, 0) });
     this.objectId = params.objectId ?? 0;
@@ -36,7 +37,13 @@ export class Sprite extends GameObject {
     this.name = params.name;
     this.animations = params.animations;
     this.colorSwap = params.colorSwap;
-    this.frameMap = new Map();
+    this.frameMap = new Map(); 
+    this.flipX = params.flipX;
+    this.flipY = params.flipY;
+    this.isSolid = !!params.isSolid;
+    this.rotation = params.rotation ?? 0;
+    this.offsetX = params.offsetX ?? 0;
+    this.offsetY = params.offsetY ?? 0;
     this.buildFrameMap();
   }
 
@@ -53,35 +60,115 @@ export class Sprite extends GameObject {
     }
   }
 
-  precomputeRecoloredFrames(originalColor: number[], replacementColor: number[]) {
-    for (let frame = 0; frame < this.hFrames * this.vFrames; frame++) {
-      const frameCoord = this.frameMap.get(frame);
+  
+  override ready() {
+    if (this.colorSwap) {
+      const checkResourceLoaded = setInterval(() => {
+        if (this.resource?.isLoaded && this.colorSwap) {
+          clearInterval(checkResourceLoaded); 
+          this.precomputeRecoloredFrames(this.colorSwap.originalRGB, this.colorSwap.replacementRGB);
+        } else {
+          console.log(this.name + " waiting for resource to load...");
+        }
+      }, 100); // Check every 100 ms
+    } 
+  }
+  override step(delta: number) {
+    if (!this.animations) {
+      return;
+    }
+    this.animations.step(delta);
+    this.frame = this.animations.frame;
+  }
+   
+  override drawImage(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    if (!ctx || !this.resource?.isLoaded) {
+      return;
+    }
+    x = x + this.offsetX;
+    y = y + this.offsetY;
+    // Retrieve the current frame from the frame map
+    const frame = this.frameMap.get(this.frame);
+    const frameCoordX = frame?.x ?? 0;
+    const frameCoordY = frame?.y ?? 0;
+
+    if (!this.drawCachedColorSwappedCanvas(ctx, x , y)) {
+      ctx.save();
+
+      // Translate to the desired rotation point (center of the image)
+      const centerX = x + (this.frameSize.x * this.scale.x) / 2;
+      const centerY = y + (this.frameSize.y * this.scale.y) / 2;
+      ctx.translate(centerX, centerY);
+
+      // Rotate the canvas by the given rotation angle
+      ctx.rotate(this.rotation);
+
+      // Apply scaling
+      const scaleX = this.flipX ? -this.scale.x : this.scale.x;
+      const scaleY = this.flipY ? -this.scale.y : this.scale.y;
+      ctx.scale(scaleX, scaleY);
+
+      // Draw the image, adjusting for the translation and rotation
+      ctx.drawImage(
+        this.resource.image,
+        frameCoordX,
+        frameCoordY,
+        this.frameSize.x,
+        this.frameSize.y,
+        -this.frameSize.x / 2, // Draw image relative to the new origin
+        -this.frameSize.y / 2,
+        this.frameSize.x * this.scale.x,
+        this.frameSize.y * this.scale.y
+      );
+
+      ctx.restore();
+    }
+  }
+
+
+  private precomputeRecoloredFrames(originalColor: number[], replacementColor: number[]) {
+    for (let frame = 0; frame < this.hFrames * this.vFrames; frame++) { // Adjusted loop condition
+      const frameCoord = this.frameMap.get(frame); 
       if (frameCoord) {
         const canvasKey = `${originalColor.join(',')}-${replacementColor.join(',')}-frame-${frame}`;
         let cachedCanvas = this.precomputedCanvases.get(canvasKey);
-        if (!cachedCanvas) {
-          // Create a new offscreen canvas for this frame
+        if (!cachedCanvas) { 
           cachedCanvas = document.createElement('canvas');
-          cachedCanvas.width = this.frameSize.x;
-          cachedCanvas.height = this.frameSize.y;
+          cachedCanvas.width = this.frameSize.x * this.scale.x; // Use scaled width
+          cachedCanvas.height = this.frameSize.y * this.scale.y; // Use scaled height
           const offscreenCtx = cachedCanvas.getContext('2d');
 
-          // Draw the original sprite frame onto the offscreen canvas
           if (offscreenCtx && this.resource) {
+            // Save the context
+            offscreenCtx.save();
+
+            // Apply scale and flip
+            const scaleX = this.flipX ? -1 : 1;
+            const scaleY = this.flipY ? -1 : 1;
+
+            offscreenCtx.scale(scaleX, scaleY);
+            // Adjust the position to account for scaling and flipping
+            const drawX = this.flipX ? -this.frameSize.x : 0;
+            const drawY = this.flipY ? -this.frameSize.y : 0;
+
+            // Draw the original sprite frame onto the offscreen canvas
             offscreenCtx.drawImage(
               this.resource.image,
               frameCoord.x,
               frameCoord.y,
               this.frameSize.x,
               this.frameSize.y,
-              0,
-              0,
-              this.frameSize.x,
-              this.frameSize.y
+              drawX,
+              drawY,
+              this.frameSize.x * this.scale.x,
+              this.frameSize.y * this.scale.y
             );
 
+            // Restore the context
+            offscreenCtx.restore();
+
             // Get image data for recoloring
-            const imageData = offscreenCtx.getImageData(0, 0, this.frameSize.x, this.frameSize.y);
+            const imageData = offscreenCtx.getImageData(0, 0, cachedCanvas.width, cachedCanvas.height);
             const data = imageData.data;
 
             // Replace the colors in the image data
@@ -97,73 +184,30 @@ export class Sprite extends GameObject {
       }
     }
   }
-  override ready() {
-    if (this.colorSwap) {
-      this.precomputeRecoloredFrames(this.colorSwap.originalRGB, this.colorSwap.replacementRGB);
-    }
-  }
-  override step(delta: number) {
-    if (!this.animations) {
-      return;
-    }
-    this.animations.step(delta);
-    this.frame = this.animations.frame;
-  }
 
 
-  override drawImage(ctx: CanvasRenderingContext2D, x: number, y: number) {
-    if (!ctx || !this.resource?.isLoaded) {
-      return;
+  private drawCachedColorSwappedCanvas(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    if (!this.colorSwap) {
+      return false;
     }
 
-    // Retrieve the current frame from the frame map
-    const frame = this.frameMap.get(this.frame);
+    const { originalRGB, replacementRGB } = this.colorSwap;
+    const key = `${originalRGB.join(',')}-${replacementRGB.join(',')}-frame-`;
+    const primaryKey = `${key}${this.frame}`;
+    const fallbackKey = `${key}0`;
 
-    const frameCoordX = frame?.x ?? 0;
-    const frameCoordY = frame?.y ?? 0;
-    const frameSizeX = this.frameSize.x;
-    const frameSizeY = this.frameSize.y;
+    // Attempt to get the primary cached canvas
+    let cachedCanvas = this.precomputedCanvases.get(primaryKey) || this.precomputedCanvases.get(fallbackKey);
 
-    if (this.colorSwap) {
-      const cacheKey = `${this.colorSwap.originalRGB.join(',')}-${this.colorSwap.replacementRGB.join(',')}-frame-${this.frame}`;
-      const cachedCanvas = this.precomputedCanvases.get(cacheKey);
-      if (cachedCanvas) {
-        ctx.drawImage(cachedCanvas, x, y);
-      }
-    } else {
-      ctx.save();
-
-      // Translate to the desired rotation point (center of the image)
-      const centerX = x + (frameSizeX * this.scale.x) / 2;
-      const centerY = y + (frameSizeY * this.scale.y) / 2;
-      ctx.translate(centerX, centerY);
-
-      // Rotate the canvas by the given rotation angle (in radians)
-      ctx.rotate(this.rotation);
-      const scaleX = this.flipX ? -this.scale.x : this.scale.x;
-      const scaleY = this.flipY ? -this.scale.y : this.scale.y;
-
-      ctx.scale(scaleX, scaleY);
-      // Draw the image, adjusting for the translation and rotation
-      ctx.drawImage(
-        this.resource.image,
-        frameCoordX,
-        frameCoordY,
-        frameSizeX,
-        frameSizeY,
-        -frameSizeX / 2, // Draw image relative to the new origin
-        -frameSizeY / 2,
-        frameSizeX * this.scale.x,
-        frameSizeY * this.scale.y
-      );
-
-      // Restore the canvas to its previous state
-      ctx.restore();
+    if (cachedCanvas) {
+      ctx.drawImage(cachedCanvas, x, y);
+      return true;
     }
+
+    return false;
   }
 
-
-  replaceColorWith(data: Uint8ClampedArray, original: number[], replacement: number[]) {
+  private replaceColorWith(data: Uint8ClampedArray, original: number[], replacement: number[]) {
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
@@ -174,7 +218,7 @@ export class Sprite extends GameObject {
         // Replace it with the new color
         data[i] = replacement[0];
         data[i + 1] = replacement[1];
-        data[i + 2] = replacement[2]; 
+        data[i + 2] = replacement[2];
       }
     }
   }

@@ -81,3 +81,14 @@ export class Resources {
   }
 }
 export const resources = new Resources();
+export function hexToRgb(hex: string) {
+  // Remove the leading '#' if present
+  hex = hex.replace(/^#/, '');
+
+  // Parse the hex string into RGB components
+  let r = parseInt(hex.substring(0, 2), 16);
+  let g = parseInt(hex.substring(2, 4), 16);
+  let b = parseInt(hex.substring(4, 6), 16);
+
+  return [r, g, b]; // Return the RGB values as an array
+}

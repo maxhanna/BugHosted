@@ -24,7 +24,8 @@ export class GiantTree extends GameObject {
     this.body = new Sprite({
       resource: resources.images["tree"],
       position: new Vector2(-50, -100),
-      frameSize: new Vector2(128, 128)
+      frameSize: new Vector2(128, 128),
+      isSolid: true 
     });
     this.addChild(this.body);  
   } 

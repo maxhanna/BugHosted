@@ -19,10 +19,11 @@ export class Salesman extends Npc {
   items?: InventoryItem[];
   constructor(params: { position: Vector2, heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) {
     super({
-      id: 0,
+      id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       position: params.position,
       type: "salesPerson", 
       body: new Sprite({
+        objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource:  resources.images["salesPerson"],
         position: new Vector2(-7, -20),
         frameSize: new Vector2(32, 32),
@@ -45,10 +46,11 @@ export class Salesman extends Npc {
     this.entranceLevel = params.entranceLevel;
     this.heroPosition = params.heroPosition; 
     this.items = params.items;
+    this.isSolid = true;
    
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(0, -16),
+      position: new Vector2(this.body.position.x-9, -16),
       scale: new Vector2(1.25, 1),
       frameSize: new Vector2(32, 32),
     });
