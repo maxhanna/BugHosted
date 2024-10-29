@@ -1,7 +1,8 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
+import { SkillType } from "../helpers/skill-types";
 import { resources } from "../helpers/resources";
-import { events } from "../helpers/events";
+import { events } from "../helpers/events"; 
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
 import { BrushShop1 } from "./brush-shop1";
@@ -17,7 +18,7 @@ import { Gangster } from "../objects/Npc/Gangster/gangster";
 import { Animations } from "../helpers/animations";
 import { STAND_DOWN } from "../objects/Hero/hero-animations";
 import { FrameIndexPattern } from "../helpers/frame-index-pattern";
-import { MetaBot, SPEED_TYPE } from "../../../services/datacontracts/meta/meta-bot";
+import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { Chicken } from "../objects/Environment/Chicken/chicken";
 import { House } from "../objects/Environment/House/house";
 import { Shop } from "../objects/Environment/Shop/shop";
@@ -274,14 +275,24 @@ export class BrushLevel1 extends Level {
     //Npcs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
     if (storyFlags.contains(GOT_FIRST_METABOT)) {
       const gangster1 = new Gangster(gridCells(15), gridCells(15));
-      const gangster1Metabot = new MetaBot({ id: -146, heroId: gangster1.id, type: SPEED_TYPE, name: "GG", position: new Vector2(0, 0) });
+      gangster1.textContent = [
+        {
+          string: ["Our orders are to get your parents and bring them back to headquarters. You can't stop us."],
+        } as Scenario
+      ];
+      const gangster1Metabot = new MetaBot({ id: -146, heroId: gangster1.id, type: SkillType.SPEED, name: "GG", position: new Vector2(0, 0) });
       gangster1Metabot.hp = 80;
       gangster1Metabot.level = 2;
       gangster1.metabots.push(gangster1Metabot);
       this.addChild(gangster1);
 
       const gangster2 = new Gangster(gridCells(26), gridCells(18));
-      const gangster2Metabot = new MetaBot({ id: -146, heroId: gangster2.id, type: SPEED_TYPE, name: "GG2", position: new Vector2(0, 0) });
+      gangster2.textContent = [
+        {
+          string: ["We're not here to chat, buzz off."],
+        } as Scenario
+      ];
+      const gangster2Metabot = new MetaBot({ id: -146, heroId: gangster2.id, type: SkillType.SPEED, name: "GG2", position: new Vector2(0, 0) });
       gangster2Metabot.hp = 80;
       gangster2Metabot.level = 2;
       gangster2.metabots.push(gangster2Metabot);
@@ -294,7 +305,7 @@ export class BrushLevel1 extends Level {
           addsFlag: START_FIGHT,
         } as Scenario
       ];
-      const gangster3Metabot = new MetaBot({ id: -146, heroId: gangster3.id, type: SPEED_TYPE, name: "GG3", position: new Vector2(0, 0) });
+      const gangster3Metabot = new MetaBot({ id: -146, heroId: gangster3.id, type: SkillType.SPEED, name: "GG3", position: new Vector2(0, 0) });
       gangster3Metabot.hp = 80;
       gangster3Metabot.level = 2;
       gangster3.metabots.push(gangster3Metabot);
@@ -310,7 +321,7 @@ export class BrushLevel1 extends Level {
         addsFlag: START_FIGHT,
       } as Scenario
     ];
-    const refereeMetabot = new MetaBot({ id: -146, heroId: referee.id, type: SPEED_TYPE, name: "Wasp", position: new Vector2(0, 0) });
+    const refereeMetabot = new MetaBot({ id: -146, heroId: referee.id, type: SkillType.SPEED, name: "Wasp", position: new Vector2(0, 0) });
     refereeMetabot.hp = 10;
     refereeMetabot.level = 5;
     referee.metabots.push(refereeMetabot);
@@ -324,7 +335,7 @@ export class BrushLevel1 extends Level {
       } as Scenario
     ];
 
-    const refereeMetabot2 = new MetaBot({ id: -145, heroId: referee2.id, type: SPEED_TYPE, name: "Zippy", position: new Vector2(0, 0) });
+    const refereeMetabot2 = new MetaBot({ id: -145, heroId: referee2.id, type: SkillType.SPEED, name: "Zippy", position: new Vector2(0, 0) });
     refereeMetabot2.level = 5;
     referee2.metabots.push(refereeMetabot2);
     referee2.partnerNpcs.push(referee);

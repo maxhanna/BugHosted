@@ -6,10 +6,15 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { InventoryItem } from "./InventoryItem/inventory-item";
 import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../helpers/story-flags";
+import { StartMenu } from "./start-menu";
+import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
+import { MetaBotPart } from "../../../services/datacontracts/meta/meta-bot-part";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
-  items: InventoryItem[] = [];
+  items: InventoryItem[] = []; 
+  parts: MetaBotPart[] = [];
   currentlySelectedId?: number = undefined;
+  startMenu?: StartMenu;
   constructor() {
     super({ position: new Vector2(0, 0) });
     this.drawLayer = "HUD";
@@ -20,7 +25,7 @@ export class Inventory extends GameObject {
     //setTimeout(() => {
     //  this.removeFromInventory(-2);
     //}, 1000);
-    this.renderInventory();
+    //this.renderInventory();
   }
 
   override ready() {
@@ -31,7 +36,7 @@ export class Inventory extends GameObject {
         this.items.push(itemData);
 
         //Show on the screen.
-        this.renderInventory();
+       // this.renderInventory();
       }
     });
 
@@ -43,7 +48,7 @@ export class Inventory extends GameObject {
       this.updateStoryFlags(itemData);
       this.items.push(itemData);
 
-      this.renderInventory();
+     // this.renderInventory();
     });
 
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: MetaHero[] }) => {
@@ -59,25 +64,35 @@ export class Inventory extends GameObject {
     });
 
     events.on("START_PRESSED", this, (data: any) => {
-      if (!this.items || this.items.length === 0) return;
-      let currentId = undefined;
-      let itemIndex = this.children.findIndex((x: any) => x.isItemSelected);
-      if (itemIndex > -1) {
-        this.children[itemIndex].isItemSelected = false;
-        itemIndex++;
-        const nextItem = this.children[itemIndex];
-        if (nextItem) {
-          nextItem.isItemSelected = true;
-          currentId = nextItem.objectId;
-        } else {
-          itemIndex = 0;
-        }
-      } else if (this.children && this.children.length > 0) {
-        this.children[0].isItemSelected = true;
-        currentId = this.children[0].objectId;
-        itemIndex = 0;
+      if (this.startMenu) {
+        this.removeChild(this.startMenu);
+        this.startMenu = undefined;
+        events.emit("HERO_MOVEMENT_UNLOCK");
+        return;
       }
-      this.currentlySelectedId = currentId;
+      this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts });
+      this.addChild(this.startMenu);  
+      events.emit("HERO_MOVEMENT_LOCK");
+
+      //if (!this.items || this.items.length === 0) return;
+      //let currentId = undefined;
+      //let itemIndex = this.children.findIndex((x: any) => x.isItemSelected);
+      //if (itemIndex > -1) {
+      //  this.children[itemIndex].isItemSelected = false;
+      //  itemIndex++;
+      //  const nextItem = this.children[itemIndex];
+      //  if (nextItem) {
+      //    nextItem.isItemSelected = true;
+      //    currentId = nextItem.objectId;
+      //  } else {
+      //    itemIndex = 0;
+      //  }
+      //} else if (this.children && this.children.length > 0) {
+      //  this.children[0].isItemSelected = true;
+      //  currentId = this.children[0].objectId;
+      //  itemIndex = 0;
+      //}
+      //this.currentlySelectedId = currentId;
     });
 
 
@@ -102,7 +117,7 @@ export class Inventory extends GameObject {
   }
 
   renderInventory() {
-    //remove stale drawings
+    //remove stale drawings 
     this.children.forEach((child: any) => child.destroy());
 
     this.items.forEach((item, index) => {
@@ -128,7 +143,7 @@ export class Inventory extends GameObject {
     }
     return itemsFoundNames;
   }
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
     this.drawItemSelectionBox(ctx);  //Draws a red box around the currently selected inventory item;
   }
 

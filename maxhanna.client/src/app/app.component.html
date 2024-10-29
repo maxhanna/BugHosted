@@ -1,7 +1,7 @@
 <router-outlet #outlet>
   <div id="loadingDiv"><div id="loadingBar"></div></div>
   <app-navigation [user]="user"></app-navigation>
-  <app-modal *ngIf="isModalOpen" (close)="closeModal()" #modalComponent></app-modal>
+  <app-modal *ngIf="isModalOpen" (close)="closeModal()" [isCloseButtonVisible]="isModalCloseVisible" [isModal]="isModal" #modalComponent></app-modal>
 
   <div class="componentContainer">
     <ng-template #viewContainerRef>

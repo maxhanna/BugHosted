@@ -16,8 +16,11 @@ import { Referee } from "../objects/Npc/Referee/referee";
 import { Gangster } from "../objects/Npc/Gangster/gangster";
 import { Animations } from "../helpers/animations";
 import { STAND_DOWN } from "../objects/Hero/hero-animations";
+import { Spiderbot } from "../objects/Npc/Spiderbot/spiderbot";
+import { Armobot } from "../objects/Npc/Armobot/armobot";
+import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
 import { FrameIndexPattern } from "../helpers/frame-index-pattern";
-import { MetaBot, SPEED_TYPE } from "../../../services/datacontracts/meta/meta-bot";
+import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { Chicken } from "../objects/Environment/Chicken/chicken";
 import { House } from "../objects/Environment/House/house";
 import { Shop } from "../objects/Environment/Shop/shop";
@@ -26,6 +29,8 @@ import { Water } from "../objects/Environment/Water/water";
 import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { BrushLevel1 } from "./brush-level1";
+import { BrushRoad2 } from "./brush-road2";
+import { Bot } from "../objects/Bot/bot";
  
 
 export class BrushRoad1 extends Level { 
@@ -138,10 +143,37 @@ export class BrushRoad1 extends Level {
       halfBrickRoad.drawLayer = "FLOOR";
       this.addChild(halfBrickRoad);
 
-    }
-    
-
+    } 
     //end of vertical road
+
+    //START tallGrass for encounters 
+    for (let x = 0; x < 20; x++) {
+      for (let y = 0; y < 25; y++) {
+        const grassBlade = new Sprite(
+          { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(6) + (gridCells(x) / 2), gridCells(15) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9), offsetX: -8 }
+        );
+        this.addChild(grassBlade);
+      }
+    } 
+
+    for (let x = 0; x < 27; x++) {
+      for (let y = 0; y < 25; y++) {
+        const grassBlade = new Sprite(
+          { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(21) + (gridCells(x) / 2), gridCells(15) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9), offsetX: -10 }
+        );
+        this.addChild(grassBlade);
+      }
+    }
+
+    for (let x = 0; x < 67; x++) {
+      for (let y = 0; y < 8; y++) {
+        const grassBlade = new Sprite(
+          { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(1) + (gridCells(x) / 2), gridCells(9) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9), offsetX: -10 }
+        );
+        this.addChild(grassBlade);
+      }
+    } 
+    //END of tallGrass
 
     for (let x = 0; x < 43; x++) {
       const goldPath = new Sprite(
@@ -162,10 +194,10 @@ export class BrushRoad1 extends Level {
     //exits  
  
     for (let x = 0; x < 4; x++) {
-      const brushRoad1Exit = new Exit(
-        { position: new Vector2(gridCells(-1), gridCells(x) + gridCells(3)), showSprite: true, targetMap: "BrushShop1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+      const brushRoad2Exit = new Exit(
+        { position: new Vector2(gridCells(-1), gridCells(x) + gridCells(3)), showSprite: true, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
-      this.addChild(brushRoad1Exit); 
+      this.addChild(brushRoad2Exit); 
     }
     for (let x = 0; x < 4; x++) { 
       const brushLevel1Exit = new Exit(
@@ -282,15 +314,26 @@ export class BrushRoad1 extends Level {
     }
 
     //Npcs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
-        
 
+    const spiderBot = new Spiderbot({ position: new Vector2(gridCells(24), gridCells(20)), hp: 5, level: 5 });
+    //this.addChild(spiderBot);
+
+
+    const armobot = new Armobot({ position: new Vector2(gridCells(28), gridCells(20)), hp: 5, level: 5 });
+    this.addChild(armobot);
+
+    const encounter = new RandomEncounter({ position: new Vector2(gridCells(26), gridCells(22)), possibleEnemies: [spiderBot, armobot] });
+    this.addChild(encounter);
+
+    const encounter2 = new RandomEncounter({ position: new Vector2(gridCells(8), gridCells(10)), possibleEnemies: [spiderBot, armobot] });
+    this.addChild(encounter2);
   }
 
   override ready() {
     events.on("HERO_EXITS", this, (targetMap: string) => { 
-      if (targetMap === "BrushShop1") {
-        events.emit("CHANGE_LEVEL", new BrushShop1({
-          heroPosition: new Vector2(gridCells(3), gridCells(8)), itemsFound: this.itemsFound
+      if (targetMap === "BrushRoad2") {
+        events.emit("CHANGE_LEVEL", new BrushRoad2({
+          heroPosition: new Vector2(gridCells(1), gridCells(5)), itemsFound: this.itemsFound
         }));
       }
       if (targetMap === "BrushLevel1") {

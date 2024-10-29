@@ -7,6 +7,7 @@ import { Vector2 } from './datacontracts/meta/vector2';
 import { MetaEvent } from './datacontracts/meta/meta-event';
 import { InventoryItem } from '../app/meta/objects/InventoryItem/inventory-item';
 import { MetaBot } from './datacontracts/meta/meta-bot';
+import { MetaBotPart } from './datacontracts/meta/meta-bot-part';
  
 @Injectable({
   providedIn: 'root'
@@ -51,10 +52,16 @@ export class MetaService {
   async createBot(bot: MetaBot): Promise<MetaBot | undefined> {
     return this.fetchData('/meta/createbot', bot);
   }
+  async equipPart(partId: number, metabotId: number) {
+    return this.fetchData('/meta/equippart', { PartId: partId, MetabotId: metabotId });
+  }
+  async unequipPart(partId: number) {
+    return this.fetchData('/meta/unequippart', { PartId: partId });
+  }
   async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);
   }
-  async fetchInventoryData(hero: MetaHero): Promise<InventoryItem[]> {
+  async fetchInventoryData(hero: MetaHero): Promise<{inventory: InventoryItem[], parts: MetaBotPart[]}> {
     return this.fetchData('/meta/fetchinventorydata', hero);
   }
   async chat(hero: MetaHero, content: string) {
@@ -64,6 +71,9 @@ export class MetaService {
     return this.fetchData('/meta/updateevents', event);
   }
   async updateInventory(hero: MetaHero, name: string, image: string, category: string) {
-    return this.fetchData('/meta/updateinventory', { Hero: hero, Name: name, Image: image, Category: category});
+    return this.fetchData('/meta/updateinventory', { Hero: hero, Name: name, Image: image, Category: category });
+  }
+  async updateBotParts(hero: MetaHero, parts: MetaBotPart[]) {
+    return this.fetchData('/meta/updatebotparts', { Hero: hero, parts: parts });
   }
 }

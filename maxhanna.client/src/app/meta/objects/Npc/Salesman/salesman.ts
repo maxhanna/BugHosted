@@ -61,13 +61,13 @@ export class Salesman extends Npc {
     //fix the content to allow for shop
     if (this.textContent) {
       this.textContent = this.textContent.concat({
-        string: storyFlags.contains(GOT_WATCH) ? ["Shop", "Repair", "Cancel"] : ["Cancel"],
+        string: storyFlags.contains(GOT_WATCH) ? ["Shop", "Repair", "Sell", "Cancel"] : ["Cancel"],
         canSelectItems: true,
         addsFlag: undefined, 
       } as Scenario);
     } else {
       this.textContent = [{ 
-        string: ["Shop", "Repair", "Cancel"],
+        string: ["Shop", "Repair", "Sell", "Cancel"],
         canSelectItems: true,
         addsFlag: undefined
       } as Scenario]
@@ -91,6 +91,9 @@ export class Salesman extends Npc {
       console.log(selectedItem);
       if (selectedItem === "Shop") {
         events.emit("SHOP_OPENED", { heroPosition: this.heroPosition, entranceLevel: this.entranceLevel, items: this.items });
+      }
+      if (selectedItem === "Sell") {
+        events.emit("SHOP_OPENED_TO_SELL", { heroPosition: this.heroPosition, entranceLevel: this.entranceLevel, items: this.items });
       }
       if (selectedItem === "Repair") {
         events.emit("REPAIR_ALL_METABOTS");

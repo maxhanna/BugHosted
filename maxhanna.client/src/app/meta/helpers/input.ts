@@ -8,16 +8,16 @@ export class Input {
   heldDirections: string[] = [];
   keys: Record<string, boolean> = {};
   lastKeys: Record<string, boolean> = {};
-  inputKeyPressedTimeout = 300;
+  inputKeyPressedTimeout = 120;
   chatSelected = false;
   constructor() {
-    document.addEventListener("keydown", (e) => { 
+    document.addEventListener("keydown", (e) => {
       if (e.code != " ") {
         this.keys[e.code] = true;
         this.handleKeydown(e);
-      } 
+      }
     });
-    document.addEventListener("keyup", (e) => { 
+    document.addEventListener("keyup", (e) => {
       if (e.code != " ") {
         this.keys[e.code] = false;
         this.handleKeyup(e);
@@ -42,7 +42,7 @@ export class Input {
     return justPressed;
   }
 
-  onArrowPressed(direction: string) { 
+  onArrowPressed(direction: string) {
     if (this.heldDirections.indexOf(direction) === -1) {
       this.heldDirections.unshift(direction);
     }
@@ -150,7 +150,7 @@ export class Input {
       case 'd':
       case 'D':
         this.onArrowReleased(RIGHT);
-        break; 
+        break;
       case 'Enter':
       case 'NumpadEnter':
         this.handleEnter();
@@ -163,8 +163,7 @@ export class Input {
         break;
     }
   }
-  pressA(sendChat: boolean = true) {
-    const currentTime = new Date();
+  pressA(sendChat: boolean = true) { 
     console.log("pressed A");
     if (sendChat && this.chatInput && this.chatInput.value.trim() != "") {
       events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
@@ -179,36 +178,28 @@ export class Input {
 
   }
   pressStart(sendChat: boolean = true) {
-    const currentTime = new Date();
-    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
-      inputKeyPressedDate = new Date();
-      if (this.chatInput.value != '') {
-        this.pressA(sendChat);  
-        this.chatInput.blur();
-        this.chatSelected = false;
-        events.emit("HERO_MOVEMENT_UNLOCK");
-      } else { 
-        events.emit("START_PRESSED");
-      }
+    if (this.chatInput.value != '') {
+      this.pressA(sendChat);
+      this.chatInput.blur();
+      this.chatSelected = false;
+      events.emit("HERO_MOVEMENT_UNLOCK");
+    } else {
+      events.emit("START_PRESSED");
     }
   }
   pressBackspace() {
-    if (this.verifyCanPressKey()) {
-      if (this.chatInput.value.trim() == "") {
-        this.chatInput.blur();
-        this.chatSelected = false;
-        events.emit("HERO_MOVEMENT_UNLOCK");
-      }
+    if (this.chatInput.value.trim() == "") {
+      this.chatInput.blur();
+      this.chatSelected = false;
+      events.emit("HERO_MOVEMENT_UNLOCK"); 
     }
   }
 
   pressEscape() {
-    if (this.verifyCanPressKey()) {
-      console.log("Pressed Escape");
-      this.chatInput.blur();
-      this.chatSelected = false;
-      events.emit("HERO_MOVEMENT_UNLOCK");
-    }
+    this.chatInput.blur();
+    this.chatSelected = false;
+    events.emit("HERO_MOVEMENT_UNLOCK");
+    events.emit("PRESSED_ESCAPE");
   }
 
   handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {
@@ -291,7 +282,7 @@ export class Input {
 
   verifyCanPressKey() {
     const currentTime = new Date();
-    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > 125) {
+    if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
       inputKeyPressedDate = new Date();
       return true;
     }

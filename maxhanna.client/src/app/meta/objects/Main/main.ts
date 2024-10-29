@@ -59,7 +59,7 @@ export class Main extends GameObject {
     if (this.level) {
       this.level.destroy();
     } 
-    this.level = newLevelInstance;
+    this.level = newLevelInstance; 
     this.addChild(this.level);
   }
 

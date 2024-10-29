@@ -110,7 +110,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!this.currentChatUsers) return;
     try {  
       const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
-      if (!this.currentChatUsers.some(x => x.id == this.parentRef?.user?.id)) {
+      if (!this.currentChatUsers.some(x => x.id == user.id)) {
         this.currentChatUsers.push(user);
       } 
       const res = await this.chatService.getMessageHistory(

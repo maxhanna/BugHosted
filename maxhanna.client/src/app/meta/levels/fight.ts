@@ -14,13 +14,15 @@ import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Hero } from "../objects/Hero/hero";
 import { Bot } from "../objects/Bot/bot";
-import { FightMenu } from "../objects/FightMenu/fight-menu";
-import { FightStatBox } from "../objects/FightStatBox/fight-stat-box";
+import { FightMenu } from "../objects/Fight/FightMenu/fight-menu";
+import { FightStatBox } from "../objects/Fight/FightStatBox/fight-stat-box";
+import { FightRewardBox } from "../objects/Fight/FightRewardBox/fight-reward-box";
 import { HeroHome } from "./hero-home";
 import { BrushLevel1 } from "./brush-level1";
 import { MetaBotPart } from "../../../services/datacontracts/meta/meta-bot-part";
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
+import { Skill } from "../helpers/skill-types";
 
 export class Fight extends Level {
   characterName = "";
@@ -34,10 +36,11 @@ export class Fight extends Level {
   metabotSelected = false;
 
   deployedPartyBots = 0;
-  partySelectedSkills: Record<number, string> = [];
+  partySelectedSkills: Record<number, Skill> = [];
 
   fightMenu: FightMenu;
   metaHero: MetaHero;
+  metabotParts: MetaBotPart[];
 
   override defaultHeroPosition = new Vector2(0, gridCells(2));
 
@@ -46,7 +49,8 @@ export class Fight extends Level {
     entryLevel: Level,
     enemies?: Npc[],
     party?: MetaHero[],
-    itemsFound?: string[] | undefined
+    itemsFound?: string[] | undefined,
+    parts: MetaBotPart[]
   }) {
     super();
     this.name = "Fight";
@@ -54,8 +58,9 @@ export class Fight extends Level {
       { resource: resources.images["bedroomFloor"], position: new Vector2(-120, -100), frameSize: new Vector2(320, 220) }
     );
     this.metaHero = params.metaHero;
+    this.metabotParts = params.parts;
     this.walls = new Set<string>();
-    this.fightMenu = new FightMenu({ entranceLevel: params.entryLevel, entrancePosition: params.metaHero.position, itemsFound: params.itemsFound })
+    this.fightMenu = new FightMenu({ entranceLevel: params.entryLevel, entrancePosition: params.metaHero.position, itemsFound: params.itemsFound, hero: this.metaHero, metabotParts: this.metabotParts })
     this.addChild(this.fightMenu);
     this.fightMenu.showFightMenu = false;
     if (params.party) {
@@ -77,9 +82,26 @@ export class Fight extends Level {
         this.fightMenu.showFighterSelectionMenu = false;
       }
     });
-    events.on("SKILL_USED", this, (data: { heroId: number, skill: string }) => {
+    events.on("SKILL_USED", this, (data: { heroId: number, skill: Skill }) => {
       this.partySelectedSkills[data.heroId] = data.skill;
       console.log("skill selected, ", this.partySelectedSkills);
+    });
+    events.on("FIGHT_ENDED", this, () => {
+      this.fightMenu.showEndOfFightMenu = true
+      let rewards: MetaBotPart[] = [];
+      if (this.enemies) { 
+        for (let x = 0; x < this.enemies.length; x++) {
+          const enemyBot = this.enemies[x].metabots[0];
+          rewards.push(enemyBot.generateReward());
+        }
+      }
+      const rewardDisplay = new FightRewardBox({ position: new Vector2(30, -65), metabotParts: rewards });
+      this.addChild(rewardDisplay);
+
+      events.emit("GOT_REWARDS", rewards);
+    });
+    events.on("LEAVE_FIGHT", this, () => { 
+      this.leaveFightFlag = true;
     });
   }
 
@@ -185,7 +207,7 @@ export class Fight extends Level {
       this.performEnemyAttacks();
     }
   }
-  private calculateAndApplyDamage(attackingBot: MetaBot | undefined, attackingHeroSkill: string) {
+  private calculateAndApplyDamage(attackingBot: MetaBot | undefined, attackingHeroSkill: Skill) {
     if (attackingBot && attackingBot.hp > 0) {
       console.log(attackingHeroSkill);
       const botParts = ["leftArm", "rightArm", "legs", "head"];
@@ -193,14 +215,14 @@ export class Fight extends Level {
       let appliedDamage = false;
       for (let part of botParts) {
         const attackingPart = (attackingBot[part as keyof MetaBot] as MetaBotPart);
-        if (attackingPart?.skill === attackingHeroSkill) {
+        if (attackingPart?.skill.name === attackingHeroSkill.name) {
           console.log(attackingPart?.damageMod);
           if (this.enemies) {
             for (let enemy of this.enemies) {
               enemy.metabots[0].hp -= attackingPart.damageMod;
             }
           }
-        } else { //NO PART ATTACHED, USING BASE DAMAGE OF 1
+        } else { //NO PART ATTACHED, USING BASE DAMAGE OF Level
           if (this.enemies) {
             for (let enemy of this.enemies) {
               enemy.metabots[0].hp -= attackingBot.level;
@@ -403,7 +425,7 @@ export class Fight extends Level {
             const newBot = new Sprite(
               {
                 objectId: metabot.id,
-                resource: resources.images["botFrame"],
+                resource: resources.images[metabot.spriteName ?? "botFrame"],
                 position: metabot.position,
                 frameSize: new Vector2(32, 32),
                 name: metabot.name
@@ -429,7 +451,7 @@ export class Fight extends Level {
     // Handle end-game scenario if no bots are deployed
     if (deployedBotCount === 0) {
       console.log("No bots left to deploy, ending the match.");
-      this.leaveFightFlag = true;
+      events.emit("FIGHT_ENDED");
     }
   }
 }

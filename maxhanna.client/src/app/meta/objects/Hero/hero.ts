@@ -26,8 +26,12 @@ export class Hero extends GameObject {
   lastStandAnimationTime = 0;
   itemPickupShell: any;
   isLocked = false;
-  latestMessage = ""; 
-  constructor(params: { position: Vector2, colorSwap?: ColorSwap, isUserControlled?: boolean }) {
+  latestMessage = "";
+  speed: number;
+  private messageCache: HTMLCanvasElement | null = null;
+  private cachedMessage: string = "";
+
+  constructor(params: { position: Vector2, colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number }) {
     super({
       position: params.position,
       colorSwap: params.colorSwap
@@ -40,6 +44,7 @@ export class Hero extends GameObject {
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
     this.name = "Anon";
+    this.speed = params.speed ?? 1;
     this.id = 0;
     this.itemPickupTime = 0;
     this.metabots = [];
@@ -85,70 +90,97 @@ export class Hero extends GameObject {
     this.drawLatestMessage(ctx, drawPosX, drawPosY);
   }
 
-  private drawLatestMessage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    if (this.latestMessage) {
-      // Set the font style and size for the message
-      ctx.font = "8px fontRetroGaming"; // Font and size
-      ctx.fillStyle = "black"; // Text color
-      ctx.textAlign = "center"; // Center the text
+  private drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) { 
+    if (!this.latestMessage.trim()) return;
+     
+    if (this.latestMessage !== this.cachedMessage) {
+      this.cachedMessage = this.latestMessage;
+       
+      this.messageCache = document.createElement("canvas");
+      const offCtx = this.messageCache.getContext("2d");
+      if (!offCtx) return;
 
+      const lines = this.splitMessageIntoLines(this.latestMessage, offCtx);
+      const padding = 10; // Padding around the text inside the bubble
+      const textHeight = 8; // Approximate height per line
+      const tailHeight = 5; // Height of the bubble's tail
 
-      // Split the message into words
-      const words = this.latestMessage.split(" ");
-      const maxLineWidth = 120; // Maximum width for the bubble
-      let lines = [];
-      let currentLine = "";
+      const bubbleWidth = Math.max(...lines.map(line => offCtx.measureText(line).width)) + padding * 2 + 5;
+      const bubbleHeight = lines.length * textHeight + padding;
 
-      // Loop through each word to build lines
-      for (let word of words) {
-        const testLine = currentLine + word + " ";
-        const testLineWidth = ctx.measureText(testLine).width;
+      // Set canvas dimensions based on bubble size
+      this.messageCache.width = bubbleWidth;
+      this.messageCache.height = bubbleHeight + tailHeight; // Extra space for the bubble's tail
 
-        // If the test line exceeds the max line width, push the current line to lines and reset
-        if (testLineWidth > maxLineWidth && currentLine.length > 0) {
-          lines.push(currentLine.trim());
-          currentLine = word + " "; // Start a new line
-        } else {
-          currentLine = testLine; // Continue building the linea
-        }
-      }
-      // Push any remaining text as the last line
-      if (currentLine.length > 0) {
-        lines.push(currentLine.trim());
-      }
+      // Bubble styling
+      offCtx.font = "8px fontRetroGaming";
+      offCtx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      offCtx.strokeStyle = "black";
+      offCtx.lineWidth = 1;
 
-      // Calculate bubble dimensions based on the number of lines
-      const bubblePadding = 6; // Padding around the message
-      const bubbleWidth = Math.max(...lines.map(line => ctx.measureText(line).width)) + bubblePadding * 2; // Bubble width based on longest line
-      const bubbleHeight = (lines.length * 12) + bubblePadding * 2; // Height based on number of lines (assuming 12px line height)
-      const bubbleX = drawPosX - (bubbleWidth / 2) + 8; // Center the bubble horizontally
-      const bubbleY = drawPosY - bubbleHeight - 25; // Position the bubble above the player
+      // Draw the bubble with rounded corners and a tail
+      offCtx.beginPath();
+      offCtx.moveTo(3, 0);
+      offCtx.lineTo(bubbleWidth - 10, 0);
+      offCtx.quadraticCurveTo(bubbleWidth, 0, bubbleWidth, 10);
+      offCtx.lineTo(bubbleWidth, bubbleHeight - 10);
+      offCtx.quadraticCurveTo(bubbleWidth, bubbleHeight, bubbleWidth - 10, bubbleHeight);
 
+      // Draw the tail at the bottom center
+      const tailX = bubbleWidth / 2;
+      offCtx.lineTo(tailX + 5, bubbleHeight); // Right side of the tail
+      offCtx.lineTo(tailX, bubbleHeight + tailHeight); // Point of the tail
+      offCtx.lineTo(tailX - 5, bubbleHeight); // Left side of the tail
 
-      // Draw the chat bubble background
-      ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; // Semi-transparent white for the bubble
-      ctx.beginPath();
-      ctx.moveTo(bubbleX + 10, bubbleY); // Rounded corners
-      ctx.lineTo(bubbleX + bubbleWidth - 10, bubbleY);
-      ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY, bubbleX + bubbleWidth, bubbleY + 10);
-      ctx.lineTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight - 10);
-      ctx.quadraticCurveTo(bubbleX + bubbleWidth, bubbleY + bubbleHeight, bubbleX + bubbleWidth - 10, bubbleY + bubbleHeight);
-      ctx.lineTo(bubbleX + 10, bubbleY + bubbleHeight);
-      ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleHeight, bubbleX, bubbleY + bubbleHeight - 10);
-      ctx.lineTo(bubbleX, bubbleY + 10);
-      ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + 10, bubbleY);
-      ctx.closePath();
-      ctx.fill(); // Fill the bubble
+      // Complete the bubble
+      offCtx.lineTo(10, bubbleHeight);
+      offCtx.quadraticCurveTo(0, bubbleHeight, 0, bubbleHeight - 10);
+      offCtx.lineTo(0, 10);
+      offCtx.quadraticCurveTo(0, 0, 10, 0);
+      offCtx.closePath();
 
+      // Fill and stroke the bubble
+      offCtx.fill();
+      offCtx.stroke();
 
-      // Draw the message text on top of the bubble
-      ctx.fillStyle = "black"; // Set text color for the message
-
-      // Draw each line of the message
+      // Draw the text inside the bubble
+      offCtx.fillStyle = "black";
       lines.forEach((line, index) => {
-        ctx.fillText(line, drawPosX + 6, bubbleY + bubblePadding + (index * 12) + 10);
+        offCtx.fillText(line, padding, padding + index * textHeight + 2.5);
       });
     }
+     
+    const verticalOffset = 20; // Increase this value to move the bubble higher
+    const horizontalOffset = -5; // Increase this value to move the bubble higher
+    const bubbleTopY = characterTopY - (this.messageCache?.height ?? 0) - verticalOffset; 
+     
+    if (this.messageCache) {
+      const bubbleTopX = characterCenterX - this.messageCache.width / 2 - horizontalOffset;
+      ctx.drawImage(this.messageCache, bubbleTopX, bubbleTopY);
+    }
+  }
+
+
+
+  private splitMessageIntoLines(message: string, ctx: CanvasRenderingContext2D): string[] {
+    const words = message.split(" ");
+    const maxLineWidth = 120;
+    let lines = [];
+    let currentLine = "";
+
+    for (let word of words) {
+      const testLine = currentLine + word + " ";
+      if (ctx.measureText(testLine).width > maxLineWidth && currentLine.length > 0) {
+        lines.push(currentLine.trim());
+        currentLine = word + " ";
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine.length > 0) {
+      lines.push(currentLine.trim());
+    }
+    return lines;
   }
 
   private drawName(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
@@ -198,22 +230,20 @@ export class Hero extends GameObject {
         this.isLocked = true;
       });
       events.on("END_TEXT_BOX", this, () => {
-        this.isLocked = false;
+        this.isLocked = false; 
       });
-      events.on("HERO_MOVEMENT_LOCK", this, () => {
-        console.log("LOCKING MOVEMENT");
+      events.on("HERO_MOVEMENT_LOCK", this, () => { 
         this.isLocked = true;
       });
-      events.on("HERO_MOVEMENT_UNLOCK", this, () => {
+      events.on("HERO_MOVEMENT_UNLOCK", this, () => { 
         this.isLocked = false;
       });
-      events.on("SELECTED_ITEM", this, (selectedItem: string) => {
-        console.log(selectedItem);
-        if (selectedItem === "Party Up") {
-          const objectAtPosition = this.parent.children.find((child: GameObject) => {
-            return child.position.matches(this.position.toNeighbour(this.facingDirection))
-          });
-          events.emit("PARTY_UP", objectAtPosition);
+      events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
+        if (selectedItem === "Party Up") { 
+          events.emit("PARTY_UP", this.isObjectNeerby());
+        }
+        else if (selectedItem === "Wave") { 
+          events.emit("WAVE_AT", this.isObjectNeerby());
         }
       });
     }
@@ -236,12 +266,12 @@ export class Hero extends GameObject {
         events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
       }
     }
-
-    const distance = moveTowards(this, this.destinationPosition, 1);
+    const distance = moveTowards(this, this.destinationPosition, this.speed);
     const hasArrived = (distance ?? 0) <= 1;
     if (hasArrived && this.isUserControlled) {
       this.tryMove(root);
     }
+  
 
     this.otherPlayerMove(root);
     this.tryEmitPosition();
@@ -256,15 +286,21 @@ export class Hero extends GameObject {
       const discrepancy = 0.05;
       // Check if the child's position is within the discrepancy range of the neighbor position
       return (
+        !(child instanceof Sprite) &&
         child.position.x >= neighborPosition.x - discrepancy &&
         child.position.x <= neighborPosition.x + discrepancy &&
         child.position.y >= neighborPosition.y - discrepancy &&
         child.position.y <= neighborPosition.y + discrepancy
       );
     });
-    const bestChoice = posibilities.find((x: any) => x.textContent);
+    console.log(posibilities);
+    const bestChoice = posibilities.find((x: any) => x.textContent?.string);
     if (bestChoice) {
       return bestChoice;
+    }
+    const bestChoiceContent = posibilities.find((x: any) => typeof x.getContent === 'function');
+    if (bestChoiceContent) {
+      return bestChoiceContent;
     }
     const secondBestChoice = posibilities.find((x: any) => x.drawLayer != "FLOOR");
     if (secondBestChoice) {

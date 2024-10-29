@@ -1,15 +1,18 @@
-import { calculateWords } from "../SpriteTextString/sprite-font-map";
-import { GameObject } from "../game-object";
-import { Sprite } from "../sprite";
-import { resources } from "../../helpers/resources";
-import { events } from "../../helpers/events";
-import { gridCells } from "../../helpers/grid-cells";
-import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { Input } from "../../helpers/input";
-import { storyFlags } from "../../helpers/story-flags";
-import { BrushLevel1 } from "../../levels/brush-level1";
-import { Level } from "../Level/level";
-import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
+import { calculateWords } from "../../SpriteTextString/sprite-font-map";
+import { GameObject } from "../../game-object";
+import { Sprite } from "../../sprite";
+import { resources } from "../../../helpers/resources";
+import { SkillType, LEFT_PUNCH, RIGHT_PUNCH, KICK, HEADBUTT } from "../../../helpers/skill-types";
+import { events } from "../../../helpers/events";
+import { gridCells } from "../../../helpers/grid-cells";
+import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
+import { Input } from "../../../helpers/input";
+import { storyFlags } from "../../../helpers/story-flags";
+import { BrushLevel1 } from "../../../levels/brush-level1";
+import { Level } from "../../Level/level";
+import { MetaBot } from "../../../../../services/datacontracts/meta/meta-bot";
+import { MetaHero } from "../../../../../services/datacontracts/meta/meta-hero";
+import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../../services/datacontracts/meta/meta-bot-part";
 
 export class FightMenu extends GameObject {
   backdrop = new Sprite({
@@ -19,9 +22,11 @@ export class FightMenu extends GameObject {
   showFightMenu: boolean = true;
   portrait: Sprite;
   metabotChoices: MetaBot[] = [];
+  metaHero: MetaHero;
+  metabotParts: MetaBotPart[];
 
   startLevel: Level = new BrushLevel1({ heroPosition: new Vector2(gridCells(1), gridCells(1)) });
-  entrancePosition: Vector2 = new Vector2(gridCells(1), gridCells(1)); 
+  entrancePosition: Vector2 = new Vector2(gridCells(1), gridCells(1));
   itemsFound?: string[];
 
   fightMenuOptions = ["Attack", "Item", "Meta-Bots", "Run"];
@@ -34,18 +39,23 @@ export class FightMenu extends GameObject {
   showAttackMenuOptions = false;
   selectedAttackIndex = 0;
 
-  showWaitingForOthers = false; 
+  showEndOfFightMenu = false;
+  selectedEndOfFightIndex = 0;
+
+  showWaitingForOthers = false;
 
   botDeployed = false;
 
-  leftArmSkill = "Left Punch";
-  rightArmSkill = "Right Punch";
-  legsSkill = "Kick";
-  headSkill = "Headbutt";
-  skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill, "Cancel"];
+  leftArmSkill = LEFT_PUNCH;
+  rightArmSkill = RIGHT_PUNCH;
+  legsSkill = KICK;
+  headSkill = HEADBUTT;
+  skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill];
 
-  constructor(config: { entranceLevel: Level, entrancePosition: Vector2, itemsFound?: string[] }) {
+  constructor(config: { entranceLevel: Level, entrancePosition: Vector2, itemsFound?: string[], hero: MetaHero, metabotParts: MetaBotPart[] }) {
     super({ position: new Vector2(-95, 120) });
+    this.metaHero = config.hero;
+    this.metabotParts = config.metabotParts;
     this.itemsFound = config.itemsFound;
     this.backdrop.scale = new Vector2(1, 0.5);
     this.drawLayer = "HUD";
@@ -55,12 +65,9 @@ export class FightMenu extends GameObject {
       resource: resources.images["portraits"],
       hFrames: 4
     });
-
   }
 
   override step(delta: number, root: GameObject) {
-    //listen for user input
-    //get parentmost object
     let parent = root?.parent ?? root;
     if (parent) {
       while (parent.parent) {
@@ -69,9 +76,8 @@ export class FightMenu extends GameObject {
     }
 
     const input = parent.input as Input;
-
-    if (input?.keys["Space"]) { 
-      if (input?.verifyCanPressKey()) {
+    if (input?.verifyCanPressKey()) {
+      if (input?.keys["Space"]) {
         if (this.showFightMenuOptions) {
           if (this.selectedFightMenuIndex == (this.fightMenuOptions.length - 1)) {
             this.leaveFight();
@@ -84,6 +90,9 @@ export class FightMenu extends GameObject {
             this.showFightMenuOptions = false;
             this.showFighterSelectionMenu = true;
           }
+        }
+        else if (this.showEndOfFightMenu) {
+          this.leaveFight();
         }
         else if (this.showFighterSelectionMenu) {
           if (this.selectedFighterIndex == this.metabotChoices.length) {
@@ -108,10 +117,7 @@ export class FightMenu extends GameObject {
           }
         }
       }
-    }
-
-    if (input?.verifyCanPressKey()) {
-      if (input?.getActionJustPressed("ArrowUp")
+      else if (input?.getActionJustPressed("ArrowUp")
         || input?.heldDirections.includes("UP")
         || input?.getActionJustPressed("KeyW")) {
         if (this.showFighterSelectionMenu) {
@@ -164,11 +170,11 @@ export class FightMenu extends GameObject {
           this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5;
         }
       }
-
-    }
+    } 
   }
 
   leaveFight() {
+    this.metabotChoices.forEach(x => x.isDeployed = false);
     storyFlags.flags.delete("START_FIGHT");
     events.emit("END_FIGHT", this.startLevel);
     events.emit("CHANGE_LEVEL", this.startLevel);
@@ -176,11 +182,14 @@ export class FightMenu extends GameObject {
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     if (this.showFightMenu) {
-      this.backdrop.drawImage(ctx, drawPosX, drawPosY); 
-       
+      this.backdrop.drawImage(ctx, drawPosX, drawPosY);
+
       if (this.showFighterSelectionMenu) {
         this.paintFighterSelectionMenu(ctx);
         return;
+      }
+      else if (this.showEndOfFightMenu) {
+        this.paintEndOfFightMenuOptions(ctx);
       }
       else if (this.showFightMenuOptions) {
         this.paintFightMenuOptions(ctx);
@@ -197,7 +206,7 @@ export class FightMenu extends GameObject {
   }
 
   private paintWaitingForOthers(ctx: CanvasRenderingContext2D) {
-    const run = calculateWords({ content: "Waiting for others to finish selecting moves.", color: "White"});
+    const run = calculateWords({ content: "Waiting for others to finish selecting moves.", color: "White" });
     const PADDING_LEFT = 5;
     let runWidth = 0;
     let cursorX = -90;
@@ -207,13 +216,13 @@ export class FightMenu extends GameObject {
         char.sprite.draw(ctx, cursorX, boxY);
         cursorX += char.width + 1; // Add width of the character and some space
         runWidth += char.width + 1;
-      }); 
-      cursorX += PADDING_LEFT; 
+      });
+      cursorX += PADDING_LEFT;
     });
 
   }
 
-  private paintAttackMenuOptions(ctx: CanvasRenderingContext2D) { 
+  private paintAttackMenuOptions(ctx: CanvasRenderingContext2D) {
     const PADDING_LEFT = 15;
     const PADDING_TOP = 9;
     const LINE_WIDTH_MAX = 240;
@@ -229,15 +238,15 @@ export class FightMenu extends GameObject {
 
 
     for (let x = 0; x < this.skillOptions.length; x++) {
-      const word = this.skillOptions[x];
-      const words = calculateWords({content: word, color: "White"}); 
+      const word = this.skillOptions[x].name;
+      const words = calculateWords({ content: word, color: "White" });
       let wordWidth = 0;
       words.forEach((word: any) => {
         word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
           wordWidth += char.width;
           char.sprite.draw(ctx, cursorX - 5, cursorY);
           cursorX += char.width + 1; // Add width of the character and some space
-        }); 
+        });
       });
       if (x === this.selectedAttackIndex) {
         // Draw a red square beside the selected word
@@ -245,10 +254,70 @@ export class FightMenu extends GameObject {
         ctx.lineWidth = 2;
         ctx.strokeRect(cursorX - wordWidth - PADDING_LEFT, cursorY, wordWidth + 20, LINE_VERTICAL_WIDTH);
       }
-      cursorX += PADDING_LEFT; 
+      cursorX += PADDING_LEFT;
     }
+    const words = calculateWords({ content: "Cancel", color: "White" });
+    let wordWidth = 0;
+    words.forEach((word: any) => {
+      word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
+        wordWidth += char.width;
+        char.sprite.draw(ctx, cursorX - 5, cursorY);
+        cursorX += char.width + 1; // Add width of the character and some space
+      });
+    });
+    if (this.skillOptions.length === this.selectedAttackIndex) {
+      // Draw a red square beside the selected word
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cursorX - wordWidth - PADDING_LEFT, cursorY, wordWidth + 20, LINE_VERTICAL_WIDTH);
+    }
+    cursorX += PADDING_LEFT;
   }
+  private paintEndOfFightMenuOptions(ctx: CanvasRenderingContext2D) {
+    const PADDING_LEFT = 15;
+    const PADDING_TOP = 9;
+    const LINE_WIDTH_MAX = 240;
+    const LINE_VERTICAL_WIDTH = 14;
+    const BOT_SPRITE_WIDTH = 32;
+    let drawPosX = -100;
+    let drawPosY = 120;
+    let row = 0;
+    let cursorX = drawPosX + PADDING_LEFT;
+    let cursorY = drawPosY + PADDING_TOP;
+    let wordsOfWisdom = [`Congrats, you have won!`];
+    let wordsWidth = 0;
+    for (let x = 0; x < wordsOfWisdom.length; x++) {
+      const word = wordsOfWisdom[x];
+      const words = calculateWords({ content: word, color: "White" });
 
+      words.forEach((word: any) => {
+        // Decide if we can fit this next word on this line
+        const spaceRemaining = drawPosX + LINE_WIDTH_MAX - cursorX;
+        if (spaceRemaining < word.wordWidth) {
+          cursorX = drawPosX + PADDING_LEFT + LINE_WIDTH_MAX / 2 + 10; // Adjust x to the next column
+        } else if (spaceRemaining < word.wordWidth) {
+          row++;
+          cursorX = drawPosX + PADDING_LEFT; // Reset x to start of line
+          cursorY = 0 + PADDING_TOP + row * (LINE_VERTICAL_WIDTH + 10); // Move to next row
+        }
+
+        word.chars.forEach((char: { width: number; sprite: Sprite; }) => {
+          const withCharOffset = cursorX - 5;
+          char.sprite.draw(ctx, withCharOffset, drawPosY);
+          cursorX += char.width + 1; // Add width of the character and some space
+        });
+
+        cursorX += 3 + PADDING_LEFT;
+      });
+      wordsWidth += cursorX;
+    }
+    // Draw a red square 
+    ctx.strokeStyle = 'red';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(drawPosX + PADDING_LEFT, drawPosY, wordsWidth + 20, LINE_VERTICAL_WIDTH);
+
+
+  }
   private paintFightMenuOptions(ctx: CanvasRenderingContext2D) {
     const PADDING_LEFT = 15;
     const PADDING_TOP = 9;
@@ -256,7 +325,7 @@ export class FightMenu extends GameObject {
     const LINE_VERTICAL_WIDTH = 14;
     const BOT_SPRITE_WIDTH = 32;
     let drawPosX = -100;
-    let drawPosY = 120; 
+    let drawPosY = 120;
     let row = 0;
     let cursorX = drawPosX + PADDING_LEFT;
     let cursorY = drawPosY + PADDING_TOP;
@@ -268,9 +337,9 @@ export class FightMenu extends GameObject {
       words.forEach((word: any) => {
         // Decide if we can fit this next word on this line
         const spaceRemaining = drawPosX + LINE_WIDTH_MAX - cursorX;
-        if (spaceRemaining < word.wordWidth) { 
+        if (spaceRemaining < word.wordWidth) {
           cursorX = drawPosX + PADDING_LEFT + LINE_WIDTH_MAX / 2 + 10; // Adjust x to the next column
-        } else if (spaceRemaining < word.wordWidth) { 
+        } else if (spaceRemaining < word.wordWidth) {
           row++;
           cursorX = drawPosX + PADDING_LEFT; // Reset x to start of line
           cursorY = 0 + PADDING_TOP + row * (LINE_VERTICAL_WIDTH + 10); // Move to next row
@@ -291,8 +360,8 @@ export class FightMenu extends GameObject {
         cursorX += 3 + PADDING_LEFT;
       });
 
-     
-    } 
+
+    }
   }
 
   private paintFighterSelectionMenu(ctx: CanvasRenderingContext2D) {
@@ -348,7 +417,7 @@ export class FightMenu extends GameObject {
           ctx.strokeStyle = 'red';
           ctx.lineWidth = 2;
           ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-          if (this.metabotChoices[x].hp <= 0) {
+          if (this.metabotChoices[x].hp <= 0 || this.metabotChoices[x].isDeployed) {
             ctx.beginPath();
             ctx.moveTo(boxX, boxY); // Top-left corner
             ctx.lineTo(boxX + boxWidth, boxY + boxHeight); // Bottom-right corner
@@ -358,7 +427,7 @@ export class FightMenu extends GameObject {
             ctx.lineWidth = 2;
             ctx.stroke();
             ctx.closePath();
-          } 
+          }
         }
       }
 
@@ -409,20 +478,21 @@ export class FightMenu extends GameObject {
   }
 
   private selectFighter() {
-    const metabots = this.metabotChoices ?? []; 
+    const metabots = this.metabotChoices ?? [];
     if (this.selectedFighterIndex !== undefined && metabots.length > this.selectedFighterIndex) {
       const selectedMetabot = metabots.splice(this.selectedFighterIndex, 1)[0]; // Remove the selected Metabot
       metabots.unshift(selectedMetabot); // Add the selected Metabot to the beginning of the array
     }
-    if (metabots[0].hp <= 0) {
+    if (metabots[0].hp <= 0 || metabots[0].isDeployed) {
       return; //should play a sound or display, to update.
     }
+    const selectedBotParts = this.metabotParts.filter(x => x.metabotId === metabots[0].id);
 
-    this.leftArmSkill = metabots[0].leftArm?.skill ?? "Left Punch";
-    this.rightArmSkill = metabots[0].rightArm?.skill ?? "Right Punch";
-    this.legsSkill = metabots[0].legs?.skill ?? "Kick";
-    this.headSkill = metabots[0].head?.skill ?? "Headbutt";
-    this.skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill, "Cancel"];
+    this.leftArmSkill = selectedBotParts.find(x => x.partName === LEFT_ARM)?.skill ?? LEFT_PUNCH;
+    this.rightArmSkill = selectedBotParts.find(x => x.partName === RIGHT_ARM)?.skill ?? RIGHT_PUNCH;
+    this.legsSkill = selectedBotParts.find(x => x.partName === LEGS)?.skill ?? KICK;
+    this.headSkill = selectedBotParts.find(x => x.partName === HEAD)?.skill ?? HEADBUTT;
+    this.skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill];
 
     //console.log("fighter selected", metabots[0]);
     //console.log("leftArmSkill", this.leftArmSkill);

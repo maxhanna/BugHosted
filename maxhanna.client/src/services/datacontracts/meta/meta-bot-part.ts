@@ -1,17 +1,20 @@
+import { Skill } from "../../../app/meta/helpers/skill-types";
 import { User } from "../user/user";
 import { Vector2 } from "./vector2";
 
 export class MetaBotPart {
   id: number;
-  metabotId: number;
-  type: string;
+  metabotId?: number;
+  type: number;
+  partName: string;
   damageMod: number;
-  skill: string;
+  skill: Skill;
 
-  constructor(params: { id: number, metabotId: number, type: string, damageMod: number, skill: string }) {
+  constructor(params: { id: number, metabotId?: number, partName: string, type?: number, damageMod: number, skill: Skill }) {
     this.id = params.id;
     this.metabotId = params.metabotId;
-    this.type = params.type;
+    this.partName = params.partName;
+    this.type = params.type ?? params.skill.type;
     this.skill = params.skill;
     this.damageMod = params.damageMod;
   }

@@ -3,6 +3,7 @@ import { GameObject } from "../../game-object";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";  
 import { events } from "../../../helpers/events";
+import { Scenario } from "../../../helpers/story-flags";
 export class Wardrobe extends GameObject { 
   body?: Sprite;   
 
@@ -34,6 +35,6 @@ export class Wardrobe extends GameObject {
       string: ["Change Color", "Cancel"],
       canSelectItems: true,
       addsFlag: null
-    }
+    } 
   }
  }

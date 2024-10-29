@@ -7,11 +7,4 @@
     <!-- Folder where production build objects will be placed -->
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist\maxhanna.client\</BuildOutputFolder>
   </PropertyGroup>
-  <ItemGroup>
-    <Folder Include="src\app\meta\objects\Main\" />
-    <Folder Include="src\app\meta\objects\FightStatBox\" />
-    <Folder Include="src\app\meta\objects\TextBox\" />
-    <Folder Include="src\app\meta\objects\InventoryItem\Watch\" />
-    <Folder Include="src\assets\metabots\" />
-  </ItemGroup>
 </Project>

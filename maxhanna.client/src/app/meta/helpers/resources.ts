@@ -1,3 +1,5 @@
+import { Bugcatcher } from "../objects/Npc/Bugcatcher/bugcatcher";
+
  
 export class Resources {
   toLoad: { [key: string]: string };
@@ -5,6 +7,7 @@ export class Resources {
 
   constructor() {
     this.toLoad = {
+      armobot: "assets/metabots/armobot.png", 
       blinds: "assets/metabots/blinds.png", 
       bedroomFloor: "assets/metabots/bedroom-floor.png",
       biggerBush: "assets/metabots/biggerbush.png",
@@ -18,6 +21,7 @@ export class Resources {
       botFrame7: "assets/metabots/botframe7.png",
       botFrame8: "assets/metabots/botframe8.png",
       brickRoad: "assets/metabots/brickroad.png",
+      bugcatcher: "assets/metabots/bugcatcher.png",
       cave: "assets/metabots/cave.png",
       caveGround: "assets/metabots/cave-ground.png",
       carpet: "assets/metabots/carpet.png",
@@ -37,10 +41,17 @@ export class Resources {
       fridge: "assets/metabots/fridge.png",
       gangster: "assets/metabots/gangsprite.png",
       goldenPath: "assets/metabots/golden-path.png",
+      graphiti1: "assets/metabots/graphiti1.png",
+      graphiti2: "assets/metabots/graphiti2.png",
+      graphitifrog: "assets/metabots/graphitifrog.png",
+      graphiticornermonster: "assets/metabots/graphiticornermonster.png",
+      grassBlade: "assets/metabots/grassblade.png",
       hero: "assets/metabots/herospritesheet.png",
       heroHome: "assets/metabots/hero-home.png",
       house: "assets/metabots/house.png",
+      houseSide: "assets/metabots/house-side.png",
       knight: "assets/metabots/knight-sheet-1.png",
+      menuBorder: "assets/metabots/menuborder.png",
       mom: "assets/metabots/mom-sprite.png",
       painting: "assets/metabots/painting.png",
       pointer: "assets/metabots/pointer.png",
@@ -55,6 +66,7 @@ export class Resources {
       shopFloor: "assets/metabots/shopfloor.png", 
       shrub: "assets/metabots/shrub.png", 
       shortgrass: "assets/metabots/shortgrass.png", 
+      spiderBot: "assets/metabots/spiderbot.png", 
       stove: "assets/metabots/stove.png", 
       textBox: "assets/metabots/text-box.png",  
       tree: "assets/metabots/tree.png",  

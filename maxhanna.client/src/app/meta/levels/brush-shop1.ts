@@ -2,6 +2,7 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
+import { SkillType } from "../helpers/skill-types";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
 import { Watch } from "../objects/InventoryItem/Watch/watch";
@@ -13,8 +14,7 @@ import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER0, TA
 import { Npc } from "../objects/Npc/npc";
 import { Mom } from "../objects/Npc/Mom/mom";
 import { Bot } from "../objects/Bot/bot"; 
-import { InventoryItem } from "../objects/InventoryItem/inventory-item";
-import { ARMOR_TYPE, SPEED_TYPE, STRENGTH_TYPE } from "../../../services/datacontracts/meta/meta-bot";
+import { InventoryItem } from "../objects/InventoryItem/inventory-item"; 
 import { Tv } from "../objects/Environment/Tv/tv";
 
 
@@ -53,15 +53,14 @@ export class BrushShop1 extends Level {
 
  
     const botFrame = new Bot(
-      { position: new Vector2(gridCells(2) + 1, gridCells(-1) + 3), frameNumber: 2 }
-    );
+      { position: new Vector2(gridCells(2), gridCells(1)), spriteName: "botFrame2", offsetX: 8, offsetY: -8 }
+    ); 
     botFrame.textContent = [
       {
         string: ["Ahh, This one looks so cool!"],
       } as Scenario,
     ];
-    this.addChild(botFrame);
-
+    this.addChild(botFrame); 
 
 
     const botCasing2 = new Sprite(
@@ -70,8 +69,8 @@ export class BrushShop1 extends Level {
     this.addChild(botCasing2);
 
     const botFrame2 = new Bot(
-      { position: new Vector2(gridCells(4) + 2, gridCells(-1) + 3), frameNumber: 5 }
-    );
+      { position: new Vector2(gridCells(4), gridCells(1)), spriteName: "botFrame5", offsetX: 8, offsetY: -8 }
+    ); 
     botFrame2.textContent = [
       {
         string: ["OH, I saw this in a competition on TV once!"],
@@ -149,9 +148,9 @@ export class BrushShop1 extends Level {
       heroPosition: new Vector2(gridCells(3), gridCells(5)),
       entranceLevel: this,
       items: storyFlags.contains(GOT_WATCH) ? [
-        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: STRENGTH_TYPE } }),
-        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: ARMOR_TYPE } }),
-        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SPEED_TYPE } }),
+        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: SkillType.STRENGTH } }),
+        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: SkillType.ARMOR } }),
+        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SkillType.SPEED } }),
       ] : []
     });
     if (salesman.body) {
@@ -196,9 +195,9 @@ export class BrushShop1 extends Level {
       heroPosition: new Vector2(gridCells(3), gridCells(5)),
       entranceLevel: this,
       items: storyFlags.contains(GOT_WATCH) ? [
-        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: STRENGTH_TYPE } }),
-        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: ARMOR_TYPE } }),
-        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SPEED_TYPE } }),
+        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: SkillType.STRENGTH } }),
+        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: SkillType.ARMOR } }),
+        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SkillType.SPEED } }),
       ] : []
     }); 
     if (!storyFlags.contains(GOT_WATCH)) {

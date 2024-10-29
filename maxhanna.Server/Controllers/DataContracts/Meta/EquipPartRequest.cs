@@ -2,9 +2,9 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers.DataContracts.Meta
 {
-    public class MetaHeroChatRequest
+    public class EquipPartRequest
     {
-        public MetaHero Hero { get; set; } 
-        public string? Content { get; set; } 
+        public int PartId { get; set; } 
+        public int? MetabotId { get; set; } 
     }
 }

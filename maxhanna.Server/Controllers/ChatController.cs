@@ -543,9 +543,13 @@ namespace maxhanna.Server.Controllers
         [HttpPost("/Chat/SendMessage", Name = "SendMessage")]
         public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
         { 
+            if (request.Sender == null)
+            {
+              request.Sender = new User(0, "Anonymous");
+            }
           
             _logger.LogInformation($"POST /Chat/SendMessage from user: {request.Sender?.Id} to chatId: {request.ChatId} with {request.Files?.Count ?? 0} # of files");
-
+            
             MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
             try
             {

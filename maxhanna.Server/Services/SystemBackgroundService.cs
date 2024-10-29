@@ -30,8 +30,7 @@ namespace maxhanna.Server.Services
                 if ((DateTime.Now - _lastDailyTaskRun).TotalHours >= 24)
                 {
                     await DeleteOldBattleReports();
-                    await DeleteOldGuests();
-                    await DeleteOldMetaChat();
+                    await DeleteOldGuests(); 
                     _lastDailyTaskRun = DateTime.Now; 
                 } 
                 await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
@@ -89,42 +88,7 @@ namespace maxhanna.Server.Services
                 _logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
             }
         }
-
-        private async Task DeleteOldMetaChat()
-        {
-            try
-            {
-                await using MySqlConnection conn = new MySqlConnection(_connectionString);
-                await conn.OpenAsync();
-
-                await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
-                try
-                {
-                    string deleteSqlReportsAndBattles = @"
-                        DELETE  
-                        FROM meta_chat 
-                        WHERE timestamp < NOW() - INTERVAL 2 MINUTE;";
-
-                    await using (var deleteCmd = new MySqlCommand(deleteSqlReportsAndBattles, conn, transaction))
-                    {
-                        int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-                        _logger.LogInformation($"Deleted {affectedRows} old meta-bot chats.");
-                    } 
-
-                    await transaction.CommitAsync();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred while deleting old battle reports or base upgrades. Rolling back transaction.");
-                    await transaction.RollbackAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
-            }
-        }
-
+     
         private async Task DeleteOldGuests()
         {
             try

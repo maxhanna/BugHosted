@@ -1,9 +1,11 @@
-<div class="modal-overlay" (click)="closeModal()"></div>
-<div class="modal"> 
-  <div class="modal-body" #modalBody>
-    <p>Your modal content goes here.</p>
+<div class="modal-overlay" (click)="isModal ? $event.preventDefault() : closeModal()">
+
+  <div class="modal">
+    <div class="modal-body" #modalBody></div>
+    <div class="modal-footer">
+      <button (click)="closeModal()" *ngIf="isCloseButtonVisible">Close</button>
+    </div>
   </div>
-  <div class="modal-footer">
-    <button (click)="closeModal()">Close</button>
-  </div>
+
+
 </div>

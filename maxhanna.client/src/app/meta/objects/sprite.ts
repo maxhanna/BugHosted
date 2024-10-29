@@ -30,7 +30,7 @@ export class Sprite extends GameObject {
     this.position = params.position ?? new Vector2(0, 0);
     this.frame = params.frame ?? 1;
     this.resource = params.resource;
-    this.hFrames = params.hFrames ?? (this.frame > 1 ? this.frame + 1 : this.frame);
+    this.hFrames = params.hFrames ?? this.frame;
     this.vFrames = params.vFrames ?? 1;
     this.scale = params.scale ?? new Vector2(1, 1);
     this.frameSize = params.frameSize ?? new Vector2(16, 16);
@@ -45,6 +45,23 @@ export class Sprite extends GameObject {
     this.offsetX = params.offsetX ?? 0;
     this.offsetY = params.offsetY ?? 0;
     this.buildFrameMap();
+
+
+    if (this.colorSwap) {
+      new Promise(resolve => {
+        const checkLoaded = () => {
+          if (this.resource && this.resource.isLoaded) {
+            resolve(null);  // Resolves the Promise without an argument.
+          } else {
+            setTimeout(checkLoaded, 1);
+          }
+        };
+        checkLoaded();
+      }).then(() => {
+        if (this.colorSwap)
+        this.precomputeRecoloredFrames(this.colorSwap.originalRGB, this.colorSwap.replacementRGB);
+      });
+    } 
   }
 
   buildFrameMap() {
@@ -60,19 +77,7 @@ export class Sprite extends GameObject {
     }
   }
 
-  
-  override ready() {
-    if (this.colorSwap) {
-      const checkResourceLoaded = setInterval(() => {
-        if (this.resource?.isLoaded && this.colorSwap) {
-          clearInterval(checkResourceLoaded); 
-          this.precomputeRecoloredFrames(this.colorSwap.originalRGB, this.colorSwap.replacementRGB);
-        } else {
-          console.log(this.name + " waiting for resource to load...");
-        }
-      }, 100); // Check every 100 ms
-    } 
-  }
+   
   override step(delta: number) {
     if (!this.animations) {
       return;
@@ -199,7 +204,7 @@ export class Sprite extends GameObject {
     // Attempt to get the primary cached canvas
     let cachedCanvas = this.precomputedCanvases.get(primaryKey) || this.precomputedCanvases.get(fallbackKey);
 
-    if (cachedCanvas) {
+    if (cachedCanvas) { 
       ctx.drawImage(cachedCanvas, x, y);
       return true;
     }

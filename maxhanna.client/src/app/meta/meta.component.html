@@ -9,12 +9,12 @@
   </div>
   <div class="chatArea" [style.display]="parentRef && parentRef.user && mainScene.input.displayChat ? 'block' : 'none'">
     <div class="chatInputDiv">
-      <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput" />
+      <input type="text" [placeholder]=" 'Chat'" #chatInput id="chatInput" class="chatInput" (keydown)="lockMovementForChat()" (change)="lockMovementForChat()" />
     </div>
     <div class="chatBox" id="chatBox">
       <div *ngFor="let msg of chat">
         <span class="heroName">
-          {{msg.hero.name}}
+          {{msg.hero}}
           <span class="xxSmallFont">({{msg.timestamp | date: 'HH:mm'}})</span>
         </span>:
         <span class="chatBoxMessage">{{msg.content}}</span>

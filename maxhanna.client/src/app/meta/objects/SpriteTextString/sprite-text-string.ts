@@ -21,7 +21,7 @@ export class SpriteTextString extends GameObject {
     if (color) { 
       this.color = color;
     }
-    console.log(`attempting to write ${wordToWrite}`);
+    //console.log(`attempting to write ${wordToWrite}`);
     const content = wordToWrite ?? "Default text!";
     this.words = calculateWords({ content: content, color: this.color });
  

@@ -28,11 +28,13 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     }
     if (config.string) {
       this.content = config.string;
-    } 
+    }
+    console.log(config.string, (config.portraitFrame ?? 0));
     this.portrait = new Sprite({
       resource: resources.images["portraits"],
       frame: (config.portraitFrame ?? 0), 
-      vFrames: 1
+      vFrames: 1,
+      hFrames: 4
     }); 
   }
    

@@ -66,15 +66,14 @@ namespace maxhanna.Server.Controllers
 					{
 						hero = await UpdateHeroInDB(hero, connection, transaction);
 						MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
-						List<MetaChat> chat = await GetChatFromDB(connection, transaction);
+						//List<MetaChat> chat = await GetChatFromDB(connection, transaction);
 						List<MetaEvent> events = await GetEventsFromDb(hero.Map, connection, transaction);
 						await transaction.CommitAsync();
 						return Ok(new
 						{
 							map = hero.Map,
 							hero.Position,
-							heroes,
-							chat,
+							heroes, 
 							events
 						});
 					}
@@ -97,10 +96,15 @@ namespace maxhanna.Server.Controllers
 				using (var transaction = connection.BeginTransaction())
 				{
 					try
-					{ 
+					{
 						MetaInventoryItem[]? inventory = await GetInventoryFromDB(hero, connection, transaction);
+						MetaBotPart[]? parts  = await GetMetabotPartsFromDB(hero, connection, transaction);
 						await transaction.CommitAsync();
-						return Ok(inventory);
+						return Ok(new
+						{
+							inventory,
+							parts
+						});
 					}
 					catch (Exception ex)
 					{
@@ -176,19 +180,18 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						string sql = @"
-                            INSERT INTO maxhanna.meta_hero (name, user_id, coordsX, coordsY, speed)
-                            SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed
-                            WHERE NOT EXISTS (
-                                SELECT 1 FROM maxhanna.meta_hero WHERE user_id = @UserId
-                            );";
+						string sql = @"INSERT INTO maxhanna.meta_hero (name, user_id, coordsX, coordsY, speed)
+                          SELECT @Name, @UserId, @CoordsX, @CoordsY, @Speed
+													WHERE NOT EXISTS (
+															SELECT 1 FROM maxhanna.meta_hero WHERE user_id = @UserId OR name = @Name
+													);";
 						int posX = 1 * 16;
 						int posY = 11 * 16;
 						Dictionary<string, object?> parameters = new Dictionary<string, object?>
 												{
 														{ "@CoordsX", posX },
 														{ "@CoordsY", posY },
-														{ "@Speed", 5 },
+														{ "@Speed", 1 },
 														{ "@Name", req.Name ?? "Anonymous"},
 														{ "@UserId", req.User?.Id ?? 0}
 												};
@@ -198,7 +201,7 @@ namespace maxhanna.Server.Controllers
 						MetaHero hero = new MetaHero();
 						hero.Position = new Vector2(posX, posY);
 						hero.Id = (int)botId;
-						hero.Speed = 5;
+						hero.Speed = 1;
 						hero.Map = "HeroRoom";
 						hero.Name = req.Name;
 						return Ok(hero);
@@ -224,7 +227,7 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						string sql = @"INSERT INTO maxhanna.meta_bot (hero_id, name, type, hp, exp, level) VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level);"; 
+						string sql = @"INSERT INTO maxhanna.meta_bot (hero_id, name, type, hp, exp, level) VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level);";
 						Dictionary<string, object?> parameters = new Dictionary<string, object?>
 												{
 														{ "@HeroId", bot.HeroId },
@@ -254,11 +257,59 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		[HttpPost("/Meta/Chat", Name = "Chat")]
-		public async Task<IActionResult> Chat([FromBody] MetaHeroChatRequest request)
-		{
-			Console.WriteLine($"POST /Meta/Chat (HeroId: {request.Hero.Id})");
 
+
+		[HttpPost("/Meta/UpdateBotParts", Name = "UpdateBotParts")]
+		public async Task<IActionResult> UpdateBotParts([FromBody] UpdateBotPartsRequest req)
+		{
+			Console.WriteLine($"POST /Meta/UpdateBotParts (UserId: {req.Hero.Id}, Parts: {req.Parts?.Length})");
+
+			if (req.Parts == null || req.Parts.Length == 0)
+			{
+				return BadRequest("No parts to update.");
+			}
+
+			using (var connection = new MySqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+				using (var transaction = await connection.BeginTransactionAsync())
+				{
+					try
+					{
+						string sql = @"INSERT INTO maxhanna.meta_bot_part 
+                               (hero_id, part_name, type, damage_mod, skill) 
+                               VALUES (@HeroId, @PartName, @Type, @DamageMod, @Skill);";
+
+						foreach (var part in req.Parts)
+						{
+							var parameters = new Dictionary<string, object?>
+										{
+												{ "@HeroId", req.Hero.Id },
+												{ "@PartName", part.PartName },
+												{ "@Type", part.Type },
+												{ "@DamageMod", part.DamageMod },
+												{ "@Skill", part.Skill?.Name ?? "Headbutt" }
+										};
+
+							await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+						}
+
+						await transaction.CommitAsync();
+						return Ok(new { Message = "Bot parts updated successfully." });
+					}
+					catch (Exception ex)
+					{
+						await transaction.RollbackAsync();
+						return StatusCode(500, "Internal server error: " + ex.Message);
+					}
+				}
+			}
+		}
+
+		[HttpPost("/Meta/EquipPart", Name = "EquipPart")]
+		public async Task<IActionResult> EquipPart([FromBody] EquipPartRequest req)
+		{
+			Console.WriteLine($"POST /Meta/EquipPart");
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -266,8 +317,15 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						await InsertChatInDB(request.Hero, request.Content, connection, transaction);
+						string sql = @"UPDATE maxhanna.meta_bot_part SET metabot_id = @MetabotId WHERE id = @PartId LIMIT 1;"; 
+						Dictionary<string, object?> parameters = new Dictionary<string, object?>
+												{
+														{ "@MetabotId", req.MetabotId },
+														{ "@PartId", req.PartId },
+												};
+						await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 						await transaction.CommitAsync();
+
 						return Ok();
 					}
 					catch (Exception ex)
@@ -278,6 +336,39 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
+
+
+		[HttpPost("/Meta/UnequipPart", Name = "UnequipPart")]
+		public async Task<IActionResult> UnequipPart([FromBody] EquipPartRequest req)
+		{
+			Console.WriteLine($"POST /Meta/UnequipPart");
+			using (var connection = new MySqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+				using (var transaction = connection.BeginTransaction())
+				{
+					try
+					{
+						string sql = @"UPDATE maxhanna.meta_bot_part SET metabot_id = NULL WHERE id = @PartId LIMIT 1;"; 
+						Dictionary<string, object?> parameters = new Dictionary<string, object?>
+												{ 
+														{ "@PartId", req.PartId },
+												};
+						await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+						await transaction.CommitAsync();
+
+						return Ok();
+					}
+					catch (Exception ex)
+					{
+						await transaction.RollbackAsync();
+						return StatusCode(500, "Internal server error: " + ex.Message);
+					}
+				}
+			}
+		}
+
+
 		private async Task<MetaHero> UpdateHeroInDB(MetaHero hero, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			//Console.WriteLine("hero coords X " + hero.Position.x + " hero coordsY" + hero.Position.y  + " bots: " + hero.Metabots);
@@ -285,7 +376,8 @@ namespace maxhanna.Server.Controllers
                             SET coordsX = @CoordsX, 
                                 coordsY = @CoordsY, 
                                 color = @Color,  
-                                map = @Map 
+                                map = @Map,
+																speed = @Speed
                             WHERE 
                                 id = @HeroId";
 			Dictionary<string, object?> parameters = new Dictionary<string, object?>
@@ -294,6 +386,7 @@ namespace maxhanna.Server.Controllers
 								{ "@CoordsY", hero.Position.y },
 								{ "@Color", hero.Color },
 								{ "@Map", hero.Map },
+								{ "@Speed", hero.Speed },
 								{ "@HeroId", hero.Id }
 						};
 			await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
@@ -369,50 +462,7 @@ namespace maxhanna.Server.Controllers
 				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
 			return;
-		}
-
-
-		private async Task InsertChatInDB(MetaHero hero, string? content, MySqlConnection connection, MySqlTransaction transaction)
-		{
-			string sql = @"INSERT INTO maxhanna.meta_chat (hero_id, content)
-                           VALUES (@HeroId, @Content)";
-			Dictionary<string, object?> parameters = new Dictionary<string, object?> {
-								{ "@HeroId", hero.Id },
-								{ "@Content", string.IsNullOrEmpty(content) ? DBNull.Value : content},
-						};
-			await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
-		}
-
-		private async Task<List<MetaChat>> GetChatFromDB(MySqlConnection connection, MySqlTransaction transaction)
-		{
-			if (connection.State != System.Data.ConnectionState.Open)
-			{
-				await connection.OpenAsync();
-			}
-			if (transaction == null)
-			{
-				_logger.LogError("Transaction is null.");
-				throw new InvalidOperationException("Transaction is required for this operation.");
-			}
-			string sql = @"
-                SELECT m.*, h.name as hero_name
-                FROM maxhanna.meta_chat m
-                LEFT JOIN maxhanna.meta_hero h on h.id = m.hero_id
-                ORDER BY timestamp DESC 
-                LIMIT 100;";
-			MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
-			List<MetaChat> chat = new List<MetaChat>();
-			using (var reader = await cmd.ExecuteReaderAsync())
-			{
-				while (reader.Read())
-				{
-					MetaHero? tmpHero = new MetaHero() { Id = Convert.ToInt32(reader["hero_id"]), Name = Convert.ToString(reader["hero_name"]) };
-					MetaChat tmpChat = new MetaChat() { Hero = tmpHero, Content = Convert.ToString(reader["content"]), Timestamp = Convert.ToDateTime(reader["timestamp"]) };
-					chat.Add(tmpChat);
-				}
-			}
-			return chat;
-		}
+		} 
 
 		private async Task<List<MetaEvent>> GetEventsFromDb(string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -640,11 +690,55 @@ namespace maxhanna.Server.Controllers
 						image: Convert.ToString(reader["image"]),
 						category: Convert.ToString(reader["category"])
 					);
-	 
+
 					inventory.Add(tmpInventoryItem);
 				}
 			}
 			return inventory.ToArray();
+		}
+
+
+		private async Task<MetaBotPart[]?> GetMetabotPartsFromDB(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
+		{
+			// Ensure the connection is open
+			if (conn.State != System.Data.ConnectionState.Open)
+			{
+				await conn.OpenAsync();
+			}
+			if (transaction == null)
+			{
+				_logger.LogError("Transaction is null.");
+				throw new InvalidOperationException("Transaction is required for this operation.");
+			}
+			List<MetaBotPart> partInv = new List<MetaBotPart>();
+			string sql = @"
+                    SELECT *
+                    FROM 
+                        maxhanna.meta_bot_part 
+                    WHERE hero_id = @HeroId;";
+
+			MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+			cmd.Parameters.AddWithValue("@HeroId", hero.Id);
+
+			using (var reader = await cmd.ExecuteReaderAsync())
+			{
+
+				while (reader.Read())
+				{ 
+					MetaBotPart tmpPart = new MetaBotPart
+					{
+						Id = Convert.ToInt32(reader["id"]),
+						HeroId = Convert.ToInt32(reader["hero_id"]),
+						MetabotId = reader.IsDBNull(reader.GetOrdinal("metabot_id")) ? null : Convert.ToInt32(reader["metabot_id"]),
+						Created = Convert.ToDateTime(reader["created"]), 
+						PartName = Convert.ToString(reader["part_name"]),
+						Skill = new Skill(name: Convert.ToString(reader["skill"]) ?? "Headbutt", type: Convert.ToInt32(reader["type"])),
+						DamageMod = Convert.ToInt32(reader["damage_mod"]),
+					};  
+					partInv.Add(tmpPart);
+				}
+			}
+			return partInv.ToArray();
 		}
 
 		private void SetMapBoundaries()

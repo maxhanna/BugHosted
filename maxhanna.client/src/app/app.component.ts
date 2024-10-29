@@ -45,6 +45,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
   showMainContent = true;
   isModalOpen = false;
+  isModal = false;
+  isModalCloseVisible = true;
   showOverlay = false;
   pictureSrcs: { key: string, value: string, type: string, extension: string }[] = [];
   created: boolean = false; // Global variable accessible throughout the component
@@ -301,6 +303,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.modalComponent.setModalBody(msg);
     }, 100);
   }
+  
   updateHeight() {
     console.log("setting inner height " + window.innerHeight * 0.01);
     const vh = window.innerHeight * 0.01;

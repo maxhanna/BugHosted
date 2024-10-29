@@ -2,7 +2,7 @@ import { User } from "../user/user";
 import { MetaHero } from "./meta-hero";
 
 export interface MetaChat {
-  hero: MetaHero; 
+  hero: string; 
   content?: string;
   timestamp?: Date;  
 }

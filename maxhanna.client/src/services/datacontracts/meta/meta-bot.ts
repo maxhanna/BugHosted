@@ -1,6 +1,8 @@
-import { User } from "../user/user"; 
+
+import { User } from "../user/user";
 import { Vector2 } from "./vector2";
-import { MetaBotPart } from "./meta-bot-part";
+import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "./meta-bot-part";
+import { HEADBUTT, KICK, LEFT_PUNCH, RIGHT_PUNCH } from "../../../app/meta/helpers/skill-types";
 
 export class MetaBot {
   id: number;
@@ -8,10 +10,11 @@ export class MetaBot {
   type: number;
   hp: number;
   exp: number = 0;
-  level: number = 1; 
+  level: number = 1;
   expForNextLevel: number = (this.level + 1) * 5;
   hasAwardedExp = false
-  name?: string; 
+  name?: string;
+  spriteName?: string;
   isDeployed: boolean = false;
   position?: Vector2;
   head?: MetaBotPart;
@@ -20,30 +23,30 @@ export class MetaBot {
   rightArm?: MetaBotPart;
 
 
-  constructor(params: { id: number, heroId: number, type: number, name: string, position?: Vector2, hp?: number }) {
-    this.id = params.id; 
-    this.name = params.name; 
-    this.heroId = params.heroId; 
-    this.type = params.type; 
+  constructor(params: { id: number, heroId: number, type: number, name: string, position?: Vector2, hp?: number, spriteName?: string, leftArm?: MetaBotPart, rightArm?: MetaBotPart, legs?: MetaBotPart, head?: MetaBotPart }) {
+    this.id = params.id;
+    this.name = params.name;
+    this.heroId = params.heroId;
+    this.type = params.type;
     this.position = params.position;
     this.hp = params.hp ?? 1;
-    this.head = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Headbutt", damageMod: 1 })
-    this.legs = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Kick", damageMod: 1 })
-    this.leftArm = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Left punch", damageMod: 1 })
-    this.rightArm = new MetaBotPart({ id: 0, metabotId: this.id, type: "Normal", skill: "Right punch", damageMod: 1 }) 
+    this.head = params.head ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: HEADBUTT, damageMod: 1, partName: HEAD })
+    this.legs = params.legs ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: KICK, damageMod: 1, partName: LEGS })
+    this.leftArm = params.leftArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: LEFT_PUNCH, damageMod: 1, partName: LEFT_ARM })
+    this.rightArm = params.rightArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: RIGHT_PUNCH, damageMod: 1, partName: RIGHT_ARM })
+    this.spriteName = params.spriteName;
   }
 
   calculateExpForNextLevel() {
-    console.log("calculateExpForNextLevel ");
     this.expForNextLevel = (this.level + 1) * 5;
-    return this.expForNextLevel; // For example, require 100 * level experience to level up
+    return this.expForNextLevel;
   }
-}
 
+  generateReward(): MetaBotPart {
+    const parts = [this.head, this.legs, this.leftArm, this.rightArm].filter(part => part !== undefined) as MetaBotPart[];
+    const randomPart = parts[Math.floor(Math.random() * parts.length)];
+    const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
 
-export const SPEED_TYPE = 1;
-export const STRENGTH_TYPE = 2;
-export const ARMOR_TYPE = 3;
-export const RANGED_TYPE = 4;
-export const STEALTH_TYPE = 5;
-export const INTELLIGENCE_TYPE = 6;
+    return new MetaBotPart({ id: 0, metabotId: 0, skill: randomPart.skill, type: randomPart.type, damageMod: randomDamageMod, partName: randomPart.partName });
+  }
+} 

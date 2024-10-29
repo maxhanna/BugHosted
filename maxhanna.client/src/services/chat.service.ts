@@ -7,7 +7,7 @@ import { FileEntry } from './datacontracts/file/file-entry';
   providedIn: 'root'
 })
 export class ChatService {
-  async getMessageHistory(user: User, receivers: User[], chatId?: number, pageNumber?: number, pageSize?: number) {
+  async getMessageHistory(user: User, receivers: User[], chatId?: number, pageNumber: number = 0, pageSize?: number) {
     console.log("get message history" + pageNumber);
     try {
       const response = await fetch(`/chat/getmessagehistory`, {
