@@ -58,6 +58,9 @@ export class MetaService {
   async unequipPart(partId: number) {
     return this.fetchData('/meta/unequippart', { PartId: partId });
   }
+  async sellBotParts(heroId: number, partIds: number[]) {
+    return this.fetchData('/meta/sellbotparts', { HeroId: heroId, PartIds: partIds });
+  }
   async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);
   }

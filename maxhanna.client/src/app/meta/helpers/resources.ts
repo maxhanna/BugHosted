@@ -7,6 +7,7 @@ export class Resources {
 
   constructor() {
     this.toLoad = {
+      apple: "assets/metabots/apple.png", 
       armobot: "assets/metabots/armobot.png", 
       blinds: "assets/metabots/blinds.png", 
       bedroomFloor: "assets/metabots/bedroom-floor.png",

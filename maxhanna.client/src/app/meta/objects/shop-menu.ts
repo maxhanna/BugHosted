@@ -159,7 +159,7 @@ export class ShopMenu extends Level {
     const input = (root as Main).input as Input;
     if (input?.keys["Space"] && !this.blockSelection) {
       if (input?.verifyCanPressKey()) { 
-        if (this.visibleItems && this.visibleItems[this.currentlySelectedId]?.name ? this.visibleItems[this.currentlySelectedId].name === "Exit" : this.items[this.currentlySelectedId].name === "Exit") {
+        if (this.visibleItems && this.visibleItems[this.currentlySelectedId]?.name ? this.visibleItems[this.currentlySelectedId].name === "Exit" : this.items[this.currentlySelectedId]?.name === "Exit") {
           this.leaveShop();
         } else {
           if (this.sellingMode) {
@@ -198,13 +198,13 @@ export class ShopMenu extends Level {
     events.emit("HERO_MOVEMENT_LOCK");
   }
   private leaveShop() {
-    this.entranceLevel.defaultHeroPosition = this.defaultHeroPosition; 
+    this.entranceLevel.defaultHeroPosition = this.defaultHeroPosition;
+    if (this.itemsSold.length > 0) { 
+      events.emit("ITEM_SOLD", this.itemsSold);
+    } 
     events.emit("SHOP_CLOSED", { entranceLevel: this.entranceLevel, heroPosition: this.defaultHeroPosition });
     events.emit("HERO_MOVEMENT_UNLOCK");
-
-    if (this.itemsSold.length > 0) {
-      events.emit("ITEM_SOLD", this.itemsSold);
-    }
+   
   }
   private purchaseItem(item: InventoryItem) {
     events.emit("ITEM_PURCHASED", item);
@@ -217,10 +217,34 @@ export class ShopMenu extends Level {
     }, 700);
   }
   private sellItem(item: InventoryItem) {
+    // Add to sold items list
     this.itemsSold.push(item);
+
+    // Remove item from main items list
+    this.items = this.items.filter(x => x.id !== item.id);
+
+    // Recalculate total pages after removing the item
+    this.totalPages = Math.ceil((this.items.length - 1) / this.visibleItemCount);
+
+    // Adjust visibleItems based on the current scroll page
+    this.visibleItems = this.items.slice(
+      this.scrollPage * this.visibleItemCount,
+      (this.scrollPage + 1) * this.visibleItemCount
+    );
+
+    // Redraw shop items with the updated list
+    this.displayShopItems(this.visibleItems);
+
+    // Adjust selected item and selector position to stay within bounds
+    this.currentlySelectedId = Math.min(this.currentlySelectedId, this.visibleItems.length - 1);
+    this.selectorSprite.position.y = 10 + (this.currentlySelectedId * 32);
+
+    // Block selection temporarily to avoid rapid inputs
     this.blockSelection = true;
     setTimeout(() => {
       this.blockSelection = false;
-    }, 700);
+    }, 100);
+    console.log(this.itemsSold);
   }
+
 } 

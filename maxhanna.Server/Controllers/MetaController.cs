@@ -349,14 +349,63 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						string sql = @"UPDATE maxhanna.meta_bot_part SET metabot_id = NULL WHERE id = @PartId LIMIT 1;"; 
+						string sql = @"UPDATE maxhanna.meta_bot_part SET metabot_id = NULL WHERE id = @PartId LIMIT 1;";
 						Dictionary<string, object?> parameters = new Dictionary<string, object?>
-												{ 
+												{
 														{ "@PartId", req.PartId },
 												};
 						await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 						await transaction.CommitAsync();
 
+						return Ok();
+					}
+					catch (Exception ex)
+					{
+						await transaction.RollbackAsync();
+						return StatusCode(500, "Internal server error: " + ex.Message);
+					}
+				}
+			}
+		}
+
+
+		[HttpPost("/Meta/SellBotParts", Name = "SellBotParts")]
+		public async Task<IActionResult> SellBotParts([FromBody] SellBotPartsRequest req)
+		{
+			Console.WriteLine($"POST /Meta/SellBotParts");
+			if (req.PartIds == null || req.PartIds?.Length == 0)
+			{
+				return BadRequest("No Metabot Parts to sell.");
+			}
+			using (var connection = new MySqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+				using (var transaction = connection.BeginTransaction())
+				{
+					try
+					{
+						// Convert PartIds to a comma-separated string of IDs for direct inclusion in SQL
+						var partIds = req.PartIds ?? Array.Empty<int>();
+						var partIdsString = string.Join(",", partIds);
+
+						// Dynamic SQL with PartIds injected directly
+						string singleSql = $@" 
+							INSERT INTO maxhanna.meta_hero_crypto (hero_id, crypto_balance)
+							SELECT hero_id, SUM(damage_mod * 10)
+							FROM maxhanna.meta_bot_part
+							WHERE id IN ({partIdsString})
+							GROUP BY hero_id
+							ON DUPLICATE KEY UPDATE crypto_balance = crypto_balance + VALUES(crypto_balance);
+ 
+							DELETE FROM maxhanna.meta_bot_part
+							WHERE id IN ({partIdsString});"; 
+
+						using (var command = new MySqlCommand(singleSql, connection, transaction))
+						{
+							await command.ExecuteNonQueryAsync();
+						}
+
+						await transaction.CommitAsync();
 						return Ok();
 					}
 					catch (Exception ex)

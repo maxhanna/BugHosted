@@ -35,7 +35,8 @@ export class Bot extends Npc {
         offsetX: (params.offsetX ?? 0),
         offsetY: (params.offsetY ?? 0),
       })
-    })
+    });
+
     this.facingDirection = DOWN;
     this.botType = this.getBotType();
     this.botLevel = params.level ?? 1;
@@ -46,15 +47,17 @@ export class Bot extends Npc {
     this.legs = params.legs;
 
     if (this.type != "white") {
+      const bodyScale = params.scale ?? new Vector2(1, 1);
+      const shadowScale = new Vector2(bodyScale.x, bodyScale.y);
+
       const shadow = new Sprite({
         resource: resources.images["shadow"],
-        position: new Vector2(-10.5 - (params.offsetX ?? 0), -38 + (params.offsetY ?? 0) * 3),
-        scale: new Vector2(1.5, 1.5),
+        position: new Vector2(-7 + (params.offsetX ?? 0), -20 + (params.offsetY ?? 0)),
+        scale: shadowScale,
         frameSize: new Vector2(32, 32),
       });
       this.addChild(shadow);
     }
-   
   }
 
 

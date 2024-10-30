@@ -21,6 +21,7 @@ import { HeroHome } from './levels/hero-home';
 import { BrushLevel1 } from './levels/brush-level1';
 import { BrushRoad1 } from './levels/brush-road1';
 import { BrushRoad2 } from './levels/brush-road2';
+import { RainbowAlleys1 } from './levels/rainbow-alleys1';
 import { MetaEvent } from '../../services/datacontracts/meta/meta-event';
 import { Npc } from './objects/Npc/npc';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
@@ -31,7 +32,7 @@ import { ColorSwap } from '../../services/datacontracts/meta/color-swap';
 import { MetaBot } from '../../services/datacontracts/meta/meta-bot';
 import { GameObject } from './objects/game-object'; 
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../services/datacontracts/meta/meta-bot-part';
-import { Skill, HEADBUTT } from './helpers/skill-types';
+import { Skill, HEADBUTT, LEFT_PUNCH, RIGHT_PUNCH } from './helpers/skill-types';
 
 @Component({
   selector: 'app-meta',
@@ -320,6 +321,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     else if (upperKey == "BRUSHLEVEL1") return new BrushLevel1({ itemsFound: itemsFoundNames });
     else if (upperKey == "BRUSHROAD1") return new BrushRoad1({ itemsFound: itemsFoundNames });
     else if (upperKey == "BRUSHROAD2") return new BrushRoad2({ itemsFound: itemsFoundNames });
+    else if (upperKey == "RAINBOWALLEYS1") return new RainbowAlleys1({ itemsFound: itemsFoundNames });
     else if (upperKey == "BRUSHSHOP1") return new BrushShop1({ itemsFound: itemsFoundNames });
     else if (upperKey == "FIGHT") return new Fight(
       {
@@ -480,14 +482,31 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     });
 
     events.on("ITEM_SOLD", this, (items: InventoryItem[]) => {
-      for (let item of items) {
-        const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "SELL_ITEM", this.metaHero.map, { "item": `${JSON.stringify(item)}` })
-        console.log(item);
-        if (item.category === "MetaBotPart") {
+      console.log(items);
+      const botPartsSold = items.filter(x => x.category === "MetaBotPart");
+      let partIdNumbers = []
+      //`${part.partName} ${part.skill.name} ${part.damageMod}`
+      for (let item of botPartsSold) {
+        let itmString = item.name;
+        itmString = itmString.replace("Unequipped", "");
+        itmString = itmString.replace("Equipped", ""); 
+        itmString = itmString.replace("Left Punch", "Left_Punch");
+        itmString = itmString.replace("Right Punch", "Right_Punch");
+        console.log(itmString);
 
-        }
-      //  this.metaService.updateEvents(metaEvent); 
-      } 
+        const partName = itmString.split(' ')[0].trim();   
+        let skillName = itmString.split(' ')[1].trim().replace("_", " ");   
+        const damageMod = itmString.split(' ')[2].trim();
+
+        console.log(partName, skillName, damageMod);
+
+        const part = this.mainScene.inventory.parts.find(x => x.partName === partName && x.skill.name === skillName && x.damageMod === parseInt(damageMod) && !partIdNumbers.includes(x.id)) as MetaBotPart;
+        if (part) {
+          partIdNumbers.push(part.id);
+        } 
+      }
+       
+      this.metaService.sellBotParts(this.metaHero.id, partIdNumbers); 
     });
 
     events.on("BUY_ITEM_CONFIRMED", this, (params: { heroId: number, item: string }) => {

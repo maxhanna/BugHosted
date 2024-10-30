@@ -198,8 +198,8 @@ export class Input {
   pressEscape() {
     this.chatInput.blur();
     this.chatSelected = false;
-    events.emit("HERO_MOVEMENT_UNLOCK");
-    events.emit("PRESSED_ESCAPE");
+    events.emit("HERO_MOVEMENT_UNLOCK"); 
+    events.emit("START_PRESSED");
   }
 
   handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {
