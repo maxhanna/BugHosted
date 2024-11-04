@@ -80,6 +80,6 @@ export const WALK_UP = makeWalkingFrames(12);
 export const WALK_LEFT = makeSideWalkingFrames(8);
 
 export const STAND_DOWN = makeStandingDownFrames(0);
-export const STAND_RIGHT = makeStandingFrames(10);
+export const STAND_RIGHT = makeStandingFrames(11);
 export const STAND_UP = makeStandingFrames(12);
-export const STAND_LEFT = makeStandingFrames(8);
+export const STAND_LEFT = makeStandingFrames(9);

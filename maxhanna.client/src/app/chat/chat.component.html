@@ -42,10 +42,16 @@
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
-              {{ formatTimestamp(message.timestamp) }}
+              <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
             </div>
             <div class="messageContent">
               {{ message.content }}
+              <div class="reactionDiv">
+                <app-reaction [messageId]="message.id"
+                              [user]="parentRef?.user"
+                              [inputtedParentRef]="parentRef"
+                              [currentReactions]="message.reactions"></app-reaction>
+              </div>
               <div *ngFor="let file of message.files">
                 <app-media-viewer [file]="file"
                                   [currentDirectory]="file.directory"
@@ -58,16 +64,18 @@
                                   [autoload]="true">
                 </app-media-viewer>
               </div>
-              <app-reaction [messageId]="message.id"
-                            [user]="parentRef?.user"
-                            [inputtedParentRef]="parentRef"
-                            [currentReactions]="message.reactions"></app-reaction>
             </div>
           </ng-container>
           <!-- RECEIVER MESSAGE -->
           <ng-container *ngIf="message.sender.id !== parentRef?.user?.id">
             <div class="messageContent otherPersonsMessage">
               {{ message.content }}
+              <div class="otherPersonsReactionDiv">
+                <app-reaction [messageId]="message.id"
+                              [user]="parentRef?.user"
+                              [inputtedParentRef]="parentRef"
+                              [currentReactions]="message.reactions"></app-reaction>
+              </div>
               <div *ngFor="let file of message.files">
                 <div class="attachmentMedia">
                   <app-media-viewer [file]="file"
@@ -82,18 +90,12 @@
                   </app-media-viewer>
                 </div>
               </div>
-              <div class="otherPersonsReaction">
-                <app-reaction [messageId]="message.id"
-                              [user]="parentRef?.user"
-                              [inputtedParentRef]="parentRef"
-                              [currentReactions]="message.reactions"></app-reaction>
-              </div>
             </div>
             <div class="profileTag">
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
-              {{ formatTimestamp(message.timestamp) }}
+              <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
             </div>
           </ng-container>
         </div>

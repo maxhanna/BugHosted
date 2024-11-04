@@ -3,6 +3,8 @@ import { gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
+import { StoneCircle } from "../objects/Environment/StoneCircle/stone-circle";
+import { Fountain } from "../objects/Environment/Fountain/fountain";
 import { Level } from "../objects/Level/level";
 import { BrushShop1 } from "./brush-shop1";
 import { RivalHomeLevel1 } from "./rival-home-level1";
@@ -22,15 +24,17 @@ import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
 import { FrameIndexPattern } from "../helpers/frame-index-pattern";
 import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { Chicken } from "../objects/Environment/Chicken/chicken";
-import { House } from "../objects/Environment/House/house";
+import { Museum } from "../objects/Environment/Museum/museum";
+import { Stand } from "../objects/Environment/Stand/stand";
 import { Shop } from "../objects/Environment/Shop/shop";
 import { Deer } from "../objects/Environment/Deer/deer";
-import { Water } from "../objects/Environment/Water/water";
 import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { BrushLevel1 } from "./brush-level1";
 import { BrushRoad2 } from "./brush-road2";
 import { Bot } from "../objects/Bot/bot";
+import { Bugcatcher } from "../objects/Npc/Bugcatcher/bugcatcher";
+import { HouseSide } from "../objects/Environment/House/house-side";
  
 
 export class RainbowAlleys1 extends Level { 
@@ -65,18 +69,44 @@ export class RainbowAlleys1 extends Level {
         this.addChild(grass);
       }
     }
-     
+
+    for (let y = 0; y < 10; y++) {
+      const grass = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
+      grass.drawLayer = "FLOOR";
+      this.addChild(grass);
+    }
+
+    const stoneCircle = new StoneCircle(gridCells(25), gridCells(13));
+    this.addChild(stoneCircle);
+
+    const fountain = new Fountain(gridCells(25), gridCells(13));
+    this.addChild(fountain);
+
+    const museum = new Museum(gridCells(35), gridCells(10));
+    this.addChild(museum);
+
+
+    const bugCatcher = new Bugcatcher({ position: new Vector2(gridCells(8), gridCells(10)-0.005) });
+    bugCatcher.body.offsetY += 10;
+    this.addChild(bugCatcher);
+
+    const stand = new Stand(gridCells(5), gridCells(10));
+    this.addChild(stand);
+
+    const standbg = new Sprite({ position: new Vector2(gridCells(6), gridCells(9)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
+    this.addChild(standbg);
     //NPCs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
 
     const spiderBot = new Spiderbot({ position: new Vector2(gridCells(24), gridCells(20)), hp: 5, level: 5 });
     const armobot = new Armobot({ position: new Vector2(gridCells(28), gridCells(20)), hp: 5, level: 5 });
- 
 
-    const encounter = new RandomEncounter({ position: new Vector2(gridCells(26), gridCells(22)), possibleEnemies: [spiderBot, armobot] });
-    this.addChild(encounter);
+    const bystander = new Bugcatcher({ position: new Vector2(gridCells(19), gridCells(8)), moveUpDown: 4, moveLeftRight: 2 });
+    this.addChild(bystander);
 
-    const encounter2 = new RandomEncounter({ position: new Vector2(gridCells(8), gridCells(10)), possibleEnemies: [spiderBot, armobot] });
-    this.addChild(encounter2);
+    for (let y = 0; y < 10; y++) { 
+      const houseSide = new HouseSide({ position: new Vector2(gridCells(-10), gridCells(12) + gridCells(y * 6)) });
+      this.addChild(houseSide);
+    }
 
     //EXITS
     for (let x = 0; x < 4; x++) {

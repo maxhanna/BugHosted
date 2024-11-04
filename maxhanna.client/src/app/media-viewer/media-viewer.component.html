@@ -21,9 +21,12 @@
       <video #mediaContainer
              *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)"
              [src]="selectedFileSrc" 
-             controls muted
+             controls
+             muted
              preload="auto" 
              [autoplay]="autoplay"
+       (mouseup)="toggleMute(mediaContainer)"
+       (touchend)="toggleMute(mediaContainer)"
              class="video media">
       </video>
       <audio #mediaContainer
@@ -32,6 +35,8 @@
              controls
              preload="auto"
              [autoplay]="false"
+             (mouseup)="toggleMute(mediaContainer)"
+             (touchend)="toggleMute(mediaContainer)"
              class="audio media">
         Your browser does not support the audio element.
       </audio>

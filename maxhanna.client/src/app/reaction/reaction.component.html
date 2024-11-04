@@ -9,9 +9,7 @@
   <div class="addReactionDiv myReactionDiv" (click)="reactionDisplayOnClick()">
     <span class="addReactionSpan" [id]="'addReactionSpan_' + reactionId">
       {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
-      <span class="addReactionTitleSpan" *ngIf="!userHasReacted()">
-        reaction
-      </span>
+      <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
     </span>
   </div>
 </div>

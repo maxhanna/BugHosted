@@ -88,19 +88,21 @@
 }
 
 .fileNameDiv {
-  flex-flow: column;
+  flex-flow: row;
   display: flex;
   justify-content: space-between;
   flex-wrap: nowrap;
   border-bottom: var(--main-border);
+}
+.fileNameWrapperSpan {
+  width: 100%;
 }
 
 .mediaViewDiv {
   border-bottom: var(--main-border);
 }
 
-.fileFolderNameSpan {
-  cursor: pointer;
+.fileFolderNameSpan { 
   display: flex;
   align-items: center;
   width: 100%;

@@ -30,7 +30,9 @@ const PROXY_CONFIG = [
       "/meta",
     ],
     target,
-    secure: false
+    changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 
+    secure: false,
+    logLevel: 'debug'
   }
 ]
 

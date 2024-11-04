@@ -298,7 +298,7 @@ export class Hero extends GameObject {
     if (bestChoice) {
       return bestChoice;
     }
-    const bestChoiceContent = posibilities.find((x: any) => typeof x.getContent === 'function');
+    const bestChoiceContent = posibilities.find((x: any) => typeof x.getContent === 'function' && x.getContent());
     if (bestChoiceContent) {
       return bestChoiceContent;
     }

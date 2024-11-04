@@ -141,17 +141,17 @@ export class BrushShop1 extends Level {
         }
       }
     }
-     
+    const firstBotSelection = [
+      new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: SkillType.STRENGTH } }),
+      new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: SkillType.ARMOR } }),
+      new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SkillType.SPEED } }),
+    ];
 
     const salesman = new Salesman({
       position: new Vector2(gridCells(5), gridCells(5)),
       heroPosition: new Vector2(gridCells(3), gridCells(5)),
       entranceLevel: this,
-      items: storyFlags.contains(GOT_WATCH) ? [
-        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: SkillType.STRENGTH } }),
-        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: SkillType.ARMOR } }),
-        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SkillType.SPEED } }),
-      ] : []
+      items: storyFlags.contains(GOT_WATCH) ? firstBotSelection : []
     });
     if (salesman.body) {
       salesman.body.position.x += 16;
@@ -194,11 +194,7 @@ export class BrushShop1 extends Level {
       position: new Vector2(gridCells(6), gridCells(5)),
       heroPosition: new Vector2(gridCells(3), gridCells(5)),
       entranceLevel: this,
-      items: storyFlags.contains(GOT_WATCH) ? [
-        new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: SkillType.STRENGTH } }),
-        new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: SkillType.ARMOR } }),
-        new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SkillType.SPEED } }),
-      ] : []
+      items: storyFlags.contains(GOT_WATCH) ? firstBotSelection : []
     }); 
     if (!storyFlags.contains(GOT_WATCH)) {
       invisibleSalesman.textContent = [

@@ -5,17 +5,18 @@ import { resources } from "../../../helpers/resources";
 import { events } from "../../../helpers/events";
 
 export class Watch extends InventoryItem {
-  constructor(data: { position: Vector2, id: number }) {
-    super({ id: data.id, position: data.position, name: "Watch", image: "watch", category: "watch" });
+  body: Sprite;
+  constructor(data: { position: Vector2, id?: number, scale?: Vector2 }) {
+    super({ id: data.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000, position: data.position, name: "Watch", image: "watch", category: "watch" });
     
-    const sprite = new Sprite({
+    this.body = new Sprite({
       resource: resources.images["watch"],
       position: new Vector2(0, -10),
-      scale: new Vector2(0.6, 0.6),
+      scale: data.scale ?? new Vector2(0.6, 0.6),
       frameSize: new Vector2(22, 24),
       name: "Watch"
     });
-    this.addChild(sprite); 
+    this.addChild(this.body); 
   }
 
   override ready() { 

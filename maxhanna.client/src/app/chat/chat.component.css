@@ -123,7 +123,15 @@ input[type="text"] {
 .otherPersonsMessage {
     background-color: var(--main-bg-color-full-opacity);
 }
-.otherPersonsReaction {
-    width:100%;
-    text-align:right;
+.messageTimestamp {
+  font-size: xx-small;
+}
+.reactionDiv {
+  display: flex;
+  margin-top: 10px;
+}
+.otherPersonsReactionDiv {
+  display: flex;
+  justify-content: flex-end;
+  margin-top:10px;
 }

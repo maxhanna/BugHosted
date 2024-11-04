@@ -503,11 +503,9 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/User/GetIpAndLocation", Name = "GetIpAndLocation")]
-		public async Task<IActionResult> GetIpAndLocation([FromBody] User user)
-		{
-			var ip = HttpContext.GetServerVariable("HTTP_X_FORWARDED_FOR");
-		 
-			_logger.LogInformation($"GET /User/GetIpAndLocation (for user: {user?.Id}, ip: {ip})");
+		public async Task<IActionResult> GetIpAndLocation([FromBody] string ip)
+		{ 
+			_logger.LogInformation($"GET /User/GetIpAndLocation (for ip: {ip})");
 			using (var client = _httpClientFactory.CreateClient())
 			{
 				try

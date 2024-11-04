@@ -21,7 +21,20 @@ export class Npc extends GameObject {
   name?: string;
   latestMessage = "";
 
-  constructor(config: { id: number, position: Vector2, textConfig?: { content?: Scenario[], portraitFrame?: number }, type?: string, body?: Sprite, partners?: Npc[] }) {
+  moveUpDown?: number;
+  moveLeftRight?: number;
+  moveCounter = 0;
+
+  constructor(config: {
+    id: number,
+    position: Vector2,
+    textConfig?: { content?: Scenario[], portraitFrame?: number },
+    type?: string,
+    body?: Sprite,
+    partners?: Npc[],
+    moveUpDown?: number
+    moveLeftRight?: number
+  }) {
     super({ position: config.position });
     this.type = config.type;
     this.id = config.id;
@@ -34,17 +47,24 @@ export class Npc extends GameObject {
     this.textContent = config.textConfig?.content;
     this.textPortraitFrame = config.textConfig?.portraitFrame;
     this.metabots = [];
-    this.partnerNpcs = config.partners ? config.partners : []; 
+    this.partnerNpcs = config.partners ? config.partners : [];
+    this.moveUpDown = config.moveUpDown;
+    this.moveLeftRight = config.moveLeftRight;
 
     if (config.body) {
-      this.body = config.body; 
+      this.body = config.body;
       this.addChild(this.body);
-      this.body.animations?.play("standDown"); 
+      this.body.animations?.play("standDown");
     } else {
       this.body = new Sprite({ resource: resources.images["white"] });
     }
+
+    if (this.moveUpDown || this.moveLeftRight) {
+      this.randomMove();
+    }
+
   }
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     this.drawLatestChatMessage(ctx, drawPosX, drawPosY);    // Draw the latest message as a chat bubble above the player 
   }
 
@@ -54,8 +74,48 @@ export class Npc extends GameObject {
     const hasArrived = (distance ?? 0) <= 1;
     if (hasArrived) {
       this.finishedMoving = true;
-    } else this.finishedMoving = false; 
-    this.moveNpc(root); 
+    } else this.finishedMoving = false;
+    this.moveNpc(root);
+  }
+
+  private randomMove() { 
+    if (this.moveCounter > 40) { this.moveCounter = 0; }
+    // Determine movement based on the moveCounter's current value
+    switch (this.moveCounter % 4) {
+      case 0:
+        // Move up
+        if (this.moveUpDown) { 
+          this.destinationPosition.y = this.position.y - gridCells(this.moveUpDown);
+        }
+        break;
+      case 1:
+        // Move right
+        if (this.moveLeftRight) { 
+          this.destinationPosition.x = this.position.x + gridCells(this.moveLeftRight);
+        }
+        break;
+      case 2:
+        // Move down
+        if (this.moveUpDown) { 
+          this.destinationPosition.y = this.position.y + gridCells(this.moveUpDown);
+        }
+        break;
+      case 3:
+        // Move left
+        if (this.moveLeftRight) { 
+          this.destinationPosition.x = this.position.x - gridCells(this.moveLeftRight);
+        }
+        break;
+    }
+
+    // Increment moveCounter to change direction on the next iteration
+    this.moveCounter++;
+
+    // Set a new random interval between 10 seconds and 25 seconds
+    const newInterval = Math.max(10000, Math.floor(Math.random() * 25000));
+
+    // Call randomMove again after `newInterval` milliseconds
+    setTimeout(this.randomMove.bind(this), newInterval);
   }
 
   private drawLatestChatMessage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
@@ -122,7 +182,7 @@ export class Npc extends GameObject {
         ctx.fillText(line, drawPosX + 6, textStartY + (index * lineHeight));
       });
     }
-  } 
+  }
 
   updateAnimation() {
     setTimeout(() => {
@@ -154,7 +214,7 @@ export class Npc extends GameObject {
         if (deltaX > 0) {
           tmpPosition.x = (tmpPosition.x);
           this.facingDirection = RIGHT;
-          this.body?.animations?.play("walkRight");
+          this.body?.animations?.play("walkRight"); 
         } else if (deltaX < 0) {
           tmpPosition.x = (tmpPosition.x);
           this.facingDirection = LEFT;
@@ -171,8 +231,8 @@ export class Npc extends GameObject {
           this.facingDirection = UP;
           this.body?.animations?.play("walkUp");
         }
-        this.updateAnimation();
       }
+      this.updateAnimation();
       const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
       const solidBodyAtSpace = this.parent.children.find((c: any) => {
         return c.isSolid

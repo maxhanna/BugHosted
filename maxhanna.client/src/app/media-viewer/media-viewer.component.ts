@@ -48,7 +48,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() inputtedParentRef?: AppComponent;
   @Output() emittedNotification = new EventEmitter<string>(); 
     
-  async ngOnInit() { 
+  async ngOnInit() {
+    this.muteOtherVideos()
   }
   onInView(isInView: boolean) {
     if (isInView) {
@@ -76,8 +77,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         id: this.fileId,
       } as FileEntry;
       if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value
-        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {
-        this.selectedFileSrc = this.parentRef?.pictureSrcs[this.fileId].value ?? this.inputtedParentRef!.pictureSrcs[this.fileId].value;
+        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {  
+        this.setFileSrcByParentRefValue(this.fileId);  
         return;
       } else {
         await this.setFileSrcById(this.selectedFile.id);
@@ -88,8 +89,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const fileObject = this.file[0];
       if (this.parentRef && this.parentRef.pictureSrcs[fileObject.id] && this.parentRef.pictureSrcs[fileObject.id].value
         || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[fileObject.id] && this.inputtedParentRef.pictureSrcs[fileObject.id].value) {
-        console.log("setting file Src for file id" + this.fileId);
-        this.selectedFileSrc = this.parentRef?.pictureSrcs[fileObject.id].value ?? this.inputtedParentRef!.pictureSrcs[fileObject.id].value;
+        console.log("setting file Src for file id" + this.fileId); 
+        this.setFileSrcByParentRefValue(fileObject.id);  
         return;
       } else {
         await this.setFileSrcById(fileObject.id);
@@ -99,7 +100,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       if (this.parentRef && this.parentRef.pictureSrcs[this.file.id] && this.parentRef.pictureSrcs[this.file.id].value
         || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.file.id] && this.inputtedParentRef.pictureSrcs[this.file.id].value) {
         console.log("setting file Src for file id" + this.fileId);
-        this.selectedFileSrc = this.parentRef?.pictureSrcs[this.file.id].value ?? this.inputtedParentRef!.pictureSrcs[this.file.id].value;
+        this.setFileSrcByParentRefValue(this.file.id); 
         return;
       } else {
         await this.setFileSrcById(this.file.id);
@@ -107,6 +108,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     }
   }
+  private setFileSrcByParentRefValue(id: number) {
+    this.muteOtherVideos();
+    this.selectedFileSrc = this.parentRef?.pictureSrcs[id].value ?? this.inputtedParentRef!.pictureSrcs[id].value;
+  }
+
   resetSelectedFile() {
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort("Component is destroyed");
@@ -145,19 +151,19 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   async setFileSrcById(fileId: number) {
     if (this.selectedFileSrc) return; 
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      //console.log("getting already set file Src for file id" + fileId);
       this.showThumbnail = true; 
       this.selectedFileSrc = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = this.parentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
+      this.muteOtherVideos();
       return;
     }
     else if (this.inputtedParentRef && this.inputtedParentRef.pictureSrcs && this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-      //console.log("getting already set file Src for file id" + fileId);
       this.showThumbnail = true;
       this.selectedFileSrc = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.value;
       this.fileType = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.type;
       this.selectedFileExtension = this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')!.extension;
+      this.muteOtherVideos();
       return;
     }
     this.startLoading();
@@ -193,11 +199,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           //console.log("adding file src to inputtedParentRef.pictureSrcs " + fileId);  
           this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
         }
-        setTimeout(() => {
-          if (this.mediaContainer)
+        setTimeout(() => { 
+          if (this.mediaContainer && this.mediaContainer.nativeElement)
             this.mediaContainer.nativeElement.muted = true;
-        }, 10)
-        
+        }, 50);
       };
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
@@ -288,7 +293,31 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       console.error(ex);
       this.emittedNotification.emit((ex as Error).message); 
     }
-  }  
+  }
+  toggleMute(currentVideo: HTMLVideoElement | HTMLAudioElement) {
+    // Mute and pause all other media elements
+    this.muteOtherVideos(currentVideo); // Pass current video to exclude from muting
+
+    // Toggle mute state for the current video
+    currentVideo.muted = !currentVideo.muted;
+
+    // Play the video if it's unmuted
+    if (!currentVideo.muted) {
+      currentVideo.pause(); 
+    } 
+  }
+
+  muteOtherVideos(excludeMedia?: HTMLMediaElement) {
+    const mediaElements = document.querySelectorAll<HTMLMediaElement>('video, audio');
+
+    mediaElements.forEach((media) => {
+      // Mute and pause all media elements except the current video
+      if (media !== excludeMedia) {
+        media.muted = true;
+        media.pause();
+      }
+    });
+  }
   videoFileExtensionsIncludes(ext: string) {
     return this.fileService.videoFileExtensions.includes(ext);
   }

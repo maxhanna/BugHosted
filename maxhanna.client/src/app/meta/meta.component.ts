@@ -367,13 +367,13 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     });
 
     events.on("SHOP_OPENED", this, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
-      if (!this.actionBlocker) { 
+      if (!this.actionBlocker) {
         this.mainScene.setLevel(new ShopMenu(params));
         this.stopPollingForUpdates = true;
         this.actionBlocker = true;
         setTimeout(() => { this.actionBlocker = false; }, 50);
       }
-    }); 
+    });
     events.on("SHOP_OPENED_TO_SELL", this, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
       let shopParts: InventoryItem[] = [];
       let x = 0;
@@ -383,11 +383,13 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         return xId - yId;
       });
       for (let part of parts) {
-        shopParts.push(new InventoryItem({ id: x++, name: `${part.partName} ${part.skill.name} ${part.damageMod} ${part.metabotId ? "Equipped" : "Unequipped"}`, category: "MetaBotPart" }))
+        if (!part.metabotId) { 
+          shopParts.push(new InventoryItem({ id: x++, name: `${part.partName} ${part.skill.name} ${part.damageMod}`, category: "MetaBotPart" }))
+        }
       }
       params.items = shopParts;
-      let config = { ...params, sellingMode: true }; 
-    
+      let config = { ...params, sellingMode: true };
+
       this.mainScene.setLevel(new ShopMenu(config));
       this.stopPollingForUpdates = true;
     });
@@ -397,7 +399,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       newLevel.defaultHeroPosition = params.heroPosition;
       events.emit("CHANGE_LEVEL", newLevel);
     });
-    events.on("SELECTED_PART", this, (params: { selectedPart: string, selection: string, selectedMetabotId: number}) => { 
+    events.on("SELECTED_PART", this, (params: { selectedPart: string, selection: string, selectedMetabotId: number }) => {
       const parts = this.mainScene.inventory.parts;
       const skill = params.selection.split(' ')[0];
       const dmg = params.selection.split(' ')[1];
@@ -425,12 +427,19 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           oldPart = metabotSelected.head;
           metabotSelected.head = targetPart;
         }
+        console.log(parts, skill, dmg, targetPart, oldPart);
 
-        if (oldPart) { 
-          this.metaService.unequipPart(oldPart.id);
-          oldPart.metabotId = undefined;
-        } 
-        this.metaService.equipPart(targetPart.id, targetPart.metabotId); 
+        if (oldPart && oldPart.id == targetPart.id) {
+          return;
+        }
+
+        for (let invPart of parts) {
+          if (invPart.id != targetPart.id && invPart.partName === targetPart.partName && invPart.metabotId) {
+            this.metaService.unequipPart(invPart.id);
+            invPart.metabotId = undefined;
+          }
+        }
+        this.metaService.equipPart(targetPart.id, targetPart.metabotId);
       }
     });
 
@@ -438,12 +447,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       if (this.chatInput.nativeElement.placeholder === "Enter your name" && this.parentRef && this.parentRef.user) {
         this.metaService.createHero(this.parentRef.user, name);
       }
-    }); 
+    });
 
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
       const msg = chat.trim();
-      if (this.parentRef?.user) { 
-        if (this.chatInput.nativeElement.placeholder !== "Enter your name") { 
+      if (this.parentRef?.user) {
+        if (this.chatInput.nativeElement.placeholder !== "Enter your name") {
           const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "CHAT", this.metaHero.map, { "sender": this.metaHero.name ?? "Anon", "content": msg })
           this.metaService.updateEvents(metaEvent);
           this.chatInput.nativeElement.value = '';
@@ -452,7 +461,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
             this.gameCanvas.nativeElement.focus();
           }, 0);
         }
-      } 
+      }
     });
 
     events.on("WAVE_AT", this, (objectAtPosition: GameObject) => {
@@ -487,15 +496,13 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       let partIdNumbers = []
       //`${part.partName} ${part.skill.name} ${part.damageMod}`
       for (let item of botPartsSold) {
-        let itmString = item.name;
-        itmString = itmString.replace("Unequipped", "");
-        itmString = itmString.replace("Equipped", ""); 
+        let itmString = item.name; 
         itmString = itmString.replace("Left Punch", "Left_Punch");
         itmString = itmString.replace("Right Punch", "Right_Punch");
         console.log(itmString);
 
-        const partName = itmString.split(' ')[0].trim();   
-        let skillName = itmString.split(' ')[1].trim().replace("_", " ");   
+        const partName = itmString.split(' ')[0].trim();
+        let skillName = itmString.split(' ')[1].trim().replace("_", " ");
         const damageMod = itmString.split(' ')[2].trim();
 
         console.log(partName, skillName, damageMod);
@@ -503,10 +510,11 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         const part = this.mainScene.inventory.parts.find(x => x.partName === partName && x.skill.name === skillName && x.damageMod === parseInt(damageMod) && !partIdNumbers.includes(x.id)) as MetaBotPart;
         if (part) {
           partIdNumbers.push(part.id);
-        } 
+          this.mainScene.inventory.parts = this.mainScene.inventory.parts.filter(x => x.id !== part.id);
+        }
       }
-       
-      this.metaService.sellBotParts(this.metaHero.id, partIdNumbers); 
+
+      this.metaService.sellBotParts(this.metaHero.id, partIdNumbers);
     });
 
     events.on("BUY_ITEM_CONFIRMED", this, (params: { heroId: number, item: string }) => {
@@ -536,7 +544,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     });
 
-    events.on("START_FIGHT", this, (source: Npc) => {  
+    events.on("START_FIGHT", this, (source: Npc) => {
       const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "START_FIGHT", this.metaHero.map, { "party_members": `${JSON.stringify(this.partyMembers)}`, "source": `${source.type}` })
       this.metaService.updateEvents(metaEvent);
       const itemsFound = this.mainScene.inventory.getItemsFound();
@@ -559,6 +567,17 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         const levelName = this.mainScene.level?.name; // Get the class reference
         if (levelName && levelName != "Fight") {
           events.emit("CHANGE_LEVEL", this.getLevelFromLevelName(levelName));
+        }
+      }
+    });
+
+    events.on("WARP", this, (params: {x: string, y: string}) => {
+      if (this.metaHero) {
+        this.metaHero.position = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
+        let existingHero = this.mainScene.level?.children.find((x: any) => x.id === this.metaHero.id);
+        if (existingHero) {
+          existingHero.position = new Vector2(this.metaHero.position.x, this.metaHero.position.y).duplicate();
+          existingHero.destinationPosition = new Vector2(this.metaHero.position.x, this.metaHero.position.y).duplicate();
         }
       }
     });

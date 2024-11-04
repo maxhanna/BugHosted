@@ -12,6 +12,7 @@ import { Main } from "./Main/main";
 import { InventoryItem } from "./InventoryItem/inventory-item";
 import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../services/datacontracts/meta/meta-bot-part";
+import { Watch } from "./InventoryItem/Watch/watch";
 
 export class StartMenu extends GameObject {
   menuLocationX = 190;
@@ -28,6 +29,17 @@ export class StartMenu extends GameObject {
   selectedPart?: string;
   isDisplayingMetabots = false;
   metabotPartItems = [HEAD, LEGS, LEFT_ARM, RIGHT_ARM];
+  regularMenuChoices = ["Meta-Bots", "Watch", "Exit"];
+
+  blockClearMenu = false;
+  coordXSelected = false;
+  coordYSelected = false;
+  currentWarpX = "00";
+  currentWarpY = "00";
+
+
+  menuWidth = 125;
+  menuHeight = 200;
 
   constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[] }) {
     super({ position: new Vector2(0, 0) });
@@ -40,13 +52,13 @@ export class StartMenu extends GameObject {
     this.addChild(this.selectorSprite);
 
     // Create horizontal borders
-    for (let x = 0; x < 125; x += 5) {
+    for (let x = 0; x < this.menuWidth; x += 5) {
       this.createMenuBorder(this.menuLocationX + x, 10);
       this.createMenuBorder(this.menuLocationX + x, 205);
     }
 
     // Create vertical borders
-    for (let y = 0; y < 200; y += 5) {
+    for (let y = 0; y < this.menuHeight; y += 5) {
       this.createMenuBorder(this.menuLocationX, 10 + y);
       this.createMenuBorder(this.menuLocationX + 125, 10 + y);
     }
@@ -57,19 +69,48 @@ export class StartMenu extends GameObject {
       events.emit("START_PRESSED");
     });
   }
-  override step(delta: number, root: GameObject) {  
+  override step(delta: number, root: GameObject) {
     const input = (root as Main).input as Input;
     if (input?.keys["Space"] && !this.blockSelection) {
-      if (input?.verifyCanPressKey()) { 
+      if (input?.verifyCanPressKey()) {
         if (this.items[this.currentlySelectedId] === "Exit") {
           events.emit("START_PRESSED");
-        } else if (this.items[this.currentlySelectedId] === "Back" || (this.selectedMetabot && this.currentlySelectedId == this.metabotPartItems.length)) {
+        }
+        else if (this.items[this.currentlySelectedId] === "Watch") {
+          this.displayWatchMenu();
+        }
+        else if (this.items[this.currentlySelectedId] === "Warp") {
+          events.emit("START_PRESSED");
+          events.emit("WARP", { x: this.currentWarpX, y: this.currentWarpY });
+        }
+        else if (this.items[this.currentlySelectedId] === "Warp Coords Input") {
+          this.displayWarpCoordsInput("00", "00");
+        }
+        else if (this.items[this.currentlySelectedId] === `X ${this.currentWarpX}, Y ${this.currentWarpY}`) {
+          let set = false;
+          if (this.coordXSelected) {
+            this.coordYSelected = true;
+            this.coordXSelected = false;
+            this.selectorSprite.position.x = 30 + (this.selectorSprite.position.x);
+            set = true;
+          } else if (this.coordYSelected) {
+            this.coordYSelected = false;
+            this.coordXSelected = false;
+            this.selectorSprite.position.x = this.selectorSprite.position.x - 50;
+            set = true;
+          }
+          if (!this.coordXSelected && !this.coordYSelected && !set) {
+            this.coordXSelected = true;
+            this.selectorSprite.position.x = 20 + (this.selectorSprite.position.x);
+          }
+        }
+        else if (this.items[this.currentlySelectedId] === "Back" || (this.selectedMetabot && this.currentlySelectedId == this.metabotPartItems.length)) {
           if (this.selectedMetabot && !this.selectedMetabotId) {
             this.displayMetabots();
           } else if (this.selectedMetabotId && this.selectedPart && this.selectedMetabotForParts) {
             this.displayMetabot(this.selectedMetabotForParts);
           }
-          else { 
+          else {
             this.displayStartMenu();
           }
         } else if (this.items[this.currentlySelectedId] === "Meta-Bots") {
@@ -78,7 +119,7 @@ export class StartMenu extends GameObject {
         else if (this.selectedMetabot && (this.metabotPartItems[this.currentlySelectedId] === LEGS
           || this.metabotPartItems[this.currentlySelectedId] === LEFT_ARM
           || this.metabotPartItems[this.currentlySelectedId] === RIGHT_ARM
-          || this.metabotPartItems[this.currentlySelectedId] === HEAD)) { 
+          || this.metabotPartItems[this.currentlySelectedId] === HEAD)) {
           this.displayPartSelection(this.metabotPartItems[this.currentlySelectedId], this.selectedMetabot);
         }
         else if (this.isDisplayingMetabots) {
@@ -92,9 +133,9 @@ export class StartMenu extends GameObject {
           }
         }
         else if (this.selectedPart) {
-          const selection = this.items[this.currentlySelectedId]; 
+          const selection = this.items[this.currentlySelectedId];
           events.emit("SELECTED_PART", { selectedPart: this.selectedPart, selection: selection, selectedMetabotId: this.selectedMetabotId });
-          if (this.selectedMetabotForParts) { 
+          if (this.selectedMetabotForParts) {
             this.displayMetabot(this.selectedMetabotForParts);
           }
         }
@@ -130,7 +171,7 @@ export class StartMenu extends GameObject {
 
   private clearMenu() {
     this.children.forEach((child: GameObject) => {
-      if (child instanceof SpriteTextString) {
+      if (child instanceof SpriteTextString || child instanceof Watch) {
         child.destroy();
       }
     });
@@ -141,13 +182,18 @@ export class StartMenu extends GameObject {
     this.selectedMetabotId = undefined;
     this.selectedMetabotForParts = undefined;
 
+    if (!this.blockClearMenu) {
+      this.currentWarpX = "00";
+      this.currentWarpY = "00";
+    }
     this.currentlySelectedId = 0;
     this.selectorSprite.position.y = 30 + (this.currentlySelectedId * 10);
+
   }
 
   private displayStartMenu() {
     this.clearMenu();
-    this.items = ["Meta-Bots", "Inventory", "Map", "Exit"];
+    this.items = this.regularMenuChoices;
 
     for (let x = 0; x < this.items.length; x++) {
       const sts = new SpriteTextString(this.items[x], new Vector2(this.menuLocationX + 10, this.menuLocationY + 10 + (10 * x)), "Black");
@@ -155,12 +201,46 @@ export class StartMenu extends GameObject {
     }
   }
 
+  private displayWarpCoordsInput(x: string, y: string) {
+    this.clearMenu();
+
+    this.items.push(`X ${x}, Y ${y}`);
+    const coordsLabel = new SpriteTextString(`X ${x}, Y ${y}`, new Vector2(this.menuLocationX + 5, this.menuLocationY + 10), "Black");
+    this.addChild(coordsLabel);
+
+
+    this.items.push("Warp");
+    const warpLabel = new SpriteTextString("Warp", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * 2)), "Black");
+    this.addChild(warpLabel);
+
+    this.items.push("Back");
+    const backLabel = new SpriteTextString("Back", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * 3)), "Black");
+    this.addChild(backLabel);
+  }
+
+  private displayWatchMenu() {
+    this.clearMenu();
+    const watch = new Watch({ position: new Vector2(this.menuLocationX + (this.menuWidth / 2) - 7, this.menuLocationY + (10)), scale: new Vector2(0.95, 1) });
+    this.addChild(watch);
+
+    this.items.push("Warp Coords Input");
+    const coordLabel = new SpriteTextString("Warp Coords Input", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * 1)), "Black");
+    this.addChild(coordLabel);
+
+    this.items.push("Back");
+    const backLabel = new SpriteTextString("Back", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * 2)), "Black");
+    this.addChild(backLabel);
+
+    this.blockSelectionTimeout();
+  }
+
+
   private displayMetabots() {
     this.clearMenu();
     this.isDisplayingMetabots = true;
     for (let x = 0; x < this.inventoryItems.length; x++) {
       if (this.inventoryItems[x].category == "botFrame") {
-        this.items.push(this.inventoryItems[x].name); 
+        this.items.push(this.inventoryItems[x].name);
         const stsName = new SpriteTextString(this.inventoryItems[x].name, new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * x)), "Black");
         this.addChild(stsName);
         if (this.inventoryItems[x].stats) {
@@ -174,6 +254,7 @@ export class StartMenu extends GameObject {
     this.items = this.items.concat("Back");
     const stsName = new SpriteTextString("Back", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * this.items.length)), "Black");
     this.addChild(stsName);
+    this.blockSelectionTimeout();
   }
 
   private displayMetabot(selectedBot: MetaBot) {
@@ -189,9 +270,9 @@ export class StartMenu extends GameObject {
       this.addChild(partLabel);
 
       // Add part stats if it's not "Back" and part exists on selected Metabot
-      if (partName !== "Back" && selectedBot) { 
+      if (partName !== "Back" && selectedBot) {
         let parts = this.metabotParts.filter(x => x.metabotId === selectedBot.id);
-        let part = parts.find(x => x.partName === partName); 
+        let part = parts.find(x => x.partName === partName);
 
         itemsWithStats.push(partName);
         if (part) {
@@ -209,7 +290,8 @@ export class StartMenu extends GameObject {
     }
 
     // Update items with the modified list containing stats and set selector position
-    this.items = itemsWithStats; 
+    this.items = itemsWithStats;
+    this.blockSelectionTimeout();
   }
 
 
@@ -219,10 +301,10 @@ export class StartMenu extends GameObject {
     this.selectedMetabotId = selectedMetabotForParts.id;
     this.selectedMetabotForParts = selectedMetabotForParts;
 
-    const filteredParts = this.metabotParts.filter(part => part.partName === this.selectedPart);
-    let x = 0; 
+    const filteredParts = this.metabotParts.filter(part => part.partName === this.selectedPart && !part.metabotId);
+    let x = 0;
     for (let part of filteredParts) {
-      const partStats = `${part.skill.name} ${part.damageMod} ${getAbbrTypeLabel(part.skill.type) }`;
+      const partStats = `${part.skill.name} ${part.damageMod} ${getAbbrTypeLabel(part.skill.type)}`;
       this.items.push(partStats)
       const partLabel = new SpriteTextString(partStats, new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * ++x)), "Black");
       this.addChild(partLabel);
@@ -233,6 +315,7 @@ export class StartMenu extends GameObject {
     const backLabel = new SpriteTextString(item, new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * ++x)), "Black");
     this.addChild(backLabel);
 
+    this.blockSelectionTimeout();
   }
 
 
@@ -245,20 +328,53 @@ export class StartMenu extends GameObject {
     });
     this.addChild(menuBorder);
   };
-  incrementCurrentlySelectedId() { 
-    this.currentlySelectedId = (this.currentlySelectedId > (this.selectedMetabot ? this.metabotPartItems.length - 1 : this.items.length - 2) ? 0 : ++this.currentlySelectedId);
-    if (this.selectedMetabot && !this.selectedPart) {
-      this.selectorSprite.position.y = 30 + (this.currentlySelectedId * 20);
-    } else {
-      this.selectorSprite.position.y = 30 + (this.currentlySelectedId * 10);
+  incrementCurrentlySelectedId() {
+    if (this.coordXSelected) {
+      // Increment currentWarpX and ensure it stays within "00" to "99"
+      let currentWarpX = (parseInt(this.currentWarpX) + 1) % 100;
+      this.currentWarpX = String(currentWarpX).padStart(2, '0');
+      this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
+    }
+    else if (this.coordYSelected) {
+      // Increment currentWarpY and ensure it stays within "00" to "99"
+      let currentWarpY = (parseInt(this.currentWarpY) + 1) % 100;
+      this.currentWarpY = String(currentWarpY).padStart(2, '0');
+      this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
+    }
+    else if (this.items.length > 0) {
+      // Original increment logic
+      this.currentlySelectedId = (this.currentlySelectedId > (this.selectedMetabot ? this.metabotPartItems.length - 1 : this.items.length - 2) ? 0 : ++this.currentlySelectedId);
+      this.selectorSprite.position.y = 30 + (this.currentlySelectedId * (this.selectedMetabot && !this.selectedPart ? 20 : 10));
     }
   }
+
   decrementCurrentlySelectedId() {
-    this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.selectedMetabot ? this.metabotPartItems.length : this.items.length - 1 : --this.currentlySelectedId);
-    if (this.selectedMetabot && !this.selectedPart) {
-      this.selectorSprite.position.y = 30 + (this.currentlySelectedId * 20);
-    } else {
-      this.selectorSprite.position.y = 30 + (this.currentlySelectedId * 10);
+    if (this.coordXSelected) {
+      // Decrement currentWarpX and ensure it stays within "00" to "99"
+      let currentWarpX = (parseInt(this.currentWarpX) - 1 + 100) % 100;
+      this.currentWarpX = String(currentWarpX).padStart(2, '0');
+      this.blockClearMenu = true;
+      this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
     }
+    else if (this.coordYSelected) {
+      // Decrement currentWarpY and ensure it stays within "00" to "99"
+      let currentWarpY = (parseInt(this.currentWarpY) - 1 + 100) % 100;
+      this.currentWarpY = String(currentWarpY).padStart(2, '0');
+      this.blockClearMenu = true;
+      this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
+    }
+    else if (this.items.length > 1) {
+      // Original decrement logic
+      this.blockClearMenu = false;
+      this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.selectedMetabot ? this.metabotPartItems.length : this.items.length - 1 : --this.currentlySelectedId);
+      this.selectorSprite.position.y = 30 + (this.currentlySelectedId * (this.selectedMetabot && !this.selectedPart ? 20 : 10));
+    }
+  }
+
+  private blockSelectionTimeout() {
+    this.blockSelection = true;
+    setTimeout(() => {
+      this.blockSelection = false;
+    }, 500);
   }
 }

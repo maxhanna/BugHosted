@@ -1,13 +1,16 @@
 // user.service.ts
-import { Injectable } from '@angular/core';  
-import { MenuItem } from './datacontracts/user/menu-item'; 
+import { Injectable } from '@angular/core';
+import { MenuItem } from './datacontracts/user/menu-item';
 import { User } from './datacontracts/user/user';
 import { UserAbout } from './datacontracts/user/user-about';
+import { HttpClient } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root'
 })
 export class UserService {
+  constructor(private http: HttpClient) { }
+
   async createUser(user: User) {
     try {
       const response = await fetch('/user/createuser', {
@@ -127,14 +130,18 @@ export class UserService {
       return null; // Return null in case of error
     }
   }
+
   async getUserIp(user: User) {
     try {
+      const ipResponse: any = await this.http.get('https://api.ipify.org?format=json').toPromise();
+      const ip = ipResponse.ip;
+
       const response = await fetch('/user/getipandlocation', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
         },
-        body: JSON.stringify(user), // Convert the user object to JSON string
+        body: JSON.stringify(ip), // Convert the user object to JSON string
       });
 
       return await response.json();
@@ -179,7 +186,7 @@ export class UserService {
       }
 
       return await response.json();
-    } catch (error) { 
+    } catch (error) {
       return [];
     }
   }
@@ -212,7 +219,7 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({user, title}),
+        body: JSON.stringify({ user, title }),
       });
 
       if (!response.ok) {

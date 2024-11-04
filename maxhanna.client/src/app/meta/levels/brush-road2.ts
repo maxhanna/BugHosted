@@ -398,14 +398,27 @@ export class BrushRoad2 extends Level {
     const graphiti2 = new Sprite({ objectId: 0, resource: resources.images["graphiti2"], position: new Vector2(gridCells(housesStartX + 3), gridCells(housesStartY)), frameSize: new Vector2(48, 32), offsetY: -13 });
     this.addChild(graphiti2);
 
+    
+
     const houseSide2 = new HouseSide({ position: new Vector2(gridCells(housesStartX + 13), gridCells(housesStartY)) });
     this.addChild(houseSide2);
-    const graphiticornermonster = new Sprite({ objectId: 0, resource: resources.images["graphiticornermonster"], position: new Vector2(gridCells(housesStartX + 22), gridCells(housesStartY)), frameSize: new Vector2(18, 32), offsetX: -8, offsetY: -15 });
-    this.addChild(graphiticornermonster);
+    const graphitisun = new Sprite({ objectId: 0, resource: resources.images["graphitisun"], position: new Vector2(gridCells(housesStartX + 19), gridCells(housesStartY)), frameSize: new Vector2(60, 32), offsetX: -8, offsetY: -15 });
+    this.addChild(graphitisun);  
+    const graphitiyack = new Sprite({ objectId: 0, resource: resources.images["graphitiyack"], position: new Vector2(gridCells(housesStartX + 15), gridCells(housesStartY)), frameSize: new Vector2(75, 40), scale: new Vector2(0.98, 0.8), offsetY: -10 });
+    this.addChild(graphitiyack);
+
+    graphitiyack
 
 
     const houseSide3 = new HouseSide({ position: new Vector2(gridCells(housesStartX + 26), gridCells(housesStartY)) });
     this.addChild(houseSide3);
+
+    const graphitiskull = new Sprite({ objectId: 0, resource: resources.images["graphitiskull"], position: new Vector2(gridCells(housesStartX + 32), gridCells(housesStartY)), frameSize: new Vector2(32, 32), offsetY: -15 });
+    this.addChild(graphitiskull);
+
+    const graphitibunny = new Sprite({ objectId: 0, resource: resources.images["graphitibunny"], position: new Vector2(gridCells(housesStartX + 28), gridCells(housesStartY)), frameSize: new Vector2(18, 29), offsetY: -12 });
+    this.addChild(graphitibunny);
+
     const graphiticornermonster2 = new Sprite({ objectId: 0, resource: resources.images["graphiticornermonster"], position: new Vector2(gridCells(housesStartX + 35), gridCells(housesStartY)), frameSize: new Vector2(18, 32), offsetX: -8, offsetY: -15 });
     this.addChild(graphiticornermonster2);
 

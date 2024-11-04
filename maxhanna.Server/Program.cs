@@ -33,7 +33,10 @@ builder.Services.AddHostedService<NexusDefenceBackgroundService>();
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
 
 var app = builder.Build();
-
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 app.UseDefaultFiles();
 app.UseStaticFiles();
  
@@ -48,7 +51,7 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
-app.UseAuthorization();
+app.UseAuthorization(); 
 
 app.MapControllers();
 

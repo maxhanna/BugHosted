@@ -12,12 +12,14 @@ import { Npc } from "../../Npc/npc";
 export class Bugcatcher extends Npc {
   directionIndex = 0;
 
-  constructor(params: { position: Vector2 }) {
+  constructor(params: { position: Vector2, moveUpDown?: number, moveLeftRight?: number }) {
     super({
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       type: "bugcatcher",
       partners: [],
       position: params.position,
+      moveUpDown: params.moveUpDown,
+      moveLeftRight: params.moveLeftRight,
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["bugcatcher"],
@@ -36,7 +38,7 @@ export class Bugcatcher extends Npc {
             standLeft: new FrameIndexPattern(STAND_LEFT),
             standUp: new FrameIndexPattern(STAND_UP),
           })
-      })
+      }), 
     });
       
     this.name = "bugcatcher";   

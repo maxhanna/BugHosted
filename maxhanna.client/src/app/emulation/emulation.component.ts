@@ -79,6 +79,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       if (!document.fullscreenElement) {
         this.canvas.nativeElement.style.width = "100%";
         this.canvas.nativeElement.style.height = "325px";
+        this.canvas.nativeElement.width = this.canvas.nativeElement.offsetWidth;
+        this.canvas.nativeElement.height = 325;
       }
       this.isFullScreen = !this.isFullScreen;
     });
