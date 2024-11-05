@@ -34,13 +34,13 @@ export class Watch extends InventoryItem {
   onCollideWithHero(hero: any) {
     //remove this instance from scene
     this.destroy();
-    events.emit("HERO_PICKS_UP_ITEM", {
-      image: resources.images[this.image],
+    events.emit("HERO_PICKS_UP_ITEM", { 
       position: this.position,
       hero: hero,
       name: this.name,
       imageName: this.image,
       category: this.category,
+      stats: this.stats
     });
     //alert other things we picked up a rod
 

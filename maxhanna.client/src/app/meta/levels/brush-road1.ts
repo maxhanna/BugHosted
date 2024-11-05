@@ -26,7 +26,7 @@ import { House } from "../objects/Environment/House/house";
 import { Shop } from "../objects/Environment/Shop/shop";
 import { Deer } from "../objects/Environment/Deer/deer";
 import { Water } from "../objects/Environment/Water/water";
-import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
+import { GiantTree2 } from "../objects/Environment/GiantTree/giant-tree2";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { BrushLevel1 } from "./brush-level1";
 import { BrushRoad2 } from "./brush-road2";
@@ -313,7 +313,14 @@ export class BrushRoad1 extends Level {
       this.addChild(fence5); 
     }
 
-    //Npcs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
+    const giantTree = new GiantTree2(gridCells(4), gridCells(32));
+    this.addChild(giantTree);
+
+
+    //NPCs
+
+    const deer = new Deer(gridCells(7), gridCells(33));
+    this.addChild(deer);
 
     const spiderBot = new Spiderbot({ position: new Vector2(gridCells(24), gridCells(20)), hp: 5, level: 5 });
     //this.addChild(spiderBot);

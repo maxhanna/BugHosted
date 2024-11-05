@@ -20,8 +20,27 @@ import { Tv } from "../objects/Environment/Tv/tv";
 
 export class BrushShop1 extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(3), gridCells(8));
+  firstBotSelection = storyFlags.contains(GOT_FIRST_METABOT) ? [] : [
+    new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: SkillType.STRENGTH } }),
+    new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: SkillType.ARMOR } }),
+    new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SkillType.SPEED } }),
+  ];
+  salesman = new Salesman({
+    position: new Vector2(gridCells(5), gridCells(5)),
+    heroPosition: new Vector2(gridCells(3), gridCells(5)),
+    entranceLevel: this,
+    items: storyFlags.contains(GOT_FIRST_METABOT) ? [] : this.firstBotSelection,
+  }); 
+  invisibleSalesman = new Salesman({
+    position: new Vector2(gridCells(6), gridCells(5)),
+    heroPosition: new Vector2(gridCells(3), gridCells(5)),
+    entranceLevel: this,
+    items: storyFlags.contains(GOT_FIRST_METABOT) ? [] : this.firstBotSelection,
+    preventDraw: true
+  }); 
+
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
-    super(); 
+    super();
     this.name = "BrushShop1";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
@@ -42,7 +61,7 @@ export class BrushShop1 extends Level {
 
     const cornercounter = new Sprite(
       { resource: resources.images["cornercounter"], position: new Vector2(gridCells(0), gridCells(-1)), frameSize: new Vector2(33, 49), isSolid: true }
-    ); 
+    );
     this.addChild(cornercounter);
 
 
@@ -51,16 +70,16 @@ export class BrushShop1 extends Level {
     );
     this.addChild(botCasing);
 
- 
+
     const botFrame = new Bot(
       { position: new Vector2(gridCells(2), gridCells(1)), spriteName: "botFrame2", offsetX: 8, offsetY: -8 }
-    ); 
+    );
     botFrame.textContent = [
       {
         string: ["Ahh, This one looks so cool!"],
       } as Scenario,
     ];
-    this.addChild(botFrame); 
+    this.addChild(botFrame);
 
 
     const botCasing2 = new Sprite(
@@ -70,7 +89,7 @@ export class BrushShop1 extends Level {
 
     const botFrame2 = new Bot(
       { position: new Vector2(gridCells(4), gridCells(1)), spriteName: "botFrame5", offsetX: 8, offsetY: -8 }
-    ); 
+    );
     botFrame2.textContent = [
       {
         string: ["OH, I saw this in a competition on TV once!"],
@@ -81,7 +100,7 @@ export class BrushShop1 extends Level {
 
     const cornercounter2 = new Sprite(
       { resource: resources.images["cornercounter"], position: new Vector2(gridCells(6), gridCells(-1)), frameSize: new Vector2(33, 49), flipX: true, isSolid: true }
-    ); 
+    );
     this.addChild(cornercounter2);
 
 
@@ -89,26 +108,26 @@ export class BrushShop1 extends Level {
 
       const counterNoLedge = new Sprite(
         { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5), gridCells(2) + gridCells(x)), frameSize: new Vector2(16, 32), isSolid: true }
-      );  
-      this.addChild(counterNoLedge); 
+      );
+      this.addChild(counterNoLedge);
     }
-    for (let x = 0; x < 3; x++) { 
+    for (let x = 0; x < 3; x++) {
       const counterNoLedgeTV = new Sprite(
         { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5) + gridCells(x), gridCells(2)), frameSize: new Vector2(16, 32), isSolid: true }
-      ); 
-      this.addChild(counterNoLedgeTV); 
+      );
+      this.addChild(counterNoLedgeTV);
     }
 
     const tv = new Tv({ position: new Vector2(gridCells(5), gridCells(2)), spritePosition: new Vector2(gridCells(1), gridCells(-1)) });
     tv.textContent = [
       {
-        string: ["Wow, two Meta-Bots are battling on TV!"], 
+        string: ["Wow, two Meta-Bots are battling on TV!"],
       } as Scenario
     ];
     this.addChild(tv);
 
-    const carpet1 = new Sprite(  
-       {
+    const carpet1 = new Sprite(
+      {
         resource: resources.images["carpet"],
         position: new Vector2(gridCells(2), gridCells(6)),
         frameSize: new Vector2(32, 32)
@@ -129,7 +148,7 @@ export class BrushShop1 extends Level {
 
     const exitOutside = new Exit({
       position: new Vector2(gridCells(3), gridCells(8)), showSprite: false, targetMap: "BrushLevel1"
-    }); 
+    });
     this.addChild(exitOutside);
 
     //walls:
@@ -141,23 +160,23 @@ export class BrushShop1 extends Level {
         }
       }
     }
-    const firstBotSelection = [
-      new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: SkillType.STRENGTH } }),
-      new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: SkillType.ARMOR } }),
-      new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SkillType.SPEED } }),
-    ];
 
-    const salesman = new Salesman({
-      position: new Vector2(gridCells(5), gridCells(5)),
-      heroPosition: new Vector2(gridCells(3), gridCells(5)),
-      entranceLevel: this,
-      items: storyFlags.contains(GOT_WATCH) ? firstBotSelection : []
-    });
-    if (salesman.body) {
-      salesman.body.position.x += 16;
+    if (this.salesman.body) {
+      this.salesman.body.position.x += 16;
     }
     if (!storyFlags.contains(GOT_WATCH)) {
-      salesman.textContent = [
+      this.salesman.textContent = [
+        {
+          string: ["Top of the morning to you! Did you get a Meta-Bot yet?"],
+          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER0,
+          bypass: [TALKED_TO_BRUSH_SHOP_OWNER0]
+        } as Scenario,
+        {
+          string: ["Ah, I see. Soon, then, I know it!"],
+          requires: [TALKED_TO_BRUSH_SHOP_OWNER0],
+        } as Scenario,
+      ];
+      this.invisibleSalesman.textContent = [
         {
           string: ["Top of the morning to you! Did you get a Meta-Bot yet?"],
           addsFlag: TALKED_TO_BRUSH_SHOP_OWNER0,
@@ -169,7 +188,7 @@ export class BrushShop1 extends Level {
         } as Scenario,
       ];
     } else {
-      salesman.textContent = [
+      this.salesman.textContent = [
         {
           string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
           addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
@@ -183,33 +202,7 @@ export class BrushShop1 extends Level {
           bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
         } as Scenario,
       ];
-    }
-
-    salesman.facingDirection = "LEFT";
-    salesman.body?.animations?.play("standLeft");
-    this.addChild(salesman);
-
-
-    const invisibleSalesman = new Salesman({
-      position: new Vector2(gridCells(6), gridCells(5)),
-      heroPosition: new Vector2(gridCells(3), gridCells(5)),
-      entranceLevel: this,
-      items: storyFlags.contains(GOT_WATCH) ? firstBotSelection : []
-    }); 
-    if (!storyFlags.contains(GOT_WATCH)) {
-      invisibleSalesman.textContent = [
-        {
-          string: ["Top of the morning to you! Did you get a Meta-Bot yet?"],
-          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER0,
-          bypass: [TALKED_TO_BRUSH_SHOP_OWNER0]
-        } as Scenario,
-        {
-          string: ["Ah, I see. Soon, then, I know it!"],
-          requires: [TALKED_TO_BRUSH_SHOP_OWNER0],
-        } as Scenario,
-      ];
-    } else {
-      invisibleSalesman.textContent = [
+      this.invisibleSalesman.textContent = [
         {
           string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
           addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
@@ -223,11 +216,16 @@ export class BrushShop1 extends Level {
           bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
         } as Scenario,
       ];
-    }
+    }  
+  
 
-    invisibleSalesman.facingDirection = "LEFT";
-    invisibleSalesman.body?.animations?.play("standLeft");
-    this.addChild(invisibleSalesman);
+    this.salesman.facingDirection = "LEFT";
+    this.salesman.body?.animations?.play("standLeft");
+    this.addChild(this.salesman);
+
+    this.invisibleSalesman.facingDirection = "LEFT";
+    this.invisibleSalesman.body?.animations?.play("standLeft");
+    this.addChild(this.invisibleSalesman);
 
   }
 
@@ -236,6 +234,14 @@ export class BrushShop1 extends Level {
       if (targetMap === "BrushLevel1") {
         events.emit("CHANGE_LEVEL", new BrushLevel1({ heroPosition: new Vector2(gridCells(30), gridCells(18)), itemsFound: this.itemsFound }));
       }
-    })
+    });
+    events.on("HERO_PICKS_UP_ITEM", this, (level: any) => { 
+      if (storyFlags.contains(GOT_FIRST_METABOT)) {
+        console.log("fixing items");
+        this.firstBotSelection = [];
+        this.salesman.items = this.firstBotSelection;
+        this.invisibleSalesman.items = this.firstBotSelection;
+      }
+    });
   }
 }

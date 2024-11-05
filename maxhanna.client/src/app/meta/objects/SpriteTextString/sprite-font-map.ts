@@ -77,6 +77,6 @@ const frameMap = new Map();
   frameMap.set(char, index);
 });
 
-export const getCharacterFrame = (char: string): number => {
+export const getCharacterFrame = (char: string): number => { 
   return frameMap.get(char) ?? 0;
 }

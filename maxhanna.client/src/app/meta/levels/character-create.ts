@@ -116,7 +116,8 @@ export class CharacterCreate extends Level {
       }
       events.emit("HERO_CREATED", this.characterName);
     });
-    events.on("SPACEBAR_PRESSED", this, () => { 
+    events.on("SPACEBAR_PRESSED", this, () => {
+      console.log("space pressed");
       const currentTime = new Date();
       if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
         this.inputKeyPressedDate = new Date();

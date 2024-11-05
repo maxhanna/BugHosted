@@ -31,6 +31,13 @@ export class Hero extends GameObject {
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
 
+  mask = new Sprite({
+    resource: resources.images["bunnymask"],
+    frameSize: new Vector2(32, 32),
+    hFrames: 3,
+    vFrames: 1,
+  });
+
   constructor(params: { position: Vector2, colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number }) {
     super({
       position: params.position,
@@ -79,7 +86,12 @@ export class Hero extends GameObject {
       colorSwap: this.colorSwap
     }); 
     this.addChild(this.body);
-    this.body.animations?.play("standDown"); 
+    this.body.animations?.play("standDown");
+
+    this.mask.position = this.body.position;
+    this.addChild(this.mask);
+
+
   }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
@@ -214,13 +226,13 @@ export class Hero extends GameObject {
 
   override ready() {
     events.on("HERO_PICKS_UP_ITEM", this, (data:
-      {
-        image: any,
+      { 
         position: Vector2,
         hero: Hero,
         name: string,
         imageName: string,
-        category: string
+        category: string,
+        stats: any,
       }) => {
       this.onPickupItem(data);
     });
@@ -275,6 +287,50 @@ export class Hero extends GameObject {
 
     this.otherPlayerMove(root);
     this.tryEmitPosition();
+    this.recalculateMaskPositioning();
+  }
+
+  private recalculateMaskPositioning() {
+    this.mask.offsetY = 0; 
+    if (this.body.frame >= 12 && this.body.frame < 16) {
+      this.mask.preventDraw = true;
+    } else { 
+      this.mask.preventDraw = false;
+
+      switch (this.body.frame) {
+        case 5:
+        case 7: 
+          this.mask.offsetY = 2;
+          break;
+
+        case 8:
+          // Set frame 1 and keep offsetY at 0 for frame 8
+          this.mask.frame = 1;
+          break;
+
+        case 9:
+          // Set frame 1 with an adjusted offsetY for frame 9
+          this.mask.frame = 1;
+          this.mask.offsetY = -2;
+          break;
+
+        case 10: 
+          this.mask.frame = 2;
+          break;
+
+        case 11:
+          // Set frame 2 for frames 10 and 11
+          this.mask.frame = 2;
+          this.mask.offsetY = -2;
+          break;
+
+        default:
+          // Default to frame 0 for any other cases
+          this.mask.frame = 0;
+          break;
+      }
+    }
+
   }
 
   private isObjectNeerby() {
@@ -428,24 +484,30 @@ export class Hero extends GameObject {
 
   }
 
-  onPickupItem(data: { image: any, position: Vector2, hero: any }) {
+  onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {  
+    console.log(data);
     if (data.hero?.id == this.id) {
       this.destinationPosition = data.position.duplicate();
       this.itemPickupTime = 2500;
       this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
       this.itemPickupShell.addChild(new Sprite({
-        resource: data.image,
+        resource: resources.images[data.imageName],
         position: new Vector2(0, -30),
         scale: new Vector2(0.85, 0.85),
         frameSize: new Vector2(22, 24),
       }));
-      this.addChild(this.itemPickupShell);
+      this.addChild(this.itemPickupShell); 
     }
   }
   workOnItemPickup(delta: number) {
+    console.log("workOnItemPickup activated", delta);
     this.itemPickupTime -= delta;
-    this.body.animations?.play("pickupDown");
+    if (this.body.animations?.activeKey != "pickupDown") {
+      this.body.animations?.play("pickupDown");
+      console.log("set pickup down animation");
+    }
     if (this.itemPickupTime <= 0) {
+      console.log("destroyed itemShell");
       this.itemPickupShell.destroy();
     }
   }

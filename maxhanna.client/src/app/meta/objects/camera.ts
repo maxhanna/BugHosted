@@ -11,9 +11,23 @@ export class Camera extends GameObject {
       this.centerPositionOnTarget(hero.position);
     })
 
-    events.on("CHANGE_LEVEL", this, (newLevelInstance: Level) => {
+    events.on("SHOP_OPENED", this, (newLevelInstance: Level) => {
       if (newLevelInstance) {
-        console.log(newLevelInstance);
+      
+          this.centerPositionOnTarget(new Vector2(128, 177));
+       
+      }
+    })
+    events.on("SHOP_OPENED_TO_SELL", this, (newLevelInstance: Level) => {
+      if (newLevelInstance) {  
+      
+          this.centerPositionOnTarget(new Vector2(128, 177));
+      
+      }
+    })
+
+    events.on("CHANGE_LEVEL", this, (newLevelInstance: Level) => {
+      if (newLevelInstance) { 
         this.centerPositionOnTarget(newLevelInstance.getDefaultHeroPosition());
       } else {
         this.centerPositionOnTarget(new Vector2(0,0)); 
@@ -29,6 +43,6 @@ export class Camera extends GameObject {
     this.position = new Vector2(
       -pos.x + halfWidth,
       -pos.y + halfHeight
-    );
+    ); 
   }
 }

@@ -6,7 +6,7 @@ import { resources } from "../../../helpers/resources";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { events } from "../../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP } from "./mom-animations";
-import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../../../helpers/story-flags";
+import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_DAD2, TALKED_TO_MOM_ABOUT_WATCH } from "../../../helpers/story-flags";
 import { Npc } from "../../Npc/npc";
 
 export class Mom extends Npc {
@@ -60,29 +60,33 @@ export class Mom extends Npc {
     this.textPortraitFrame = 2;
     this.textContent = [
       {
-        string: [`You finally saved enough for it with your allowance. Go and pick one out from the store next door.`],
-        requires: [TALKED_TO_MOM_ABOUT_DAD],
+        string: ["We wanted to surprise you, you've saved up so much from your allowance... you're ready for it! Pick one out at the store!"],
+        requires: [TALKED_TO_MOM_ABOUT_DAD2],
       } as Scenario,
       {
-        string: ["Your father still uses that old watch. But he decided to pass it down to you today! Thats right! Your very first meta-bot!"],
+        string: ["We think it's time for you to go out and explore, more importantly, it's time to train your first Meta-Bot!"],
+        requires: [TALKED_TO_MOM_ABOUT_DAD],
+        addsFlag: TALKED_TO_MOM_ABOUT_DAD2,
+      } as Scenario,
+      {
+        string: ["Your father worked long hours with that watch but kept it preciously because one day he knew he would pass it down to you."],
         requires: [GOT_WATCH],
         addsFlag: TALKED_TO_MOM_ABOUT_DAD,
       } as Scenario,
       {
-        string: ["Go grab your fathers watch."],
+        string: ["Sweetheart, would you mind fetching the watch from the kitchen counter? It's right there waiting for you."],
         requires: [TALKED_TO_MOM_ABOUT_WATCH],
       } as Scenario,
       {
-        string: ["We need you to run some errands... Can you grab your fathers watch thats on the counter my sweet little angel cakes?"],
+        string: ["Honey, We need you to run some errands... Can you grab your fathers watch thats on the counter my sweet little angel cake?"],
         requires: [TALKED_TO_MOM],
         addsFlag: TALKED_TO_MOM_ABOUT_WATCH,
       } as Scenario,
       {
-        string: [`Another beautiful day! Good morning sweetpea, your dads out repairing a bot that short circuited.`],
+        string: ["Good morning, sunshine! It’s such a lovely day. Your dad’s already at work fixing up a bot that short-circuited."],
         addsFlag: TALKED_TO_MOM,
       } as Scenario
-    ];
-    console.log("mom created");
+    ]; 
   }
 
   override ready() {

@@ -13,6 +13,7 @@ import { InventoryItem } from "./InventoryItem/inventory-item";
 import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../services/datacontracts/meta/meta-bot-part";
 import { Watch } from "./InventoryItem/Watch/watch";
+import { storyFlags, GOT_WATCH } from "../helpers/story-flags";
 
 export class StartMenu extends GameObject {
   menuLocationX = 190;
@@ -50,6 +51,10 @@ export class StartMenu extends GameObject {
     const background = new Sprite({ objectId: 0, resource: resources.images["white"], frameSize: new Vector2(2, 2), scale: new Vector2(8, 10), position: new Vector2(this.menuLocationX, this.menuLocationY) });
     this.addChild(background);
     this.addChild(this.selectorSprite);
+
+    if (!storyFlags.contains(GOT_WATCH)) {
+      this.regularMenuChoices = this.regularMenuChoices.filter(x => x != "Watch");
+    }
 
     // Create horizontal borders
     for (let x = 0; x < this.menuWidth; x += 5) {
@@ -126,7 +131,12 @@ export class StartMenu extends GameObject {
           const selection = this.items[this.currentlySelectedId];
           const bot = this.inventoryItems.find(ii => ii.name === selection);
           if (bot) {
-            this.selectedMetabot = JSON.parse(bot.stats) as MetaBot;
+            console.log(bot);
+            const stats = typeof bot.stats === "string"
+              ? JSON.parse(bot.stats) as MetaBot
+              : bot.stats as MetaBot;
+
+            this.selectedMetabot = stats;
             if (this.selectedMetabot) {
               this.displayMetabot(this.selectedMetabot);
             }
@@ -238,14 +248,17 @@ export class StartMenu extends GameObject {
   private displayMetabots() {
     this.clearMenu();
     this.isDisplayingMetabots = true;
+    console.log(this.inventoryItems);
     for (let x = 0; x < this.inventoryItems.length; x++) {
       if (this.inventoryItems[x].category == "botFrame") {
         this.items.push(this.inventoryItems[x].name);
         const stsName = new SpriteTextString(this.inventoryItems[x].name, new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * x)), "Black");
         this.addChild(stsName);
         if (this.inventoryItems[x].stats) {
-          const stats = JSON.parse(this.inventoryItems[x].stats) as MetaBot;
-          const stsStats = new SpriteTextString(`HP${stats.hp} L${stats.level}`, new Vector2(this.menuLocationX + 45, this.menuLocationY + (10 * x)), "Black");
+          const stats = typeof this.inventoryItems[x].stats === "string"
+            ? JSON.parse(this.inventoryItems[x].stats) as MetaBot
+            : this.inventoryItems[x].stats as MetaBot; 
+          const stsStats = new SpriteTextString(`HP${stats.hp} L${stats.level ?? 1}`, new Vector2(this.menuLocationX + 45, this.menuLocationY + (10 * x)), "Black");
           this.addChild(stsStats);
         }
       }

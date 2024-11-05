@@ -9,7 +9,7 @@ import { WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT } from "./sa
 import { Npc } from "../npc";
 import { ShopMenu } from "../../shop-menu";
 import { Level } from "../../Level/level";
-import { GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER1, storyFlags } from "../../../helpers/story-flags";
+import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER1, storyFlags } from "../../../helpers/story-flags";
 import { InventoryItem } from "../../InventoryItem/inventory-item";
 
 export class Salesman extends Npc {
@@ -17,14 +17,15 @@ export class Salesman extends Npc {
   heroPosition: Vector2;
   entranceLevel: Level;
   items?: InventoryItem[];
-  constructor(params: { position: Vector2, heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) {
+  constructor(params: { position: Vector2, heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[], skin?: string, preventDraw?: boolean }) {
     super({
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       position: params.position,
-      type: "salesPerson", 
+      type: params.skin ?? "salesPerson",
+      preventDraw: params.preventDraw,
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-        resource:  resources.images["salesPerson"],
+        resource: resources.images[params.skin ?? "salesPerson"],
         position: new Vector2(-7, -20),
         frameSize: new Vector2(32, 32),
         hFrames: 4,
@@ -39,22 +40,22 @@ export class Salesman extends Npc {
           })
       })
     }) 
-    this.name = "salesPerson";
-    this.type = "salesPerson";
-    this.id = -22274; 
+    this.name = "salesPerson";  
     this.textPortraitFrame = 3;
     this.entranceLevel = params.entranceLevel;
     this.heroPosition = params.heroPosition; 
     this.items = params.items;
     this.isSolid = true;
-   
-    const shadow = new Sprite({
-      resource: resources.images["shadow"],
-      position: new Vector2(this.body.position.x-9, -16),
-      scale: new Vector2(1.25, 1),
-      frameSize: new Vector2(32, 32),
-    });
-    this.addChild(shadow); 
+
+    if (!this.preventDraw) { 
+      const shadow = new Sprite({
+        resource: resources.images["shadow"],
+        position: new Vector2(this.body.position.x + 5, -16),
+        scale: new Vector2(1.25, 1),
+        frameSize: new Vector2(32, 32),
+      });
+      this.addChild(shadow); 
+    }
   }
 
   override ready() {

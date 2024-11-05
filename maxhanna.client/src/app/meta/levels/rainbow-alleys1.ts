@@ -35,6 +35,10 @@ import { BrushRoad2 } from "./brush-road2";
 import { Bot } from "../objects/Bot/bot";
 import { Bugcatcher } from "../objects/Npc/Bugcatcher/bugcatcher";
 import { HouseSide } from "../objects/Environment/House/house-side";
+import { Wardrobe } from "../objects/Environment/Wardrobe/wardrobe";
+import { Salesman } from "../objects/Npc/Salesman/salesman";
+import { SkillType } from "../helpers/skill-types";
+import { InventoryItem } from "../objects/InventoryItem/inventory-item";
  
 
 export class RainbowAlleys1 extends Level { 
@@ -85,16 +89,33 @@ export class RainbowAlleys1 extends Level {
     const museum = new Museum(gridCells(35), gridCells(10));
     this.addChild(museum);
 
-
-    const bugCatcher = new Bugcatcher({ position: new Vector2(gridCells(8), gridCells(10)-0.005) });
-    bugCatcher.body.offsetY += 10;
-    this.addChild(bugCatcher);
-
+    //STAND
+    const maskSelection = [
+      new InventoryItem({ id: 0, name: "BunnyMask", image: "bunnymask", category: "mask"}), 
+    ];
+    const salesMan = new Salesman(
+      {
+        position: new Vector2(gridCells(8), gridCells(10) - 0.005),
+        heroPosition: new Vector2(gridCells(8), gridCells(11)),
+        entranceLevel: this,
+        items: maskSelection
+      }); 
+    salesMan.body.offsetY += 10;
+    this.addChild(salesMan); 
     const stand = new Stand(gridCells(5), gridCells(10));
-    this.addChild(stand);
-
+    this.addChild(stand); 
     const standbg = new Sprite({ position: new Vector2(gridCells(6), gridCells(9)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
-    this.addChild(standbg);
+    this.addChild(standbg);  
+    const wardrobe = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(10)-0.005) });
+    if (wardrobe.body) { 
+      wardrobe.body.frameSize.x = 24;
+      wardrobe.body.flipX = true;
+      wardrobe.body.offsetX = 5;
+    }
+    this.addChild(wardrobe);
+
+
+
     //NPCs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
 
     const spiderBot = new Spiderbot({ position: new Vector2(gridCells(24), gridCells(20)), hp: 5, level: 5 });

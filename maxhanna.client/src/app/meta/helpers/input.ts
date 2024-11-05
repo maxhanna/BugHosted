@@ -129,7 +129,7 @@ export class Input {
 
   handleKeyup(event: KeyboardEvent) {
     const key = event.key;
-    //console.log(key);
+   // console.log(key);
     switch (key) {
       case 'ArrowUp':
       case 'w':
@@ -161,6 +161,9 @@ export class Input {
       case 'Escape':
         this.pressEscape();
         break;
+      case ' ':
+        this.pressSpace();
+        break;
     }
   }
   pressA(sendChat: boolean = true) { 
@@ -176,6 +179,9 @@ export class Input {
       }, 100);
     }
 
+  }
+  pressSpace() { 
+    events.emit("SPACEBAR_PRESSED");
   }
   pressStart(sendChat: boolean = true) {
     if (this.chatInput.value != '') {

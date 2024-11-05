@@ -33,7 +33,8 @@ export class Npc extends GameObject {
     body?: Sprite,
     partners?: Npc[],
     moveUpDown?: number
-    moveLeftRight?: number
+    moveLeftRight?: number,
+    preventDraw?: boolean
   }) {
     super({ position: config.position });
     this.type = config.type;
@@ -50,6 +51,7 @@ export class Npc extends GameObject {
     this.partnerNpcs = config.partners ? config.partners : [];
     this.moveUpDown = config.moveUpDown;
     this.moveLeftRight = config.moveLeftRight;
+    this.preventDraw = !!config.preventDraw;
 
     if (config.body) {
       this.body = config.body;
