@@ -2,6 +2,7 @@ import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { GameObject } from "../game-object";
 import { Sprite } from "../sprite";
+import { Mask } from "../Wardrobe/mask";
 import { Input } from "../../helpers/input";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
@@ -31,17 +32,12 @@ export class Hero extends GameObject {
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
 
-  mask = new Sprite({
-    resource: resources.images["bunnymask"],
-    frameSize: new Vector2(32, 32),
-    hFrames: 3,
-    vFrames: 1,
-  });
+  mask?: Mask = undefined
 
-  constructor(params: { position: Vector2, colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number }) {
+  constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask }) {
     super({
       position: params.position,
-      colorSwap: params.colorSwap
+      colorSwap: params.colorSwap,
     })
     if (params.isUserControlled) {
       this.isUserControlled = params.isUserControlled;
@@ -50,11 +46,12 @@ export class Hero extends GameObject {
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
-    this.name = "Anon";
+    this.name = params.name ?? "Anon";
     this.speed = params.speed ?? 1;
-    this.id = 0;
+    this.mask = params.mask;
+    this.id = params.id ?? 0;
     this.itemPickupTime = 0;
-    this.metabots = [];
+    this.metabots = params.metabots ?? [];
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       position: new Vector2(-18, -18),
@@ -88,10 +85,10 @@ export class Hero extends GameObject {
     this.addChild(this.body);
     this.body.animations?.play("standDown");
 
-    this.mask.position = this.body.position;
-    this.addChild(this.mask);
-
-
+    if (this.mask) { 
+      this.mask.position = this.body.position;
+      this.addChild(this.mask);
+    } 
   }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
@@ -291,6 +288,7 @@ export class Hero extends GameObject {
   }
 
   private recalculateMaskPositioning() {
+    if (!this.mask) return;
     this.mask.offsetY = 0; 
     if (this.body.frame >= 12 && this.body.frame < 16) {
       this.mask.preventDraw = true;

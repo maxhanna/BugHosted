@@ -6,7 +6,7 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { InventoryItem } from "./InventoryItem/inventory-item";
 import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../helpers/story-flags";
-import { StartMenu } from "./start-menu";
+import { StartMenu } from "./Menu/start-menu";
 import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { MetaBotPart } from "../../../services/datacontracts/meta/meta-bot-part";
 export class Inventory extends GameObject {

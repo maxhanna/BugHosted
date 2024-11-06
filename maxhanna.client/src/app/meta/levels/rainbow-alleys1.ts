@@ -39,6 +39,7 @@ import { Wardrobe } from "../objects/Environment/Wardrobe/wardrobe";
 import { Salesman } from "../objects/Npc/Salesman/salesman";
 import { SkillType } from "../helpers/skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
+import { ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, getMaskNameById } from "../objects/Wardrobe/mask";
  
 
 export class RainbowAlleys1 extends Level { 
@@ -91,7 +92,10 @@ export class RainbowAlleys1 extends Level {
 
     //STAND
     const maskSelection = [
-      new InventoryItem({ id: 0, name: "BunnyMask", image: "bunnymask", category: "mask"}), 
+      new InventoryItem({ id: 0, name: "BunnyMask", image: BUNNY_MASK.name, category: "mask" }),
+      new InventoryItem({ id: 0, name: "AnbuMask", image: ANBU_MASK.name, category: "mask" }),
+      new InventoryItem({ id: 0, name: "BotMask", image: BOT_MASK.name, category: "mask" }), 
+      new InventoryItem({ id: 0, name: "BunnyEarsMask", image: BUNNYEARS_MASK.name, category: "mask" }), 
     ];
     const salesMan = new Salesman(
       {
@@ -105,7 +109,28 @@ export class RainbowAlleys1 extends Level {
     const stand = new Stand(gridCells(5), gridCells(10));
     this.addChild(stand); 
     const standbg = new Sprite({ position: new Vector2(gridCells(6), gridCells(9)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
-    this.addChild(standbg);  
+    this.addChild(standbg);
+    const anbuMask = new Mask(getMaskNameById(2));
+    const bunnyMask = new Mask(getMaskNameById(1));
+    const bunnyEarsMask = new Mask(getMaskNameById(4));
+    const botMask = new Mask(getMaskNameById(3));
+    bunnyMask.frame = 0;
+    bunnyEarsMask.frame = 0;
+    anbuMask.frame = 0;
+    botMask.frame = 0;
+    bunnyMask.position = new Vector2(gridCells(7), gridCells(10));
+    bunnyEarsMask.position = new Vector2(gridCells(6), gridCells(10));
+    anbuMask.position = new Vector2(gridCells(12), gridCells(10));
+    botMask.position = new Vector2(gridCells(11), gridCells(10));
+    bunnyMask.offsetY -= 30;
+    bunnyEarsMask.offsetY -= 20;
+    anbuMask.offsetY -= 20;
+    botMask.offsetY -= 30;
+    this.addChild(bunnyMask);
+    this.addChild(bunnyEarsMask);
+    this.addChild(anbuMask);
+    this.addChild(botMask);
+
     const wardrobe = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(10)-0.005) });
     if (wardrobe.body) { 
       wardrobe.body.frameSize.x = 24;

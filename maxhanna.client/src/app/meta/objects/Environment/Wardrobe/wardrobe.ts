@@ -26,13 +26,16 @@ export class Wardrobe extends GameObject {
       console.log(selectedItem);
       if (selectedItem === "Change Color") {
         events.emit("CHANGE_COLOR");
+      }
+      else if (selectedItem === "Open Wardrobe") {
+        events.emit("WARDROBE_OPENED");
       } 
     }); 
   }
   override getContent() {
     return {
       portraitFrame: 0,
-      string: ["Change Color", "Cancel"],
+      string: ["Change Color", "Open Wardrobe", "Cancel"],
       canSelectItems: true,
       addsFlag: null
     } 

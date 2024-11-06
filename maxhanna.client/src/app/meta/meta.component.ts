@@ -27,12 +27,14 @@ import { Npc } from './objects/Npc/npc';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { RivalHomeLevel1 } from './levels/rival-home-level1';
 import { BrushShop1 } from './levels/brush-shop1';
-import { ShopMenu } from './objects/shop-menu';
+import { ShopMenu } from './objects/Menu/shop-menu';
+import { WardrobeMenu } from './objects/Menu/wardrobe-menu';
 import { ColorSwap } from '../../services/datacontracts/meta/color-swap';
 import { MetaBot } from '../../services/datacontracts/meta/meta-bot';
 import { GameObject } from './objects/game-object';
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../services/datacontracts/meta/meta-bot-part';
 import { Skill, HEADBUTT, LEFT_PUNCH, RIGHT_PUNCH } from './helpers/skill-types';
+import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 
 @Component({
   selector: 'app-meta',
@@ -155,11 +157,29 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   private updateMissingOrNewHeroSprites() {
     let ids: number[] = [];
     for (const hero of this.otherHeroes) {
-      let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id);
+      let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Hero | undefined;
       if (!storyFlags.flags.has("START_FIGHT") || this.partyMembers.find(x => x.id === hero.id)) {
         if (existingHero) {
           this.setUpdatedHeroPosition(existingHero, hero);
-        } else {
+
+          if (hero.mask === 0 && existingHero.mask) {
+            //remove mask
+            existingHero.destroy();
+            this.addHeroToScene(hero); 
+          }
+          else if (hero.mask && hero.mask != 0 && !existingHero.mask) {
+            //put on mask
+            existingHero.destroy();
+            this.addHeroToScene(hero); 
+          }
+          else if (hero.mask && hero.mask != 0 && existingHero.mask && getMaskNameById(hero.mask).toLowerCase() != existingHero.mask.name?.toLowerCase()) {
+            //put on mask
+            existingHero.destroy();
+            this.addHeroToScene(hero);
+            console.log(`destroying fresh mask ${getMaskNameById(hero.mask).toLowerCase()} - ${existingHero.mask } `);
+          }
+        }
+        else {
           existingHero = this.addHeroToScene(hero);
         }
         this.setHeroLatestMessage(existingHero);
@@ -181,12 +201,13 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
   private addHeroToScene(hero: MetaHero) {
     const tmpHero = new Hero({
+      id: hero.id,
+      name: hero.name ?? "Anon", 
       position: new Vector2(hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x, hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y),
       colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
-      speed: hero.speed
-    });
-    tmpHero.id = hero.id;
-    tmpHero.name = hero.name ?? "Anon";
+      speed: hero.speed,
+      mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined,
+    }); 
     tmpHero.lastPosition = tmpHero.position.duplicate();
     tmpHero.destinationPosition = tmpHero.lastPosition.duplicate();
     if (hero.id === this.metaHero.id) {
@@ -244,6 +265,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
             const player = this.partyMembers.find(x => x.id === event.heroId);
             if (player || event.heroId === this.metaHero.id) {
               events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
+              this.metaService.deleteEvent(event.id);
             }
           }
           if (event.event === "CHAT" && event.data) {
@@ -267,10 +289,11 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.mainScene.level) {
       this.mainScene.inventory.items.forEach((item: any) => this.mainScene.inventory.removeFromInventory(item.id));
     }
-    this.hero = new Hero({ position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)), isUserControlled: true, speed: rz.speed });
-    this.hero.id = rz.id;
-    this.hero.name = rz.name ?? "Anon";
-    this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map, rz.metabots, rz.color);
+    this.hero = new Hero({
+      id: rz.id, name: rz.name ?? "Anon", position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)),
+      isUserControlled: true, speed: rz.speed, mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined
+    }); 
+    this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map, rz.metabots, rz.color, rz.mask);
 
     if (!!skipDataFetch == false) {
       await this.reinitializeInventoryData();
@@ -365,6 +388,23 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         this.mainScene.level.itemsFound = this.mainScene.inventory.getItemsFound();
       }
     });
+    events.on("WARDROBE_OPENED", this, () => {
+      const invItems = this.mainScene.inventory.items;
+      if (this.mainScene.level) {
+        this.mainScene.setLevel(new WardrobeMenu({ entranceLevel: this.mainScene.level, heroPosition: this.metaHero.position, inventoryItems: invItems, hero: this.metaHero }));
+      }
+      this.stopPollingForUpdates = true;
+      this.setActionBlocker(50);
+    });
+
+    events.on("MASK_EQUIPPED", this, (params: { maskId: number }) => {
+      this.metaHero.mask = params.maskId === 0 ? undefined : params.maskId;
+      let existingHero = this.mainScene.level?.children.find((x: any) => x.id === this.metaHero.id);
+      if (existingHero) {
+        existingHero.destroy();
+      }
+      this.updatePlayers();
+    });
 
     events.on("SHOP_OPENED", this, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
       if (!this.actionBlocker) {
@@ -373,6 +413,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         this.setActionBlocker(50);
       }
     });
+
     events.on("SHOP_OPENED_TO_SELL", this, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
       let shopParts: InventoryItem[] = [];
       let x = 0;
@@ -391,6 +432,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
       this.mainScene.setLevel(new ShopMenu(config));
       this.stopPollingForUpdates = true;
+    }); 
+    events.on("WARDROBE_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
+      this.stopPollingForUpdates = false;
+      const newLevel = this.getLevelFromLevelName(params.entranceLevel.name);
+      newLevel.defaultHeroPosition = params.heroPosition;
+      events.emit("CHANGE_LEVEL", newLevel);
     });
     events.on("SHOP_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
       this.stopPollingForUpdates = false;

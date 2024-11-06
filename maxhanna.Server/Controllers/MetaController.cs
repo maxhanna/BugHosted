@@ -140,6 +140,37 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+		[HttpPost("/Meta/DeleteEvent", Name = "DeleteEvent")]
+		public async Task<IActionResult> DeleteEvent([FromBody] DeleteEventRequest req)
+		{
+			Console.WriteLine($"POST /Meta/DeleteEvent");
+			using (var connection = new MySqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+				using (var transaction = connection.BeginTransaction())
+				{
+					try
+					{
+						string sql = @"DELETE FROM maxhanna.meta_event WHERE id = @EventId LIMIT 1;";
+						Dictionary<string, object?> parameters = new Dictionary<string, object?>
+												{
+														{ "@EventId", req.EventId },
+												};
+						await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+						await transaction.CommitAsync();
+
+						return Ok();
+					}
+					catch (Exception ex)
+					{
+						await transaction.RollbackAsync();
+						return StatusCode(500, "Internal server error: " + ex.Message);
+					}
+				}
+			}
+		}
+
 		[HttpPost("/Meta/UpdateInventory", Name = "UpdateInventory")]
 		public async Task<IActionResult> UpdateInventory([FromBody] UpdateMetaHeroInventoryRequest request)
 		{
@@ -425,6 +456,7 @@ namespace maxhanna.Server.Controllers
                             SET coordsX = @CoordsX, 
                                 coordsY = @CoordsY, 
                                 color = @Color,  
+                                mask = @Mask,  
                                 map = @Map,
 																speed = @Speed
                             WHERE 
@@ -434,6 +466,7 @@ namespace maxhanna.Server.Controllers
 								{ "@CoordsX", hero.Position.x },
 								{ "@CoordsY", hero.Position.y },
 								{ "@Color", hero.Color },
+								{ "@Mask", hero.Mask },
 								{ "@Map", hero.Map },
 								{ "@Speed", hero.Speed },
 								{ "@HeroId", hero.Id }
@@ -500,14 +533,21 @@ namespace maxhanna.Server.Controllers
 		{
 			if (request.Hero != null)
 			{
-				string sql = @"INSERT INTO meta_hero_inventory (meta_hero_id, name, image, category) VALUES (@HeroId, @Name, @Image, @Category);";
+				string sql = @"
+					INSERT INTO meta_hero_inventory (meta_hero_id, name, image, category, quantity) 
+					VALUES (@HeroId, @Name, @Image, @Category, @Quantity)
+					ON DUPLICATE KEY UPDATE 
+						quantity = quantity + @Quantity;";
+
 				Dictionary<string, object?> parameters = new Dictionary<string, object?>
-						{
-								{ "@HeroId", request.Hero.Id },
-								{ "@Name", request.Name },
-								{ "@Image", request.Image  },
-								{ "@Category", request.Category },
-						};
+				{
+					{ "@HeroId", request.Hero.Id },
+					{ "@Name", request.Name },
+					{ "@Image", request.Image },
+					{ "@Category", request.Category },
+					{ "@Quantity", 1 } // assuming each addition increases quantity by 1
+				};
+
 				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
 			return;
@@ -571,7 +611,7 @@ namespace maxhanna.Server.Controllers
 			// Fetch hero and associated metabots
 			string sql = $@"
         SELECT 
-            h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color,
+            h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask,
             b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, 
             b.level as bot_level, b.exp as bot_exp 
         FROM 
@@ -603,6 +643,7 @@ namespace maxhanna.Server.Controllers
 							Map = Convert.ToString(reader["map"]),
 							Name = Convert.ToString(reader["hero_name"]),
 							Color = Convert.ToString(reader["hero_color"]),
+							Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
 							Metabots = new List<MetaBot>()
 						};
 					}
@@ -649,7 +690,7 @@ namespace maxhanna.Server.Controllers
 			Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
 			string sql = @"
         SELECT 
-            m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color,
+            m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color, m.mask,
             b.id as metabot_id, b.name as metabot_name, b.type as metabot_type, b.hp as metabot_hp, b.level as metabot_level, b.exp as metabot_exp 
         FROM 
             maxhanna.meta_hero m 
@@ -677,6 +718,7 @@ namespace maxhanna.Server.Controllers
 							Name = Convert.ToString(reader["hero_name"]),
 							Map = Convert.ToString(reader["hero_map"]),
 							Color = Convert.ToString(reader["color"]),
+							Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
 							Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
 							Speed = Convert.ToInt32(reader["speed"]),
 							Metabots = []
@@ -737,7 +779,8 @@ namespace maxhanna.Server.Controllers
 						created: Convert.ToDateTime(reader["created"]),
 						name: Convert.ToString(reader["name"]),
 						image: Convert.ToString(reader["image"]),
-						category: Convert.ToString(reader["category"])
+						category: Convert.ToString(reader["category"]),
+						quantity: reader.IsDBNull(reader.GetOrdinal("quantity")) ? null : Convert.ToInt32(reader["quantity"])
 					);
 
 					inventory.Add(tmpInventoryItem);

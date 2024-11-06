@@ -11,5 +11,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Meta
         public int Speed { get; set; }
         public string Map { get; set; } = "";
         public string Color { get; set; } = "";
+        public int? Mask { get; set; } = null;
     }
 }

@@ -1,19 +1,19 @@
-import { GameObject } from "./game-object";
-import { Sprite } from "./sprite";
-import { resources } from "../helpers/resources";
-import { events } from "../helpers/events";
-import { getAbbrTypeLabel } from "../helpers/skill-types";
-import { Vector2 } from "../../../services/datacontracts/meta/vector2";
-import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
-import { Level } from "./Level/level";
-import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
-import { Input } from "../helpers/input";
-import { Main } from "./Main/main";
-import { InventoryItem } from "./InventoryItem/inventory-item";
-import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
-import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../services/datacontracts/meta/meta-bot-part";
-import { Watch } from "./InventoryItem/Watch/watch";
-import { storyFlags, GOT_WATCH } from "../helpers/story-flags";
+import { GameObject } from "./../game-object";
+import { Sprite } from "./../sprite";
+import { resources } from "../../helpers/resources";
+import { events } from "../../helpers/events";
+import { getAbbrTypeLabel } from "../../helpers/skill-types";
+import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
+import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
+import { Level } from "./../Level/level";
+import { SpriteTextString } from "./../SpriteTextString/sprite-text-string";
+import { Input } from "../../helpers/input";
+import { Main } from "./../Main/main";
+import { InventoryItem } from "./../InventoryItem/inventory-item";
+import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
+import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../services/datacontracts/meta/meta-bot-part";
+import { Watch } from "./../InventoryItem/Watch/watch";
+import { storyFlags, GOT_WATCH } from "../../helpers/story-flags";
 
 export class StartMenu extends GameObject {
   menuLocationX = 190;
@@ -250,7 +250,7 @@ export class StartMenu extends GameObject {
     this.isDisplayingMetabots = true;
     console.log(this.inventoryItems);
     for (let x = 0; x < this.inventoryItems.length; x++) {
-      if (this.inventoryItems[x].category == "botFrame") {
+      if (this.inventoryItems[x].category == "botFrame") { 
         this.items.push(this.inventoryItems[x].name);
         const stsName = new SpriteTextString(this.inventoryItems[x].name, new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * x)), "Black");
         this.addChild(stsName);

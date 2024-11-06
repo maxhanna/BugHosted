@@ -9,15 +9,15 @@ export class Camera extends GameObject {
 
     events.on("HERO_POSITION", this, (hero: any) => {
       this.centerPositionOnTarget(hero.position);
-    })
-
+    }); 
+    events.on("WARDROBE_OPENED", this, () => {
+      this.centerPositionOnTarget(new Vector2(128, 177));
+    });
     events.on("SHOP_OPENED", this, (newLevelInstance: Level) => {
       if (newLevelInstance) {
-      
-          this.centerPositionOnTarget(new Vector2(128, 177));
-       
+        this.centerPositionOnTarget(new Vector2(128, 177));
       }
-    })
+    }); 
     events.on("SHOP_OPENED_TO_SELL", this, (newLevelInstance: Level) => {
       if (newLevelInstance) {  
       

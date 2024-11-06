@@ -9,6 +9,7 @@ export class Resources {
     this.toLoad = {
       apple: "assets/metabots/apple.png", 
       armobot: "assets/metabots/armobot.png", 
+      anbumask: "assets/metabots/anbumask.png", 
       blinds: "assets/metabots/blinds.png", 
       bedroomFloor: "assets/metabots/bedroom-floor.png",
       biggerBush: "assets/metabots/biggerbush.png",
@@ -21,8 +22,10 @@ export class Resources {
       botFrame6: "assets/metabots/botframe6.png",
       botFrame7: "assets/metabots/botframe7.png",
       botFrame8: "assets/metabots/botframe8.png",
+      botmask: "assets/metabots/botmask.png",
       brickRoad: "assets/metabots/brickroad.png",
       bugcatcher: "assets/metabots/bugcatcher.png",
+      bunnyearsmask: "assets/metabots/bunnyearsmask.png",
       bunnymask: "assets/metabots/bunnymask.png",
       cave: "assets/metabots/cave.png",
       caveGround: "assets/metabots/cave-ground.png",

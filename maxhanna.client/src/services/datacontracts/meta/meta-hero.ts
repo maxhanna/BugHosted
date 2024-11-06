@@ -10,8 +10,9 @@ export class MetaHero {
   map: string;
   color?: string;
   metabots: MetaBot[];
+  mask?: number;
 
-  constructor(id: number, name: string, position: Vector2, speed: number, map: string, metabots: MetaBot[], color?: string) {
+  constructor(id: number, name: string, position: Vector2, speed: number, map: string, metabots: MetaBot[], color?: string, mask?: number) {
     this.id = id; 
     this.name = name;
     this.position = position; 
@@ -19,5 +20,6 @@ export class MetaHero {
     this.map = map;
     this.color = color;
     this.metabots = metabots;
+    this.mask = mask;
   } 
 }

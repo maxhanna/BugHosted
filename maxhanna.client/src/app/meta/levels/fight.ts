@@ -142,12 +142,12 @@ export class Fight extends Level {
         const newHero = new Hero(
           {
             position: new Vector2(gridCells(-4) + (x * gridCells(1)), gridCells(2) + (x * gridCells(1))),
-            colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) : undefined)
+            colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) : undefined),
+            id: metaHero.id,
+            name: metaHero.name ?? "Anon",
+            metabots: metaHero.metabots
           }
-        );
-        newHero.name = metaHero.name ?? "Anon";
-        newHero.id = metaHero.id;
-        newHero.metabots = metaHero.metabots; 
+        );  
 
         this.party[x].metabots = metaHero.metabots;
         this.fightMenu.metabotChoices = this.party[x].metabots;

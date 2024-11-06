@@ -1,15 +1,15 @@
-import { GameObject } from "./game-object";
-import { Sprite } from "./sprite";
-import { resources } from "../helpers/resources";
-import { events } from "../helpers/events";
-import { Vector2 } from "../../../services/datacontracts/meta/vector2";
-import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
-import { Level } from "./Level/level";
-import { SpriteTextString } from "./SpriteTextString/sprite-text-string";
-import { Input } from "../helpers/input";
-import { Main } from "./Main/main";
-import { InventoryItem } from "./InventoryItem/inventory-item";
-import { GOT_FIRST_METABOT, storyFlags } from "../helpers/story-flags";
+import { GameObject } from "./../game-object";
+import { Sprite } from "./../sprite";
+import { resources } from "../../helpers/resources";
+import { events } from "../../helpers/events";
+import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
+import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
+import { Level } from "./../Level/level";
+import { SpriteTextString } from "./../SpriteTextString/sprite-text-string";
+import { Input } from "../../helpers/input";
+import { Main } from "./../Main/main";
+import { InventoryItem } from "./../InventoryItem/inventory-item";
+import { GOT_FIRST_METABOT, storyFlags } from "../../helpers/story-flags";
 
 
 export class ShopMenu extends Level {

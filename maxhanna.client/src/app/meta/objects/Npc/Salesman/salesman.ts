@@ -7,7 +7,7 @@ import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { events } from "../../../helpers/events";
 import { WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT } from "./salesman-animations";
 import { Npc } from "../npc";
-import { ShopMenu } from "../../shop-menu";
+import { ShopMenu } from "../../Menu/shop-menu";
 import { Level } from "../../Level/level";
 import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER1, storyFlags } from "../../../helpers/story-flags";
 import { InventoryItem } from "../../InventoryItem/inventory-item";

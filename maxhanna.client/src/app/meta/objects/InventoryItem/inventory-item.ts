@@ -9,10 +9,12 @@ export class InventoryItem extends GameObject {
   image = "";
   category = "";
   stats: any;
-  constructor(params: { id: number, name: string, image?: string, category?: string, isItemSelected?: boolean, position?: Vector2, stats?: any }) {
+  quantity?: number;
+  constructor(params: { id: number, name: string, image?: string, category?: string, isItemSelected?: boolean, position?: Vector2, stats?: any, quantity?: number }) {
     super({ position: params.position ?? new Vector2(0,0) });
     this.id = params.id;
     this.name = params.name;
+    this.quantity = params.quantity;
     if (params.image) { 
       this.image = params.image;
     }

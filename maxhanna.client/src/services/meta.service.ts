@@ -70,6 +70,9 @@ export class MetaService {
   async chat(hero: MetaHero, content: string) {
     return this.fetchData('/meta/chat', {Hero: hero, Content: content});
   }
+  async deleteEvent(eventId: number) {
+    return this.fetchData('/meta/deleteevent', { EventId: eventId });
+  }
   async updateEvents(event: MetaEvent) {
     return this.fetchData('/meta/updateevents', event);
   }

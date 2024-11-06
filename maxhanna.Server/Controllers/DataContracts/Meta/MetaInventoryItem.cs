@@ -6,11 +6,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Meta
         public int Id { get; set; }
         public int HeroId { get; set; }
         public DateTime Created { get; set; }
-        public string Name { get; set; }
-        public string Image { get; set; }
-        public string Category { get; set; }
+        public string? Name { get; set; }
+        public string? Image { get; set; }
+        public string? Category { get; set; }
+        public int? Quantity { get; set; }
 
-        public MetaInventoryItem(int id, int heroId, DateTime created, string name, string image, string category)
+        public MetaInventoryItem(int id, int heroId, DateTime created, string? name, string? image, string? category, int? quantity)
         {
             Id = id;
             HeroId = heroId;
@@ -18,6 +19,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Meta
             Name = name;
             Image = image; 
             Category = category; 
+            Quantity = quantity; 
         }
     }
 }
