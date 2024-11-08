@@ -54,7 +54,7 @@ export class BrushShop1 extends Level {
         const shopFloor = new Sprite(
           { resource: resources.images["shopFloor"], position: new Vector2(x, y), frameSize: new Vector2(32, 32) }
         );
-        shopFloor.drawLayer = "FLOOR";
+        shopFloor.drawLayer = "BASE";
         this.addChild(shopFloor);
       }
     }

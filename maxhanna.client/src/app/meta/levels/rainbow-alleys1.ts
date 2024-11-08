@@ -1,8 +1,9 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
-import { gridCells } from "../helpers/grid-cells";
+import { DOWN, gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
+import { Slope } from "../objects/Environment/Slope/slope";
 import { StoneCircle } from "../objects/Environment/StoneCircle/stone-circle";
 import { Fountain } from "../objects/Environment/Fountain/fountain";
 import { Level } from "../objects/Level/level";
@@ -64,30 +65,51 @@ export class RainbowAlleys1 extends Level {
         frameSize: new Vector2(2, 2),
       }
     );
-    whiteBg.drawLayer = "FLOOR";
+    whiteBg.drawLayer = "BASE";
     this.addChild(whiteBg);
 
-    for (let x = -4; x < 24; x++) {
-      for (let y = -4; y < 22; y++) {
+    for (let x = -4; x < 40; x++) {
+      for (let y = -10; y < 26; y++) {
         const grass = new Sprite({ objectId: 0, resource: resources.images["shortgrass"], position: new Vector2(gridCells(2 * x), gridCells(2 * y)), frameSize: new Vector2(32, 32) });
-        grass.drawLayer = "FLOOR";
+        grass.drawLayer = "BASE";
         this.addChild(grass);
       }
+    } 
+    for (let y = -1; y < 10; y++) {
+      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
+      stoneRoad.drawLayer = "FLOOR";
+      this.addChild(stoneRoad);
     }
 
-    for (let y = 0; y < 10; y++) {
-      const grass = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
-      grass.drawLayer = "FLOOR";
-      this.addChild(grass);
+    for (let x = 0; x < 2; x++) { //center road
+      for (let y = -5; y < 13; y++) {
+        const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(21) + gridCells(4*x), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
+        stoneRoad.drawLayer = "GROUND";
+        this.addChild(stoneRoad);
+      }  
+    }
+    for (let x = 0; x < 12; x++) {
+      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(5) + gridCells(4 * x), gridCells(12)), frameSize: new Vector2(64, 64) });
+      stoneRoad.drawLayer = "FLOOR";
+      this.addChild(stoneRoad);
+    } 
+    for (let y = -1; y < 10; y++) {
+      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(52), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
+      stoneRoad.drawLayer = "FLOOR";
+      this.addChild(stoneRoad);
+    } 
+    for (let x = 0; x < 14; x++) {
+      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(-4)), frameSize: new Vector2(64, 64) });
+      stoneRoad.drawLayer = "FLOOR";
+      this.addChild(stoneRoad);
+    }
+    for (let x = 0; x < 14; x++) {
+      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(36)), frameSize: new Vector2(64, 64) });
+      stoneRoad.drawLayer = "FLOOR";
+      this.addChild(stoneRoad);
     }
 
-    const stoneCircle = new StoneCircle(gridCells(25), gridCells(13));
-    this.addChild(stoneCircle);
-
-    const fountain = new Fountain(gridCells(25), gridCells(13));
-    this.addChild(fountain);
-
-    const museum = new Museum(gridCells(35), gridCells(10));
+    const museum = new Museum(gridCells(35), gridCells(11));
     this.addChild(museum);
 
     //STAND
@@ -141,26 +163,127 @@ export class RainbowAlleys1 extends Level {
 
 
 
+    const stand2 = new Stand(gridCells(5), gridCells(2));
+    this.addChild(stand2);
+    const standbg2 = new Sprite({ position: new Vector2(gridCells(6), gridCells(1)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
+    this.addChild(standbg2);
+    const wardrobe2 = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(2) - 0.005) });
+    if (wardrobe2.body) {
+      wardrobe2.body.frameSize.x = 24;
+      wardrobe2.body.flipX = true;
+      wardrobe2.body.offsetX = 5;
+    }
+    this.addChild(wardrobe2); 
+    for (let x = 1; x < 5; x++) {
+      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(4)), frameSize: new Vector2(64, 64) });
+      stoneRoad.drawLayer = "FLOOR";
+      this.addChild(stoneRoad);
+    }
+    const stand3 = new Stand(gridCells(5), gridCells(22));
+    this.addChild(stand3);
+    const standbg3 = new Sprite({ position: new Vector2(gridCells(6), gridCells(21)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
+    this.addChild(standbg3);
+    const wardrobe3 = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(22) - 0.005) });
+    if (wardrobe3.body) {
+      wardrobe3.body.frameSize.x = 24;
+      wardrobe3.body.flipX = true;
+      wardrobe3.body.offsetX = 5;
+    }
+    this.addChild(wardrobe3);
+    for (let x = 1; x < 5; x++) {
+      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(24)), frameSize: new Vector2(64, 64) });
+      stoneRoad.drawLayer = "FLOOR";
+      this.addChild(stoneRoad);
+    }
+
+
+    const stand4 = new Stand(gridCells(5), gridCells(30));
+    this.addChild(stand4);
+    const standbg4 = new Sprite({ position: new Vector2(gridCells(6), gridCells(29)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
+    this.addChild(standbg4);
+    const wardrobe4 = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(30) - 0.005) });
+    if (wardrobe4.body) {
+      wardrobe4.body.frameSize.x = 24;
+      wardrobe4.body.flipX = true;
+      wardrobe4.body.offsetX = 5;
+    }
+    this.addChild(wardrobe4);
+    for (let x = 1; x < 5; x++) {
+      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(32)), frameSize: new Vector2(64, 64) });
+      stoneRoad.drawLayer = "FLOOR";
+      this.addChild(stoneRoad);
+    }
+
+    const stoneCircle = new StoneCircle(gridCells(25), gridCells(13));
+    this.addChild(stoneCircle);
+
+    const fountain = new Fountain(gridCells(25), gridCells(13));
+    this.addChild(fountain);
+
+    const undergroundentrance = new Sprite(
+      {
+        resource: resources.images["undergroundentrance"],
+        frameSize: new Vector2(127, 130),
+        position: new Vector2(gridCells(21), gridCells(-14)),
+        offsetX: -1
+      });
+    this.addChild(undergroundentrance); 
+    for (let x = 0; x < 8; x++) {
+
+      const slope = new Slope({ position: new Vector2(gridCells(21) + gridCells(x), gridCells(-7)), showSprite: true, slopeType: DOWN });
+      this.addChild(slope);
+    }
+    const sign = new Sprite(
+      { objectId: -1, resource: resources.images["sign"], position: new Vector2(gridCells(21), gridCells(-7)), frameSize: new Vector2(16, 18), isSolid: true }
+    );
+    sign.textContent = [
+      {
+        string: [`Underground.`],
+      } as Scenario,
+    ];
+    this.addChild(sign); 
+
+
     //NPCs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
 
     const spiderBot = new Spiderbot({ position: new Vector2(gridCells(24), gridCells(20)), hp: 5, level: 5 });
     const armobot = new Armobot({ position: new Vector2(gridCells(28), gridCells(20)), hp: 5, level: 5 });
 
     const bystander = new Bugcatcher({ position: new Vector2(gridCells(19), gridCells(8)), moveUpDown: 4, moveLeftRight: 2 });
-    this.addChild(bystander);
-
-    for (let y = 0; y < 10; y++) { 
-      const houseSide = new HouseSide({ position: new Vector2(gridCells(-10), gridCells(12) + gridCells(y * 6)) });
-      this.addChild(houseSide);
-    }
+    this.addChild(bystander); 
 
     //EXITS
-    for (let x = 0; x < 4; x++) {
+    for (let x = 0; x < 8; x++) {
       const brushRoad2Exit = new Exit(
-        { position: new Vector2(gridCells(-1), gridCells(x) + gridCells(3)), showSprite: true, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+        { position: new Vector2(gridCells(21) + gridCells(x), gridCells(43)), showSprite: true, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
       this.addChild(brushRoad2Exit);
     }
+
+    //Walls
+    for (let y = -4; y < 7; y++) {
+      const houseSide = new HouseSide({ position: new Vector2(gridCells(-10), gridCells(12) + gridCells(y * 6)) });
+      this.addChild(houseSide);
+
+      const houseSide2 = new HouseSide({ position: new Vector2(gridCells(56), gridCells(12) + gridCells(y * 6)) });
+      this.addChild(houseSide2);
+    }
+    for (let x = 0; x < 57; x++) { 
+      for (let yMult = 0; yMult < 10; yMult++) {
+        if (x < 21 || x > 28) {
+          const bb = new Sprite(
+            { resource: resources.images["biggerBush"], position: new Vector2(gridCells(x), gridCells(41) + gridCells(yMult)), frameSize: new Vector2(15, 17), isSolid: true }
+          );
+          this.addChild(bb);
+          const bb2 = new Sprite(
+            { resource: resources.images["biggerBush"], position: new Vector2(gridCells(x), gridCells(-16) + gridCells(yMult)), frameSize: new Vector2(15, 17), isSolid: true }
+          );
+          this.addChild(bb2);
+        }
+      }
+    }
+
+   
 
   }
 

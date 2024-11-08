@@ -11,8 +11,8 @@
     "start:windows": "start cmd /k \"npm run start:https\" & start cmd /k \"npm run start:http\" & start cmd /k \"npm run start:test\"",
     "start:default": "npm run start:https & npm run start:http & npm run start:test",
     "start:test": "ng serve --port 8000 --configuration test",
-    "start:http": "ng serve --port 80 --configuration http",
-    "start:https": "ng serve --port 443 --ssl true --ssl-cert ssl/bughosted_com.crt --ssl-key ssl/bughosted_com.key --configuration https"
+    "start:http": "ng serve --port 80 --configuration production",
+    "start:https": "ng serve --port 443 --ssl true --ssl-cert ssl/bughosted_com.crt --ssl-key ssl/bughosted_com.key --configuration production"
   },
   "private": true,
   "dependencies": {

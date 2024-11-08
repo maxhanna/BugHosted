@@ -10,12 +10,15 @@ import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-st
 
 export class Main extends GameObject {
   level?: Level = undefined;
-  camera: Camera = new Camera(0, 0);
+  camera: Camera;
   input: Input = new Input();
   inventory: Inventory = new Inventory();
+  heroId?: number;
 
-  constructor(x: number, y: number) {
-    super({ position: new Vector2(x, y) });  
+  constructor(config: { position: Vector2, heroId?: number }) {
+    super({ position: config.position });
+    this.heroId = config.heroId;
+    this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId })
   }
 
   override ready() { 
@@ -53,6 +56,11 @@ export class Main extends GameObject {
       } 
     });
 
+  }
+
+  setHeroId(metaHeroId: number) {
+    this.heroId = metaHeroId;
+    this.camera.heroId = metaHeroId;
   }
 
   setLevel(newLevelInstance: Level) {

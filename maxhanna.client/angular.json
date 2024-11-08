@@ -56,19 +56,24 @@
               ],
               "outputHashing": "all"
             },
-            "development": {
-              "optimization": false,
+            "development": { 
+              "optimization": false, 
               "extractLicenses": false,
               "sourceMap": true
             }
           },
-          "defaultConfiguration": "production"
+          "defaultConfiguration": "development"
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
-            "production": {
+            "production": { 
               "buildTarget": "maxhanna.client:build:production",
+              "port": 443,
+              "host": "0.0.0.0",
+              "ssl": true,
+              "sslCert": "ssl/bughosted_com.crt",
+              "sslKey": "ssl/bughosted_com.key",
               "liveReload": false,
               "watch": false
             },
@@ -78,7 +83,7 @@
               "watch": false
             },
             "test": {
-              "browserTarget": "maxhanna.client:build:development",
+              "buildTarget": "maxhanna.client:build:development",
               "port": 8000,
               "host": "0.0.0.0",
               "ssl": false,
@@ -86,7 +91,7 @@
               "watch": true
             },
             "http": {
-              "browserTarget": "maxhanna.client:build:production",
+              "buildTarget": "maxhanna.client:build:production",
               "port": 80,
               "host": "0.0.0.0",
               "ssl": false,
@@ -94,7 +99,7 @@
               "watch": false
             },
             "https": {
-              "browserTarget": "maxhanna.client:build:production",
+              "buildTarget": "maxhanna.client:build:production",
               "port": 443,
               "host": "0.0.0.0",
               "ssl": true,

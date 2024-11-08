@@ -3,12 +3,15 @@ import { GameObject } from "./game-object";
 import { events } from "../helpers/events";
 import { Level } from "./Level/level";
 export class Camera extends GameObject {
-  constructor(x: number, y: number) {
-    super({ position: new Vector2(x, y) }); 
-
+  heroId?: number;
+  constructor(config: {position: Vector2, heroId?: number }) {
+    super({ position: config.position }); 
+    this.heroId = config.heroId;
 
     events.on("HERO_POSITION", this, (hero: any) => {
-      this.centerPositionOnTarget(hero.position);
+      if (hero.id === this.heroId) {
+        this.centerPositionOnTarget(hero.position); 
+      }
     }); 
     events.on("WARDROBE_OPENED", this, () => {
       this.centerPositionOnTarget(new Vector2(128, 177));

@@ -59,13 +59,35 @@ export class GameObject {
   }
   getOrderedChildrenForDraw() {
     return [...this.children].sort((a, b) => {
-      if (b.drawLayer === "FLOOR") {
-        return 1;
-      } else { 
-        return a.position.y >= b.position.y ? 1 : -1
+      // Step 1: Prioritize by drawLayer order: BASE < GROUND < FLOOR < all others
+      if (a.drawLayer === "BASE" && b.drawLayer !== "BASE") {
+        return -1;
       }
-    })
+      if (b.drawLayer === "BASE" && a.drawLayer !== "BASE") {
+        return 1;
+      }
+
+      if (a.drawLayer === "GROUND" && b.drawLayer !== "GROUND") {
+        return -1;
+      }
+      if (b.drawLayer === "GROUND" && a.drawLayer !== "GROUND") {
+        return 1;
+      }
+
+      if (a.drawLayer === "FLOOR" && b.drawLayer !== "FLOOR") {
+        return -1;
+      }
+      if (b.drawLayer === "FLOOR" && a.drawLayer !== "FLOOR") {
+        return 1;
+      }
+
+      // Step 2: If both objects are on the same drawLayer or none of the above, sort by y position
+      return a.position.y - b.position.y;
+    });
   }
+
+
+
   drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
 
   }

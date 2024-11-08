@@ -25,10 +25,11 @@ export class HeroRoomLevel extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-    const room = new Sprite(
+    const floor = new Sprite(
       { resource: resources.images["bedroomFloor"], frameSize: new Vector2(320, 220) }
     );
-    this.addChild(room);
+    floor.drawLayer = "BASE";
+    this.addChild(floor);
     
     const painting = new Sprite(
       { resource: resources.images["painting"], position: new Vector2(gridCells(15), 0.01), scale: new Vector2(0.75, 0.75), frameSize: new Vector2(30, 28) }

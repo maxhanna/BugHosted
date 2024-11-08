@@ -27,6 +27,7 @@ export class HeroHome extends Level {
     const room = new Sprite(
       { resource: resources.images["heroHome"], frameSize: new Vector2(320, 220) }
     );
+    room.drawLayer = "BASE";
     this.addChild(room);
 
     const cornercounter = new Sprite(

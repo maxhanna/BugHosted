@@ -55,13 +55,13 @@ export class BrushRoad1 extends Level {
         frameSize: new Vector2(2, 2),
       }
     );
-    whiteBg.drawLayer = "FLOOR";
+    whiteBg.drawLayer = "GROUND";
     this.addChild(whiteBg);
 
     for (let x = -4; x < 24; x++) {
       for (let y = -4; y < 22; y++) {
         const grass = new Sprite({ objectId: 0, resource: resources.images["shortgrass"], position: new Vector2(gridCells(2 * x), gridCells(2 * y)), frameSize: new Vector2(32, 32) });
-        grass.drawLayer = "FLOOR";
+        grass.drawLayer = "GROUND";
         this.addChild(grass);
       }
     }

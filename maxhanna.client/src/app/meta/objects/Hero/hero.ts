@@ -29,12 +29,18 @@ export class Hero extends GameObject {
   isLocked = false;
   latestMessage = "";
   speed: number;
+  scale: Vector2;
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
 
   mask?: Mask = undefined
+  slopeType: undefined | typeof UP | typeof DOWN;
+  slopeDirection: undefined | typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT;
+  isWrongDirectionResetSlope = false;
+  ogScale = new Vector2(1, 1);
+  slopeCalculated = false;
 
-  constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask }) {
+  constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2 }) {
     super({
       position: params.position,
       colorSwap: params.colorSwap,
@@ -51,6 +57,7 @@ export class Hero extends GameObject {
     this.mask = params.mask;
     this.id = params.id ?? 0;
     this.itemPickupTime = 0;
+    this.scale = params.scale ?? new Vector2(1, 1);
     this.metabots = params.metabots ?? [];
     const shadow = new Sprite({
       resource: resources.images["shadow"],
@@ -61,7 +68,21 @@ export class Hero extends GameObject {
     shadow.drawLayer = "FLOOR";
     this.addChild(shadow);
 
-    this.body = new Sprite({
+    this.body = this.initializeBody();
+  }
+
+  private destroyBody() {
+    console.log("destroying body");
+    if (this.body) {
+      this.body.destroy();
+    }
+    if (this.mask) {
+      this.mask.destroy();
+    }
+  }
+
+  private initializeBody(redraw?: boolean) {
+    let tmpBody = new Sprite({
       objectId: this.id,
       resource: resources.images["hero"],
       position: new Vector2(-8, -20),
@@ -80,15 +101,32 @@ export class Hero extends GameObject {
           standUp: new FrameIndexPattern(STAND_UP),
           pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
         }),
-      colorSwap: this.colorSwap
-    }); 
-    this.addChild(this.body);
-    this.body.animations?.play("standDown");
+      colorSwap: this.colorSwap,
+      scale: this.scale
 
-    if (this.mask) { 
-      this.mask.position = this.body.position;
+    });
+    this.addChild(tmpBody);
+    let animation = this.body?.animations?.activeKey;
+    tmpBody.animations?.play(animation ?? "standDown");
+
+    if (this.mask) {
+      if (redraw) {
+        if (this.facingDirection == UP) {
+          return tmpBody;
+        } else if (this.facingDirection == DOWN) {
+          this.mask.frame = 0;
+        } else if (this.facingDirection == LEFT) {
+          this.mask.frame = 1;
+        } else if (this.facingDirection == RIGHT) {
+          this.mask.frame = 2;
+        }
+      }
+
+      this.mask.scale = this.scale;
+      this.mask.position = tmpBody.position;
       this.addChild(this.mask);
-    } 
+    }
+    return tmpBody;
   }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
@@ -99,12 +137,12 @@ export class Hero extends GameObject {
     this.drawLatestMessage(ctx, drawPosX, drawPosY);
   }
 
-  private drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) { 
+  private drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) {
     if (!this.latestMessage.trim()) return;
-     
+
     if (this.latestMessage !== this.cachedMessage) {
       this.cachedMessage = this.latestMessage;
-       
+
       this.messageCache = document.createElement("canvas");
       const offCtx = this.messageCache.getContext("2d");
       if (!offCtx) return;
@@ -158,11 +196,11 @@ export class Hero extends GameObject {
         offCtx.fillText(line, padding, padding + index * textHeight + 2.5);
       });
     }
-     
+
     const verticalOffset = 20; // Increase this value to move the bubble higher
     const horizontalOffset = -5; // Increase this value to move the bubble higher
-    const bubbleTopY = characterTopY - (this.messageCache?.height ?? 0) - verticalOffset; 
-     
+    const bubbleTopY = characterTopY - (this.messageCache?.height ?? 0) - verticalOffset;
+
     if (this.messageCache) {
       const bubbleTopX = characterCenterX - this.messageCache.width / 2 - horizontalOffset;
       ctx.drawImage(this.messageCache, bubbleTopX, bubbleTopY);
@@ -214,16 +252,16 @@ export class Hero extends GameObject {
       // Draw the dark background box for the name
       ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
       ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
-       
+
       // Draw the name text on top of the box
-      ctx.fillStyle = "chartreuse";  
+      ctx.fillStyle = "chartreuse";
       ctx.fillText(this.name, drawPosX + 6, boxY + boxHeight - 1);
     }
   }
 
   override ready() {
     events.on("HERO_PICKS_UP_ITEM", this, (data:
-      { 
+      {
         position: Vector2,
         hero: Hero,
         name: string,
@@ -234,24 +272,33 @@ export class Hero extends GameObject {
       this.onPickupItem(data);
     });
 
+    events.on("HERO_SLOPE", this, (params: { heroId: number, slopeType: typeof UP | typeof DOWN, slopeDirection: typeof UP | typeof DOWN }) => { 
+      if (params.heroId === this.id) {
+        this.ogScale = this.scale;
+        this.slopeType = params.slopeType;
+        this.slopeDirection = params.slopeDirection;
+        this.isWrongDirectionResetSlope = true;
+      }
+    });
+
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
         this.isLocked = true;
       });
       events.on("END_TEXT_BOX", this, () => {
-        this.isLocked = false; 
-      });
-      events.on("HERO_MOVEMENT_LOCK", this, () => { 
-        this.isLocked = true;
-      });
-      events.on("HERO_MOVEMENT_UNLOCK", this, () => { 
         this.isLocked = false;
       });
-      events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
-        if (selectedItem === "Party Up") { 
+      events.on("HERO_MOVEMENT_LOCK", this, () => {
+        this.isLocked = true;
+      });
+      events.on("HERO_MOVEMENT_UNLOCK", this, () => {
+        this.isLocked = false;
+      });
+      events.on("SELECTED_ITEM", this, (selectedItem: string) => {
+        if (selectedItem === "Party Up") {
           events.emit("PARTY_UP", this.isObjectNeerby());
         }
-        else if (selectedItem === "Wave") { 
+        else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", this.isObjectNeerby());
         }
       });
@@ -280,7 +327,7 @@ export class Hero extends GameObject {
     if (hasArrived && this.isUserControlled) {
       this.tryMove(root);
     }
-  
+
 
     this.otherPlayerMove(root);
     this.tryEmitPosition();
@@ -289,15 +336,15 @@ export class Hero extends GameObject {
 
   private recalculateMaskPositioning() {
     if (!this.mask) return;
-    this.mask.offsetY = 0; 
+    this.mask.offsetY = 0;
     if (this.body.frame >= 12 && this.body.frame < 16) {
       this.mask.preventDraw = true;
-    } else { 
+    } else {
       this.mask.preventDraw = false;
 
       switch (this.body.frame) {
         case 5:
-        case 7: 
+        case 7:
           this.mask.offsetY = 2;
           break;
 
@@ -312,7 +359,7 @@ export class Hero extends GameObject {
           this.mask.offsetY = -2;
           break;
 
-        case 10: 
+        case 10:
           this.mask.frame = 2;
           break;
 
@@ -335,12 +382,11 @@ export class Hero extends GameObject {
     const posibilities = this.parent.children.filter((child: GameObject) => {
       // Calculate the neighboring position with the facing direction
       const neighborPosition = this.position.toNeighbour(this.facingDirection);
-
       // Define the discrepancy value
-      const discrepancy = 0.05;
+      const discrepancy = 1;
       // Check if the child's position is within the discrepancy range of the neighbor position
       return (
-        !(child instanceof Sprite) &&
+        (!(child instanceof Sprite) || child.textContent) &&
         child.position.x >= neighborPosition.x - discrepancy &&
         child.position.x <= neighborPosition.x + discrepancy &&
         child.position.y >= neighborPosition.y - discrepancy &&
@@ -381,9 +427,9 @@ export class Hero extends GameObject {
     if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
       return;
     }
-    if (this.isUserControlled) {
+    //if (this.isUserControlled) {
       events.emit("HERO_POSITION", this);
-    }
+    //}
     this.lastPosition = this.position.duplicate();
   }
 
@@ -428,12 +474,88 @@ export class Hero extends GameObject {
       });
       if (spaceIsFree && !solidBodyAtSpace) {
         this.destinationPosition = position;
+        if (this.slopeType) {
+          this.recalculateScaleBasedOnSlope(); 
+          //console.log(`slopeType: ${this.slopeType}, slopeDirection: ${this.slopeDirection}, facingDirection: ${this.facingDirection}, scale: ${this.scale}`);
+        }
       }
+    }
+  }
+
+  private recalculateScaleBasedOnSlope() {
+    if (!this.slopeDirection || !this.slopeType) return;
+    console.log(`scale:${this.scale.x}${this.scale.y}, ogScale:${this.ogScale.x}${this.ogScale.y}, slopeDir:${this.slopeDirection}, slopeType:${this.slopeType}, isWrongDirectionResetSlope:${this.isWrongDirectionResetSlope}`);
+
+    if ((this.slopeDirection === DOWN && (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y)) ||
+      (this.slopeDirection === UP && (this.ogScale.x <= this.scale.x || this.ogScale.y <= this.scale.y)) ||
+      (this.slopeDirection === LEFT && (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y)) ||
+      (this.slopeDirection === RIGHT && (this.ogScale.x <= this.scale.x || this.ogScale.y <= this.scale.y)) ||
+      this.isWrongDirectionResetSlope) {
+      let resetSlope = false;
+      if (this.slopeDirection === LEFT && this.facingDirection === RIGHT) {
+        resetSlope = true;
+      } else if (this.slopeDirection === RIGHT && this.facingDirection === LEFT) {
+        resetSlope = true;
+      } else if (this.slopeDirection === UP && this.facingDirection === DOWN) {
+        resetSlope = true;
+      } else if (this.slopeDirection === DOWN && this.facingDirection === UP) {
+        resetSlope = true;
+      }
+      if (resetSlope) {
+        this.slopeDirection = undefined;
+        this.slopeType = undefined;
+        this.isWrongDirectionResetSlope = false;
+        this.scale = this.ogScale.duplicate();
+        this.destroyBody();
+        this.body = this.initializeBody(true); 
+        return false;
+      }
+      this.isWrongDirectionResetSlope = false;
+    }
+
+
+    if (this.facingDirection === LEFT) {
+      if (this.slopeDirection === LEFT && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === LEFT && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      }
+    } else if (this.facingDirection === RIGHT) {
+      if (this.slopeDirection === RIGHT && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === RIGHT && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      }
+    } else if (this.facingDirection === UP) {
+      if (this.slopeDirection === UP && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      }
+    } else if (this.facingDirection === DOWN) {
+      if (this.slopeDirection === DOWN && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      } else if (this.slopeDirection === DOWN && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      }
+    }
+    if (this.ogScale.matches(this.scale)) {
+      return false;
+    } else {
+      if (this.scale.x > 0 && this.scale.y > 0) {
+        this.destroyBody();
+        this.body = this.initializeBody(true);
+        return true;
+      } else
+        return false;
     }
   }
 
   otherPlayerMove(root: any) {
     if (!this.isUserControlled) {
+      let moved = false;
       this.position = this.position.duplicate();
       this.destinationPosition = this.destinationPosition.duplicate();
       const destPos = this.destinationPosition;
@@ -449,11 +571,13 @@ export class Hero extends GameObject {
             this.facingDirection = RIGHT;
             this.body.animations?.play("walkRight");
             console.log("walk right");
+            moved = true;
           } else if (deltaX < 0) {
             tmpPosition.x = (tmpPosition.x);
             this.facingDirection = LEFT;
             this.body.animations?.play("walkLeft");
             console.log("walk left");
+            moved = true;
           }
         }
         if (deltaY != 0) {
@@ -461,10 +585,12 @@ export class Hero extends GameObject {
             tmpPosition.y = tmpPosition.y;
             this.facingDirection = DOWN;
             this.body.animations?.play("walkDown");
+            moved = true;
           } else if (deltaY < 0) {
             tmpPosition.y = tmpPosition.y;
             this.facingDirection = UP;
             this.body.animations?.play("walkUp");
+            moved = true;
           }
         }
         this.updateAnimation();
@@ -476,13 +602,16 @@ export class Hero extends GameObject {
         })
         if (spaceIsFree && !solidBodyAtSpace) {
           this.position = tmpPosition;
+          if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) { 
+            this.recalculateScaleBasedOnSlope();  
+          }
         }
       }
     }
 
   }
 
-  onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {  
+  onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
     console.log(data);
     if (data.hero?.id == this.id) {
       this.destinationPosition = data.position.duplicate();
@@ -494,7 +623,7 @@ export class Hero extends GameObject {
         scale: new Vector2(0.85, 0.85),
         frameSize: new Vector2(22, 24),
       }));
-      this.addChild(this.itemPickupShell); 
+      this.addChild(this.itemPickupShell);
     }
   }
   workOnItemPickup(delta: number) {

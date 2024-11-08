@@ -51,7 +51,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     super();
     this.hero = {} as Hero;
     this.metaHero = {} as MetaHero;
-    this.mainScene = new Main(0, 0);
+    this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id });
     this.subscribeToMainGameEvents();
   }
   canvas!: HTMLCanvasElement;
@@ -294,6 +294,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       isUserControlled: true, speed: rz.speed, mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined
     }); 
     this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map, rz.metabots, rz.color, rz.mask);
+    this.mainScene.setHeroId(this.metaHero.id);
 
     if (!!skipDataFetch == false) {
       await this.reinitializeInventoryData();

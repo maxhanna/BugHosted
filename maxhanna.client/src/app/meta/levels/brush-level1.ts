@@ -52,14 +52,14 @@ export class BrushLevel1 extends Level {
         colorSwap: storyFlags.contains(GOT_FIRST_METABOT) ? new ColorSwap([255, 255, 255], [0, 0, 0]) : undefined
       }
     );
-    whiteBg.drawLayer = "FLOOR";
+    whiteBg.drawLayer = "GROUND";
     this.addChild(whiteBg);
 
 
     for (let x = -5; x < 24; x++) {
       for (let y = -5; y < 22; y++) {
         const grass = new Sprite({ objectId: 0, resource: resources.images["shortgrass"], position: new Vector2(gridCells(2 * x), gridCells(2 * y)), frameSize: new Vector2(32, 32) });
-        grass.drawLayer = "FLOOR";
+        grass.drawLayer = "GROUND";
         this.addChild(grass);
       }
     }
