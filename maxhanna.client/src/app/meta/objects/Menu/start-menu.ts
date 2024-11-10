@@ -13,7 +13,7 @@ import { InventoryItem } from "./../InventoryItem/inventory-item";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { Watch } from "./../InventoryItem/Watch/watch";
-import { storyFlags, GOT_WATCH } from "../../helpers/story-flags";
+import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../../helpers/story-flags";
 
 export class StartMenu extends GameObject {
   menuLocationX = 190;
@@ -30,7 +30,7 @@ export class StartMenu extends GameObject {
   selectedPart?: string;
   isDisplayingMetabots = false;
   metabotPartItems = [HEAD, LEGS, LEFT_ARM, RIGHT_ARM];
-  regularMenuChoices = ["Meta-Bots", "Watch", "Exit"];
+  regularMenuChoices = ["Meta-Bots", "Journal", "Watch", "Exit"];
 
   blockClearMenu = false;
   coordXSelected = false;
@@ -83,6 +83,9 @@ export class StartMenu extends GameObject {
         }
         else if (this.items[this.currentlySelectedId] === "Watch") {
           this.displayWatchMenu();
+        }
+        else if (this.items[this.currentlySelectedId] === "Journal") {
+          this.displayJournalMenu();
         }
         else if (this.items[this.currentlySelectedId] === "Warp") {
           events.emit("START_PRESSED");
@@ -244,29 +247,56 @@ export class StartMenu extends GameObject {
     this.blockSelectionTimeout();
   }
 
+  private displayJournalMenu() {
+    this.clearMenu();
+
+    this.items.push("Back");
+    const journalLabel = new SpriteTextString("Back", new Vector2(this.menuLocationX + 5, this.menuLocationY + 10), "Black");
+    this.addChild(journalLabel);
+
+    let messages: string[] = [];
+    if (!storyFlags.contains(GOT_WATCH)) {
+      messages = ["Talk to mom."];
+    } else if (!storyFlags.contains(GOT_FIRST_METABOT)) {
+      messages = ["Visit the store."];
+    } else { 
+      messages = ["Explore."];
+    }
+
+    const backLabel = new SpriteTextString(`Journal:`, new Vector2(this.menuLocationX + 5, this.menuLocationY + 20 +(10 * messages.length)), "Black");
+    this.addChild(backLabel);
+
+
+    for (let x = 0; x < messages.length; x++) {
+      const coordLabel = new SpriteTextString(messages[x], new Vector2(this.menuLocationX + 5, this.menuLocationY + 40 + (10 * x)), "Black");
+      this.addChild(coordLabel);
+    }
+
+    this.blockSelectionTimeout();
+  }
+
 
   private displayMetabots() {
     this.clearMenu();
-    this.isDisplayingMetabots = true;
-    console.log(this.inventoryItems);
-    for (let x = 0; x < this.inventoryItems.length; x++) {
-      if (this.inventoryItems[x].category == "botFrame") { 
-        this.items.push(this.inventoryItems[x].name);
-        const stsName = new SpriteTextString(this.inventoryItems[x].name, new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * x)), "Black");
-        this.addChild(stsName);
-        if (this.inventoryItems[x].stats) {
-          const stats = typeof this.inventoryItems[x].stats === "string"
-            ? JSON.parse(this.inventoryItems[x].stats) as MetaBot
-            : this.inventoryItems[x].stats as MetaBot; 
-          const stsStats = new SpriteTextString(`HP${stats.hp} L${stats.level ?? 1}`, new Vector2(this.menuLocationX + 45, this.menuLocationY + (10 * x)), "Black");
-          this.addChild(stsStats);
-        }
-      }
+    this.isDisplayingMetabots = true; 
+    const botFrames = this.inventoryItems.filter(x => x.category === "botFrame"); 
+    for (let x = 0; x < botFrames.length; x++) { 
+      this.items.push(botFrames[x].name);
+      let botStartY = 10 + ( x * 10 );
+      const stsName = new SpriteTextString(botFrames[x].name, new Vector2(this.menuLocationX + 5, this.menuLocationY + botStartY), "Black");
+      this.addChild(stsName);
+      if (botFrames[x].stats) {
+        const stats = typeof botFrames[x].stats === "string"
+          ? JSON.parse(botFrames[x].stats) as MetaBot
+          : botFrames[x].stats as MetaBot; 
+        const stsStats = new SpriteTextString(`HP${stats.hp} L${stats.level ?? 1}`, new Vector2(this.menuLocationX + 45, this.menuLocationY + botStartY), "Black");
+        this.addChild(stsStats);
+      } 
     }
 
     this.items = this.items.concat("Back");
-    const stsName = new SpriteTextString("Back", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * this.items.length)), "Black");
-    this.addChild(stsName);
+    const backLabel = new SpriteTextString("Back", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * this.items.length)), "Black");
+    this.addChild(backLabel);
     this.blockSelectionTimeout();
   }
 

@@ -10,7 +10,7 @@ import { AppComponent } from '../app.component';
 @Component({
   selector: 'app-chat',
   templateUrl: './chat.component.html',
-  styleUrls: ['./chat.component.css']
+  styleUrls: ['./chat.component.css'],
 })
 export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   users: Array<User> = [];
@@ -56,8 +56,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   pageNumber = 1;
   pageSize = 10;
   totalPages = 1; 
-  totalPagesArray: number[] = [];
-
+  totalPagesArray: number[] = []; 
 
   constructor( private chatService: ChatService) {
     super();

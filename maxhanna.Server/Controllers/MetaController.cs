@@ -274,6 +274,7 @@ namespace maxhanna.Server.Controllers
 						MetaBot heroBot = new MetaBot();
 						heroBot.Id = (int)botId;
 						heroBot.HeroId = bot.HeroId;
+						heroBot.Level = bot.Level;
 						heroBot.Name = bot.Name;
 						heroBot.Hp = bot.Hp;
 						heroBot.Type = bot.Type;

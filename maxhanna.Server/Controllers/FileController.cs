@@ -1072,7 +1072,7 @@ namespace maxhanna.Server.Controllers
                 FileName = Path.GetFileName(filePath),
                 Directory = uploadDirectory,
                 Visibility = isPublic ? "Public" : "Private",
-                User = new User(user.Id, user.Username ?? "Anonymous", null, user.DisplayPictureFile, user.About, null, null),
+                User = new User(user.Id ?? 0, user.Username ?? "Anonymous", null, user.DisplayPictureFile, user.About, null, null),
                 IsFolder = false, 
                 FileComments = new List<FileComment>(),
                 Date = DateTime.UtcNow,

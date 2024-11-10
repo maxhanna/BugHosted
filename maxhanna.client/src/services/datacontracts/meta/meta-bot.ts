@@ -23,13 +23,14 @@ export class MetaBot {
   rightArm?: MetaBotPart;
 
 
-  constructor(params: { id: number, heroId: number, type: number, name: string, position?: Vector2, hp?: number, spriteName?: string, leftArm?: MetaBotPart, rightArm?: MetaBotPart, legs?: MetaBotPart, head?: MetaBotPart }) {
+  constructor(params: { id: number, heroId: number, type: number, name: string, position?: Vector2, hp?: number, level?: number, spriteName?: string, leftArm?: MetaBotPart, rightArm?: MetaBotPart, legs?: MetaBotPart, head?: MetaBotPart }) {
     this.id = params.id;
     this.name = params.name;
     this.heroId = params.heroId;
     this.type = params.type;
     this.position = params.position;
     this.hp = params.hp ?? 1;
+    this.level = params.level ?? 1;
     this.head = params.head ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: HEADBUTT, damageMod: 1, partName: HEAD })
     this.legs = params.legs ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: KICK, damageMod: 1, partName: LEGS })
     this.leftArm = params.leftArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: LEFT_PUNCH, damageMod: 1, partName: LEFT_ARM })

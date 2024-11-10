@@ -352,27 +352,10 @@ export class UserComponent extends ChildComponent implements OnInit {
             this.notifications.push("No weather data can be fetched"); 
           }
 
-          const resAddMenuItemSocial = await this.userService.addMenuItem(tmpUser, "Social");
-          this.notifications.push(resAddMenuItemSocial + '');
-
-          const resAddMenuItemMeme = await this.userService.addMenuItem(tmpUser, "Meme");
-          this.notifications.push(resAddMenuItemMeme!); 
-
-          const resAddMenuItemWordler = await this.userService.addMenuItem(tmpUser, "Wordler");
-          this.notifications.push(resAddMenuItemWordler!);
-
-          const resAddMenuItemFiles = await this.userService.addMenuItem(tmpUser, "Files");
-          this.notifications.push(resAddMenuItemFiles!);
-
-          const resAddMenuItemEmulation = await this.userService.addMenuItem(tmpUser, "Emulation");
-          this.notifications.push(resAddMenuItemEmulation!);
-
-          const resAddMenuItemBugWars = await this.userService.addMenuItem(tmpUser, "Bug-Wars");
-          this.notifications.push(resAddMenuItemBugWars!);
-
-          const resAddMenuItemNotifications = await this.userService.addMenuItem(tmpUser, "Notifications");
-          this.notifications.push(resAddMenuItemNotifications!);
-
+          const resAddMenuItemSocial = await this.userService.addMenuItem(tmpUser, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
+          if(resAddMenuItemSocial) {
+              this.notifications.push(resAddMenuItemSocial + ''); 
+          } 
 
           await this.login(guest ? tmpUserName : undefined);
           if (!this.loginOnly) { 
@@ -412,6 +395,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     }
     const tmpLoginUser = new User(undefined, tmpUserName, this.loginPassword.nativeElement.value);
     try {
+      console.log(tmpLoginUser);
       const tmpUser = await this.userService.getUser(tmpLoginUser);
 
       if (tmpUser && tmpUser.username) {

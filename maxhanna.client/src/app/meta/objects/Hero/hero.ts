@@ -36,9 +36,9 @@ export class Hero extends GameObject {
   mask?: Mask = undefined
   slopeType: undefined | typeof UP | typeof DOWN;
   slopeDirection: undefined | typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT;
-  isWrongDirectionResetSlope = false;
   ogScale = new Vector2(1, 1);
-  slopeCalculated = false;
+  endScale = new Vector2(1, 1);
+  steppedUpOrDown = false;
 
   constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2 }) {
     super({
@@ -260,6 +260,7 @@ export class Hero extends GameObject {
   }
 
   override ready() {
+    events.emit("HERO_CREATED", this);
     events.on("HERO_PICKS_UP_ITEM", this, (data:
       {
         position: Vector2,
@@ -271,13 +272,33 @@ export class Hero extends GameObject {
       }) => {
       this.onPickupItem(data);
     });
-
-    events.on("HERO_SLOPE", this, (params: { heroId: number, slopeType: typeof UP | typeof DOWN, slopeDirection: typeof UP | typeof DOWN }) => { 
+    events.on("HERO_SLOPE", this, (params: {
+      heroId: number,
+      slopeType: typeof UP | typeof DOWN,
+      slopeDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT,
+      startScale: Vector2,
+      endScale: Vector2
+    }) => {
       if (params.heroId === this.id) {
         this.ogScale = this.scale;
+        this.endScale = params.endScale;
         this.slopeType = params.slopeType;
         this.slopeDirection = params.slopeDirection;
-        this.isWrongDirectionResetSlope = true;
+
+        let blockUpdate = false;
+        if (this.scale.matches(params.startScale)) {
+          blockUpdate = true;
+        } else if (this.slopeDirection === DOWN && (this.facingDirection === LEFT || this.facingDirection === RIGHT)) {
+          blockUpdate = true;
+        }
+
+        if (!blockUpdate) {
+          this.scale = params.startScale;
+          this.ogScale = params.startScale;
+          this.destroyBody();
+          this.body = this.initializeBody(true);
+        }
+
       }
     });
 
@@ -428,7 +449,7 @@ export class Hero extends GameObject {
       return;
     }
     //if (this.isUserControlled) {
-      events.emit("HERO_POSITION", this);
+    events.emit("HERO_POSITION", this);
     //}
     this.lastPosition = this.position.duplicate();
   }
@@ -475,83 +496,13 @@ export class Hero extends GameObject {
       if (spaceIsFree && !solidBodyAtSpace) {
         this.destinationPosition = position;
         if (this.slopeType) {
-          this.recalculateScaleBasedOnSlope(); 
+          this.recalculateScaleBasedOnSlope();
           //console.log(`slopeType: ${this.slopeType}, slopeDirection: ${this.slopeDirection}, facingDirection: ${this.facingDirection}, scale: ${this.scale}`);
         }
       }
     }
   }
 
-  private recalculateScaleBasedOnSlope() {
-    if (!this.slopeDirection || !this.slopeType) return;
-    console.log(`scale:${this.scale.x}${this.scale.y}, ogScale:${this.ogScale.x}${this.ogScale.y}, slopeDir:${this.slopeDirection}, slopeType:${this.slopeType}, isWrongDirectionResetSlope:${this.isWrongDirectionResetSlope}`);
-
-    if ((this.slopeDirection === DOWN && (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y)) ||
-      (this.slopeDirection === UP && (this.ogScale.x <= this.scale.x || this.ogScale.y <= this.scale.y)) ||
-      (this.slopeDirection === LEFT && (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y)) ||
-      (this.slopeDirection === RIGHT && (this.ogScale.x <= this.scale.x || this.ogScale.y <= this.scale.y)) ||
-      this.isWrongDirectionResetSlope) {
-      let resetSlope = false;
-      if (this.slopeDirection === LEFT && this.facingDirection === RIGHT) {
-        resetSlope = true;
-      } else if (this.slopeDirection === RIGHT && this.facingDirection === LEFT) {
-        resetSlope = true;
-      } else if (this.slopeDirection === UP && this.facingDirection === DOWN) {
-        resetSlope = true;
-      } else if (this.slopeDirection === DOWN && this.facingDirection === UP) {
-        resetSlope = true;
-      }
-      if (resetSlope) {
-        this.slopeDirection = undefined;
-        this.slopeType = undefined;
-        this.isWrongDirectionResetSlope = false;
-        this.scale = this.ogScale.duplicate();
-        this.destroyBody();
-        this.body = this.initializeBody(true); 
-        return false;
-      }
-      this.isWrongDirectionResetSlope = false;
-    }
-
-
-    if (this.facingDirection === LEFT) {
-      if (this.slopeDirection === LEFT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
-      } else if (this.slopeDirection === LEFT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
-      }
-    } else if (this.facingDirection === RIGHT) {
-      if (this.slopeDirection === RIGHT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
-      } else if (this.slopeDirection === RIGHT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
-      }
-    } else if (this.facingDirection === UP) {
-      if (this.slopeDirection === UP && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
-      } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
-      }
-    } else if (this.facingDirection === DOWN) {
-      if (this.slopeDirection === DOWN && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
-      } else if (this.slopeDirection === DOWN && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
-      } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
-      }
-    }
-    if (this.ogScale.matches(this.scale)) {
-      return false;
-    } else {
-      if (this.scale.x > 0 && this.scale.y > 0) {
-        this.destroyBody();
-        this.body = this.initializeBody(true);
-        return true;
-      } else
-        return false;
-    }
-  }
 
   otherPlayerMove(root: any) {
     if (!this.isUserControlled) {
@@ -602,8 +553,8 @@ export class Hero extends GameObject {
         })
         if (spaceIsFree && !solidBodyAtSpace) {
           this.position = tmpPosition;
-          if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) { 
-            this.recalculateScaleBasedOnSlope();  
+          if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) {
+            this.recalculateScaleBasedOnSlope();
           }
         }
       }
@@ -645,5 +596,148 @@ export class Hero extends GameObject {
       canSelectItems: true,
       addsFlag: null
     }
+  }
+
+  private shouldResetSlope() {
+    // Check DOWN slope conditions
+    if (this.slopeDirection === DOWN && this.facingDirection === UP) {
+      if (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y) {
+        return true;
+      }
+    }
+    // Check RIGHT slope conditions
+    if (this.slopeDirection === UP && this.facingDirection === DOWN) {
+      if (this.ogScale.x <= this.scale.x || this.ogScale.y <= this.scale.y) {
+        return true;
+      }
+    }
+
+    // Check LEFT slope conditions
+    if (this.slopeDirection === LEFT && this.facingDirection === RIGHT) {
+      if (this.slopeType === UP && (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y)) {
+        return true;
+      }
+      if (this.slopeType === DOWN && (this.scale.x >= this.ogScale.x || this.scale.y >= this.ogScale.y)) {
+        return true;
+      }
+    }
+
+    // Check RIGHT slope conditions
+    if (this.slopeDirection === RIGHT && this.facingDirection === LEFT) {
+      if (this.slopeType === DOWN && (this.ogScale.x <= this.scale.x || this.ogScale.y <= this.scale.y)) {
+        return true;
+      }
+      if (this.slopeType === UP && (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y)) {
+        return true;
+      }
+    }
+
+    // If none of the conditions matched, return false
+    return false;
+  }
+
+  private recalculateScaleBasedOnSlope() {
+    if (!this.slopeDirection || !this.slopeType) return;
+    console.log(`before: scale:${this.scale.x}${this.scale.y}, endScale:${this.endScale.x}${this.endScale.y}, ogScale:${this.ogScale.x}${this.ogScale.y}, slopeDir:${this.slopeDirection}, slopeType:${this.slopeType}`);
+
+    if (this.shouldResetSlope()) {
+      console.log("autoreset");
+      return this.resetSlope(true);
+    }
+
+    const preScale = new Vector2(this.scale.x, this.scale.y);
+    this.scaleWithStep(preScale);
+    console.log(`after : scale:${this.scale.x}${this.scale.y}, endScale:${this.endScale.x}${this.endScale.y}, ogScale:${this.ogScale.x}${this.ogScale.y}, slopeDir:${this.slopeDirection}, slopeType:${this.slopeType}`);
+    let forceResetSlope = this.isSlopeResetFromEndScale();
+
+    if (forceResetSlope) {
+      console.log("force reset");
+      return this.resetSlope(true);
+    }
+    else {
+      if (this.scale.x > 0 && this.scale.y > 0 && !preScale.matches(this.scale)) {
+        this.destroyBody();
+        this.body = this.initializeBody(true);
+        return true;
+      }
+      else
+        return false;
+    }
+  }
+
+  private isSlopeResetFromEndScale(): boolean {
+    let resetSlope = false;
+    if (this.slopeType == UP && this.endScale.x <= this.scale.x && this.endScale.y <= this.scale.y) {
+      resetSlope = true;
+    } else if (this.slopeType == DOWN && this.endScale.x >= this.scale.x && this.endScale.y >= this.scale.y) {
+      resetSlope = true;
+    }
+    return resetSlope;
+  }
+
+  private scaleWithStep(preScale: Vector2) {
+    if (this.facingDirection === LEFT) {
+      if (this.slopeDirection === LEFT && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === LEFT && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      } else if (this.slopeDirection === RIGHT && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === RIGHT && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      }
+    } else if (this.facingDirection === RIGHT) {
+      if (this.slopeDirection === RIGHT && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === LEFT && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === LEFT && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      } else if (this.slopeDirection === RIGHT && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      }
+    } else if (this.facingDirection === UP) {
+      if (this.slopeDirection === UP && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      } else if (this.slopeDirection === DOWN && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === DOWN && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      }
+    } else if (this.facingDirection === DOWN) {
+      if (this.slopeDirection === DOWN && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === DOWN && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
+        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+      } else if (this.slopeDirection === UP && this.slopeType === UP) {
+        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+      }
+    }
+    if (Math.abs(this.ogScale.y - this.scale.y) > 0.1) {
+      this.steppedUpOrDown = !this.steppedUpOrDown; 
+      if (this.ogScale.y < this.scale.y && this.steppedUpOrDown || (this.facingDirection != this.slopeDirection && !this.steppedUpOrDown)) {
+        this.destinationPosition.y -= gridCells(1);
+        console.log("adjusting down");
+      } else if ((this.ogScale.y > this.scale.y && this.steppedUpOrDown) || (this.facingDirection != this.slopeDirection && !this.steppedUpOrDown)) {
+        this.destinationPosition.y += gridCells(1);
+        //console.log("adjusting down");
+      }
+    }   
+  }
+
+  private resetSlope(skipDestroy?: boolean) {
+    this.slopeDirection = undefined;
+    this.slopeType = undefined;
+    this.scale = this.endScale.duplicate();
+    this.steppedUpOrDown = false;
+    if (!skipDestroy) {
+      this.destroyBody();
+      this.body = this.initializeBody(true);
+    }
+    console.log("slope reset", this.endScale);
   }
 }

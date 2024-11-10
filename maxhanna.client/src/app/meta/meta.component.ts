@@ -22,6 +22,7 @@ import { BrushLevel1 } from './levels/brush-level1';
 import { BrushRoad1 } from './levels/brush-road1';
 import { BrushRoad2 } from './levels/brush-road2';
 import { RainbowAlleys1 } from './levels/rainbow-alleys1';
+import { UndergroundLevel1 } from './levels/underground-level1';
 import { MetaEvent } from '../../services/datacontracts/meta/meta-event';
 import { Npc } from './objects/Npc/npc';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
@@ -346,6 +347,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     else if (upperKey == "BRUSHROAD1") return new BrushRoad1({ itemsFound: itemsFoundNames });
     else if (upperKey == "BRUSHROAD2") return new BrushRoad2({ itemsFound: itemsFoundNames });
     else if (upperKey == "RAINBOWALLEYS1") return new RainbowAlleys1({ itemsFound: itemsFoundNames });
+    else if (upperKey == "UNDERGROUNDLEVEL1") return new UndergroundLevel1({ itemsFound: itemsFoundNames });
     else if (upperKey == "BRUSHSHOP1") return new BrushShop1({ itemsFound: itemsFoundNames });
     else if (upperKey == "FIGHT") return new Fight(
       {
@@ -390,9 +392,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     });
     events.on("WARDROBE_OPENED", this, () => {
+      if (this.actionBlocker) return;
+
       const invItems = this.mainScene.inventory.items;
       if (this.mainScene.level) {
-        this.mainScene.setLevel(new WardrobeMenu({ entranceLevel: this.mainScene.level, heroPosition: this.metaHero.position, inventoryItems: invItems, hero: this.metaHero }));
+        console.log(this.mainScene.level);
+        this.mainScene.setLevel(new WardrobeMenu({ entranceLevel: this.getLevelFromLevelName(this.mainScene.level.name), heroPosition: this.metaHero.position, inventoryItems: invItems, hero: this.metaHero }));
       }
       this.stopPollingForUpdates = true;
       this.setActionBlocker(50);
@@ -437,6 +442,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     events.on("WARDROBE_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
       this.stopPollingForUpdates = false;
       const newLevel = this.getLevelFromLevelName(params.entranceLevel.name);
+      console.log(newLevel, params.entranceLevel);
       newLevel.defaultHeroPosition = params.heroPosition;
       events.emit("CHANGE_LEVEL", newLevel);
     });
@@ -532,8 +538,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "BUY_ITEM", this.metaHero.map, { "item": `${JSON.stringify(item)}` })
       this.metaService.updateEvents(metaEvent);
       if (item.category === "botFrame") {
-        const newBot = new MetaBot({ id: this.metaHero.metabots.length + 1, heroId: this.metaHero.id, type: item.stats["type"], hp: item.stats["hp"], name: item.name });
-        this.metaService.createBot(newBot);
+        const newBot = new MetaBot({ id: this.metaHero.metabots.length + 1, heroId: this.metaHero.id, type: item.stats["type"], hp: item.stats["hp"], name: item.name, level: 1 });
+        this.metaService.createBot(newBot).then(res => {
+          if (res) { 
+            this.metaHero.metabots.push(res);
+          }
+        }); 
       }
     });
 

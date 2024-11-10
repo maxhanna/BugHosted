@@ -72,7 +72,7 @@ const frameMap = new Map();
   "abcdefghijklmnopqrstuvwxyz",
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
   "0123456789 __",
-  ".!-,?'"
+  ".!-,?':\""
 ].join("").split("").forEach((char, index) => {
   frameMap.set(char, index);
 });

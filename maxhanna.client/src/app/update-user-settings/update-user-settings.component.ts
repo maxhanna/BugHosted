@@ -192,7 +192,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     } else {
       this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user!.id!, title));
       if (this.parentRef && this.parentRef.user) {
-        this.userService.addMenuItem(this.parentRef.user, title);
+        this.userService.addMenuItem(this.parentRef.user, [title]);
       }
       this.notifications.push(`Added menu item : ${title}`);
     }

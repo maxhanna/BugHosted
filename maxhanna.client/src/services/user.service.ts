@@ -212,14 +212,14 @@ export class UserService {
     }
   }
 
-  async addMenuItem(user: User, title: string) {
+  async addMenuItem(user: User, titles: string[]) {
     try {
       const response = await fetch('/user/menu/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, title }),
+        body: JSON.stringify({ user, titles }),
       });
 
       if (!response.ok) {

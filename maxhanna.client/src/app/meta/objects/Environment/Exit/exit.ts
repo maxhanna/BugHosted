@@ -4,6 +4,7 @@ import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
 import { events } from "../../../helpers/events";
 import { ColorSwap } from "../../../../../services/datacontracts/meta/color-swap";
+import { Hero } from "../../Hero/hero";
 
 export class Exit extends GameObject {
   targetMap: string;
@@ -28,7 +29,7 @@ export class Exit extends GameObject {
   }
 
   override ready() {
-    events.on("HERO_POSITION", this, (hero: any) => {
+    events.on("HERO_POSITION", this, (hero: Hero) => {
       const roundedHeroX = Math.round(hero.position.x);
       const roundedHeroY = Math.round(hero.position.y);
       if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {

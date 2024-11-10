@@ -91,13 +91,14 @@ namespace maxhanna.Server.Controllers
                 ";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@Username", user.Username);
-				cmd.Parameters.AddWithValue("@Password", user.Pass);
+				cmd.Parameters.AddWithValue("@Username", (user.Username ?? "").Trim());
+				cmd.Parameters.AddWithValue("@Password", (user.Pass ?? "").Trim());
 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					if (reader.Read())
 					{
+						Console.WriteLine("Found user : " + user.Username);
 						FileEntry displayPic = new FileEntry()
 						{
 							Id = reader.IsDBNull(reader.GetOrdinal("latest_file_id")) ? 0 : reader.GetInt32("latest_file_id"),
@@ -696,7 +697,7 @@ namespace maxhanna.Server.Controllers
 		[HttpDelete("/User/Menu", Name = "DeleteMenuItem")]
 		public async Task<IActionResult> DeleteMenuItem([FromBody] MenuItemRequest request)
 		{
-			_logger.LogInformation($"DELETE /User/Menu for user with ID: {request.User?.Id} and title: {request.Title}");
+			_logger.LogInformation($"DELETE /User/Menu for user with ID: {request.User?.Id} and title: {request.Titles}");
 			if (request.User == null)
 			{
 				return BadRequest("User missing from DeleteMenuItem request");
@@ -705,18 +706,25 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				conn.Open();
+				int rowsAffected = 0;
+				if (request.Titles != null && request.Titles.Length > 0)
+				{
+					foreach (string item in request.Titles)
+					{
+						string sql = "DELETE FROM maxhanna.menu WHERE ownership = @UserId AND title = @Title";
 
-				string sql = "DELETE FROM maxhanna.menu WHERE ownership = @UserId AND title = @Title";
+						MySqlCommand cmd = new MySqlCommand(sql, conn);
+						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
+						cmd.Parameters.AddWithValue("@Title", item);
 
-				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", request.User.Id);
-				cmd.Parameters.AddWithValue("@Title", request.Title);
-
-				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+						rowsAffected += await cmd.ExecuteNonQueryAsync();
+					} 
+				}
+				
 
 				if (rowsAffected > 0)
 				{
-					return Ok("Menu item deleted successfully.");
+					return Ok($"{rowsAffected} menu item(s) deleted successfully.");
 				}
 				else
 				{
@@ -736,7 +744,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/Menu/Add", Name = "AddMenuItem")]
 		public async Task<IActionResult> AddMenuItem([FromBody] MenuItemRequest request)
 		{
-			_logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.User?.Id} and title: {request.Title}");
+			_logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.User?.Id} and title: {request.Titles}");
 			if (request.User == null)
 			{
 				return BadRequest("User missing from AddMenuItem request");
@@ -745,22 +753,27 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				conn.Open();
+				int rowsAffected = 0;
+				if (request.Titles != null && request.Titles.Length > 0)
+				{
+					foreach (string item in request.Titles)
+					{
+						string sql = "INSERT INTO maxhanna.menu (ownership, title) VALUES (@UserId, @Title)";
 
-				string sql = "INSERT INTO maxhanna.menu (ownership, title) VALUES (@UserId, @Title)";
-
-				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", request.User.Id);
-				cmd.Parameters.AddWithValue("@Title", request.Title);
-
-				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+						MySqlCommand cmd = new MySqlCommand(sql, conn);
+						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
+						cmd.Parameters.AddWithValue("@Title", item);
+						rowsAffected += await cmd.ExecuteNonQueryAsync();
+					} 
+				} 
 
 				if (rowsAffected > 0)
 				{
-					return Ok("Menu item added successfully.");
+					return Ok($"{rowsAffected} menu item(s) added successfully.");
 				}
 				else
 				{
-					return StatusCode(500, "Failed to add menu item.");
+					return StatusCode(500, "Failed to add menu item(s).");
 				}
 			}
 			catch (Exception ex)

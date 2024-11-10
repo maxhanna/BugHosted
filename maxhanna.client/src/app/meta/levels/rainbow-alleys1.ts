@@ -1,5 +1,5 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
-import { DOWN, gridCells } from "../helpers/grid-cells";
+import { DOWN, LEFT, RIGHT, UP, gridCells } from "../helpers/grid-cells";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
@@ -41,6 +41,7 @@ import { Salesman } from "../objects/Npc/Salesman/salesman";
 import { SkillType } from "../helpers/skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, getMaskNameById } from "../objects/Wardrobe/mask";
+import { UndergroundLevel1 } from "./underground-level1";
  
 
 export class RainbowAlleys1 extends Level { 
@@ -119,11 +120,15 @@ export class RainbowAlleys1 extends Level {
       new InventoryItem({ id: 0, name: "BotMask", image: BOT_MASK.name, category: "mask" }), 
       new InventoryItem({ id: 0, name: "BunnyEarsMask", image: BUNNYEARS_MASK.name, category: "mask" }), 
     ];
+
+    const tmpLvl = new Level();
+    tmpLvl.name = "RainbowAlleys1";
+
     const salesMan = new Salesman(
       {
         position: new Vector2(gridCells(8), gridCells(10) - 0.005),
         heroPosition: new Vector2(gridCells(8), gridCells(11)),
-        entranceLevel: this,
+        entranceLevel: tmpLvl,
         items: maskSelection
       }); 
     salesMan.body.offsetY += 10;
@@ -223,25 +228,38 @@ export class RainbowAlleys1 extends Level {
     const undergroundentrance = new Sprite(
       {
         resource: resources.images["undergroundentrance"],
-        frameSize: new Vector2(127, 130),
-        position: new Vector2(gridCells(21), gridCells(-14)),
+        frameSize: new Vector2(127, 170),
+        position: new Vector2(gridCells(21), gridCells(-15)),
         offsetX: -1
       });
     this.addChild(undergroundentrance); 
     for (let x = 0; x < 8; x++) {
 
-      const slope = new Slope({ position: new Vector2(gridCells(21) + gridCells(x), gridCells(-7)), showSprite: true, slopeType: DOWN });
+      const slope = new Slope({ position: new Vector2(gridCells(21) + gridCells(x), gridCells(-7)), showSprite: false, slopeType: DOWN, endScale: new Vector2(0.69, 0.69) });
       this.addChild(slope);
+
+
+      const slopeUp = new Slope({ position: new Vector2(gridCells(21) + gridCells(x), gridCells(-12)), showSprite: false, slopeType: UP, slopeDirection: DOWN, startScale: new Vector2(0.69, 0.69) });
+      this.addChild(slopeUp);
     }
     const sign = new Sprite(
-      { objectId: -1, resource: resources.images["sign"], position: new Vector2(gridCells(21), gridCells(-7)), frameSize: new Vector2(16, 18), isSolid: true }
+      { objectId: -1, resource: resources.images["sign"], position: new Vector2(gridCells(21), gridCells(-5)), frameSize: new Vector2(16, 18), isSolid: true }
     );
     sign.textContent = [
       {
         string: [`Underground.`],
       } as Scenario,
     ];
-    this.addChild(sign); 
+    this.addChild(sign);
+    const sign2 = new Sprite(
+      { objectId: -1, resource: resources.images["sign"], position: new Vector2(gridCells(28), gridCells(-5)), frameSize: new Vector2(16, 18), isSolid: true, flipX: true }
+    );
+    sign2.textContent = [
+      {
+        string: [`Underground.`],
+      } as Scenario,
+    ];
+    this.addChild(sign2);
 
 
     //NPCs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
@@ -254,10 +272,20 @@ export class RainbowAlleys1 extends Level {
 
     //EXITS
     for (let x = 0; x < 8; x++) {
-      const brushRoad2Exit = new Exit(
-        { position: new Vector2(gridCells(21) + gridCells(x), gridCells(43)), showSprite: true, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+    
+        const brushRoad2Exit = new Exit(
+          { position: new Vector2(gridCells(21) + gridCells(x), gridCells(43)), showSprite: true, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+        );
+        this.addChild(brushRoad2Exit);
+    
+    }
+    for (let x = 0; x < 8; x++) {
+      for (let y = 0; y < 2; y++) { 
+      const underground1Exit = new Exit(
+        { position: new Vector2(gridCells(21) + gridCells(x), gridCells(-14) + gridCells(y)), showSprite: false, targetMap: "UndergroundLevel1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
-      this.addChild(brushRoad2Exit);
+      this.addChild(underground1Exit);
+    }
     }
 
     //Walls
@@ -288,12 +316,17 @@ export class RainbowAlleys1 extends Level {
   }
 
   override ready() {
-    events.on("HERO_EXITS", this, (targetMap: string) => { 
+    events.on("HERO_EXITS", this, (targetMap: string) => {
       if (targetMap === "BrushRoad2") {
         events.emit("CHANGE_LEVEL", new BrushRoad2({
           heroPosition: new Vector2(gridCells(9), gridCells(1)), itemsFound: this.itemsFound
         }));
       } 
+      else if (targetMap === "UndergroundLevel1") {
+        events.emit("CHANGE_LEVEL", new UndergroundLevel1({
+          heroPosition: new Vector2(gridCells(9), gridCells(1)), itemsFound: this.itemsFound
+        }));
+      }
     }); 
   } 
 }

@@ -775,7 +775,7 @@ namespace maxhanna.Server.Controllers
                         {
                             if (request.BattleIds != null)
                             {
-                                await DeleteReport(request.User.Id, request.BattleIds, conn, transaction);
+                                await DeleteReport(request.User.Id ?? 0, request.BattleIds, conn, transaction);
                             }
                             else
                             {

@@ -8,7 +8,7 @@ export class Level extends GameObject {
   name: string = "";
   defaultHeroPosition = new Vector2(gridCells(1), gridCells(1)); 
   itemsFound: string[] = [];
-  walls: Set<string> = new Set();
+  walls: Set<string> = new Set(); 
 
   constructor() {
     super({ position: new Vector2(0, 0) });

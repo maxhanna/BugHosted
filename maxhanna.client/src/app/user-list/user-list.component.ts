@@ -6,7 +6,9 @@ import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
 import { FriendService } from '../../services/friend.service';
+import { Pipe, PipeTransform } from '@angular/core';
 
+  
 @Component({
   selector: 'app-user-list',
   templateUrl: './user-list.component.html',

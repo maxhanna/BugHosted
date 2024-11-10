@@ -5,7 +5,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 {
     public class User
     {
-        public int Id { get; set; }
+        public int? Id { get; set; } // leave nullable because users need to be able to login without IDs
         public string? Username { get; set; }
         public string? Pass { get; set; }
         public DateTime? Created { get; set; }

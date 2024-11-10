@@ -5,7 +5,8 @@ import { resources } from "../../../helpers/resources";
 import { events } from "../../../helpers/events";
 import { Scenario } from "../../../helpers/story-flags";
 export class Wardrobe extends GameObject { 
-  body?: Sprite;   
+  body?: Sprite;
+  blockSelection = false;
 
   constructor(config: { position: Vector2, isVisible?: boolean }) {
     super({
@@ -22,13 +23,16 @@ export class Wardrobe extends GameObject {
     } 
   }
   override ready() {
-    events.on("SELECTED_ITEM", this, (selectedItem: string) => {
-      console.log(selectedItem);
+    events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
       if (selectedItem === "Change Color") {
         events.emit("CHANGE_COLOR");
       }
       else if (selectedItem === "Open Wardrobe") {
-        events.emit("WARDROBE_OPENED");
+        if (!this.blockSelection) {
+          events.emit("WARDROBE_OPENED");
+          this.blockSelection = true;
+          setTimeout(() => { this.blockSelection = false }, 500);
+        }
       } 
     }); 
   }
