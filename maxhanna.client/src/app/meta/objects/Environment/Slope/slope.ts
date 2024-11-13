@@ -13,8 +13,17 @@ export class Slope extends GameObject {
   slopeDirection: undefined | typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT; // Direction the slope is going in
   startScale: Vector2;
   endScale: Vector2;
+  slopeStepHeight: Vector2;
 
-  constructor(params: { position: Vector2, showSprite?: boolean, slopeType?: typeof UP | typeof DOWN, slopeDirection?: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT, startScale?: Vector2, endScale?: Vector2 }) {
+  constructor(params: {
+    position: Vector2,
+    showSprite?: boolean,
+    slopeType?: typeof UP | typeof DOWN,
+    slopeDirection?: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT,
+    startScale?: Vector2,
+    endScale?: Vector2,
+    slopeStepHeight?: Vector2,
+  }) {
     super({
       position: params.position, 
     });
@@ -22,6 +31,7 @@ export class Slope extends GameObject {
     this.slopeDirection = params.slopeDirection ?? UP;
     this.startScale = params.startScale ?? new Vector2(1, 1);
     this.endScale = params.endScale ?? new Vector2(1, 1);
+    this.slopeStepHeight = params.slopeStepHeight ?? new Vector2(0.05, 0.05);
 
     if (params.showSprite) {
       const slopeSprite = new Sprite({
@@ -42,7 +52,7 @@ export class Slope extends GameObject {
       const roundedHeroY = Math.round(hero.destinationPosition.y);
       if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {
         //console.log("HERO_SLOPE", roundedHeroX, roundedHeroY, this.startScale);
-        events.emit("HERO_SLOPE", { heroId: hero.id, slopeType: this.slopeType, slopeDirection: this.slopeDirection, startScale: this.startScale, endScale: this.endScale });
+        events.emit("HERO_SLOPE", { heroId: hero.id, slopeType: this.slopeType, slopeDirection: this.slopeDirection, startScale: this.startScale, endScale: this.endScale, slopeStepHeight: this.slopeStepHeight });
       }  
     });
 
@@ -50,7 +60,7 @@ export class Slope extends GameObject {
       if (hero.position.x === this.position.x && hero.position.y === this.position.y) {
         console.log(`HERO_SLOPE FROM HERO_CREATED, hero.position ${hero.position}, this.startScale ${this.startScale}, this.endScale ${this.endScale}`);
         setTimeout(() => {
-          events.emit("HERO_SLOPE", { heroId: hero.id, slopeType: this.slopeType, slopeDirection: this.slopeDirection, startScale: this.startScale, endScale: this.endScale });
+          events.emit("HERO_SLOPE", { heroId: hero.id, slopeType: this.slopeType, slopeDirection: this.slopeDirection, startScale: this.startScale, endScale: this.endScale, slopeStepHeight: this.slopeStepHeight });
         }, 1); //idk why but mandatory timeout here
       }
     })

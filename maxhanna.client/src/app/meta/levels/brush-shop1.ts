@@ -8,18 +8,20 @@ import { Level } from "../objects/Level/level";
 import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite";
 import { Salesman } from "../objects/Npc/Salesman/salesman";
-import { BrushLevel1 } from "./brush-level1";
-import { HeroRoomLevel } from "./hero-room";
+import { BrushLevel1 } from "./brush-level1"; 
 import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER0, TALKED_TO_BRUSH_SHOP_OWNER1, TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH, storyFlags } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc";
 import { Mom } from "../objects/Npc/Mom/mom";
 import { Bot } from "../objects/Bot/bot"; 
 import { InventoryItem } from "../objects/InventoryItem/inventory-item"; 
 import { Tv } from "../objects/Environment/Tv/tv";
+import { BASE, FLOOR, HUD } from "../objects/game-object";
 
 
 export class BrushShop1 extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(3), gridCells(8));
+  showDebugSprites = false;
+
   firstBotSelection = storyFlags.contains(GOT_FIRST_METABOT) ? [] : [
     new InventoryItem({ id: 0, name: "Jaguar", image: "botFrame", category: "botFrame", stats: { hp: 100, type: SkillType.STRENGTH } }),
     new InventoryItem({ id: 1, name: "Ram", image: "botFrame5", category: "botFrame", stats: { hp: 100, type: SkillType.ARMOR } }),
@@ -48,13 +50,29 @@ export class BrushShop1 extends Level {
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
     }
+    for (let x = 0; x < 8; x++) {
+      for (let y = 0; y < 10; y++) {
+        const whiteBg = new Sprite(
+          {
+            objectId: 0,
+            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
+            position: new Vector2(gridCells(x), gridCells(y)),
+            frame: 1,
+            frameSize: new Vector2(2, 2),
+            preventDraw: !this.showDebugSprites,
+            drawLayer: !this.showDebugSprites ? undefined : HUD
+          }
+        );
+        this.addChild(whiteBg);
+      }
+    }
 
     for (let x = 0; x < gridCells(7); x += gridCells(2)) { // Increment by 25
       for (let y = 0; y < gridCells(7); y += gridCells(2)) { // Increment by 27
         const shopFloor = new Sprite(
           { resource: resources.images["shopFloor"], position: new Vector2(x, y), frameSize: new Vector2(32, 32) }
         );
-        shopFloor.drawLayer = "BASE";
+        shopFloor.drawLayer = BASE;
         this.addChild(shopFloor);
       }
     }
@@ -133,7 +151,7 @@ export class BrushShop1 extends Level {
         frameSize: new Vector2(32, 32)
       }
     );
-    carpet1.drawLayer = "FLOOR";
+    carpet1.drawLayer = FLOOR;
     this.addChild(carpet1);
     const carpet2 = new Sprite(
       {
@@ -142,7 +160,7 @@ export class BrushShop1 extends Level {
         frameSize: new Vector2(32, 32)
       }
     );
-    carpet2.drawLayer = "FLOOR";
+    carpet2.drawLayer = FLOOR;
     this.addChild(carpet2);
 
 

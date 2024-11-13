@@ -7,10 +7,9 @@ export class HouseSide extends GameObject {
 
   constructor(params:{ position: Vector2 }) {
     super({
-      position: params.position
+      position: params.position, isSolid: true
     })
-    
-    this.isSolid = true; 
+     
     this.body = new Sprite({
       resource: resources.images["houseSide"],
       position: new Vector2(2, -80),

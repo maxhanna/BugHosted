@@ -7,10 +7,9 @@ export class Shop extends GameObject {
 
   constructor(x: number, y: number) {
     super({
-      position: new Vector2(x, y)
+      position: new Vector2(x, y), isSolid: true
     })
-    
-    this.isSolid = true; 
+     
     this.body = new Sprite({
       resource: resources.images["shop"],
       position: new Vector2(2, -100),

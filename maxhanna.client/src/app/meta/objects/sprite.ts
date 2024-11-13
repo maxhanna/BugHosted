@@ -1,7 +1,7 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { Animations } from "../helpers/animations";
-import { GameObject } from "./game-object";
+import { BASE, FLOOR, GROUND, GameObject, HUD } from "./game-object";
 
 export class Sprite extends GameObject {
   objectId: number;
@@ -18,16 +18,34 @@ export class Sprite extends GameObject {
   flipX?: boolean;
   flipY?: boolean;
   offsetX: number;
-  offsetY: number;
+  offsetY: number; 
   precomputedCanvases: Map<string, HTMLCanvasElement> = new Map(); // Cache for precomputed frames
 
   constructor(params: {
-    objectId?: number, resource: Resource, position?: Vector2, scale?: Vector2, frame?: number, frameSize?: Vector2, hFrames?: number, vFrames?:
-    number, animations?: Animations, name?: string, colorSwap?: ColorSwap, flipX?: boolean, flipY?: boolean, rotation?: number, isSolid?: boolean, offsetX? : number, offsetY?: number
+    objectId?: number,
+    resource: Resource,
+    position?: Vector2,
+    scale?: Vector2,
+    frame?: number,
+    frameSize?: Vector2,
+    hFrames?: number,
+    vFrames?: number,
+    animations?: Animations,
+    name?: string,
+    colorSwap?: ColorSwap,
+    flipX?: boolean,
+    flipY?: boolean,
+    rotation?: number,
+    isSolid?: boolean,
+    offsetX?: number,
+    offsetY?: number,
+    drawLayer?: typeof BASE | typeof GROUND | typeof FLOOR | typeof HUD,
+    preventDraw?: boolean,
   }) {
     super({ position: params.position ?? new Vector2(0, 0) });
     this.objectId = params.objectId ?? 0;
     this.position = params.position ?? new Vector2(0, 0);
+    this.drawLayer = params.drawLayer;
     this.frame = params.frame ?? 1;
     this.resource = params.resource;
     this.hFrames = params.hFrames ?? this.frame;
@@ -44,6 +62,7 @@ export class Sprite extends GameObject {
     this.rotation = params.rotation ?? 0;
     this.offsetX = params.offsetX ?? 0;
     this.offsetY = params.offsetY ?? 0;
+    this.preventDraw = params.preventDraw ?? false;
     this.buildFrameMap();
 
 

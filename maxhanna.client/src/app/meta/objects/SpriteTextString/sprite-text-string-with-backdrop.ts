@@ -1,5 +1,5 @@
 import { calculateWords } from "./sprite-font-map";
-import { GameObject } from "../game-object";
+import { GameObject, HUD } from "../game-object";
 import { Sprite } from "../sprite";
 import { resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
@@ -21,8 +21,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   canSelectItems = false;
   selectionIndex = 0; 
   constructor(config: { string?: string[], portraitFrame?: number, canSelectItems?: boolean }) {
-    super({ position: new Vector2(32, 118) });
-    this.drawLayer = "HUD";
+    super({ position: new Vector2(32, 118), drawLayer: HUD }); 
     if (config.canSelectItems) { 
       this.canSelectItems = config.canSelectItems;
     }

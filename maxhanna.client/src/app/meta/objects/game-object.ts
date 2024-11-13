@@ -3,21 +3,39 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { events } from "../helpers/events";
 import { Scenario, storyFlags } from "../helpers/story-flags";
 
+export const BASE = "BASE";
+export const GROUND = "GROUND";
+export const FLOOR = "FLOOR";
+export const HUD = "HUD";
+
 export class GameObject {
   parent?: any;
   children: any = [];
   position: Vector2; 
   hasReadyBeenCalled = false;
   isSolid = false;
-  drawLayer?: any;
+  drawLayer?: typeof BASE | typeof GROUND | typeof FLOOR | typeof HUD;
   textContent?: Scenario[];
   textPortraitFrame?: number;
   colorSwap?: ColorSwap = undefined;
   preventDraw: boolean = false;
 
-  constructor(params: { position: Vector2, colorSwap?: ColorSwap }) {
+  constructor(params: {
+    position: Vector2,
+    colorSwap?: ColorSwap,
+    drawLayer?: typeof BASE | typeof GROUND | typeof FLOOR | typeof HUD,
+    preventDraw?: boolean,
+    isSolid?: boolean,
+    textContent?: Scenario[],
+    textPortraitFrame?: number, 
+  }) {
     this.position = params.position ?? new Vector2(0, 0);
-    this.colorSwap = params.colorSwap; 
+    this.colorSwap = params.colorSwap;
+    this.preventDraw = params.preventDraw ?? false;
+    this.drawLayer = params.drawLayer;
+    this.isSolid = params.isSolid ?? false;
+    this.textContent = params.textContent;
+    this.textPortraitFrame = params.textPortraitFrame;
   }
 
   stepEntry(delta: number, root: any) {

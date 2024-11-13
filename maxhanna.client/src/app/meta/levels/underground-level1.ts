@@ -42,11 +42,12 @@ import { SkillType } from "../helpers/skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, getMaskNameById } from "../objects/Wardrobe/mask";
 import { RainbowAlleys1 } from "./rainbow-alleys1";
+import { BASE, FLOOR, HUD } from "../objects/game-object";
 
 
 export class UndergroundLevel1 extends Level {
-  override defaultHeroPosition = new Vector2(gridCells(36), gridCells(32));
-  showDebugSprites = false;
+  override defaultHeroPosition = new Vector2(gridCells(3), gridCells(1));
+  showDebugSprites = true;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined }) {
     super();
     this.name = "UndergroundLevel1";
@@ -57,67 +58,175 @@ export class UndergroundLevel1 extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-    for (let x = -4; x < 40; x++) {
+   
+    for (let x = -4; x < 170; x++) {
+      for (let y = 0; y < 9; y++) {
+        const whiteBg = new Sprite(
+          {
+            objectId: 0,
+            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
+            position: new Vector2(gridCells(x), gridCells(y)), 
+            frame: 1,
+            frameSize: new Vector2(2, 2),
+            preventDraw: !this.showDebugSprites,
+            drawLayer: !this.showDebugSprites ? undefined : HUD
+          }
+        ); 
+        this.addChild(whiteBg); 
+      }
+    }
+    
+
+    for (let x = -4; x < 90; x++) {
       for (let y = -10; y < 10; y++) {
-        const metroWall = new Sprite({ objectId: 0, resource: resources.images["metrowall"], position: new Vector2(gridCells(2 * x), gridCells(y)), frameSize: new Vector2(32, 16), flipX: Math.random() > 0.5, flipY: Math.random() > 0.5 });
-        metroWall.drawLayer = "BASE";
+        const metroWall = new Sprite({
+          objectId: 0, resource: resources.images["metrowall"],
+          position: new Vector2(gridCells(2 * x), gridCells(y)),
+          frameSize: new Vector2(32, 16),
+          drawLayer: BASE,
+          flipX: Math.random() > 0.5,
+          flipY: Math.random() > 0.5
+        }); 
         this.addChild(metroWall); 
       }
     }
     let flipX = false; 
-    for (let x = -4; x < 40; x++) { 
-      if (x % 10 == 0) {
-        flipX = !flipX;
-        const metalsewergrillside = new Sprite({ objectId: 0, resource: resources.images["metalsewergrillside"], position: new Vector2(gridCells(x), gridCells(0)), frameSize: new Vector2(16, 8), flipX: flipX });
-        metalsewergrillside.drawLayer = "FLOOR";
+    for (let x = -4; x < 44; x++) { 
+      if (x % 10 == 0) { 
+        const metalsewergrillside = new Sprite({ objectId: 0, resource: resources.images["metalsewergrillside"], position: new Vector2(gridCells(x), gridCells(0)), frameSize: new Vector2(16, 8), drawLayer: "FLOOR" });
         this.addChild(metalsewergrillside);
 
 
         if ((x > 5) && (x < 25 || x > 29)) {
-          const metalsewergrillside2 = new Sprite({ objectId: 0, resource: resources.images["metalsewergrillside"], position: new Vector2(gridCells(x), gridCells(6)), frameSize: new Vector2(16, 8), flipX: flipX, offsetX: -2, offsetY: 10, scale: new Vector2(0.9, 0.9) });
-          metalsewergrillside2.drawLayer = "FLOOR";
+          const metalsewergrillside2 = new Sprite({ objectId: 0, resource: resources.images["metalsewergrillside"], position: new Vector2(gridCells(x), gridCells(6)), frameSize: new Vector2(16, 8), drawLayer: "FLOOR", offsetX: -2, offsetY: 10, scale: new Vector2(0.9, 0.9) });
           this.addChild(metalsewergrillside2);
         }
       } else {
-        const metalsewergrill = new Sprite({ objectId: 0, resource: resources.images["metalsewergrill"], position: new Vector2(gridCells(x), gridCells(0)), frameSize: new Vector2(16, 8) });
-        metalsewergrill.drawLayer = "FLOOR";
-        this.addChild(metalsewergrill);
+        const metalsewergrill = new Sprite({ objectId: 0, resource: resources.images["metalsewergrill"], position: new Vector2(gridCells(x), gridCells(0)), drawLayer: "FLOOR", frameSize: new Vector2(16, 8) });
+         this.addChild(metalsewergrill);
         if ((x > 5) && (x < 25 || x > 29)) {
-          const metalsewergrill2 = new Sprite({ objectId: 0, resource: resources.images["metalsewergrill"], position: new Vector2(gridCells(x), gridCells(6)), frameSize: new Vector2(16, 8), offsetY: 10, scale: new Vector2(0.9, 0.9) });
-          metalsewergrill2.drawLayer = "FLOOR";
-          this.addChild(metalsewergrill2);
-          const metalsewergrill3 = new Sprite({ objectId: 0, resource: resources.images["metalsewergrill"], position: new Vector2(gridCells(x) - 5, gridCells(6)), frameSize: new Vector2(16, 8), offsetY: 10, scale: new Vector2(0.9, 0.9) });
-          metalsewergrill3.drawLayer = "FLOOR";
-          this.addChild(metalsewergrill3); 
+          const metalsewergrill2 = new Sprite({ objectId: 0, resource: resources.images["metalsewergrill"], position: new Vector2(gridCells(x), gridCells(6)), drawLayer: "FLOOR", frameSize: new Vector2(16, 8), offsetY: 10, scale: new Vector2(0.9, 0.9) });
+           this.addChild(metalsewergrill2);
+          const metalsewergrill3 = new Sprite({ objectId: 0, resource: resources.images["metalsewergrill"], position: new Vector2(gridCells(x) - 5, gridCells(6)), drawLayer: "FLOOR", frameSize: new Vector2(16, 8), offsetY: 10, scale: new Vector2(0.9, 0.9) });
+           this.addChild(metalsewergrill3); 
         } 
       } 
 
-      for (let y = 0; y < 4; y++) {
-        const metroFloor = new Sprite({ objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(x), gridCells(0) + gridCells(y)), frameSize: new Vector2(16, 16) });
-        metroFloor.drawLayer = "BASE";
+      for (let y = 0; y < 5; y++) {
+        const metroFloor = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(x), gridCells(0) + gridCells(y)), frameSize: new Vector2(16, 16),
+          drawLayer: BASE
+        }); 
         this.addChild(metroFloor);
 
-        if ((x < 3 || (x > 25 && x < 30))&& y<3) { 
-          const metroFloor = new Sprite({ objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(x), gridCells(4) + gridCells(y)), frameSize: new Vector2(16, 16) });
-          metroFloor.drawLayer = "BASE";
+        if ((x < 3 || (x > 25 && x < 30)) && y < 5) {
+          const metroFloor = new Sprite({
+            objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(x), gridCells(4) + gridCells(y)), frameSize: new Vector2(16, 16),
+            drawLayer: BASE
+          });
           this.addChild(metroFloor);
-        }
-
-        if (y < 2) { 
-          const metroFloor2 = new Sprite({ objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(x), gridCells(7) + gridCells(y)), frameSize: new Vector2(16, 16) });
-          metroFloor2.drawLayer = "BASE";
-          this.addChild(metroFloor2);
+        } 
+      }
+    }
+    for (let railNo = 0; railNo < 3; railNo++) {
+      for (let x = 0; x < 8; x++) {
+        if (x == 0 || x == 7) {
+          const metalRailSide = new Sprite({ position: new Vector2(gridCells(2) + gridCells(8 * railNo) + gridCells(x), gridCells(3)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 7, offsetY: -16 });
+          this.addChild(metalRailSide);
+        } else {
+          const metalRail = new Sprite({ position: new Vector2(gridCells(2) + gridCells(8 * railNo) + gridCells(x), gridCells(3)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
+          this.addChild(metalRail);
         }
       }
     }
     for (let x = 0; x < 8; x++) {
       if (x == 0 || x == 7) {
-        const metalRailSide = new Sprite({ position: new Vector2(gridCells(3) + gridCells(x), gridCells(3)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 7, offsetY: -16 });
+        const metalRailSide = new Sprite({ position: new Vector2(gridCells(30) + gridCells(x), gridCells(3)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 7, offsetY: -16 });
         this.addChild(metalRailSide);
-      } else { 
-        const metalRail = new Sprite({ position: new Vector2(gridCells(3) +gridCells(x), gridCells(3)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
+      } else {
+        const metalRail = new Sprite({ position: new Vector2(gridCells(30) + gridCells(x), gridCells(3)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
         this.addChild(metalRail);
       }
+    }
+     
+    for (let x = 0; x < 3; x++) {
+      if (x == 0 || x == 2) {
+        const metalRailSide = new Sprite({ position: new Vector2(gridCells(38) + gridCells(x), gridCells(3)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 2, offsetY: -16 });
+        this.addChild(metalRailSide);
+      } else {
+        const metalRail = new Sprite({ position: new Vector2(gridCells(38) + gridCells(x), gridCells(3)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
+        this.addChild(metalRail);
+      }
+    }
+    for (let y = 0; y < 4; y++) {
+
+      const metalRailSide0 = new Sprite({ position: new Vector2(gridCells(2), gridCells(2) + gridCells(y)), resource: resources.images["metalrailside"], isSolid: y != 0, frameSize: new Vector2(5, 16) });
+      this.addChild(metalRailSide0);
+
+      const metalRailSide = new Sprite({ position: new Vector2(gridCells(26), gridCells(2) + gridCells(y)), resource: resources.images["metalrailside"], isSolid: y != 0, flipX: true, frameSize: new Vector2(5, 16), offsetX: -5 });
+      this.addChild(metalRailSide);
+
+      const metalRailSide2 = new Sprite({ position: new Vector2(gridCells(30), gridCells(2) + gridCells(y)), resource: resources.images["metalrailside"], isSolid: y != 0, frameSize: new Vector2(5, 16)  });
+      this.addChild(metalRailSide2); 
+    }
+    //second floor
+    for (let x = 0; x < 70; x++) {
+      for (let y = 0; y < 16; y++) {
+        if ((x < 37 && y < 12) || (x > 14 && x < 27) ) continue;
+        const metroFloor = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(7) + gridCells(x), gridCells(1) + gridCells(y / 2)),
+          drawLayer: BASE, frameSize: new Vector2(16, 16), scale: new Vector2(0.9, 0.9)
+        }); 
+        this.addChild(metroFloor);
+       
+        const metroFloor2 = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(7) + 10 + gridCells(x), gridCells(1) + gridCells(y / 2)),
+          drawLayer: BASE, frameSize: new Vector2(16, 16), scale: new Vector2(0.9, 0.9)
+        }); 
+        this.addChild(metroFloor2);
+      } 
+    }
+    
+    for (let x = 0; x < 2; x++) {
+      for (let y = 0; y < 5; y++) {
+        const chair = new Sprite({
+          resource: resources.images["chair"],
+          position: new Vector2(gridCells(51) + gridCells(x), gridCells(2) + gridCells(y)),
+          frameSize: new Vector2(32, 32),
+          scale: new Vector2(0.7, 0.7),
+          drawLayer: FLOOR
+        }); 
+        this.addChild(chair);
+      }
+    }
+    for (let x = 0; x < 2; x++) {
+      for (let y = 0; y < 5; y++) {
+        const chair = new Sprite({
+          resource: resources.images["chair"],
+          position: new Vector2(gridCells(60) + gridCells(x), gridCells(2) + gridCells(y)),
+          frameSize: new Vector2(32, 32),
+          scale: new Vector2(0.7, 0.7),
+          drawLayer: FLOOR
+        }); 
+        this.addChild(chair);
+      }
+    }
+
+    for (let y = 0; y < 3; y++) { 
+      const advertisementpanelside = new Sprite({
+        resource: resources.images["advertisementpanelside"],
+        position: new Vector2(gridCells(56), gridCells(3) + gridCells(y)),
+        frameSize: new Vector2(32, 62),
+        isSolid: true,
+        drawLayer: FLOOR,
+        scale: new Vector2(0.7, 0.7)
+      });
+      advertisementpanelside.textContent = [
+        {
+          string: [`An ad for NightCityAutomaton Corp... That's where robots get made.`],
+        } as Scenario,
+      ];
+      this.addChild(advertisementpanelside); 
     }
 
     for (let x = 0; x < 5; x++) {
@@ -139,38 +248,268 @@ export class UndergroundLevel1 extends Level {
       const graphiti1 = new Sprite({ position: new Vector2(gridCells(x * 30) + gridCells(1), gridCells(-5)), resource: resources.images["graphiti1"], isSolid: false, frameSize: new Vector2(48, 32) });
       this.addChild(graphiti1);
       const graphiti2 = new Sprite({ position: new Vector2(gridCells(x * 30) + gridCells(-1.3), gridCells(-5.5)), resource: resources.images["graphiti2"], isSolid: false, frameSize: new Vector2(48, 32) });
-      this.addChild(graphiti2); 
+      this.addChild(graphiti2);
 
-      
+      const recycling = new Sprite({ position: new Vector2(gridCells(x * 30) + gridCells(-1), gridCells(-1) + 5), resource: resources.images["recycling"], isSolid: false, frameSize: new Vector2(23, 19) });
+      this.addChild(recycling);
+      const garbage = new Sprite({ position: new Vector2(gridCells(x * 30) + gridCells(-3), gridCells(-1) + 5), resource: resources.images["recycling"], isSolid: false, frameSize: new Vector2(23, 19), colorSwap: new ColorSwap([0,166,60], [200,200,202]) });
+      this.addChild(garbage); 
     }
-     
-    for (let x = 0; x < 8; x++) {
 
-      const slopeDown = new Slope({ position: new Vector2(gridCells(3), gridCells(6) + gridCells(x)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: RIGHT, endScale: new Vector2(0.74, 0.74) });
-      this.addChild(slopeDown); 
+    for (let x = 0; x < 4; x++) {
+      const metrobilboard = new Sprite({ position: new Vector2(gridCells(55) + gridCells(x), gridCells(0)), resource: resources.images["metrobilboard"], isSolid: true, frameSize: new Vector2(56, 56), offsetY: -40, preventDraw: x != 0 });
+      metrobilboard.textContent = [
+        {
+          string: [`An ad for NightCityAutomaton Corp... That's where robots get made.`],
+        } as Scenario,
+      ];
+      this.addChild(metrobilboard);
+    }
+    
 
-      const slopeUp0 = new Slope({ position: new Vector2(gridCells(6), gridCells(6) + gridCells(x)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
+    for (let y = 0; y < 8; y++) { 
+      const slopeUp0 = new Slope({ position: new Vector2(gridCells(6), gridCells(6) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
       this.addChild(slopeUp0);
 
-      const slopeUp = new Slope({ position: new Vector2(gridCells(22), gridCells(6) + gridCells(x)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: RIGHT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
+      const slopeUp = new Slope({ position: new Vector2(gridCells(22), gridCells(6) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: RIGHT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
       this.addChild(slopeUp);
 
-      const slopeDown2 = new Slope({ position: new Vector2(gridCells(30), gridCells(6) + gridCells(x)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: RIGHT, startScale: new Vector2(1, 1), endScale: new Vector2(0.74, 0.74) });
+      const slopeUp2 = new Slope({ position: new Vector2(gridCells(33), gridCells(6) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
+      this.addChild(slopeUp2);
+
+      const slopeUp3 = new Slope({ position: new Vector2(gridCells(48), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
+      this.addChild(slopeUp3);
+
+      const slopeUp4 = new Slope({ position: new Vector2(gridCells(75), gridCells(1) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: RIGHT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
+      this.addChild(slopeUp4);
+
+      const slopeUp5 = new Slope({ position: new Vector2(gridCells(150), gridCells(1) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
+      this.addChild(slopeUp5);
+
+      const slopeDown = new Slope({ position: new Vector2(gridCells(3), gridCells(6) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: RIGHT, endScale: new Vector2(0.74, 0.74) });
+      this.addChild(slopeDown); 
+
+      const slopeDown2 = new Slope({ position: new Vector2(gridCells(30), gridCells(6) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: RIGHT, startScale: new Vector2(1, 1), endScale: new Vector2(0.74, 0.74) });
       this.addChild(slopeDown2);
 
-      const slopeDown3 = new Slope({ position: new Vector2(gridCells(25), gridCells(6) + gridCells(x)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: LEFT, startScale: new Vector2(1, 1), endScale: new Vector2(0.74, 0.74) });
+      const slopeDown3 = new Slope({ position: new Vector2(gridCells(25), gridCells(6) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: LEFT, startScale: new Vector2(1, 1), endScale: new Vector2(0.74, 0.74) });
       this.addChild(slopeDown3);
 
-      const slopeUp2 = new Slope({ position: new Vector2(gridCells(33), gridCells(6) + gridCells(x)), showSprite: this.showDebugSprites, slopeType: UP, slopeDirection: LEFT, startScale: new Vector2(0.74, 0.74), endScale: new Vector2(1, 1) });
-      this.addChild(slopeUp2);
+      const slopeDown4 = new Slope({ position: new Vector2(gridCells(44), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: RIGHT, endScale: new Vector2(0.74, 0.74) });
+      this.addChild(slopeDown4);
+
+      const slopeDown5 = new Slope({ position: new Vector2(gridCells(79), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: LEFT, endScale: new Vector2(0.74, 0.74) });
+      this.addChild(slopeDown5);
+
+      const slopeDown6 = new Slope({ position: new Vector2(gridCells(146), gridCells(0) + gridCells(y)), showSprite: this.showDebugSprites, slopeType: DOWN, slopeDirection: RIGHT, endScale: new Vector2(0.74, 0.74) });
+      this.addChild(slopeDown6); 
     } 
 
-    const concretestair = new Sprite({ position: new Vector2(gridCells(3), gridCells(6)), resource: resources.images["concretestair"], isSolid: false, frameSize: new Vector2(70, 72), scale: new Vector2(1, 0.8), offsetY: 3 });
+    const concretestair = new Sprite({
+      position: new Vector2(gridCells(3), gridCells(6)),
+      resource: resources.images["concretestair"],
+      isSolid: false,
+      frameSize: new Vector2(70, 92),
+      scale: new Vector2(1, 0.8),
+      offsetY: -10,
+      drawLayer: FLOOR
+    }); 
     this.addChild(concretestair);
-    const concretestair2 = new Sprite({ position: new Vector2(gridCells(22), gridCells(6)), resource: resources.images["concretestair"], isSolid: false, frameSize: new Vector2(70, 72), scale: new Vector2(1, 0.8), offsetY: 3, flipX: true, offsetX: -5 });
-    this.addChild(concretestair2); 
-    const concretestair3 = new Sprite({ position: new Vector2(gridCells(30), gridCells(6)), resource: resources.images["concretestair"], isSolid: false, frameSize: new Vector2(70, 72), scale: new Vector2(1, 0.8), offsetY: 3});
+    const concretestair2 = new Sprite({
+      position: new Vector2(gridCells(22), gridCells(6)),
+      resource: resources.images["concretestair"],
+      isSolid: false,
+      drawLayer: FLOOR,
+      frameSize: new Vector2(70, 92),
+      scale: new Vector2(1, 0.8),
+      offsetY: -10,
+      flipX: true,
+      offsetX: -5
+    });
+    this.addChild(concretestair2);
+    const concretestair3 = new Sprite({
+      position: new Vector2(gridCells(30), gridCells(6)),
+      resource: resources.images["concretestair"],
+      isSolid: false,
+      drawLayer: FLOOR,
+      frameSize: new Vector2(70, 92),
+      scale: new Vector2(1, 0.8),
+      offsetY: -10,
+    });
     this.addChild(concretestair3);
+    const concretestair4 = new Sprite({
+      position: new Vector2(gridCells(44), gridCells(0)),
+      resource: resources.images["concretestair"],
+      isSolid: false,
+      drawLayer: FLOOR,
+      frameSize: new Vector2(70, 92),
+      scale: new Vector2(1, 1),
+      offsetY: -10,
+    });
+    this.addChild(concretestair4);
+    for (let y = 0; y < 2; y++) {
+      const concretestair5 = new Sprite({
+        position: new Vector2(gridCells(75), gridCells(y*4)),
+        resource: resources.images["concretestair"],
+        isSolid: false,
+        drawLayer: FLOOR,
+        frameSize: new Vector2(70, 92),
+        scale: new Vector2(1, 1), 
+        flipX: true,
+        offsetY: -12,
+      });
+      this.addChild(concretestair5);
+    }
+    const concretestair6 = new Sprite({
+      position: new Vector2(gridCells(146), gridCells(0)),
+      resource: resources.images["concretestair"],
+      isSolid: false,
+      drawLayer: FLOOR,
+      frameSize: new Vector2(70, 92),
+      scale: new Vector2(1, 1),
+      offsetY: -10,
+    });
+    this.addChild(concretestair6);
+
+    //long hallway
+    for (let x = 0; x < 67; x++) {
+      for (let y = 0; y < 8; y++) {
+        if (x > 10 && y > 4) continue;
+        const metroFloor = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(79) + gridCells(x), gridCells(0) + gridCells(y)),
+          drawLayer: BASE, frameSize: new Vector2(16, 16) 
+        });
+        this.addChild(metroFloor); 
+      }
+    }
+    for (let x = 0; x < 10; x++) {
+      if (x == 0 || x == 9) {
+        const metalRailSide = new Sprite({ position: new Vector2(gridCells(80)  + gridCells(x), gridCells(7)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 9, offsetY: -16 });
+        this.addChild(metalRailSide);
+      } else {
+        const metalRail = new Sprite({ position: new Vector2(gridCells(80) + gridCells(x), gridCells(7)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
+        this.addChild(metalRail);
+      }
+    }
+    for (let railNo = 0; railNo < 7; railNo++) {
+      for (let x = 0; x < 8; x++) {
+        if (x == 0 || x == 7) {
+          const metalRailSide = new Sprite({ position: new Vector2(gridCells(90) + gridCells(8 * railNo) + gridCells(x), gridCells(4)), resource: resources.images["metalrailside"], isSolid: true, frameSize: new Vector2(16, 32), flipX: x === 7, offsetY: -16 });
+          this.addChild(metalRailSide);
+        } else {
+          const metalRail = new Sprite({ position: new Vector2(gridCells(90) + gridCells(8 * railNo) + gridCells(x), gridCells(4)), resource: resources.images["metalrail"], isSolid: true, frameSize: new Vector2(16, 32), offsetY: -16 });
+          this.addChild(metalRail);
+        }
+      }
+    } 
+    for (let y = 0; y < 5; y++) {
+      const metalRailSide0 = new Sprite({ position: new Vector2(gridCells(90), gridCells(3) + gridCells(y)), resource: resources.images["metalrailside"], isSolid: y != 0, frameSize: new Vector2(5, 16), });
+      this.addChild(metalRailSide0);
+    }
+    for (let x = 0; x < 66; x++) {
+      if (x % 10 == 0) { 
+        const metalsewergrillside = new Sprite({ objectId: 0, resource: resources.images["metalsewergrillside"], position: new Vector2(gridCells(80) + gridCells(x), gridCells(0)), frameSize: new Vector2(16, 8), drawLayer: "FLOOR" });
+        this.addChild(metalsewergrillside);
+      } else {
+        const metalsewergrill = new Sprite({ objectId: 0, resource: resources.images["metalsewergrill"], position: new Vector2(gridCells(80) + gridCells(x), gridCells(0)), drawLayer: "FLOOR", frameSize: new Vector2(16, 8) });
+        this.addChild(metalsewergrill);
+      }
+    }
+    //long hallway second floor
+    for (let x = 0; x < 10; x++) {
+      for (let y = 0; y < 16; y++) {
+        const metroFloor = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(150) + gridCells(x), gridCells(1) + gridCells(y / 2)),
+          drawLayer: BASE, frameSize: new Vector2(16, 16), scale: new Vector2(0.9, 0.9)
+        });
+        this.addChild(metroFloor);
+
+        const metroFloor2 = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(150) + 10 + gridCells(x), gridCells(1) + gridCells(y / 2)),
+          drawLayer: BASE, frameSize: new Vector2(16, 16), scale: new Vector2(0.9, 0.9)
+        });
+        this.addChild(metroFloor2);
+      }
+    }
+    for (let x = 0; x < 20; x++) {
+      for (let y = 0; y < 8; y++) {
+        const metroFloor = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(160) + gridCells(x), gridCells(5) + gridCells(y / 2)),
+          drawLayer: BASE, frameSize: new Vector2(16, 16), scale: new Vector2(0.9, 0.9)
+        });
+        this.addChild(metroFloor);
+
+        const metroFloor2 = new Sprite({
+          objectId: 0, resource: resources.images["metrotile"], position: new Vector2(gridCells(160) + 10 + gridCells(x), gridCells(5) + gridCells(y / 2)),
+          drawLayer: BASE, frameSize: new Vector2(16, 16), scale: new Vector2(0.9, 0.9)
+        });
+        this.addChild(metroFloor2);
+      }
+    }
+    for (let x = 0; x < 10; x++) {
+      const slopeUp0 = new Slope({
+        position: new Vector2(gridCells(150) + gridCells(x), gridCells(4)),
+        showSprite: this.showDebugSprites,
+        slopeType: UP,
+        slopeDirection: DOWN,
+        slopeStepHeight: new Vector2(0.02, 0.02),
+        startScale: new Vector2(0.74, 0.74),
+        endScale: new Vector2(1, 1)
+      });
+      this.addChild(slopeUp0);
+
+      for (let countx = 0; countx < 6; countx++) {
+        for (let y = 0; y < 5; y++) {
+          if (countx == y && x < 5) {
+            let startScaleX, startScaleY, endScaleX, endScaleY;
+
+            if (x <= 2) {
+              // Scale rises as x increases from 0 to 2, reaching 0.74 at x = 2
+              startScaleX = 0.74 + (0.12 * x); // Adjust multiplier as needed to reach 0.74
+              startScaleY = 0.74 + (0.12 * x);
+
+              endScaleX = 1 - (0.12 * (x * -1));      // Adjust for a smooth transition
+              endScaleY = 1 - (0.12 * (x * -1));
+            } else {
+              // Scale decreases from 0.74 as x goes from 3 to 5
+              startScaleX = 0.74 + (0.05 * x); // Adjust multiplier as needed to reach 0.74
+              startScaleY = 0.74 + (0.05 * x);
+              endScaleX = 0.85 - (0.12 * -x);  // Adjust to match the desired pattern
+              endScaleY = 0.85 - (0.12 * -x);
+            }
+
+            const slopeUp1 = new Slope({
+              position: new Vector2(
+                gridCells(160) - gridCells(countx) - gridCells(x),
+                gridCells(4) + gridCells(y)
+              ),
+              showSprite: this.showDebugSprites,
+              slopeType: UP,
+              slopeDirection: RIGHT,
+              slopeStepHeight: new Vector2(0.02, 0.02),
+              startScale: new Vector2(startScaleX, startScaleY),
+              endScale: new Vector2(endScaleX, endScaleY),
+            });
+            this.addChild(slopeUp1);
+          }
+        }
+      }
+
+     
+    }
+    for (let y = 0; y < 5; y++) {
+      const slopeDown0 = new Slope({
+        position: new Vector2(gridCells(160), gridCells(4) + gridCells(y)),
+        showSprite: this.showDebugSprites,
+        slopeType: DOWN,
+        slopeDirection: LEFT,
+        slopeStepHeight: new Vector2(0.02, 0.02),
+        startScale: new Vector2(1, 1),
+        endScale: new Vector2(0.74, 0.74)
+      });
+      this.addChild(slopeDown0);
+    }
+
 
     //EXITS
     for (let x = 0; x < 8; x++) {

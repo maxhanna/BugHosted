@@ -7,6 +7,7 @@ export class Resources {
   dir = "assets/metabots/";
   constructor() {
     this.toLoad = {
+      advertisementpanelside: `${this.dir}advertisementpanelside.png`,
       apple: `${this.dir}apple.png`,
       armobot: `${this.dir}armobot.png`,
       anbumask: `${this.dir}anbumask.png`,
@@ -68,6 +69,7 @@ export class Resources {
       metalrail: `${this.dir}metalrail.png`,
       metalsewergrill: `${this.dir}metalsewergrill.png`,
       metalsewergrillside: `${this.dir}metalsewergrillside.png`,
+      metrobilboard: `${this.dir}metrobilboard.png`,
       metrotile: `${this.dir}metrotile.png`,
       metrowall: `${this.dir}metrowall.png`,
       mom: `${this.dir}mom-sprite.png`,
@@ -75,6 +77,7 @@ export class Resources {
       painting: `${this.dir}painting.png`,
       pointer: `${this.dir}pointer.png`,
       portraits: `${this.dir}portraits-sheet.png`,
+      recycling: `${this.dir}recycling.png`,
       referee: `${this.dir}referee-spritesheet.png`,
       salesPerson: `${this.dir}salesperson.png`,
       sign: `${this.dir}sign.png`,

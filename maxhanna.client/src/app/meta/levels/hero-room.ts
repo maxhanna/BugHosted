@@ -11,10 +11,12 @@ import { HeroHome } from "./hero-home";
 import { Inventory } from "../objects/inventory";
 import { Tv } from "../objects/Environment/Tv/tv";
 import { Scenario } from "../helpers/story-flags";
+import { BASE, HUD } from "../objects/game-object";
  
 
 export class HeroRoomLevel extends Level {
   override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
+  showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super(); 
     this.name = "HeroRoom";
@@ -25,10 +27,26 @@ export class HeroRoomLevel extends Level {
       this.itemsFound = params.itemsFound;
     }
 
+    for (let x = 1; x < 20; x++) {
+      for (let y = 0; y < 15; y++) {
+        const whiteBg = new Sprite(
+          {
+            objectId: 0,
+            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
+            position: new Vector2(gridCells(x), gridCells(y)),
+            frame: 1,
+            frameSize: new Vector2(2, 2),
+            preventDraw: !this.showDebugSprites,
+            drawLayer: !this.showDebugSprites ? undefined : HUD
+          }
+        );
+        this.addChild(whiteBg);
+      }
+    }
     const floor = new Sprite(
       { resource: resources.images["bedroomFloor"], frameSize: new Vector2(320, 220) }
     );
-    floor.drawLayer = "BASE";
+    floor.drawLayer = BASE;
     this.addChild(floor);
     
     const painting = new Sprite(

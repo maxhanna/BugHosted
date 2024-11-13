@@ -32,10 +32,12 @@ import { BrushLevel1 } from "./brush-level1";
 import { BrushRoad1 } from "./brush-road1";
 import { RainbowAlleys1 } from "./rainbow-alleys1";
 import { Bot } from "../objects/Bot/bot";
+import { BASE, GROUND, FLOOR, HUD } from "../objects/game-object";
 
 
 export class BrushRoad2 extends Level {
   override defaultHeroPosition = new Vector2(gridCells(50), gridCells(30));
+  showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined }) {
     super();
     this.name = "BrushRoad2";
@@ -56,13 +58,30 @@ export class BrushRoad2 extends Level {
         frameSize: new Vector2(2, 2),
       }
     );
-    whiteBg.drawLayer = "BASE";
+    whiteBg.drawLayer = BASE;
     this.addChild(whiteBg);
+     
+    for (let x = 6; x < 57; x++) {
+      for (let y = -1; y < 45; y++) {
+        const whiteBg = new Sprite(
+          {
+            objectId: 0,
+            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
+            position: new Vector2(gridCells(x), gridCells(y)),
+            frame: 1,
+            frameSize: new Vector2(2, 2),
+            preventDraw: !this.showDebugSprites,
+            drawLayer: !this.showDebugSprites ? undefined : HUD
+          }
+        );
+        this.addChild(whiteBg);
+      }
+    }
 
     for (let x = -4; x < 41; x++) {
       for (let y = -4; y < 25; y++) {
         const grass = new Sprite({ objectId: 0, resource: resources.images["shortgrass"], position: new Vector2(gridCells(2 * x), gridCells(2 * y)), frameSize: new Vector2(32, 32) });
-        grass.drawLayer = "BASE";
+        grass.drawLayer = BASE;
         this.addChild(grass);
       }
     }
@@ -70,39 +89,39 @@ export class BrushRoad2 extends Level {
       const goldPath = new Sprite(
         { resource: resources.images["goldenPath"], position: new Vector2(gridCells(7), y * 14), frameSize: new Vector2(14, 16), rotation: Math.PI * 3 / 2, offsetX: -8 }
       );
-      goldPath.drawLayer = "GROUND";
+      goldPath.drawLayer = GROUND;
       this.addChild(goldPath);
 
       if ((y > 1 && y < 3) || (y > 17 && y < 32)) {
         const goldPath2 = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(11), y * 14), frameSize: new Vector2(14, 16), rotation: Math.PI / 2, offsetX: -7, offsetY: -5 }
         );
-        goldPath2.drawLayer = "GROUND";
+        goldPath2.drawLayer = GROUND;
         this.addChild(goldPath2);
       }
       if (y > 17 && y < 32) {
         const goldPath3 = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(26), y * 14), frameSize: new Vector2(14, 16), rotation: Math.PI * 3 / 2, offsetX: -8, offsetY: -10 }
         );
-        goldPath3.drawLayer = "GROUND";
+        goldPath3.drawLayer = GROUND;
         this.addChild(goldPath3);
 
         const goldPath4 = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(28), y * 14), frameSize: new Vector2(14, 16), rotation: Math.PI / 2, offsetY: -10 }
         );
-        goldPath4.drawLayer = "GROUND";
+        goldPath4.drawLayer = GROUND;
         this.addChild(goldPath4);
 
         const goldPath5 = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(39), y * 14), frameSize: new Vector2(14, 16), rotation: Math.PI * 3 / 2, offsetX: -8, offsetY: -10 }
         );
-        goldPath5.drawLayer = "GROUND";
+        goldPath5.drawLayer = GROUND;
         this.addChild(goldPath5);
 
         const goldPath6 = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(41), y * 14), frameSize: new Vector2(14, 16), rotation: Math.PI / 2, offsetY: -10 }
         );
-        goldPath6.drawLayer = "GROUND";
+        goldPath6.drawLayer = GROUND;
         this.addChild(goldPath6);
       }
 
@@ -110,7 +129,7 @@ export class BrushRoad2 extends Level {
         const goldPath65 = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(49), y * 14), frameSize: new Vector2(14, 16), rotation: Math.PI * 3 / 2, offsetX: -10, offsetY: -12 }
         );
-        goldPath65.drawLayer = "GROUND";
+        goldPath65.drawLayer = GROUND;
         this.addChild(goldPath65);
       }
 
@@ -118,7 +137,7 @@ export class BrushRoad2 extends Level {
         const goldPath7 = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(52), y * 14), frameSize: new Vector2(14, 16), rotation: Math.PI / 2, offsetX: -10, offsetY: -10 }
         );
-        goldPath7.drawLayer = "GROUND";
+        goldPath7.drawLayer = GROUND;
         this.addChild(goldPath7);
       }
     }  
@@ -126,7 +145,7 @@ export class BrushRoad2 extends Level {
       const goldPath = new Sprite(
         { resource: resources.images["goldenPath"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(2)), frameSize: new Vector2(14, 16), scale: new Vector2(1.51, 1), offsetY: 6 }
       );
-      goldPath.drawLayer = "GROUND";
+      goldPath.drawLayer = GROUND;
       this.addChild(goldPath);
     }
     for (let x = -1; x < 22; x++) {
@@ -134,31 +153,31 @@ export class BrushRoad2 extends Level {
         const goldPath = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(7)), frameSize: new Vector2(14, 16), scale: new Vector2(1.51, 1), flipY: true, offsetY: -6 }
         );
-        goldPath.drawLayer = "GROUND";
+        goldPath.drawLayer = GROUND;
         this.addChild(goldPath);
         const goldPath2 = new Sprite(
           { resource: resources.images["goldenPath"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(10)), frameSize: new Vector2(14, 16), scale: new Vector2(1.51, 1),  }
         );
-        goldPath2.drawLayer = "GROUND";
+        goldPath2.drawLayer = GROUND;
         this.addChild(goldPath2);
 
       }
       const goldPath3 = new Sprite(
         { resource: resources.images["goldenPath"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(15)), frameSize: new Vector2(14, 16), scale: new Vector2(1.51, 1), flipY: true,  offsetY: -6 }
       );
-      goldPath3.drawLayer = "GROUND";
+      goldPath3.drawLayer = GROUND;
       this.addChild(goldPath3);
 
       const goldPath4 = new Sprite(
         { resource: resources.images["goldenPath"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(28)), frameSize: new Vector2(14, 16), scale: new Vector2(1.51, 1),  offsetY: -12 }
       );
-      goldPath4.drawLayer = "GROUND";
+      goldPath4.drawLayer = GROUND;
       this.addChild(goldPath4);
 
       const goldPath5 = new Sprite(
         { resource: resources.images["goldenPath"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(32)), frameSize: new Vector2(14, 16), scale: new Vector2(1.51, 1),  flipY: true  }
       );
-      goldPath5.drawLayer = "GROUND";
+      goldPath5.drawLayer = GROUND;
       this.addChild(goldPath5);
     } 
 
@@ -166,7 +185,7 @@ export class BrushRoad2 extends Level {
       const goldPath = new Sprite(
         { resource: resources.images["goldenPath"], position: new Vector2(x * 14, 0), frameSize: new Vector2(14, 16) }
       );
-      goldPath.drawLayer = "GROUND";
+      goldPath.drawLayer = GROUND;
       this.addChild(goldPath);
     }
   
@@ -177,7 +196,7 @@ export class BrushRoad2 extends Level {
         const grassBlade = new Sprite(
           { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(1) + (gridCells(x) / 2), gridCells(1) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9), offsetX: -8 }
         );
-        grassBlade.drawLayer = "FLOOR";
+        grassBlade.drawLayer = FLOOR;
         this.addChild(grassBlade);
       }
     }
@@ -186,7 +205,7 @@ export class BrushRoad2 extends Level {
         const grassBlade = new Sprite(
           { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(1) + (gridCells(x) / 2), gridCells(7) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9), offsetX: -8 }
         );
-        grassBlade.drawLayer = "FLOOR";
+        grassBlade.drawLayer = FLOOR;
         this.addChild(grassBlade);
       }
     } 
@@ -196,7 +215,7 @@ export class BrushRoad2 extends Level {
         const grassBlade = new Sprite(
           { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(7) + (gridCells(x) / 2), gridCells(33) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9) }
         );
-        grassBlade.drawLayer = "FLOOR";
+        grassBlade.drawLayer = FLOOR;
         this.addChild(grassBlade);
       }
     } 
@@ -246,12 +265,12 @@ export class BrushRoad2 extends Level {
       const brickTopRoadExit = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(7), gridCells(0) + gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 32) }
       );
-      brickTopRoadExit.drawLayer = "FLOOR";
+      brickTopRoadExit.drawLayer = FLOOR;
       this.addChild(brickTopRoadExit);
       const brickTopRoadExit2 = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(9), gridCells(0) + gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 32) }
       );
-      brickTopRoadExit2.drawLayer = "FLOOR";
+      brickTopRoadExit2.drawLayer = FLOOR;
       this.addChild(brickTopRoadExit2);
     }
 
@@ -262,7 +281,7 @@ export class BrushRoad2 extends Level {
         const brickTopRoadHalfCorner = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(9) + gridCells(2 * x), gridCells(5) + 16), frame: 1, frameSize: new Vector2(16, 16) }
         );
-        brickTopRoadHalfCorner.drawLayer = "FLOOR";
+        brickTopRoadHalfCorner.drawLayer = FLOOR;
         this.addChild(brickTopRoadHalfCorner);
 
       } else if (x < 20) { 
@@ -270,23 +289,23 @@ export class BrushRoad2 extends Level {
         const brickTopRoad2 = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(5)), frame: 1, frameSize: new Vector2(32, 32) }
         );
-        brickTopRoad2.drawLayer = "FLOOR";
+        brickTopRoad2.drawLayer = FLOOR;
         this.addChild(brickTopRoad2);
         const brickTopRoad3 = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(3)), frame: 1, frameSize: new Vector2(32, 32) }
         );
-        brickTopRoad3.drawLayer = "FLOOR";
+        brickTopRoad3.drawLayer = FLOOR;
         this.addChild(brickTopRoad3);
       } else {
         const brickTopRoad2 = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(5)), frame: 1, frameSize: new Vector2(16, 32) }
         );
-        brickTopRoad2.drawLayer = "FLOOR";
+        brickTopRoad2.drawLayer = FLOOR;
         this.addChild(brickTopRoad2);
         const brickTopRoad3 = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(8) + gridCells(2 * x), gridCells(3)), frame: 1, frameSize: new Vector2(16, 32) }
         );
-        brickTopRoad3.drawLayer = "FLOOR";
+        brickTopRoad3.drawLayer = FLOOR;
         this.addChild(brickTopRoad3);
       }
     }
@@ -295,12 +314,12 @@ export class BrushRoad2 extends Level {
       const brickRoad = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(2 * x), gridCells(housesStartY) + gridCells(3)), frame: 1, frameSize: new Vector2(32, 32) }
       );
-      brickRoad.drawLayer = "FLOOR";
+      brickRoad.drawLayer = FLOOR;
       this.addChild(brickRoad);
       const brickRoad2 = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(2 * x), gridCells(housesStartY) + gridCells(5)), frame: 1, frameSize: new Vector2(32, 32) }
       );
-      brickRoad2.drawLayer = "FLOOR";
+      brickRoad2.drawLayer = FLOOR;
       this.addChild(brickRoad2);
 
 
@@ -308,12 +327,12 @@ export class BrushRoad2 extends Level {
         const brickRoadTop = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(2 * x), gridCells(housesStartY) - gridCells(14)), frame: 1, frameSize: new Vector2(32, 32) }
         );
-        brickRoadTop.drawLayer = "FLOOR";
+        brickRoadTop.drawLayer = FLOOR;
         this.addChild(brickRoadTop);
         const brickRoadTop2 = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(2 * x), gridCells(housesStartY) - gridCells(12)), frame: 1, frameSize: new Vector2(32, 32) }
         );
-        brickRoadTop2.drawLayer = "FLOOR";
+        brickRoadTop2.drawLayer = FLOOR;
         this.addChild(brickRoadTop2);
       }
 
@@ -333,18 +352,18 @@ export class BrushRoad2 extends Level {
       const brickRoad = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) - gridCells(6), gridCells(housesStartY) + gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 32) }
       );
-      brickRoad.drawLayer = "FLOOR";
+      brickRoad.drawLayer = FLOOR;
       this.addChild(brickRoad);
       const brickRoad2 = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) - gridCells(8), gridCells(housesStartY) + gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 32) }
       );
-      brickRoad2.drawLayer = "FLOOR";
+      brickRoad2.drawLayer = FLOOR;
       this.addChild(brickRoad2);
 
       const brickRoadBetweenHouse1 = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(11), gridCells(housesStartY) - gridCells(10) - gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 32) }
       );
-      brickRoadBetweenHouse1.drawLayer = "FLOOR";
+      brickRoadBetweenHouse1.drawLayer = FLOOR;
       this.addChild(brickRoadBetweenHouse1);
 
       if (y > -7) {
@@ -352,13 +371,13 @@ export class BrushRoad2 extends Level {
           const brickRoadBetweenHouse2 = new Sprite(
             { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(24), gridCells(housesStartY) - gridCells(10) - gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 16) }
           );
-          brickRoadBetweenHouse2.drawLayer = "FLOOR";
+          brickRoadBetweenHouse2.drawLayer = FLOOR;
           this.addChild(brickRoadBetweenHouse2);
         } else {
           const brickRoadBetweenHouse2 = new Sprite(
             { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(24), gridCells(housesStartY) - gridCells(10) - gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 32) }
           );
-          brickRoadBetweenHouse2.drawLayer = "FLOOR";
+          brickRoadBetweenHouse2.drawLayer = FLOOR;
           this.addChild(brickRoadBetweenHouse2);
         }
       }
@@ -369,12 +388,12 @@ export class BrushRoad2 extends Level {
         const brickRoadTop1 = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(34), gridCells(13) + gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 32) }
         );
-        brickRoadTop1.drawLayer = "FLOOR";
+        brickRoadTop1.drawLayer = FLOOR;
         this.addChild(brickRoadTop1);
         const brickRoadTop2 = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) + gridCells(36), gridCells(13) + gridCells(2 * y)), frame: 1, frameSize: new Vector2(12, 32) }
         );
-        brickRoadTop2.drawLayer = "FLOOR";
+        brickRoadTop2.drawLayer = FLOOR;
         this.addChild(brickRoadTop2);
       }
       if (y === 0) {
@@ -382,12 +401,12 @@ export class BrushRoad2 extends Level {
         const brickRoad = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) - gridCells(6), gridCells(housesStartY) + gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 16) }
         );
-        brickRoad.drawLayer = "FLOOR";
+        brickRoad.drawLayer = FLOOR;
         this.addChild(brickRoad);
         const brickRoad2 = new Sprite(
           { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(housesStartX) - gridCells(8), gridCells(housesStartY) + gridCells(2 * y)), frame: 1, frameSize: new Vector2(32, 16) }
         );
-        brickRoad2.drawLayer = "FLOOR";
+        brickRoad2.drawLayer = FLOOR;
         this.addChild(brickRoad2);
       }
     }

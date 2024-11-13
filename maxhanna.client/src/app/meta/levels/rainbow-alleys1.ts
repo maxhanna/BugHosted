@@ -42,10 +42,13 @@ import { SkillType } from "../helpers/skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, getMaskNameById } from "../objects/Wardrobe/mask";
 import { UndergroundLevel1 } from "./underground-level1";
+import { BASE, FLOOR, GROUND, HUD } from "../objects/game-object";
  
 
 export class RainbowAlleys1 extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(36), gridCells(32));
+  showDebugSprites = false;
+
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined }) {
     super();
     this.name = "RainbowAlleys1";
@@ -66,47 +69,65 @@ export class RainbowAlleys1 extends Level {
         frameSize: new Vector2(2, 2),
       }
     );
-    whiteBg.drawLayer = "BASE";
+    whiteBg.drawLayer = BASE;
     this.addChild(whiteBg);
+
+    for (let x = 1; x < 57; x++) {
+      for (let y = -13; y < 45; y++) {
+        const whiteBg = new Sprite(
+          {
+            objectId: 0,
+            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
+            position: new Vector2(gridCells(x), gridCells(y)),
+            frame: 1,
+            frameSize: new Vector2(2, 2),
+            preventDraw: !this.showDebugSprites,
+            drawLayer: !this.showDebugSprites ? undefined : HUD
+          }
+        );
+        this.addChild(whiteBg);
+      }
+    }
+
 
     for (let x = -4; x < 40; x++) {
       for (let y = -10; y < 26; y++) {
         const grass = new Sprite({ objectId: 0, resource: resources.images["shortgrass"], position: new Vector2(gridCells(2 * x), gridCells(2 * y)), frameSize: new Vector2(32, 32) });
-        grass.drawLayer = "BASE";
+        grass.drawLayer = BASE;
         this.addChild(grass);
       }
     } 
     for (let y = -1; y < 10; y++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = "FLOOR";
+      stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     }
 
     for (let x = 0; x < 2; x++) { //center road
       for (let y = -5; y < 13; y++) {
         const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(21) + gridCells(4*x), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
-        stoneRoad.drawLayer = "GROUND";
+        stoneRoad.drawLayer = GROUND;
         this.addChild(stoneRoad);
       }  
     }
     for (let x = 0; x < 12; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(5) + gridCells(4 * x), gridCells(12)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = "FLOOR";
+      stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     } 
     for (let y = -1; y < 10; y++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(52), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = "FLOOR";
+      stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     } 
     for (let x = 0; x < 14; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(-4)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = "FLOOR";
+      stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     }
     for (let x = 0; x < 14; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(36)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = "FLOOR";
+      stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     }
 
@@ -181,7 +202,7 @@ export class RainbowAlleys1 extends Level {
     this.addChild(wardrobe2); 
     for (let x = 1; x < 5; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(4)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = "FLOOR";
+      stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     }
     const stand3 = new Stand(gridCells(5), gridCells(22));
@@ -197,7 +218,7 @@ export class RainbowAlleys1 extends Level {
     this.addChild(wardrobe3);
     for (let x = 1; x < 5; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(24)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = "FLOOR";
+      stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     }
 
@@ -215,7 +236,7 @@ export class RainbowAlleys1 extends Level {
     this.addChild(wardrobe4);
     for (let x = 1; x < 5; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(32)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = "FLOOR";
+      stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
     }
 

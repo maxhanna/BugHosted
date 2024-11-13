@@ -1,4 +1,4 @@
-import { GameObject } from "./../game-object";
+import { GameObject, HUD } from "./../game-object";
 import { Sprite } from "./../sprite";
 import { resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
@@ -32,7 +32,7 @@ export class StartMenu extends GameObject {
   metabotPartItems = [HEAD, LEGS, LEFT_ARM, RIGHT_ARM];
   regularMenuChoices = ["Meta-Bots", "Journal", "Watch", "Exit"];
 
-  blockClearMenu = false;
+  blockClearWarpInput = false;
   coordXSelected = false;
   coordYSelected = false;
   currentWarpX = "00";
@@ -44,7 +44,7 @@ export class StartMenu extends GameObject {
 
   constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[] }) {
     super({ position: new Vector2(0, 0) });
-    this.drawLayer = "HUD";
+    this.drawLayer = HUD;
     this.inventoryItems = params.inventoryItems ?? [];
     this.metabotParts = params.metabotParts ?? [];
 
@@ -195,7 +195,8 @@ export class StartMenu extends GameObject {
     this.selectedMetabotId = undefined;
     this.selectedMetabotForParts = undefined;
 
-    if (!this.blockClearMenu) {
+    if (!this.blockClearWarpInput) {
+      console.log("clearing warp input");
       this.currentWarpX = "00";
       this.currentWarpY = "00";
     }
@@ -216,6 +217,7 @@ export class StartMenu extends GameObject {
 
   private displayWarpCoordsInput(x: string, y: string) {
     this.clearMenu();
+    this.blockClearWarpInput = true;
 
     this.items.push(`X ${x}, Y ${y}`);
     const coordsLabel = new SpriteTextString(`X ${x}, Y ${y}`, new Vector2(this.menuLocationX + 5, this.menuLocationY + 10), "Black");
@@ -371,20 +373,20 @@ export class StartMenu extends GameObject {
     });
     this.addChild(menuBorder);
   };
+
   incrementCurrentlySelectedId() {
     if (this.coordXSelected) {
       // Increment currentWarpX and ensure it stays within "00" to "99"
-      let currentWarpX = (parseInt(this.currentWarpX) + 1) % 100;
+      let currentWarpX = (parseInt(this.currentWarpX, 10) + 1) % 100;
       this.currentWarpX = String(currentWarpX).padStart(2, '0');
       this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
-    }
-    else if (this.coordYSelected) {
+      console.log(this.currentWarpX);
+    } else if (this.coordYSelected) {
       // Increment currentWarpY and ensure it stays within "00" to "99"
-      let currentWarpY = (parseInt(this.currentWarpY) + 1) % 100;
+      let currentWarpY = (parseInt(this.currentWarpY, 10) + 1) % 100;
       this.currentWarpY = String(currentWarpY).padStart(2, '0');
       this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
-    }
-    else if (this.items.length > 0) {
+    } else if (this.items.length > 0) {
       // Original increment logic
       this.currentlySelectedId = (this.currentlySelectedId > (this.selectedMetabot ? this.metabotPartItems.length - 1 : this.items.length - 2) ? 0 : ++this.currentlySelectedId);
       this.selectorSprite.position.y = 30 + (this.currentlySelectedId * (this.selectedMetabot && !this.selectedPart ? 20 : 10));
@@ -393,26 +395,25 @@ export class StartMenu extends GameObject {
 
   decrementCurrentlySelectedId() {
     if (this.coordXSelected) {
+      this.blockClearWarpInput = true;
       // Decrement currentWarpX and ensure it stays within "00" to "99"
-      let currentWarpX = (parseInt(this.currentWarpX) - 1 + 100) % 100;
+      let currentWarpX = (parseInt(this.currentWarpX, 10) - 1 + 100) % 100;
       this.currentWarpX = String(currentWarpX).padStart(2, '0');
-      this.blockClearMenu = true;
       this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
-    }
-    else if (this.coordYSelected) {
+    } else if (this.coordYSelected) {
+      this.blockClearWarpInput = true;
       // Decrement currentWarpY and ensure it stays within "00" to "99"
-      let currentWarpY = (parseInt(this.currentWarpY) - 1 + 100) % 100;
+      let currentWarpY = (parseInt(this.currentWarpY, 10) - 1 + 100) % 100;
       this.currentWarpY = String(currentWarpY).padStart(2, '0');
-      this.blockClearMenu = true;
       this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
-    }
-    else if (this.items.length > 1) {
+    } else if (this.items.length > 1) {
       // Original decrement logic
-      this.blockClearMenu = false;
+      this.blockClearWarpInput = false;
       this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.selectedMetabot ? this.metabotPartItems.length : this.items.length - 1 : --this.currentlySelectedId);
       this.selectorSprite.position.y = 30 + (this.currentlySelectedId * (this.selectedMetabot && !this.selectedPart ? 20 : 10));
     }
   }
+
 
   private blockSelectionTimeout() {
     this.blockSelection = true;

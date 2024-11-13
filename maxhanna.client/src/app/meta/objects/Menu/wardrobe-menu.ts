@@ -1,4 +1,4 @@
-import { GameObject } from "./../game-object";
+import { GameObject, HUD } from "./../game-object";
 import { Sprite } from "./../sprite";
 import { hexToRgb, resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
@@ -43,7 +43,7 @@ export class WardrobeMenu extends Level {
 
   constructor(params: { entranceLevel: Level, heroPosition?: Vector2, inventoryItems?: InventoryItem[], hero: MetaHero }) {
     super();
-    this.drawLayer = "HUD";
+    this.drawLayer = HUD;
     this.inventoryItems = params.inventoryItems ?? [];
     this.entranceLevel = params.entranceLevel;
     this.hero = params.hero;

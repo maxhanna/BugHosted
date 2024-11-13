@@ -1,4 +1,4 @@
-import { GameObject } from "./game-object";
+import { GameObject, HUD } from "./game-object";
 import { Sprite } from "./sprite";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
@@ -17,7 +17,7 @@ export class Inventory extends GameObject {
   startMenu?: StartMenu;
   constructor() {
     super({ position: new Vector2(0, 0) });
-    this.drawLayer = "HUD";
+    this.drawLayer = HUD;
     this.items = [];
      
    

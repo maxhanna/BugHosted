@@ -10,10 +10,12 @@ import { BrushLevel1 } from "./brush-level1";
 import { HeroRoomLevel } from "./hero-room";
 import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
 import { Npc } from "../objects/Npc/npc"; 
+import { FLOOR, HUD } from "../objects/game-object";
 
 
 export class RivalHomeLevel1 extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
+  showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super();
     this.name = "RivalHomeLevel1";
@@ -23,6 +25,25 @@ export class RivalHomeLevel1 extends Level {
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
     }
+
+
+    for (let x = 1; x < 20; x++) {
+      for (let y = 1; y < 15; y++) {
+        const whiteBg = new Sprite(
+          {
+            objectId: 0,
+            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
+            position: new Vector2(gridCells(x), gridCells(y)),
+            frame: 1,
+            frameSize: new Vector2(2, 2),
+            preventDraw: !this.showDebugSprites,
+            drawLayer: !this.showDebugSprites ? undefined : HUD
+          }
+        );
+        this.addChild(whiteBg);
+      }
+    }
+
     const room = new Sprite(
       { resource: resources.images["heroHome"], frameSize: new Vector2(320, 220) }
     );
@@ -99,48 +120,48 @@ export class RivalHomeLevel1 extends Level {
     const chair = new Sprite({
       resource: resources.images["chair"],
       position: new Vector2(gridCells(5), gridCells(5)),
-      frameSize: new Vector2(32, 32)
-    });
-    chair.drawLayer = "FLOOR";
+      frameSize: new Vector2(32, 32),
+      drawLayer: FLOOR
+    }); 
     this.addChild(chair);
 
     const chair2 = new Sprite({
       resource: resources.images["chair"],
       position: new Vector2(gridCells(5), gridCells(8)),
-      frameSize: new Vector2(32, 32)
-    });
-    chair2.drawLayer = "FLOOR";
+      frameSize: new Vector2(32, 32),
+      drawLayer: FLOOR
+    }); 
     this.addChild(chair2);
     const chair3 = new Sprite({
       resource: resources.images["chair"],
       position: new Vector2(gridCells(13), gridCells(5)),
-      frameSize: new Vector2(32, 32)
-    });
-    chair3.drawLayer = "FLOOR";
+      frameSize: new Vector2(32, 32),
+      drawLayer: FLOOR
+    }); 
     this.addChild(chair3);
 
     const chair4 = new Sprite({
       resource: resources.images["chair"],
       position: new Vector2(gridCells(13), gridCells(8)),
-      frameSize: new Vector2(32, 32)
-    });
-    chair4.drawLayer = "FLOOR";
+      frameSize: new Vector2(32, 32),
+      drawLayer: FLOOR
+    }); 
     this.addChild(chair4);
 
 
     const carpet1 = new Sprite({
       resource: resources.images["carpet"],
       position: new Vector2(gridCells(10), gridCells(12)),
-      frameSize: new Vector2(32, 32)
-    });
-    carpet1.drawLayer = "FLOOR";
+      frameSize: new Vector2(32, 32),
+      drawLayer: FLOOR
+    }); 
     this.addChild(carpet1);
     const carpet2 = new Sprite({
       resource: resources.images["carpet"],
       position: new Vector2(gridCells(9), gridCells(12)),
-      frameSize: new Vector2(32, 32)
-    });
-    carpet2.drawLayer = "FLOOR";
+      frameSize: new Vector2(32, 32),
+      drawLayer: FLOOR
+    }); 
     this.addChild(carpet2);
 
 

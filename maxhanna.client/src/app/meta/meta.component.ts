@@ -512,7 +512,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           setTimeout(() => {
             this.chatInput.nativeElement.blur();
             this.gameCanvas.nativeElement.focus();
-          }, 0);
+          }, 0); 
         }
       }
     });
@@ -620,14 +620,19 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
     events.on("WARP", this, (params: { x: string, y: string }) => {
       if (this.metaHero) {
-        this.metaHero.position = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
-        let existingHero = this.mainScene.level?.children.find((x: any) => x.id === this.metaHero.id);
-        if (existingHero) {
-          existingHero.position = new Vector2(this.metaHero.position.x, this.metaHero.position.y).duplicate();
-          existingHero.destinationPosition = new Vector2(this.metaHero.position.x, this.metaHero.position.y).duplicate();
-        }
+        this.metaHero.position = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y))); 
       }
     });
+
+    events.on("INVALID_WARP", this, (hero: Hero) => {
+      this.chat.unshift(
+        {
+          hero: this.metaHero.name ?? "Anon",
+          content: "Can't warp there.",
+          timestamp: new Date()
+        } as MetaChat);
+      this.setHeroLatestMessage(hero);
+    })
 
     events.on("USER_ATTACK_SELECTED", this, (skill: Skill) => {
       const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "USER_ATTACK_SELECTED", this.metaHero.map, { "skill": JSON.stringify(skill) })

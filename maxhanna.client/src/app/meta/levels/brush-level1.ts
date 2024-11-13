@@ -27,10 +27,12 @@ import { Water } from "../objects/Environment/Water/water";
 import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { BrushRoad1 } from "./brush-road1";
+import { GROUND, FLOOR, HUD } from "../objects/game-object";
  
 
 export class BrushLevel1 extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(13), gridCells(29));
+  showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined }) {
     super();
     this.name = "BrushLevel1";
@@ -48,18 +50,33 @@ export class BrushLevel1 extends Level {
         position: new Vector2(-150, -100),
         scale: new Vector2(450, 400),
         frame: 1,
-        frameSize: new Vector2(2, 2),
-        colorSwap: storyFlags.contains(GOT_FIRST_METABOT) ? new ColorSwap([255, 255, 255], [0, 0, 0]) : undefined
+        frameSize: new Vector2(2, 2)
       }
     );
-    whiteBg.drawLayer = "GROUND";
+    whiteBg.drawLayer = GROUND;
     this.addChild(whiteBg);
 
+    for (let x = -2; x < 39; x++) {
+      for (let y = 0; y < 38; y++) {
+        const whiteBg = new Sprite(
+          {
+            objectId: 0,
+            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
+            position: new Vector2(gridCells(x), gridCells(y)),
+            frame: 1,
+            frameSize: new Vector2(2, 2),
+            preventDraw: !this.showDebugSprites,
+            drawLayer: !this.showDebugSprites ? undefined : HUD
+          }
+        );
+        this.addChild(whiteBg);
+      }
+    }
 
     for (let x = -5; x < 24; x++) {
       for (let y = -5; y < 22; y++) {
         const grass = new Sprite({ objectId: 0, resource: resources.images["shortgrass"], position: new Vector2(gridCells(2 * x), gridCells(2 * y)), frameSize: new Vector2(32, 32) });
-        grass.drawLayer = "GROUND";
+        grass.drawLayer = GROUND;
         this.addChild(grass);
       }
     }
@@ -67,13 +84,13 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 3; x++) {
       const water = new Water(gridCells(2 * x) + gridCells(31), gridCells(2));
-      water.drawLayer = "FLOOR";
+      water.drawLayer = FLOOR;
       this.addChild(water);
       const water2 = new Water(gridCells(2 * x) + gridCells(31), gridCells(4));
-      water2.drawLayer = "FLOOR";
+      water2.drawLayer = FLOOR;
       this.addChild(water2);
       const water3 = new Water(gridCells(2 * x) + gridCells(31), gridCells(6));
-      water3.drawLayer = "FLOOR";
+      water3.drawLayer = FLOOR;
       this.addChild(water3);
     }
 
@@ -82,12 +99,12 @@ export class BrushLevel1 extends Level {
       const brickRoad = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(0) + gridCells(2 * x), gridCells(12)), frame: 1, frameSize: new Vector2(32, 32) }
       );
-      brickRoad.drawLayer = "FLOOR";
+      brickRoad.drawLayer = FLOOR;
       this.addChild(brickRoad);
       const brickRoad2 = new Sprite(
         { objectId: 0, resource: resources.images["brickRoad"], position: new Vector2(gridCells(0) + gridCells(2 * x), gridCells(14)), frameSize: new Vector2(32, 32) }
       );
-      brickRoad2.drawLayer = "FLOOR";
+      brickRoad2.drawLayer = FLOOR;
       this.addChild(brickRoad2);
     }
 
@@ -146,7 +163,7 @@ export class BrushLevel1 extends Level {
       const goldPath = new Sprite(
         { resource: resources.images["goldenPath"], position: new Vector2(x * 14, 0), frameSize: new Vector2(14, 16) }
       );
-      goldPath.drawLayer = "FLOOR";
+      goldPath.drawLayer = FLOOR;
       this.addChild(goldPath);
     } 
 

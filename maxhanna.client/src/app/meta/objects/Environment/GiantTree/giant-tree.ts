@@ -8,11 +8,9 @@ export class GiantTree extends GameObject {
 
   constructor(x: number, y: number) {
     super({
-      position: new Vector2(x, y)
+      position: new Vector2(x, y), isSolid: true
     })
-    
-    this.position = new Vector2(x, y); 
-    this.isSolid = true;
+     
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       position: new Vector2(-85,-120),

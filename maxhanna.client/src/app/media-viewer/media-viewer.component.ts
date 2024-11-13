@@ -14,7 +14,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private fileService: FileService) { super(); }
-  
+
   selectedFileExtension = '';
   selectedFileSrc = '';
   selectedFile: FileEntry | undefined;
@@ -37,6 +37,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() blockExpand: boolean = false;
   @Input() autoplay: boolean = true;
   @Input() autoload: boolean = true;
+  @Input() forceInviewLoad: boolean = false;
   @Input() showCommentSection: boolean = true;
   @Input() canScroll: boolean = false;
   @Input() file?: FileEntry;
@@ -49,23 +50,41 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() emittedNotification = new EventEmitter<string>(); 
     
   async ngOnInit() {
-    this.muteOtherVideos()
   }
   onInView(isInView: boolean) {
-    if (isInView) {
+    // Check if the media container is fully visible and has enough height to be considered loaded
+    console.log(isInView); 
+    if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
       this.fetchFileSrc();
     } else {
+      // Pause any media playback when not in view or height is insufficient
       if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLVideoElement) {
         this.mediaContainer.nativeElement.pause();
       } else if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLAudioElement) {
         this.mediaContainer.nativeElement.pause();
       }
+
+      // Abort the file request if loading is in progress
       if (this.abortFileRequestController) {
         this.abortFileRequestController.abort();
-      } 
-    }   
+      }
+    }
   }
+
+  // Helper method to check if the component's height is sufficient
+  private isComponentHeightSufficient(): boolean {
+    const mediaContainer = document.getElementById('mediaContainer' + this.fileId);
+    if (mediaContainer) {
+      const containerHeight = mediaContainer.offsetHeight;
+      const windowHeight = window.innerHeight;
+      console.log(containerHeight, windowHeight);
+      return containerHeight <= windowHeight;
+    }
+    return false;
+  }
+
   async fetchFileSrc() {
+    console.log("fetch file src");
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       return;
@@ -76,6 +95,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.selectedFile = {
         id: this.fileId,
       } as FileEntry;
+         
       if (this.parentRef && this.parentRef.pictureSrcs[this.fileId] && this.parentRef.pictureSrcs[this.fileId].value
         || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.fileId] && this.inputtedParentRef.pictureSrcs[this.fileId].value) {  
         this.setFileSrcByParentRefValue(this.fileId);  
@@ -166,7 +186,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.muteOtherVideos();
       return;
     }
-    this.startLoading();
+    //this.startLoading();
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort();
     } 
@@ -294,17 +314,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.emittedNotification.emit((ex as Error).message); 
     }
   }
-  toggleMute(currentVideo: HTMLVideoElement | HTMLAudioElement) {
+  togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) {
     // Mute and pause all other media elements
-    this.muteOtherVideos(currentVideo); // Pass current video to exclude from muting
-
-    // Toggle mute state for the current video
-    currentVideo.muted = !currentVideo.muted;
-
-    // Play the video if it's unmuted
-    if (!currentVideo.muted) {
-      currentVideo.pause(); 
-    } 
+    this.muteOtherVideos(currentVideo);  
+    currentVideo.muted = false;
+    currentVideo.play(); 
   }
 
   muteOtherVideos(excludeMedia?: HTMLMediaElement) {

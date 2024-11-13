@@ -39,6 +39,8 @@ export class Hero extends GameObject {
   ogScale = new Vector2(1, 1);
   endScale = new Vector2(1, 1);
   steppedUpOrDown = false;
+  slopeIncrements = 0.05;
+  slopeStepHeight?: Vector2;
 
   constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2 }) {
     super({
@@ -82,6 +84,19 @@ export class Hero extends GameObject {
   }
 
   private initializeBody(redraw?: boolean) {
+    let offsetY;
+    if (this.scale.y < 0.75) {
+      offsetY = 7;
+    } else if (this.scale.y < 0.8) {
+      offsetY = 5;
+    } else if (this.scale.y < 0.9) {
+      offsetY = 5;
+    } else if (this.scale.y < 0.95) {
+      offsetY = 3;
+    } else {
+      offsetY = 0;
+    }
+
     let tmpBody = new Sprite({
       objectId: this.id,
       resource: resources.images["hero"],
@@ -102,7 +117,8 @@ export class Hero extends GameObject {
           pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
         }),
       colorSwap: this.colorSwap,
-      scale: this.scale
+      scale: this.scale,
+      offsetY: offsetY
 
     });
     this.addChild(tmpBody);
@@ -121,9 +137,11 @@ export class Hero extends GameObject {
           this.mask.frame = 2;
         }
       }
-
+      console.log("offset", offsetY);
       this.mask.scale = this.scale;
-      this.mask.position = tmpBody.position;
+      this.mask.position = tmpBody.position.duplicate();
+      this.mask.position.y += offsetY;
+      this.mask.offsetX = offsetY / 2;
       this.addChild(this.mask);
     }
     return tmpBody;
@@ -277,13 +295,15 @@ export class Hero extends GameObject {
       slopeType: typeof UP | typeof DOWN,
       slopeDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT,
       startScale: Vector2,
-      endScale: Vector2
+      endScale: Vector2,
+      slopeStepHeight: Vector2
     }) => {
       if (params.heroId === this.id) {
         this.ogScale = this.scale;
         this.endScale = params.endScale;
         this.slopeType = params.slopeType;
         this.slopeDirection = params.slopeDirection;
+        this.slopeStepHeight = params.slopeStepHeight;
 
         let blockUpdate = false;
         if (this.scale.matches(params.startScale)) {
@@ -321,6 +341,17 @@ export class Hero extends GameObject {
         }
         else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", this.isObjectNeerby());
+        }
+      });
+      events.on("WARP", this, (params: { x: string, y: string }) => {
+
+        const warpPosition = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
+        const bodyAtSpace = this.bodyAtSpace(warpPosition);
+        if (bodyAtSpace) {
+          this.destinationPosition = warpPosition.duplicate();
+          this.position = this.destinationPosition.duplicate();
+        } else {
+          events.emit("INVALID_WARP", this);
         }
       });
     }
@@ -448,19 +479,14 @@ export class Hero extends GameObject {
     if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
       return;
     }
-    //if (this.isUserControlled) {
     events.emit("HERO_POSITION", this);
-    //}
     this.lastPosition = this.position.duplicate();
   }
 
   tryMove(root: any) {
     const { input } = root;
-    if (!input.direction || !this.isUserControlled) {
-      //console.log("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
-      if (this.destinationPosition.x == 0 && this.destinationPosition.y == 0) {
-        this.destinationPosition = this.position.duplicate();
-      }
+    if (!input.direction) {
+      //console.log("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase()); 
       this.body.animations?.play("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
       return;
     }
@@ -470,39 +496,61 @@ export class Hero extends GameObject {
       let position = this.destinationPosition.duplicate();
 
       if (input.direction === DOWN) {
+        position.x = snapToGrid(position.x, gridSize);
         position.y = snapToGrid(position.y + gridSize, gridSize);
         this.body.animations?.play("walkDown");
       }
       else if (input.direction === UP) {
+        position.x = snapToGrid(position.x, gridSize);
         position.y = snapToGrid(position.y - gridSize, gridSize);
         this.body.animations?.play("walkUp");
       }
       else if (input.direction === LEFT) {
         position.x = snapToGrid(position.x - gridSize, gridSize);
+        position.y = snapToGrid(position.y, gridSize);
         this.body.animations?.play("walkLeft");
       }
       else if (input.direction === RIGHT) {
         position.x = snapToGrid(position.x + gridSize, gridSize);
+        position.y = snapToGrid(position.y, gridSize);
         this.body.animations?.play("walkRight");
       }
 
       this.facingDirection = input.direction ?? this.facingDirection;
+
       const spaceIsFree = isSpaceFree(root.level?.walls, position.x, position.y);
-      const solidBodyAtSpace = this.parent.children.find((c: any) => {
-        return c.isSolid
-          && c.position.x == position.x
-          && c.position.y == position.y
-      });
+      if (!spaceIsFree) {
+        console.log("!spaceIsFree:", root.level?.walls, position.x, position.y, this.position, this.destinationPosition);
+      }
+      const solidBodyAtSpace = this.bodyAtSpace(position, true);
+
+      const bodyAtSpace = this.bodyAtSpace(position);
+
+      if (!bodyAtSpace) {
+        this.destinationPosition = this.lastPosition.duplicate();
+        console.log("No body at space, setting to previous position ", this.lastPosition);
+        return;
+      }
+      console.log(position);
       if (spaceIsFree && !solidBodyAtSpace) {
         this.destinationPosition = position;
         if (this.slopeType) {
           this.recalculateScaleBasedOnSlope();
           //console.log(`slopeType: ${this.slopeType}, slopeDirection: ${this.slopeDirection}, facingDirection: ${this.facingDirection}, scale: ${this.scale}`);
         }
+      } else {
+        this.destinationPosition = this.position.duplicate();
       }
     }
   }
 
+
+  private bodyAtSpace(position: Vector2, solid?: boolean) {
+    return this.parent.children.find((c: any) => {
+      return (solid ? c.isSolid : true) && c.position.x == position.x
+        && c.position.y == position.y;
+    });
+  } 
 
   otherPlayerMove(root: any) {
     if (!this.isUserControlled) {
@@ -546,11 +594,8 @@ export class Hero extends GameObject {
         }
         this.updateAnimation();
         const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
-        const solidBodyAtSpace = this.parent.children.find((c: any) => {
-          return c.isSolid
-            && c.position.x == tmpPosition.x
-            && c.position.y == tmpPosition.y
-        })
+        const solidBodyAtSpace = this.bodyAtSpace(tmpPosition, true);
+
         if (spaceIsFree && !solidBodyAtSpace) {
           this.position = tmpPosition;
           if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) {
@@ -676,49 +721,51 @@ export class Hero extends GameObject {
   }
 
   private scaleWithStep(preScale: Vector2) {
+    if (!this.slopeStepHeight) return;
+    const se = this.slopeStepHeight.x;
     if (this.facingDirection === LEFT) {
       if (this.slopeDirection === LEFT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
       } else if (this.slopeDirection === LEFT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
       } else if (this.slopeDirection === RIGHT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
       } else if (this.slopeDirection === RIGHT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
       }
     } else if (this.facingDirection === RIGHT) {
       if (this.slopeDirection === RIGHT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
       } else if (this.slopeDirection === LEFT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
       } else if (this.slopeDirection === LEFT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
       } else if (this.slopeDirection === RIGHT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
       }
     } else if (this.facingDirection === UP) {
       if (this.slopeDirection === UP && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
       } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
       } else if (this.slopeDirection === DOWN && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
       } else if (this.slopeDirection === DOWN && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
       }
     } else if (this.facingDirection === DOWN) {
       if (this.slopeDirection === DOWN && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
       } else if (this.slopeDirection === DOWN && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
       } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + 0.05, this.scale.y + 0.05);
+        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
       } else if (this.slopeDirection === UP && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - 0.05, this.scale.y - 0.05);
+        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
       }
     }
     if (Math.abs(this.ogScale.y - this.scale.y) > 0.1) {
-      this.steppedUpOrDown = !this.steppedUpOrDown; 
+      this.steppedUpOrDown = !this.steppedUpOrDown;
       if (this.ogScale.y < this.scale.y && this.steppedUpOrDown || (this.facingDirection != this.slopeDirection && !this.steppedUpOrDown)) {
         this.destinationPosition.y -= gridCells(1);
         console.log("adjusting down");
@@ -726,7 +773,7 @@ export class Hero extends GameObject {
         this.destinationPosition.y += gridCells(1);
         //console.log("adjusting down");
       }
-    }   
+    }
   }
 
   private resetSlope(skipDestroy?: boolean) {

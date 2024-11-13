@@ -1,4 +1,4 @@
-import { GameObject } from "../../game-object";
+import { GameObject, HUD } from "../../game-object";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
 import { getTypeLabel } from "../../../helpers/skill-types";
@@ -17,8 +17,7 @@ export class FightRewardBox extends GameObject {
   metabotParts: MetaBotPart[] = [];
 
   constructor(config: { position: Vector2, metabotParts: MetaBotPart[] }) {
-    super({ position: config.position });
-    this.drawLayer = "HUD";
+    super({ position: config.position, drawLayer: HUD }); 
     this.metabotParts = config.metabotParts; 
     this.backdrop.scale = new Vector2(this.backdrop.scale.x, this.backdrop.scale.y + (0.1 * this.metabotParts.length));
      

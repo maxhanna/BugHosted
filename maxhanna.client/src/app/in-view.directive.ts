@@ -11,7 +11,7 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
 
   constructor(private el: ElementRef) {
     const options: IntersectionObserverInit = {
-      threshold: 0.01 
+      threshold: 1.0
     };
 
     this.observer = new IntersectionObserver(entries => {

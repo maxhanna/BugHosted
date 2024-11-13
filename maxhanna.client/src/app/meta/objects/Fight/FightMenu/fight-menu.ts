@@ -1,5 +1,5 @@
 import { calculateWords } from "../../SpriteTextString/sprite-font-map";
-import { GameObject } from "../../game-object";
+import { GameObject, HUD } from "../../game-object";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
 import { SkillType, LEFT_PUNCH, RIGHT_PUNCH, KICK, HEADBUTT } from "../../../helpers/skill-types";
@@ -53,12 +53,11 @@ export class FightMenu extends GameObject {
   skillOptions = [this.leftArmSkill, this.rightArmSkill, this.legsSkill, this.headSkill];
 
   constructor(config: { entranceLevel: Level, entrancePosition: Vector2, itemsFound?: string[], hero: MetaHero, metabotParts: MetaBotPart[] }) {
-    super({ position: new Vector2(-95, 120) });
+    super({ position: new Vector2(-95, 120), drawLayer: HUD });
     this.metaHero = config.hero;
     this.metabotParts = config.metabotParts;
     this.itemsFound = config.itemsFound;
-    this.backdrop.scale = new Vector2(1, 0.5);
-    this.drawLayer = "HUD";
+    this.backdrop.scale = new Vector2(1, 0.5); 
     this.startLevel = config.entranceLevel;
     this.startLevel.defaultHeroPosition = config.entrancePosition;
     this.portrait = new Sprite({

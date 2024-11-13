@@ -1,5 +1,5 @@
 import { calculateWords } from "./sprite-font-map";
-import { GameObject } from "../game-object";
+import { GameObject, HUD } from "../game-object";
 import { Sprite } from "../sprite";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Input } from "../../helpers/input";
@@ -16,8 +16,7 @@ export class SpriteTextString extends GameObject {
   LINE_VERTICAL_WIDTH = 14;
   color: string = "White";
   constructor(wordToWrite: string, position: Vector2, color?: string) {
-    super({ position: position });
-    this.drawLayer = "HUD";
+    super({ position: position, drawLayer: HUD }); 
     if (color) { 
       this.color = color;
     }

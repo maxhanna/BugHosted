@@ -1,6 +1,7 @@
-<div class="mediaContainerWrapperDiv" 
-             appInView
-             (inView)="onInView($event)">
+<div [id]="'mediaContainer'+fileId"
+     class="mediaContainerWrapperDiv" 
+      appInView
+      (inView)="onInView($event)">
   <!-- Fullscreen Overlay -->
   <div #fullscreenOverlay class="fullscreen-overlay" (click)="imageFileExtensionsIncludes(this.selectedFileExtension) ? shrink() : ''">
     <span class="close-overlay" (click)="shrink()">✖</span>
@@ -15,7 +16,7 @@
       <span><img src="favicon.ico" /></span>
     </div>
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
-    <div *ngIf="!isLoading && autoload && selectedFileSrc != ''" class="mediaDiv">
+    <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
       <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" [attr.title]="title ? title : null"
  class="media" />
       <video #mediaContainer
@@ -24,9 +25,9 @@
              controls
              muted
              preload="auto" 
-             [autoplay]="autoplay"
-       (mouseup)="toggleMute(mediaContainer)"
-       (touchend)="toggleMute(mediaContainer)"
+             [autoplay]="autoplay" 
+             (touchend)="togglePlay(mediaContainer)"
+              (play)="togglePlay(mediaContainer)"
              class="video media">
       </video>
       <audio #mediaContainer
@@ -34,9 +35,9 @@
              [src]="selectedFileSrc" 
              controls
              preload="auto"
-             [autoplay]="false"
-             (mouseup)="toggleMute(mediaContainer)"
-             (touchend)="toggleMute(mediaContainer)"
+             [autoplay]="false" 
+             (touchend)="togglePlay(mediaContainer)"
+              (play)="togglePlay(mediaContainer)"
              class="audio media">
         Your browser does not support the audio element.
       </audio>

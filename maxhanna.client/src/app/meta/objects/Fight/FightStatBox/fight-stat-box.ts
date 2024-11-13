@@ -1,4 +1,4 @@
-import { GameObject } from "../../game-object";
+import { GameObject, HUD } from "../../game-object";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources"; 
 import { gridCells } from "../../../helpers/grid-cells";
@@ -18,7 +18,7 @@ export class FightStatBox extends GameObject {
 
   constructor(config: { bot: MetaBot, position: Vector2, showExp?: boolean}) { 
     super({ position: config.position }); 
-    this.drawLayer = "HUD"; 
+    this.drawLayer = HUD; 
     this.metabot = config.bot;
     if (config.showExp) {
       this.showExp = config.showExp;

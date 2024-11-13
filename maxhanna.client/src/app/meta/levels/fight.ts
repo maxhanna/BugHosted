@@ -9,7 +9,7 @@ import { Sprite } from "../objects/sprite";
 import { Npc } from "../objects/Npc/npc";
 import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
-import { GameObject } from "../objects/game-object";
+import { BASE, GameObject } from "../objects/game-object";
 import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Hero } from "../objects/Hero/hero";
@@ -55,7 +55,7 @@ export class Fight extends Level {
     super();
     this.name = "Fight";
     this.background = new Sprite(
-      { resource: resources.images["bedroomFloor"], position: new Vector2(-120, -100), frameSize: new Vector2(320, 220) }
+      { resource: resources.images["bedroomFloor"], position: new Vector2(-120, -100), frameSize: new Vector2(320, 220), drawLayer: BASE }
     );
     this.metaHero = params.metaHero;
     this.metabotParts = params.parts;
