@@ -65,6 +65,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('pageSelect2') pageSelect2!: ElementRef<HTMLSelectElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
@@ -100,9 +101,16 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
     } 
   }
-  pageChanged() {
-    this.currentPage = parseInt(this.pageSelect.nativeElement.value);
+  pageChanged(selectorId?: number) {
+    let pageSelect = this.pageSelect.nativeElement;
+    if (selectorId == 2) {
+      pageSelect = this.pageSelect2.nativeElement;
+    }
+    this.currentPage = parseInt(pageSelect.value);
     this.getStories(this.currentPage);
+    setTimeout(() => { 
+      this.scrollToStory();
+    }, 50);
   }
   scrollToStory(storyId?: number): void {
     if (storyId) {

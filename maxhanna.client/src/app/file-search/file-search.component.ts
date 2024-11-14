@@ -122,7 +122,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.directory = undefined;
     this.openedFiles = [];
     this.searchTerms = this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : "";
-    this.currentDirectoryChangeEvent.emit(this.currentDirectory);
     this.showData = true;
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
@@ -147,6 +146,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
           } else {
             this.currentDirectory = '';
           }
+
+          this.currentDirectoryChangeEvent.emit(this.currentDirectory);
           this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() != "" ? true : false);
 
           if (this.directory && this.directory.page) {

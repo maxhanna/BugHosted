@@ -98,7 +98,7 @@
             <div class="storyUserDetails">
               <div class="storyText" [class]="'hidden'" [innerHtml]="story.storyText | clickableUrls" [id]="'storyText' + story.id"></div>
               <textarea [style.display]="'none'" [id]="'storyTextTextarea' + story.id">{{story.storyText}}</textarea>
-              <button [style.display]="'none'" [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)"> 
+              <button [style.display]="'none'" [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)">
                 <span class="storyEditSpans storyAcceptEdit" [style.display]="'none'" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
                 ✏️Edit
               </button>
@@ -132,7 +132,8 @@
                                 [displayExpander]="false"
                                 [displayExtraInfo]="false"
                                 [autoplay]="false"
-                                [autoload]="true">
+                                [autoload]="true"
+                                [forceInviewLoad]="true">
               </app-media-viewer>
             </div>
           </div>
@@ -148,7 +149,13 @@
                       [component_id]="story.id!"
                       [commentList]="story!.storyComments!">
         </app-comments>
-      </div>
+      </div> 
+      <div class="pagination" *ngIf="totalPagesArray.length > 1">
+        <span class="xxSmallFont">Page:</span>
+        <select [value]="currentPage" (change)="pageChanged(2)" #pageSelect2>
+          <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
+        </select>
+      </div> 
     </div>
     <div class="mainTableDiv emptyPage" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length == 0">
       It's quiet here...

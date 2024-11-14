@@ -98,7 +98,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) { return; }
     const res = await this.notificationService.getNotifications(this._parent.user);
     if (res) {
-      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.length + '';
+      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.length + ''; 
     } else {
       this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = '';
     }
@@ -117,20 +117,32 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
   async getCalendarInfo() {
+    console.log("get calendar info");
     if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
+
     let notificationCount = 0;
-    const startDate = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+    const today = new Date();
+    const startDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())); // Midnight today in UTC
     const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 1);
+    endDate.setUTCDate(startDate.getUTCDate() + 1); // Midnight tomorrow in UTC
+
     const res = await this.calendarService.getCalendarEntries(this.user!, startDate, endDate) as Array<CalendarEntry>;
     if (res && res.length > 0) {
-      res.forEach(x => {
-        if (new Date(x.date!).getDate() == startDate.getDate()) {
+      console.log("Calendar Entries:", res);
+      res.forEach(entry => {
+        const entryDate = new Date(entry.date!);
+        if (
+          entryDate.getUTCFullYear() === startDate.getUTCFullYear() &&
+          entryDate.getUTCMonth() === startDate.getUTCMonth() &&
+          entryDate.getUTCDate() === startDate.getUTCDate()
+        ) {
           notificationCount++;
-        }
-      })
+          console.log(notificationCount);
+        } 
+      });
     }
+
     this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
   }
   async getCurrentWeatherInfo() {
@@ -208,6 +220,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.toggleNavButton.nativeElement.innerText = currText != "📖" ? "📖" : "📕";
     this.toggleNavButton.nativeElement.title = currText != "📖" ? "Open Navigation" : "Close Navigation";
     window.document.body.style.paddingBottom = currText != "📖" ? "0px" : "50px";
+  }
+
+  parseNumber(notifNumbers?: string) { 
+    if (!notifNumbers || notifNumbers.trim() == "") return 0;
+    return parseInt(notifNumbers);
   }
 
   goTo(event: any) {

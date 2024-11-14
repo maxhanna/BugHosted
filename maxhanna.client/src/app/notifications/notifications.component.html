@@ -1,5 +1,5 @@
 <div *ngIf="minimalInterface" class="usernameProfileLink pointer" (click)="showNotifications = !showNotifications; (inputtedParentRef ? inputtedParentRef.showOverlay = showNotifications : '')">
-  🔔<span>{{notifications && notifications.length}}</span>
+  <span [class]="notifications && notifications.length > 0 ? 'glowing' : ''">🔔</span><span>{{notifications && notifications.length}}</span>
 </div>
 
 <div [class]="minimalInterface ? 'minimalInterfaceComponent' : 'componentMain'" *ngIf="!minimalInterface || showNotifications">
@@ -18,25 +18,28 @@
       </div>-->
 
       <div *ngFor="let notification of notifications" class="notificationListItem">
-        <div><button title="Delete Notification" (click)="delete(notification)">❌</button></div>
-        <div>
+        <div class="nliLeftDiv">
           <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-tag>
         </div>
-        <div *ngIf="notification.fileId" (click)="goToFileId(notification.fileId)" class="usernameProfileLink cursorPointer">
-          <strong>File ID:</strong> {{ notification.fileId }}
-        </div>
-        <div *ngIf="notification.storyId" (click)="goToStoryId(notification.storyId)" class="usernameProfileLink cursorPointer">
-          <strong>Story ID:</strong> {{ notification.storyId }}
-        </div>
-        <div *ngIf="notification.chatUserId && notification.fromUser" (click)="goToChat(notification.fromUser)" class="usernameProfileLink cursorPointer">
-          <strong>Chat Notification</strong>
-        </div>
-        <div class="notificationText">
-          <strong>Text:</strong> {{ notification.text }}
-        </div>
-        <div>
-          <strong>Date:</strong> {{ notification.date | date: 'short' }}
-        </div>
+        <div class="nliRightDiv">
+          <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>
+
+          <div *ngIf="notification.fileId" (click)="goToFileId(notification.fileId)" class="usernameProfileLink cursorPointer fileId">
+            <strong>File ID:</strong> {{ notification.fileId }}
+          </div>
+          <div *ngIf="notification.storyId" (click)="goToStoryId(notification.storyId)" class="usernameProfileLink cursorPointer">
+            <strong>Story ID:</strong> {{ notification.storyId }}
+          </div>
+          <div *ngIf="notification.chatUserId && notification.fromUser" (click)="goToChat(notification.fromUser)" class="usernameProfileLink cursorPointer">
+            <strong>Chat Notification</strong>
+          </div>
+          <div class="notificationText">
+            <strong>Text:</strong> {{ notification.text }}
+          </div>
+          <div class="date">
+            <strong>Date:</strong> {{ notification.date | date: 'short' }}
+          </div>
+        </div> 
       </div>
     </div>
     <div *ngIf="notifications && notifications.length == 0" class="noNotificationsDiv">

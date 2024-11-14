@@ -14,8 +14,6 @@ export class FileComponent extends ChildComponent {
   constructor(private fileService: FileService) {
     super();
   }
-  @Input() user?: User;
-  @Input() fileId: string | null = null;
   fS = "/"; 
   errorMessage: string | null = null;
   thumbnailSrc: string | null = null;
@@ -45,6 +43,9 @@ export class FileComponent extends ChildComponent {
   selectedFileType = "";
   abortThumbnailRequestController: AbortController | null = null;
 
+  @Input() user?: User;
+  @Input() fileId: string | null = null;
+
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
@@ -57,7 +58,7 @@ export class FileComponent extends ChildComponent {
     this.draggedFilename = undefined;
     this.destinationFilename = undefined;
     this.showMakeDirectoryPrompt = false;
-    this.isSharePanelExpanded = false;
+    this.isSharePanelExpanded = false; 
   }
   uploadFinished(newFiles: FileEntry[]) {
     this.fileSearchComponent.handleUploadedFiles(newFiles.flatMap(fileArray => fileArray)); 
@@ -79,6 +80,7 @@ export class FileComponent extends ChildComponent {
   }
   changeDirectoryEvent(event: string) {
     this.currentDirectory = event;
+    console.log(this.currentDirectory);
   } 
   uploadNotification(event: string) {
     if (event != '0') {
@@ -108,67 +110,12 @@ export class FileComponent extends ChildComponent {
   getFileExtension(filePath: string) {
     return filePath.split('.').pop();
   }
-
-  //getFileExtensionFromContentDisposition(contentDisposition: string | null): string {
-  //  if (!contentDisposition) return '';
-
-  //  // Match the filename pattern
-  //  const filenameMatch = contentDisposition.match(/filename\*?=['"]?([^'";\s]+)['"]?/);
-  //  if (filenameMatch && filenameMatch[1]) {
-  //    const filename = filenameMatch[1];
-  //    return filename.split('.').pop() || '';
-  //  }
-  //  return '';
-  //}
+   
   setThumbnailSrc(url: string) {
     if (this.thumbnailContainer && this.thumbnailContainer.nativeElement) {
       this.thumbnailContainer.nativeElement.src = url;
     }
-  }
-
-  //async displayPictureThumbnail(fileName: string) {
-  //  const directoryValue = this.currentDirectory  ?? "";
-  //  let target = directoryValue.replace(/\\/g, "/");
-  //  target += (directoryValue.length > 0 && directoryValue[directoryValue.length - 1] === this.fS) ? fileName : directoryValue.length > 0 ? this.fS + fileName : fileName;
-  //  this.selectedThumbnail = target;
-  //  this.loading = true;
-  //  this.startLoading();
-  //  try {
-  //    // Cancel any ongoing thumbnail request
-  //    if (this.abortThumbnailRequestController) {
-  //      this.abortThumbnailRequestController.abort();
-  //    }
-
-  //    // Create a new AbortController for the thumbnail request
-  //    this.abortThumbnailRequestController = new AbortController();
-
-  //    const response = await this.fileService.getFile(target, {
-  //      signal: this.abortThumbnailRequestController.signal
-  //    }, this.parentRef?.user);
-
-  //    if (!response || response == null) return;
-  //    const contentDisposition = response.headers["content-disposition"];
-  //    this.selectedThumbnailFileExtension = this.getFileExtensionFromContentDisposition(contentDisposition);
-  //    const type = this.selectedFileType = this.videoFileExtensions.includes(this.selectedThumbnailFileExtension)
-  //      ? `video/${this.selectedThumbnailFileExtension}`
-  //      : `image/${this.selectedThumbnailFileExtension}`;
-
-  //    const blob = new Blob([response.blob], { type });
-  //    const reader = new FileReader();
-  //    reader.readAsDataURL(blob);
-  //    reader.onloadend = () => {
-  //      this.showThumbnail = true;
-  //      setTimeout(() => { this.setThumbnailSrc(reader.result as string); }, 1);
-  //      this.thumbnailFileName = fileName;
-  //    };
-
-
-  //  } catch (ex) {
-  //    console.error(ex);
-  //  }
-  //  this.loading = false;
-  //  this.stopLoading();
-  //}
+  } 
 
   
   async makeDirectory() {
@@ -203,5 +150,9 @@ export class FileComponent extends ChildComponent {
 
       this.stopLoading();
     }
-  } 
+  }
+
+  canUploadToFolder() { 
+    return !this.showMakeDirectoryPrompt && !this.isUploadInitiate && !(this.currentDirectory == '' && this.parentRef?.user?.id != 1) && !(this.currentDirectory == 'Users/');
+  }
 }

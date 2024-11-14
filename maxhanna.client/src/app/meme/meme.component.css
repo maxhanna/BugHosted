@@ -11,8 +11,7 @@ button {
   position: absolute;
   right: 35px;
   top: 4px;
-  width: 40px;
-  text-align: right;
+  width: 40px; 
 }
 
 .memeResultsDiv {

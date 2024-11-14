@@ -36,28 +36,34 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql =
-                        @"SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar 
-                        WHERE Ownership = @Owner AND 
-                            (
-                                (Date BETWEEN @StartDate AND @EndDateWithTime) 
-                                OR 
-                                (Type = 'weekly' OR Type = 'monthly') 
-                                OR 
-                                ((Type = 'annually' OR Type = 'birthday' OR Type = 'milestone') AND MONTH(Date) = MONTH(@StartDate))
-                            ) 
-                        UNION 
-                        SELECT 
-                            user_id AS Id, 
-                            'birthday' AS Type, 
-                            description AS Note, 
-                            birthday AS Date, 
-                            @Owner AS Ownership FROM user_about 
-                        WHERE 
-                            user_id = @Owner 
-                            AND 
-                            MONTH(birthday) = MONTH(@StartDate);";
-                    using (var cmd = new MySqlCommand(sql, conn))
+					          string sql =
+                      @"SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar 
+                            WHERE Ownership = @Owner 
+                              AND (
+                                  (Date BETWEEN @StartDate AND @EndDateWithTime) -- Specific date range
+                                  OR 
+                                  (Type = 'weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- Weekly on the same day of the week
+                                  OR 
+                                  (Type = 'monthly' AND DAY(Date) = DAY(@StartDate)) -- Monthly on the same day of the month
+                                  OR 
+                                  (Type IN ('annually', 'birthday', 'milestone') AND MONTH(Date) = MONTH(@StartDate) AND DAY(Date) = DAY(@StartDate)) -- Annually on the same day and month
+                              )
+                          UNION 
+                          SELECT 
+                              user_id AS Id, 
+                              'birthday' AS Type, 
+                              description AS Note, 
+                              birthday AS Date, 
+                              @Owner AS Ownership 
+                          FROM user_about 
+                          WHERE 
+                              user_id = @Owner 
+                              AND 
+                              MONTH(birthday) = MONTH(@StartDate) 
+                              AND 
+                              DAY(birthday) = DAY(@StartDate);";
+
+					using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", user.Id);
                         cmd.Parameters.AddWithValue("@StartDate", startDate);

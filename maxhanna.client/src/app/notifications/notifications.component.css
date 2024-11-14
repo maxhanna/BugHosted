@@ -1,7 +1,18 @@
 .componentMain {
     min-width: 300px;
     max-width:98vw;
-} 
+}
+.deleteNotificationButton { 
+  position: absolute;
+  top: 0px;
+  right:0px;
+}
+.fileId {
+  line-height: 30px;
+}
+.date {
+  font-size: small;
+}
 .minimalInterfaceComponent {
   background-color: var(--main-bg-color-full-opacity);
   position: fixed;
@@ -33,10 +44,12 @@
 }
 .notificationListItem {
     border: var(--main-border);
+    display: flex;
+    position: relative;
+    overflow: hidden;
 }
 .notificationText {
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-overflow: ellipsis; 
   overflow: hidden;
 }
 .noNotificationsDiv {
@@ -57,4 +70,9 @@
   height: CALC(-60px + 100vh); 
   z-index: 1;
   background-color: var(--main-highlight-color-quarter-opacity);
+}
+
+.nliRightDiv {
+   width: 100%;
+   margin-left: 5px;
 }

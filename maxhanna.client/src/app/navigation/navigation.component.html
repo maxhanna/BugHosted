@@ -38,10 +38,7 @@
                                 [blockExpand]="true">
               </app-media-viewer>
             </a>
-
-            <!--<span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
-  <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" *ngIf="item.icon" />
-  <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="!item.icon">☀️</a>-->
+             
           </ng-container>
           <ng-container *ngIf="!user?.displayPictureFile?.id">
             <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
@@ -52,9 +49,15 @@
 
 
       <ng-template #otherItems>
-        <span class="navLinkText" (click)="goTo($event)" [title]="item.title" *ngIf="item.title != 'UpdateUserSettings'">{{item.title}}</span>
-        <span class="navLinkText" (click)="goTo($event)" [title]="item.title" *ngIf="item.title == 'UpdateUserSettings'">Add/Remove</span>
-        <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
+        <span class="navLinkText" (click)="goTo($event)" [title]="item.title">
+          {{ item.title === 'UpdateUserSettings' ? 'Add/Remove' : item.title }}
+        </span>
+        <!-- for notifications, u need glowing if notifications -->
+        <a [class]="'navLink ' + (item && (item.title === 'Notifications' || item.title === 'Calendar') && item.content && parseNumber(item.content) > 0 ? 'glowing' : '')" (click)="goTo($event)" [title]="item.title">
+          {{ item.icon!.substring(0, 3) }}
+        </a>
+
+
       </ng-template>
     </div>
   </ng-container>
