@@ -1,5 +1,4 @@
 import { Story } from "./story";
-
  
 export class StoryResponse {
   pageCount!: number;

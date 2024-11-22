@@ -1,6 +1,10 @@
 .largeAvatar {
-  border: unset;  
+  border: unset;
   text-align: center;
+}
+.miniAvatar {
+  width:25px;
+  height:25px;
 }
 
 .displayPicture {
@@ -21,4 +25,27 @@
 .userTag {
     width:50px;
     max-height:80px;
+}
+.miniTag {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  white-space: nowrap;
+  max-width:200px;
+  width: unset !important;
+}
+.miniAvatarBust {
+  transform: scale(0.5) translateX(-25px) translateY(-25px);
+  width: 25px;
+}
+.miniAvatarBug {
+  left: -30px !important;
+  top: -25px !important;
+}
+.miniAvatarPic {
+  left: -5px;
+  position: relative; 
 }

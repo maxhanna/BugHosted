@@ -131,7 +131,7 @@ export class UserService {
     }
   }
 
-  async getUserIp(user: User) {
+  async getUserIp() {
     try {
       const ipResponse: any = await this.http.get('https://api.ipify.org?format=json').toPromise();
       const ip = ipResponse.ip;

@@ -2,9 +2,11 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit,
 import { ChildComponent } from '../child.component';
 import { Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
+import { TopicService } from '../../services/topic.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { Topic } from '../../services/datacontracts/topic';
-import { AppComponent } from '../app.component';
+import { AppComponent } from '../app.component'; 
+import { Topic } from '../../services/datacontracts/topics/topic';
+import { TopicRank } from '../../services/datacontracts/topics/topic-rank';
 import { TopicsComponent } from '../topics/topics.component';
 import { StoryResponse } from '../../services/datacontracts/social/story-response';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -12,6 +14,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Pipe, PipeTransform } from '@angular/core';
+import { UserService } from '../../services/user.service';
 
 @Pipe({ name: 'clickableUrls' })
 export class ClickableUrlsPipe implements PipeTransform {
@@ -33,11 +36,14 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   fileMetadata: any;
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
+  optionStory?: Story;
   comments: FileComment[] = [];
   isSearchSocialsPanelOpen = false;
+  isMenuPanelOpen = false;
+  isStoryOptionsPanelOpen = false;
   openedMemes: number[] = [];
   selectedAttachmentFileExtension: string | null = null;
-  isEditing: number[] = [];
+  isEditing = false;
   isUploadInitiate = true;
   attachedFiles: FileEntry[] = [];
   attachedTopics: Array<Topic> = [];
@@ -57,6 +63,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   notifications: String[] = [];
   expanded: string[] = [];
   attachedSearchTopics: Array<Topic> = [];
+  topTopics: TopicRank[] = [];
 
   currentPage: number = 1;
   totalPages: number = 1;
@@ -77,7 +84,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   @Input() user?: User;
   @Input() parent?: AppComponent;
 
-  constructor(private socialService: SocialService, private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) {
+  constructor(private socialService: SocialService, private topicService: TopicService, private userService: UserService, private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) {
     super();
   }
 
@@ -87,6 +94,11 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
 
     await this.getStories();
+    await this.topicService.getTopTopics().then(res => {
+      if (res) {
+        this.topTopics = res;
+      }
+    });
     if (this.storyId) {
       this.scrollToStory(this.storyId);
     }
@@ -138,6 +150,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         this.storyResponse!.stories! = this.storyResponse!.stories!.filter((x: { id: number | undefined; }) => x.id != story.id);
       }
     }
+    this.closeStoryOptionsPanel();
   }
   async edit(story: Story) {
     if (document.getElementById('storyText' + story.id)) {
@@ -147,14 +160,17 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "none";
         (document.getElementById('storyAcceptEditButtonSpan' + story.id) as HTMLDivElement).style.display = "block";
         (document.getElementById('storyRejectEditButtonSpan' + story.id) as HTMLDivElement).style.display = "block";
+        this.isEditing = true;
       } else {
         (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "none";
         (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "none";
         (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "block";
         (document.getElementById('storyAcceptEditButtonSpan' + story.id) as HTMLDivElement).style.display = "none"; 
-        (document.getElementById('storyRejectEditButtonSpan' + story.id) as HTMLDivElement).style.display = "none"; 
+        (document.getElementById('storyRejectEditButtonSpan' + story.id) as HTMLDivElement).style.display = "none";
+        this.isEditing = false;
       }
     }
+    this.closeStoryOptionsPanel();
   }
   async editStory(story: Story) {
     const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
@@ -171,10 +187,21 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.attachedTopics = topics;
       this.searchStories(topics);
       this.scrollToStory();
+      this.closeMenuPanel();
     }
+  }
+  async removeTopic(topic: Topic) {
+    this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
+    this.searchStories(this.attachedTopics);
+    this.scrollToStory(); 
   }
   async topicClicked(topic: Topic) {
     this.attachedTopics.push(topic);
+    this.onTopicAdded(this.attachedTopics);
+    this.scrollToStory();
+  }
+  async topTopicClicked(topicName: string, topicId: number) {
+    this.attachedTopics.push(new Topic(topicId, topicName));
     this.onTopicAdded(this.attachedTopics);
     this.scrollToStory();
   }
@@ -187,8 +214,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
   }
 
-  copyLink(storyId: number) {
+  copyLink(storyId?: number) {
     const link = `https://bughosted.com/Social/${storyId}`;
+    this.closeStoryOptionsPanel();
     navigator.clipboard.writeText(link).then(() => {
       this.notifications.push('Link copied to clipboard!');
     }).catch(err => {
@@ -213,6 +241,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       searchTopics.forEach(x => { topics += topics.trim() != '' ? ',' + x.id : x.id })
     }
     await this.getStories(this.currentPage, 10, search, topics);
+    this.closeMenuPanel();
   }
 
   async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string) {
@@ -246,9 +275,14 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
   async post() {
     const storyText = this.story.nativeElement.value!;
-    if (!storyText || storyText.trim() == '') { return alert("Story can't be empty!"); }
+    if ((!storyText || storyText.trim() == '') && (!this.attachedFiles || this.attachedFiles.length == 0)) { return alert("Story can't be empty!"); }
 
     this.startLoading();
+
+    const cityRes = await this.userService.getUserIp();
+    let city = cityRes.city;  
+    let country = cityRes.country; 
+
     const newStory: Story = {
       id: 0,
       user: this.parentRef?.user!,
@@ -262,7 +296,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       metadata: undefined,
       storyFiles: this.attachedFiles,
       storyTopics: this.attachedTopics,
-      profileUserId: this.user?.id
+      profileUserId: this.user?.id,
+      city: city,
+      country: country,
     };
 
     this.attachedFiles = [];
@@ -271,7 +307,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     this.mediaSelectorComponent.closeMediaSelector();
     this.story.nativeElement.value = '';
 
-    const res = await this.socialService.postStory(this.parentRef?.user! ?? this.parent?.user, newStory);
+    const res = await this.socialService.postStory(this.parentRef?.user ?? this.parent?.user ?? new User(0, "Anonymous"), newStory);
     if (res) {
       this.getStories();
     }
@@ -336,7 +372,56 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     return `${month} ${day}, ${year} - ${hours}:${minutes} ${ampm}`;
   }
-  
+  daysSinceDate(dateString?: Date): string {
+    if (!dateString) return '';
+
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    const now = new Date();
+
+    // Calculate differences
+    let years = now.getFullYear() - date.getFullYear();
+    let months = now.getMonth() - date.getMonth();
+    let days = now.getDate() - date.getDate();
+    let hours = now.getHours() - date.getHours();
+    let minutes = now.getMinutes() - date.getMinutes();
+    let seconds = now.getSeconds() - date.getSeconds();
+
+    // Adjust for negative values
+    if (seconds < 0) {
+      minutes--;
+      seconds += 60;
+    }
+    if (minutes < 0) {
+      hours--;
+      minutes += 60;
+    }
+    if (hours < 0) {
+      days--;
+      hours += 24;
+    }
+    if (days < 0) {
+      months--;
+      const daysInLastMonth = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+      days += daysInLastMonth;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    // Build the result string dynamically
+    const parts: string[] = [];
+    if (years > 0) parts.push(`${years}y`);
+    if (months > 0) parts.push(`${months}m`);
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0) parts.push(`${seconds}s`);
+
+    return parts.join(' ');
+  }
+
+
   toggleCollapse(storyId?: string): void {
     if (!storyId) return;
 
@@ -364,11 +449,51 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.parentRef.showOverlay = true;
     }
   }
-  closeSearchSocialsPanel() { 
+  closeSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = false;
     if (this.parentRef && this.parentRef.showOverlay) {
       this.parentRef.showOverlay = false;
     }
+  }
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
+  }
+  showStoryOptionsPanel(story: Story) {
+    if (this.isStoryOptionsPanelOpen) {
+      this.closeStoryOptionsPanel();
+      return;
+    }
+    this.optionStory = story;
+    this.isStoryOptionsPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeStoryOptionsPanel() {
+    this.isStoryOptionsPanelOpen = false;
+    this.optionStory = undefined;
+
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
+  }
+  isEditButtonVisible(storyId?: number) {
+    if (!storyId) return false;
+    const element = document.getElementById('storyTextEditConfirmButton' + storyId) as HTMLTextAreaElement;
+    return element?.style.display === 'block';
   }
   hasOverflow(elementId: string): boolean {
     const element = document.getElementById(elementId);

@@ -516,27 +516,19 @@ export class Hero extends GameObject {
         this.body.animations?.play("walkRight");
       }
 
-      this.facingDirection = input.direction ?? this.facingDirection;
+      this.facingDirection = input.direction ?? this.facingDirection;   
 
-      const spaceIsFree = isSpaceFree(root.level?.walls, position.x, position.y);
-      if (!spaceIsFree) {
-        console.log("!spaceIsFree:", root.level?.walls, position.x, position.y, this.position, this.destinationPosition);
-      }
-      const solidBodyAtSpace = this.bodyAtSpace(position, true);
-
-      const bodyAtSpace = this.bodyAtSpace(position);
-
-      if (!bodyAtSpace) {
+      if (!this.bodyAtSpace(position)) {
         this.destinationPosition = this.lastPosition.duplicate();
         console.log("No body at space, setting to previous position ", this.lastPosition);
         return;
       }
       console.log(position);
-      if (spaceIsFree && !solidBodyAtSpace) {
+      if (isSpaceFree(root.level?.walls, position.x, position.y) && !this.bodyAtSpace(position, true)) {
         this.destinationPosition = position;
         if (this.slopeType) {
           this.recalculateScaleBasedOnSlope();
-          //console.log(`slopeType: ${this.slopeType}, slopeDirection: ${this.slopeDirection}, facingDirection: ${this.facingDirection}, scale: ${this.scale}`);
+          console.log(`slopeType: ${this.slopeType}, slopeDirection: ${this.slopeDirection}, slopeStepHeight: ${this.slopeStepHeight}, facingDirection: ${this.facingDirection}, scale: ${this.scale}`);
         }
       } else {
         this.destinationPosition = this.position.duplicate();
@@ -779,7 +771,7 @@ export class Hero extends GameObject {
   private resetSlope(skipDestroy?: boolean) {
     this.slopeDirection = undefined;
     this.slopeType = undefined;
-    this.scale = this.endScale.duplicate();
+    this.slopeStepHeight = undefined; 
     this.steppedUpOrDown = false;
     if (!skipDestroy) {
       this.destroyBody();

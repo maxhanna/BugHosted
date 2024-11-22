@@ -51,9 +51,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     
   async ngOnInit() {
   }
-  onInView(isInView: boolean) {
-    // Check if the media container is fully visible and has enough height to be considered loaded
-    console.log(isInView); 
+  onInView(isInView: boolean) { 
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
       this.fetchFileSrc();
     } else {
@@ -76,15 +74,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     const mediaContainer = document.getElementById('mediaContainer' + this.fileId);
     if (mediaContainer) {
       const containerHeight = mediaContainer.offsetHeight;
-      const windowHeight = window.innerHeight;
-      console.log(containerHeight, windowHeight);
+      const windowHeight = window.innerHeight; 
       return containerHeight <= windowHeight;
     }
     return false;
   }
 
-  async fetchFileSrc() {
-    console.log("fetch file src");
+  async fetchFileSrc() { 
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       return;

@@ -11,10 +11,10 @@
     overflow: auto;
 }
 
-@media only screen and (max-device-width: 800px) {
+@media only screen and (max-width: 865px) {
   .componentMain {
     min-width: 90vw;
-    max-width: 98vw;
+    max-width: 99vw;
   }  
 }
 .mobileMaxHeight {
@@ -155,8 +155,7 @@
     display: inline-block;
     width: 100%;
 }
-.commentVoteButtons {
-  width: 100%;
+.commentVoteButtons { 
   height: 25px; 
   display: flex;
   flex-direction: row-reverse;
@@ -165,7 +164,7 @@
 }
 .commentVoteButtons button {
     width:33%;
-    max-width:60px;
+    max-width: 25px;
     font-size: 8px;
 }
 .commentUsername { 
@@ -250,12 +249,13 @@
 } 
 .pagination {
   text-align: right;
-  display: inline;
+  display: inline-block;
+  width:35px;
 }
 .mainTableDiv {
   border: var(--main-border); 
-} 
- 
+}
+
 .storyHeader {
   display: flex;
   justify-content: center;
@@ -270,8 +270,9 @@
   font-weight: bolder;
   border-style: double;
   text-shadow: 1.2px 1.1px 1.1px black;
-  padding-left:10px;
-  padding-right:10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  box-shadow: 1px 1px 5px black;
 }
 
 .storyDate {
@@ -283,6 +284,14 @@
 .notificationCounterDiv {
   position: absolute;
   right: 35px;
+  top: 4px;
+  width: 40px;
+  text-align: right;
+}
+.searchSocialsButtonDiv {
+  cursor: pointer;
+  position: absolute;
+  right: 75px;
   top: 4px;
   width: 40px;
   text-align: right;
@@ -336,12 +345,13 @@
   margin-bottom: 10px;
   opacity: 75%;
 }
-.searchSocialsPanel {
-  position: absolute;
+.popupPanel {
+  position: fixed;
   width: 300px;
   height: 250px;
-  top: CALC(50% - 125px);
-  left: CALC(50% - 150px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background-color: var(--main-bg-color);
   z-index: 1;
   display: flex;

@@ -452,60 +452,61 @@ export class UndergroundLevel1 extends Level {
         showSprite: this.showDebugSprites,
         slopeType: UP,
         slopeDirection: DOWN,
-        slopeStepHeight: new Vector2(0.02, 0.02),
+        slopeStepHeight: new Vector2(0.05, 0.05),
         startScale: new Vector2(0.74, 0.74),
-        endScale: new Vector2(1, 1)
+        endScale: new Vector2(0.79, 0.79)
       });
       this.addChild(slopeUp0);
-
-      for (let countx = 0; countx < 6; countx++) {
-        for (let y = 0; y < 5; y++) {
-          if (countx == y && x < 5) {
-            let startScaleX, startScaleY, endScaleX, endScaleY;
-
-            if (x <= 2) {
-              // Scale rises as x increases from 0 to 2, reaching 0.74 at x = 2
-              startScaleX = 0.74 + (0.12 * x); // Adjust multiplier as needed to reach 0.74
-              startScaleY = 0.74 + (0.12 * x);
-
-              endScaleX = 1 - (0.12 * (x * -1));      // Adjust for a smooth transition
-              endScaleY = 1 - (0.12 * (x * -1));
-            } else {
-              // Scale decreases from 0.74 as x goes from 3 to 5
-              startScaleX = 0.74 + (0.05 * x); // Adjust multiplier as needed to reach 0.74
-              startScaleY = 0.74 + (0.05 * x);
-              endScaleX = 0.85 - (0.12 * -x);  // Adjust to match the desired pattern
-              endScaleY = 0.85 - (0.12 * -x);
-            }
-
-            const slopeUp1 = new Slope({
-              position: new Vector2(
-                gridCells(160) - gridCells(countx) - gridCells(x),
-                gridCells(4) + gridCells(y)
-              ),
-              showSprite: this.showDebugSprites,
-              slopeType: UP,
-              slopeDirection: RIGHT,
-              slopeStepHeight: new Vector2(0.02, 0.02),
-              startScale: new Vector2(startScaleX, startScaleY),
-              endScale: new Vector2(endScaleX, endScaleY),
-            });
-            this.addChild(slopeUp1);
-          }
-        }
-      }
-
-     
+      const slopeUp1 = new Slope({
+        position: new Vector2(gridCells(150) + gridCells(x), gridCells(5)),
+        showSprite: this.showDebugSprites,
+        slopeType: UP,
+        slopeDirection: DOWN,
+        slopeStepHeight: new Vector2(0.05, 0.05),
+        startScale: new Vector2(0.79, 0.79),
+        endScale: new Vector2(0.84, 0.84)
+      });
+      this.addChild(slopeUp1); 
+      const slopeUp2 = new Slope({
+        position: new Vector2(gridCells(150) + gridCells(x), gridCells(6)),
+        showSprite: this.showDebugSprites,
+        slopeType: UP,
+        slopeDirection: DOWN,
+        slopeStepHeight: new Vector2(0.05, 0.05),
+        startScale: new Vector2(0.84, 0.84),
+        endScale: new Vector2(0.89, 0.89)
+      });
+      this.addChild(slopeUp2);
+      const slopeUp3 = new Slope({
+        position: new Vector2(gridCells(150) + gridCells(x), gridCells(7)),
+        showSprite: this.showDebugSprites,
+        slopeType: UP,
+        slopeDirection: DOWN,
+        slopeStepHeight: new Vector2(0.05, 0.05),
+        startScale: new Vector2(0.89, 0.89),
+        endScale: new Vector2(0.94, 0.94)
+      });
+      this.addChild(slopeUp3); 
+      const slopeUp4 = new Slope({
+        position: new Vector2(gridCells(150) + gridCells(x), gridCells(8)),
+        showSprite: this.showDebugSprites,
+        slopeType: UP,
+        slopeDirection: DOWN,
+        slopeStepHeight: new Vector2(0.06, 0.06),
+        startScale: new Vector2(0.94, 0.94),
+        endScale: new Vector2(1, 1)
+      });
+      this.addChild(slopeUp4); 
     }
-    for (let y = 0; y < 5; y++) {
+    for (let y = 1; y < 5; y++) {
       const slopeDown0 = new Slope({
         position: new Vector2(gridCells(160), gridCells(4) + gridCells(y)),
         showSprite: this.showDebugSprites,
         slopeType: DOWN,
         slopeDirection: LEFT,
-        slopeStepHeight: new Vector2(0.02, 0.02),
+        slopeStepHeight: new Vector2(0.05, 0.05),
         startScale: new Vector2(1, 1),
-        endScale: new Vector2(0.74, 0.74)
+        endScale: new Vector2(0.95, 0.95)
       });
       this.addChild(slopeDown0);
     }

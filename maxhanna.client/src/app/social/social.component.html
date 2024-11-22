@@ -1,7 +1,7 @@
 <div class="componentMain" #componentMain>
   <div *ngIf="!user">
     <div class="closeButton" (click)="remove_me('SocialComponent');"></div>
-    <div class="refreshButton" (click)="ngOnInit();"></div>
+    <div class="menuButton" (click)="showMenuPanel();"></div>
     <div class="componentTitle">Social</div>
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div> 
@@ -11,54 +11,12 @@
                          [inputtedParentRef]="parentRef">
       </app-notifications>
     </div>
-    <div class="storyInputDiv">
-      <div class="mainTopicSelector" *ngIf="showTopicSelector">
-        <span>
-          <div class="pagination" *ngIf="totalPagesArray.length > 1">
-            <span class="xxSmallFont">Page:</span>
-            <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
-              <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
-            </select>
-          </div>
-        </span>
-        <span>
-          <app-topics #topicComponent
-                      [isDropdown]="true"
-                      [user]="parentRef?.user"
-                      [parent]="parent ?? parentRef"
-                      (topicAdded)="onTopicAdded($event)">
-          </app-topics>
-        </span>
-        <span>
-          <button (click)="showSearchSocialsPanel()">🔍</button>
-          <span (click)="searchStories()">{{userSearch}}</span>
-        </span>
-      </div>
-      <div>
-        <textarea #story
-                  placeholder="Whats on your mind ?"
-                  class="foodForThought"
-                  (focus)="focusInput()"></textarea>
-      </div>
-
-      <div class="mainFileUploaderAndTopicSelectorDiv">
-        <button (click)="post()">🗨️ Post</button>
-        <app-media-selector *ngIf="parentRef"
-                            #postMediaSelector
-                            [currentDirectory]="parentRef.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
-                            [user]="parentRef.user"
-                            [inputtedParentRef]="parentRef"
-                            (selectFileEvent)="selectFile($event)"></app-media-selector>
-      </div>
-      <div *ngIf="attachedFiles.length > 0">
-        {{attachedFiles.length}} Attached Files:
-        <div *ngFor="let file of attachedFiles">
-          {{file.fileName}}
-          <button (click)="removeAttachment(file.id)" title="Remove attachment">❌</button>
-        </div>
-      </div> 
+    <!-- Search -->
+    <div *ngIf="showTopicSelector" class="searchSocialsButtonDiv" (click)="showSearchSocialsPanel()">
+      🔍
     </div>
-    <div class="searchSocialsPanel" *ngIf="isSearchSocialsPanelOpen">
+    <!-- Search Popup -->
+    <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen">
       <div>Search the Socials</div>
       <div>
         <input type="text" #search placeholder="Search the socials" (keyup.enter)="searchStories()" *ngIf="!user" />
@@ -69,19 +27,103 @@
       </div>
     </div>
 
+    <!-- Menu Popup -->
+    <div class="popupPanel" *ngIf="isMenuPanelOpen">
+      <div>Menu</div>
+      <div>
+        <input type="text" #search placeholder="Search the socials" (keyup.enter)="searchStories()" *ngIf="!user" />
+        <input type="submit" (click)="searchStories()" value="🔍" *ngIf="!user" />
+        <div (click)="searchStories()">{{userSearch}}</div>
+      </div>
+      <div>
+        <app-topics #topicComponent
+                    [isDropdown]="true"
+                    [user]="parentRef?.user"
+                    [parent]="parent ?? parentRef"
+                    [attachedTopics]="attachedTopics"
+                    (topicAdded)="onTopicAdded($event)">
+        </app-topics>
+        <div style="display: inline-flex; background-color:red;">
+          <span *ngFor="let topic of attachedTopics" (click)="removeTopic(topic)" style="cursor: pointer" title="{{topic.topicText}} : Click to remove topic">{{topic.topicText}}</span>
+        </div>
+      </div>
+      <div>
+        <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+      </div>
+    </div>
+
+    <!-- Story Options Popup -->
+    <div class="popupPanel" *ngIf="isStoryOptionsPanelOpen && optionStory"> 
+      <div *ngIf="optionStory.city || optionStory.country">
+        {{optionStory.city}}<span *ngIf="optionStory.country"><span *ngIf="optionStory.city">,</span> {{optionStory.country}}</span>
+      </div>
+      <div>
+        {{formatDate(optionStory.date)}}
+      </div>
+      <div>
+        <app-user-tag [user]="optionStory.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
+      </div>
+      <div style="display: flex;">
+        <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
+        <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post" style="display:inline-block">
+          <span class="storyEditSpans storyRejectEdit" [style.display]="isEditButtonVisible(optionStory.id) ? 'block' : 'none'" [id]="'storyRejectEditButtonSpan' + optionStory.id">❌</span>
+          ✏️Edit
+        </button>
+        <button (click)="delete(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id)" title="Delete Post" style="display:inline-block">❌Delete</button>
+      </div>
+      <div>
+        <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
+      </div>
+    </div>
+    <!-- Pagination -->
+    <div class="pagination" *ngIf="totalPagesArray.length > 1">
+      <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
+        <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
+      </select>
+    </div>
+
+    <!-- Top Topic Selector --> 
+    <div style="display: inline-flex; position: relative; right: 0px; width: CALC(100% - 36px); height: 25px; line-height: 25px; overflow-x: auto; overflow-y: hidden; align-items: center; flex-wrap: nowrap; flex-direction: row;" *ngIf="showTopicSelector">
+      <span style="display:inline-block; white-space:nowrap; padding:5px; width:80px" *ngIf="showTopicSelector">Top Topics: </span>
+      <span *ngFor="let topic of topTopics | slice:0:15" style="border: 1px solid black; white-space: nowrap; cursor: pointer" (click)="topTopicClicked(topic.topicName, topic.topicId)">
+        {{topic.topicName}}
+        <span style="font-size: xx-small;">({{topic.storyCount}})</span>
+      </span>
+    </div>
+
+    <!-- Story Input -->
+    <div class="storyInputDiv">
+      <div>
+        <textarea #story
+                  placeholder="Whats on your mind ?"
+                  class="foodForThought"
+                  (focus)="focusInput()"></textarea>
+      </div>
+      <div class="mainFileUploaderAndTopicSelectorDiv">
+        <button (click)="post()">🗨️ Post</button>
+        <app-media-selector *ngIf="parentRef"
+                            #postMediaSelector
+                            [currentDirectory]="parentRef.user?.username ? 'Users/' + parentRef!.user!.username! : user?.username ? 'Users/' + user!.username! :  'Users/Anonymous'"
+                            [user]="parentRef.user"
+                            [inputtedParentRef]="parentRef"
+                            (selectFileEvent)="selectFile($event)"></app-media-selector>
+        <button>⚙️Options</button>
+        <span *ngIf="attachedTopics && attachedTopics.length > 0">Topic(s):</span>
+        <div style="display: inline-flex;">
+          <span *ngFor="let topic of attachedTopics" (click)="removeTopic(topic)" style="cursor: pointer" title="{{topic.topicText}} : Click to remove topic">{{topic.topicText}}</span>
+        </div>
+      </div>
+    </div>
+
     <div id="mainTableDiv" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
       <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
         <div class="storyHeader">
+          <span style="padding-right:10px"><app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"></app-user-tag></span>
           <div class="storyDate">
-            {{ formatDate(story.date) }}
+            {{ daysSinceDate(story.date) }}
           </div>
           <div class="commentVoteButtons">
-            <button (click)="copyLink(story.id!)" *ngIf="!user" title="Share Link" style="display:inline-block">📋Share</button>
-            <button (click)="edit(story)" *ngIf="story.user?.id == parentRef?.user?.id" title="Edit Post" style="display:inline-block">
-              <span class="storyEditSpans storyRejectEdit" [style.display]="'none'" [id]="'storyRejectEditButtonSpan' + story.id">❌</span>
-              ✏️Edit
-            </button>
-            <button (click)="delete(story)" *ngIf="story.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id)" title="Delete Post" style="display:inline-block">❌Delete</button>
+            <button (click)="showStoryOptionsPanel(story);" style="border:0px;"><span style="text-shadow:1px 1px 2px black; font-size:12px; cursor: pointer">⚙️</span></button>
           </div>
         </div>
 
@@ -90,9 +132,9 @@
              [id]="'storyTextContainer'+story.id"
              (click)="toggleCollapse('storyTextContainer'+story.id)">
           <div class="avatarDiv">
-            <div class="usernameProfileLink">
-              <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
-            </div>
+            <!--<div class="usernameProfileLink">
+            <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
+          </div>-->
           </div>
           <div class="storyContentDiv">
             <div class="storyUserDetails">
@@ -149,13 +191,13 @@
                       [component_id]="story.id!"
                       [commentList]="story!.storyComments!">
         </app-comments>
-      </div> 
+      </div>
       <div class="pagination" *ngIf="totalPagesArray.length > 1">
         <span class="xxSmallFont">Page:</span>
         <select [value]="currentPage" (change)="pageChanged(2)" #pageSelect2>
           <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
         </select>
-      </div> 
+      </div>
     </div>
     <div class="mainTableDiv emptyPage" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length == 0">
       It's quiet here...

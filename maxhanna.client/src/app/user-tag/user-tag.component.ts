@@ -15,6 +15,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnChange
   @Input() displayEmptyAvatar = false;
   @Input() displayOnlyName = false;
   @Input() displayOnlyAvatar = false;
+  @Input() displayMiniTag = false;
   @Input() hideName = false;
 
   @ViewChild('profileImageViewer') profileImageViewer!: MediaViewerComponent;

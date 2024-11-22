@@ -528,7 +528,8 @@ namespace maxhanna.Server.Controllers
 					var result = new
 					{
 						ip = data.Query,  // Use explicit properties from the class
-						city = data.City
+						city = data.City,
+						country = data.Country
 					};
 
 					return Ok(result);
@@ -792,4 +793,5 @@ public class IpApiResponse
 {
 	public string Query { get; set; }  // This is the IP
 	public string City { get; set; }
+	public string Country { get; set; }
 }

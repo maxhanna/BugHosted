@@ -1,9 +1,15 @@
 <div class="mediaSelectorDiv">
-  <button class="mediaSelectorButton pointer" (click)="toggleMediaChoices()">🧷Attach</button>
+  <button class="mediaSelectorButton pointer" (click)="toggleMediaChoices()">
+    🧷Attach
+    <span style="font-size:xx-small" *ngIf="selectedFiles && selectedFiles.length > 0">({{ selectedFiles.length }})</span>
+  </button>
   <ng-container *ngIf="viewMediaChoicesOpen || displaySearch">
     <div id="selectMediaDiv" [ngClass]="{'open': viewMediaChoicesOpen || displaySearch}">
       <div class="mediaSelectorTitle">
-        <div class="selectFilesTitle">Select Media Files</div>
+        <div class="selectFilesTitle">
+          Select Media Files
+          <button id="closeOverlay" class="doneButton pointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Done' : 'Cancel'}}</button>
+        </div>
       </div>
 
       <div [class]="selectedFiles && selectedFiles.length > 0 ? 'mediaChoices' : ''" [style.display]="selectedFiles && selectedFiles.length > 0 ? 'block' : 'none'">
@@ -67,9 +73,7 @@
           </div>
         </div>
 
-      </div> 
-      <button id="closeOverlay" class="doneButton pointer" #doneButton (click)="displaySearch ? displaySearch = !displaySearch :  done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Done' : 'Cancel'}}</button>
-
+      </div>  
     </div>
   </ng-container>
 </div> 

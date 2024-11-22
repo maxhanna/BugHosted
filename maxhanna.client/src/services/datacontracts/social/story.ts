@@ -1,10 +1,8 @@
 import { FileComment } from "../file/file-comment";
 import { FileEntry } from "../file/file-entry";
 import { Reaction } from "../reactions/reaction";
-import { Topic } from "../topic";
-import { User } from "../user/user";
- 
- 
+import { Topic } from "../topics/topic";
+import { User } from "../user/user"; 
 
 export class Story {
   id: number | undefined;
@@ -20,6 +18,8 @@ export class Story {
   storyComments: Array<FileComment> | undefined;
   storyTopics: Array<Topic> | undefined;
   profileUserId?: number | undefined;
+  city?: string | undefined;
+  country?: string | undefined;
   reactions?: Array<Reaction> | undefined;
 }
 

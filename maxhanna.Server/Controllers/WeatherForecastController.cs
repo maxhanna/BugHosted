@@ -138,7 +138,7 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql = "SELECT ownership, location, city FROM maxhanna.weather_location WHERE ownership = @Owner;";
+                    string sql = "SELECT ownership, location, city, country FROM maxhanna.weather_location WHERE ownership = @Owner;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", user.Id);
@@ -149,6 +149,7 @@ namespace maxhanna.Server.Controllers
                                 loc.Ownership = rdr.GetInt32(0);
                                 loc.Location = rdr.IsDBNull(rdr.GetOrdinal("location")) ? null : rdr.GetString("location");
                                 loc.City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city");
+                                loc.Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country");
                             }
                         }
                     }
@@ -176,13 +177,14 @@ namespace maxhanna.Server.Controllers
                 {
                     await conn.OpenAsync();
 
-                    string sql = "INSERT INTO maxhanna.weather_location (ownership, location, city) VALUES (@Owner, @Location, @City) " +
-                                 "ON DUPLICATE KEY UPDATE location = @Location, city = @City;";
+                    string sql = "INSERT INTO maxhanna.weather_location (ownership, location, city, country) VALUES (@Owner, @Location, @City, @Country) " +
+																 "ON DUPLICATE KEY UPDATE location = @Location, city = @City, country = @Country;";
                     using (var cmd = new MySqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("@Owner", location.user.Id);
                         cmd.Parameters.AddWithValue("@Location", location.location);
                         cmd.Parameters.AddWithValue("@City", location.city);
+                        cmd.Parameters.AddWithValue("@Country", location.country);
                         if (await cmd.ExecuteNonQueryAsync() >= 0)
                         {
                             _logger.LogInformation("Returned OK");

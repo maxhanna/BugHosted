@@ -1,6 +1,6 @@
 import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { TopicService } from '../../services/topic.service';
-import { Topic } from '../../services/datacontracts/topic'; 
+import { Topic } from '../../services/datacontracts/topics/topic'; 
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
 import { ChildComponent } from '../child.component';
@@ -13,6 +13,7 @@ import { ChildComponent } from '../child.component';
 export class TopicsComponent extends ChildComponent {
   @Input() user: User | undefined;
   @Input() parent: AppComponent | undefined;
+  @Input() attachedTopics?: Topic[] | undefined;
   @Input() isDropdown: boolean = false;
   @Output() topicAdded = new EventEmitter<Topic[]>();
   @ViewChild('newTopic') newTopic!: ElementRef<HTMLInputElement>;
@@ -24,7 +25,9 @@ export class TopicsComponent extends ChildComponent {
   isDropdownShowing = false;
   private searchTimer: any;
 
-  constructor(private topicService: TopicService) { super(); }
+  constructor(private topicService: TopicService) {
+    super(); 
+  }
    
   async addTopic() {
     if (!this.user || !parent) { return alert("Must be logged in to add a topic!"); }
@@ -40,8 +43,9 @@ export class TopicsComponent extends ChildComponent {
     }
   }
   removeTopic(topic: Topic) {
-    this.topics = this.topics.filter(x => x.id != topic.id);
-    this.topicAdded.emit(this.topics);
+    this.topics = this.topics.filter(x => x.id != topic.id); 
+    const tmpTopics = this.attachedTopics ? this.topics.concat(this.attachedTopics) : this.topics;
+    this.topicAdded.emit(tmpTopics);
   }
   removeAllTopics() {
     this.topics = [];
@@ -57,9 +61,7 @@ export class TopicsComponent extends ChildComponent {
     this.searchTimer = setTimeout(async () => {
       if (this.addTopicButton) {
         this.addTopicButton.nativeElement.style.visibility = "hidden"; 
-      }
-      console.log("enteredValue : " + enteredValue);
-      console.log("force? : " + force);
+      } 
       if (enteredValue.trim() != '' || force) { 
         this.matchingTopics = await this.topicService.getTopics(enteredValue);
         
@@ -103,7 +105,9 @@ export class TopicsComponent extends ChildComponent {
   selectTopic(topic: Topic) {
     if (this.topics.some(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase())) return; //if the topics selected already contain the topic selected, skip.
     this.topics.push(topic);
-    this.topicAdded.emit(this.topics);
+    const tmpTopics = this.attachedTopics ? this.topics.concat(this.attachedTopics) : this.topics;
+
+    this.topicAdded.emit(tmpTopics);
     this.newTopic.nativeElement.value = '';
     this.matchingTopics = [];
     if (this.addTopicButton) {

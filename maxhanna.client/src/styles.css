@@ -103,16 +103,7 @@ fieldset {
   overflow: auto;
 }
 
-
-.refreshButton::before {
-  border-top-left-radius: 3px;
-}
-
-.closeButton::before {
-  border-top-right-radius: 3px;
-}
-
-.refreshButton::before, .closeButton::before {
+.refreshButton::before, .closeButton::before, .menuButton::before {
   position: absolute;
   top: 0px;
   width: 25px;
@@ -123,16 +114,20 @@ fieldset {
   border: 2px outset black;
   text-align: center;
   padding-left: 0px;
+  border-radius: 3px; 
 }
 
 .refreshButton:active::before,
-.closeButton:active::before {
-  border: 2px inset black;
+.closeButton:active::before,
+.menuButton:active::before {
+  border-style: inset;
 }
 
 .refreshButton::before {
-  content: '🔄';
-  left: 0px;
+  content: '🔄'; 
+}
+.menuButton::before {
+  content: '☰'; 
 }
 
 .closeButton::before {

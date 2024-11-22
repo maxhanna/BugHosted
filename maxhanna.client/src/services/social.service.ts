@@ -113,5 +113,5 @@ export class SocialService {
       console.error('Error getting metadata:', error);
       return null;
     }
-  }
+  } 
 }
