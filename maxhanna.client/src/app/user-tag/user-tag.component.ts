@@ -3,6 +3,7 @@ import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-user-tag',
@@ -20,9 +21,17 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnChange
 
   @ViewChild('profileImageViewer') profileImageViewer!: MediaViewerComponent;
 
-  constructor() { super(); }
+  constructor(private userService: UserService) { super(); }
   ngOnInit() {
     this.parentRef = this.inputtedParentRef;
+    if (this.user && this.user.id && !this.user.username) {
+      console.log("no username passed in, but got a userId, fetching user: ", this.user);
+      this.userService.getUserById(this.user.id).then(res => {
+        if (res) {
+          this.user = res;
+        }
+      });
+    }
   }
 
   ngOnChanges(changes: SimpleChanges) { 

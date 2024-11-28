@@ -389,9 +389,9 @@ namespace maxhanna.Server.Controllers
             f.is_public, 
             f.is_folder, 
             f.shared_with, 
-            fd.given_file_name,
-            fd.description as file_data_description,
-            fd.last_updated as file_data_updated,
+            f.given_file_name,
+            f.description as file_data_description,
+            f.last_updated as file_data_updated,
             f.upload_date AS file_date, 
             fu.username AS file_username, 
             f.user_id AS file_user_id
@@ -400,9 +400,7 @@ namespace maxhanna.Server.Controllers
         LEFT JOIN 
             story_files AS sf ON s.id = sf.story_id
         LEFT JOIN 
-            file_uploads AS f ON sf.file_id = f.id
-        LEFT JOIN 
-            file_data AS fd ON f.id = fd.file_id
+            file_uploads AS f ON sf.file_id = f.id 
         LEFT JOIN 
             users AS fu ON f.user_id = fu.id
         WHERE 
@@ -421,7 +419,7 @@ namespace maxhanna.Server.Controllers
 			sqlBuilder.AppendLine(@")
         GROUP BY 
             s.id, f.id, f.file_name, f.folder_path, f.is_public, f.is_folder, f.shared_with,
-            fd.given_file_name, file_data_description, file_data_updated,
+            f.given_file_name, file_data_description, file_data_updated,
             f.upload_date, fu.username, f.user_id;");
 
 			// Execute the SQL query
@@ -512,9 +510,9 @@ namespace maxhanna.Server.Controllers
             f.upload_date AS comment_file_date,
             fu.id AS file_user_id,
             fu.username AS file_username,
-            fd.given_file_name as comment_file_given_file_name,
-            fd.description as comment_file_description,
-            fd.last_updated as comment_file_date,
+            f.given_file_name as comment_file_given_file_name,
+            f.description as comment_file_description,
+            f.last_updated as comment_file_date,
             r.id AS reaction_id,
             r.type AS reaction_type,
             r.user_id AS reaction_user_id,
@@ -531,9 +529,7 @@ namespace maxhanna.Server.Controllers
         LEFT JOIN 
             comment_files AS cf ON cf.comment_id = c.id
         LEFT JOIN 
-            file_uploads AS f ON cf.file_id = f.id
-        LEFT JOIN
-            file_data as fd ON fd.file_id = cf.comment_id
+            file_uploads AS f ON cf.file_id = f.id 
         LEFT JOIN 
             users AS fu ON f.user_id = fu.id
         LEFT JOIN 
@@ -557,7 +553,7 @@ namespace maxhanna.Server.Controllers
         GROUP BY c.id, r.id, r.type, ru.id, r.type, ru.username, r.timestamp, 
         udpfu.file_name, udpfu.folder_path, cf.file_id, 
         f.file_name, f.folder_path, f.is_public, f.shared_with, f.is_folder,
-        f.upload_date, fu.id, fu.username, fd.given_file_name, fd.description, fd.last_updated ");
+        f.upload_date, fu.id, fu.username, f.given_file_name, f.description, f.last_updated ");
 
 			// Execute the SQL query
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))

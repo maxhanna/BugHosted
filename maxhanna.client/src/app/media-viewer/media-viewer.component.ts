@@ -13,7 +13,12 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
   styleUrl: './media-viewer.component.css'
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
-  constructor(private fileService: FileService) { super(); }
+  constructor(private fileService: FileService) {
+    super();
+    if (this.file) {
+      this.selectedFile = this.file;
+    }
+  }
 
   selectedFileExtension = '';
   selectedFileSrc = '';
@@ -38,7 +43,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() autoplay: boolean = true;
   @Input() autoload: boolean = true;
   @Input() forceInviewLoad: boolean = false;
-  @Input() showCommentSection: boolean = true;
+  @Input() showCommentSection: boolean = true; 
+  @Input() showCommentSectionOnLoad: boolean = true; 
   @Input() canScroll: boolean = false;
   @Input() file?: FileEntry;
   @Input() fileId?: number;
@@ -49,7 +55,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() inputtedParentRef?: AppComponent;
   @Output() emittedNotification = new EventEmitter<string>(); 
     
-  async ngOnInit() {
+  async ngOnInit() { 
   }
   onInView(isInView: boolean) { 
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {

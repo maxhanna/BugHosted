@@ -71,14 +71,9 @@
   flex-wrap: nowrap;
   flex-direction: row;
 }
-.fileSearchDiv {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: space-between;
-  justify-content: space-around;
-  align-items: center;
-  max-height: 350px;
+.fileSearchDiv { 
+  height: 350px;
+  width: 100%;
   overflow:auto;
 }
 

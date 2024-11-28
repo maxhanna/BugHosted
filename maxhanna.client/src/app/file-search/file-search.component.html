@@ -1,5 +1,5 @@
 <div class="shareUserListDiv" #shareUserListDiv>
-  <div>Share {{selectedSharedFile?.fileData?.givenFileName ?? selectedSharedFile?.fileName ?? ''}} With?</div>
+  <div>Share {{selectedSharedFile?.givenFileName ?? selectedSharedFile?.fileName ?? ''}} With?</div>
   <div class="shareUserList"><app-user-list (userClickEvent)="shareFile($event);" [user]="user!" *ngIf="showShareUserList"></app-user-list></div>
 </div>
 <div class="filters" *ngIf="showPrivatePublicOption && showData">
@@ -23,26 +23,32 @@
     </label>
   </div>
 </div>
-<!-- Page Controls --> 
+<!-- Page Controls -->
 <div class="searchInput">
   <span *ngIf="totalPages > 1 && currentPage != 1">
-    <span *ngIf="displayTotal || (searchTerms != '' && currentPage != 1)">Page: {{currentPage}}</span>
-    <button (click)="previousPage()" [disabled]="currentPage === 1">⬅️</button>
+    <button (click)="previousPage()" [disabled]="currentPage === 1">⬅️<span *ngIf="displayTotal || (searchTerms != '' && currentPage != 1)">{{currentPage - 1}}</span></button>
   </span>
-  <input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" /> 
+  <input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
   <span *ngIf="totalPages > 1">
-    <button (click)="nextPage()" [disabled]="currentPage === totalPages">➡️</button>
-    <span *ngIf="displayTotal || searchTerms != ''">Total: {{totalPages}}</span>
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages"><span *ngIf="displayTotal || searchTerms != ''">{{totalPages}}</span>➡️</button>
+
   </span>
 </div>
 
 <div *ngIf="showData">
-  <div *ngIf="displayTotal" class="totalDisplay">Total: {{directory?.totalCount}} <span class="currentDirectorySpan">Current Directory: <span class="invertedHighlights">{{currentDirectory || '.'}}</span></span></div>
+  <div *ngIf="displayTotal" class="totalDisplay">
+    <span class="currentDirectorySpan" *ngIf="!search.value">
+      Current Directory:
+      <span class="invertedHighlights">{{currentDirectory || '.'}}</span>
+    </span>
+
+    Total: {{directory?.totalCount}}
+  </div>
 
   <!-- Main Data -->
   <div class="">
     <div id="fileTable" *ngIf="!isLoading">
-      <div *ngIf="showUpFolderRow && canChangeDirectory">
+      <div *ngIf="showUpFolderRow && canChangeDirectory && !this.search.value">
         <div (click)="previousDirectory()"
              class="upOneFolder"
              title="Up one folder"
@@ -62,10 +68,10 @@
                  (dragover)="onDragOver($event)"
                  (drop)="onDrop(file.fileName)"
                  [id]="'fileIdDiv'+file.id"
-                 [attr.data-content]="file?.fileData?.givenFileName ?? file?.fileName ?? ''">
+                 [attr.data-content]="file?.givenFileName ?? file?.fileName ?? ''">
               <span class="fileNameWrapperSpan">
                 <input type="text"
-                       [placeholder]="file?.fileData?.givenFileName ?? (file && file.fileName ? file.fileName.split('.')[0]! : 'New file name')"
+                       [placeholder]="file?.givenFileName ?? (file && file.fileName ? file.fileName.split('.')[0]! : 'New file name')"
                        [value]=""
                        [style.display]="isEditing.includes(file.id) ? 'inline-block':'none' "
                        (keyup)="editFileKeyUp($event, file.id)"
@@ -73,68 +79,27 @@
                        [id]="'editFileNameInput'+file.id" />
 
                 <span class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}" (click)="selectFile(file);" [id]="'fileIdName'+file.id">
-                  {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.fileData?.givenFileName ?? getFileWithoutExtension(file.fileName)!}}
+                  {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.givenFileName ?? getFileWithoutExtension(file.fileName)!}}
                 </span>
-              </span> 
-              <div class="fileExtras" (click)="selectFile(file);">
+              </span>
+              <div class="fileExtras">
                 <app-reaction *ngIf="displayReactions && !file.isFolder"
                               [user]="user"
                               [inputtedParentRef]="inputtedParentRef ?? parentRef"
                               [currentReactions]="file.reactions"
                               [fileId]="file.id" (click)="$event.stopPropagation()">
                 </app-reaction>
-                <div *ngIf="displayComments" class="commentCountTd">
-                  {{file && file.fileComments ? '🗨️' + file.fileComments.length : ''}}
+                <div *ngIf="displayComments && !file.isFolder" style="cursor:pointer;" (click)="openFileWithComments(file); $event.stopPropagation()">
+                  🗨️ <span class="xxSmallFont">{{file.fileComments ? file.fileComments.length : 0}}</span>
                 </div>
                 <div class="typeTd" (click)="selectFile(file); $event.stopPropagation();" *ngIf="displayFileType">
-                  <span *ngIf="file && file.fileType">
-                    {{file.fileType.toUpperCase()}}
-                  </span>
                   <span [class]="file.visibility == 'Private' ? 'private':''"
                         title="This is a private file.">
                     {{file.visibility == 'Private' ? '🔒' : ''}}
                   </span>
                 </div>
-                <div class="fileSizeTd" (click)="selectFile(file);" *ngIf="displayFileSize">
-                  <span *ngIf="file && file.fileSize" (click)="selectFile(file);">
-                    {{formatFileSize(file.fileSize)}}
-                  </span>
-                </div>
-                <div class="actionTd" *ngIf="displayFileActions">
-                  <button [style.display]="(file?.user?.id == user?.id! && !(this.currentDirectory == '' && (
-                            file.fileName == 'Users'
-                          || file.fileName == 'Meme'
-                          || file.fileName == 'Roms'
-                          || file.fileName == 'Max'
-                          || file.fileName == 'Pictures'
-                          || file.fileName == 'Videos'
-                          || file.fileName == 'Files'
-                          || file.fileName == 'Array'
-                          || file.fileName == 'Nexus'
-                          || file.fileName == 'BugHosted'
-                          || file.fileName == 'Metabots'))) ? 'inline-block':'none' "
-                          (click)="startEditing(file.id, $event);$event.stopPropagation();">
-                    ✏️Edit
-                  </button>
-                  <button title="Share File"
-                          (click)="(file?.visibility?.toLowerCase() == 'private' ? shareFileInitiate(file) : shareLink(file)); $event.stopPropagation();">
-                    ↗️Share
-                  </button>
-                  <button (click)="this.delete(file); $event.stopPropagation();"
-                          *ngIf="file?.user?.id == user?.id! && !(this.currentDirectory == '' && (
-                            file.fileName == 'Users'
-                          || file.fileName == 'Meme'
-                          || file.fileName == 'Roms'
-                          || file.fileName == 'Max'
-                          || file.fileName == 'Pictures'
-                          || file.fileName == 'Videos'
-                          || file.fileName == 'Files'
-                          || file.fileName == 'Array'
-                          || file.fileName == 'Nexus'
-                          || file.fileName == 'BugHosted'
-                          || file.fileName == 'Metabots'))">
-                    ❌Delete
-                  </button>
+                <div (click)="showOptionsPanel(file); $event.stopPropagation();" style="cursor:pointer;">
+                  ⚙️
                 </div>
               </div>
             </div>
@@ -146,6 +111,8 @@
                                 [user]="user"
                                 [file]="file"
                                 [autoplay]="true"
+                                [showCommentSection]="true"
+                                [showCommentSectionOnLoad]="showCommentsInOpenedFiles.includes(file.id)"
                                 [inputtedParentRef]="inputtedParentRef"
                                 [canScroll]="fileId ? true : false"
                                 [displayExpander]="false"
@@ -164,6 +131,57 @@
     </div>
     <div *ngIf="!isLoading && directory && directory.totalCount == 0">
       Empty.
+    </div>
+  </div>
+</div>
+<!-- File Options Popup -->
+<div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsFile">
+  <div style="font-family: var(--title-font-family)">
+    File Options
+    <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
+  </div>
+  <div style="margin-top: 20px; margin-bottom: 20px ">
+    <button title="Edit File Name" (click)="startEditing(optionsFile.id);" [style.display]="shouldShowEditButton(optionsFile) ? 'inline-block' : 'none'">
+      ✏️Edit
+    </button>
+    <button title="Share File" (click)="(optionsFile.visibility.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
+      ↗️Share
+    </button>
+    <button title="Delete File" (click)="this.delete(optionsFile);" *ngIf="shouldShowEditButton(optionsFile) ? 'inline-block' : 'none'">
+      ❌Delete
+    </button>
+  </div>
+  <div style="height:300px; overflow: auto;">
+    <div class="optionsPanelDataDiv"><span class="smallFont">Id:</span> {{optionsFile.id}}</div>
+    <div class="optionsPanelDataDiv"><span class="smallFont">{{optionsFile.isFolder ? 'Folder' : 'File'}} Name:</span> {{optionsFile.fileName}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.givenFileName"><span class="smallFont">Given File Name:</span> {{optionsFile.givenFileName}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder"><span class="smallFont">Type:</span> {{optionsFile.fileType.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileSize"><span class="smallFont">Size:</span> {{formatFileSize(optionsFile.fileSize)}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.width"><span class="smallFont">Width:</span> {{optionsFile.width}}<span class="smallFont">, Height:</span> {{optionsFile.height}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.directory"><span class="smallFont">Directory:</span> {{optionsFile.directory}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.visibility"><span class="smallFont">Visibility:</span> {{optionsFile.visibility}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.sharedWith"><span class="smallFont">Shared With:</span> {{optionsFile.sharedWith}}</div>
+    <div class="optionsPanelDataDiv">
+      <span class="smallFont">
+        Created:
+      </span>
+      <span *ngIf="optionsFile.date" style="display: inline-block;">
+        {{optionsFile.date | date: 'y/MM/d HH:mm'}}
+      </span>
+      <div *ngIf="optionsFile.user">
+        <app-user-tag [user]="optionsFile.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+      </div>
+    </div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdatedBy.id !== optionsFile.user.id">
+      <span class="smallFont">
+        Updated:
+      </span>
+      <span *ngIf="optionsFile.lastUpdated">
+        {{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}}
+      </span>
+      <div *ngIf="optionsFile.lastUpdatedBy">
+        <app-user-tag [user]="optionsFile.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+      </div>
     </div>
   </div>
 </div>

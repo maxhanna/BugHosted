@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, Output, SecurityContext, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, SecurityContext, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
  import { ChildComponent } from '../child.component';
@@ -14,6 +14,8 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
 })
 export class CommentsComponent extends ChildComponent { 
   showCommentLoadingOverlay = false;
+  isOptionsPanelOpen = false;
+  optionsComment: FileComment | undefined;
   upvotedCommentIds: number[] = []
   downvotedCommentIds: number[] = []
   selectedFiles: FileEntry[] = [];
@@ -29,9 +31,10 @@ export class CommentsComponent extends ChildComponent {
   @Input() component_id: number = 0;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
+   
   constructor(private commentService: CommentService, private sanitizer: DomSanitizer) {
     super();
-  }
+  } 
 
   override viewProfile(user: User) {
     this.parentRef = this.inputtedParentRef;
@@ -88,6 +91,7 @@ export class CommentsComponent extends ChildComponent {
     this.commentList = this.commentList.filter(x => x.id != comment.id);
     this.deleteCommentAsync(comment); 
     this.showCommentLoadingOverlay = false;
+    this.closeOptionsPanel();
   }
 
   async deleteCommentAsync(comment: FileComment) {
@@ -132,6 +136,7 @@ export class CommentsComponent extends ChildComponent {
         (document.getElementById('commentAcceptButtonSpan' + comment.id) as HTMLButtonElement).style.display = "none";
       }
     }
+    this.closeOptionsPanel();
   } 
   async confirmEditComment(comment: FileComment) { 
     const message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value; 
@@ -160,5 +165,28 @@ export class CommentsComponent extends ChildComponent {
     sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
 
     return sanitizedText;
+  }
+  showOptionsPanel(comment: FileComment) {
+    if (this.isOptionsPanelOpen) {
+      this.closeOptionsPanel();
+      return;
+    }
+    this.isOptionsPanelOpen = true;
+    this.optionsComment = comment;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+    else if (this.inputtedParentRef) {
+      this.inputtedParentRef.showOverlay = true;
+    }
+  }
+  closeOptionsPanel() {
+    this.isOptionsPanelOpen = false;
+    this.optionsComment = undefined;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    } else if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
+      this.inputtedParentRef.showOverlay = false;
+    }
   }
 }

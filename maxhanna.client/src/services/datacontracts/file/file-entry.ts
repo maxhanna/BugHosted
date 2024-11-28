@@ -6,13 +6,16 @@ import { FileData } from "./file-data";
 export class FileEntry {
   id: number;
   fileName: string;
+  givenFileName?: string;
   directory: string;
   visibility: string;
   sharedWith: string;
   user: User;
+  lastUpdatedBy?: User;
   isFolder: boolean;
   fileComments: Array<FileComment>;
   date: Date;
+  lastUpdated?: Date;
   fileData?: FileData;
   fileSize: number;
   fileType: string;
@@ -22,7 +25,7 @@ export class FileEntry {
     
   constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string,
     user: User, isFolder: boolean, comments: Array<FileComment>, date: Date,
-    fileSize: number, fileType: string, reactions?: Array<Reaction>, fileData?: FileData, width?: number, height?: number) {
+    fileSize: number, fileType: string, reactions?: Array<Reaction>, lastUpdated?: Date, lastUpdatedBy?: User, givenFileName?: string, width?: number, height?: number) {
     this.id = id;
     this.fileName = fileName;
     this.directory = directory;
@@ -32,7 +35,9 @@ export class FileEntry {
     this.isFolder = isFolder; 
     this.fileComments = comments;
     this.date = date;
-    this.fileData = fileData;
+    this.lastUpdated = lastUpdated;
+    this.lastUpdatedBy = lastUpdatedBy;
+    this.givenFileName = givenFileName;
     this.fileSize = fileSize;
     this.fileType = fileType;
     this.width = width;

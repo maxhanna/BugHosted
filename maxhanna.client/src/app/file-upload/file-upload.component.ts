@@ -41,6 +41,7 @@ export class FileUploadComponent {
       if (this.inputtedParentRef) { 
         this.inputtedParentRef.showOverlay = true;
       }
+      Array.from(this.fileInput.nativeElement.files as FileList).map(file => console.log(file));
       this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
       this.userUploadEvent.emit(this.uploadFileList);
     }

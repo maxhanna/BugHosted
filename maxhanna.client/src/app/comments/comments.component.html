@@ -1,53 +1,49 @@
 <!-- Comments Section -->
 <div class="commentsHeader" [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'" (click)="showComments = !showComments">
   <span class="smallExpander">🗨️{{commentList ? commentList.length : '0'}} {{showComments ? '-' : '+'}}</span>
-</div> 
-<div class="comments-section" *ngIf="commentList && commentList.length > 0 && showComments">
-  <div *ngIf="showComments">
-    <div *ngFor="let comment of commentList!" class="commentListDiv">
-      <div class="commentContentAndAvatarContainerDiv">
-        <div class="commentAvatar">
-          <span class="usernameProfileLink">
-            <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
-          </span>
-        </div>
-        <div class="commentContent">
-          <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id"></div>
-          <textarea [style.display]="'none'" [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea> 
-          <button [style.display]="'none'" [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)"> 
-            <span class="commentEditSpans commentAcceptEdit" [style.display]="'none'" [id]="'commentAcceptButtonSpan' + comment.id">✔️</span>
-            ✏️Edit
-          </button>
+</div>
+<div class="comments-section" *ngIf="commentList && commentList.length > 0 && showComments"> 
+  <div *ngFor="let comment of commentList!" class="commentListDiv">
+    <div class="commentContentAndAvatarContainerDiv">
+      <div class="commentAvatar">
+        <span class="usernameProfileLink">
+          <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
+        </span>
+      </div>
+      <div class="commentContent">
+        <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id"></div>
+        <textarea [style.display]="'none'" [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
+        <button [style.display]="'none'" [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)">
+          <span class="commentEditSpans commentAcceptEdit" [style.display]="'none'" [id]="'commentAcceptButtonSpan' + comment.id">✔️</span>
+          ✏️Edit
+        </button>
 
-          <div class="commentDate">{{comment.date | date: 'y/MM/d HH:mm'}}</div>
-
-          <app-reaction [commentId]="comment.id"
-                        [user]="inputtedParentRef?.user"
-                        [inputtedParentRef]="inputtedParentRef"
-                        [currentReactions]="comment.reactions">
-          </app-reaction>
-
-          <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
-            <app-media-viewer [file]="file"
-                              [user]="comment.user"
-                              [currentDirectory]="file.directory"
-                              [inputtedParentRef]="inputtedParentRef"
-                              [displayExtraInfo]="false"
-                              [autoplay]="false"
-                              [autoload]="true"
-                              [showCommentSection]="false"></app-media-viewer>
-          </div>
+        <div class="commentDate">{{comment.date | date: 'y/MM/d HH:mm'}}</div> 
+        <div *ngFor="let file of comment.commentFiles" class="commentMediaFile">
+          <app-media-viewer [file]="file"
+                            [user]="comment.user"
+                            [currentDirectory]="file.directory"
+                            [inputtedParentRef]="inputtedParentRef"
+                            [displayExtraInfo]="false"
+                            [autoplay]="false"
+                            [autoload]="true"
+                            [showCommentSection]="false"></app-media-viewer>
         </div>
       </div>
-      <div class="actionDiv"> 
-        <button (click)="deleteComment(comment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id && comment.id">❌</button>
-        <button (click)="editComment(comment)" title="Edit Comment" *ngIf="inputtedParentRef?.user?.id == comment.user.id && comment.id">
-          <span class="commentEditSpans commentCancelEdit" [style.display]="'none'" [id]="'commentEditButtonSpan' + comment.id">❌</span>
-          ✏️
-        </button>
+    </div>
+    <div class="commentActionSection">
+      <div style="display: inline-block;">
+        <app-reaction [commentId]="comment.id"
+                      [user]="inputtedParentRef?.user"
+                      [inputtedParentRef]="inputtedParentRef"
+                      [currentReactions]="comment.reactions">
+        </app-reaction>
+      </div>
+      <div style="display: inline-block; cursor: pointer;" (click)="showOptionsPanel(comment)" *ngIf="comment.user?.id == inputtedParentRef?.user?.id">
+        ⚙️
       </div>
     </div> 
-  </div>
+  </div> 
 </div>
 <div class="commentsInputArea" *ngIf="showComments">
   <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
@@ -64,3 +60,17 @@
   <div *ngIf="selectedFiles.length > 0">{{selectedFiles.length}} file{{selectedFiles.length > 1 ? 's' : ''}} attached.</div>
 </div>
 <!-- End Comments Section -->
+<!-- Options Popup -->
+<div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsComment">
+  <div style="font-family: var(--title-font-family)">
+    Options
+    <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
+  </div> 
+  <div style="height:300px; overflow: auto;">
+    <button (click)="deleteComment(optionsComment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">❌ Delete</button>
+    <button (click)="editComment(optionsComment)" title="Edit Comment" *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">
+      <span class="commentEditSpans commentCancelEdit" [style.display]="'none'" [id]="'commentEditButtonSpan' + optionsComment.id">❌</span>
+      ✏️ Edit
+    </button>
+  </div>
+</div>

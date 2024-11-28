@@ -60,10 +60,11 @@
   </div>
 </div>
 
-<app-comments *ngIf="selectedFile && showCommentSection"
+<app-comments *ngIf="(selectedFile || file) && showCommentSection"
               [inputtedParentRef]="inputtedParentRef"
               [type]="'File'"
-              [component_id]="selectedFile.id"
-              [commentList]="selectedFile.fileComments"
+              [showComments]="showCommentSectionOnLoad"
+              [component_id]="selectedFile?.id || file?.id ?? 0"
+              [commentList]="selectedFile?.fileComments || file?.fileComments ?? []"
               (commentAddedEvent)="commentAddedEvent($event)">
 </app-comments>

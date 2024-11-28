@@ -41,7 +41,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
   showData = true; 
   showShareUserList = false;
+  isOptionsPanelOpen = false;
+  showCommentsInOpenedFiles: number[] = [];
 
+  optionsFile: FileEntry | undefined;
   directory: DirectoryResults | undefined;
   defaultCurrentPage = 1;
   defaultTotalPages = 1;
@@ -116,12 +119,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         this.userNotificationEvent.emit(`Failed to delete ${file.fileName}!`);
       }
       this.stopLoading();
+      this.closeOptionsPanel();
     }
   }
   async getDirectory(file?: string, fileId?: number) {
-    this.directory = undefined;
-    this.openedFiles = [];
-    this.searchTerms = this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : "";
+    this.directory = undefined; 
+    this.searchTerms = this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : ""; 
     this.showData = true;
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
@@ -231,10 +234,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.isEditing = this.isEditing.filter(x => x != fileId);
     }
   }
-  async startEditing(fileId: number, event: MouseEvent) {
-    event.stopPropagation();
+  async startEditing(fileId: number) {
     const parent = document.getElementById("fileIdDiv" + fileId)!;
     const text = parent.getElementsByTagName("input")[0].value!;
+    this.closeOptionsPanel();
 
     if (this.isEditing.includes(fileId) && text.trim() == '') {
       this.isEditing = this.isEditing.filter(x => x != fileId);
@@ -335,6 +338,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         return directoryWithoutTrailingSlash.substring(0, lastSlashIndexWithoutTrailingSlash);
       }
     }
+    this.openedFiles = [];
+    this.showCommentsInOpenedFiles = [];
     return "";
   }
 
@@ -434,14 +439,63 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
     this.selectedSharedFile = undefined;
     this.shareUserListDiv.nativeElement.classList.toggle("open");
+    this.closeOptionsPanel();
   }
   shareFileInitiate(file: FileEntry) {
     this.showShareUserList = true;
     this.selectedSharedFile = file;
     this.shareUserListDiv.nativeElement.classList.toggle("open");
+    this.closeOptionsPanel();
   }
   emittedNotification(event: string) {
     this.userNotificationEvent.emit(event);
+  }
+  showOptionsPanel(file: FileEntry) { 
+    if (this.isOptionsPanelOpen) {
+      this.closeOptionsPanel();
+      return;
+    }
+    this.isOptionsPanelOpen = true;
+    this.optionsFile = file;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+    else if (this.inputtedParentRef) {
+      this.inputtedParentRef.showOverlay = true; 
+    }
+  }
+  closeOptionsPanel() {
+    this.isOptionsPanelOpen = false;
+    this.optionsFile = undefined;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    } else if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
+      this.inputtedParentRef.showOverlay = false;
+    }
+  }
+  shouldShowEditButton(optionsFile: any): boolean {
+    if (!optionsFile?.user?.id || !this.user?.id) {
+      return false;
+    }
+
+    const restrictedFileNames = [
+      'Users', 'Meme', 'Roms', 'Max',
+      'Pictures', 'Videos', 'Files',
+      'Array', 'Nexus', 'BugHosted', 'Metabots'
+    ];
+
+    return optionsFile.user.id === this.user.id &&
+      !(this.currentDirectory === '' && restrictedFileNames.includes(optionsFile.fileName));
+  }
+  openFileWithComments(file: FileEntry) {
+    this.viewMediaFile = true;
+
+    if (!this.showCommentsInOpenedFiles.includes(file.id)) {
+      this.showCommentsInOpenedFiles.push(file.id);
+    }
+    if (!this.openedFiles.includes(file.id)) { 
+      this.openedFiles.push(file.id); 
+    } 
   }
   shareLink(fileEntry: FileEntry) {
     const link = `https://bughosted.com/${fileEntry.directory.includes("Meme") ? 'Memes' : 'File'}/${fileEntry.id}`;
@@ -452,5 +506,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.emittedNotification("Error: Unable to share link!");
       console.log("Error: Unable to share link!");
     }
+    this.closeOptionsPanel();
   }
 }
