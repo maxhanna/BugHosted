@@ -238,6 +238,7 @@ namespace maxhanna.Server.Controllers
 			_logger.LogInformation("Stories fetched and processed.");
 			return storyResponse;
 		}
+		
 		private async Task FetchAndAttachTopicsAsync(List<Story> stories)
 		{
 			if (stories.Count == 0)

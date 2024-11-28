@@ -91,9 +91,10 @@ namespace maxhanna.Server.Controllers
 					return BadRequest(new Topic(existingId, request.Topic.TopicText));
 				}
 
-				sql = @"INSERT INTO maxhanna.topics (topic) VALUES (@topic); SELECT LAST_INSERT_ID();";
+				sql = @"INSERT INTO maxhanna.topics (topic, created_by_user_id) VALUES (@topic, @user_id); SELECT LAST_INSERT_ID();";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@topic", request.Topic.TopicText);
+				cmd.Parameters.AddWithValue("@user_id", request.User.Id);
 
 				int topicId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 				if (topicId > 0)

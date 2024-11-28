@@ -1,5 +1,5 @@
 /* You can add global styles to this file, and also import other style files */
-:root { 
+:root {
   --main-bg-color: #0e0e0e;
   --main-bg-color-quarter-opacity: #202020;
   --main-highlight-color: #3a3a3a;
@@ -7,7 +7,8 @@
   --secondary-bg-color: rgba(54, 25, 25, .2);
   --main-bg-color-full-opacity: #011300;
   --table-thead-color: var(--main-highlight-color-quarter-opacity);
-  --main-font-family: Arial; 
+  --main-font-family: Arial;
+  --title-font-family: Courier New, Arial;
   --main-font-color: #b0c2b1;
   --main-link-color: chartreuse;
   --primary-font-color: var(--main-font-color);
@@ -101,20 +102,19 @@ fieldset {
   border-radius: 5px;
   transition: transform 0.8s ease;
   overflow: auto;
-}
-
+} 
 .refreshButton::before, .closeButton::before, .menuButton::before {
   position: absolute;
   top: 0px;
   width: 25px;
   height: 25px;
-  font-size: 18px;
+  font-size: 12px;
   line-height: 25px;
   z-index: 2;
   border: 2px outset black;
   text-align: center;
   padding-left: 0px;
-  border-radius: 3px; 
+  border-radius: 3px;
 }
 
 .refreshButton:active::before,

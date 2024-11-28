@@ -1,8 +1,8 @@
 <!-- Comments Section -->
-<div class="commentsHeader" [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'" (click)="showComments = !showComments"> 
-  Comments ({{commentList ? commentList.length : '0'}}) <span class="smallExpander">{{showComments ? '-' : '+'}}</span> 
+<div class="commentsHeader" [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'" (click)="showComments = !showComments">
+  <span class="smallExpander">🗨️{{commentList ? commentList.length : '0'}} {{showComments ? '-' : '+'}}</span>
 </div> 
-<div class="comments-section" *ngIf="commentList && commentList.length > 0">
+<div class="comments-section" *ngIf="commentList && commentList.length > 0 && showComments">
   <div *ngIf="showComments">
     <div *ngFor="let comment of commentList!" class="commentListDiv">
       <div class="commentContentAndAvatarContainerDiv">

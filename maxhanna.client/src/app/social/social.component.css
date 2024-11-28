@@ -1,379 +1,440 @@
 .componentMain {
-  max-width: 865px;
-  min-width: 350px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
-  display: flex;
-  flex-direction: column;
+	width: 98vw;
+	max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+	display: flex;
+	flex-direction: column;
 }
 
-.socialComponent{
-    max-height: CALC(100vh - 40px);
-    overflow: auto;
+.socialComponent {
+	max-height: CALC(100vh - 40px);
+	overflow: auto;
 }
+ 
 
-@media only screen and (max-width: 865px) {
-  .componentMain {
-    min-width: 90vw;
-    max-width: 99vw;
-  }  
-}
 .mobileMaxHeight {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 113px);
-} 
-.inputDiv {
-  margin-left: auto;
-  margin-right: auto;
-  width: 90%;  
+	max-height: CALC(CALC(var(--vh, 1vh) * 100) - 113px);
 }
+
+.inputDiv {
+	margin-left: auto;
+	margin-right: auto;
+	width: 90%;
+}
+
 .storyInputDiv {
-  display: flex;
-  flex-flow: column wrap;  
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: flex-start;
-  align-items: stretch;
+	display: flex;
+	flex-flow: column wrap;
+	flex-direction: column;
+	flex-wrap: nowrap;
+	align-content: center;
+	justify-content: flex-start;
+	align-items: stretch;
 }
 
 .mainTopicSelector {
-  text-align: center;
-  min-height: 30px;
-  display: flex;
-  flex-direction: row;
-  align-content: center;
-  justify-content: center;
-  align-items: flex-start;
+	text-align: center;
+	min-height: 30px;
+	display: flex;
+	flex-direction: row;
+	align-content: center;
+	justify-content: center;
+	align-items: flex-start;
 }
-.mainTopicSelector input{
-  width:100%;
-}
+
+	.mainTopicSelector input {
+		width: 100%;
+	}
+
 .foodForThought {
-  min-width: 200px;
-  width: 100%;
-  padding: 10px;
-  box-sizing: border-box;
+	min-width: 200px;
+	width: 100%;
+	padding: 10px;
+	box-sizing: border-box;
 }
 
 .storyContainer {
-  border-bottom: var(--main-border);
-  padding-bottom: 5px;
-  overflow: hidden;
+	border-bottom: var(--main-border); 
+	overflow: hidden;
 }
 
 .storyText {
-  width: 100%;
-  padding: 5px;
-  display: inline-block;
-  border-radius: 3px;
-  font-weight:400;
+	width: 100%;
+	padding: 5px;
+	display: inline-block;
+	border-radius: 3px;
+	font-weight: 400;
 }
+
 .storyUserDetails textarea {
-  width: 100%;
+	width: 100%;
 }
 
 .hidden {
-  max-height: 1200px;
-  overflow-x: hidden;
-  text-overflow: ellipsis;
+	max-height: 1200px;
+	overflow-x: hidden;
+	text-overflow: ellipsis;
 }
 
 .metadataContent {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
+	display: flex;
+	flex-direction: column;
+	flex-wrap: nowrap;
+	align-content: center;
+	justify-content: center;
+	align-items: center;
 }
 
 .metaImgDiv {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-content: center;
+	justify-content: center;
+	align-items: center;
 }
- 
+
 .metadataImage {
-  max-width: 500px;
-  max-height: 500px;
+	max-width: 100%;
+	max-height: 500px;
 }
 
 @media only screen and (max-device-width: 800px) {
-  .metadataImage {
-    max-width: 300px;
-    max-height: 300px;
-  }
+	.metadataImage {
+		max-width: 300px;
+		max-height: 300px;
+	}
 }
 
 .metadataDescription {
-  font-size: smaller;
-  color: var(--secondary-font-color);
-  text-align: center;
+	font-size: smaller;
+	color: var(--secondary-font-color);
+	text-align: center;
 }
 
 .metadataTitle {
-  font-size: small;
-  color: var(--main-font-color);
+	font-size: small;
+	color: var(--main-font-color);
 }
 
-.attachedFileSpan { 
-  cursor: pointer;
+.attachedFileSpan {
+	cursor: pointer;
 }
 
 .attachment {
-  display: inline-block; 
-  max-width: 225px;
-  max-height: 525px;
-  overflow-y: auto;
+	display: inline-block;
+	max-width: 225px;
+	max-height: 525px;
+	overflow-y: auto;
 }
-.attachmentTdTitle{
-    font-size:small;
+
+.attachmentTdTitle {
+	font-size: small;
 }
+
 .fileNotImageOrVideo {
-  font-size: 40px;
+	font-size: 40px;
 }
 
 .downloadAttachmentLink {
-  text-decoration: underline;
-  cursor: pointer;
-} 
+	text-decoration: underline;
+	cursor: pointer;
+}
+
 .expand {
-  display: flex;
-  flex-wrap: nowrap;
-  width: 100%;
-  align-content: space-between;
-  justify-content: space-between;
-  flex-direction: row-reverse;
+	display: flex;
+	flex-wrap: nowrap;
+	width: 100%;
+	align-content: space-between;
+	justify-content: space-between;
+	flex-direction: row-reverse;
 }
-  .storyTopics button {
-    float:right;
-  }
-  
+
+.storyTopics button {
+	float: right;
+}
+
 .storyUserDetails {
-    display: inline-block;
-    width: 100%;
+	display: inline-block;
+	width: 100%;
 }
-.commentVoteButtons { 
-  height: 25px; 
-  display: flex;
-  flex-direction: row-reverse;
-  flex-wrap: nowrap; 
-  align-items: center;
+
+.commentVoteButtons {
+	height: 25px;
+	display: flex;
+	flex-direction: row-reverse;
+	flex-wrap: nowrap;
+	align-items: center;
 }
-.commentVoteButtons button {
-    width:33%;
-    max-width: 25px;
-    font-size: 8px;
+
+	.commentVoteButtons button {
+		width: 33%;
+		max-width: 25px;
+		font-size: 8px;
+		background-color:unset !important;
+	}
+
+.commentUsername {
 }
-.commentUsername { 
-} 
+
 .commentText {
-    display: flex;
-    flex-wrap: nowrap;
-    width: 100%;
-    align-content: space-between;
-    justify-content: space-between;
-    flex-direction: row-reverse;
-  display: inline-block;
-  padding: 5px 10px;
-  border-radius: 10px;
-  background-color: var(--main-highlight-color);
-  margin-left: 25px;
-  margin-bottom: 5px;
+	display: flex;
+	flex-wrap: nowrap;
+	width: 100%;
+	align-content: space-between;
+	justify-content: space-between;
+	flex-direction: row-reverse;
+	display: inline-block;
+	padding: 5px 10px;
+	border-radius: 10px;
+	background-color: var(--main-highlight-color);
+	margin-left: 25px;
+	margin-bottom: 5px;
 }
+
 .commentsSection {
-    border: var(--main-border);
-    padding: 10px;
+	border: var(--main-border);
+	padding: 10px;
 }
+
 .commentDate {
-    font-size: small;
-    color: var(--secondary-font-color);
+	font-size: small;
+	color: var(--secondary-font-color);
 }
+
 .matchingTopic {
-  display: inline-block;
-  padding: 0px 5px;
-  border-radius: 4px;
-  background-color: var(--main-highlight-color);
-  cursor: pointer;
-  border: var(--main-border);
-  color: var(--secondary-font-color);
-} 
-.mainFileUploaderAndTopicSelectorDiv {
-    display: flex;
-    justify-content: flex-start;
+	display: inline-block;
+	padding: 0px 5px;
+	border-radius: 4px;
+	background-color: var(--main-highlight-color);
+	cursor: pointer;
+	border: var(--main-border);
+	color: var(--secondary-font-color);
 }
+
+.mainFileUploaderAndTopicSelectorDiv {
+	display: flex;
+	justify-content: flex-start;
+	width:100%;
+	overflow:hidden;
+}
+
+	.mainFileUploaderAndTopicSelectorDiv ::ng-deep button {
+		cursor: pointer;
+		height: 23px !important;
+		line-height: 12px;
+		min-width: 70px;
+		white-space: nowrap;
+	}
+
 .searchInputs {
-  display: flex;
-  justify-content: center;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: center;
-  align-items: center;
+	display: flex;
+	justify-content: center;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-content: center;
+	align-items: center;
 }
 
 .additionalSearchFiltersSpan {
-    font-size:smaller;
+	font-size: smaller;
 }
 
 
 .storyTextContainer {
-  display: flex;
-  justify-content: flex-start;
-  margin-bottom: 15px;
+	display: flex;
+	justify-content: flex-start; 
 }
-  .storyTextContainer.collapsed {
-    max-height: 100px;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    box-shadow: 0px 30px 33px -33px rgb(255 255 255 / 80%);
-    cursor: pointer;
-  }
+
+	.storyTextContainer.collapsed {
+		max-height: 100px;
+		text-overflow: ellipsis;
+		overflow: hidden;
+		box-shadow: 0px 30px 33px -33px rgb(255 255 255 / 80%);
+		cursor: pointer;
+	}
+
 .storyContentDiv {
-  width: CALC(100% - 75px);
-  padding-left:10px;
-  padding-right:10px;
+	padding-left: 10px;
+	padding-right: 10px;
+	width: 100%;
 }
-.avatarDiv {  
-  overflow: hidden;
-  display:table;
+
+.avatarDiv {
+	overflow: hidden;
+	display: table;
 }
+
 .pageAndSearchInputs {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
-} 
-.pagination {
-  text-align: right;
-  display: inline-block;
-  width:35px;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-content: center;
+	justify-content: center;
+	align-items: center;
 }
+
+.pagination {
+	text-align: right;
+	display: inline-block;
+	width: 35px;
+}
+
+.topPagination {
+	position: fixed;
+	top: 7px;
+	left: CALC(35px + 2vw);
+}
+
 .mainTableDiv {
-  border: var(--main-border); 
+	border: var(--main-border);
 }
 
 .storyHeader {
-  display: flex;
-  justify-content: center;
-  background-color: var(--main-highlight-color);
-  border: var(--main-border);
-  height: 25px;
-  margin-bottom: 10px;
-  align-content: center;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  font-weight: bolder;
-  border-style: double;
-  text-shadow: 1.2px 1.1px 1.1px black;
-  padding-left: 10px;
-  padding-right: 10px;
-  box-shadow: 1px 1px 5px black;
-}
+	display: flex;
+	justify-content: center;
+/*	background-color: var(--main-highlight-color);
+	border: var(--main-border);*/
+	height: 25px;
+/*	margin-bottom: 10px;*/
+	align-content: center;
+	flex-direction: row;
+	flex-wrap: nowrap;
+	align-items: center;
+	font-weight: bolder;
+/*	border-style: double;*/
+	text-shadow: 1.2px 2.2px black;
+	padding-left: 10px;
+	padding-right: 10px;
+/*	box-shadow: 1px 1px 5px black;
+*/}
 
 .storyDate {
-  color: var(--secondary-font-color);
-  font-size: 11px;
-  display: inline-block;
-  width: 100%;
+	color: var(--secondary-font-color);
+	font-size: 11px;
+	display: inline-block;
+	width: 100%;
 }
+
 .notificationCounterDiv {
-  position: absolute;
-  right: 35px;
-  top: 4px;
-  width: 40px;
-  text-align: right;
+	position: absolute;
+	right: 35px;
+	top: 4px;
+	width: 40px;
+	text-align: right;
 }
+
 .searchSocialsButtonDiv {
-  cursor: pointer;
-  position: absolute;
-  right: 75px;
-  top: 4px;
-  width: 40px;
-  text-align: right;
+	cursor: pointer;
+	position: absolute;
+	right: 75px;
+	top: 4px;
+	width: 40px;
+	text-align: right;
 }
 
 .topicDiv {
-    text-align: center;
+	text-align: center;
 }
+
 .emptyPage {
-    height:30px;
+	height: 30px;
 }
+
 .attachmentsDiv {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-content: space-between;
-  justify-content: space-evenly;
-  align-items: center;
-  gap: 40px;
-  margin-top: 5px;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-content: space-between;
+	justify-content: space-evenly;
+	align-items: center;
+	gap: 40px;
+	margin-top: 5px;
 }
+
 .expandSpan {
-  display: flex;
-  align-content: space-around;
-  align-items: flex-start;
-  width: 100px;
-  text-align: right;
-  justify-content: space-around;
-  flex-wrap: nowrap;
+	display: flex;
+	align-content: space-around;
+	align-items: flex-start;
+	width: 100px;
+	text-align: right;
+	justify-content: space-around;
+	flex-wrap: nowrap;
 }
+
 .reactionTopics {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-content: center;
-  flex-direction: row;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	align-content: center;
+	flex-direction: row;
 }
+
 .smallExpander {
-  width: 110px;
-  text-align: center;
+	width: 110px;
+	text-align: center;
 }
+
 .reactionsSpan {
-  max-width: 100px;
-  min-width: 35px;
+	max-width: 100px;
+	min-width: 35px;
 }
+
 .textExpanderDiv {
-  width: 100%;
-  text-align: center;
-  cursor: pointer;
-  margin-top: -10px;
-  margin-bottom: 10px;
-  opacity: 75%;
+	width: 100%;
+	text-align: center;
+	cursor: pointer; 
+	margin-bottom: 10px;
+	opacity: 75%;
 }
+
 .popupPanel {
-  position: fixed;
-  width: 300px;
-  height: 250px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: var(--main-bg-color);
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: space-evenly;
-  align-items: center;
+	position: fixed;
+	width: 300px;
+	height: 250px;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background-color: var(--main-bg-color);
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	flex-wrap: nowrap;
+	align-content: center;
+	justify-content: space-evenly;
+	align-items: center;
+	border-radius: 8px;
+	overflow: auto;
+	padding: 20px;
+}
+
+.largePopupPanel {
+	height:50%;
 }
 
 .storyEditSpans {
-  position: relative;
-  transform: scale(0.75);
-  heighT: 0;
-  width: 0;
+	position: relative;
+	transform: scale(0.75);
+	heighT: 0;
+	width: 0;
 }
 
 .storyRejectEdit {
-  left: 7px;
+	left: 7px;
 }
 
 .storyAcceptEdit {
-  left: -2px;
-  top: -3px;
+	left: -2px;
+	top: -3px;
+}
+.mainTopicSelections {
+	display: inline-flex;
+}
+.mainTopicSelectionsHeaderButton {
+	display: inline-block;
+	white-space: nowrap;
+}
+.matchingTopicsInsideButtonWrapper {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }

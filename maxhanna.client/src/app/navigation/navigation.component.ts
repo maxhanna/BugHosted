@@ -238,15 +238,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     event.stopPropagation();
   }
-  menuIconsIncludes(title: string) {
-    
-      return this._parent.userSelectedNavigationItems.some(x => x.title == title);
-    
+  menuIconsIncludes(title: string) { 
+      return this._parent.userSelectedNavigationItems.some(x => x.title == title); 
   }
-  shouldDisplayItem(title: string): boolean { 
-    const alwaysDisplay = ['Close Menu', 'User', 'Meme', 'Social', 'Wordler', 'Emulation', 'Files'];
-    return this._parent.userSelectedNavigationItems.some(x => x.title == title) || alwaysDisplay.includes(title);
-  }
+ 
   minimizeNav() {
     if (this.navbar) {
       this.navbar.nativeElement.classList.add('collapsed');

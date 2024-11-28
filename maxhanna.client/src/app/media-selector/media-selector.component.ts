@@ -43,10 +43,12 @@ export class MediaSelectorComponent {
 
   displaySearchDiv() {
     this.displaySearch = true;
-    this.viewMediaChoicesOpen = false; 
-
+    this.viewMediaChoicesOpen = false;
   }
-
+  closeSearchDiv(event: Event) {
+    this.displaySearch = false;
+    this.viewMediaChoicesOpen = true;
+  }
   selectFile(file: FileEntry) { 
     if (this.selectedFiles.length > this.maxSelectedFiles) {
       return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);

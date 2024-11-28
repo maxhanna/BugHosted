@@ -40,7 +40,7 @@
           <td>{{ device.powerLimitWatts }}</td>
           <td>{{ device.miner }}</td>
           <td (click)="requestDeviceStateChange(device)">
-            <div class="{{ isOffline(device.state!) ? 'stopped' : isDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
+            <div class="stateControllerButton {{ isOffline(device.state!) ? 'stopped' : isDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
           </td>
         </tr>
       </tbody>

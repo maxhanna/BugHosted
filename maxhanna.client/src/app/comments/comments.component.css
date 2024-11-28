@@ -15,7 +15,7 @@
 .commentsHeader {
   margin-left: auto;
   margin-right: auto;
-  width: 300px; 
+  max-width: 300px; 
   text-align: center;
   cursor: pointer;
   font-weight: 700;

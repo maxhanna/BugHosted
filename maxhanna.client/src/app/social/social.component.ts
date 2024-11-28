@@ -38,12 +38,15 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   storyResponse?: StoryResponse;
   optionStory?: Story;
   comments: FileComment[] = [];
+  openedStoryComments: number[] = [];
+  isMobileTopicsPanelOpen = false;
   isSearchSocialsPanelOpen = false;
   isMenuPanelOpen = false;
   isStoryOptionsPanelOpen = false;
-  openedMemes: number[] = [];
-  selectedAttachmentFileExtension: string | null = null;
-  isEditing = false;
+  isPostOptionsPanelOpen = false;
+  isEditing: number[] = [];
+  selectedAttachmentFileExtension: string | null = null; 
+  eachAttachmentSeperatePost = false;
   isUploadInitiate = true;
   attachedFiles: FileEntry[] = [];
   attachedTopics: Array<Topic> = [];
@@ -69,6 +72,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   totalPages: number = 1;
   totalPagesArray: number[] = [];
   userSearch = "";
+
+  city : string | undefined;
+  country: string | undefined;
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
   @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
@@ -102,6 +108,14 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (this.storyId) {
       this.scrollToStory(this.storyId);
     }
+    
+    
+    this.userService.getUserIp().then(res => {
+      if (res) { 
+        this.city = res.city;  
+        this.country = res.country; 
+      }
+    });
   }
 
   async ngAfterViewInit() {
@@ -112,34 +126,6 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
       (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
     } 
-  }
-  pageChanged(selectorId?: number) {
-    let pageSelect = this.pageSelect.nativeElement;
-    if (selectorId == 2) {
-      pageSelect = this.pageSelect2.nativeElement;
-    }
-    this.currentPage = parseInt(pageSelect.value);
-    this.getStories(this.currentPage);
-    setTimeout(() => { 
-      this.scrollToStory();
-    }, 50);
-  }
-  scrollToStory(storyId?: number): void {
-    if (storyId) {
-      setTimeout(() => {
-        const element = document.getElementById('storyDiv' + storyId);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 1111);
-    } else {
-      setTimeout(() => {
-        const element = document.getElementById('mainTableDiv')?.getElementsByClassName("storyContainer")[0];
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }, 200);
-    }
   }
   async delete(story: Story) {
     if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
@@ -153,23 +139,11 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     this.closeStoryOptionsPanel();
   }
   async edit(story: Story) {
-    if (document.getElementById('storyText' + story.id)) {
-      if ((document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display != "block") {
-        (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "block";
-        (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "block";
-        (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "none";
-        (document.getElementById('storyAcceptEditButtonSpan' + story.id) as HTMLDivElement).style.display = "block";
-        (document.getElementById('storyRejectEditButtonSpan' + story.id) as HTMLDivElement).style.display = "block";
-        this.isEditing = true;
-      } else {
-        (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "none";
-        (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "none";
-        (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "block";
-        (document.getElementById('storyAcceptEditButtonSpan' + story.id) as HTMLDivElement).style.display = "none"; 
-        (document.getElementById('storyRejectEditButtonSpan' + story.id) as HTMLDivElement).style.display = "none";
-        this.isEditing = false;
-      }
-    }
+    if (this.isEditing.includes(story.id ?? 0)) {
+      this.isEditing = this.isEditing.filter(x => x != story.id);
+    } else { 
+      this.isEditing.push(story.id ?? 0);
+    } 
     this.closeStoryOptionsPanel();
   }
   async editStory(story: Story) {
@@ -177,57 +151,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     story.storyText = message;
     if (document.getElementById('storyText' + story.id) && this.parentRef && this.parentRef.user) {
       this.socialService.editStory(this.parentRef.user, story);
-      (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).style.display = "none";
-      (document.getElementById('storyTextEditConfirmButton' + story.id) as HTMLTextAreaElement).style.display = "none";
-      (document.getElementById('storyText' + story.id) as HTMLDivElement).style.display = "block";
+      this.isEditing = this.isEditing.filter(x => x != story.id);
     }
-  }
-  async onTopicAdded(topics?: Array<Topic>) {
-    if (topics) {
-      this.attachedTopics = topics;
-      this.searchStories(topics);
-      this.scrollToStory();
-      this.closeMenuPanel();
-    }
-  }
-  async removeTopic(topic: Topic) {
-    this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
-    this.searchStories(this.attachedTopics);
-    this.scrollToStory(); 
-  }
-  async topicClicked(topic: Topic) {
-    this.attachedTopics.push(topic);
-    this.onTopicAdded(this.attachedTopics);
-    this.scrollToStory();
-  }
-  async topTopicClicked(topicName: string, topicId: number) {
-    this.attachedTopics.push(new Topic(topicId, topicName));
-    this.onTopicAdded(this.attachedTopics);
-    this.scrollToStory();
-  }
-  uploadInitiate() {
-
-  }
-  selectFile(files: FileEntry[]) {
-    if (files) {
-      this.attachedFiles = files.flatMap(fileArray => fileArray);
-    }
-  }
-
-  copyLink(storyId?: number) {
-    const link = `https://bughosted.com/Social/${storyId}`;
-    this.closeStoryOptionsPanel();
-    navigator.clipboard.writeText(link).then(() => {
-      this.notifications.push('Link copied to clipboard!');
-    }).catch(err => {
-      this.notifications.push('Failed to copy link!');
-    });
-  }
-
-  uploadNotification(notification: string) {
-
-  }
-
+  }  
   async searchStories(searchTopics?: Array<Topic>) {
     let search = "";
     if (this.search && this.search.nativeElement) {
@@ -242,8 +168,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
     await this.getStories(this.currentPage, 10, search, topics);
     this.closeMenuPanel();
-  }
-
+  } 
   async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string) {
     this.startLoading();
 
@@ -271,21 +196,42 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     this.closeSearchSocialsPanel();
     this.cdr.detectChanges();
     this.stopLoading();
-  }
-
+  } 
   async post() {
-    const storyText = this.story.nativeElement.value!;
-    if ((!storyText || storyText.trim() == '') && (!this.attachedFiles || this.attachedFiles.length == 0)) { return alert("Story can't be empty!"); }
-
+    const storyText = this.story.nativeElement.value?.trim() || ''; // Ensure it's a string
+    if (!storyText && (!this.attachedFiles || this.attachedFiles.length === 0)) {
+      alert("Story can't be empty!");
+      return;
+    } 
     this.startLoading();
 
-    const cityRes = await this.userService.getUserIp();
-    let city = cityRes.city;  
-    let country = cityRes.country; 
+    try {
+      const user = this.parentRef?.user ?? this.parent?.user ?? new User(0, "Anonymous"); 
 
-    const newStory: Story = {
+      // Create and post stories
+      const results = this.eachAttachmentSeperatePost
+        ? await this.postEachFileAsSeparateStory(user, storyText)
+        : await this.postSingleStory(user, storyText);
+         
+      if (results) {
+        this.clearStoryInputs();
+        this.getStories();
+        this.topicComponent?.removeAllTopics();
+      } else {
+        this.notifications.push("Something went wrong...");
+      }
+    } catch (error) {
+      console.error("Error while posting story:", error);
+      this.notifications.push("An unexpected error occurred.");
+    } finally {
+      this.stopLoading();
+    }
+  }
+   
+  private createStory(user: User, storyText: string, files: FileEntry[]): Story {
+    return {
       id: 0,
-      user: this.parentRef?.user!,
+      user,
       storyText: this.replaceEmojisInMessage(storyText),
       fileId: null,
       date: new Date(),
@@ -294,27 +240,34 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       commentsCount: 0,
       storyComments: undefined,
       metadata: undefined,
-      storyFiles: this.attachedFiles,
+      storyFiles: files,
       storyTopics: this.attachedTopics,
       profileUserId: this.user?.id,
-      city: city,
-      country: country,
+      city: this.city,
+      country: this.country,
     };
-
+  }
+   
+  private async postSingleStory(user: User, storyText: string): Promise<any> {
+    const story = this.createStory(user, storyText, this.attachedFiles);
+    return this.socialService.postStory(user, story);
+  }
+   
+  private async postEachFileAsSeparateStory(user: User, storyText: string): Promise<any[]> {
+    const promises = this.attachedFiles.map(file => {
+      const story = this.createStory(user, storyText, [file]);
+      return this.socialService.postStory(user, story);
+    });
+    return Promise.all(promises);
+  }
+   
+  private clearStoryInputs(): void {
     this.attachedFiles = [];
     this.attachedTopics = [];
     this.postMediaSelector.selectedFiles = [];
     this.mediaSelectorComponent.closeMediaSelector();
     this.story.nativeElement.value = '';
-
-    const res = await this.socialService.postStory(this.parentRef?.user ?? this.parent?.user ?? new User(0, "Anonymous"), newStory);
-    if (res) {
-      this.getStories();
-    }
-    if (this.topicComponent) {
-      this.topicComponent.removeAllTopics();
-    }
-    this.stopLoading();
+    this.eachAttachmentSeperatePost = false;
   }
 
   removeAttachment(fileId: number) {
@@ -326,8 +279,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     const urlPattern = /(https?:\/\/[^\s]+)/g;
     const matches = text.match(urlPattern);
     return matches ? matches[0] : null;
-  }
-
+  } 
   goToLink(story?: Story) {
     if (story && story.storyText) {
       const goodUrl = this.extractUrl(story.storyText);
@@ -343,9 +295,91 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         }
       }
     }
-  }
- 
+  } 
 
+  pageChanged(selectorId?: number) {
+    let pageSelect = this.pageSelect.nativeElement;
+    if (selectorId == 2) {
+      pageSelect = this.pageSelect2.nativeElement;
+    }
+    this.currentPage = parseInt(pageSelect.value);
+    this.getStories(this.currentPage);
+    setTimeout(() => {
+      this.scrollToStory();
+    }, 50);
+  }
+  scrollToStory(storyId?: number): void {
+    if (storyId) {
+      setTimeout(() => {
+        const element = document.getElementById('storyDiv' + storyId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 1111);
+    } else {
+      setTimeout(() => {
+        const element = document.getElementsByClassName('foodForThought')[0];
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 200);
+    }
+  }
+  getStoryTextForDOM(story?: Story) {
+    return story?.storyText
+      ?.replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\n/g, '<br>');
+  }
+  onTopicAdded(topics?: Array<Topic>) {
+    if (topics) {
+      this.attachedTopics = topics;
+      this.searchStories(topics);
+      this.scrollToStory();
+      this.closeMenuPanel();
+      this.closePostOptionsPanel();
+      this.closeStoryOptionsPanel();
+      this.closeMobileTopicsPanel();
+    }
+  }
+  removeTopic(topic: Topic) {
+    this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
+    this.searchStories(this.attachedTopics);
+    this.scrollToStory(); 
+    this.closeMobileTopicsPanel();
+  }
+  topicClicked(topic: Topic) {
+    if (this.attachedTopics.some(x => x.id == topic.id)) {
+      return;
+    }
+    this.attachedTopics.push(topic);
+    this.onTopicAdded(this.attachedTopics);
+    this.scrollToStory();
+  }
+  topTopicClicked(topicName: string, topicId: number) {
+    this.attachedTopics.push(new Topic(topicId, topicName));
+    this.onTopicAdded(this.attachedTopics);
+    this.scrollToStory();
+  }
+  uploadInitiate() {
+
+  }
+  uploadNotification(notification: string) {
+
+  }
+  selectFile(files: FileEntry[]) {
+    if (files) {
+      this.attachedFiles = files.flatMap(fileArray => fileArray);
+    }
+  }
+  copyLink(storyId?: number) {
+    const link = `https://bughosted.com/Social/${storyId}`;
+    this.closeStoryOptionsPanel();
+    navigator.clipboard.writeText(link).then(() => {
+      this.notifications.push('Link copied to clipboard!');
+    }).catch(err => {
+      this.notifications.push('Failed to copy link!');
+    });
+  } 
   focusInput(): void {
     setTimeout(() => {
       this.story.nativeElement.scrollIntoView({ behavior: 'smooth' });
@@ -455,6 +489,18 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.parentRef.showOverlay = false;
     }
   }
+  showMobileTopicsPanel() {
+    this.isMobileTopicsPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeMobileTopicsPanel() {
+    this.isMobileTopicsPanelOpen = false;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
+  }
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -490,16 +536,49 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.parentRef.showOverlay = false;
     }
   }
+  showPostOptionsPanel() {
+    if (this.isPostOptionsPanelOpen) {
+      this.closePostOptionsPanel();
+      return;
+    } 
+    this.isPostOptionsPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closePostOptionsPanel() {
+    this.isPostOptionsPanelOpen = false; 
+
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
+  }
   isEditButtonVisible(storyId?: number) {
     if (!storyId) return false;
     const element = document.getElementById('storyTextEditConfirmButton' + storyId) as HTMLTextAreaElement;
     return element?.style.display === 'block';
   }
+  getOptionsCount() {
+    let count = 0;
+    if (this.eachAttachmentSeperatePost) count++;
+    return count;
+  }
+  showComments(storyId?: number) {
+    if (this.openedStoryComments.includes(storyId ?? 0)) {
+      this.openedStoryComments = this.openedStoryComments.filter(x => x != (storyId ?? 0));
+    } else { 
+      this.openedStoryComments.push(storyId ?? 0)
+    }
+  }
   hasOverflow(elementId: string): boolean {
     const element = document.getElementById(elementId);
-    if (element) {
-      return element.scrollHeight >= 100;
-    }
-    return false;
+    if (!element) {
+      return false; // Element not found
+    } 
+
+    const isDesktop = window.innerWidth > 990;
+    const threshold = isDesktop ? 500 : 100; // 500px for desktop, 100px for mobile
+
+    return element.scrollHeight >= threshold; 
   }
 }

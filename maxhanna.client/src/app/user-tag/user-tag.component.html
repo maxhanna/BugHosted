@@ -14,7 +14,7 @@
       <span class="avatarBug noAvatar {{displayMiniTag ? 'miniAvatarBug' : ''}}">🪲</span>
     </div>
   </div>
-  <span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username cursorPointer usernameProfileLink'"
+  <span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username'"
         (click)="viewProfile(user)"
         *ngIf="!displayOnlyAvatar && !displayEmptyAvatar && !hideName">
     {{user?.username}}

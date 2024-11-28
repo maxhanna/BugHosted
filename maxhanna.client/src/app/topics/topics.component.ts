@@ -103,6 +103,7 @@ export class TopicsComponent extends ChildComponent {
   } 
 
   selectTopic(topic: Topic) {
+    console.log(topic);
     if (this.topics.some(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase())) return; //if the topics selected already contain the topic selected, skip.
     this.topics.push(topic);
     const tmpTopics = this.attachedTopics ? this.topics.concat(this.attachedTopics) : this.topics;
@@ -133,8 +134,10 @@ export class TopicsComponent extends ChildComponent {
     this.matchingTopics = [];
     this.showAddTopicButton = false;
   }
-  cancelSearch() { 
-    this.clearSearch();
-    this.isDropdownShowing = false;
+  cancelSearch(timeout?: number) {
+    setTimeout(() => {
+      this.clearSearch();
+      this.isDropdownShowing = false;
+}, timeout ?? 0);
   }
 }

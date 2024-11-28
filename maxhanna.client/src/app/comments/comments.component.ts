@@ -12,8 +12,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
   templateUrl: './comments.component.html',
   styleUrl: './comments.component.css'
 })
-export class CommentsComponent extends ChildComponent {
-  showComments = false;
+export class CommentsComponent extends ChildComponent { 
   showCommentLoadingOverlay = false;
   upvotedCommentIds: number[] = []
   downvotedCommentIds: number[] = []
@@ -25,6 +24,7 @@ export class CommentsComponent extends ChildComponent {
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() commentList: FileComment[] = [];
+  @Input() showComments = false;
   @Input() type: string = '' || "Social" || "File";
   @Input() component_id: number = 0;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();

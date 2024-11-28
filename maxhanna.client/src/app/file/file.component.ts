@@ -153,6 +153,6 @@ export class FileComponent extends ChildComponent {
   }
 
   canUploadToFolder() { 
-    return !this.showMakeDirectoryPrompt && !this.isUploadInitiate && !(this.currentDirectory == '' && this.parentRef?.user?.id != 1) && !(this.currentDirectory == 'Users/');
+    return !this.showMakeDirectoryPrompt && !(this.currentDirectory == '' && this.parentRef?.user?.id != 1) && !(this.currentDirectory == 'Users/');
   }
 }

@@ -27,7 +27,7 @@
         {{user?.about?.description}} 
       </div>
       <div *ngIf="parentRef?.user || user">
-        <span class="invertedHighlights xxSmallFont">Location: </span>{{weatherLocation || 'Unknown'}} <span class="invertedHighlights xxSmallFont">Since: </span>{{(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')}} <span class="invertedHighlights xxSmallFont">({{user && user.created ? daysSince(user.created) : '0'}} days)</span>
+        <span class="invertedHighlights xxSmallFont">Location: </span>{{weatherLocation || 'Unknown'}} <span class="invertedHighlights xxSmallFont">Joined: </span>{{(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')}} <span class="invertedHighlights xxSmallFont">({{user && user.created ? daysSince(user.created) : '0'}} days)</span>
       </div>
       <div>
         <div class="profileControls" *ngIf="user || parentRef?.user">

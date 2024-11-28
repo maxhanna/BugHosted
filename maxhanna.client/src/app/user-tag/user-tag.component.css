@@ -21,10 +21,14 @@
   text-align: center; 
   display: block;
   font-size:small;
+  cursor: pointer;
+}
+.username {
+  color: white;
 }
 .userTag {
-    width:50px;
-    max-height:80px;
+  width: 50px;
+  max-height: 80px;
 }
 .miniTag {
   display: flex;

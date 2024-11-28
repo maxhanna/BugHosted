@@ -25,8 +25,13 @@
   </div>
 </div>
 
-<div *ngIf="showReactions">
-  <div *ngFor="let reaction of currentReactions" (click)="showReactionsOnClick()">
-    {{reaction.user?.username}}:{{replaceReactionType(reaction.type)}}  
+<div *ngIf="showReactions" class="popupPanel">
+  <div>
+    <button id="closeOverlay" (click)="closeReactionsPanel()">Close</button>
   </div>
+  <div class="reactionsOverlayWrapper">
+    <div *ngFor="let reaction of currentReactions" (click)="showReactionsOnClick()">
+      {{reaction.user?.username}}:{{replaceReactionType(reaction.type)}}
+    </div> 
+  </div> 
 </div>

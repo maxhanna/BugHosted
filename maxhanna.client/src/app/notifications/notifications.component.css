@@ -9,6 +9,7 @@
 }
 .fileId {
   line-height: 30px;
+  text-align:left;
 }
 .date {
   font-size: small;
@@ -29,6 +30,7 @@
   align-content: center;
   flex-wrap: wrap;
   flex-direction: column;
+  border-radius:8px;
 }
 
 .notificationsDisplay {
@@ -51,6 +53,7 @@
 .notificationText {
   text-overflow: ellipsis; 
   overflow: hidden;
+  text-align: left;
 }
 .noNotificationsDiv {
   display: flex; 
@@ -73,6 +76,11 @@
 }
 
 .nliRightDiv {
-   width: 100%;
-   margin-left: 5px;
+  width: 100%;
+  margin-left: 5px;
+  display:flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: space-evenly;
 }

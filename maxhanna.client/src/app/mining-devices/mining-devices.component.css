@@ -104,3 +104,7 @@
 .started:hover {
   background-color: red;
 }
+.stateControllerButton {
+  min-height:20px;
+  min-width: 20px;
+}

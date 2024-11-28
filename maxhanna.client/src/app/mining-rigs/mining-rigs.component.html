@@ -60,7 +60,7 @@
           <td (click)="toggleDeviceDataVisibility(rig)">{{ rig.speedRejected! == 0 ? 0 : (rig.speedRejected ?? 0).toFixed(8) }}</td>
           <td (click)="toggleDeviceDataVisibility(rig)" [style]="computeDeviceCounts(rig).split(' ')[0] == '0' ? 'color:red;' : ''">{{ computeDeviceCounts(rig) }}</td>
           <td (click)="requestRigStateChange(rig)">
-            <div [title]="isStopped(rig.minerStatus!) ? 'Start' : isOffline(rig.minerStatus!) ? 'Start' : 'Stop'" class="{{ isStopped(rig.minerStatus!) ? 'stopped' : isOffline(rig.minerStatus!) ? 'offline' : 'started' }}"></div>
+            <div [title]="isStopped(rig.minerStatus!) ? 'Start' : isOffline(rig.minerStatus!) ? 'Start' : 'Stop'" class="stateControllerButton {{ isStopped(rig.minerStatus!) ? 'stopped' : isOffline(rig.minerStatus!) ? 'offline' : 'started' }}"></div>
           </td>
         </tr>
       </tbody>
@@ -102,7 +102,7 @@
           <td>{{ device.powerLimitWatts }}</td>
           <td>{{ device.miner }}</td>
           <td (click)="requestDeviceStateChange(device)">
-            <div [title]="isDeviceOffline(device.state!) ? 'Start' : isDeviceDisabled(device.state!) ? 'Start' : 'Stop'" class="{{ isDeviceOffline(device.state!) ? 'stopped' : isDeviceDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
+            <div [title]="isDeviceOffline(device.state!) ? 'Start' : isDeviceDisabled(device.state!) ? 'Start' : 'Stop'" class="stateControllerButton {{ isDeviceOffline(device.state!) ? 'stopped' : isDeviceDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
           </td>
         </tr>
       </tbody>

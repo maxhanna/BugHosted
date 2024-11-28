@@ -167,15 +167,13 @@ export class AppComponent implements OnInit, AfterViewInit {
   } 
   async getSelectedMenuItems() {
     if (!this.user) {
-      this.userSelectedNavigationItems = [
-        /*{ ownership: 0, icon: "📕", title: "Close Menu", content: '' },*/
+      this.userSelectedNavigationItems = [ 
         { ownership: 0, icon: "🌍", title: "Social", content: undefined },
         { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
         { ownership: 0, icon: "🗨️", title: "Chat", content: undefined },
+        { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
         { ownership: 0, icon: "🎮", title: "Emulation", content: undefined },
-        { ownership: 0, icon: "📁", title: "Files", content: undefined },
-        { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
-        { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
+        { ownership: 0, icon: "📁", title: "Files", content: undefined }, 
         { ownership: 0, icon: "👤", title: "User", content: undefined },
       ];
     } else {

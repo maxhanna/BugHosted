@@ -1,6 +1,13 @@
 <div class="topicSelector" (click)="clearSearch()">
   <div>
-    <input type="text" #newTopic placeholder="Choose a Topic" (keyup)="searchTopics(newTopic.value, true)" (click)="searchInputClick()" id="chooseTopicInput" autocomplete="off"> 
+    <input type="text"
+           #newTopic
+           placeholder="Choose a Topic"
+           (keyup)="searchTopics(newTopic.value, true)"
+           (click)="searchInputClick()"
+           (blur)="cancelSearch(500)"
+           id="chooseTopicInput"
+           autocomplete="off"> 
     <button (click)="addTopic()" #addTopicButton class="addTopicButton" *ngIf="showAddTopicButton" >Add Topic</button>
   </div>
   

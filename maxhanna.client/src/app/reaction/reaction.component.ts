@@ -124,9 +124,18 @@ export class ReactionComponent implements OnInit {
 
 
   showReactionsOnClick() {
-    this.showReactions = !this.showReactions;
+    this.showReactions = true;
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.showOverlay = true; 
+    }
   }
+  closeReactionsPanel() {
+    this.showReactions = false; 
 
+    if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
+      this.inputtedParentRef.showOverlay = false;
+    }
+  }
   replaceReactionType(type?: string) {
     if (type) {
       const t = type.toLowerCase();

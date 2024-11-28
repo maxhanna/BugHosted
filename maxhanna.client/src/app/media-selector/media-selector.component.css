@@ -10,6 +10,7 @@
   top: CALC(50% - 175px);
   left: CALC(50% - 175px);
   overflow: auto;
+  padding-bottom: 35px;
 }
 
   #selectMediaDiv.open {
@@ -20,23 +21,32 @@
     justify-content: space-around;
     align-items: center;
     z-index: 2;
+    border-radius: 8px;
   }
 
 .smallContainerForMedia {
   text-align: center;
+  border: var(--main-border);
 }
+  .smallContainerForMedia button {
+    cursor: pointer;
+  }
 
-.searchContainerDiv { 
-  overflow: auto;
-}
+  .searchContainerDiv {
+    overflow: auto;
+  }
 
 .mediaSelectorTitle {
   font-weight: bolder;
   text-align: center;
 }
 
+.mediaSelectorButton {
+  white-space: nowrap;
+}
+
 .mediaFileName {
-  display: inline-block; 
+  display: inline-block;
   width: 10vw;
   overflow: hidden;
   white-space: nowrap;
@@ -48,7 +58,6 @@
   justify-content: center;
   flex-flow: wrap;
   width: 300px;
-  border: var(--main-border);
   margin-left: auto;
   margin-right: auto;
   gap: 15px;
@@ -83,9 +92,11 @@
   background-color: var(--main-highlight-color-quarter-opacity);
 }
 .selectFilesTitle {
-  font-family: Courier New, Arial;
-  font-weight: bolder;
-  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+  font-family: var(--title-font-family);  
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
 }
 .searchUploadButtonChoiceDiv {
   display: flex;
@@ -95,4 +106,6 @@
   justify-content: space-between;
   align-items: center;
   width: 96%;
+  position: absolute;
+  bottom: 0px;
 }
