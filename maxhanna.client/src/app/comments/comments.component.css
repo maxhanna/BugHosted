@@ -1,4 +1,4 @@
-
+ 
 .comments-section {
   cursor: default;
   margin-top: 5px;
@@ -15,11 +15,23 @@
 .commentsHeader {
   margin-left: auto;
   margin-right: auto;
-  max-width: 300px; 
+  width: 100%;
   text-align: center;
   cursor: pointer;
   font-weight: 700;
-  font-size:smaller;
+  font-size: smaller;
+  background: linear-gradient(to bottom, transparent, var(--main-highlight-color));
+  color: var(--main-highlight-color-quarter-opacity);
+  border-bottom-left-radius:8px;
+  border-bottom-right-radius:8px;
+}
+
+.commentsHeaderGradientReverse {
+  background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  border-bottom-left-radius: 0px;
+  border-bottom-right-radius: 0px;
 }
 
 .commentUsername {
@@ -48,6 +60,8 @@
   display: flex;
   justify-content: center;
   width: 100%;
+  background: linear-gradient(to bottom, transparent, var(--main-highlight-color));
+  border-radius: 8px;
 }
 
 .loadingCommentOverlay { 
@@ -56,6 +70,12 @@
 
 .addCommentInputDiv {
   display: flex;
+  margin-bottom: 10px;
+  width: 100%;
+  justify-content: space-evenly;
+}
+.commentTextArea {
+  width: 100%;
 }
 
 .commentTable {
@@ -79,8 +99,8 @@
   overflow-y: auto;
 }
 
-.commentContentAndAvatarContainerDiv {
-  display: inline-flex; 
+.highlightedCommentCounter {
+  color: white;
 }
 
 .actionDiv {
@@ -94,26 +114,33 @@
   word-break: break-word;
 }
 
-.commentAvatar {
-  width: 70px;
+.commentAvatar { 
+  overflow:hidden;
+  text-overflow:ellipsis;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  align-content: flex-start;
+  justify-content: flex-start;
+  margin-right: 10px;
 }
 
-.commentDate {
+.commentDate, .commentReaction {
   font-size: xx-small;
   color: var(--secondary-font-color);
+  display: inline-flex;
+  margin-left: 10px;
 }
 
-.commentSubmit { 
-  text-align: center;
+.commentSubmit {
+  cursor: pointer;
+  height: 23px !important;
+  line-height: 12px;
+  min-width: 70px;
+  white-space: nowrap;
 }
 .commentListDiv {
-  margin-bottom: 10px;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: flex-start;
+  margin-bottom: 10px;  
 } 
 .commentEditSpans {
   position: relative;
@@ -132,7 +159,7 @@
 .popupPanel {
   position: fixed;
   width: 300px;
-  height: 350px;
+  height: 100px;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -140,13 +167,13 @@
   z-index: 1;
   display: flex;
   flex-direction: column;
-  flex-wrap: nowrap;
   align-content: center;
   justify-content: space-evenly;
   align-items: center;
   border-radius: 8px;
   overflow: auto;
   padding: 20px;
+  flex-wrap: nowrap;
 }
 
 .commentActionSection {
@@ -156,4 +183,9 @@
   align-content: center;
   flex-wrap: nowrap;
   flex-direction: row;
+}
+.commentOptionsPanelButtons {
+  width: 100%;
+  display: flex;
+  justify-content: space-evenly;
 }

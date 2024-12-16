@@ -95,10 +95,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user) {
       return;
     }
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) { return; }
     const res = await this.notificationService.getNotifications(this._parent.user);
     if (res) {
       this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.length + ''; 
+      if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
+        //get # of chat notifs
+        const numberOfChatNotifs = res.filter(x => x.chatUserId).length;
+        if (numberOfChatNotifs) { 
+          this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + ''; 
+        }
+      }
     } else {
       this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = '';
     }
@@ -116,8 +122,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this._parent.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = '';
     }
   }
-  async getCalendarInfo() {
-    console.log("get calendar info");
+  async getCalendarInfo() { 
     if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
 
@@ -128,8 +133,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     endDate.setUTCDate(startDate.getUTCDate() + 1); // Midnight tomorrow in UTC
 
     const res = await this.calendarService.getCalendarEntries(this.user!, startDate, endDate) as Array<CalendarEntry>;
-    if (res && res.length > 0) {
-      console.log("Calendar Entries:", res);
+    if (res && res.length > 0) { 
       res.forEach(entry => {
         const entryDate = new Date(entry.date!);
         if (

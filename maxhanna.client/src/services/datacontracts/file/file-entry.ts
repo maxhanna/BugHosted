@@ -1,8 +1,6 @@
 import { Reaction } from "../reactions/reaction";
 import { User } from "../user/user";
-import { FileComment } from "./file-comment";
-import { FileData } from "./file-data"; 
-
+import { FileComment } from "./file-comment"; 
 export class FileEntry {
   id: number;
   fileName: string;
@@ -15,8 +13,7 @@ export class FileEntry {
   isFolder: boolean;
   fileComments: Array<FileComment>;
   date: Date;
-  lastUpdated?: Date;
-  fileData?: FileData;
+  lastUpdated?: Date; 
   fileSize: number;
   fileType: string;
   width?: number;

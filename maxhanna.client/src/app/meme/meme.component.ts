@@ -11,7 +11,10 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 })
 export class MemeComponent extends ChildComponent  { 
   notifications: string[] = [];
-  isUploadingInProcess = false; 
+  isUploadingInProcess = false;
+  currentMemePage = 1;
+  iPhone = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
 
   @Input() memeId: string | null = null;
@@ -23,8 +26,7 @@ export class MemeComponent extends ChildComponent  {
   } 
    
   uploadFinished(files: FileEntry[]) { 
-    this.fileSearchComponent.handleUploadedFiles(files);
-    //this.fileSearchComponent.directory!.data! = newFiles.concat(this.fileSearchComponent.directory!.data!);
+    this.fileSearchComponent.handleUploadedFiles(files); 
   }
   uploadNotification(event: string) {
     this.notifications.push(event); 

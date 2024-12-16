@@ -79,7 +79,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     clearInterval(this.pollingInterval);
     this.mainScene.destroy();
-    stop();
+    this.gameLoop.stop();
     this.remove_me('MetaComponent');
   }
 

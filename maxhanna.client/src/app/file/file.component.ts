@@ -60,8 +60,8 @@ export class FileComponent extends ChildComponent {
     this.showMakeDirectoryPrompt = false;
     this.isSharePanelExpanded = false; 
   }
-  uploadFinished(newFiles: FileEntry[]) {
-    this.fileSearchComponent.handleUploadedFiles(newFiles.flatMap(fileArray => fileArray)); 
+  uploadFinished(newFiles: FileEntry[]) { 
+    this.fileSearchComponent.handleUploadedFiles(newFiles.flatMap(fileArray => fileArray));  
   }
   async shareFile(userToShareWith?: User) {
     if (!userToShareWith) return;
@@ -150,8 +150,7 @@ export class FileComponent extends ChildComponent {
 
       this.stopLoading();
     }
-  }
-
+  } 
   canUploadToFolder() { 
     return !this.showMakeDirectoryPrompt && !(this.currentDirectory == '' && this.parentRef?.user?.id != 1) && !(this.currentDirectory == 'Users/');
   }

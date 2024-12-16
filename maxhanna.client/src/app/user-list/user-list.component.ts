@@ -7,6 +7,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
 import { FriendService } from '../../services/friend.service';
 import { Pipe, PipeTransform } from '@angular/core';
+import { Message } from '../../services/datacontracts/chat/message';
 
   
 @Component({
@@ -19,6 +20,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @Input() inputtedParentRef?: AppComponent;
   @Input() chatNotifications?: ChatNotification[];
   @Input() friendsOnly: boolean = false;
+  @Input() searchOnly: boolean = false;
   @Input() displayOnlyFriends: boolean = true;
   @Input() displayRadioFilters: boolean = false;
   @Input() contactsOnly: boolean = false;
@@ -30,79 +32,127 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @ViewChild('allUsersRadio') allUsersRadio!: ElementRef<HTMLInputElement>;
   @ViewChild('friendsRadio') friendsRadio!: ElementRef<HTMLInputElement>;
 
+  isSearchPanelOpen = false;
+
+  searchValue: string = '';
+  isFriendsChecked: boolean = true;
+
   private chatInfoInterval: any;
   users: Array<User> = [];
   userRows: Array<User[]> = [];
+  messageRows: Message[] = [];
   selectedUsers: Array<User> = [];
   filterOption: string = 'all';
   friendSelected = false;
+
 
   constructor(private userService: UserService, private chatService: ChatService, private friendService: FriendService) {
     super();
   }
   async ngOnInit() {
-    this.getChatInfo();
-    this.chatInfoInterval = setInterval(() => this.getChatInfo(), 30 * 1000);
-    this.getUsers();
-    await this.sortUsersByNotifications();
+    if (!this.searchOnly) {
+      this.getChatNotifications();
+      this.chatInfoInterval = setInterval(() => this.getChatNotifications(), 30 * 1000);
+      this.getUsers();
+      this.sortUsersByNotifications();
+      if (!this.user) {
+        const parent = this.inputtedParentRef ?? this.parentRef;
+        if (parent) {
+          this.user = parent.user;
+        }
+      }
+    }
   }
   async ngOnDestroy() {
     clearInterval(this.chatInfoInterval);
   }
 
-  async getUsers() {
-    if (!this.user) {
-      this.users = await this.userService.getAllUsers(new User(0, "Anonymous"));
-    } else {
-      let search = undefined;
-      if (this.searchInput && this.searchInput.nativeElement.value && this.searchInput.nativeElement.value.trim() != '') {
-        search = this.searchInput.nativeElement.value;
-      }
-      if (!search && (this.friendsRadio ? this.friendsRadio.nativeElement.checked : this.displayOnlyFriends)) {
-        this.users = await this.friendService.getFriends(this.user!);
-        this.userRows = [];
+  async getUsers() { 
+    let search = undefined;
+    if (this.searchValue.trim() != '') {
+      search = this.searchValue.trim(); 
+    }
+    if (!search && (this.friendsRadio ? this.friendsRadio.nativeElement.checked : this.displayOnlyFriends)) {
+      console.log("no search");
+      if (this.user) { 
+        const fsRes = await this.friendService.getFriends(this.user);
+        if (fsRes) {
+          this.users = fsRes; 
+        } else {  
+          this.users = [];
+        }
+
         this.chatService.getGroupChats(this.user).then(res => {
-          for (let gx = 0; gx < res.length; gx++) {
-            if (res[gx] && res[gx].receiver) {
-              const receiverUsers = res[gx].receiver as User[];
-              this.userRows.push(receiverUsers);
-            }
+          if (res) {
+            this.messageRows = res;
+          } else {
+            this.messageRows = [];
           }
         });
-      } else {
-        this.users = await this.userService.getAllUsers(this.user!, search);
+      } 
+
+    } else {
+      const fsRes = await this.userService.getAllUsers(this.user, search);
+      console.log("fsRes", fsRes);
+      if (fsRes) {
+        this.users = fsRes;
+        console.log("got all users with search", search);
+      } else { 
+        this.messageRows = [];
+        this.users = [];
       }
     }
+    
   }
-  click(value?: User) {
-    this.userClickEvent.emit(value);
+
+  closeOverlayOnClick(user?: User) {
+    this.openChat(user);
     if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
       this.inputtedParentRef.closeOverlay();
     }
   }
-
-  clickMany(value?: User[]) {
-    this.groupChatEvent.emit(value);
+  openChat(users: User | User[] | undefined) {
+    if (!users) return;
+    const tmpusers = Array.isArray(users) ? users : [users];
+    this.groupChatEvent.emit(tmpusers);
   }
-  getChatNotificationsByUser(userId?: number) {
-    if (userId && this.chatNotifications && this.chatNotifications.length > 0) {
-      const tmpChatNotif = this.chatNotifications.find(x => x.senderId == userId);
+
+  openChatById(chatId: number | undefined) {
+    if (!chatId) return;
+    const tmpusers = this.messageRows.find(x => x.chatId == chatId)?.receiver;
+    this.groupChatEvent.emit(tmpusers);
+  }
+
+  getChatNotificationsByChatId(chatId?: number) {
+    if (chatId && this.chatNotifications && this.chatNotifications.length > 0) {
+      const tmpChatNotif = this.chatNotifications.find(x => x.chatId == chatId);
       if (this.chatNotifications && tmpChatNotif) {
         return tmpChatNotif.count;
       }
     }
     return '';
   }
+  getChatNotificationsByUserId(userId?: number) {
+    if (!userId || !this.chatNotifications) return;
+    const tgtMessage = this.messageRows.find(x => x.receiver.some(r => r.id === userId) && x.receiver.length == 2 && x.receiver[0]);
+    const tmpChatNotif = this.chatNotifications.find(x => x.chatId == tgtMessage?.chatId);
+    if (this.chatNotifications && tmpChatNotif) {
+      return tmpChatNotif.count;
+    } else return null;
+  }
 
-  async getChatInfo() {
+  async getChatNotifications() {
     if (this.user) {
-      this.chatNotifications = await this.chatService.getChatNotificationsByUser(this.user);
+      const chatNotifsRes = await this.chatService.getChatNotificationsByUser(this.user);
+      if (chatNotifsRes) {
+        this.chatNotifications = chatNotifsRes;
+      }
     }
   }
-  private async sortUsersByNotifications() {
+  private sortUsersByNotifications() {
     if (this.chatNotifications && this.chatNotifications.length > 0) {
       const userNotificationCount = this.chatNotifications!.reduce((acc: { [key: number]: number }, notification) => {
-        acc[notification.senderId] = (acc[notification.senderId] || 0) + 1;
+        acc[notification.chatId] = (acc[notification.chatId] || 0) + 1;
         return acc;
       }, {});
       this.users.sort((a, b) => {
@@ -117,20 +167,36 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     }
   }
   async search() {
+    this.searchValue = this.searchInput?.nativeElement.value || '';
+    console.log(this.searchValue);
     this.getUsers();
   }
   async filterUsers() {
+    this.isFriendsChecked = this.friendsRadio?.nativeElement.checked || false;
+    if (this.searchInput && this.searchInput.nativeElement) { 
+      this.searchInput.nativeElement.value = "";
+    }
+    this.searchValue = "";
     this.getUsers();
   }
-  selectFriend(user: User) {
-    if (this.selectedUsers.some(x => x.id == user.id)) {
-      this.selectedUsers = this.selectedUsers.filter(x => x.id != user.id);
-    } else {
-      this.selectedUsers.push(user);
+  openSearchPanel() {
+    this.isSearchPanelOpen = true;
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (parent) { 
+      parent.showOverlay = true;
     }
-    this.userSelectClickEvent.emit(this.selectedUsers);
+    setTimeout(() => { 
+      this.searchInput.nativeElement.focus();
+    }, 50);
   }
-  getCommaSeparatedGroupChatUserNames(users: User | User[]): string {
-    return this.chatService.getCommaSeparatedGroupChatUserNames(users, this.user);
+  closeSearchPanel() {
+    this.isSearchPanelOpen = false;
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (parent) { 
+      parent.closeOverlay();
+    }
+  }
+  getCommaSeparatedGroupChatUserNames(users: User | User[], includeCurrentUser?: boolean): string {
+    return this.chatService.getCommaSeparatedGroupChatUserNames(users, this.user, includeCurrentUser);
   }
 }

@@ -68,6 +68,14 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 
 				string sql = $@"
+										UPDATE 
+												maxhanna.users 
+										SET 
+												last_seen = NOW()
+										WHERE 
+												LOWER(username) = LOWER(@Username) 
+												AND pass = @Password;
+
                    SELECT 
                         u.*, 
                         dp.file_id AS latest_file_id,

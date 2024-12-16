@@ -70,7 +70,7 @@ export class UserService {
       return null;
     }
   }
-  async getAllUsers(user: User, search?: string) {
+  async getAllUsers(user?: User, search?: string) {
     try {
       const response = await fetch('/user/getallusers', {
         method: 'POST',
@@ -79,7 +79,9 @@ export class UserService {
         },
         body: JSON.stringify({ user, search }),
       });
-
+      if (response.status === 404) {
+        return [];
+      }
       return await response.json();
     } catch (error) {
       return [];

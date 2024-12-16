@@ -1,54 +1,40 @@
+
+<div class="fileActionCommands" *ngIf="!fileSearchMode">
+  <span (click)="openSearchPanel();">🔍</span>
+  <span (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
+</div>
+
+
 <div class="shareUserListDiv" #shareUserListDiv>
   <div>Share {{selectedSharedFile?.givenFileName ?? selectedSharedFile?.fileName ?? ''}} With?</div>
   <div class="shareUserList"><app-user-list (userClickEvent)="shareFile($event);" [user]="user!" *ngIf="showShareUserList"></app-user-list></div>
 </div>
-<div class="filters" *ngIf="showPrivatePublicOption && showData">
-  <div>
-    <label>
-      Visibility:
-      <select (change)="setFilterVisibility($event)">
-        <option value="all" [selected]="filter.visibility === 'all'">All</option>
-        <option value="public" [selected]="filter.visibility === 'public'">Public</option>
-        <option value="private" [selected]="filter.visibility === 'private'">Private</option>
-      </select>
-    </label>
-  </div>
-  <div>
-    <label>
-      Ownership:
-      <select (change)="setFilterOwnership($event)">
-        <option value="own" [selected]="filter.ownership === 'own'">Own</option>
-        <option value="others" [selected]="filter.ownership === 'others'">Others</option>
-      </select>
-    </label>
-  </div>
-</div>
+
 <!-- Page Controls -->
 <div class="searchInput">
-  <span *ngIf="totalPages > 1 && currentPage != 1">
+  <span *ngIf="isDisplayingPreviousPageButton()">
     <button (click)="previousPage()" [disabled]="currentPage === 1">⬅️<span *ngIf="displayTotal || (searchTerms != '' && currentPage != 1)">{{currentPage - 1}}</span></button>
   </span>
-  <input #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
-  <span *ngIf="totalPages > 1">
-    <button (click)="nextPage()" [disabled]="currentPage === totalPages"><span *ngIf="displayTotal || searchTerms != ''">{{totalPages}}</span>➡️</button>
-
+  <input *ngIf="fileSearchMode" #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
+  <span *ngIf="isDisplayingTotalPagesButton()">
+    <button (click)="nextPage()" [disabled]="currentPage === totalPages"><span *ngIf="displayTotal || searchTerms != ''">{{totalPages}}</span>➡️</button> 
   </span>
 </div>
 
-<div *ngIf="showData">
+<div *ngIf="showData" style="{{ !(isDisplayingPreviousPageButton() || isDisplayingTotalPagesButton()) ? 'margin-top:25px' : '' }}">
   <div *ngIf="displayTotal" class="totalDisplay">
-    <span class="currentDirectorySpan" *ngIf="!search.value">
+    <span class="currentDirectorySpan" *ngIf="fileSearchMode">
       Current Directory:
       <span class="invertedHighlights">{{currentDirectory || '.'}}</span>
     </span>
 
-    Total: {{directory?.totalCount}}
+    Total: {{ directory ? directory.totalCount : 0 }}
   </div>
 
   <!-- Main Data -->
-  <div class="">
+  <div>
     <div id="fileTable" *ngIf="!isLoading">
-      <div *ngIf="showUpFolderRow && canChangeDirectory && !this.search.value">
+      <div *ngIf="showUpFolderRow && canChangeDirectory && fileSearchMode ">
         <div (click)="previousDirectory()"
              class="upOneFolder"
              title="Up one folder"
@@ -98,7 +84,7 @@
                     {{file.visibility == 'Private' ? '🔒' : ''}}
                   </span>
                 </div>
-                <div (click)="showOptionsPanel(file); $event.stopPropagation();" style="cursor:pointer;">
+                <div *ngIf="displayFileActions" (click)="showOptionsPanel(file); $event.stopPropagation();" style="cursor:pointer;" title="Show Options">
                   ⚙️
                 </div>
               </div>
@@ -111,14 +97,18 @@
                                 [user]="user"
                                 [file]="file"
                                 [autoplay]="true"
+                                [blockExpand]="fileSearchMode ? true : false"
                                 [showCommentSection]="true"
                                 [showCommentSectionOnLoad]="showCommentsInOpenedFiles.includes(file.id)"
+                                [showCommentSectionHeader]="fileSearchMode ? false : displayComments"
                                 [inputtedParentRef]="inputtedParentRef"
                                 [canScroll]="fileId ? true : false"
                                 [displayExpander]="false"
                                 [displayExtraInfo]="false"
                                 [forceInviewLoad]="true"
                                 (emittedNotification)="emittedNotification($event)"
+                                (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
+                                (expandClickedEvent)="expandClickedEvent.emit($event)"
                                 class="mediaViewer">
               </app-media-viewer>
             </div>
@@ -136,18 +126,18 @@
 </div>
 <!-- File Options Popup -->
 <div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsFile">
-  <div style="font-family: var(--title-font-family)">
+  <div class="popupPanelTitle">
     File Options
     <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
   </div>
-  <div style="margin-top: 20px; margin-bottom: 20px ">
-    <button title="Edit File Name" (click)="startEditing(optionsFile.id);" [style.display]="shouldShowEditButton(optionsFile) ? 'inline-block' : 'none'">
+  <div class="popupPanelActions">
+    <button title="Edit File Name" (click)="startEditing(optionsFile.id);" *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit
     </button>
     <button title="Share File" (click)="(optionsFile.visibility.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
       ↗️Share
     </button>
-    <button title="Delete File" (click)="this.delete(optionsFile);" *ngIf="shouldShowEditButton(optionsFile) ? 'inline-block' : 'none'">
+    <button title="Delete File" (click)="this.delete(optionsFile);" *ngIf="shouldShowEditButton(optionsFile)">
       ❌Delete
     </button>
   </div>
@@ -156,8 +146,8 @@
     <div class="optionsPanelDataDiv"><span class="smallFont">{{optionsFile.isFolder ? 'Folder' : 'File'}} Name:</span> {{optionsFile.fileName}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.givenFileName"><span class="smallFont">Given File Name:</span> {{optionsFile.givenFileName}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder"><span class="smallFont">Type:</span> {{optionsFile.fileType.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileSize"><span class="smallFont">Size:</span> {{formatFileSize(optionsFile.fileSize)}}</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.width"><span class="smallFont">Width:</span> {{optionsFile.width}}<span class="smallFont">, Height:</span> {{optionsFile.height}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileSize"><span class="smallFont">Filesize:</span> {{formatFileSize(optionsFile.fileSize)}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.width"><span class="smallFont">Size (width/height):</span> {{optionsFile.width}}X{{optionsFile.height}} px</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.directory"><span class="smallFont">Directory:</span> {{optionsFile.directory}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.visibility"><span class="smallFont">Visibility:</span> {{optionsFile.visibility}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.sharedWith"><span class="smallFont">Shared With:</span> {{optionsFile.sharedWith}}</div>
@@ -165,23 +155,67 @@
       <span class="smallFont">
         Created:
       </span>
-      <span *ngIf="optionsFile.date" style="display: inline-block;">
+      <span *ngIf="optionsFile.date" style="display: inline-block;" class="xxSmallFont">
         {{optionsFile.date | date: 'y/MM/d HH:mm'}}
       </span>
       <div *ngIf="optionsFile.user">
         <app-user-tag [user]="optionsFile.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
     </div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdatedBy.id !== optionsFile.user.id">
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdated !== optionsFile.date">
       <span class="smallFont">
         Updated:
       </span>
-      <span *ngIf="optionsFile.lastUpdated">
+      <span *ngIf="optionsFile.lastUpdated" class="xxSmallFont">
         {{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}}
       </span>
       <div *ngIf="optionsFile.lastUpdatedBy">
         <app-user-tag [user]="optionsFile.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Search Popup -->
+<div class="popupPanel searchPopup" *ngIf="isSearchPanelOpen">
+  <div class="popupPanelTitle">Search Files</div>
+  <div>
+    <input #popupSearch (keyup)="searchDirectory()" placeholder="🔍Search {{ currentDirectory }}"  [value]="searchTerms"/>
+    <div *ngIf="directory">Result(s): {{ directory.totalCount }}</div>
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeSearchPanel()">Ok</button>
+  </div>
+</div>
+
+
+<!-- Options Popup -->
+<div class="popupPanel fileOptionsPopup" *ngIf="isSearchOptionsPanelOpen">
+  <div class="popupPanelTitle">File Options</div>
+  <div> 
+    <div class="filters" *ngIf="showPrivatePublicOption && showData">
+      <div>
+        <label>
+          Visibility:
+          <select (change)="setFilterVisibility($event)">
+            <option value="all" [selected]="filter.visibility === 'all'">All</option>
+            <option value="public" [selected]="filter.visibility === 'public'">Public</option>
+            <option value="private" [selected]="filter.visibility === 'private'">Private</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>
+          Ownership:
+          <select (change)="setFilterOwnership($event)">
+            <option value="own" [selected]="filter.ownership === 'own'">Own</option>
+            <option value="others" [selected]="filter.ownership === 'others'">Others</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeSearchOptionsPanel()">Close</button>
   </div>
 </div>

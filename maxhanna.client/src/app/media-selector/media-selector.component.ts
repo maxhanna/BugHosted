@@ -32,8 +32,8 @@ export class MediaSelectorComponent {
   constructor() { }
 
   toggleMediaChoices() {
-    this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen; 
-    if (this.inputtedParentRef) { 
+    this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
+    if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay = this.viewMediaChoicesOpen;
     }
     if (this.selectMediaDiv) {
@@ -49,15 +49,17 @@ export class MediaSelectorComponent {
     this.displaySearch = false;
     this.viewMediaChoicesOpen = true;
   }
-  selectFile(file: FileEntry) { 
+  selectFile(file: FileEntry) {
     if (this.selectedFiles.length > this.maxSelectedFiles) {
       return alert(`Cannot add more then ${this.maxSelectedFiles} files!`);
     }
     this.selectedFiles.push(file);
-    this.displaySearch = false; 
-    this.viewMediaChoicesOpen = true;  
+    this.displaySearch = false;
+    this.viewMediaChoicesOpen = true;
   }
-
+  expandClickedEvent(file: FileEntry) {
+    return this.selectFile(file);
+  }
   removeFile(file: FileEntry) {
     this.selectedFiles = this.selectedFiles.filter(x => x != file);
     this.selectFileEvent.emit(this.selectedFiles);
@@ -110,14 +112,11 @@ export class MediaSelectorComponent {
     this.closeMediaSelector();
   }
   closeMediaSelector() {
-    console.log("closing selector");  
-      this.displaySearchButton = false;
-      this.viewMediaChoicesOpen = false;
+    this.displaySearchButton = false;
+    this.viewMediaChoicesOpen = false;
     this.displaySearch = false;
-    if (this.inputtedParentRef) { 
+    if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay = false;
-    }
-    
-    //this.fileUploadComponent.cancelFileUpload(); 
+    } 
   }
 }

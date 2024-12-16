@@ -1,11 +1,11 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('ChatComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">Chat</div>
+  <div class="componentTitle">Chat {{ getCommaSeperatedGroupChatUserNames() ? 'with ' + getCommaSeperatedGroupChatUserNames() : ''}} </div>
 
-  <div *ngIf="selectedUsers.length > 1 && !currentChatUsers" class="messageInput">
+  <!--<div *ngIf="selectedUsers.length > 1 && !currentChatUsers" class="messageInput">
     <button (click)="openGroupChat()">Group Chat</button>
-  </div>
+  </div>-->
 
   <app-user-list (userClickEvent)="singleUserSelected($event);"
                  (userSelectClickEvent)="userSelectClickEvent($event)"
@@ -14,6 +14,7 @@
                  [class.expanded]="isPanelExpanded"
                  [displayOnlyFriends]="true"
                  [displayRadioFilters]="true"
+                 [inputtedParentRef]="parentRef"
                  class="userPanel"
                  *ngIf="isPanelExpanded">
   </app-user-list>
@@ -21,21 +22,27 @@
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUsers">
       <div class="chatHeader">
-        <span style="margin-right:10px;">
-          Chat with
-          <span class="usernameProfileLink cursorPointer" (click)="!getCommaSeperatedGroupChatUserNames().includes(',') ? viewProfile(currentChatUsers[0]) : $event.preventDefault();">
-            {{ getCommaSeperatedGroupChatUserNames() }}
-          </span>
-        </span>
+
         <div class="pagination-controls" *ngIf="!isPanelExpanded">
           <select (change)="changePage($event)">
             <option *ngFor="let page of totalPagesArray; let i = index" [value]="i+1">{{ i+1 }}</option>
           </select>
+          <span style="margin-right:10px; overflow:hidden; white-space: nowrap; text-overflow: ellipsis;">
+            <span (click)="displayChatMembers()" style="cursor:pointer;">Connected With</span>
+            <span *ngIf="currentChatUsers.length > 1" style="font-size:x-small; cursor: pointer" (click)="displayChatMembers()"> ({{currentChatUsers.length}})</span> :
+            <span *ngFor="let chatUser of getChatUsersWithoutCurrentUser()" class="chatUserConnected" (click)="viewProfile(chatUser); $event.preventDefault();">
+              <span>{{chatUser.username}}</span>
+            </span>
+            <span *ngIf="getChatUsersWithoutCurrentUser()?.length == 0 && (parentRef?.user?.id == selectedUser?.id || inputtedParentRef?.user?.id == selectedUser?.id)" class="chatUserConnected" (click)="viewProfile(selectedUser); $event.preventDefault();">
+              <span>{{currentChatUsers[0].username}}</span>
+            </span>
+          </span>
         </div>
-        <button (click)="closeChat()">Close Chat with {{ getCommaSeperatedGroupChatUserNames() }}</button>
+
+        <button (click)="closeChat()">Back</button>
       </div>
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
-        <div *ngFor="let message of chatHistory" [class]="{'align-left': message.sender.id === parentRef?.user?.id, 'align-right': message.sender.id !== parentRef?.user?.id, 'messageContainer': true}">
+        <div *ngFor="let message of chatHistory" [class]="{'otherPersonsMessage': message.sender.id !== parentRef?.user?.id, 'align-left': message.sender.id === parentRef?.user?.id, 'align-right': message.sender.id !== parentRef?.user?.id, 'messageContainer': true}">
           <!-- USER MESSAGE -->
           <ng-container *ngIf="message.sender.id === parentRef?.user?.id">
             <div class="profileTag">
@@ -52,7 +59,7 @@
                               [inputtedParentRef]="parentRef"
                               [currentReactions]="message.reactions"></app-reaction>
               </div>
-              <div *ngFor="let file of message.files">
+              <div *ngFor="let file of message.files" style="{{ message.files && message.files.length > 0 ? 'margin-top: 10px' : '' }}">
                 <app-media-viewer [file]="file"
                                   [currentDirectory]="file.directory"
                                   [inputtedParentRef]="parentRef"
@@ -68,7 +75,7 @@
           </ng-container>
           <!-- RECEIVER MESSAGE -->
           <ng-container *ngIf="message.sender.id !== parentRef?.user?.id">
-            <div class="messageContent otherPersonsMessage">
+            <div class="messageContent ">
               {{ message.content }}
               <div class="otherPersonsReactionDiv">
                 <app-reaction [messageId]="message.id"
@@ -117,7 +124,28 @@
           </app-media-selector>
         </div>
       </div>
-      <div *ngIf="attachedFiles && attachedFiles.length > 0">Attachments : {{attachedFiles.length}}</div>
     </div>
   </div>
 </div>
+
+<!-- Chat Members Popup -->
+<div class="popupPanel" *ngIf="isDisplayingChatMembersPanel">
+  <div class="popupPanelTitle">
+    <span>Chat Members</span>
+    <div>
+      <button id="closeOverlay" (click)="closeChatMembersPanel()">Close</button>
+    </div>
+  </div>
+  <div style="margin-top: 15px; min-height:100px; overflow:auto;">
+    <div *ngFor="let chatMember of currentChatUsers">
+      <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+    </div>
+  </div>
+  <div style="width: 100%; margin-top: 5px; text-align: center; max-height: 250px; overflow: auto">
+    Add Chat Member(s) :
+    <div style="max-height:200px; width: 100%; overflow:auto; display: inline;">
+      <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" (groupChatEvent)="addChatMember($event)"></app-user-list>
+    </div>
+  </div>
+</div>
+ 

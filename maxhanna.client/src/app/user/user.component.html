@@ -193,6 +193,11 @@
                   {{user?.about?.description}}
                 </td>
               </tr>
+              <tr *ngIf="user?.lastSeen">
+                <td title="Last Seen" colspan="2">
+                  Last Seen : {{daysSince(user?.lastSeen)}} days ago.
+                </td>
+              </tr>
               <tr *ngIf="user?.about?.email">
                 <td colspan="2" title="Email">
                   {{user?.about?.email}}

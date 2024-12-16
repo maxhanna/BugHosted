@@ -1,33 +1,60 @@
-<div class="searchDiv"> 
-  <input #searchInput type="text" class="searchInput" placeholder="Search for users" (input)="search()" />
-  <button (click)="search()">🔍</button>
-</div>
-<div class="searchDiv" *ngIf="displayRadioFilters">
-  <label>
-    <input type="radio" name="userFilter" value="friends" (change)="filterUsers()" #friendsRadio [checked]="displayOnlyFriends" />
-    Show Friends
-  </label>
-  <label>
-    <input type="radio" name="userFilter" value="all" (change)="filterUsers()" #allUsersRadio [checked]="!displayOnlyFriends" />
-    Show All Users
-  </label>
-</div>
-<div class="searchResults">
-  <div *ngFor="let user of users" class="userList">
-    <span (click)="click(user);" class="user">
-      {{ user.username }}
-      <span class="chatIcon" *ngIf="getChatNotificationsByUser(user.id)">💬<span class="chatNotificationNumber">{{ getChatNotificationsByUser(user.id) }}</span></span>
-    </span>
-    <span *ngIf="friendsRadio && friendsRadio.nativeElement.checked"><input type="checkbox" (change)="selectFriend(user); $event.stopPropagation()" class="userCheckbox" /></span>
+<!-- Search Popup -->
+<div class="{{searchOnly ? '' : 'popupPanel searchPopup'}}" *ngIf="isSearchPanelOpen">
+  <div class="popupPanelTitle">Search Users</div>
+  <div>
+    <input #searchInput (keyup)="search()" placeholder="🔍Search for Users" [value]="searchValue" />
+    <div>Result(s): {{ users.length }}</div>
   </div>
-  <div *ngIf="userRows.length > 0 && friendsRadio && friendsRadio.nativeElement.checked">
-    <div class="prevChatMessages" *ngIf="userRows.length > 0">
-      Previous Messages
-    </div>
-    <div *ngFor="let row of userRows" (click)="clickMany(row);" class="userList">
-      {{getCommaSeparatedGroupChatUserNames(row)}}
-    </div>
+  <div *ngIf="!searchOnly">
+    <button id="closeOverlay" (click)="closeSearchPanel()">Ok</button>
   </div>
 </div>
 
-<button id="closeOverlay" style="display:none" (click)="click()"></button> 
+
+<div class="searchDiv" [style.display]="searchOnly ? 'inline-flex' : 'flex'">
+  <label *ngIf="displayRadioFilters">
+    <input type="radio" name="userFilter" value="friends" (change)="filterUsers()" #friendsRadio [checked]="displayOnlyFriends" />
+    Show Friends
+  </label>
+  <label *ngIf="displayRadioFilters">
+    <input type="radio" name="userFilter" value="all" (change)="filterUsers()" #allUsersRadio [checked]="!displayOnlyFriends" />
+    Show All Users
+  </label>
+  <span (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen">🔍</span>
+</div>
+<div class="searchResults">
+  <div class="prevChatMessages" *ngIf="!searchOnly">
+    {{ searchValue ? 'Search' : (isFriendsChecked ? 'Friends' : 'User') }} List
+  </div>
+  <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
+    <span class="user">
+      {{ user.username }}
+    </span>
+    <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
+      💬
+      <span class="chatNotificationNumber">
+        {{ getChatNotificationsByUserId(user.id) }}
+      </span>
+    </span>
+  </div>
+  <div *ngIf="(!searchOnly && (!users || users.length == 0)) || (searchOnly && searchValue != '' && (!users || users.length == 0))">
+    No Users to Display.
+  </div>
+  <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly">
+    <div class="prevChatMessages" *ngIf="messageRows.length > 0">
+      Previous Messages
+    </div>
+    <div *ngFor="let row of messageRows" (click)="openChatById(row.chatId);" class="userList">
+      {{getCommaSeparatedGroupChatUserNames(row.receiver, false)}}
+      <span class="chatIcon" *ngIf="getChatNotificationsByChatId(row.chatId)">
+        💬
+        <span class="chatNotificationNumber">
+          {{ getChatNotificationsByChatId(row.chatId) }}
+        </span>
+      </span>
+    </div>
+  </div>
+
+</div>
+
+<button id="closeOverlay" style="display:none" (click)="closeOverlayOnClick()"></button>

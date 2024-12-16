@@ -1,12 +1,4 @@
-.fileListDiv {
-  width: 100%;
-  max-height: calc(100% - 100px);
-  margin-top: 2px;
-  border: var(--main-border);
-  overflow: auto;
-}
-
-.removeFileButton {
+ .removeFileButton {
   position: relative;
   top: 0px;
   right: 0px;
@@ -31,16 +23,17 @@ button {
   z-index: 1000;
   background: var(--main-bg-color-full-opacity);
   border: var(--main-border);
+  border-radius:8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  width: 330px;
-  height: 370px;
-  top: CALC(50% - 175px); /* Adjust as needed */
-  left: CALC(50% - 175px); /* Adjust as needed */
+  width: 345px;
+  height: 400px;
+  top: CALC(50% - 200px);
+  left: CALC(50% - 175px);
   overflow: auto;
   flex-direction: column;
   justify-content: center;
-  text-align:center;
-  z-index:2;
+  text-align: center;
+  z-index: 2;
 }
 
   .fileListContainer.open {
@@ -52,10 +45,14 @@ button {
   }
 
 .fileListDiv {
-  width: 300px;
+  width: 90%;
   overflow: auto;
   margin-left: auto;
-  margin-right: auto;
+  margin-right: auto; 
+  max-height: calc(100% - 100px);
+  margin-top: 2px;
+  border: var(--main-border);
+  overflow: auto;
 }
 .fileUploaderButtons {
   display: flex;

@@ -2,8 +2,7 @@ button {
   cursor: pointer;
 }
 
-.componentMain {
-  width: 800px;
+.componentMain { 
   max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
 }
 
@@ -19,175 +18,199 @@ button {
   overflow: auto;
 }
 
-@media only screen and (max-device-width:800px) {
+
+@media only screen and (min-width:800px) { 
   .componentMain {
-    width: 99vw;
-  }
-
-  .mainTable input {
-    max-width: 80% !important;
-    word-wrap: break-word;
-    text-overflow: ellipsis;
+    width: 800px; 
   }
 }
 
-.mainTable {
-  display: block;
-  max-height: 68vh;
-  overflow: auto;
-  width: 100%;
-  margin-bottom: 25px;
-}
 
-  .mainTable th:nth-child(2), td:nth-child(2) {
+  @media only screen and (max-width:800px) {
+    .componentMain {
+      width: 99vw;
+    }
+
+    .mainTable input {
+      max-width: 80% !important;
+      word-wrap: break-word;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .mainTable {
+    display: block;
+    max-height: 68vh;
+    overflow: auto;
     width: 100%;
+    margin-bottom: 25px;
   }
 
-  .mainTable tbody tr {
+    .mainTable th:nth-child(2), td:nth-child(2) {
+      width: 100%;
+    }
+
+    .mainTable tbody tr {
+      cursor: pointer;
+    }
+
+    .mainTable td:not(:nth-last-child(-n+3)) {
+      padding: 5px;
+    }
+
+    .mainTable th {
+      text-align: center;
+    }
+  /* Adjust the appearance of the vote count */
+  .vote-count {
+    color: var(--main-font-color);
+    font-size: 14px;
+    font-weight: bold;
+  }
+  /* Adjust the appearance of the vote container */
+  .vote-container {
+    display: flex;
+    align-items: center;
+  }
+  /* Adjust the appearance of the vote button */
+  .vote-button {
+    min-width: 50px;
     cursor: pointer;
   }
 
-  .mainTable td:not(:nth-last-child(-n+3)) {
-    padding: 5px;
+  .memeImage, .memeVideo {
+    width: 100%;
+    height: auto;
+    max-width: 70vw;
+    max-height: 50vh;
+    cursor: default;
+    object-fit: contain;
   }
 
-  .mainTable th {
+  .SendMemesSpan {
+    color: var(--secondary-font-color);
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  .comments-section {
+    cursor: default;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: var(--secondary-bg-color);
+    padding: 15px;
+  }
+
+  .commentsHeader {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    font-size: large;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .commentUsername {
+    margin-top: 5px;
+    color: var(--secondary-font-color);
+    font-size: large;
+  }
+
+  .commentText {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background-color: var(--main-highlight-color);
+    margin-left: 25px;
+    margin-bottom: 5px;
+  }
+
+  .commentVoteButtons {
+    display: inline-block;
+  }
+
+  .addCommentTextArea {
+    height: 20px;
+    width: 80%;
+  }
+
+  .commentsInputArea {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .searchInputs {
+    position: relative;
+    top: 0;
+    right: 0;
+  }
+
+  .bottomInputs {
+    width: 100%;
+    text-align: center;
+    min-height: 25px;
+    max-height: 250px;
+    overflow-y: auto;
+  }
+
+  .sortOptions {
+    width: 100%;
     text-align: center;
   }
-/* Adjust the appearance of the vote count */
-.vote-count {
-  color: var(--main-font-color);
-  font-size: 14px;
-  font-weight: bold;
-}
-/* Adjust the appearance of the vote container */
-.vote-container {
-  display: flex;
-  align-items: center;
-}
-/* Adjust the appearance of the vote button */
-.vote-button {
-  min-width: 50px;
-  cursor: pointer;
-}
 
-.memeImage, .memeVideo {
-  width: 100%;
-  height: auto;
-  max-width: 70vw;
-  max-height: 50vh;
-  cursor: default;
-  object-fit: contain;
-}
+  .filetype {
+    cursor: default;
+    width: 100%;
+    display: block;
+    font-size: small;
+    text-align: center;
+  }
 
-.SendMemesSpan {
-  color: var(--secondary-font-color);
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.comments-section {
-  cursor: default;
-  max-height: 300px;
-  overflow-y: auto;
-  background-color: var(--secondary-bg-color);
-  padding: 15px;
-}
-
-.commentsHeader {
-  margin-left: auto;
-  margin-right: auto;
-  width: 100%;
-  font-size: large;
-  text-align: center;
-  cursor: pointer;
-}
-
-.commentUsername {
-  margin-top: 5px;
-  color: var(--secondary-font-color);
-  font-size: large;
-}
-
-.commentText {
-  display: inline-block;
-  padding: 5px 10px;
-  border-radius: 10px;
-  background-color: var(--main-highlight-color);
-  margin-left: 25px;
-  margin-bottom: 5px;
-}
-
-.commentVoteButtons {
-  display: inline-block;
-}
-
-.addCommentTextArea {
-  height: 20px;
-  width: 80%;
-}
-
-.commentsInputArea {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-}
-
-.searchInputs {
-  position: relative;
-  top: 0;
-  right: 0;
-}
-
-.bottomInputs {
-  width: 100%;
-  text-align: center;
-  min-height: 25px;
-  max-height: 250px;
-  overflow-y: auto;
-}
-
-.sortOptions {
-  width: 100%;
-  text-align: center;
-}
-
-.filetype {
-  cursor: default;
-  width: 100%;
-  display: block;
-  font-size: small;
-  text-align: center;
-}
-
-/* Fullscreen Overlay Styles */
-.fullscreen-overlay {
-  display: none; /* Hidden by default */
-  position: fixed; /* Sit on top of the page content */
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9); /* Black background with opacity */
-  z-index: 1000; /* Sit on top */
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-}
+  /* Fullscreen Overlay Styles */
+  .fullscreen-overlay {
+    display: none; /* Hidden by default */
+    position: fixed; /* Sit on top of the page content */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9); /* Black background with opacity */
+    z-index: 1000; /* Sit on top */
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
 
 
-.close-overlay {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  font-size: 30px;
-  color: white;
-  cursor: pointer;
-}
+  .close-overlay {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 30px;
+    color: white;
+    cursor: pointer;
+  }
 
-.fullscreen-media {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  background-color: red;
-}
+  .fullscreen-media {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    background-color: red;
+  }
+
+  .loadMoreResultsDiv {
+    text-align: center;
+    padding: 20px;
+  }
+
+    .loadMoreResultsDiv button {
+      font-size: 30px;
+      font-family: var(--title-font-family);
+    }
+
+  .fileUploadInputs {
+    position: relative;
+    top: 0px;
+    height: 0px;
+  }

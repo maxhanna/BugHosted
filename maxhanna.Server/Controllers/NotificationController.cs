@@ -42,8 +42,7 @@ namespace maxhanna.Server.Controllers
                         LEFT JOIN maxhanna.users su on su.id = n.from_user_id
                         LEFT JOIN maxhanna.user_display_pictures sudp on sudp.user_id = n.from_user_id
                         WHERE n.user_id = @UserId
-                    ";
-
+                        ORDER BY n.date DESC;"; 
                     using (var command = new MySqlCommand(sql, connection))
                     {
 

@@ -308,9 +308,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }
   closeOverlay() { 
-    if ((document.getElementById("closeOverlay") as HTMLButtonElement)) { 
-      (document.getElementById("closeOverlay") as HTMLButtonElement).click();
-    }  
-    this.showOverlay = false;
+   const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay"); 
+  closeButtons.forEach((button) => button.click());
+   
+  this.showOverlay = false;
   }
 }

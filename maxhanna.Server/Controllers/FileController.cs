@@ -84,13 +84,13 @@ namespace maxhanna.Server.Controllers
 
 						var countCommand = new MySqlCommand(
 								@$"SELECT 
-                                 COUNT(*) 
-                             FROM 
-                                 maxhanna.file_uploads f 
-                             WHERE 
-                                 {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")} 
-                                 f.id <= @fileId 
-                     {fileTypeCondition} {visibilityCondition} {ownershipCondition}",
+                    COUNT(*) 
+                FROM 
+                    maxhanna.file_uploads f 
+                WHERE 
+                    {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")} 
+                    f.id <= @fileId 
+										{fileTypeCondition} {visibilityCondition} {ownershipCondition};",
 								 connection);
 						countCommand.Parameters.AddWithValue("@folderPath", directory);
 						countCommand.Parameters.AddWithValue("@fileId", fileId.Value);
@@ -122,6 +122,7 @@ namespace maxhanna.Server.Controllers
                             f.last_updated AS file_data_updated,
                             f.last_updated_by_user_id AS last_updated_by_user_id,
                             uu.username AS last_updated_by_user_name,
+                            luudp.file_id AS last_updated_by_user_name_display_picture_file_id,
                             f.file_type AS file_type,
                             f.file_size AS file_size,
                             f.width AS width,
@@ -134,6 +135,8 @@ namespace maxhanna.Server.Controllers
                             maxhanna.users uu ON f.last_updated_by_user_id = uu.id
                         LEFT JOIN
                             maxhanna.user_display_pictures udp ON udp.user_id = u.id
+                        LEFT JOIN
+                            maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
                         LEFT JOIN
                             maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
                         WHERE
@@ -188,7 +191,13 @@ namespace maxhanna.Server.Controllers
 								LastUpdated = reader.IsDBNull("file_data_updated") ? (DateTime?)null : reader.GetDateTime("file_data_updated"),
 								LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
 								Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
-								LastUpdatedBy = new User(reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"), reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name")),
+								LastUpdatedBy = new User(
+									reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"), 
+									reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name"),
+									new FileEntry
+									{
+										Id = reader.IsDBNull("last_updated_by_user_name_display_picture_file_id") ? 0 : reader.GetInt32("last_updated_by_user_name_display_picture_file_id")
+									}),
 								FileType = reader.IsDBNull("file_type") ? "" : reader.GetString("file_type"),
 								FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
 								Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
@@ -348,11 +357,15 @@ namespace maxhanna.Server.Controllers
                             r.comment_id AS reactionCommentId,
                             r.type AS reaction_type,
                             r.user_id AS reaction_user_id,
-                            ru.username AS reaction_username
+                            ru.username AS reaction_username,
+														udp.file_id as reaction_user_display_picture_id,
+														r.timestamp as reaction_date
                         FROM
                             maxhanna.reactions r
                         LEFT JOIN
                             maxhanna.users ru ON r.user_id = ru.id
+                        LEFT JOIN
+                            maxhanna.user_display_pictures udp ON udp.user_id = ru.id
                         WHERE 1=1
                         {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)} 
                         {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};"
@@ -374,14 +387,15 @@ namespace maxhanna.Server.Controllers
 							var reactionId = reader.GetInt32("reaction_id");
 							var fileIdValue = reader.IsDBNull(reader.GetOrdinal("reactionFileId")) ? 0 : reader.GetInt32("reactionFileId");
 							var commentIdValue = reader.IsDBNull(reader.GetOrdinal("reactionCommentId")) ? 0 : reader.GetInt32("reactionCommentId");
-
+							var udpFileEntry = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_id")) ? null : new FileEntry(reader.GetInt32("reaction_user_display_picture_id"));
 							var reaction = new Reaction
 							{
 								Id = reactionId,
 								FileId = fileIdValue != 0 ? fileIdValue : null,
 								CommentId = commentIdValue != 0 ? commentIdValue : null,
 								Type = reader.GetString("reaction_type"),
-								User = new User(reader.GetInt32("reaction_user_id"), reader.GetString("reaction_username"))
+								Timestamp = reader.GetDateTime("reaction_date"),
+								User = new User(reader.GetInt32("reaction_user_id"), reader.GetString("reaction_username"), udpFileEntry)
 							};
 
 							var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
@@ -751,7 +765,7 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
-						var fileId = await InsertFileMetadata(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height);
+						var fileId = await InsertFileIntoDB(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height);
 						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height);
 						uploaded.Add(fileEntry);
 
@@ -1058,18 +1072,16 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task<int> InsertFileMetadata(User user, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath, int? width, int? height)
+		private async Task<int> InsertFileIntoDB(User user, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath, int? width, int? height)
 		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
 
 				var command = new MySqlCommand(
-				@$"INSERT INTO maxhanna.file_uploads 
-                    (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height)  
-                VALUES 
-                    (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size, @width, @height); 
-                SELECT LAST_INSERT_ID();", connection);
+				@$"INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id)  
+          VALUES (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size, @width, @height, @uploadDate, @user_id); 
+          SELECT LAST_INSERT_ID();", connection);
 				command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
 				command.Parameters.AddWithValue("@fileName", Path.GetFileName(convertedFilePath));
 				command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);

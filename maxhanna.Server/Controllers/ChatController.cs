@@ -79,16 +79,15 @@ namespace maxhanna.Server.Controllers
 
 				string sql = @"
                     SELECT 
-                        m.sender,
-                        COUNT(*) as count
-                    FROM 
-                        maxhanna.messages m
-                    WHERE 
-                        m.receiver = @userId
-                        AND 
-                        m.seen = 0
-                    GROUP BY 
-                        m.sender";
+												m.chat_id, 
+												COUNT(*) as count
+										FROM 
+												maxhanna.messages m
+										WHERE 
+												FIND_IN_SET(@userId, m.receiver) > 0 
+												AND (m.seen IS NULL OR NOT FIND_IN_SET(@userId, m.seen))
+										GROUP BY 
+												m.chat_id;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@userId", user.Id);
@@ -97,12 +96,12 @@ namespace maxhanna.Server.Controllers
 				{
 					while (await reader.ReadAsync())
 					{
-						int senderId = Convert.ToInt32(reader["sender"]);
+						int chatId = Convert.ToInt32(reader["chat_id"]);
 						int count = Convert.ToInt32(reader["count"]);
 
 						if (count > 0)
 						{
-							notifications.Add(new Notification { SenderId = senderId, Count = count });
+							notifications.Add(new Notification { ChatId = chatId, Count = count });
 						}
 					}
 					if (notifications.Count > 0)
@@ -488,12 +487,19 @@ namespace maxhanna.Server.Controllers
                         UPDATE
                             maxhanna.messages m
                         SET 
-                            seen = CONCAT(seen, ',', @SenderId)
-                        WHERE chat_id = @ChatId AND sender != @SenderId AND receiver = @ReceiverId;";
+													seen = CASE
+														WHEN seen IS NULL THEN @SenderId
+														ELSE CONCAT(seen, ',', @SenderId)
+													END
+												WHERE 
+													chat_id = @ChatId 
+													AND (seen IS NULL OR seen NOT LIKE CONCAT('%,', @SenderId, ',%') 
+													AND seen NOT LIKE CONCAT(@SenderId, ',%')
+													AND seen NOT LIKE CONCAT('%,', @SenderId)
+													AND seen != @SenderId);";
 
 						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-						updateCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
-						updateCmd.Parameters.AddWithValue("@ReceiverId", receiverList);
+						updateCmd.Parameters.AddWithValue("@ChatId", request.ChatId); 
 						updateCmd.Parameters.AddWithValue("@SenderId", request.User?.Id ?? 0);
 
 						await updateCmd.ExecuteNonQueryAsync();
@@ -742,7 +748,7 @@ namespace maxhanna.Server.Controllers
 		}
 		public class Notification
 		{
-			public int SenderId { get; set; }
+			public int ChatId { get; set; }
 			public int Count { get; set; }
 		}
 	}

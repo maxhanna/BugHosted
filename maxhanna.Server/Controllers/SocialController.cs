@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using MySqlConnector;
 using System.Data;
 using System.Text;
+using System.Web;
 
 namespace maxhanna.Server.Controllers
 {
@@ -311,11 +312,13 @@ namespace maxhanna.Server.Controllers
             r.story_id AS story_id,
             r.user_id AS user_id,
             reactionusers.username AS user_name,
+						udp.file_id as user_display_picture_file_id,
             r.type AS reaction_type,
             r.timestamp AS reaction_timestamp
         FROM 
             reactions AS r
             LEFT JOIN users AS reactionusers ON r.user_id = reactionusers.id
+            LEFT JOIN user_display_pictures AS udp ON udp.user_id = reactionusers.id 
         WHERE 
             r.story_id IN ({0})"; // Placeholder for story IDs
 
@@ -338,14 +341,15 @@ namespace maxhanna.Server.Controllers
 						while (await rdr.ReadAsync())
 						{
 							int storyId = rdr.IsDBNull("story_id") ? 0 : rdr.GetInt32("story_id");
-
+							var udpFileEntry = rdr.IsDBNull("user_display_picture_file_id") ? null : new FileEntry(rdr.GetInt32("user_display_picture_file_id"));
 							var reaction = new Reaction
 							{
 								Id = rdr.IsDBNull("reaction_id") ? 0 : rdr.GetInt32("reaction_id"),
 								User = new User
 								{
 									Id = rdr.IsDBNull("user_id") ? 0 : rdr.GetInt32("user_id"),
-									Username = rdr.IsDBNull("user_name") ? string.Empty : rdr.GetString("user_name")
+									Username = rdr.IsDBNull("user_name") ? string.Empty : rdr.GetString("user_name"),
+									DisplayPictureFile = udpFileEntry
 								},
 								Type = rdr.IsDBNull("reaction_type") ? string.Empty : rdr.GetString("reaction_type"),
 								Timestamp = rdr.IsDBNull("reaction_timestamp") ? DateTime.MinValue : rdr.GetDateTime("reaction_timestamp")
@@ -871,8 +875,8 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@storyId", storyId);
-						cmd.Parameters.AddWithValue("@title", metadata.Title);
-						cmd.Parameters.AddWithValue("@description", metadata.Description);
+						cmd.Parameters.AddWithValue("@title", HttpUtility.HtmlDecode(metadata.Title));
+						cmd.Parameters.AddWithValue("@description", HttpUtility.HtmlDecode(metadata.Description));
 						cmd.Parameters.AddWithValue("@imageUrl", metadata.ImageUrl);
 
 						await cmd.ExecuteNonQueryAsync();

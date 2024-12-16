@@ -57,6 +57,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   pageSize = 10;
   totalPages = 1; 
   totalPagesArray: number[] = []; 
+  isDisplayingChatMembersPanel = false;  
 
   constructor( private chatService: ChatService) {
     super();
@@ -284,5 +285,28 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return this.chatService.getCommaSeparatedGroupChatUserNames(this.currentChatUsers, this.parentRef?.user);
     }
     else return "";
+  }
+  getChatUsersWithoutCurrentUser() {
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    return this.currentChatUsers?.filter(x => x.id != (parent?.user?.id ?? 0));
+  }
+  displayChatMembers() {
+    this.isDisplayingChatMembersPanel = true;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.showOverlay = true;
+    }
+  }
+  closeChatMembersPanel() {
+    this.isDisplayingChatMembersPanel = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.showOverlay = false;
+    }
+  }
+  addChatMember(users?: User[]) {
+    if (!users) return;
+    this.selectedUsers = this.selectedUsers.concat(users);
+    this.openGroupChat();
   }
 }

@@ -8,7 +8,7 @@
 
       <div class="mediaSelectorTitle selectFilesTitle">
         <span>
-          Select Media Files <span class="xxSmallFont" *ngIf="selectedFiles && selectedFiles.length > 0">({{selectedFiles.length}})</span>
+          Select Media Files <span class="smallFont" *ngIf="selectedFiles && selectedFiles.length > 0">({{selectedFiles.length}})</span>
         </span>
         <button id="closeOverlay" class="doneButton pointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Done' : 'Cancel'}}</button>
       </div>
@@ -29,6 +29,7 @@
                                   [showCommentSection]="false"
                                   [displayExtraInfo]="false"
                                   [displayExpander]="false"
+                                  (expandClickedEvent)="removeFile(file)"
                                   [autoplay]="false">
                 </app-media-viewer>
               </div>
@@ -48,12 +49,15 @@
                          [showPrivatePublicOption]="false"
                          [maxResults]="10"
                          [canChangeDirectory]="true"
+                         [fileSearchMode]="true"
                          [displayFileType]="false"
                          [displayFileSize]="false"
                          [displayFileData]="false"
                          [displayFileActions]="false"
                          [displayReactions]="false"
-                         [displayComments]="false"
+                         [displayComments]="false" 
+                         [autoload]="true"
+                         (expandClickedEvent)="expandClickedEvent($event)"
                          (selectFileEvent)="selectFile($event)"
                          (currentDirectoryChangeEvent)="directoryChanged($event)">
         </app-file-search>

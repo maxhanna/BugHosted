@@ -1,14 +1,14 @@
 // user.service.ts
-import { Injectable } from '@angular/core'; 
+import { Injectable } from '@angular/core';
 import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
+import { Message } from './datacontracts/chat/message';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ChatService {
-  async getMessageHistory(user: User, receivers: User[], chatId?: number, pageNumber: number = 0, pageSize?: number) {
-    console.log("get message history" + pageNumber);
+  async getMessageHistory(user: User, receivers: User[], chatId?: number, pageNumber: number = 0, pageSize?: number) { 
     try {
       const response = await fetch(`/chat/getmessagehistory`, {
         method: 'POST',
@@ -18,8 +18,8 @@ export class ChatService {
         body: JSON.stringify({ User: user, Receivers: receivers, ChatId: chatId, PageNumber: pageNumber, PageSize: pageSize }),
       });
 
-      return await response.json();  
-    } catch (error) { 
+      return await response.json();
+    } catch (error) {
     }
   }
   async getChatNotifications(user: User) {
@@ -37,7 +37,7 @@ export class ChatService {
       return null;
     }
   }
-  async getGroupChats(user: User) {
+  async getGroupChats(user: User): Promise<Message[] | undefined> {
     try {
       const response = await fetch(`/chat/getgroupchats`, {
         method: 'POST',
@@ -49,7 +49,7 @@ export class ChatService {
 
       return await response.json();
     } catch (error) {
-      return null;
+      return undefined;
     }
   }
   async getChatNotificationsByUser(user: User) {
@@ -74,15 +74,15 @@ export class ChatService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Sender: sender, Receiver: receiver, ChatId: chatId, Content: content, Files: files }), 
+        body: JSON.stringify({ Sender: sender, Receiver: receiver, ChatId: chatId, Content: content, Files: files }),
       });
 
       return await response.json();
     } catch (error) {
-      return null; 
+      return null;
     }
   }
-  getCommaSeparatedGroupChatUserNames(users: User | User[], currentUser?: User): string {
+  getCommaSeparatedGroupChatUserNames(users: User | User[], currentUser?: User, includeCurrentUser: boolean = false): string {
     let userArray: User[];
 
     if (Array.isArray(users)) {
@@ -91,9 +91,21 @@ export class ChatService {
       userArray = [users]; // Convert single user to an array
     }
 
+    let hasExcludedCurrentUser = false;
+
     return userArray
-      .filter(user => user.username !== currentUser?.username) // Exclude matching username
-      .map(user => user.username) // Map to usernames
-      .join(', '); // Join with commas
+      .filter(user => {
+        if (includeCurrentUser) {
+          return true;  
+        }  
+        if (!hasExcludedCurrentUser && user.id === (currentUser?.id ?? 0)) {
+          hasExcludedCurrentUser = true;
+          return false;  
+        }
+
+        return true;  
+      })
+      .map(user => user.username)
+      .join(', ');
   }
 }

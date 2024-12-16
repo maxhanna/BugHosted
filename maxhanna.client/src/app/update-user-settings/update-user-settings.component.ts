@@ -55,13 +55,16 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   constructor(private miningService: MiningService, private weatherService: WeatherService, private userService: UserService) {
     super();
   }
-  async ngOnInit() {
-    console.log(this.parentRef?.user?.username + " is username! ");
-
+  async ngOnInit() {  
     this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User' && x.title !== 'UpdateUserSettings');
-    this.parentRef!.user = await this.userService.getUser(this.parentRef!.user!);
-    console.log(this.parentRef?.user?.username + " is username! " + this.parentRef?.user?.displayPictureFile?.id + " is displayPictureId");
-//    this.displayPictureViewer.file 
+
+    this.updateUserDivVisible = false;
+    this.isGeneralToggled = false;
+    this.isMenuIconsToggled = false;
+    this.isWeatherLocationToggled = false;
+    this.isDisplayPictureToggled = false;
+    this.isDeleteAccountToggled = false;
+    this.isAboutToggled = false; 
   }
   async getNicehashApiKeys() {
     if (this.isNicehashApiKeysToggled) {
@@ -130,12 +133,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async avatarSelected(files: FileEntry[]) {
-    if (files && files.length > 0) {
-      console.log("updating avatar for user : " + this.parentRef?.user?.username + " fileId: " + files[0].id);
+    if (files && files.length > 0) { 
       const res = await this.userService.updateDisplayPicture(this.parentRef?.user!, files[0].id);
-      this.parentRef!.user = await this.userService.getUser(this.parentRef?.user!);
-      this.displayPictureFile = this.parentRef?.user?.displayPictureFile;
-      this.displayPictureSelector.selectedFiles = [];
+      const targetParent = this.inputtedParentRef ?? this.parentRef;
+      if (targetParent && targetParent.user) {
+        targetParent.user.displayPictureFile = files[0];
+        targetParent.deleteCookie("user");
+        targetParent.setCookie("user", JSON.stringify(targetParent.user), 10); 
+        this.ngOnInit();
+      } 
     }
   }
 
@@ -170,8 +176,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       }
     } else { return alert("You must be logged in first!"); }
   }
-  async getMenuIcons() {
-    console.log("getmenuIcons yeee");
+  async getMenuIcons() { 
     this.isMenuIconsToggled = !this.isMenuIconsToggled;
 
     if (this.isMenuIconsToggled) {
@@ -184,13 +189,12 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (this.parentRef?.isModalOpen) { 
       return event?.preventDefault();
     }
-    if (this.parentRef!.userSelectedNavigationItems.some(x => x.title == title)) {
+    if (this.parentRef && this.parentRef.userSelectedNavigationItems.some(x => x.title == title)) {
       this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
       this.userService.deleteMenuItem(this.parentRef?.user!, title);
-      this.notifications.push(`Deleted menu item : ${title}`);
-
-    } else {
-      this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user!.id!, title));
+      this.notifications.push(`Deleted menu item : ${title}`); 
+    } else { 
+      this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user?.id ?? 0, title));
       if (this.parentRef && this.parentRef.user) {
         this.userService.addMenuItem(this.parentRef.user, [title]);
       }

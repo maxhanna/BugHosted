@@ -296,7 +296,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.isMoreInfoOpen = !this.isMoreInfoOpen;
         break;
       case 'settings':
-        this.parentRef?.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false })
+        this.parentRef?.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this.parentRef })
         break;
       case 'logout':
         this.logout()
@@ -460,10 +460,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     }
     return this.friends.some(x => x.id === other.id);
   } 
-  openChat() {
-    if (!this.parentRef || !this.parentRef.user) {
-      return alert("Please log in to chat.");
-    }
+  openChat() { 
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
   }
   async updateWeatherInBackground(tmpUser: User, withCity?: boolean) { 

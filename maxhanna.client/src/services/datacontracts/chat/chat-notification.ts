@@ -1,9 +1,9 @@
 export class ChatNotification {
-  senderId: number;
+  chatId: number;
   count: number;
 
-  constructor(senderId: number, count: number) {
-    this.senderId = senderId;
+  constructor(chatId: number, count: number) {
+    this.chatId = chatId;
     this.count = count;
   }
 }

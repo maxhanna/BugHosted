@@ -1,15 +1,16 @@
 
-.fullscreen-overlay {
+::ng-deep .fullscreen-overlay {
   display: none; /* Hidden by default */
   position: fixed; /* Sit on top of the page content */
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.8); /* Black background with opacity */
-  z-index: 1000; /* Sit on top */
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
   text-align: center;
   overflow: auto;
+  pointer-events: auto;
 }
 
 
@@ -20,6 +21,7 @@
   font-size: 30px;
   color: white;
   cursor: pointer;
+  text-shadow: 1.2px 1.1px 1.1px black;
 }
 
 .fullscreen-media {

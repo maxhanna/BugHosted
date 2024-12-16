@@ -11,7 +11,7 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
 
   constructor(private el: ElementRef) {
     const options: IntersectionObserverInit = {
-      threshold: 1.0
+      threshold: 0.9 //for some reason, setting this to 1 will break on iphone
     };
 
     this.observer = new IntersectionObserver(entries => {
@@ -23,7 +23,7 @@ export class InViewDirective implements AfterViewInit, OnDestroy {
           // Set a timer before emitting the inView event
           this.timeoutId = setTimeout(() => {
             this.inView.emit(true);
-          }, 10);  
+          }, 50);  
         } else {
           this.inView.emit(false);
         }

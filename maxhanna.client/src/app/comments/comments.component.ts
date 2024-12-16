@@ -18,6 +18,7 @@ export class CommentsComponent extends ChildComponent {
   optionsComment: FileComment | undefined;
   upvotedCommentIds: number[] = []
   downvotedCommentIds: number[] = []
+  editingComments: number[] = []
   selectedFiles: FileEntry[] = [];
   emojiMap: { [key: string]: string } =
     { ":)": "😊", ":(": "☹️", ";)": "😉", ":D": "😃", "XD": "😆", ":P": "😛", ":O": "😮", "B)": "😎", ":/": "😕", ":'(": "😢", "<3": "❤️", "</3": "💔", ":*": "😘", "O:)": "😇", "3:)": "😈", ":|": "😐", ":$": "😳", "8)": "😎", "^_^": "😊", "-_-": "😑", ">_<": "😣", ":'D": "😂", ":3": "😺", ":v": "✌️", ":S": "😖", ":b": "😛", ":x": "😶", ":X": "🤐", ":Z": "😴", "*_*": "😍", ":@": "😡", ":#": "🤬", ">:(": "😠", ":&": "🤢", ":T": "😋", "T_T": "😭", "Q_Q": "😭", ":1": "😆", "O_O": "😳", "*o*": "😍", "T-T": "😭", ";P": "😜", ":B": "😛", ":W": "😅", ":L": "😞", ":E": "😲", ":M": "🤔", ":C": "😏", ":I": "🤓", ":Q": "😮", ":F": "😇", ":G": "😵", ":H": "😱", ":J": "😜", ":K": "😞", ":Y": "😮", ":N": "😒", ":U": "😕", ":V": "😈", ":wave:": "👋", ":ok:": "👌", ":thumbsup:": "👍", ":thumbsdown:": "👎", ":clap:": "👏", ":star:": "⭐", ":star2:": "🌟", ":dizzy:": "💫", ":sparkles:": "✨", ":boom:": "💥", ":fire:": "🔥", ":droplet:": "💧", ":sweat_drops:": "💦", ":dash:": "💨", ":cloud:": "☁️", ":sunny:": "☀️", ":umbrella:": "☂️", ":snowflake:": "❄️", ":snowman:": "⛄", ":zap:": "⚡", ":cyclone:": "🌀", ":fog:": "🌫️", ":rainbow:": "🌈", ":heart:": "❤️", ":blue_heart:": "💙", ":green_heart:": "💚", ":yellow_heart:": "💛", ":purple_heart:": "💜", ":black_heart:": "🖤", ":white_heart:": "🤍", ":orange_heart:": "🧡", ":broken_heart:": "💔", ":heartbeat:": "💓", ":heartpulse:": "💗", ":two_hearts:": "💕", ":sparkling_heart:": "💖", ":cupid:": "💘", ":gift_heart:": "💝", ":revolving_hearts:": "💞", ":heart_decoration:": "💟", ":peace:": "☮️", ":cross:": "✝️", ":star_and_crescent:": "☪️", ":om:": "🕉️", ":wheel_of_dharma:": "☸️", ":yin_yang:": "☯️", ":orthodox_cross:": "☦️", ":star_of_david:": "✡️", ":six_pointed_star:": "🔯", ":menorah:": "🕎", ":infinity:": "♾️", ":wavy_dash:": "〰️", ":congratulations:": "㊗️", ":secret:": "㊙️", ":red_circle:": "🔴", ":orange_circle:": "🟠", ":yellow_circle:": "🟡", ":green_circle:": "🟢", ":blue_circle:": "🔵", ":purple_circle:": "🟣", ":brown_circle:": "🟤", ":black_circle:": "⚫", ":white_circle:": "⚪", ":red_square:": "🟥", ":orange_square:": "🟧", ":yellow_square:": "🟨", ":green_square:": "🟩", ":blue_square:": "🟦", ":purple_square:": "🟪", ":brown_square:": "🟫", ":black_large_square:": "⬛", ":white_large_square:": "⬜", ":black_medium_square:": "◼️", ": black_medium_small_square: ": "◾", ": white_medium_small_square: ": "◽", ": black_small_square: ": "▪️", ": white_small_square: ": "▫️", ": large_orange_diamond: ": "🔶", ": large_blue_diamond: ": "🔷", ": small_orange_diamond: ": "🔸", ": small_blue_diamond: ": "🔹", ": red_triangle_pointed_up: ": "🔺", ": red_triangle_pointed_down: ": "🔻", ": diamond_shape_with_a_dot_inside: ": "💠", ": radio_button: ": "🔘", ": white_square_button: ": "🔳", ": black_square_button: ": "🔲", ": checkered_flag: ": "🏁", ": triangular_flag_on_post: ": "🚩", ": crossed_flags: ": "🎌", ": black_flag: ": "🏴", ": white_flag: ": "🏳️", ": rainbow_flag: ": "🏳️‍🌈", ": pirate_flag: ": "🏴‍☠️" };
@@ -27,10 +28,12 @@ export class CommentsComponent extends ChildComponent {
   @Input() inputtedParentRef?: AppComponent;
   @Input() commentList: FileComment[] = [];
   @Input() showComments = false;
+  @Input() showCommentsHeader = true;
   @Input() type: string = '' || "Social" || "File";
   @Input() component_id: number = 0;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
+  @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
    
   constructor(private commentService: CommentService, private sanitizer: DomSanitizer) {
     super();
@@ -58,11 +61,8 @@ export class CommentsComponent extends ChildComponent {
     tmpComment.date = currentDate;
     tmpComment.fileId = fileId;
     tmpComment.storyId = storyId;
-    tmpComment.commentFiles = filesToSend;
-
+    tmpComment.commentFiles = filesToSend; 
     if (!this.commentList) { this.commentList = []; }
-    this.commentList.push(tmpComment);
-
 
     this.debounceTimer = setTimeout(async () => {
       this.commentAddedEvent.emit(tmpComment as FileComment);
@@ -121,30 +121,18 @@ export class CommentsComponent extends ChildComponent {
   }
 
   editComment(comment: FileComment) {
-    if (document.getElementById('commentText' + comment.id)) {
-      if ((document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display != "block") {
-        (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display = "block";
-        (document.getElementById('commentTextEditConfirmButton' + comment.id) as HTMLTextAreaElement).style.display = "block";
-        (document.getElementById('commentText' + comment.id) as HTMLDivElement).style.display = "none";
-        (document.getElementById('commentEditButtonSpan' + comment.id) as HTMLButtonElement).style.display = "block";
-        (document.getElementById('commentAcceptButtonSpan' + comment.id) as HTMLButtonElement).style.display = "block";
-      } else { 
-        (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display = "none";
-        (document.getElementById('commentTextEditConfirmButton' + comment.id) as HTMLTextAreaElement).style.display = "none";
-        (document.getElementById('commentText' + comment.id) as HTMLDivElement).style.display = "block";
-        (document.getElementById('commentEditButtonSpan' + comment.id) as HTMLButtonElement).style.display = "none";
-        (document.getElementById('commentAcceptButtonSpan' + comment.id) as HTMLButtonElement).style.display = "none";
-      }
+    if (!this.editingComments.includes(comment.id)) {
+      this.editingComments.push(comment.id);
+    } else {
+      this.editingComments = this.editingComments.filter(x => x !== comment.id);
     }
     this.closeOptionsPanel();
   } 
   async confirmEditComment(comment: FileComment) { 
-    const message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value; 
+    const message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value;
+    this.editingComments = this.editingComments.filter(x => x != comment.id);
     if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
       this.commentService.editComment(this.inputtedParentRef.user, comment.id, message);
-      (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).style.display = "none";
-      (document.getElementById('commentTextEditConfirmButton' + comment.id) as HTMLTextAreaElement).style.display = "none";
-      (document.getElementById('commentText' + comment.id) as HTMLDivElement).style.display = "block";
       (document.getElementById('commentText' + comment.id) as HTMLDivElement).innerHTML = this.createClickableUrls(message).toString();
     }
   }

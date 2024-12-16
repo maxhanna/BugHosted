@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
-import { User } from './datacontracts/user/user';
-import { FileData } from './datacontracts/file/file-data';
+import { User } from './datacontracts/user/user'; 
 import { FileEntry } from './datacontracts/file/file-entry';
 
 @Injectable({
@@ -54,7 +53,7 @@ export class FileService {
       return null;
     }
   }
-  async updateFileData(user: User, fileData: FileData) {
+  async updateFileData(user: User, fileData: { FileId: number, GivenFileName: string, Description: string, LastUpdatedBy: User }) {
     try {
       const response = await fetch(`/file/updatefiledata`, {
         method: 'POST',

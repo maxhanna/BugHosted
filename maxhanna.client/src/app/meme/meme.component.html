@@ -8,9 +8,9 @@
                        [inputtedParentRef]="parentRef">
     </app-notifications>
   </div>
-
-  <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
   <div class="memeResultsDiv">
+    <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
+
     <div class="fileUploadInputs">
       <app-file-upload [currentDirectory]="'Meme'"
                        [user]="parentRef?.user"
@@ -26,10 +26,11 @@
       </app-file-upload>
     </div>
 
-    <app-file-search [inputtedParentRef]="parentRef"
+    <app-file-search #fileSearchComponent
+                     [inputtedParentRef]="parentRef"
                      [user]="parentRef?.user"
                      [currentDirectory]="'Meme/'"
-                     [maxResults]="100"
+                     [maxResults]="iPhone ? 8 : 20"
                      [canChangeDirectory]="false"
                      [canDragMove]="false"
                      [showPrivatePublicOption]="false"
@@ -38,7 +39,12 @@
                      [fileId]="memeId"
                      [autoload]="memeId ? false : true"
                      [displayTotal]="false"
+                     [showFileSearchOptions]="false"
+                     [currentPage]="currentMemePage"
                      (userNotificationEvent)="uploadNotification($event);">
     </app-file-search>
-  </div>
+    <div class="loadMoreResultsDiv">
+      <button *ngIf="fileSearchComponent.currentPage < fileSearchComponent.totalPages && (fileSearchComponent.directory && fileSearchComponent.directory.data ? (fileSearchComponent.directory.data.length > 0 ?? false) : false)" (click)="fileSearchComponent.nextPage()">Load More Results</button>
+    </div>
+  </div> 
 </div>

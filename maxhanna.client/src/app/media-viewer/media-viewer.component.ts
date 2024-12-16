@@ -44,6 +44,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() autoload: boolean = true;
   @Input() forceInviewLoad: boolean = false;
   @Input() showCommentSection: boolean = true; 
+  @Input() showCommentSectionHeader: boolean = true; 
   @Input() showCommentSectionOnLoad: boolean = true; 
   @Input() canScroll: boolean = false;
   @Input() file?: FileEntry;
@@ -54,6 +55,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
   @Output() emittedNotification = new EventEmitter<string>(); 
+  @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(); 
+  @Output() expandClickedEvent = new EventEmitter<FileEntry>(); 
     
   async ngOnInit() { 
   }
@@ -240,7 +243,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
  
   expandFile(file: any) {
+    if (this.selectedFile) { this.expandClickedEvent.emit(this.selectedFile); }
     if (this.blockExpand) return;
+
     this.isFullscreenMode = true;
     (this.mediaContainer.nativeElement as HTMLMediaElement).src = '';
     const overlay = this.fullscreenOverlay.nativeElement;

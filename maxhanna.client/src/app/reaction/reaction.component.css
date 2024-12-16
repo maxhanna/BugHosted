@@ -16,7 +16,12 @@
   padding-left: 2px;
   cursor: pointer;
 }
-
+.reactionWrapper {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  white-space: normal;
+}
 .myReactionDiv{
     display: inline-block;
 }
@@ -61,6 +66,9 @@
   flex-wrap: nowrap;
   flex-direction: row;
   justify-content: center;
+}
+.reactionTypeSpan {
+  font-size: 30px;
 }
 .popupPanel {
   position: fixed;

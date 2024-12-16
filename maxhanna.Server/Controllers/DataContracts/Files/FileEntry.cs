@@ -24,5 +24,11 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public int? Height { get; set; }
 		public int? Width { get; set; }
 		public List<Reaction>? Reactions { get; set; }
+
+		public FileEntry() { }
+		public FileEntry(int id)
+		{
+			Id = id;
+		}
 	}
 }

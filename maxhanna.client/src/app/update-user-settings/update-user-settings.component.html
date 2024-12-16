@@ -1,16 +1,15 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('UpdateUserProfile')"></div>
-  <!--<div class="refreshButton" (click)="ngOnInit()"></div>-->
-  <div class="componentTitle">{{!showOnlySelectableMenuItems ? 'Settings' : 'Select Your Apps'}}</div>
+  <div class="closeButton" (click)="remove_me('UpdateUserProfile')"></div> 
+  <div class="componentTitle">{{ !showOnlySelectableMenuItems ? 'Settings' : 'Select Your Apps' }}</div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" (click)="notifications = [];" title="Click to clear notifications" class="notificationArea notification"></div>
 
-  <div *ngIf="parentRef!.user" class="settingsDiv">
+  <div class="settingsDiv">
     <fieldset>
       <legend *ngIf="!showOnlySelectableMenuItems">Update:</legend>
       <table class="updateTable">
 
         <!--USERNAME / PASSWORD-->
-        <thead (click)="isGeneralToggled = !isGeneralToggled" *ngIf="!showOnlySelectableMenuItems">
+        <thead (click)="isGeneralToggled = !isGeneralToggled" *ngIf="!showOnlySelectableMenuItems && parentRef?.user">
           <tr>
             <th>
               <span class="helperSpanTitle" title="Change your username or password."></span>
@@ -34,7 +33,7 @@
 
 
         <!--Display Picture-->
-        <thead (click)="isDisplayPictureToggled = !isDisplayPictureToggled" *ngIf="!showOnlySelectableMenuItems">
+        <thead (click)="isDisplayPictureToggled = !isDisplayPictureToggled" *ngIf="!showOnlySelectableMenuItems && parentRef?.user">
           <tr>
             <th>
               <span class="helperSpanTitle" title="Change your display picture"></span>
@@ -59,7 +58,7 @@
                                     [displayExpander]="false"
                                     [displayExtraInfo]="false"
                                     [showCommentSection]="false"
-                                    [file]="this.parentRef?.user!.displayPictureFile"
+                                    [file]="this.inputtedParentRef?.user?.displayPictureFile ?? this.parentRef?.user!.displayPictureFile"
                                     [currentDirectory]="this.parentRef?.user!.displayPictureFile!.directory"
                                     [user]="parentRef!.user"
                                     [inputtedParentRef]="parentRef!">
@@ -81,7 +80,7 @@
 
 
         <!--ABOUT-->
-        <thead (click)="isAboutToggled = !isAboutToggled" *ngIf="!showOnlySelectableMenuItems">
+        <thead (click)="isAboutToggled = !isAboutToggled" *ngIf="!showOnlySelectableMenuItems && parentRef?.user">
           <tr>
             <th>
               <span class="helperSpanTitle" title="Your contact information."></span>
@@ -300,7 +299,7 @@ but you can also set your own City for a more precise location."></span>
 
 
         <!--Nicehash API-->
-        <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlySelectableMenuItems">
+        <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlySelectableMenuItems && parentRef?.user">
           <tr>
             <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
             <th>Nicehash API Keys</th>
@@ -330,7 +329,7 @@ but you can also set your own City for a more precise location."></span>
 
 
         <!--Delete Account-->
-        <thead (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlySelectableMenuItems">
+        <thead (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlySelectableMenuItems && parentRef?.user">
           <tr>
             <th><span class="helperSpanTitle" title="Delete your account"></span></th>
             <th>Delete your account?</th>

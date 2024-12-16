@@ -2,7 +2,7 @@
   <div *ngIf="!user">
     <div class="closeButton" (click)="remove_me('SocialComponent');"></div>
     <div class="menuButton" (click)="showMenuPanel();"></div>
-    <div class="componentTitle">Social</div>
+    <div class="componentTitle"><span>Social</span></div>
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div> 
   <div class="socialComponent">
@@ -17,7 +17,7 @@
     </div>
     <!-- Search Popup -->
     <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen">
-      <div>Search the Socials</div>
+      <div class="popupPanelTitle">Search the Socials</div>
       <div>
         <input type="text" #search placeholder="Search the socials" (keyup.enter)="searchStories()" *ngIf="!user" />
         <input type="submit" (click)="searchStories()" value="🔍" *ngIf="!user" />
@@ -28,8 +28,13 @@
     </div>
 
     <!-- Menu Popup -->
-    <div class="popupPanel" style="height:100%; overflow: auto;" *ngIf="isMenuPanelOpen">
-      <div style="display:flex;">
+    <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+
+      <div class="popupPanelTitle" style="margin-bottom:15px;">
+        Menu Options
+        <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+      </div>
+      <div style="display:flex;margin-bottom:15px;">
         <div>
           <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
         </div>
@@ -41,10 +46,13 @@
       </div>
 
       <!-- search input area -->
-      <div>
+      <div style="margin-bottom:10px;">
         <input type="text" #search placeholder="Search the socials" (keyup.enter)="searchStories()" *ngIf="!user" />
         <input type="submit" (click)="searchStories()" value="🔍" *ngIf="!user" />
-        <div (click)="searchStories()">{{userSearch}}</div>
+        <div (click)="searchStories()">
+          <span *ngIf="userSearch">Current Search : </span>
+          {{userSearch}}
+        </div>
       </div>
       <div>
         <app-topics #topicComponent
@@ -55,7 +63,7 @@
                     (topicAdded)="onTopicAdded($event)">
         </app-topics>
         <div style="display: inline-flex;">
-          <span *ngFor="let topic of attachedTopics" (click)="removeTopic(topic)" class="matchingTopic" title="{{topic.topicText}} : Click to remove topic">{{topic.topicText}}</span>
+          <span *ngIf="attachedTopics && attachedTopics.length > 0">Attached Topics : </span><span *ngFor="let topic of attachedTopics" (click)="removeTopic(topic)" class="matchingTopic" title="{{topic.topicText}} : Click to remove topic">{{topic.topicText}}</span>
         </div>
       </div>
 
@@ -65,34 +73,39 @@
           Top Topics:
         </div>
         <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)" style="display: inline; line-height: 25px; align-items: center; flex-wrap: nowrap; flex-direction: row; cursor: pointer;">
-            <span class="matchingTopic">{{topic.topicName}}</span>
-            <span style="font-size: xx-small; display: inline-block">({{topic.storyCount}})</span> 
+          <span class="matchingTopic">{{topic.topicName}}</span>
+          <span style="font-size: xx-small; display: inline-block">({{topic.storyCount}})</span>
         </span>
       </div>
 
-      <div>
-        <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
-      </div>
     </div>
 
     <!-- Post Options Popup -->
     <div class="popupPanel" *ngIf="isPostOptionsPanelOpen">
-      <div style="font-family: var(--title-font-family)">Options</div> 
+      <div class="popupPanelTitle">
+        <span>Post Options</span>
+        <div>
+          <button id="closeOverlay" (click)="closePostOptionsPanel()">Close</button>
+        </div>
+      </div>
+      <div class="smallFont">
+        These options affect the post created.
+      </div>
       <div>
         <label>
           <input type="checkbox" (change)="eachAttachmentSeperatePost = !eachAttachmentSeperatePost" [checked]="eachAttachmentSeperatePost" />
-          Each Attachment In A Seperate Post
+          Each Attachment In A Seperate Post.
         </label>
+        <div class="smallFont">
+          Select 'Each Attachment in a Seperate Post' to create a post for every file attachment attached to this post.
+        </div>
       </div>
-      <div>
-        <button id="closeOverlay" (click)="closePostOptionsPanel()">Close</button>
-      </div>
+
     </div>
 
-    <!-- MOBILE Topics Popup -->
+    <!-- Post Topics Popup -->
     <div class="popupPanel largePopupPanel" *ngIf="isMobileTopicsPanelOpen">
-      <div style="font-family: var(--title-font-family)">Topics <button id="closeOverlay" (click)="closeMobileTopicsPanel()">Close</button></div>
-
+      <div class="popupPanelTitle">Topics <button id="closeOverlay" (click)="closeMobileTopicsPanel()">Close</button></div>
       <div style="display: inline-flex;">
         <span *ngFor="let topic of attachedTopics" (click)="removeTopic(topic)" class="matchingTopic" title="{{topic.topicText}} : Click to remove topic">{{topic.topicText}}</span>
       </div>
@@ -112,21 +125,16 @@
           <span class="matchingTopic">{{topic.topicName}}</span>
           <span style="font-size: xx-small; display: inline-block">({{topic.storyCount}})</span>
         </span>
-      </div> 
+      </div>
     </div>
 
     <!-- Story Options Popup -->
     <div class="popupPanel" *ngIf="isStoryOptionsPanelOpen && optionStory">
-      <div *ngIf="optionStory.city || optionStory.country">
-        {{optionStory.city}}<span *ngIf="optionStory.country"><span *ngIf="optionStory.city">,</span> {{optionStory.country}}</span>
+      <div class="popupPanelTitle" style="margin-bottom: 15px;">
+        Story Options
+        <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
       </div>
-      <div>
-        {{formatDate(optionStory.date)}}
-      </div>
-      <div>
-        <app-user-tag [user]="optionStory.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
-      </div>
-      <div style="display: flex;">
+      <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
         <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
         <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post" style="display:inline-block">
           <span class="storyEditSpans storyRejectEdit" [style.display]="isEditButtonVisible(optionStory.id) ? 'block' : 'none'" [id]="'storyRejectEditButtonSpan' + optionStory.id">❌</span>
@@ -134,8 +142,39 @@
         </button>
         <button (click)="delete(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id)" title="Delete Post" style="display:inline-block">❌Delete</button>
       </div>
-      <div>
-        <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
+      <div class="createdByStoryOptionsDiv">
+        Created: 
+        <div style="display:flex; column-gap: 10px;">
+          <div> 
+            <app-user-tag [user]="optionStory.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
+          </div>
+          <div>
+            <div *ngIf="optionStory.city || optionStory.country">
+              {{optionStory.city}}<span *ngIf="optionStory.country"><span *ngIf="optionStory.city">,</span> {{optionStory.country}}</span>
+            </div>
+            <div>
+              {{formatDate(optionStory.date)}}
+            </div>
+          </div>
+        </div>
+      </div>  
+      <div class="xxSmallFont" *ngIf="extractUrl(optionStory.storyText)"> 
+        <div>
+          Metadata URL:
+          <a href="extractUrl(optionStory.storyText)" target="_blank">{{extractUrl(optionStory.storyText)}}</a> 
+        </div>
+        <div>
+          Metadata Title:
+          {{optionStory.metadata?.title}}
+        </div>
+      </div>
+      <div class="xxSmallFont" *ngIf="optionStory.metadata?.title">
+       
+      </div>
+      <div class="addToMusicPlaylistButtonDiv" *ngIf="optionStory.metadata?.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
+        <button (click)="addToMusicPlaylist(optionStory, $event);" title="Save this Youtube URL to your Music Playlist">
+          Save to Music Playlist
+        </button>
       </div>
     </div>
     <!-- Pagination -->
@@ -168,7 +207,8 @@
           </span>
         </button>
         <button class="mainTopicSelectionsHeaderButton" (click)="showMobileTopicsPanel()">
-          Topics<span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">(
+          Topics<span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
+            (
             <span *ngFor="let topic of attachedTopics; let i = index"
                   class="matchingTopic"
                   title="{{topic.topicText}} : Click to remove topic">
@@ -192,7 +232,7 @@
             <button (click)="showStoryOptionsPanel(story);" style="border:0px;">
               <span style="text-shadow:1px 1px 2px black; font-size:14px; cursor: pointer">⚙️</span>
             </button>
-            <span style="display:inline-flex; width:50px; cursor: pointer;" (click)="showComments(story.id)">
+            <span class="showCommentSpan" (click)="showComments(story.id)">
               🗨️{{story.storyComments?.length}}
             </span>
             <span class="reactionsSpan">
@@ -208,14 +248,14 @@
              [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
              [id]="'storyTextContainer'+story.id"
              (click)="toggleCollapse('storyTextContainer'+story.id)">
-          <div class="storyContentDiv"> 
+          <div class="storyContentDiv">
             <div class="storyText" [style.display]="isEditing.includes(story.id) ? 'none' : 'block'" [innerHtml]="getStoryTextForDOM(story)" [id]="'storyText' + story.id"></div>
-               
+
             <textarea [id]="'storyTextTextarea' + story.id" [style.width]="isEditing.includes(story.id) ? '100%' : '0'" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
-            <button  [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
+            <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
               <span class="storyEditSpans storyAcceptEdit" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
               ✏️Edit
-            </button> 
+            </button>
           </div>
         </div>
         <div>
@@ -252,13 +292,17 @@
             <div *ngIf="story.metadata.imageUrl" (click)="goToLink(story)" class="cursorPointer metaImgDiv"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
           </div>
         </div>
-        <div *ngIf="openedStoryComments.includes(story?.id ?? 0)">
+        <div>
           <app-comments *ngIf="story"
                         [inputtedParentRef]="parentRef"
                         [type]="'Social'"
-                        [showComments]="true"
+                        [showComments]="openedStoryComments.includes(story?.id ?? 0)"
+                        [showCommentsHeader]="true"
                         [component_id]="story.id!"
-                        [commentList]="story!.storyComments!">
+                        [commentList]="story!.storyComments!"
+                        (commentAddedEvent)="commentAddedEvent($event)"
+                        (commentHeaderClickedEvent)="showComments(story.id)"
+                        (commentRemovedEvent)="commentRemovedEvent($event)">
           </app-comments>
         </div>
 

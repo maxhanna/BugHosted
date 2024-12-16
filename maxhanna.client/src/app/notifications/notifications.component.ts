@@ -76,12 +76,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     this.location.replaceState("/Social/" + id);
     this.createComponent("Social", { "storyId": id });  
   }
-  goToChat(user: User) {
-    if (!(this.inputtedParentRef && this.inputtedParentRef.user) && !(this.parentRef && this.parentRef.user)) {
-      return alert("Please log in to chat.");
-    }
-    if (!user) return alert("Error: Must select a user to chat!");
-
+  goToChat(user: User) { 
+    if (!user) return alert("Error: Must select a user to chat!"); 
     this.createComponent("Chat", { selectedUser: user });
   }
   delete(notification?: UserNotification) {

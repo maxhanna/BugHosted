@@ -17,8 +17,12 @@
     </div>
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
     <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
-      <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc" [attr.title]="title ? title : null"
- class="media" />
+      <img #mediaContainer
+           (click)="expandFile({url: selectedFile, extension: selectedFileExtension})"
+           *ngIf="imageFileExtensionsIncludes(this.selectedFileExtension)"
+           [src]="selectedFileSrc"
+           [attr.title]="title ? title : null"
+           class="media" />
       <video #mediaContainer
              *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)"
              [src]="selectedFileSrc" 
@@ -27,7 +31,7 @@
              preload="auto" 
              [autoplay]="autoplay" 
              (touchend)="togglePlay(mediaContainer)"
-              (play)="togglePlay(mediaContainer)"
+             (play)="togglePlay(mediaContainer)"
              class="video media">
       </video>
       <audio #mediaContainer
@@ -37,7 +41,7 @@
              preload="auto"
              [autoplay]="false" 
              (touchend)="togglePlay(mediaContainer)"
-              (play)="togglePlay(mediaContainer)"
+             (play)="togglePlay(mediaContainer)"
              class="audio media">
         Your browser does not support the audio element.
       </audio>
@@ -64,7 +68,9 @@
               [inputtedParentRef]="inputtedParentRef"
               [type]="'File'"
               [showComments]="showCommentSectionOnLoad"
+              [showCommentsHeader]="showCommentSectionHeader"
               [component_id]="selectedFile?.id || file?.id ?? 0"
               [commentList]="selectedFile?.fileComments || file?.fileComments ?? []"
-              (commentAddedEvent)="commentAddedEvent($event)">
+              (commentAddedEvent)="commentAddedEvent($event)"
+              (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
 </app-comments>

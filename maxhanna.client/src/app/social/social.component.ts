@@ -15,6 +15,8 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Pipe, PipeTransform } from '@angular/core';
 import { UserService } from '../../services/user.service';
+import { TodoService } from '../../services/todo.service';
+import { Todo } from '../../services/datacontracts/todo';
 
 @Pipe({ name: 'clickableUrls' })
 export class ClickableUrlsPipe implements PipeTransform {
@@ -90,7 +92,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   @Input() user?: User;
   @Input() parent?: AppComponent;
 
-  constructor(private socialService: SocialService, private topicService: TopicService, private userService: UserService, private sanitizer: DomSanitizer, private cdr: ChangeDetectorRef) {
+  constructor(private socialService: SocialService,
+    private topicService: TopicService,
+    private userService: UserService,
+    private todoService: TodoService,
+    private sanitizer: DomSanitizer,
+    private cdr: ChangeDetectorRef) {
     super();
   }
 
@@ -129,6 +136,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
   async delete(story: Story) {
     if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
+    if (!confirm("Are you sure you want to delete this story?")) return;
+
     const res = await this.socialService.deleteStory(this.parentRef?.user, story);
     if (res) {
       this.notifications.push(res);
@@ -278,7 +287,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (!text) return;
     const urlPattern = /(https?:\/\/[^\s]+)/g;
     const matches = text.match(urlPattern);
-    return matches ? matches[0] : null;
+    return matches ? matches[0] : undefined;
   } 
   goToLink(story?: Story) {
     if (story && story.storyText) {
@@ -564,10 +573,89 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     return count;
   }
   showComments(storyId?: number) {
+    console.log(storyId);
     if (this.openedStoryComments.includes(storyId ?? 0)) {
       this.openedStoryComments = this.openedStoryComments.filter(x => x != (storyId ?? 0));
     } else { 
       this.openedStoryComments.push(storyId ?? 0)
+    }
+  }
+  commentAddedEvent(comment: FileComment) {
+    if (comment.storyId) {
+      const targetStory = this.storyResponse?.stories?.find(x => x.id === comment.storyId);
+      if (targetStory) {
+        if (!targetStory.storyComments) {
+          targetStory.storyComments = [comment];
+        } else {
+          targetStory.storyComments.push(comment);
+        }
+        if (targetStory.commentsCount) {
+          targetStory.commentsCount++;
+        } else { 
+          targetStory.commentsCount = 1;
+        } 
+      }
+    }
+  }
+  commentRemovedEvent(comment: FileComment) {
+    if (comment.storyId) {
+      const targetStory = this.storyResponse?.stories?.find(x => x.id === comment.storyId);
+      if (targetStory && targetStory.storyComments) {
+
+        targetStory.storyComments = targetStory.storyComments.filter(x => x.id !== comment.id);
+         
+        if (targetStory.commentsCount) {
+          targetStory.commentsCount--;
+        } else {
+          targetStory.commentsCount = 0;
+        }
+      }
+    }
+  }
+  isYoutubeUrl(url?: string): boolean {
+    if (!url) return false;
+    try {
+      const parsedUrl = new URL(url); 
+      const isYoutubeDomain = ['www.youtube.com', 'youtube.com', 'youtu.be'].includes(parsedUrl.hostname);
+
+      return isYoutubeDomain;
+    } catch (e) { 
+      return false;
+    }
+  }
+  async addToMusicPlaylist(story?: Story, event?:Event) {
+    if (!story) return;
+    const url = this.extractUrl(story.storyText);
+    const title = story.metadata?.title; 
+    const yturl = this.extractYouTubeVideoId(url); 
+    if (!yturl || !title || yturl.trim() == "" || title.trim() == "") {
+      return alert("Title & URL cannot be empty!");
+    }
+    let tmpTodo = new Todo();
+    tmpTodo.type = "music";
+    tmpTodo.url = yturl.trim();
+    tmpTodo.todo = title.trim().replace("- YouTube", "");
+
+    const resTodo = await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
+    if (resTodo) {
+      this.notifications.push(`Added ${title} to music playlist.`);
+    }
+    if (event) {
+      const button = event.target as HTMLButtonElement;
+      button.textContent = "Added";
+      button.disabled = true;    
+    }
+    //this.closeStoryOptionsPanel();
+  }
+  extractYouTubeVideoId(url?: string) {
+    if (!url) return;
+    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const match = url.match(youtubeRegex);
+
+    if (match && match[1]) {
+      return "https://www.youtube.com/watch?v=" + match[1];
+    } else {
+      return url;
     }
   }
   hasOverflow(elementId: string): boolean {

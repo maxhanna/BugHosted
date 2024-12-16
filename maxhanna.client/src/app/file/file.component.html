@@ -7,20 +7,19 @@
   <app-user-list (userClickEvent)="shareFile($event);" [user]="parentRef?.user!" *ngIf="isSharePanelExpanded && !user"></app-user-list>
 
   <div *ngIf="!user">
-    
+
     <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="canUploadToFolder()">📂New Folder</button>
 
-    <app-file-upload
-      (userUploadEvent)="uploadInitiate();"
-      (userUploadFinishedEvent)="uploadFinished($event)"
-      (userNotificationEvent)="uploadNotification($event);"
-      (userCancelEvent)="cancelMakeDirectoryOrFile();"
-      [currentDirectory]="currentDirectory"
-      [user]="parentRef?.user!"
-      [inputtedParentRef]="parentRef"
-      [uploadButtonText]="'Upload File(s)'"
-      [showPrivatePublicOption]="isUploadInitiate ? true : false"
-      *ngIf="canUploadToFolder()">
+    <app-file-upload (userUploadEvent)="uploadInitiate();"
+                     (userUploadFinishedEvent)="uploadFinished($event)"
+                     (userNotificationEvent)="uploadNotification($event);"
+                     (userCancelEvent)="cancelMakeDirectoryOrFile();"
+                     [currentDirectory]="currentDirectory"
+                     [user]="parentRef?.user!"
+                     [inputtedParentRef]="parentRef"
+                     [uploadButtonText]="'Upload File(s)'"
+                     [showPrivatePublicOption]="isUploadInitiate ? true : false"
+                     *ngIf="canUploadToFolder()">
     </app-file-upload>
 
     <div *ngIf="showMakeDirectoryPrompt">
@@ -35,15 +34,14 @@
       <button (click)="cancelMakeDirectoryOrFile()">Cancel</button>
     </div>
   </div>
-   
-  <app-file-search
-    [user]="parentRef?.user"
-    [inputtedParentRef]="parentRef"
-    [maxResults]="100"
-    [fileId]="fileId"
-    [displayComments]="true"
-    (currentDirectoryChangeEvent)="changeDirectoryEvent($event)"
-    (userNotificationEvent)="uploadNotification($event);">
+
+  <app-file-search [user]="parentRef?.user"
+                   [inputtedParentRef]="parentRef"
+                   [maxResults]="100"
+                   [fileId]="fileId"
+                   [displayComments]="true"
+                   (currentDirectoryChangeEvent)="changeDirectoryEvent($event)"
+                   (userNotificationEvent)="uploadNotification($event);">
   </app-file-search>
-   
 </div>
+

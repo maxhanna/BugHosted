@@ -7,8 +7,7 @@ import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { ActivatedRoute } from '@angular/router';
 import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
-import { User } from '../../services/datacontracts/user/user';
-import { FileData } from '../../services/datacontracts/file/file-data';
+import { User } from '../../services/datacontracts/user/user'; 
 
 
 @Component({
@@ -17,6 +16,7 @@ import { FileData } from '../../services/datacontracts/file/file-data';
   styleUrl: './file-search.component.css'
 })
 export class FileSearchComponent extends ChildComponent implements OnInit {
+  defaultCurrentPage = 1;
   @Input() currentDirectory = '';
   @Input() clearAfterSelectFile = false;
   @Input() allowedFileTypes: string[] = [];
@@ -24,6 +24,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() inputtedParentRef?: AppComponent;
   @Input() showPrivatePublicOption: boolean = true;
   @Input() maxResults: number = 50;
+  @Input() fileSearchMode: boolean = false;
   @Input() canChangeDirectory: boolean = true;
   @Input() displayFileType: boolean = true;
   @Input() displayFileSize: boolean = true;
@@ -35,20 +36,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() canDragMove: boolean = true;
   @Input() fileId: string | null = null;
   @Input() displayTotal = true;
+  @Input() showFileSearchOptions = true;
+  @Input() currentPage = this.defaultCurrentPage;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
+  @Output() expandClickedEvent = new EventEmitter<FileEntry>();
 
   showData = true; 
   showShareUserList = false;
+  isSearchPanelOpen = false; 
+  isSearchOptionsPanelOpen = false; 
   isOptionsPanelOpen = false;
   showCommentsInOpenedFiles: number[] = [];
 
   optionsFile: FileEntry | undefined;
   directory: DirectoryResults | undefined;
-  defaultCurrentPage = 1;
   defaultTotalPages = 1;
-  currentPage = this.defaultCurrentPage;
   totalPages = this.defaultTotalPages;
   showUpFolderRow: boolean = true;
   draggedFilename: string | undefined;
@@ -65,6 +69,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   };
 
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
+  @ViewChild('popupSearch') popupSearch!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
   @ViewChild('shareUserListDiv') shareUserListDiv!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
@@ -123,8 +128,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
   async getDirectory(file?: string, fileId?: number) {
-    this.directory = undefined; 
-    this.searchTerms = this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : ""; 
+    this.directory = undefined;
+    const popupSearchTerm = this.popupSearch && this.popupSearch.nativeElement.value.trim() != '' ? this.popupSearch.nativeElement.value.trim() : "";
+    this.searchTerms = popupSearchTerm ? popupSearchTerm : this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : ""; 
     this.showData = true;
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
@@ -224,8 +230,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     if (!this.user) { return alert("You must be logged in to use this feature!"); }
 
     if (!text || text.trim() == '') { return; }
-    const fileData = new FileData(fileId, text, '', new Date());
-    const res = await this.fileService.updateFileData(this.user, fileData);
+    const res = await this.fileService.updateFileData(this.user, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
     if (document.getElementById("fileIdName" + fileId) != null) {
       document.getElementById("fileIdName" + fileId)!.innerText = text;
     }
@@ -384,15 +389,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   }
 
   handleUploadedFiles(files: FileEntry[]) {
-    files = files.flatMap(fileArray => fileArray);
-
-    if (this.directory) {
-      files.forEach(x => {
-        if (this.directory?.data && !this.directory?.data?.some(d => d.id == x.id)) {
-          this.directory.data!.unshift(x);
-        }
-      });
-    }
+    this.getDirectory();
   }
   reinitializePages() {
     this.currentPage = this.defaultCurrentPage;
@@ -487,6 +484,18 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     return optionsFile.user.id === this.user.id &&
       !(this.currentDirectory === '' && restrictedFileNames.includes(optionsFile.fileName));
   }
+  addOrRemoveIdFromOpenedComments(fileId: number, isOpen?: boolean) {
+    if (isOpen) { 
+      this.showCommentsInOpenedFiles.push(fileId); 
+    } else { 
+      if (!this.showCommentsInOpenedFiles.includes(fileId)) {
+        this.showCommentsInOpenedFiles.push(fileId);
+      } else {
+        this.showCommentsInOpenedFiles = this.showCommentsInOpenedFiles.filter(x => x != fileId);
+      }
+    }
+
+  }
   openFileWithComments(file: FileEntry) {
     this.viewMediaFile = true;
 
@@ -507,5 +516,41 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       console.log("Error: Unable to share link!");
     }
     this.closeOptionsPanel();
+  }
+  openSearchPanel() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.showOverlay = true;
+    }
+    this.isSearchPanelOpen = true;
+  }
+  closeSearchPanel() {
+    this.isSearchPanelOpen = false;
+
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.showOverlay = false;
+    }
+  }
+  openSearchOptionsPanel() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.showOverlay = true;
+    }
+    this.isSearchOptionsPanelOpen = true;
+  }
+  closeSearchOptionsPanel() {
+    this.isSearchOptionsPanelOpen = false; 
+
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.showOverlay = false;
+    }
+  }
+  isDisplayingPreviousPageButton() {
+    return this.totalPages > 1 && this.currentPage != 1
+  }
+  isDisplayingTotalPagesButton() {
+    return this.totalPages > 1;
   }
 }

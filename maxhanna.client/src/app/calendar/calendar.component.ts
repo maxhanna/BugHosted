@@ -172,12 +172,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
   async getCalendarEntries() {
     try {
-      this.calendarEntries =
-        await this.calendarService.getCalendarEntries(
-          this.parentRef?.user!,
-          new Date(this.now.getFullYear(), this.now.getMonth(), 1),
-          new Date(this.now.getFullYear(), this.now.getMonth() + 1, 0)
-        );
+      const from = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 0, 0));
+      const to = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth() + 1, 0, 0, 0, 0, 0)); 
+      this.calendarEntries = await this.calendarService.getCalendarEntries(this.parentRef?.user!, from, to);
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
