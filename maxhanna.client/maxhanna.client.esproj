@@ -7,4 +7,10 @@
     <!-- Folder where production build objects will be placed -->
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist\maxhanna.client\</BuildOutputFolder>
   </PropertyGroup>
+  <ItemGroup>
+    <None Remove="firebase-messaging-sw.js" />
+  </ItemGroup>
+  <ItemGroup>
+    <TypeScriptConfiguration Include="firebase-messaging-sw.js" />
+  </ItemGroup>
 </Project>

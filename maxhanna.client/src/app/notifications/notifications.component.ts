@@ -76,9 +76,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     this.location.replaceState("/Social/" + id);
     this.createComponent("Social", { "storyId": id });  
   }
-  goToChat(user: User) { 
-    if (!user) return alert("Error: Must select a user to chat!"); 
-    this.createComponent("Chat", { selectedUser: user });
+  goToChat(chatId?: number) { 
+    if (!chatId) return alert("Error: Must select a user to chat!"); 
+    this.createComponent("Chat", { chatId: chatId });
   }
   delete(notification?: UserNotification) {
     if ((this.inputtedParentRef && this.inputtedParentRef.user) || (this.parentRef && this.parentRef.user)) {
@@ -88,6 +88,17 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       } else {
         this.notifications = []; 
       }
+    }
+  }
+  notificationTextClick(notification: UserNotification) {
+    if (notification.text?.includes('Captured a base at')) {
+      this.parentRef?.createComponent('Bug-Wars');
+    } else if (notification.fileId) {
+      this.goToFileId(notification.fileId)
+    } else if (notification.storyId) {
+      this.goToStoryId(notification.storyId)
+    } else if (notification.chatId) {
+      this.goToChat(notification.chatId);
     }
   }
 }

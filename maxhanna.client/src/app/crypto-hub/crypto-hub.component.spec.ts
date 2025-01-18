@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { CoinWalletComponent } from './coin-wallet.component';
+import { CryptoHubComponent } from './crypto-hub.component';
 
-describe('CoinWalletComponent', () => {
-  let component: CoinWalletComponent;
-  let fixture: ComponentFixture<CoinWalletComponent>;
+describe('CryptoHubComponent', () => {
+  let component: CryptoHubComponent;
+  let fixture: ComponentFixture<CryptoHubComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [CoinWalletComponent]
+      declarations: [CryptoHubComponent]
     })
     .compileComponents();
     
-    fixture = TestBed.createComponent(CoinWalletComponent);
+    fixture = TestBed.createComponent(CryptoHubComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

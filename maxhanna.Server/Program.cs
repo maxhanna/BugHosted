@@ -3,6 +3,9 @@ using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using MySqlConnector;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
+using FirebaseAdmin.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +34,15 @@ builder.Services.AddHostedService<NexusUnitBackgroundService>();
 builder.Services.AddHostedService<NexusDefenceBackgroundService>();
  
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
+
+var defaultApp = FirebaseApp.Create(new AppOptions
+{
+	Credential = GoogleCredential.FromFile("./Properties/bughosted-firebase-adminsdk-yz2go-3f7f14d8e9.json"),
+	ProjectId = "bughosted",
+});
+Console.WriteLine(defaultApp.Name); // "[DEFAULT]" 
+var defaultAuth = FirebaseAuth.GetAuth(defaultApp); 
+defaultAuth = FirebaseAuth.DefaultInstance;
 
 var app = builder.Build();
 app.UseForwardedHeaders(new ForwardedHeadersOptions

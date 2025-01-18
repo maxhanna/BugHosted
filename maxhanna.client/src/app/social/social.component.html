@@ -69,12 +69,12 @@
 
       <!-- Top Topic Selector -->
       <div>
-        <div style="display:inline-block; padding:5px; width:80px" *ngIf="showTopicSelector">
+        <div class="topTopicTitle" *ngIf="showTopicSelector">
           Top Topics:
         </div>
-        <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)" style="display: inline; line-height: 25px; align-items: center; flex-wrap: nowrap; flex-direction: row; cursor: pointer;">
+        <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)" class="topTopicsDiv">
           <span class="matchingTopic">{{topic.topicName}}</span>
-          <span style="font-size: xx-small; display: inline-block">({{topic.storyCount}})</span>
+          <span class="topicStoryCount">({{topic.storyCount}})</span>
         </span>
       </div>
 
@@ -118,12 +118,12 @@
       </app-topics>
       <!-- Top Topic Selector -->
       <div>
-        <div style="display:inline-block; padding:5px; width:80px" *ngIf="showTopicSelector">
+        <div class="topTopicTitle" *ngIf="showTopicSelector">
           Top Topics:
         </div>
-        <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)" style="display: inline; line-height: 25px; align-items: center; flex-wrap: nowrap; flex-direction: row; cursor: pointer;">
+        <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)" class="topTopicSpan">
           <span class="matchingTopic">{{topic.topicName}}</span>
-          <span style="font-size: xx-small; display: inline-block">({{topic.storyCount}})</span>
+          <span class="topicStoryCount">({{topic.storyCount}})</span>
         </span>
       </div>
     </div>
@@ -289,7 +289,7 @@
           <div *ngIf="story.metadata" class="metadataContent">
             <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
             <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="story?.metadata?.description | clickableUrls"></div>
-            <div *ngIf="story.metadata.imageUrl" (click)="goToLink(story)" class="cursorPointer metaImgDiv"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
+            <div *ngIf="story.metadata.imageUrl" (click)="goToLink(story)" class="cursorPointerUnderlined metaImgDiv"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
           </div>
         </div>
         <div>

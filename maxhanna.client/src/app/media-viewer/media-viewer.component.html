@@ -8,7 +8,7 @@
     <img #fullscreenImage class="fullscreen-media" />
     <video #fullscreenVideo class="fullscreen-media" controls [autoplay]="autoplay"></video>
     <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio> 
-    <div class="shrinkMediaDiv cursorPointer" (click)="shrink()">Shrink {{fileType}} ▢</div>
+    <div class="shrinkMediaDiv cursorPointerUnderlined" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
   <div class="mediaContainerDiv" [style.height]="selectedFileSrc == '' ? (file && file.height ? file.height : 250)+ 'px' : ''">
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
@@ -28,6 +28,7 @@
              [src]="selectedFileSrc" 
              controls
              muted
+             playsinline
              preload="auto" 
              [autoplay]="autoplay" 
              (touchend)="togglePlay(mediaContainer)"
@@ -47,11 +48,11 @@
       </audio>
       <div *ngIf="otherFileExtensionsIncludes(this.selectedFileExtension)"><img src="../../favicon.ico" /></div>
       <div class="filetype" *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension) && !otherFileExtensionsIncludes(this.selectedFileExtension)">
-        <span class="cursorPointer" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ◻️</span>
+        <span class="cursorPointerUnderlined" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ◻️</span>
       </div>
       <div class="filetype" *ngIf="displayExtraInfo">
         <span (click)="createUserProfileComponent(selectedFile?.user)"
-              class="usernameProfileLink cursorPointer">
+              class="usernameProfileLink cursorPointerUnderlined">
           {{selectedFile?.user?.username}}
         </span>
         <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>

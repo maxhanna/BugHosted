@@ -40,9 +40,12 @@
 .menuIconTable {
     width: 100%;
 }
-.menuIconTable tr {
-  height: 30px;
-}
+  .menuIconTable tr {
+    height: 30px;
+  }
+  .menuIconTable td {
+    border: 1px solid black;
+  }
   .menuIconTable tr:nth-child(even) {
     background-color: var(--main-bg-color-full-opacity);
   }
@@ -77,9 +80,13 @@
   overflow:hidden;
   text-overflow: ellipsis;
 }
-.selectableMenuIconTitles{
-    display: flex;
-    justify-content:space-between;
+.selectableMenuIconTitles {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid black;
+  align-items: center;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 .switch {
   position: relative;
@@ -142,4 +149,5 @@ input:checked + .slider:before {
   font-family: Courier New, Arial;
   font-weight: bolder;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+  padding-left: 10px;
 }

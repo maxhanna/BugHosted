@@ -339,7 +339,7 @@
          class="screenBackground"
          *ngIf="flvl1Src && flvl2Src && flvl3Src && nexusBase && isFactoryOpen" loading="lazy" decoding="asynchronous" />
     <div *ngIf="isFactoryOpen" class="factoryScreen">
-      <div class="moreInfoTitle xxSmallFont cursorPointer" (click)="showMoreFactoryInfo = !showMoreFactoryInfo">[More Info]</div>
+      <div class="moreInfoTitle xxSmallFont cursorPointerUnderlined" (click)="showMoreFactoryInfo = !showMoreFactoryInfo">[More Info]</div>
       <div *ngIf="calculateCurrentSupply() > 0 && !showMoreFactoryInfo">
         Upgrade the Factory to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.factoryLevel ?? 0}}</span>
       </div>
@@ -362,7 +362,7 @@
               <td>
                 <input [value]="unit.purchasedValue ? unit.purchasedValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
               </td>
-              <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer centeredText" (click)="unit.purchasedValue = maxSliderValue(unit)">
+              <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointerUnderlined centeredText" (click)="unit.purchasedValue = maxSliderValue(unit)">
                 {{maxSliderValue(unit)}}
               </td>
               <td class="unitPictureTd">
@@ -416,7 +416,7 @@
          *ngIf="splvl1Src && splvl2Src && splvl3Src && nexusBase && isStarportOpen"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="isStarportOpen" class="starportScreen">
-      <div class="moreInfoTitle xxSmallFont cursorPointer" (click)="showMoreStarportInfo = !showMoreStarportInfo">[More Info]</div> 
+      <div class="moreInfoTitle xxSmallFont cursorPointerUnderlined" (click)="showMoreStarportInfo = !showMoreStarportInfo">[More Info]</div> 
       <div *ngIf="calculateCurrentSupply() > 0 && !showMoreStarportInfo">
         Upgrade the Starport to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
       </div>
@@ -439,7 +439,7 @@
               <td>
                 <input [value]="unit.purchasedValue ? unit.purchasedValue : '0'" (keyup)="onSliderChange($event, unit)" class="unitInput" />
               </td>
-              <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer centeredText" (click)="unit.purchasedValue = maxSliderValue(unit)">
+              <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointerUnderlined centeredText" (click)="unit.purchasedValue = maxSliderValue(unit)">
                 {{maxSliderValue(unit)}}
               </td>
               <td class="unitPictureTd">
@@ -497,7 +497,7 @@
 
       </div>
       <div class="showMoreInfoWarehouseDiv">
-        <div (click)="showMoreWarehouseInfo = !showMoreWarehouseInfo" class="cursorPointer">{{showMoreWarehouseInfo ? 'Hide' : 'More'}} info</div>
+        <div (click)="showMoreWarehouseInfo = !showMoreWarehouseInfo" class="cursorPointerUnderlined">{{showMoreWarehouseInfo ? 'Hide' : 'More'}} info</div>
         <div class="warehouseLevelsDiv" *ngIf="showMoreWarehouseInfo">
           <table class="mainTable">
             <thead>
@@ -529,7 +529,7 @@
     <div *ngIf="isEngineeringBayOpen" class="engineeringBayScreen">
       <div class="researchDisplayP">
         Current upgrade limit: {{getEngineerBayUpgradeLimit()}}
-        <span (click)="showMoreEngineeringBayInfo = !showMoreEngineeringBayInfo" class="cursorPointer xxSmallFont ebMoreInfoSpan">
+        <span (click)="showMoreEngineeringBayInfo = !showMoreEngineeringBayInfo" class="cursorPointerUnderlined xxSmallFont ebMoreInfoSpan">
           {{showMoreEngineeringBayInfo ? 'Hide' : 'More'}} info
         </span>
       </div>
@@ -583,7 +583,7 @@
                 <td>
                   <input [value]="glitcherStats.purchasedValue ? glitcherStats.purchasedValue : '0'" (keyup)="onSliderChange($event, glitcherStats)" class="unitInput" />
                 </td>
-                <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer centeredText" (click)="glitcherStats.purchasedValue = maxSliderValue(glitcherStats)">
+                <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointerUnderlined centeredText" (click)="glitcherStats.purchasedValue = maxSliderValue(glitcherStats)">
                   {{maxSliderValue(glitcherStats)}}
                 </td>
                 <td class="unitPictureTd">
@@ -632,7 +632,7 @@
       </thead>
       <tbody *ngIf="currentValidAvailableUpgrades && currentValidAvailableUpgrades.length > 0 ? currentValidAvailableUpgrades : getValidBuildingUpgrades().length > 0 ? currentValidAvailableUpgrades : false">
         <tr *ngFor="let upgrade of (currentValidAvailableUpgrades ? currentValidAvailableUpgrades : getValidBuildingUpgrades())">
-          <td class="capitalize cursorPointer" (click)="goToBuilding(upgrade.building)">{{upgrade.building.replace('_', ' ')}}</td>
+          <td class="capitalize cursorPointerUnderlined" (click)="goToBuilding(upgrade.building)">{{upgrade.building.replace('_', ' ')}}</td>
           <td>Level {{upgrade.nextLevel == 0 ? 1 : upgrade.nextLevel + 1}}</td>
           <td class="goldText">📀{{upgrade.cost}}</td>
           <td>{{formatTimer(upgrade.duration)}}</td>

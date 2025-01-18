@@ -1,5 +1,5 @@
 <div class="reactionsContainer" id="reactionsContainer">
-  <div class="addReactionDiv pointer" (click)="showReactionsOnClick()" *ngIf="!(userHasReacted() && reactionCount == 1)">
+  <div class="addReactionDiv cursorPointer" (click)="showReactionsOnClick()" *ngIf="!(userHasReacted() && reactionCount == 1)">
     {{reactionsDisplay}}
     <button *ngIf="showReactionChoices" (click)="cancelClick($event)">
       Cancel

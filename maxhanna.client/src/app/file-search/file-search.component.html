@@ -21,7 +21,7 @@
   </span>
 </div>
 
-<div *ngIf="showData" style="{{ !(isDisplayingPreviousPageButton() || isDisplayingTotalPagesButton()) ? 'margin-top:25px' : '' }}">
+<div *ngIf="showData">
   <div *ngIf="displayTotal" class="totalDisplay">
     <span class="currentDirectorySpan" *ngIf="fileSearchMode">
       Current Directory:
@@ -34,14 +34,14 @@
   <!-- Main Data -->
   <div>
     <div id="fileTable" *ngIf="!isLoading">
-      <div *ngIf="showUpFolderRow && canChangeDirectory && fileSearchMode ">
+      <div *ngIf="showUpFolderRow && canChangeDirectory">
         <div (click)="previousDirectory()"
              class="upOneFolder"
              title="Up one folder"
              (drop)="onDrop('...')"
              (dragover)="onDragOver($event)"
              colspan="4">
-          ⬆️📁...
+          ⬆️📁{{getPreviousDirectoryPath() ? getPreviousDirectoryPath() : '...'}}
         </div>
       </div>
 
@@ -141,7 +141,7 @@
       ❌Delete
     </button>
   </div>
-  <div style="height:300px; overflow: auto;">
+  <div class="fileOptionsStats">
     <div class="optionsPanelDataDiv"><span class="smallFont">Id:</span> {{optionsFile.id}}</div>
     <div class="optionsPanelDataDiv"><span class="smallFont">{{optionsFile.isFolder ? 'Folder' : 'File'}} Name:</span> {{optionsFile.fileName}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.givenFileName"><span class="smallFont">Given File Name:</span> {{optionsFile.givenFileName}}</div>

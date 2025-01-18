@@ -3,6 +3,7 @@ using MySqlConnector;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using Newtonsoft.Json;
+using maxhanna.Server.Controllers.DataContracts.Crypto;
 
 namespace maxhanna.Server.Controllers
 {
@@ -245,10 +246,16 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Open();
 
-				string sql = "SELECT id, username FROM maxhanna.users ";
+				string sql = @"
+					SELECT 
+						u.id, 
+						u.username,
+						udp.file_id as display_file_id
+					FROM maxhanna.users u 
+					LEFT JOIN maxhanna.user_display_pictures udp on udp.user_id = u.id ";
 				if (!string.IsNullOrEmpty(request.Search))
 				{
-					sql += "WHERE username like @search; ";
+					sql += " WHERE u.username like @search; ";
 				}
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -266,7 +273,8 @@ namespace maxhanna.Server.Controllers
 						users.Add(new User
 						(
 								Convert.ToInt32(reader["id"]),
-								(string)reader["username"]
+								(string)reader["username"],
+								reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(Convert.ToInt32(reader["display_file_id"]))
 						));
 					}
 				}
@@ -513,7 +521,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/User/GetIpAndLocation", Name = "GetIpAndLocation")]
 		public async Task<IActionResult> GetIpAndLocation([FromBody] string ip)
-		{ 
+		{
 			_logger.LogInformation($"GET /User/GetIpAndLocation (for ip: {ip})");
 			using (var client = _httpClientFactory.CreateClient())
 			{
@@ -727,9 +735,9 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@Title", item);
 
 						rowsAffected += await cmd.ExecuteNonQueryAsync();
-					} 
+					}
 				}
-				
+
 
 				if (rowsAffected > 0)
 				{
@@ -773,8 +781,8 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
 						cmd.Parameters.AddWithValue("@Title", item);
 						rowsAffected += await cmd.ExecuteNonQueryAsync();
-					} 
-				} 
+					}
+				}
 
 				if (rowsAffected > 0)
 				{
@@ -794,6 +802,225 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Close();
 			}
+		}
+
+		[HttpPost("/User/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
+		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request)
+		{
+			_logger.LogInformation($"POST /User/BTCWalletAddresses/Update for user with ID: {request.User?.Id} and wallets: {string.Join(", ", request.Wallets ?? Array.Empty<string>())}");
+
+			if (request.User == null)
+			{
+				return BadRequest("User missing from AddBTCWalletAddress request");
+			}
+
+			if (request.Wallets == null || request.Wallets.Length == 0)
+			{
+				return BadRequest("Wallets missing from AddBTCWalletAddress request");
+			}
+
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				int rowsAffected = 0;
+
+				using (var transaction = await conn.BeginTransactionAsync())
+				{
+					using (var cmd = conn.CreateCommand())
+					{
+						cmd.Transaction = transaction;
+
+						// Define the base SQL command with parameters for insertion
+						cmd.CommandText = @"
+                    INSERT INTO user_btc_wallet_info 
+                    (user_id, btc_address, final_balance, total_received, total_sent, last_fetched) 
+                    VALUES (@UserId, @BtcAddress, 0, 0, 0, NOW())
+                    ON DUPLICATE KEY UPDATE 
+                        btc_address = VALUES(btc_address),
+                        last_fetched = VALUES(last_fetched);";
+
+						// Add parameters
+						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
+						cmd.Parameters.Add("@BtcAddress", MySqlDbType.VarChar);
+
+						// Execute the insert for each wallet address
+						foreach (string wallet in request.Wallets)
+						{
+							cmd.Parameters["@BtcAddress"].Value = wallet;
+							rowsAffected += await cmd.ExecuteNonQueryAsync();
+						}
+
+						// Commit the transaction
+						await transaction.CommitAsync();
+					}
+				}
+
+				return Ok(new { Message = $"{rowsAffected} wallet(s) added or updated successfully." });
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error adding or updating BTC wallet addresses");
+				return StatusCode(500, "An error occurred while adding wallet addresses");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+		}
+
+		[HttpPost("/User/BTCWallet/GetBTCWalletData", Name = "GetBTCWalletData")]
+		public async Task<IActionResult> GetBTCWalletData([FromBody] User user)
+		{
+			_logger.LogInformation($"GET /User/BTCWallet/GetBTCWalletData for user with ID: {user.Id}");
+
+			try
+			{
+				// Call the private method to get wallet info from the database
+				CryptoWallet? miningWallet = await GetMiningWalletFromDb(user.Id);
+
+				if (miningWallet != null && miningWallet.currencies != null && miningWallet.currencies.Count > 0)
+				{
+					return Ok(miningWallet); // Return the MiningWallet object as the response
+				}
+				else
+				{
+					return NotFound("No BTC wallet addresses found for the user."); // Return NotFound if no addresses found
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while processing GetBTCWalletAddresses.");
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+		}
+
+		[HttpPost("/User/BTCWallet/DeleteBTCWalletAddress", Name = "DeleteBTCWalletAddress")]
+		public async Task<IActionResult> DeleteBTCWalletAddress([FromBody] DeleteCryptoWalletAddress request)
+		{
+			_logger.LogInformation($"GET /User/BTCWallet/DeleteBTCWalletAddress for user with ID: {request.User?.Id}, address: {request.Address}");
+
+			if (request.User == null || request.User.Id == 0)
+			{
+				return BadRequest("You must be logged in");
+			}
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				int rowsAffected = 0;
+
+				using (var transaction = await conn.BeginTransactionAsync())
+				{
+					using (var cmd = conn.CreateCommand())
+					{
+						cmd.Transaction = transaction;
+
+						// Define the base SQL command with parameters for insertion
+						cmd.CommandText = @"DELETE FROM maxhanna.user_btc_wallet_info WHERE user_id = @UserId AND btc_address = @Address LIMIT 1;";
+
+						// Add parameters
+						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
+						cmd.Parameters.AddWithValue("@Address", request.Address);
+					 
+						rowsAffected += await cmd.ExecuteNonQueryAsync();
+					 
+
+						// Commit the transaction
+						await transaction.CommitAsync();
+					}
+				}
+
+				return Ok(new { Message = $"{rowsAffected} wallet addresses(s) deleted successfully." });
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error adding or updating BTC wallet addresses");
+				return StatusCode(500, "An error occurred while adding wallet addresses");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+		}
+
+		private async Task<CryptoWallet?> GetMiningWalletFromDb(int? userId)
+		{
+			if (userId == null) { return null; }
+			var miningWallet = new CryptoWallet
+			{
+				total = new Total
+				{
+					currency = "BTC",
+					totalBalance = "0",
+					available = "0",
+					debt = "0",
+					pending = "0"
+				},
+				currencies = new List<Currency>()
+			};
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = @"
+                SELECT btc_address, final_balance, total_received, total_sent, last_fetched
+                FROM user_btc_wallet_info
+                WHERE user_id = @UserId";
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+
+						using (var reader = await cmd.ExecuteReaderAsync())
+						{
+							decimal totalBalance = 0;
+							decimal totalAvailable = 0;
+
+							while (await reader.ReadAsync())
+							{
+								// Retrieve the final balance as Int64 and convert to decimal
+								long finalBalanceSatoshis = reader.GetInt64("final_balance");
+								decimal finalBalance = finalBalanceSatoshis / 100_000_000M;
+
+								var currency = new Currency
+								{
+									active = true,
+									address = reader.GetString("btc_address"),
+									currency = "BTC",
+									totalBalance = finalBalance.ToString("F8"),
+									available = finalBalance.ToString("F8"),
+									debt = "0",
+									pending = "0",
+									btcRate = 1,
+									fiatRate = null,
+									status = "active"
+								};
+
+								miningWallet.currencies.Add(currency);
+
+								// Accumulate totals
+								totalBalance += finalBalance;
+								totalAvailable += finalBalance;
+							}
+
+							// Update totals in MiningWallet
+							miningWallet.total.totalBalance = totalBalance.ToString("F8");
+							miningWallet.total.available = totalAvailable.ToString("F8");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while fetching wallet data from the database.");
+				throw;
+			}
+
+			return miningWallet;
 		} 
 	}
 }

@@ -233,5 +233,53 @@ export class UserService {
       console.error('An error occurred:', error);
       return null;
     }
+  } 
+  async updateBTCWalletAddresses(user: User, btcWalletAddresses: string[]) {
+    try {
+      const response = await fetch('/user/btcwalletaddresses/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ User: user, Wallets: btcWalletAddresses }),
+      }); 
+    } catch (error) {
+      console.log(error);
+    }
+  }
+  async getBTCWallet(user: User) {
+    try {
+      const response = await fetch('/user/btcwallet/getbtcwalletdata', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user),
+      });
+      if (response.status === 404) {
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async deleteBTCWalletAddress(user: User, address: string) {
+    try {
+      const response = await fetch('/user/btcwallet/deletebtcwalletaddress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, address }),
+      });
+      if (response.status === 404) {
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      return [];
+    }
   }
 }

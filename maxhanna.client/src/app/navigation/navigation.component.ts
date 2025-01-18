@@ -21,9 +21,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>;
 
   private notificationInfoInterval: any;
-  private miningInfoInterval: any;
-  private calendarInfoInterval: any;
-  private coinWalletInfoInterval: any;
+  private cryptoHubInterval: any;
+  private calendarInfoInterval: any; 
   private wordlerInfoInterval: any;
 
   navbarReady = false;
@@ -47,22 +46,18 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {  
-    clearInterval(this.miningInfoInterval);
-    clearInterval(this.calendarInfoInterval);
-    clearInterval(this.coinWalletInfoInterval);
+    clearInterval(this.cryptoHubInterval);
+    clearInterval(this.calendarInfoInterval); 
     clearInterval(this.wordlerInfoInterval);
     clearInterval(this.notificationInfoInterval);
     this.clearNotifications();
   } 
   clearNotifications() {
     const itemsToClear = [
-      "MiningRigs",
-      "Coin-Watch",
-      "Notification",
-      "Coin-Wallet",
+      "Crypto-Hub", 
+      "Notification", 
       "Calendar",
-      "Weather",
-      "MiningDevices",
+      "Weather", 
       "Wordler"
     ];
 
@@ -76,17 +71,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
   async getNotifications() {
     if (!this._parent || !this._parent.user || this._parent.user.id == 0) return;
     
-    this.getCurrentWeatherInfo();
-    this.getMiningInfo();
+    this.getCurrentWeatherInfo(); 
     this.getCalendarInfo();
-    this.getCoinWalletInfo();
+    this.getCryptoHubInfo();
     this.getNotificationInfo();
     this.getWordlerStreakInfo();
 
     this.notificationInfoInterval = setInterval(() => this.getNotificationInfo(), 60 * 1000); // every minute
-    this.miningInfoInterval = setInterval(() => this.getMiningInfo(), 20 * 60 * 1000); // every 20 minutes
-    this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes
-    this.coinWalletInfoInterval = setInterval(() => this.getCoinWalletInfo(), 60 * 60 * 1000); // every hour
+    this.cryptoHubInterval = setInterval(() => this.getCryptoHubInfo(), 20 * 60 * 1000); // every 20 minutes
+    this.calendarInfoInterval = setInterval(() => this.getCalendarInfo(), 20 * 60 * 1000); // every 20 minutes 
     this.wordlerInfoInterval = setInterval(() => this.getWordlerStreakInfo(), 60 * 60 * 1000); // every hour
   }
   
@@ -97,10 +90,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     const res = await this.notificationService.getNotifications(this._parent.user);
     if (res) {
-      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.length + ''; 
+      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.length + '';
+
       if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
         //get # of chat notifs
-        const numberOfChatNotifs = res.filter(x => x.chatUserId).length;
+        const numberOfChatNotifs = res.filter(x => x.chatId).length;
         if (numberOfChatNotifs) { 
           this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + ''; 
         }
@@ -109,19 +103,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = '';
     }
   }
-  async getCoinWalletInfo() {
-    if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Coin-Wallet")) { return; }
-    const res = await this.miningService.getMiningWallet(this.user!) as MiningWalletResponse;
-    if (res && res.currencies) {
-      const totalBalance = res.currencies.find(x => x.currency!.toUpperCase() == "BTC")!.totalBalance!;
-      const fiatRate = res!.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate!;
-      const product = (parseFloat(totalBalance) * fiatRate).toFixed(0) + '$';
-      this._parent.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = product + '';
-    } else {
-      this._parent.navigationItems.filter(x => x.title == "Coin-Wallet")[0].content = '';
-    }
-  }
+ 
   async getCalendarInfo() { 
     if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
@@ -164,42 +146,26 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     }
    
-  }
-  async getMiningInfo() {
+  } 
+  async getCryptoHubInfo() { 
     if (!this.user) { return; }
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("mining"))) { return; }
+    if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("crypto-hub"))) { return; }
     let tmpLocalProfitability = 0;
-    let tmpNumberOfDevices = 0;
-    let tmpNumberOfOnlineDevices = 0;
-    let tmpHighestTemp = 0;
-    const res = await this.miningService.getMiningRigInfo(this.user!) as Array<MiningRig>;
 
-    res?.forEach(x => {
+    const res1 = await this.miningService.getMiningRigInfo(this.user!) as Array<MiningRig>;
+    res1?.forEach(x => {
       tmpLocalProfitability += x.localProfitability!;
-      x.devices?.forEach(device => {
-        if (device.temperature! >= tmpHighestTemp) {
-          tmpHighestTemp = device.temperature!;
-        }
-        if (device.state == 2) {
-          tmpNumberOfOnlineDevices++;
-          tmpNumberOfDevices++;
-        } else if (!(device.deviceName?.includes("CPU") || device.deviceName?.includes("AMD"))) {
-          tmpNumberOfDevices++;
-        }
-      });
     });
-    this._parent.navigationItems.filter(x => x.title == "MiningDevices")[0].content = `${tmpHighestTemp}°C\n${tmpNumberOfOnlineDevices}/${tmpNumberOfDevices}`;
-    this.getCoinWatchInfo(tmpLocalProfitability);
-
-  }
-  async getCoinWatchInfo(tmpLocalProfitability: number) {
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("mining") || x.title == "Coin-Watch")) { return; }
+     
     const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
     const result = res;
     if (result) {
-      const btcToCADRate = result.valueCAD; 
-      this._parent.navigationItems.filter(x => x.title == "MiningRigs")[0].content = (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
-      this._parent.navigationItems.filter(x => x.title == "Coin-Watch")[0].content = btcToCADRate.toFixed(0) + "$";
+      const btcToCADRate = result.valueCAD;
+      this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content = "";
+      if (tmpLocalProfitability > 0) {
+        this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += (tmpLocalProfitability * btcToCADRate).toFixed(2).toString() + (btcToCADRate != 1 ? "$" : '');
+      }
+      this._parent.navigationItems.filter(x => x.title == "Crypto-Hub")[0].content += "\n" + btcToCADRate.toFixed(0) + "$";
     }
   }
 

@@ -1,4 +1,4 @@
-<div class="userTag {{displayMiniTag ? 'miniTag' : ''}}">
+<div class="cursorPointer userTag {{displayMiniTag ? 'miniTag' : ''}}" (click)="viewProfile(user)">
   <div class="avatar {{displayMiniTag ? 'miniAvatar' : 'largeAvatar'}}" *ngIf="!displayOnlyName">
     <div class="displayPicture avatar {{displayMiniTag ? 'miniAvatarPic' : ''}}" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
       <app-media-viewer #profileImageViewer
@@ -15,7 +15,6 @@
     </div>
   </div>
   <span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username'"
-        (click)="viewProfile(user)"
         *ngIf="!displayOnlyAvatar && !displayEmptyAvatar && !hideName">
     {{user?.username}}
   </span>

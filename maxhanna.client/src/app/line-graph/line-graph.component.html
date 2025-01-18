@@ -1,6 +1,6 @@
 <!-- Placeholder for the graph -->
 <div class="graphContainer">
-  <div class="graphTitle">
+  <div class="graphTitle sectionName">
     {{selectedCoin ? selectedCoin + ' to ' : ''}}{{graphTitle ? graphTitle : 'CAD$ Over Time'}} Span : {{selectedPeriod}}
   </div>
   <div class="graphOptions">
@@ -19,8 +19,8 @@
     </select>
     <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher">
       <option value="">All Coins</option>
-      <option value="Bitcoin" selected>Bitcoin</option>
-      <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin">{{ coin }}</option>
+      <option value="Bitcoin" [selected]="selectedCoin === 'Bitcoin'">Bitcoin</option>
+      <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}</option>
     </select>
   </div>
   <div style="display: block">

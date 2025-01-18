@@ -1,0 +1,41 @@
+.componentMain {
+  width: 96vw;
+  overflow: auto;
+}
+ 
+.wallet {
+    min-width: 300px;
+    overflow:auto;
+    border: 1px solid dashed;
+    padding:10px;
+}
+  .wallet table {
+    width: 100%;
+  }
+
+  .wallet table td {
+    text-align: center;
+  }
+
+/* typical phone screen resolution */
+@media only screen and (max-width : 667px) {
+  .wallet {
+    font-size: small;
+  }
+} 
+.sectionName {
+  font-family: Courier New, Arial;
+  font-weight: bolder;
+  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+  text-align: center;
+}
+.hubSection {
+  display: inline-flex;
+  flex-direction: column;
+  width: 100%;
+}
+@media only screen and (min-width : 1000px) {
+  .hubSection {
+    width: 50%;
+  }
+} 

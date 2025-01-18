@@ -1,5 +1,5 @@
 <div class="mediaSelectorDiv">
-  <button class="mediaSelectorButton pointer" (click)="toggleMediaChoices()">
+  <button class="mediaSelectorButton cursorPointer" (click)="toggleMediaChoices()">
     🧷Attach
     <span style="font-size:xx-small" *ngIf="selectedFiles && selectedFiles.length > 0">({{ selectedFiles.length }})</span>
   </button>
@@ -10,7 +10,7 @@
         <span>
           Select Media Files <span class="smallFont" *ngIf="selectedFiles && selectedFiles.length > 0">({{selectedFiles.length}})</span>
         </span>
-        <button id="closeOverlay" class="doneButton pointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Done' : 'Cancel'}}</button>
+        <button id="closeOverlay" class="doneButton cursorPointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Done' : 'Cancel'}}</button>
       </div>
 
       <!-- SELECTED MEDIA FILES-->
@@ -66,7 +66,7 @@
        
       <!-- SEARCH/UPLOAD buttons -->
       <div class="searchUploadButtonChoiceDiv">
-        <button (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()" title="Search for files" class="pointer">
+        <button (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()" title="Search for files" class="cursorPointer">
           {{displaySearch ? 'Close Search' : ('🔍Search ' + (selectedFiles.length > 0 ? 'More ' : '') + ' Files' )}}
         </button>
         <div *ngIf="!displaySearch">

@@ -12,6 +12,7 @@ import { WeatherLocation } from '../../services/datacontracts/weather/weather-lo
 import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { AppComponent } from '../app.component';
+import { MiningWalletResponse } from '../../services/datacontracts/crypto/mining-wallet-response';
 
 @Component({
   selector: 'app-update-user-settings',
@@ -25,8 +26,11 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isWeatherLocationToggled = false;
   isDisplayPictureToggled = false;
   isDeleteAccountToggled = false;
-  isAboutToggled = false; 
+  isBTCWalletAddressesToggled = false;
+  isAboutToggled = false;
+  showAddBTCWalletAddressInput = false;
   selectableIcons: MenuItem[] = [];
+  btcWalletAddresses: string[] = [];
   notifications: string[] = [];
   isNicehashApiKeysToggled: any;
   nhApiKeys?: NicehashApiKeys;
@@ -47,7 +51,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('updatedPhone') updatedPhone!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedBirthday') updatedBirthday!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedDescription') updatedDescription!: ElementRef<HTMLInputElement>;
- 
+
   @ViewChild(MediaSelectorComponent) displayPictureSelector!: MediaSelectorComponent;
   @ViewChild(MediaViewerComponent) displayPictureViewer!: MediaViewerComponent;
 
@@ -55,7 +59,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   constructor(private miningService: MiningService, private weatherService: WeatherService, private userService: UserService) {
     super();
   }
-  async ngOnInit() {  
+  async ngOnInit() {
     this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User' && x.title !== 'UpdateUserSettings');
 
     this.updateUserDivVisible = false;
@@ -64,7 +68,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.isWeatherLocationToggled = false;
     this.isDisplayPictureToggled = false;
     this.isDeleteAccountToggled = false;
-    this.isAboutToggled = false; 
+    this.isAboutToggled = false;
   }
   async getNicehashApiKeys() {
     if (this.isNicehashApiKeysToggled) {
@@ -80,7 +84,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     about.birthday = this.updatedBirthday.nativeElement.value != '' ? new Date(this.updatedBirthday.nativeElement.value) : undefined;
     const res = await this.userService.updateUserAbout(this.parentRef!.user!, about);
     if (res) {
-      this.notifications.push(res); 
+      this.notifications.push(res);
     }
   }
   async updateNHAPIKeys() {
@@ -114,9 +118,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         if (inputLoc && inputLoc.trim() != '') {
           await this.weatherService.updateWeatherLocation(this.parentRef!.user!, this.weatherLocationInput.nativeElement.value);
         }
-        else
-        {
-          if (this.parentRef?.user) { 
+        else {
+          if (this.parentRef?.user) {
             const ip = await this.userService.getUserIp();
             const weatherLocation = await this.weatherService.getWeatherLocation(this.parentRef.user) as WeatherLocation;
             if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location) || weatherLocation.location?.trim() === '')) {
@@ -124,7 +127,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
             }
           }
         }
-       
+
         this.notifications.push("Weather location updated successfully");
       } catch {
         this.notifications.push("Error while updating weather location!");
@@ -133,15 +136,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async avatarSelected(files: FileEntry[]) {
-    if (files && files.length > 0) { 
+    if (files && files.length > 0) {
       const res = await this.userService.updateDisplayPicture(this.parentRef?.user!, files[0].id);
       const targetParent = this.inputtedParentRef ?? this.parentRef;
       if (targetParent && targetParent.user) {
         targetParent.user.displayPictureFile = files[0];
         targetParent.deleteCookie("user");
-        targetParent.setCookie("user", JSON.stringify(targetParent.user), 10); 
+        targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
         this.ngOnInit();
-      } 
+      }
     }
   }
 
@@ -163,7 +166,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
   async deleteUser() {
     if (this.parentRef!.getCookie("user")) {
-      if (confirm("Are you sure you wish to delete your account?")) {
+      if (confirm("Are you sure you wish to delete your account? This will also delete all your saved data, chats, etc.")) {
         const tmpUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
         try {
           const res = await this.userService.deleteUser(tmpUser);
@@ -176,7 +179,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       }
     } else { return alert("You must be logged in first!"); }
   }
-  async getMenuIcons() { 
+  async getMenuIcons() {
     this.isMenuIconsToggled = !this.isMenuIconsToggled;
 
     if (this.isMenuIconsToggled) {
@@ -186,14 +189,14 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async selectMenuIcon(title: string) {
-    if (this.parentRef?.isModalOpen) { 
+    if (this.parentRef?.isModalOpen) {
       return event?.preventDefault();
     }
     if (this.parentRef && this.parentRef.userSelectedNavigationItems.some(x => x.title == title)) {
       this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
       this.userService.deleteMenuItem(this.parentRef?.user!, title);
-      this.notifications.push(`Deleted menu item : ${title}`); 
-    } else { 
+      this.notifications.push(`Deleted menu item : ${title}`);
+    } else {
       this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user?.id ?? 0, title));
       if (this.parentRef && this.parentRef.user) {
         this.userService.addMenuItem(this.parentRef.user, [title]);
@@ -219,6 +222,47 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         document.getElementById(id + 'divdiv')?.classList.remove("ellipsis");
         this.parentRef.setModalBody(element.innerHTML);
       }
-    } 
+    }
+  }
+  addBTCWalletAddress() {
+    this.showAddBTCWalletAddressInput = !this.showAddBTCWalletAddressInput;
+  }
+  async updateBTCWalletAddresses() {
+    if (!this.parentRef || !this.parentRef.user) {
+      return alert("You must be logged in!");
+    }
+    const inputs = Array.from(document.getElementsByClassName("btcWalletInput")) as HTMLInputElement[];
+    let wallets: string[] = [];
+    for (let input of inputs) {
+      wallets.push(input.value);
+    }
+    await this.userService.updateBTCWalletAddresses(this.parentRef.user, wallets);
+    alert("BTC Wallet Addresses Updated. Visit the Crypto-Hub App To Track.");
+  }
+  async getBTCWalletAddresses() {
+    if (this.parentRef && this.parentRef.user) {
+      this.userService.getBTCWallet(this.parentRef.user).then((res: MiningWalletResponse) => {
+        if (res) {
+          res?.currencies?.forEach(x => {
+            if (x.address) {
+              this.btcWalletAddresses.push(x.address);
+            }
+          });
+        }
+      });
+    }
+  }
+  async deleteBTCWalletAddress(address: string) {
+    if (this.parentRef && this.parentRef.user) {
+      if (!confirm(`Delete BTC Wallet Address : ${address}?`)) return;
+
+      await this.userService.deleteBTCWalletAddress(this.parentRef.user, address);
+      const inputs = Array.from(document.getElementsByClassName("btcWalletInput")) as HTMLInputElement[];
+      for (let input of inputs) {
+        if (input.value == address) {
+          input.value = "";
+        }
+      }
+    }
   }
 }

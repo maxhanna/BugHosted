@@ -3,11 +3,11 @@
     Send
     <span class="usernameProfileLink">{{isSendingDefence ? 'defence' : 'attack'}}</span>
     from
-    <span (click)="goToCoords(originBase.coordsX, originBase.coordsY)" class="invertedHighlights pointer">
+    <span (click)="goToCoords(originBase.coordsX, originBase.coordsY)" class="invertedHighlights cursorPointer">
       {{'{' + originBase.coordsX + ',' + originBase.coordsY + '}'}}
     </span>
     to
-    <span (click)="goToCoords(selectedNexus.coordsX, selectedNexus.coordsY)" class="invertedHighlights pointer">
+    <span (click)="goToCoords(selectedNexus.coordsX, selectedNexus.coordsY)" class="invertedHighlights cursorPointer">
       {{'{' + selectedNexus.coordsX + ',' + selectedNexus.coordsY + '}'}}
     </span>
     :
@@ -76,7 +76,7 @@
         <td class="unitSliderTd">
           <input type="range" class="unitSliderTd" [value]="unit.sentValue ?? 0" [min]="0" [max]="maxSliderValue(unit)" [step]="1" (input)="onSliderChange($event, unit)" />
         </td>
-        <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointer centeredText" (click)="unit.sentValue = maxSliderValue(unit)">
+        <td class="unitPictureTd xxSmallFont invertedHighlights cursorPointerUnderlined centeredText" (click)="unit.sentValue = maxSliderValue(unit)">
           {{maxSliderValue(unit)}}
         </td>
         <td>

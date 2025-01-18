@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';  
  import { MiningService } from '../../services/mining.service';
 import { CoinValueService } from '../../services/coin-value.service'; 
@@ -6,6 +6,7 @@ import { DailyMiningEarnings } from '../../services/datacontracts/crypto/daily-m
 import { MiningRigDevice } from '../../services/datacontracts/crypto/mining-rig-device';
 import { MiningRig } from '../../services/datacontracts/crypto/mining-rig';
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
+import { AppComponent } from '../app.component';
  
 @Component({
   selector: 'app-mining-rigs',
@@ -14,6 +15,8 @@ import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
 })
 export class MiningRigsComponent extends ChildComponent {
   @ViewChild('notificationArea') notificationArea!: ElementRef<HTMLElement>;
+  @Input() inputtedParentRef?: AppComponent;
+  @Output() closeMiningEvent = new EventEmitter<void>();
   miningRigs: Array<MiningRig> = [];
   dailyEarnings: Array<DailyMiningEarnings> = [];
   showAllData: boolean = false;
@@ -36,21 +39,28 @@ export class MiningRigsComponent extends ChildComponent {
     this.getDailyEarnings();
   } 
   async getMiningInfo() {
-    this.startLoading();
-    this.miningRigs = await this.miningService.getMiningRigInfo(this.parentRef?.user!);
-    this.miningRigs.forEach(x => {
-      this.localProfitability += Number(x.localProfitability!);
-      this.actualProfitability += Number(x.actualProfitability!);
-    });
-    this.stopLoading();
+    if (this.inputtedParentRef?.user) { 
+      this.startLoading();
+      this.miningRigs = await this.miningService.getMiningRigInfo(this.inputtedParentRef.user);
+      if (this.miningRigs) {
+        this.miningRigs.forEach(x => {
+          this.localProfitability += Number(x.localProfitability!);
+          this.actualProfitability += Number(x.actualProfitability!);
+        });
+      }
+      this.stopLoading();
+    }
+
+    if (!this.miningRigs || this.miningRigs.length == 0) {
+      this.closeMiningEvent.emit();
+    }
   }
   async requestRigStateChange(rig: MiningRig) {
     const requestedAction = (this.miningService.isOffline(rig.minerStatus!) || this.miningService.isStopped(rig.minerStatus!)) ? "START" : "STOP";
-    if (window.confirm(`Are sure you want to ${requestedAction} ${rig.rigName}?`)) {
-      this.startLoading();
-
+    if (window.confirm(`Are sure you want to ${requestedAction} ${rig.rigName}?`) && this.inputtedParentRef?.user) {
+      this.startLoading(); 
       try {
-        const response = await this.miningService.requestRigStateChange(this.parentRef?.user!, rig);
+        const response = await this.miningService.requestRigStateChange(this.inputtedParentRef.user, rig);
 
         let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
@@ -67,10 +77,10 @@ export class MiningRigsComponent extends ChildComponent {
   }
   async requestDeviceStateChange(device: MiningRigDevice) {
     const requestedAction = this.miningService.isDeviceOffline(device.state!) || this.miningService.isDeviceDisabled(device.state!) ? "START" : "STOP";
-    if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`)) {
+    if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`) && this.inputtedParentRef?.user) {
       try {
         this.startLoading();
-        const response = await this.miningService.requestRigDeviceStateChange(this.parentRef?.user!, device);
+        const response = await this.miningService.requestRigDeviceStateChange(this.inputtedParentRef.user, device);
         this.stopLoading();
 
         let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
@@ -88,7 +98,9 @@ export class MiningRigsComponent extends ChildComponent {
   }
   async getDailyEarnings() {
     this.startLoading();
-    this.dailyEarnings = await this.miningService.getDailyEarnings(this.parentRef?.user!);
+    if (this.inputtedParentRef?.user) {
+      this.dailyEarnings = await this.miningService.getDailyEarnings(this.inputtedParentRef.user);
+    }
     this.stopLoading();
   }
   async getBTCRate() {
@@ -155,5 +167,10 @@ export class MiningRigsComponent extends ChildComponent {
   }
   isOffline(state: string) {
     return this.miningService.isOffline(state);
+  }
+  formatSpeed(speed?: number): string {
+    if (!speed) return '';
+    const formatted = speed.toFixed(2); // 2 decimal places
+    return formatted.toString().length > 5 ? formatted.toString().slice(0, 5) + '...' : formatted;
   }
 }

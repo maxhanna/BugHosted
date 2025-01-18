@@ -72,14 +72,14 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() + 1));
     this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
     this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
-    this.setCalendarDates(this.now);
+    this.refreshCalendar();
   }
   monthBackClick() {
     const tmpNow = new Date(this.now);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
     this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
     this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
-    this.setCalendarDates(this.now);
+    this.refreshCalendar();
   }
   getCurrentDate() {
     return new Date();
@@ -131,8 +131,15 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     return type.toLowerCase() == "monthly" && date1.getDate() === date2.getDate();
   }
   private isAnnualEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
-    return (type.toLowerCase() == "milestone" || type.toLowerCase() == "annually" || type.toLowerCase() == "birthday")
+    return (type.toLowerCase() == "milestone"
+      || type.toLowerCase() == "annually"
+      || type.toLowerCase() == "birthday"
+      || type.toLowerCase() == "newyears"
+      || type.toLowerCase() == "christmas")
       && (date1.getMonth() === date2.getMonth() && date1.getDate() === date2.getDate());
+  }
+  private isDaily = (type: string): boolean => {
+    return (type.toLowerCase() == "daily");
   }
   private async setCalendarDates(now: Date) {
     await this.getCalendarEntries();
@@ -164,6 +171,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       || this.isWeeklyEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
       || this.isMonthlyEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
       || this.isAnnualEventOnSameDate(ce.type, new Date(ce.date), tmpNow)
+      || this.isDaily(ce.type)
     );
   }
 

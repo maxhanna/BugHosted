@@ -57,7 +57,7 @@ a {
   border: 2px solid var(--main-highlight-color);
   border-radius: 65% / 10%;
   font-size: 35px;
-  line-height: 45px;
+  line-height: 52px;
   margin-top: -19px;
   overflow:hidden;
 }
@@ -65,7 +65,7 @@ a {
   .navLink:before {
     border-radius: 2% / 50%;
     background: inherit;
-    content: '';
+    content: ''; 
   }
 
 .navLinkText {
@@ -101,18 +101,7 @@ a {
 }
 
 .collapsed {
-    display:none !important;
-  /*position: absolute !important;
-  width: CALC(100vw - 2px);
-  height: 67px !important;*/
-  /* max-height: 5vh !important; */
-  /*bottom: 0px !important;
-  top: CALC(100% - 67px) !important;
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  padding: unset !important;
-  overflow-y: hidden !important;
-  background-color: var(--main-bg-color);*/
+    display:none !important; 
 }
  
 .collapsedNavbar {
@@ -140,4 +129,4 @@ a {
 
 .weatherPic {
   height: 52px;
-}
+} 

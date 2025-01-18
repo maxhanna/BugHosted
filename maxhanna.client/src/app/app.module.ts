@@ -19,7 +19,7 @@ import { TodoComponent } from './todo/todo.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { ContactsComponent } from './contacts/contacts.component';
-import { CoinWalletComponent } from './coin-wallet/coin-wallet.component'; 
+import { CryptoHubComponent } from './crypto-hub/crypto-hub.component'; 
 import { UserComponent } from './user/user.component';
 import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
@@ -66,7 +66,7 @@ import { MetaComponent } from './meta/meta.component';
     NotepadComponent,
     MusicComponent,
     ContactsComponent,
-    CoinWalletComponent, 
+    CryptoHubComponent, 
     UserComponent,
     CoinWatchComponent,
     ChatComponent,

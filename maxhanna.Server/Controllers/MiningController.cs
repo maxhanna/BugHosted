@@ -300,7 +300,7 @@ namespace maxhanna.Server.Controllers
                     return NotFound("Mining API response is null or empty");
                 }
 
-                MiningWallet wallet = JsonConvert.DeserializeObject<MiningWallet>(res)!;
+                CryptoWallet wallet = JsonConvert.DeserializeObject<CryptoWallet>(res)!;
 
                 if (wallet == null)
                 {

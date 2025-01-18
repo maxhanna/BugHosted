@@ -1,18 +1,17 @@
-<div class="componentMain">
-  <div class="closeButton" (click)="remove_me('MiningRigsComponent');"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">Mining Rigs</div>
-
-  <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
-
+<div>
   <div *ngIf="miningRigs.length > 0" class="miningStatusTable">
+    <div class="sectionName">
+      Mining Rigs:
+    </div>
     <div class="currentProfitabilityDiv">
       <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? (rate * localProfitability).toFixed(2) + " CAD" : localProfitability + " BTC"}}</span></label>
       <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? (rate * actualProfitability).toFixed(2) + " CAD" : actualProfitability + " BTC"}}</span></label>
     </div>
     <div (click)="toggleShowAllData()" class="totalDailyEarningsDiv">
-      {{ dailyEarnings[0] ? dailyEarnings[0].date.toString().split("T")[0] : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? (rate * dailyEarnings[0].totalEarnings!).toFixed(2) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
-      <div>
+      <span class="cursorPointer">
+        Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? (rate * dailyEarnings[0].totalEarnings!).toFixed(2) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
+      </span>
+      <div class="cursorPointer">
         Total Weekly Earnings: {{ calculateWeeklyEarnings() }} | Daily Average: {{ calculateAverageDailyEarnings() }}
       </div>
 
@@ -66,40 +65,43 @@
       </tbody>
     </table>
   </div>
+  <div *ngIf="miningRigDevices && miningRigDevices[0]" class="sectionName">
+    {{ miningRigDevices[0].rigName }}
+  </div>
   <div *ngIf="miningRigDevices" class="deviceListDiv miningStatusTable">
     <table class="mainTable miningStatusTable" id="deviceRigTable">
       <thead>
         <tr>
-          <th (click)="sortTable(0, 'deviceRigTable')" title="Sort by Rig Name">Rig</th>
           <th (click)="sortTable(1, 'deviceRigTable')" title="Sort by Device Name">Device</th>
           <th (click)="sortTable(2, 'deviceRigTable')" title="Sort by Temperature">°C</th>
           <th (click)="sortTable(3, 'deviceRigTable')" title="Sort by State">State</th>
           <th (click)="sortTable(4, 'deviceRigTable')" title="Sort by Speed">Speed</th>
           <th (click)="sortTable(5, 'deviceRigTable')" title="Sort by Fan Speed">Fan</th>
           <th (click)="sortTable(6, 'deviceRigTable')" title="Sort by Power">Power</th>
-          <th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Core Clock">Core-C</th>
+          <!--<th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Core Clock">Core-C</th>
           <th (click)="sortTable(8, 'deviceRigTable')" title="Sort by Memory Clock">Mem-C</th>
           <th (click)="sortTable(9, 'deviceRigTable')" title="Sort by Core Voltage">C-Volt</th>
           <th (click)="sortTable(10, 'deviceRigTable')" title="Sort by Power Limit %">P%</th>
-          <th (click)="sortTable(11, 'deviceRigTable')" title="Sort by Power Limit W">PW</th>
-          <th (click)="sortTable(12, 'deviceRigTable')" title="Sort by Miner">Miner</th>
+          <th (click)="sortTable(11, 'deviceRigTable')" title="Sort by Power Limit W">PW</th>-->
+          <th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Miner">Miner</th>
           <th><input type="submit" value="❌" (click)="miningRigDevices = undefined;" /></th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let device of miningRigDevices">
-          <td>{{ device.rigName }}</td>
-          <td>{{ device.deviceName }}</td>
+          <td>{{ device.deviceName?.replace('NVIDIA GeForce', '')?.replace('CPU @', '') }}</td>
           <td [style]="device.temperature! >= 70 ? 'color:red;' : device.temperature! >= 68 ? 'color:yellow;' : ''">{{ device.temperature }}</td>
           <td [style]="device.state == 1 || device.state == -1 ? 'color:red;' : device.state == 4 ? 'color:gray;' : ''">{{ device.state == 1 || device.state == -1 ? 'Offline' : device.state == 2 ? "Mining" : device.state == 3 ? "Benchmarking" : device.state == 4 ? 'Disabled' : device.state}}</td>
-          <td>{{ device.speed }}</td>
+          <td>{{ formatSpeed(device.speed) }}</td>
           <td>{{ device.fanSpeed }}</td>
+          ow
           <td>{{ device.power }}</td>
-          <td>{{ device.coreClock }}</td>
+
+          <!--<td>{{ device.coreClock }}</td>
           <td>{{ device.memoryClock }}</td>
           <td>{{ device.coreVoltage }}</td>
           <td>{{ device.powerLimitPercentage }}</td>
-          <td>{{ device.powerLimitWatts }}</td>
+          <td>{{ device.powerLimitWatts }}</td>-->
           <td>{{ device.miner }}</td>
           <td (click)="requestDeviceStateChange(device)">
             <div [title]="isDeviceOffline(device.state!) ? 'Start' : isDeviceDisabled(device.state!) ? 'Start' : 'Stop'" class="stateControllerButton {{ isDeviceOffline(device.state!) ? 'stopped' : isDeviceDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
@@ -108,6 +110,8 @@
       </tbody>
     </table>
   </div>
-  <div *ngIf="!isLoading && miningRigs.length == 0">No mining rigs detected, go to your user settings and enter your nicehash API settings.</div>
+  <div *ngIf="!isLoading && miningRigs.length == 0" class="noMiningRigsDiv">
+    No mining rigs detected, Enter your Nicehash API details in the <a (click)="parentRef?.openUserSettings()">user settings</a> to be able to track manage them here.
+  </div>
   <div *ngIf="isLoading">Loading...</div>
 </div> 

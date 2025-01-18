@@ -54,7 +54,7 @@
         <th><span class="rotated-header">Incoming</span></th>
       </tr>
     </thead>
-    <tbody *ngFor="let base of paginatedData; let i = index; trackBy: trackByCoords" (click)="selectBase(base)" class="pointer">
+    <tbody *ngFor="let base of paginatedData; let i = index; trackBy: trackByCoords" (click)="selectBase(base)" class="cursorPointer">
       <tr [ngClass]="getBaseClass(base)"> 
         <td class="smallFont invertedHighlights">
           {{'{' + base.coordsX + ',' + base.coordsY + '}'}}

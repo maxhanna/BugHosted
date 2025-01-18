@@ -92,6 +92,23 @@ export class FriendService {
     }
   }
 
+  async deleteFriendRequest(request: FriendRequest) {
+    try {
+      const response = await fetch(`/friend/request/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      });
+
+      return await response.text();
+    } catch (error) {
+      console.error(error);
+      return `Error occured while rejecting friend request: ${error}`;
+    }
+  }
+
   async removeFriend(user: User, friend: User) {
     try {
       const response = await fetch(`/friend/remove`, {
@@ -99,7 +116,7 @@ export class FriendService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, friend }),
+        body: JSON.stringify({ User: user, Friend: friend }),
       });
 
       return await response.text();

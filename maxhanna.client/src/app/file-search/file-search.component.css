@@ -47,7 +47,11 @@
   align-items: center;
   font-size: xx-small;
 }
-
+@media only screen and (max-width : 355px) {
+  .searchInput {
+    display: inline-flex; 
+  }
+} 
 .typeTd {
   text-align: center;
   color: var(--secondary-font-color);
@@ -209,10 +213,22 @@
   padding: 20px;
 }
 
+.fileOptionsStats {
+  height: 300px;
+  width: 100%;
+  overflow: auto;
+}
+
+.fileOptionsStats div {
+  padding: 5px;
+}
+
 .fileActionCommands {
   position: absolute;
-  top: 35px;
-  right: 20px;
+  top: 3px;
+  right: 40px;
+  display: flex;
+  gap: 10px;
 }
 
   .fileActionCommands span {

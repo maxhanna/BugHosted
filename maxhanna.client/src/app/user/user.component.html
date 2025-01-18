@@ -24,7 +24,7 @@
     </div>
     <div class="profileHeaderInfo" *ngIf="!loginOnly">
       <div>
-        {{user?.about?.description}} 
+        {{user?.about?.description}}
       </div>
       <div *ngIf="parentRef?.user || user">
         <span class="invertedHighlights xxSmallFont">Location: </span>{{weatherLocation || 'Unknown'}} <span class="invertedHighlights xxSmallFont">Joined: </span>{{(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')}} <span class="invertedHighlights xxSmallFont">({{user && user.created ? daysSince(user.created) : '0'}} days)</span>
@@ -34,11 +34,12 @@
           <select (change)="onProfileControlsChange()" #profileControls>
             <option selected disabled>Options</option>
             <option *ngIf="user || parentRef?.user" value="shareProfile">📋 Share Profile</option>
-            <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe() && canAddFriend(user)" value="addFriend">👤 Add Friend</option>
+            <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe() && canAddFriend(user)" value="addFriend">👤 Follow</option>
             <option *ngIf="areWeFriends(user)" value="removeFriend">👤 Remove Friend</option>
             <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">👤 Add Contact</option>
+            <option value="showFriends">👤 Show Friends</option>
             <option *ngIf="user" value="chat">🗨️ Chat</option>
-            <option *ngIf="user" value="userInfo">ℹ️ User Info</option>
+            <option *ngIf="user" value="userInfo">ℹ️ {{ isMoreInfoOpen ? 'Hide ' : '' }} User Info</option>
             <option *ngIf="user && user.id == parentRef?.user?.id" value="settings">⚙️ Settings</option>
             <option *ngIf="user && user.id == parentRef?.user?.id" value="logout">🔑 Logout</option>
           </select>
@@ -52,13 +53,13 @@
     <div>
       <div *ngIf="!parentRef?.user">
         <div class="bughostedHeader">
-          <div class="emptyUserTagLogo" *ngIf="!loginOnly" >
+          <div class="emptyUserTagLogo" *ngIf="!loginOnly">
             <app-user-tag [displayEmptyAvatar]="true"></app-user-tag>
           </div>
-          <div class="bugHostedLogo" *ngIf="!loginOnly" >
+          <div class="bugHostedLogo" *ngIf="!loginOnly">
             BugH_sted
           </div>
-          <div class="welcomeMessage" *ngIf="!loginOnly" >
+          <div class="welcomeMessage" *ngIf="!loginOnly">
             <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
             <p class="welcomeTitle">Total users: <span [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount && !isLoading ? usersCount : !usersCount && !isLoading ? 'Server is down!' : 'Unknown Error'}}</span></p>
           </div>
@@ -78,7 +79,7 @@
           </div>
         </div>
         <div *ngIf="!usersCount && !isLoading">Server down</div>
-        <p *ngIf="!loginOnly" class="moreInfoTitle welcomeTitle cursorPointer" (click)="isAboutOpen = !isAboutOpen">{{ !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
+        <p *ngIf="!loginOnly" class="moreInfoTitle welcomeTitle cursorPointerUnderlined" (click)="isAboutOpen = !isAboutOpen">{{ !isAboutOpen ? 'Click here for more' : 'Show less'}} information</p>
         <div *ngIf="isAboutOpen" class="aboutSiteDiv">
           <ul>
             <li>
@@ -174,14 +175,14 @@
       </div>
     </div>
   </div>
-   
+
 
   <!-- ABOUT -->
   <div [style.display]="isMoreInfoOpen ? 'block' : 'none'">
 
     <div class="topProfileContainer" id="aboutContainer">
       <div *ngIf="user || parentRef?.user" class="aboutContainer">
-        <span class="cursorPointer mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">About</span>
+        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">About</span>
         <span class="smallExpander mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">
           {{isAboutExpanded ? '-' : '+'}}
         </span>
@@ -222,84 +223,12 @@
           </table>
         </div>
       </div>
-    </div>
-    <!-- FRIENDS -->
-    <div class="topProfileContainer" id="friendsProfileContainer" (click)="expandDiv('friendsProfileContainer'); isFriendsExpanded = !isFriendsExpanded">
-      <div *ngIf="user || parentRef?.user" class="friendsContainer">
-        <span class="cursorPointer mainTable">Friends</span>
-        <span class="smallExpander mainTable">
-          {{friends ? '('+friends.length+')' : '(0)'}}{{isFriendsExpanded ? '-' : '+'}}
-        </span>
-        <div class="mainTableDiv" *ngIf="isFriendsExpanded">
-          <table class="mainTable" *ngIf="friends">
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let friend of friends">
-                <td (click)="viewProfile(friend)" class="usernameProfileLink cursorPointer">{{friend.username}}</td>
-                <td style="width:0%">
-                  <button title="Remove Friend"
-                          (click)="removeFriend(friend)">
-                    Delete Friend❌
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div *ngIf="isLoading && (!friends)">Loading friends list...</div>
-          <div *ngIf="!isLoading && (!friends)">Friends list is empty.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- FRIEND REQUESTS -->
-    <div class="topProfileContainer" id="friendRequestProfileContainer" (click)="expandDiv('friendRequestProfileContainer'); isFriendRequestsExpanded = !isFriendRequestsExpanded">
-      <div *ngIf="(!user && parentRef && parentRef.user) || (user && parentRef && parentRef.user && user.username == parentRef.user.username)">
-        <span class="cursorPointer mainTable">Friend Requests</span>
-        <span class="smallExpander mainTable">
-          {{getNewFriendRequestCount()}}{{isFriendRequestsExpanded ? '-' : '+'}}
-        </span>
-
-        <div class="mainTableDiv" *ngIf="isFriendRequestsExpanded">
-          <table class="mainTable" *ngIf="hasFriendRequests()">
-            <thead><tr><th>Sender</th><th>Receiver</th><th>Sent</th><th>Updated</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              <tr *ngFor="let request of getFilteredFriendRequests()">
-                <td><span (click)="viewProfile(request.sender)" class="usernameProfileLink cursorPointer">{{request.sender.username}}</span></td>
-                <td><span (click)="viewProfile(request.receiver)" class="usernameProfileLink cursorPointer">{{request.receiver.username}}</span></td>
-                <td>{{request.createdAt}}</td>
-                <td>{{request.updatedAt}}</td>
-                <td>{{request.status == 1 + '' ? 'Accepted' : request.status == 2 + '' ? 'Rejected' : 'Pending'}}</td>
-                <td>
-                  <button title="Accept Friendship"
-                          (click)="acceptFriendshipRequest(request)"
-                          *ngIf="request.sender.username != parentRef?.user?.username
-                      && (request.status != 2 + '' && request.status != 1 + '')">
-                    ✅Accept Friend Request
-                  </button>
-                  <button title="Deny Friendship"
-                          (click)="denyFriendshipRequest(request)"
-                          *ngIf="request.status != 1 + ''">
-                    ❌Deny Friend Request
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div *ngIf="!isLoading && !hasFriendRequests()">No friendship requests.</div>
-          <div *ngIf="isLoading">Loading friendship requests...</div>
-        </div>
-      </div>
-    </div>
+    </div> 
 
     <!-- WORDLER SCORES-->
     <div class="topProfileContainer" id="wordlerScoresProfileContainer" (click)="expandDiv('wordlerScoresProfileContainer'); isWordlerScoresExpanded = !isWordlerScoresExpanded">
       <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
-        <span class="cursorPointer mainTable">Best Wordler Scores</span>
+        <span class="cursorPointerUnderlined mainTable">Best Wordler Scores</span>
         <span class="smallExpander mainTable">
           {{'(out of '+wordlerScoresCount+' total scores)'}}{{isWordlerScoresExpanded ? '-' : '+'}}
         </span>
@@ -331,7 +260,7 @@
     <!-- MUSIC -->
     <div class="topProfileContainer" id="musicProfileContainer">
       <div *ngIf="user || parentRef?.user" class="">
-        <span class="cursorPointer mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">Music Playlist</span>
+        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">Music Playlist</span>
         <span class="smallExpander mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">
           {{'('+(playListCount || songPlaylist.length)+')'}}{{isMusicContainerExpanded ? '-' : '+'}}
         </span>
@@ -358,4 +287,79 @@
   </div>
 
   <div *ngIf="user && user.id == parentRef?.user?.id && parentRef?.user?.username?.includes('Guest')" class="xxSmallFont">Note: <span class="italics">Guest accounts will be deleted after 10 days.</span></div>
+</div>
+
+<!-- Friends Popup -->
+<div class="popupPanel" *ngIf="isFriendsPanelOpen">
+  <div class="popupPanelTitle">
+    {{ isEditingFriends ? 'Deleting ' : ''}}Friends
+    <span *ngIf="!userId || userId == parentRef?.user?.id"
+          (click)="isEditingFriends = !isEditingFriends"
+          class="smallFont cursorPointerUnderlined">
+      [{{ isEditingFriends ? 'cancel' : 'edit' }}]
+    </span>
+  </div>
+  <div *ngIf="!isEditingFriends" class="friendsPopupContainer mainFriendsPopupDiv">
+
+    <div *ngIf="friends" class="friendsListWrapperDiv">
+      <div *ngFor="let friend of friends" class="friendsListDiv">
+        <div (click)="viewProfile(friend)" class="usernameProfileLink">
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef"></app-user-tag>
+        </div>
+      </div>
+
+    </div>
+    <div *ngIf="isLoading && (!friends || friends.length == 0)">Loading friends list...</div>
+    <div *ngIf="!isLoading && (!friends || friends.length == 0)">Friends list is empty.</div> 
+  </div>
+
+  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0">
+    Following:
+  </div>
+  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">  
+    <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
+      <div class="usernameProfileLink">
+        <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+      </div>
+      <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id"> 
+        <button (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Cancel Friendship Request">❌Cancel</button>
+      </div>
+    </div> 
+  </div>
+
+  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0">
+    Followers:
+  </div>
+  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" class="friendsPopupContainer mainFriendsPopupDiv"> 
+    <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
+      <div class="usernameProfileLink">
+        <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+      </div>
+      <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
+        <button (click)="acceptFriendshipRequest(friendReq)" class="cursorPointer" title="Accept Friendship Request">➕Follow Back</button>
+        <!--<button (click)="denyFriendshipRequest(friendReq)" class="cursorPointer" title="Deny Friendship Request">❌Deny</button>-->
+      </div>
+    </div>
+  </div>
+
+
+  <div *ngIf="isEditingFriends" class="friendsPopupContainer">
+    <div *ngIf="friends" class="friendsListWrapperDiv deletingFriendsListWrapper">
+
+      <div *ngFor="let friend of friends" class="friendsListDiv deletingFriendsList">
+        <div>
+          <app-user-tag [user]="friend" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+        </div>
+        <div *ngIf="!userId || userId == parentRef?.user?.id">
+          <span title="Remove Friend" (click)="removeFriend(friend)" class="cursorPointer">
+            ❌
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeFriendsPanel()">Close</button>
+  </div>
 </div>

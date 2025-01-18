@@ -37,16 +37,18 @@ namespace maxhanna.Server.Controllers
                     await conn.OpenAsync();
 
 					          string sql =
-                      @"SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar 
+											@"SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar 
                             WHERE Ownership = @Owner 
                               AND (
                                   (Date BETWEEN @StartDate AND @EndDateWithTime) -- Specific date range
                                   OR 
-                                  (Type = 'weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- Weekly on the same day of the week
+                                  (Type = 'Weekly' AND DATE_FORMAT(Date, '%w') = DATE_FORMAT(@StartDate, '%w')) -- Weekly on the same day of the week
                                   OR 
-                                  (Type = 'monthly' AND DAY(Date) = DAY(@StartDate)) -- Monthly on the same day of the month
+                                  (Type = 'Monthly' AND DAY(Date) = DAY(@StartDate)) -- Monthly on the same day of the month
                                   OR 
-                                  (Type IN ('annually', 'birthday', 'milestone') AND MONTH(Date) = MONTH(@StartDate) AND DAY(Date) = DAY(@StartDate)) -- Annually on the same day and month
+                                  (Type IN ('Annually', 'Birthday', 'Milestone', 'Newyears', 'Christmas') AND MONTH(Date) = MONTH(@StartDate)) -- Annually on the same day and month
+                                  OR 
+                                  (Type IN ('Daily')) -- Daily regardless of month, year.
                               )
                           UNION 
                           SELECT 

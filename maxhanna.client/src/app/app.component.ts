@@ -9,8 +9,7 @@ import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
 import { TodoComponent } from './todo/todo.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
-import { MusicComponent } from './music/music.component';
-import { CoinWalletComponent } from './coin-wallet/coin-wallet.component';
+import { MusicComponent } from './music/music.component'; 
 import { UserComponent } from './user/user.component';
 import { MenuItem } from '../services/datacontracts/user/menu-item';
 import { ChatComponent } from './chat/chat.component';
@@ -29,6 +28,7 @@ import { User } from '../services/datacontracts/user/user';
 import { ModalComponent } from './modal/modal.component';
 import { NotificationsComponent } from './notifications/notifications.component';
 import { UserService } from '../services/user.service'; 
+import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 
 
 
@@ -72,12 +72,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🗒️", title: "Notepad", content: undefined },
     { ownership: 0, icon: "📇", title: "Contacts", content: undefined },
     /*{ ownership: 0, icon: "🎮", title: "Gameboy Color", content: undefined },*/
-    { ownership: 0, icon: "📰", title: "News", content: undefined },
-    { ownership: 0, icon: "₿", title: "Coin-Watch", content: undefined },
-    { ownership: 0, icon: "💵", title: "Coin-Wallet", content: undefined },
-    { ownership: 0, icon: "🔍", title: "Favourites", content: undefined },
-    { ownership: 0, icon: "⛏️", title: "MiningDevices", content: undefined },
-    { ownership: 0, icon: "🖥️", title: "MiningRigs", content: undefined },
+    { ownership: 0, icon: "📰", title: "News", content: undefined }, 
+    { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
+    { ownership: 0, icon: "🔍", title: "Favourites", content: undefined }, 
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
@@ -86,12 +83,9 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
-    "Favourites": FavouritesComponent,
-    "Coin-Watch": CoinWatchComponent,
+    "Favourites": FavouritesComponent, 
     "Calendar": CalendarComponent,
-    "Weather": WeatherComponent,
-    "MiningDevices": MiningDevicesComponent,
-    "MiningRigs": MiningRigsComponent,
+    "Weather": WeatherComponent, 
     "Files": FileComponent,
     "Todo": TodoComponent,
     "Music": MusicComponent,
@@ -103,7 +97,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Meta-Bots": MetaComponent,
     "Wordler": WordlerComponent,
     "News": NewsComponent,
-    "Coin-Wallet": CoinWalletComponent,
+    "Crypto-Hub": CryptoHubComponent,
     "User": UserComponent,
     "Chat": ChatComponent,
     "Social": SocialComponent,
@@ -122,6 +116,15 @@ export class AppComponent implements OnInit, AfterViewInit {
     window.addEventListener('resize', this.updateHeight);
     this.updateHeight();
     this.getSelectedMenuItems()
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then((registration) => {
+          console.log('Service Worker registered:', registration);
+        })
+        .catch((error) => {
+          console.error('Service Worker registration failed:', error);
+        });
+    }
   }
   ngAfterViewInit() {
     this.router.events.subscribe(event => {
@@ -308,9 +311,11 @@ export class AppComponent implements OnInit, AfterViewInit {
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }
   closeOverlay() { 
-   const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay"); 
-  closeButtons.forEach((button) => button.click());
-   
-  this.showOverlay = false;
+    const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay"); 
+    closeButtons.forEach((button) => button.click()); 
+    this.showOverlay = false;
+  }
+  openUserSettings() {
+    this.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this });
   }
 }

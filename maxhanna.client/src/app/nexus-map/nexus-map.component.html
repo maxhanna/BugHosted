@@ -89,22 +89,22 @@
   <div class="attackDefenceTimers" *ngIf="isReportsHidden && !isAttackScreenOpen">
     <ng-container *ngIf="getAttackTimers().length;">
       <div *ngFor="let attackTimer of getAttackTimers(); trackBy: trackByTimerId">
-        <span class="invertedHighlights cursorPointer" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
+        <span class="invertedHighlights cursorPointerUnderlined" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
           {{ getAttackerLabel(attackTimer) }}
         </span>
         {{getAttackOrReturnLabel(attackTimer)}}
-        <span class="invertedHighlights cursorPointer" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
+        <span class="invertedHighlights cursorPointerUnderlined" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
         {{ formatTimer(attackTimer.endTime) }}
         <span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackAttack(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
       </div>
     </ng-container>
     <ng-container *ngIf="getDefenceTimers().length;">
       <div *ngFor="let attackTimer of getDefenceTimers(); trackBy: trackByTimerId">
-        <span class="invertedHighlights cursorPointer" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
+        <span class="invertedHighlights cursorPointerUnderlined" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, true)">
           {{ getAttackerLabel(attackTimer) }}
         </span>
         Defending
-        <span class="invertedHighlights cursorPointer" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
+        <span class="invertedHighlights cursorPointerUnderlined" (click)="scrollToCoordinatesFromAttackTimer(attackTimer, false)">{{getRestOfAttackLabel(attackTimer.object)}}</span>:
         {{ formatTimer(attackTimer.endTime) }}<span *ngIf="canSendUnitsBack(attackTimer.object)" (click)="sendBackDefence(attackTimer.object)" class="cancelAttackSpan">[Cancel ↩]</span>
       </div>
     </ng-container>
@@ -120,19 +120,19 @@
 
     <div [style.display]="((numberOfPersonalBases || 0) > 1)  && !zoomedOut ? 'flex' : 'none'" class="baseAutoSwitcherDiv">
       <div *ngIf="(numberOfPersonalBases ?? 0)  > 1">
-        <label class="cursorPointer usernameProfileLink">
+        <label class="cursorPointerUnderlined usernameProfileLink">
           <input type="checkbox" #switchNextBaseCheckbox />
           Switch bases
         </label>
       </div>
       <div>
-        <label class="cursorPointer usernameProfileLink">
+        <label class="cursorPointerUnderlined usernameProfileLink">
           <input type="checkbox" #attackModeCheckbox (change)="checkModes()" />
           Lock on
         </label>
       </div>
       <div *ngIf="(numberOfPersonalBases ?? 0)  > 1">
-        <label class="cursorPointer usernameProfileLink">
+        <label class="cursorPointerUnderlined usernameProfileLink">
           <input type="checkbox" #engageModeCheckbox (change)="checkModes()" disabled />
           Engage All
         </label>

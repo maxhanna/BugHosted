@@ -2,8 +2,15 @@
   <div class="closeButton" (click)="remove_me('NotepadComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Notepad</div>
-  <div class="userList">
-    <app-user-list (userClickEvent)="shareNote($event);" [user]="parentRef?.user!" *ngIf="isPanelExpanded"></app-user-list>
+  <div class="userList" *ngIf="isPanelExpanded">
+    <div style="text-align:center;">
+      Share this note?
+    </div>
+    <app-user-list (userClickEvent)="shareNote($event);"
+                   [user]="parentRef?.user!"
+                   [sharingSearch]="true"
+                   [inputtedParentRef]="parentRef">
+    </app-user-list>
   </div>
 
 
@@ -20,6 +27,8 @@
     <button (click)="search()">🔍</button>
   </div>
   <div class="notesCarousel">
-    <label *ngFor="let note of notes" (click)="getNote(note.id!)">{{ note.note }}</label>
+    <div> 
+      <label *ngFor="let note of notes" (click)="getNote(note.id!)">{{ note.note }}</label>
+    </div>
   </div>
 </div>

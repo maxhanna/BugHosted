@@ -67,6 +67,21 @@ export class ChatService {
       return null;
     }
   }
+  async getChatUsersByChatId(user: User, chatId: number) {
+    try {
+      const response = await fetch(`/chat/getchatusersbychatid`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ChatId: chatId, User: user }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async sendMessage(sender: User, receiver: User[], chatId?: number, content?: string, files?: FileEntry[]) {
     try {
       const response = await fetch(`/chat/sendmessage`, {

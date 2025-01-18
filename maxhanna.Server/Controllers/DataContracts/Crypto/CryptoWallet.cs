@@ -12,6 +12,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Crypto
     public class Currency
     {
         public bool active { get; set; }
+        public string? address { get; set; }
         public string? currency { get; set; }
         public string? totalBalance { get; set; }
         public string? available { get; set; }
@@ -22,7 +23,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Crypto
         public string? status { get; set; }
     }
 
-    public class MiningWallet
+    public class CryptoWallet
     {
         public Total? total { get; set; }
         public List<Currency>? currencies { get; set; }

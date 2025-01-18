@@ -3,10 +3,6 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Chat {{ getCommaSeperatedGroupChatUserNames() ? 'with ' + getCommaSeperatedGroupChatUserNames() : ''}} </div>
 
-  <!--<div *ngIf="selectedUsers.length > 1 && !currentChatUsers" class="messageInput">
-    <button (click)="openGroupChat()">Group Chat</button>
-  </div>-->
-
   <app-user-list (userClickEvent)="singleUserSelected($event);"
                  (userSelectClickEvent)="userSelectClickEvent($event)"
                  (groupChatEvent)="groupChatEvent($event)"

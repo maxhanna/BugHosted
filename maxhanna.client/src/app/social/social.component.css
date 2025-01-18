@@ -69,6 +69,33 @@
 	width: 100%;
 }
 
+.topTopicsDiv {
+  display: inline;
+  line-height: 25px;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  cursor: pointer;
+}
+
+.topicStoryCount {
+  font-size: xx-small;
+  display: inline-block
+}
+.topTopicSpan {
+  display: inline;
+  line-height: 25px;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  cursor: pointer;
+}
+.topTopicTitle {
+  display: inline-block;
+  padding: 5px;
+  width: 80px
+}
+
 .hidden {
 	max-height: 1200px;
 	overflow-x: hidden;

@@ -14,7 +14,7 @@
             <th>
               <span class="helperSpanTitle" title="Change your username or password."></span>
             </th>
-            <th>General</th>
+            <th class="cursorPointerUnderlined">General</th>
             <th style="text-align:right;">
               <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled" *ngIf="isGeneralToggled">🔄</button>
             </th>
@@ -38,7 +38,7 @@
             <th>
               <span class="helperSpanTitle" title="Change your display picture"></span>
             </th>
-            <th>Display Picture</th>
+            <th class="cursorPointerUnderlined">Display Picture</th>
             <th></th>
           </tr>
         </thead>
@@ -46,13 +46,13 @@
           <tr>
             <td></td>
             <td>
-              Upload or Select a profile picture here:
+              Attach your profile picture:
               <div class="avatar" *ngIf="!this.parentRef?.user!.displayPictureFile">
                 <span class="avatarBug">🪲</span>
                 <span class="avatarBust">👤</span>
               </div>
               <div *ngIf="this.parentRef?.user?.displayPictureFile">
-                Current display picture:
+                <span class="xxSmallFont">Current display picture:</span>
                 <div class="avatar">
                   <app-media-viewer #displayPictureViewer
                                     [displayExpander]="false"
@@ -85,7 +85,7 @@
             <th>
               <span class="helperSpanTitle" title="Your contact information."></span>
             </th>
-            <th>About You</th>
+            <th class="cursorPointerUnderlined">About You</th>
             <th style="text-align:right;">
               <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled" *ngIf="isAboutToggled">🔄</button>
             </th>
@@ -125,7 +125,7 @@
             <th>
               <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
             </th>
-            <th colspan="2">Selectable Menu Items</th>
+            <th colspan="2" class="cursorPointerUnderlined">Selectable Menu Items</th>
           </tr>
         </thead>
         <tbody *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled">
@@ -137,7 +137,7 @@
                     <td>
                       <div>
                         <div class="selectableMenuIconTitles">
-                          <span (click)="selectMenuIcon(icon.title)" class="appTitle pointer">{{ icon.title == 'Weather' ? '☀️' : icon.icon }}{{ icon.title }}</span>
+                          <span (click)="selectMenuIcon(icon.title)" class="pointer">{{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class=appTitle>{{ icon.title }}</span></span>
                           <label class="switch" (click)="selectMenuIcon(icon.title); $event.preventDefault();">
                             <input type="checkbox" [checked]="menuIconsIncludes(icon.title)" />
                             <span class="slider round"></span>
@@ -165,20 +165,6 @@
                               Notifications display for all components of this website. Get up to date information about your content.
                             </div>
                           </div>
-                          <div *ngIf="icon.title == 'MiningDevices'" [id]="icon.title+'tddiv'">
-                            <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                              Connect to Nicehash and manage your cryptocurrency mining rig devices from here.
-                              If you do not have any mining rigs set up, you can start earning bitcoin with any graphic card by using Nicehash.
-                              Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
-                            </div>
-                          </div>
-                          <div *ngIf="icon.title == 'MiningRigs'" [id]="icon.title+'tddiv'">
-                            <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                              Connect to Nicehash and manage your cryptocurrency mining rigs from here.
-                              If you do not have any mining rigs set up, you can start earning bitcoin with any graphic card by using Nicehash.
-                              Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
-                            </div>
-                          </div>
                           <div *ngIf="icon.title == 'Weather'" [id]="icon.title+'tddiv'">
                             <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                               Get up to date weather information based on a location you supply or the automatically found location based on your IP-Address!
@@ -194,9 +180,19 @@
                               A music list to keep track of your favourite youtube songs! Once added, the songs are displayed and a playlist can be selected from your profile page!
                             </div>
                           </div>
-                          <div *ngIf="icon.title == 'Coin-Watch'" [id]="icon.title+'tddiv'">
+                          <div *ngIf="icon.title == 'Crypto-Hub'" [id]="icon.title+'tddiv'">
                             <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                              Coin Watch keeps track of crypto prices for the most popular coins.
+                              Crypto Hub does many Crypto-related things.
+                              <ul>
+                                <li>Keeps track of crypto prices for the most popular coins.</li>
+                                <li>Show your cryptocurrency wallet balance.</li>
+                                <li>Manage your cryptocurrency mining rigs.</li>
+                              </ul>
+                              <div class="smallFont">
+                                Currently only supports the NiceHash API for crypto mining rigs and wallet.
+                                If you do not have any mining rigs or wallets set up, you can quickly get started by using Nicehash.
+                                Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
+                              </div>
                             </div>
                           </div>
                           <div *ngIf="icon.title == 'Notepad'" [id]="icon.title+'tddiv'">
@@ -246,11 +242,6 @@
                               Still under construction.
                             </div>
                           </div>
-                          <div *ngIf="icon.title == 'Coin-Wallet'" [id]="icon.title+'tddiv'">
-                            <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                              Still under construction. Connect to various APIS to show your cryptocurrency wallet balance. Currently supports Nicehash API (and all nicehash wallets associated).
-                            </div>
-                          </div>
                           <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'">
                             <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                               The Array transports users down a seemingly infinite array.
@@ -283,7 +274,7 @@
               <span class="helperSpanTitle" title="Default is to automatically update your weather based on your IP address,
 but you can also set your own City for a more precise location."></span>
             </th>
-            <th>Weather Location</th>
+            <th class="cursorPointerUnderlined">Weather Location</th>
             <th style="text-align:right;">
               <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled" *ngIf="isWeatherLocationToggled">🔄</button>
             </th>
@@ -302,7 +293,7 @@ but you can also set your own City for a more precise location."></span>
         <thead (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlySelectableMenuItems && parentRef?.user">
           <tr>
             <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
-            <th>Nicehash API Keys</th>
+            <th class="cursorPointerUnderlined">Nicehash API Keys</th>
             <th style="text-align:right;">
               <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled" *ngIf="isNicehashApiKeysToggled">🔄</button>
             </th>
@@ -328,11 +319,37 @@ but you can also set your own City for a more precise location."></span>
 
 
 
+        <!--BTC Wallet Addresses-->
+        <thead (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()" *ngIf="!showOnlySelectableMenuItems && parentRef?.user">
+          <tr>
+            <th><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></th>
+            <th class="cursorPointerUnderlined">BTC Wallet Addresses</th>
+            <th style="text-align:right;">
+              <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">🔄</button>
+              <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses.length > 0">➕</button>
+            </th>
+          </tr>
+        </thead>
+        <tbody *ngIf="isBTCWalletAddressesToggled">
+          <tr *ngFor="let address of btcWalletAddresses; let i = index">
+            <td></td>
+            <td>BTC Wallet Address:</td>
+            <td><input type="text"  class="btcWalletInput" placeholder="BTC Wallet Address" [value]="address" /><button *ngIf="address" (click)="deleteBTCWalletAddress(address)">🗑️</button></td>
+          </tr>
+          <tr *ngIf="btcWalletAddresses.length === 0 || showAddBTCWalletAddressInput">
+            <td></td>
+            <td>BTC Wallet Address:</td>
+            <td><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" /></td>
+          </tr>
+        </tbody>
+
+
+
         <!--Delete Account-->
         <thead (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlySelectableMenuItems && parentRef?.user">
           <tr>
             <th><span class="helperSpanTitle" title="Delete your account"></span></th>
-            <th>Delete your account?</th>
+            <th class="cursorPointerUnderlined">Delete your account?</th>
             <th style="text-align:right;">
               <button (click)="deleteUser()" title="Delete your account?" [disabled]="!isDeleteAccountToggled" *ngIf="isDeleteAccountToggled">🗑️</button>
             </th>

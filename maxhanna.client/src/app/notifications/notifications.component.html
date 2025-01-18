@@ -1,5 +1,5 @@
-<div *ngIf="minimalInterface" class="usernameProfileLink pointer" (click)="showNotifications = !showNotifications; (inputtedParentRef ? inputtedParentRef.showOverlay = showNotifications : '')">
-  <span [class]="notifications && notifications.length > 0 ? 'glowing' : ''">🔔</span><span>{{notifications && notifications.length}}</span>
+<div *ngIf="minimalInterface" class="usernameProfileLink cursorPointer" (click)="showNotifications = !showNotifications; (inputtedParentRef ? inputtedParentRef.showOverlay = showNotifications : '')">
+  <span [class]="notifications && notifications.length > 0 ? 'glowing' : ''">🔔</span>
 </div>
 
 <div [class]="minimalInterface ? 'minimalInterfaceComponent' : 'componentMain'" *ngIf="!minimalInterface || showNotifications">
@@ -7,12 +7,16 @@
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!minimalInterface"></div>
   <div class="componentTitle" *ngIf="!minimalInterface">Notifications</div>
 
-  <div class="notificationsDisplay">
+  <div class="notificationsDisplay" [style.width]="minimalInterface ? '90%' : ''">
     <div>
-      <div *ngIf="notifications && notifications.length > 0" class="noNotificationsDiv">You have {{notifications && notifications.length}} notifications <button (click)="delete()" *ngIf="notifications && notifications.length > 0">❌ Delete Notifications</button></div>
+      <div *ngIf="notifications && notifications.length > 0" class="noNotificationsDiv">
+        <button (click)="delete()" *ngIf="notifications && notifications.length > 0">
+          ❌ Clear {{notifications && notifications.length > 1 ? 'All ' : '' }} ({{notifications && notifications.length}}) Notifications
+        </button>
+      </div>
       <div class="closeButton" id="closeOverlay" (click)="showNotifications = false;  (inputtedParentRef ? inputtedParentRef.closeOverlay() : '')" *ngIf="minimalInterface"></div>
     </div>
-    <div [class]="minimalInterface ? 'notificationsList' : ''">
+    <div [class]="minimalInterface ? 'notificationsList' : ''" *ngIf="notifications && notifications.length > 0">
       <!--<div class="noNotificationsDiv">
         <button (click)="subscribeToPush()">Enable Push Notifications</button> 
       </div>-->
@@ -23,30 +27,31 @@
         </div>
         <div class="nliRightDiv">
           <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button> 
-          <div *ngIf="notification.fileId" (click)="goToFileId(notification.fileId)" class="usernameProfileLink cursorPointer fileId">
+          <div *ngIf="notification.fileId" (click)="goToFileId(notification.fileId)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>File ID:</strong> {{ notification.fileId }}
           </div>
-          <div *ngIf="notification.storyId" (click)="goToStoryId(notification.storyId)" class="usernameProfileLink cursorPointer fileId">
+          <div *ngIf="notification.storyId" (click)="goToStoryId(notification.storyId)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Story ID:</strong> {{ notification.storyId }}
           </div>
-          <div *ngIf="notification.chatUserId && notification.fromUser" (click)="goToChat(notification.fromUser)" class="usernameProfileLink cursorPointer fileId">
+          <div *ngIf="notification.chatId && notification.fromUser" (click)="goToChat(notification.chatId)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Chat Notification</strong>
           </div>
-          <div class="notificationText">
+          <div class="notificationText cursorPointer" (click)="notificationTextClick(notification)">
             <strong>{{ notification.text }}</strong>
           </div>
-          <div class="date notificationText">
+          <div class="date notificationText" (click)="notificationTextClick(notification)">
             <strong>Date:</strong> {{ notification.date | date: 'short' }}
           </div>
         </div> 
       </div>
     </div>
     <div *ngIf="notifications && notifications.length == 0" class="noNotificationsDiv">
-
-      <div>You don't have any notifications</div>
-      <img src="../../favicon.ico" />
-      <div>Notifications will appear when users interact with you or your content.</div>
-
+      <div class="noNotificationsWrapperSpan">
+        <div>You don't have any notifications</div>
+        <img style="height: 50px;" src="../../favicon.ico" />
+        <div>Notifications will appear when users interact with you or your content.</div> 
+      </div>
+      
     </div>
   </div>
 </div> 

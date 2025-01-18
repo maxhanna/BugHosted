@@ -12,7 +12,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Chat
         public int? PageNumber { get; set; }
     }
 
-    public class Message
+    public class ChatMessage
     {
         public int Id { get; set; }
         public int ChatId { get; set; }

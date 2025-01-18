@@ -12,7 +12,8 @@
 }
 
 .userList {
-  overflow-y: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border: var(--main-border);
   cursor: pointer;
   padding: 5px;
@@ -23,9 +24,19 @@
   justify-content: space-between;
   align-items: center;
 }
-
+.users {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  gap: 25px;
+}
 .user {
     width:100%;
+    display: flex;
+    margin-right: 10px;
 }
 .searchDiv {
   flex-direction: row;
@@ -65,6 +76,11 @@
   display: flex;
   width: 100%;
   justify-content: space-evenly;
+}
+
+.searchPopupUserListWrapper {
+  max-height: 350px;
+  overflow: auto;
 }
 
 .searchUsersSpan {

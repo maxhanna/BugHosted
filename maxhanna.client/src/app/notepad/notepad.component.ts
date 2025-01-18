@@ -46,7 +46,10 @@ export class NotepadComponent extends ChildComponent {
     this.users = await this.userService.getAllUsers(this.parentRef?.user!);
   }
   async shareNote(withUser?: User) {
-    if (!withUser) return;
+    if (!withUser) {
+      this.isPanelExpanded = false;
+      return;
+    }
     if (confirm(`Share note with ${withUser.username}?`)) {
       this.notepadService.shareNote(this.parentRef?.user!, withUser, parseInt(this.noteId.nativeElement.value));
       this.isPanelExpanded = false;

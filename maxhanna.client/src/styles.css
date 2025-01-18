@@ -356,11 +356,11 @@ fieldset {
     content: '🪲';
   }
 
-.pointer {
+.cursorPointer {
   cursor: pointer;
 }
 
-.cursorPointer {
+.cursorPointerUnderlined {
   cursor: pointer;
   text-decoration: underline;
 }

@@ -1,6 +1,12 @@
 .componentMain {
-  max-width: 90vw !important;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+  max-width: 90vw;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+} 
+@media only screen and (max-width : 667px) {
+  .componentMain {
+    width: 98vw;
+    max-width: unset;
+  }
 }
 textarea {
   margin-left: auto;
@@ -8,7 +14,7 @@ textarea {
   width: 95%;
   min-height: 200px;
   display: block;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 260px);
+  height: CALC(100% - 205px);
 }
 .buttonFields{
     text-align:right;
@@ -17,20 +23,23 @@ textarea {
 .notesCarousel {
   text-align: center;
   min-width: 300px;
-  max-width: 500px;
+  width: 100%;
   height: 100px;
-  overflow-y: hidden;
-  overflow-x: auto;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-  align-items: flex-start;
-  align-content: center;
-  gap: 5px;
+ 
 }
+  .notesCarousel div {
+    overflow-y: hidden;
+    overflow-x: auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    align-items: flex-start;
+    align-content: center;
+    gap: 5px;
+  }
 
-  .notesCarousel label {
+  .notesCarousel div label {
     flex-shrink: 0;
     box-shadow: inset 0px 10px 0px 0px rgba(248,255,148,1);
     padding-top: 6px;

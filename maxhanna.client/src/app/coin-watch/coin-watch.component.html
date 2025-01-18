@@ -1,8 +1,7 @@
-<div class=componentMain>
-  <div class="closeButton" (click)="remove_me('CoinWatchComponent');"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
-  <div class="componentTitle">Coin Watch</div>
-
+<div> 
+  <div>
+    Current BTC Value (CAD$) {{btcToCadPrice}}
+  </div>
   <table class="mainTable" id="coinWatchTable">
     <thead>
       <tr>
@@ -24,8 +23,8 @@
   <div *ngIf="allHistoricalData && allHistoricalData.length > 0">
     <app-line-graph #lineGraphComponent
                     [data]="allHistoricalData!"
-                    [selectedCoin]="'Bitcoin'" >
-    </app-line-graph> 
+                    [selectedCoin]="'Bitcoin'">
+    </app-line-graph>
   </div>
 
 

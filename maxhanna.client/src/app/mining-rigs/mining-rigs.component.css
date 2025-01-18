@@ -1,7 +1,4 @@
-
-.componentMain { 
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
-}
+ 
 .miningStatusTable { 
   overflow: auto; 
 } 
@@ -120,16 +117,16 @@
 
 .deviceListDiv {
   display: inline-block;
-  vertical-align: top;
-  margin: 12px;
+  vertical-align: top; 
   color: var(--secondary-font-color);
   font-family: Arial, Helvetica, sans-serif;
   border-collapse: collapse;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 425px);
+  max-height: 425px;
   overflow-y: auto;
   border: var(--main-border);
   border-radius: 5px;
-  max-width: 88vw !important;
+  width: 98%;
+  transform: translateX(1%);
 }
 
   .currentProfitabilitySpan {
@@ -137,13 +134,38 @@
     font-weight: bolder;
   }
 
-  .currentProfitabilityDiv {
-    width: 100%;
-    text-align: center;
-    margin-top: 3px;
-    margin-bottom: 3px;
+.currentProfitabilityDiv {
+  width: 100%;
+  text-align: center;
+  margin-top: 3px;
+  margin-bottom: 3px;
+  cursor: pointer;
+}
+  .currentProfitabilityDiv label {
+    cursor: pointer;
   }
-.stateControllerButton {
-  min-height: 20px;
-  min-width: 20px;
+  .stateControllerButton {
+    height: 20px;
+    width: 20px;
+  }
+.mainTable thead th {
+  z-index: 2 !important;
+} 
+.sectionName {
+  font-family: Courier New, Arial;
+  font-weight: bolder;
+  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
+  text-align: center;
+}
+/* typical phone screen resolution */
+@media only screen and (max-width : 667px) {
+  .miningStatusTable tbody td:first-child,
+  .miningStatusTable tbody td:nth-last-child(2) { 
+    font-size: xx-small;
+  }
+}
+
+.noMiningRigsDiv {
+  font-size: smaller;
+  padding: 10px;
 }

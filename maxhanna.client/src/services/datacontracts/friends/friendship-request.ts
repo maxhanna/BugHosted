@@ -3,7 +3,7 @@ export interface FriendRequest {
   id: number;
   sender: User;
   receiver: User;
-  status: string; // Pending, Accepted, Rejected
+  status: number; // Pending, Accepted, Rejected, Deleted
   createdAt: Date;
   updatedAt: Date;
 }

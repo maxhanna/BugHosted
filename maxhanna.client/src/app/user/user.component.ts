@@ -1,9 +1,9 @@
-import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component'; 
-import { UserService } from '../../services/user.service'; 
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { ChildComponent } from '../child.component';
+import { UserService } from '../../services/user.service';
 import { WeatherService } from '../../services/weather.service';
-import { FriendService } from '../../services/friend.service'; 
-import { ContactService } from '../../services/contact.service'; 
+import { FriendService } from '../../services/friend.service';
+import { ContactService } from '../../services/contact.service';
 import { WordlerService } from '../../services/wordler.service';
 import { SocialComponent } from '../social/social.component';
 import { Todo } from '../../services/datacontracts/todo';
@@ -21,7 +21,7 @@ import { WeatherLocation } from '../../services/datacontracts/weather/weather-lo
   templateUrl: './user.component.html',
   styleUrl: './user.component.css'
 })
-export class UserComponent extends ChildComponent implements OnInit {
+export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User | undefined;
   @Input() userId: number | null = null;
   @Input() loginOnly?: boolean | undefined;
@@ -43,20 +43,25 @@ export class UserComponent extends ChildComponent implements OnInit {
   isNicehashApiKeysToggled = false;
   isWeatherLocationToggled = false;
   isMenuIconsToggled = true;
-  isFriendsExpanded = false;
   isFriendRequestsExpanded = false;
   isAboutExpanded = true;
   isWordlerScoresExpanded = false;
   isAboutOpen = false;
   isMoreInfoOpen = false;
+  isFriendsPanelOpen = false;
+  isEditingFriends = false;
+  hasFriendRequests = false;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
+  friendRequestsSent: FriendRequest[] = [];
+  friendRequestsReceived: FriendRequest[] = [];
   contacts: Contact[] = [];
   wordlerScores: WordlerScore[] = [];
   wordlerScoresCount: number = 0;
   isMusicContainerExpanded = false;
   playListCount = 0;
   playListFirstFetch = true;
+  justLoggedIn = false;
   songPlaylist: Todo[] = [];
   wordlerStreak: number = 0;
   weatherLocation = "";
@@ -68,11 +73,11 @@ export class UserComponent extends ChildComponent implements OnInit {
     private wordlerService: WordlerService,
     private todoService: TodoService,
   ) {
-    super(); 
- }
+    super();
+  }
 
   async ngOnInit() {
-    if (this.inputtedParentRef) { 
+    if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
     this.startLoading();
@@ -83,7 +88,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         if (res) {
           this.user = res as User;
           if (this.socialComponent) {
-            this.socialComponent.user = this.user; 
+            this.socialComponent.user = this.user;
           }
         }
       } else {
@@ -91,7 +96,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       }
 
       await this.getLoggedInUser();
-      if (this.user) {  
+      if (this.user) {
         await this.loadFriendData();
         await this.loadWordlerData();
         await this.loadSongData();
@@ -99,12 +104,21 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.weatherService.getWeatherLocation(this.user).then(res => {
           if (res.city) {
             this.weatherLocation = res.city;
-          } 
+          }
         });
       }
     }
     catch (error) { console.log((error as Error).message); }
     this.stopLoading();
+  }
+
+  ngOnDestroy() {
+    if (this.justLoggedIn) {
+      const parent = this.parentRef ?? this.inputtedParentRef;
+      if (parent && parent.navigationComponent) {
+        parent.navigationComponent.getNotifications();
+      }
+    }
   }
 
   override remove_me(title: string) {
@@ -132,7 +146,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         if (res) {
           this.contacts = res;
         }
-      } 
+      }
     } catch (e) { }
   }
   async loadWordlerData() {
@@ -152,13 +166,22 @@ export class UserComponent extends ChildComponent implements OnInit {
   }
 
   async loadFriendData() {
-    this.friends = await this.friendService.getFriends(this.user ?? this.parentRef?.user!);
+    this.hasFriendRequests = false;
+    const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user;
 
-    if ((!this.user && this.parentRef && this.parentRef.user)
-      || (this.user && this.parentRef && this.parentRef.user)) {
-      const res = await this.friendService.getFriendRequests(this.user ?? this.parentRef.user);
+    if (user) {
+      this.friends = await this.friendService.getFriends(user);
+      const res = await this.friendService.getFriendRequests(user);
       this.friendRequests = res;
+      this.friendRequests = this.friendRequests.filter(x => x.status != 1);
+      this.friendRequestsSent = this.friendRequests.filter(x => (x.status == 0 || x.status == 3) && x.sender.id == user.id);
+      this.friendRequestsReceived = this.friendRequests.filter(x => (x.status == 0 || x.status == 3) && x.sender.id != user.id);
+
+      if (this.friendRequests.length > 0) {
+        this.hasFriendRequests = true;
+      }
     }
+
   }
 
   expandDiv(event: string) {
@@ -226,7 +249,7 @@ export class UserComponent extends ChildComponent implements OnInit {
       });
       this.parentRef.deleteCookie("user");
       this.parentRef.clearAllNotifications();
-      this.parentRef.user = undefined; 
+      this.parentRef.user = undefined;
     }
     this.clearForm();
     this.wordlerScores = [];
@@ -243,12 +266,17 @@ export class UserComponent extends ChildComponent implements OnInit {
   async acceptFriendshipRequest(request: FriendRequest) {
     const res = await this.friendService.acceptFriendRequest(request)
     this.notifications.push(res);
-    await this.loadFriendData();
+    await this.ngOnInit();
   }
   async denyFriendshipRequest(request: FriendRequest) {
     const res = await this.friendService.rejectFriendRequest(request)
     this.notifications.push(res);
-    await this.loadFriendData();
+    await this.ngOnInit();
+  } 
+  async deleteFriendshipRequest(request: FriendRequest) {
+    const res = await this.friendService.deleteFriendRequest(request);
+    this.notifications.push(res);
+    await this.ngOnInit();
   }
   setTopScores() {
     const groupedScores: { [key: number]: WordlerScore[] } = this.wordlerScores.reduce((groups, score) => {
@@ -277,7 +305,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.copyLink();
         break;
       case 'addFriend':
-        if (this.user) { 
+        if (this.user) {
           this.addFriend(this.user);
         }
         break;
@@ -285,7 +313,7 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.removeFriend(this.user);
         break;
       case 'addContact':
-        if (this.user) { 
+        if (this.user) {
           this.addContact(this.user);
         }
         break;
@@ -294,6 +322,9 @@ export class UserComponent extends ChildComponent implements OnInit {
         break;
       case 'userInfo':
         this.isMoreInfoOpen = !this.isMoreInfoOpen;
+        break;
+      case 'showFriends':
+        this.openFriendsPanel();
         break;
       case 'settings':
         this.parentRef?.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this.parentRef })
@@ -314,7 +345,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     if (this.parentRef && this.parentRef.user) {
       const res = await this.friendService.sendFriendRequest(this.parentRef.user, user);
       this.notifications.push(res);
-      await this.loadFriendData();
+      await this.ngOnInit();
     } else {
       this.notifications.push("You must be logged in to send a friendship request");
     }
@@ -335,7 +366,7 @@ export class UserComponent extends ChildComponent implements OnInit {
     let tmpUserName = this.loginUsername.nativeElement.value;
     const tmpPassword = this.loginPassword.nativeElement.value;
     if (guest && tmpUserName.trim() == "") {
-      tmpUserName = "Guest" + Math.random().toString().slice(2, 5); 
+      tmpUserName = "Guest" + Math.random().toString().slice(2, 5);
     }
     if (tmpUserName.trim() == "") { return alert("Username cannot be empty!"); }
     if (!confirm(`Create user ${tmpUserName}?`)) { return; }
@@ -346,19 +377,19 @@ export class UserComponent extends ChildComponent implements OnInit {
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
           tmpUser.id = parseInt(resCreateUser!);
           this.notifications.push("Successfully added user");
-          try { 
+          try {
             this.updateWeatherInBackground(tmpUser);
           } catch {
-            this.notifications.push("No weather data can be fetched"); 
+            this.notifications.push("No weather data can be fetched");
           }
 
           const resAddMenuItemSocial = await this.userService.addMenuItem(tmpUser, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
-          if(resAddMenuItemSocial) {
-              this.notifications.push(resAddMenuItemSocial + ''); 
-          } 
+          if (resAddMenuItemSocial) {
+            this.notifications.push(resAddMenuItemSocial + '');
+          }
 
           await this.login(guest ? tmpUserName : undefined);
-          if (!this.loginOnly) { 
+          if (!this.loginOnly) {
             this.parentRef?.createComponent('UpdateUserSettings');
           }
         } else {
@@ -377,16 +408,16 @@ export class UserComponent extends ChildComponent implements OnInit {
 
   async getLoggedInUser() {
     if (this.parentRef!.getCookie("user")) {
-      this.parentRef!.user = JSON.parse(this.parentRef!.getCookie("user"));  
+      this.parentRef!.user = JSON.parse(this.parentRef!.getCookie("user"));
     }
   }
 
   async login(guest?: string) {
     console.log("logging in " + (guest ? " as " + guest : ""));
-    if (this.parentRef?.user) { 
+    if (this.parentRef?.user) {
       this.parentRef.user = undefined;
     }
-    if (this.parentRef) { 
+    if (this.parentRef) {
       this.parentRef.deleteCookie("user");
     }
     let tmpUserName = this.loginUsername.nativeElement.value;
@@ -395,7 +426,6 @@ export class UserComponent extends ChildComponent implements OnInit {
     }
     const tmpLoginUser = new User(undefined, tmpUserName, this.loginPassword.nativeElement.value);
     try {
-      console.log(tmpLoginUser);
       const tmpUser = await this.userService.getUser(tmpLoginUser);
 
       if (tmpUser && tmpUser.username) {
@@ -403,12 +433,11 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
         this.parentRef!.user = tmpUser;
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
-        this.updateWeatherInBackground(tmpUser); 
-         
+        this.updateWeatherInBackground(tmpUser);
+
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
 
         if (this.loginOnly) {
-          console.log("closing emit");
           this.closeUserComponentEvent.emit(tmpUser);
         }
       } else {
@@ -418,18 +447,16 @@ export class UserComponent extends ChildComponent implements OnInit {
     } catch (e) {
       this.notifications.push("Login error: " + e);
     } finally {
+      this.justLoggedIn = true;
       this.ngOnInit();
     }
   }
   getNewFriendRequestCount() {
-    const count = this.friendRequests.filter(x => x.status == '3').length;
+    const count = this.friendRequests.filter(x => x.status == 3).length;
     return count > 0 ? `(${count})` : '';
   }
-  hasFriendRequests() {
-    return this.friendRequests.find(x => x.status == '3') ? true : false;
-  }
   daysSince(date?: Date) {
-    if (!date) return; 
+    if (!date) return;
     const today = new Date();
     const givenDate = new Date(date);
     const diffInMs = today.getTime() - givenDate.getTime();
@@ -446,12 +473,12 @@ export class UserComponent extends ChildComponent implements OnInit {
         this.notifications.push('Failed to copy link!');
       });
     }
-    catch  {
+    catch {
       this.notifications.push('Failed to copy link!');
     }
   }
   getFilteredFriendRequests() {
-    return this.friendRequests.filter(x => parseInt(x.status) == 0);
+    return this.friendRequests.filter(x => x.status == 0);
   }
 
   areWeFriends(other?: User) {
@@ -459,12 +486,26 @@ export class UserComponent extends ChildComponent implements OnInit {
       return false;
     }
     return this.friends.some(x => x.id === other.id);
-  } 
-  openChat() { 
+  }
+  openChat() {
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
   }
-  async updateWeatherInBackground(tmpUser: User, withCity?: boolean) { 
+  async updateWeatherInBackground(tmpUser: User, withCity?: boolean) {
     const ip = await this.userService.getUserIp();
-    const res = await this.weatherService.updateWeatherLocation(tmpUser, ip?.ip, ip?.city, ip?.country); 
+    const res = await this.weatherService.updateWeatherLocation(tmpUser, ip?.ip, ip?.city, ip?.country);
+  }
+  openFriendsPanel() {
+    this.isFriendsPanelOpen = true;
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (parent) {
+      parent.showOverlay = true;
+    }
+  }
+  closeFriendsPanel() {
+    this.isFriendsPanelOpen = false;
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (parent) {
+      parent.closeOverlay();
+    }
   }
 }

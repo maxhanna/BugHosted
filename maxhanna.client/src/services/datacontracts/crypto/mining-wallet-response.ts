@@ -9,6 +9,7 @@ export interface Total {
 export interface Currency {
   active: boolean;
   currency?: string;
+  address?: string;
   totalBalance?: string;
   available?: string;
   debt?: string;

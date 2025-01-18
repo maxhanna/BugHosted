@@ -6,7 +6,7 @@ export class UserNotification {
   fromUser: User | undefined;
   fileId: number | undefined;
   storyId: number | undefined;
-  chatUserId: number | undefined;
+  chatId: number | undefined;
   text: string | undefined;
   date: Date | undefined;
 } 

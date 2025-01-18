@@ -332,7 +332,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
 
-  moveUpOneLevel(): string {
+  getPreviousDirectoryPath() {
     const currDir = this.currentDirectory;
     const lastSlashIndex = currDir.lastIndexOf('/');
     if (lastSlashIndex !== -1) {
@@ -343,6 +343,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         return directoryWithoutTrailingSlash.substring(0, lastSlashIndexWithoutTrailingSlash);
       }
     }
+    return "";
+  }
+
+  moveUpOneLevel(): string {
+    const upDirPath = this.getPreviousDirectoryPath();
+    if (upDirPath) { return upDirPath; }
     this.openedFiles = [];
     this.showCommentsInOpenedFiles = [];
     return "";
@@ -375,7 +381,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   }
 
   previousDirectory() {
-    this.search.nativeElement.value = '';
+    if (this.search && this.search.nativeElement) { 
+      this.search.nativeElement.value = '';
+    }
     const target = this.moveUpOneLevel();
     this.currentPage = this.defaultCurrentPage;
     this.currentDirectory = target;
@@ -471,7 +479,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
   shouldShowEditButton(optionsFile: any): boolean {
-    if (!optionsFile?.user?.id || !this.user?.id) {
+    console.log(this.currentDirectory);
+    if (!optionsFile?.user?.id || !this.user?.id || this.currentDirectory === 'Users/') {
       return false;
     }
 

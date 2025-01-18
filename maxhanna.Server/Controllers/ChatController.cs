@@ -9,6 +9,8 @@ using System.Xml.Linq;
 using System.Data;
 using System.Linq;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using FirebaseAdmin.Messaging;
+using maxhanna.Server.Controllers.DataContracts.Topics;
 
 namespace maxhanna.Server.Controllers
 {
@@ -78,16 +80,15 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 
 				string sql = @"
-                    SELECT 
-												m.chat_id, 
-												COUNT(*) as count
-										FROM 
-												maxhanna.messages m
-										WHERE 
-												FIND_IN_SET(@userId, m.receiver) > 0 
-												AND (m.seen IS NULL OR NOT FIND_IN_SET(@userId, m.seen))
-										GROUP BY 
-												m.chat_id;";
+					SELECT 
+						count(*) AS count, 
+						chat_id
+					FROM 
+						maxhanna.notifications n 
+					WHERE 
+						n.user_id = @userId  
+						AND chat_id IS NOT NULL 
+					GROUP BY chat_id;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@userId", user.Id);
@@ -126,10 +127,10 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Chat/GetGroupChats", Name = "GetGroupChats")]
-		public async Task<List<Message>> GetGroupChats([FromBody] User user)
+		public async Task<List<ChatMessage>> GetGroupChats([FromBody] User user)
 		{
 			_logger.LogInformation($"POST /Chat/GetGroupChats for user: {user.Id}");
-			List<Message> messages = new List<Message>();
+			List<ChatMessage> messages = new List<ChatMessage>();
 
 			// Query to get chat IDs and receiver IDs from messages
 			string query = @"
@@ -187,16 +188,14 @@ namespace maxhanna.Server.Controllers
 				{
 					string idList = string.Join(",", chat.Value);
 
-					string userQuery = @"
-                            SELECT 
-                                id, 
-                                username 
-                            FROM 
-                                users 
-                            WHERE 
-                                id IN (" + idList + @")
-                        ";
-
+					string userQuery = @" 
+						SELECT 
+							u.id, 
+							u.username,
+							udp.file_id as display_file_id
+						FROM maxhanna.users u 
+						LEFT JOIN maxhanna.user_display_pictures udp on udp.user_id = u.id
+						WHERE id IN (" + idList + @");"; 
 					MySqlCommand userCmd = new MySqlCommand(userQuery, conn);
 
 					using (MySqlDataReader userReader = await userCmd.ExecuteReaderAsync())
@@ -207,15 +206,18 @@ namespace maxhanna.Server.Controllers
 						{
 							int id = userReader.GetInt32("id");
 							string username = userReader.GetString("username");
-
-							users[id] = new User(id, username);
+							FileEntry? dp =
+								userReader.IsDBNull(userReader.GetOrdinal("display_file_id"))
+									? null
+									: new FileEntry(Convert.ToInt32(userReader["display_file_id"]));
+							users[id] = new User(id, username, dp);
 						}
 
 						List<User> receivers = chat.Value
 								.Select(id => users.ContainsKey(id) ? users[id] : new User(id, "Unknown"))
 								.ToList();
 
-						messages.Add(new Message
+						messages.Add(new ChatMessage
 						{
 							// Set other properties as needed
 							Receiver = receivers.ToArray(),
@@ -227,6 +229,71 @@ namespace maxhanna.Server.Controllers
 			return messages;
 		}
 
+		[HttpPost("/Chat/GetChatUsersByChatId", Name = "GetChatUsersByChatId")]
+		public async Task<IActionResult> GetChatUsersByChatId([FromBody] GetChatUsersByChatIdRequest request)
+		{
+			_logger.LogInformation($"POST /Chat/GetChatUsersByChatId for user: {request.User?.Id}.");
+
+			if (request.User == null)
+			{
+				return BadRequest("You must send a user in the request");
+			}
+			List<User> users = new List<User>();
+
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string sql = @"
+						SELECT DISTINCT 
+								u.id,
+								u.username
+						FROM 
+								maxhanna.messages m
+						JOIN 
+								maxhanna.users u
+						ON 
+								FIND_IN_SET(u.id, m.receiver) > 0
+						WHERE 
+								m.chat_id = @ChatId;";
+
+					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+
+						using (var reader = await cmd.ExecuteReaderAsync())
+						{
+							while (await reader.ReadAsync())
+							{
+								users.Add(new User
+								{
+									Id = reader.GetInt32("id"),
+									Username = reader.GetString("username"),
+								});
+							}
+						}
+					}
+
+					if (users.Count > 0)
+					{
+						return Ok(users);
+					}
+					else
+					{
+						return NoContent();
+					}
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "An error occurred while processing the request for GetChatUsersByChatId.");
+					return StatusCode(500, "An error occurred while processing the request.");
+				}
+
+			}
+		}
 
 		[HttpPost("/Chat/GetMessageHistory", Name = "GetMessageHistory")]
 		public async Task<IActionResult> GetMessageHistory([FromBody] MessageHistoryRequest request)
@@ -241,7 +308,7 @@ namespace maxhanna.Server.Controllers
 					: string.Empty;
 
 			_logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.User?.Id}. chatId: {request.ChatId}, receivers: {receiverList}. pageNumber: {pageNumber} pageSize: {pageSize}");
-			List<Message> messages = new List<Message>();
+			List<ChatMessage> messages = new List<ChatMessage>();
 			int? chatId = null;
 			if (request.ChatId == null)
 			{
@@ -379,7 +446,7 @@ namespace maxhanna.Server.Controllers
 
 							using (var reader = await cmd.ExecuteReaderAsync())
 							{
-								Dictionary<int, Message> messageMap = new Dictionary<int, Message>();
+								Dictionary<int, ChatMessage> messageMap = new Dictionary<int, ChatMessage>();
 
 								while (reader.Read())
 								{
@@ -415,7 +482,7 @@ namespace maxhanna.Server.Controllers
 												receiverDisplayPicture.Id == 0 ? null : receiverDisplayPicture
 										);
 
-										var message = new Message
+										var message = new ChatMessage
 										{
 											Id = messageId,
 											ChatId = (int)chatId,
@@ -499,7 +566,7 @@ namespace maxhanna.Server.Controllers
 													AND seen != @SenderId);";
 
 						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-						updateCmd.Parameters.AddWithValue("@ChatId", request.ChatId); 
+						updateCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
 						updateCmd.Parameters.AddWithValue("@SenderId", request.User?.Id ?? 0);
 
 						await updateCmd.ExecuteNonQueryAsync();
@@ -518,7 +585,7 @@ namespace maxhanna.Server.Controllers
 			{
 				try
 				{
-					var safeMessages = messages ?? new List<Message>();
+					var safeMessages = messages ?? new List<ChatMessage>();
 					int safePageNumber = pageNumber > 0 ? pageNumber : 1;
 					int safePageSize = pageSize > 0 ? pageSize : 10;
 					safePageNumber = safePageNumber > totalPages ? totalPages : safePageNumber;
@@ -567,7 +634,7 @@ namespace maxhanna.Server.Controllers
 				string receiverList = request.Receiver != null && request.Receiver.Any()
 						? string.Join(",", request.Receiver.Select(r => r.Id))
 						: string.Empty;
-
+				long targetChatId = 0;
 				// Check if the sender's ID is already in the receiver list
 				if (!string.IsNullOrEmpty(receiverList) && receiverList.Split(',').Contains(request.Sender.Id.ToString()))
 				{
@@ -581,8 +648,6 @@ namespace maxhanna.Server.Controllers
 
 				Console.WriteLine("Receiver list:");
 				Console.WriteLine(receiverList);
-
-				int newChatId = 0;
 
 				if (request.ChatId == null || request.ChatId == 0)
 				{
@@ -599,12 +664,12 @@ namespace maxhanna.Server.Controllers
 					using (var idcmd = new MySqlCommand(maxChatIdSql, conn))
 					{
 						idcmd.Parameters.AddWithValue("@ReceiverId", receiverList);
-						newChatId = Convert.ToInt32(await idcmd.ExecuteScalarAsync());
+						targetChatId = Convert.ToInt32(await idcmd.ExecuteScalarAsync());
 					}
 				}
 				else
 				{
-					newChatId = request.ChatId.Value;
+					targetChatId = request.ChatId.Value;
 				}
 				string receiverSql = @"
                         SELECT receiver 
@@ -613,7 +678,7 @@ namespace maxhanna.Server.Controllers
                         LIMIT 1;";
 				using (var idcmd = new MySqlCommand(receiverSql, conn))
 				{
-					idcmd.Parameters.AddWithValue("@ChatId", newChatId);
+					idcmd.Parameters.AddWithValue("@ChatId", targetChatId);
 					string tmpList = Convert.ToString(await idcmd.ExecuteScalarAsync());
 					if (!string.IsNullOrEmpty(tmpList))
 					{
@@ -626,7 +691,7 @@ namespace maxhanna.Server.Controllers
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
 				cmd.Parameters.AddWithValue("@Receiver", receiverList);
-				cmd.Parameters.AddWithValue("@ChatId", newChatId);
+				cmd.Parameters.AddWithValue("@ChatId", targetChatId);
 				cmd.Parameters.AddWithValue("@Content", request.Content);
 
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
@@ -663,35 +728,36 @@ namespace maxhanna.Server.Controllers
                                     SELECT COUNT(*) 
                                     FROM maxhanna.notifications
                                     WHERE user_id = @Receiver
-                                      AND from_user_id = @Sender
-                                      AND chat_user_id = @Receiver
+                                      AND chat_id = @ChatId
+                                      AND chat_id IS NOT NULL
                                       AND date >= NOW() - INTERVAL 2 MINUTE;
                                 ";
 							string updateNotificationSql = @"
                                     UPDATE maxhanna.notifications
                                     SET text = CONCAT(text, @Content)
                                     WHERE user_id = @Receiver
-                                      AND from_user_id = @Sender
-                                      AND chat_user_id = @Receiver
+                                      AND chat_id = @ChatId
+                                      AND chat_id IS NOT NULL
                                       AND date >= NOW() - INTERVAL 2 MINUTE;
                                 ";
 
 							string insertNotificationSql = @"
                                     INSERT INTO maxhanna.notifications
-                                        (user_id, from_user_id, chat_user_id, text)
+                                        (user_id, from_user_id, chat_id, text)
                                     VALUES
-                                        (@Receiver, @Sender, @Receiver, @Content);
+                                        (@Receiver, @Sender, @ChatId, @Content);
                                 ";
 
 							using (var checkCommand = new MySqlCommand(checkSql, conn))
 							{
 								checkCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
 								checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+								checkCommand.Parameters.AddWithValue("@ChatId", targetChatId);
 								checkCommand.Parameters.AddWithValue("@Content", request.Content);
 								Console.WriteLine("Checking to see if notif exists");
 								var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
 
-								Console.WriteLine("Count : " + count);
+								Console.WriteLine("NOTIF Count : " + count);
 								if (count > 0)
 								{
 									using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
@@ -699,8 +765,9 @@ namespace maxhanna.Server.Controllers
 										updateCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
 										updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
 										updateCommand.Parameters.AddWithValue("@Content", request.Content);
+										updateCommand.Parameters.AddWithValue("@ChatId", targetChatId);
 
-										Console.WriteLine("updated");
+										Console.WriteLine("updated NOTIFs");
 										await updateCommand.ExecuteNonQueryAsync();
 									}
 								}
@@ -712,15 +779,17 @@ namespace maxhanna.Server.Controllers
 										insertCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
 										insertCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
 										insertCommand.Parameters.AddWithValue("@Content", request.Content);
+										insertCommand.Parameters.AddWithValue("@ChatId", targetChatId);
 
-										Console.WriteLine("inserted");
+										Console.WriteLine("inserted NOTIF");
 										await insertCommand.ExecuteNonQueryAsync();
 									}
 								}
 							}
 						}
 					}
-					return Ok(newChatId);
+
+					return Ok(targetChatId);
 				}
 				else
 				{

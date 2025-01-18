@@ -2,8 +2,23 @@
 <div class="{{searchOnly ? '' : 'popupPanel searchPopup'}}" *ngIf="isSearchPanelOpen">
   <div class="popupPanelTitle">Search Users</div>
   <div>
-    <input #searchInput (keyup)="search()" placeholder="🔍Search for Users" [value]="searchValue" />
-    <div>Result(s): {{ users.length }}</div>
+    <input #searchInput (keyup)="searchUsers()" placeholder="🔍Search for Users" />
+    <div class="searchPopupUserListWrapper">
+      <div>
+        Result(s): {{ usersSearched.length }}
+      </div>
+      <div *ngFor="let user of usersSearched" class="userList" (click)="closeOverlayOnClick(user);">
+        <span class="user">
+          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag> 
+        </span>
+        <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
+          💬
+          <span class="chatNotificationNumber">
+            {{ getChatNotificationsByUserId(user.id) }}
+          </span>
+        </span>
+      </div>
+    </div> 
   </div>
   <div *ngIf="!searchOnly">
     <button id="closeOverlay" (click)="closeSearchPanel()">Ok</button>
@@ -21,14 +36,15 @@
     Show All Users
   </label>
   <span (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen">🔍</span>
+  <span (click)="userClickEvent.emit()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch && !isSearchPanelOpen">❌</span>
 </div>
 <div class="searchResults">
   <div class="prevChatMessages" *ngIf="!searchOnly">
-    {{ searchValue ? 'Search' : (isFriendsChecked ? 'Friends' : 'User') }} List
+    {{ isFriendsChecked ? 'Friends' : 'User' }} List
   </div>
   <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
     <span class="user">
-      {{ user.username }}
+      <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag> 
     </span>
     <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
       💬
@@ -37,15 +53,20 @@
       </span>
     </span>
   </div>
-  <div *ngIf="(!searchOnly && (!users || users.length == 0)) || (searchOnly && searchValue != '' && (!users || users.length == 0))">
-    No Users to Display.
+  <div *ngIf="(!searchOnly && (!users || users.length == 0)) || (searchOnly && searchInput.nativeElement.value != '' && (!users || users.length == 0))">
+    No {{ isFriendsChecked ? 'Friends' : 'Users' }} to Display.
   </div>
-  <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly">
+  <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly && !sharingSearch">
     <div class="prevChatMessages" *ngIf="messageRows.length > 0">
       Previous Messages
     </div>
     <div *ngFor="let row of messageRows" (click)="openChatById(row.chatId);" class="userList">
-      {{getCommaSeparatedGroupChatUserNames(row.receiver, false)}}
+      <span class="users">
+        <span *ngFor="let user of removeSelfFromReceivers(row.receiver)">
+          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag>
+        </span>
+      </span>
+      
       <span class="chatIcon" *ngIf="getChatNotificationsByChatId(row.chatId)">
         💬
         <span class="chatNotificationNumber">

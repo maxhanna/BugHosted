@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnChanges, OnInit, ViewChild } from '@angular/core';
  import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts'; 
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
@@ -10,7 +10,7 @@ import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
   styleUrls: ['./line-graph.component.css'],
   imports: [BaseChartDirective, CommonModule]
 })
-export class LineGraphComponent implements OnInit {
+export class LineGraphComponent implements OnInit, OnChanges {
   @Input() data: CoinValue[] = [];
   @Input() selectedCoin: string = '';
   @Input() displayCoinSwitcher: boolean = true;
@@ -28,8 +28,13 @@ export class LineGraphComponent implements OnInit {
 
   ngOnInit() {
     this.updateGraph(this.data);
-  } 
+  }
 
+  ngOnChanges() { 
+    if (this.selectedCoin) {
+      this.changeCoinByString(this.selectedCoin);
+    }
+  }
   getUniqueCoinNames(): string[] {
     const uniqueCoinNamesSet = new Set<string>();
     this.data.forEach(item => {
@@ -47,6 +52,11 @@ export class LineGraphComponent implements OnInit {
 
   changeCoin(event: Event) {
     this.selectedCoin = (event.target as HTMLSelectElement).value;
+    this.updateGraph(this.data);
+  }
+
+  changeCoinByString(coin: string) {
+    this.selectedCoin = coin;
     this.updateGraph(this.data);
   }
 

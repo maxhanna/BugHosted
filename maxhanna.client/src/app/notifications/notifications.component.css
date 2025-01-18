@@ -17,38 +17,58 @@
 .minimalInterfaceComponent {
   background-color: var(--main-bg-color-full-opacity);
   position: fixed;
-  width: 300px;
-  height: 350px;
+  width: 100%;  
+  max-width: 600px;  
+  height: 80%;
   overflow: auto;
-  top: CALC(50% - 175px);
-  left: CALC(50% - 150px);
+  transform: translateY(10%);
+  left: 50%;
   z-index: 10;
   border: var(--main-border);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   align-content: center;
   flex-wrap: wrap;
   flex-direction: column;
-  border-radius:8px;
+  border-radius: 8px;
+  transform: translateX(-50%);  
 }
 
+/* typical phone screen resolution */
+@media only screen and (max-width : 667px) {
+  .minimalInterfaceComponent {
+    height: 100%;
+    width: 99vw;
+    max-width: unset;
+    transform: unset;
+    top: 0;
+    left: 0;
+    border-radius: 0px;
+  }
+} 
+
 .notificationsDisplay {
-    display: flex;
-    flex-flow:column wrap;
-    justify-content: space-between;
-    z-index:2;
+  display: flex;
+  flex-flow: column wrap;
+  justify-content: space-between;
+  z-index: 2;
+  padding: 5px;
+  height: CALC(100% - 15px); 
+  flex-wrap: nowrap;
 }
-.notificationsList { 
-  max-height: 245px;
+.notificationsList {  
   overflow: auto;
-  width: 270px;
+  height: 100%;
+  width: 100%;
 }
 .notificationListItem {
     border: var(--main-border);
     display: flex;
     position: relative;
     overflow: hidden;
+    margin-bottom: 5px;
+    padding: 5px;
 }
 .notificationText {
   text-overflow: ellipsis; 
@@ -56,13 +76,23 @@
   text-align: left;
 }
 .noNotificationsDiv {
-  display: flex; 
+  display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   align-content: space-between;
   justify-content: space-around;
   align-items: center;
-  text-align:center;
+  text-align: center;
+  margin-bottom: 10px;
+  height: 100%;
+}
+.noNotificationsWrapperSpan {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
 }
 
 .notificationsOverlay {
@@ -77,10 +107,10 @@
 
 .nliRightDiv {
   width: 100%;
-  margin-left: 5px;
-  display:flex;
+  margin-left: 15px;
+  display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: flex-start;
   justify-content: space-evenly;
-}
+} 
