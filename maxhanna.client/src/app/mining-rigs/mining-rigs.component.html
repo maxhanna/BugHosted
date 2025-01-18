@@ -4,12 +4,12 @@
       Mining Rigs:
     </div>
     <div class="currentProfitabilityDiv">
-      <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? (rate * localProfitability).toFixed(2) + " CAD" : localProfitability + " BTC"}}</span></label>
-      <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? (rate * actualProfitability).toFixed(2) + " CAD" : actualProfitability + " BTC"}}</span></label>
+      <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? formatToCanadianCurrency(rate * localProfitability) + " CAD" : localProfitability + " BTC"}}</span></label>
+      <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? formatToCanadianCurrency(rate * actualProfitability) + " CAD" : actualProfitability + " BTC"}}</span></label>
     </div>
     <div (click)="toggleShowAllData()" class="totalDailyEarningsDiv">
       <span class="cursorPointer">
-        Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? (rate * dailyEarnings[0].totalEarnings!).toFixed(2) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
+        Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? formatToCanadianCurrency(rate * dailyEarnings[0].totalEarnings!) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
       </span>
       <div class="cursorPointer">
         Total Weekly Earnings: {{ calculateWeeklyEarnings() }} | Daily Average: {{ calculateAverageDailyEarnings() }}
@@ -26,7 +26,7 @@
           <tbody>
             <tr *ngFor="let earnings of dailyEarnings">
               <td>{{ earnings.date | date }}</td>
-              <td>{{ rate != 1 ? (rate * earnings.totalEarnings).toFixed(2) + 'CAD' : earnings.totalEarnings + 'BTC'  }}</td>
+              <td>{{ rate != 1 ? formatToCanadianCurrency(rate * earnings.totalEarnings) + ' CAD' : earnings.totalEarnings + 'BTC'  }}</td>
             </tr>
           </tbody>
         </table>

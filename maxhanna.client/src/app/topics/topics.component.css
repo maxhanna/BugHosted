@@ -47,7 +47,7 @@ input {
   max-height: 200px;
   overflow-y: auto;
   border: var(--main-border);
-  z-index: 2;
+  z-index: 200;
   position: absolute;
 }
 
@@ -60,6 +60,7 @@ input {
   justify-content: center;
   align-items: center;
   background-color: var(--main-bg-color-full-opacity);
+  cursor: pointer;
 }
 
 .removeTopicButton {

@@ -47,11 +47,13 @@
   align-items: center;
   font-size: xx-small;
 }
+
 @media only screen and (max-width : 355px) {
   .searchInput {
-    display: inline-flex; 
+    display: inline-flex;
   }
-} 
+}
+
 .typeTd {
   text-align: center;
   color: var(--secondary-font-color);
@@ -97,16 +99,17 @@
   flex-wrap: nowrap;
   border-bottom: var(--main-border);
 }
+
 .fileNameWrapperSpan {
   width: 100%;
 }
 
 .mediaViewDiv {
   border-bottom: var(--main-border);
-  display:flex;
+  display: flex;
 }
 
-.fileFolderNameSpan { 
+.fileFolderNameSpan {
   display: flex;
   align-items: center;
   width: 100%;
@@ -173,7 +176,6 @@
   align-content: center;
   justify-content: space-evenly;
   align-items: center;
-
   flex-grow: 1;
   flex-basis: 100%;
   max-width: 100%;
@@ -189,6 +191,7 @@
   align-content: center;
   align-items: center;
 }
+
 .fileSearchDiv {
   max-height: CALC(100% - 30px);
 }
@@ -196,7 +199,7 @@
 .popupPanel {
   position: fixed;
   width: 300px;
-  height: 350px;
+  height: 380px;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -219,6 +222,11 @@
   overflow: auto;
 }
 
+.totalPageDisplay {
+  margin-left: 5px;
+  margin-right: 5px;
+}
+
 .fileOptionsStats div {
   padding: 5px;
 }
@@ -234,7 +242,7 @@
   .fileActionCommands span {
     cursor: pointer;
   }
-   
+
 .popupPanelActions {
   margin-top: 20px;
   margin-bottom: 20px;
@@ -242,6 +250,7 @@
   justify-content: space-evenly;
   width: 100%;
 }
+
 .optionsPanelDataDiv {
   display: flex;
   align-content: space-around;
@@ -249,6 +258,7 @@
   align-items: center;
   border-bottom: 1px dotted;
 }
+
 .searchPopup, .fileOptionsPopup {
   height: 150px !important;
 }

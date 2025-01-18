@@ -80,15 +80,20 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (!chatId) return alert("Error: Must select a user to chat!"); 
     this.createComponent("Chat", { chatId: chatId });
   }
-  delete(notification?: UserNotification) {
-    if ((this.inputtedParentRef && this.inputtedParentRef.user) || (this.parentRef && this.parentRef.user)) {
-      this.notificationService.deleteNotification(this.inputtedParentRef?.user ?? this.parentRef?.user!, notification?.id);
-      if (notification && this.notifications) { 
+  async delete(notification?: UserNotification) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent && parent.user) {
+      await this.notificationService.deleteNotification(parent.user, notification?.id);
+      if (notification && this.notifications) {
         this.notifications = this.notifications.filter(x => x.id != notification.id);
       } else {
-        this.notifications = []; 
+        this.notifications = [];
       }
     }
+    if (parent) { 
+      parent.getNotifications();
+    }
+
   }
   notificationTextClick(notification: UserNotification) {
     if (notification.text?.includes('Captured a base at')) {
@@ -99,6 +104,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.goToStoryId(notification.storyId)
     } else if (notification.chatId) {
       this.goToChat(notification.chatId);
+    } else if (notification?.text?.toLowerCase().includes("following")) {
+      this.viewProfile(notification.fromUser);
     }
   }
 }

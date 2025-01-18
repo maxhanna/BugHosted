@@ -1,6 +1,5 @@
 import { AfterViewInit, Component, ComponentRef, ElementRef, OnDestroy, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
-import { CalendarComponent } from './calendar/calendar.component';
-import { CoinWatchComponent } from './coin-watch/coin-watch.component';
+import { CalendarComponent } from './calendar/calendar.component'; 
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
 import { MiningDevicesComponent } from './mining-devices/mining-devices.component';
@@ -287,6 +286,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   clearAllNotifications() {
     this.navigationComponent.clearNotifications();
     this.navigationComponent.ngOnInit();
+  }
+  async getNotifications() {
+    this.navigationComponent.clearNotifications();
+    await this.navigationComponent.getNotifications(); 
   }
   openModal() {
     this.isModalOpen = true;

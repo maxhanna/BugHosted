@@ -1,4 +1,5 @@
 import { Reaction } from "../reactions/reaction";
+import { Topic } from "../topics/topic";
 import { User } from "../user/user";
 import { FileComment } from "./file-comment"; 
 export class FileEntry {
@@ -19,6 +20,7 @@ export class FileEntry {
   width?: number;
   height?: number;
   reactions?: Array<Reaction>;
+  topics?: Array<Topic>;
     
   constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string,
     user: User, isFolder: boolean, comments: Array<FileComment>, date: Date,

@@ -2,40 +2,73 @@
   width: 96vw;
   overflow: auto;
 }
- 
+
 .wallet {
-    min-width: 300px;
-    overflow:auto;
-    border: 1px solid dashed;
-    padding:10px;
+  min-width: 300px;
+  overflow: auto;
+  border: 1px solid dashed;
+  padding: 10px;
 }
+
   .wallet table {
     width: 100%;
   }
 
-  .wallet table td {
-    text-align: center;
-  }
+    .wallet table td {
+      text-align: center;
+    }
 
 /* typical phone screen resolution */
 @media only screen and (max-width : 667px) {
   .wallet {
     font-size: small;
   }
-} 
+}
+
 .sectionName {
   font-family: Courier New, Arial;
   font-weight: bolder;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   text-align: center;
 }
+
 .hubSection {
   display: inline-flex;
   flex-direction: column;
   width: 100%;
+  padding: 5px;
 }
+
 @media only screen and (min-width : 1000px) {
   .hubSection {
-    width: 50%;
+    width: CALC(50% - 10px);
   }
-} 
+}
+
+.graphContainerDiv, .cryptoWalletSectionHeader {
+  margin-top: 20px;
+}
+
+.BTCtoCADConversionDiv {
+  display: flex;
+  justify-content: center;
+  align-content: flex-start;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+}
+
+.BTCtoCADConversionWrapperDiv {
+  padding: 5px;
+}
+
+.BTCtoCADConversionDiv input {
+  width: 100%;
+  max-width: 180px;
+}
+
+.BTCtoCADConversionDiv label {
+  padding: 5px;
+  font-size: small;
+  font-weight: bold;
+}

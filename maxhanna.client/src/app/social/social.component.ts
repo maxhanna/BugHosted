@@ -47,6 +47,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   isStoryOptionsPanelOpen = false;
   isPostOptionsPanelOpen = false;
   isEditing: number[] = [];
+  editingTopics: number[] = [];
   selectedAttachmentFileExtension: string | null = null; 
   eachAttachmentSeperatePost = false;
   isUploadInitiate = true;
@@ -154,6 +155,15 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.isEditing.push(story.id ?? 0);
     } 
     this.closeStoryOptionsPanel();
+  }
+  async editTopic(story: Story) {
+    if (story.id) {
+      if (this.editingTopics.includes(story.id)) {
+        this.editingTopics = this.editingTopics.filter(x => x != story.id);
+      } else {
+        this.editingTopics.push(story.id);
+      }
+    }
   }
   async editStory(story: Story) {
     const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
@@ -277,6 +287,24 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     this.mediaSelectorComponent.closeMediaSelector();
     this.story.nativeElement.value = '';
     this.eachAttachmentSeperatePost = false;
+  }
+
+  async editStoryTopic(topics: Topic[], story: Story) {
+    const user = this.parentRef?.user ?? this.parent?.user;
+    if (user) {
+      this.socialService.editTopics(user, story, topics);
+      this.ngOnInit();
+      this.closeStoryOptionsPanel();
+      this.editingTopics = this.editingTopics.filter(x => x != story.id);
+    }
+  }
+
+  async removeTopicFromStory(topic: Topic, story: Story) {
+    let topics = story.storyTopics?.filter(x => x.id != topic.id);
+    if (!topics) {
+      topics = [];
+    }
+    await this.editStoryTopic(topics, story);
   }
 
   removeAttachment(fileId: number) {

@@ -1,3 +1,4 @@
+using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers.DataContracts.Files
@@ -24,6 +25,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public int? Height { get; set; }
 		public int? Width { get; set; }
 		public List<Reaction>? Reactions { get; set; }
+		public List<Topic>? Topics { get; set; }
 
 		public FileEntry() { }
 		public FileEntry(int id)

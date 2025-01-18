@@ -29,7 +29,7 @@
             <span *ngFor="let chatUser of getChatUsersWithoutCurrentUser()" class="chatUserConnected" (click)="viewProfile(chatUser); $event.preventDefault();">
               <span>{{chatUser.username}}</span>
             </span>
-            <span *ngIf="getChatUsersWithoutCurrentUser()?.length == 0 && (parentRef?.user?.id == selectedUser?.id || inputtedParentRef?.user?.id == selectedUser?.id)" class="chatUserConnected" (click)="viewProfile(selectedUser); $event.preventDefault();">
+            <span *ngIf="getChatUsersWithoutCurrentUser()?.length == 0 && (parentRef?.user?.id == selectedUser?.id || inputtedParentRef?.user?.id == selectedUser?.id)" class="chatUserConnected" (click)="viewProfile(currentChatUsers[0]); $event.preventDefault();">
               <span>{{currentChatUsers[0].username}}</span>
             </span>
           </span>
@@ -38,9 +38,13 @@
         <button (click)="closeChat()">Back</button>
       </div>
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
-        <div *ngFor="let message of chatHistory" [class]="{'otherPersonsMessage': message.sender.id !== parentRef?.user?.id, 'align-left': message.sender.id === parentRef?.user?.id, 'align-right': message.sender.id !== parentRef?.user?.id, 'messageContainer': true}">
+        <div *ngFor="let message of chatHistory"
+             [class.messageContainer]="true"
+             [class.otherPersonsMessage]="message.sender.id !== (parentRef?.user?.id ?? 0)"
+             [class.align-left]="message.sender.id === (parentRef?.user?.id ?? 0)"
+             [class.align-right]="message.sender.id !== (parentRef?.user?.id ?? 0)">
           <!-- USER MESSAGE -->
-          <ng-container *ngIf="message.sender.id === parentRef?.user?.id">
+          <ng-container *ngIf="message.sender.id === (parentRef?.user?.id ?? 0)">
             <div class="profileTag">
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
@@ -70,7 +74,7 @@
             </div>
           </ng-container>
           <!-- RECEIVER MESSAGE -->
-          <ng-container *ngIf="message.sender.id !== parentRef?.user?.id">
+          <ng-container *ngIf="message.sender.id !== (parentRef?.user?.id ?? 0)">
             <div class="messageContent ">
               {{ message.content }}
               <div class="otherPersonsReactionDiv">
@@ -113,7 +117,8 @@
         <input placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()" />
         <button (click)="sendMessage()">🗨️Send</button>
         <div>
-          <app-media-selector [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
+          <app-media-selector #attachmentSelector
+                              [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
                               [user]="parentRef?.user"
                               [inputtedParentRef]="parentRef"
                               (selectFileEvent)="selectFile($event)">

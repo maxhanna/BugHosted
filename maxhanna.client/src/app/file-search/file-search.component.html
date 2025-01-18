@@ -13,17 +13,22 @@
 <!-- Page Controls -->
 <div class="searchInput">
   <span *ngIf="isDisplayingPreviousPageButton()">
-    <button (click)="previousPage()" [disabled]="currentPage === 1">⬅️<span *ngIf="displayTotal || (searchTerms != '' && currentPage != 1)">{{currentPage - 1}}</span></button>
+    <span (click)="previousPage()" class="cursorPointer" style="font-size: large">
+      ⬅️
+    </span>
   </span>
-  <input *ngIf="fileSearchMode" #search (keyup)="searchDirectory()" placeholder="🔍Search {{currentDirectory}}" />
+  <span *ngIf="totalPages > 1" class="totalPageDisplay">{{currentPage}}{{displayTotal ? '/' + totalPages : ''}}</span>
+  <input *ngIf="fileSearchMode" #search (keyup)="searchDirectory()" placeholder="🔍Search Files" />
   <span *ngIf="isDisplayingTotalPagesButton()">
-    <button (click)="nextPage()" [disabled]="currentPage === totalPages"><span *ngIf="displayTotal || searchTerms != ''">{{totalPages}}</span>➡️</button> 
+    <span (click)="nextPage()" class="cursorPointer" style="font-size: large">
+      ➡️
+    </span>
   </span>
 </div>
 
 <div *ngIf="showData">
-  <div *ngIf="displayTotal" class="totalDisplay">
-    <span class="currentDirectorySpan" *ngIf="fileSearchMode">
+  <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
+    <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
       Current Directory:
       <span class="invertedHighlights">{{currentDirectory || '.'}}</span>
     </span>
@@ -34,7 +39,7 @@
   <!-- Main Data -->
   <div>
     <div id="fileTable" *ngIf="!isLoading">
-      <div *ngIf="showUpFolderRow && canChangeDirectory">
+      <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">
         <div (click)="previousDirectory()"
              class="upOneFolder"
              title="Up one folder"
@@ -132,7 +137,7 @@
   </div>
   <div class="popupPanelActions">
     <button title="Edit File Name" (click)="startEditing(optionsFile.id);" *ngIf="shouldShowEditButton(optionsFile)">
-      ✏️Edit
+      ✏️Edit File Name
     </button>
     <button title="Share File" (click)="(optionsFile.visibility.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
       ↗️Share
@@ -141,10 +146,36 @@
       ❌Delete
     </button>
   </div>
+  <div *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)">
+    <app-topics #topicComponent
+                [isDropdown]="true"
+                [user]="inputtedParentRef?.user ?? parentRef?.user"
+                [parent]="inputtedParentRef ?? parentRef"
+                [attachedTopics]="optionsFile.topics"
+                (topicAdded)="editFileTopicInDB($event, optionsFile)">
+    </app-topics>
+  </div>
   <div class="fileOptionsStats">
     <div class="optionsPanelDataDiv"><span class="smallFont">Id:</span> {{optionsFile.id}}</div>
     <div class="optionsPanelDataDiv"><span class="smallFont">{{optionsFile.isFolder ? 'Folder' : 'File'}} Name:</span> {{optionsFile.fileName}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.givenFileName"><span class="smallFont">Given File Name:</span> {{optionsFile.givenFileName}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="!optionsFile.isFolder">
+      <span class="smallFont">
+        Topics
+        <span *ngIf="optionsFile.user?.id == inputtedParentRef?.user?.id || optionsFile.user?.id == parentRef?.user?.id"
+              (click)="editFileTopic(optionsFile)"
+              class="cursorPointer"
+              title="Edit File Topics">✏️</span>:
+      </span>
+      <div>
+        <span *ngFor="let topic of optionsFile.topics" class="matchingTopic" (click)="fileTopicClicked(topic)">
+          {{topic.topicText}}
+          <span title="Remove Topic From File"
+                *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)"
+                (click)="removeTopicFromFile(topic, optionsFile); $event.stopPropagation()">❌</span>
+        </span>
+      </div>
+    </div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder"><span class="smallFont">Type:</span> {{optionsFile.fileType.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileSize"><span class="smallFont">Filesize:</span> {{formatFileSize(optionsFile.fileSize)}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.width"><span class="smallFont">Size (width/height):</span> {{optionsFile.width}}X{{optionsFile.height}} px</div>
@@ -158,8 +189,10 @@
       <span *ngIf="optionsFile.date" style="display: inline-block;" class="xxSmallFont">
         {{optionsFile.date | date: 'y/MM/d HH:mm'}}
       </span>
-      <div *ngIf="optionsFile.user">
-        <app-user-tag [user]="optionsFile.user" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+      <div *ngIf="optionsFile.user" (click)="viewProfile(optionsFile.user)">
+        <app-user-tag [user]="optionsFile.user"
+                      [inputtedParentRef]="parentRef ?? inputtedParentRef"
+                      [displayMiniTag]="true"></app-user-tag>
       </div>
     </div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdated !== optionsFile.date">
@@ -169,8 +202,10 @@
       <span *ngIf="optionsFile.lastUpdated" class="xxSmallFont">
         {{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}}
       </span>
-      <div *ngIf="optionsFile.lastUpdatedBy">
-        <app-user-tag [user]="optionsFile.lastUpdatedBy" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
+      <div *ngIf="optionsFile.lastUpdatedBy" (click)="viewProfile(optionsFile.lastUpdatedBy);">
+        <app-user-tag [user]="optionsFile.lastUpdatedBy"
+                      [inputtedParentRef]="parentRef ?? inputtedParentRef"
+                      [displayMiniTag]="true"></app-user-tag>
       </div>
     </div>
   </div>

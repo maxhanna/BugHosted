@@ -839,6 +839,66 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Social/Edit-Topics", Name = "EditTopics")]
+		public async Task<IActionResult> EditTopics([FromBody] DataContracts.Social.EditTopicRequest request)
+		{
+			_logger.LogInformation($"POST /Social/Edit-Topics for user: {request.User?.Id} with storyId: {request.Story.Id}");
+
+			try
+			{
+				string deleteSql = "DELETE FROM maxhanna.story_topics WHERE story_id = @StoryId;";
+				string insertSql = "INSERT INTO maxhanna.story_topics (story_id, topic_id) VALUES (@StoryId, @TopicId);";
+
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					using (var transaction = await conn.BeginTransactionAsync())
+					{
+						try
+						{
+							// Delete existing topics for the story
+							using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+							{
+								deleteCmd.Parameters.AddWithValue("@StoryId", request.Story.Id);
+								await deleteCmd.ExecuteNonQueryAsync();
+							}
+
+							// Insert new topics
+							if (request.Topics != null && request.Topics.Any())
+							{
+								foreach (var topic in request.Topics)
+								{
+									using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
+									{
+										insertCmd.Parameters.AddWithValue("@StoryId", request.Story.Id);
+										insertCmd.Parameters.AddWithValue("@TopicId", topic.Id);
+										await insertCmd.ExecuteNonQueryAsync();
+									}
+								}
+							}
+
+							// Commit the transaction
+							await transaction.CommitAsync();
+							return Ok("Story topics updated successfully.");
+						}
+						catch
+						{
+							// Rollback on error
+							await transaction.RollbackAsync();
+							throw;
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while editing story topics.");
+				return StatusCode(500, "An error occurred while editing story topics.");
+			}
+		}
+
+
 		[HttpPost("/Social/GetMetadata")]
 		public async Task<IActionResult> GetMetadata([FromBody] MetadataRequest request, int? storyId)
 		{

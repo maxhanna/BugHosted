@@ -12,3 +12,7 @@
   align-self: center;
 }
 
+.todoDate  {
+  font-size: x-small;
+  white-space: nowrap !important;
+}

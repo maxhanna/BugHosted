@@ -46,9 +46,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isFriendRequestsExpanded = false;
   isAboutExpanded = true;
   isWordlerScoresExpanded = false;
-  isAboutOpen = false;
-  isMoreInfoOpen = false;
+  isAboutOpen = false; 
   isFriendsPanelOpen = false;
+  isAboutPanelOpen = false;
   isEditingFriends = false;
   hasFriendRequests = false;
   friends: User[] = [];
@@ -185,7 +185,29 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   expandDiv(event: string) {
-    (document.getElementById(event) as HTMLDivElement).classList.toggle('expanded');
+    console.log(event);
+    const isOpen = (document.getElementById(event) as HTMLDivElement).classList.contains('expanded');
+    console.log(isOpen);
+
+    this.isAboutExpanded = false;
+    (document.getElementById('aboutContainer') as HTMLDivElement).classList.remove('expanded');
+
+    this.isWordlerScoresExpanded = false;
+    (document.getElementById('wordlerScoresProfileContainer') as HTMLDivElement).classList.remove('expanded');
+
+    this.isMusicContainerExpanded = false;
+    (document.getElementById('musicProfileContainer') as HTMLDivElement).classList.remove('expanded');
+
+    if (event === "aboutContainer") { 
+      this.isAboutExpanded = !isOpen;
+    } else if (event === "wordlerScoresProfileContainer") {
+      this.isWordlerScoresExpanded = !isOpen;
+    } else if (event === "musicProfileContainer") {
+      this.isMusicContainerExpanded = !isOpen;
+    }
+    if (!isOpen) { 
+      (document.getElementById(event) as HTMLDivElement).classList.add('expanded');
+    }
   }
 
   async addContact(user: User) {
@@ -321,7 +343,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.openChat();
         break;
       case 'userInfo':
-        this.isMoreInfoOpen = !this.isMoreInfoOpen;
+        this.openAboutPanel();
         break;
       case 'showFriends':
         this.openFriendsPanel();
@@ -503,6 +525,20 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   closeFriendsPanel() {
     this.isFriendsPanelOpen = false;
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (parent) {
+      parent.closeOverlay();
+    }
+  }
+  openAboutPanel() {
+    this.isAboutPanelOpen = true;
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (parent) {
+      parent.showOverlay = true;
+    }
+  }
+  closeAboutPanel() {
+    this.isAboutPanelOpen = false;
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
       parent.closeOverlay();

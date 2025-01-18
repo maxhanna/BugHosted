@@ -77,7 +77,8 @@ export class ChildComponent {
     }
     this.isLoading = false;
   } 
-  viewProfile(user?: User) { 
+  viewProfile(user?: User) {
+    console.log(user);
     if (user && user.id != 0) { 
       this.parentRef?.createComponent("User", { "userId": user.id });
     }

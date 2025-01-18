@@ -8,6 +8,7 @@ import { ActivatedRoute } from '@angular/router';
 import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user'; 
+import { Topic } from '../../services/datacontracts/topics/topic';
 
 
 @Component({
@@ -61,8 +62,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   selectedSharedFile?: FileEntry = undefined;
   viewMediaFile = false;
   isEditing: number[] = [];
+  editingTopics: number[] = [];
   openedFiles: number[] = [];
   searchTerms = ""
+  tmpSearchTerms = ""
   filter = {
     visibility: 'all',
     ownership: 'all'
@@ -129,13 +132,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   }
   async getDirectory(file?: string, fileId?: number) {
     this.directory = undefined;
-    const popupSearchTerm = this.popupSearch && this.popupSearch.nativeElement.value.trim() != '' ? this.popupSearch.nativeElement.value.trim() : "";
-    this.searchTerms = popupSearchTerm ? popupSearchTerm : this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : ""; 
+    this.determineSearchTerms();
     this.showData = true;
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.isLoading = true;
       try {
+        console.log(this.searchTerms);
         const res = await this.fileService.getDirectory(
           this.currentDirectory,
           this.filter.visibility,
@@ -168,6 +171,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
           if (this.fileId && this.fileId != null && this.fileId != 0 + '' && this.directory && this.directory.data!.find(x => x.id == parseInt(this.fileId!))) {
             this.scrollToFile(this.fileId!);
           }
+          if ((this.currentDirectory != "Meme/") && this.directory && this.directory.data) {
+            console.log("soreting");
+            this.directory.data.sort((a, b) => { 
+              if (a.isFolder !== b.isFolder) {
+                return a.isFolder ? -1 : 1; 
+              } 
+              return a.date > b.date ? 1 : a.date < b.date ? -1 : 0;
+            });
+          }
         }
       } catch (error) {
         this.userNotificationEvent.emit((error as Error).message);
@@ -176,6 +188,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.isLoading = false;
     }, 500);
   }
+
+    private determineSearchTerms() {
+        const popupSearchTerm = this.popupSearch && this.popupSearch.nativeElement.value.trim() != '' ? this.popupSearch.nativeElement.value.trim() : undefined;
+        this.searchTerms = popupSearchTerm ? popupSearchTerm : this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : "";
+        if (this.tmpSearchTerms) {
+            this.searchTerms = this.tmpSearchTerms;
+            this.tmpSearchTerms = "";
+        }
+    }
 
   getFileExtension(filename: string) {
     return this.fileService.getFileExtension(filename);
@@ -478,8 +499,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.inputtedParentRef.showOverlay = false;
     }
   }
-  shouldShowEditButton(optionsFile: any): boolean {
-    console.log(this.currentDirectory);
+  shouldShowEditButton(optionsFile: any): boolean { 
     if (!optionsFile?.user?.id || !this.user?.id || this.currentDirectory === 'Users/') {
       return false;
     }
@@ -560,6 +580,34 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     return this.totalPages > 1 && this.currentPage != 1
   }
   isDisplayingTotalPagesButton() {
-    return this.totalPages > 1;
+    return this.totalPages > 1 && this.totalPages != this.currentPage;
+  }
+  async fileTopicClicked(topic: Topic) {
+    this.tmpSearchTerms = topic.topicText;
+    this.closeOptionsPanel();
+    await this.getDirectory();
+  }
+  async removeTopicFromFile(topic: Topic, file: FileEntry) {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user) { 
+      file.topics = file.topics?.filter(x => x.id != topic.id);
+      await this.fileService.editTopics(user, file, file.topics ?? []); 
+    }
+  }
+  editFileTopic(file: FileEntry) {
+    if (this.editingTopics.includes(file.id)) {
+      this.editingTopics = this.editingTopics.filter(x => x != file.id);
+    } else {
+      this.editingTopics.push(file.id);
+    }
+  }
+  async editFileTopicInDB(topics: Topic[], file: FileEntry) {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user) { 
+      await this.fileService.editTopics(user, file, topics); 
+      this.editingTopics = this.editingTopics.filter(x => x != file.id);
+      file.topics = topics;
+      //this.getDirectory();
+    }
   }
 }

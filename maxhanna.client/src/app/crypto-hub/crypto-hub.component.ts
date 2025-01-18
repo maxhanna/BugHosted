@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { MiningService } from '../../services/mining.service';
 import { Currency, MiningWalletResponse, Total } from '../../services/datacontracts/crypto/mining-wallet-response';
@@ -22,7 +22,12 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   allHistoricalData?: CoinValue[] = [];
   btcWalletResponse?: MiningWalletResponse = undefined;
   btcToCadPrice = 0;
+   
+
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
+  @ViewChild('btcConvertSATValue') btcConvertSATValue!: ElementRef<HTMLInputElement>;
+  @ViewChild('btcConvertCADValue') btcConvertCADValue!: ElementRef<HTMLInputElement>;
+  @ViewChild('btcConvertBTCValue') btcConvertBTCValue!: ElementRef<HTMLInputElement>;
   @Output() coinSelected = new EventEmitter<string>();
 
   constructor(private miningService: MiningService, private coinValueService: CoinValueService, private userService: UserService) {
@@ -49,6 +54,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     } catch (error) {
       console.error('Error fetching coin values:', error);
     }
+    this.convertBTCtoFIAT()
     this.stopLoading();
   }
 
@@ -131,4 +137,42 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     if (!coinName) return;
     this.coinSelected.emit(this.currentSelectedCoin = coinName === "Total BTC" || coinName === "BTC" ? "Bitcoin" : coinName);
   }
+  convertBTCtoFIAT(): void {
+    const btcValue = parseFloat(this.btcConvertBTCValue.nativeElement.value) || 0;
+    const cadValue = btcValue * this.btcToCadPrice;
+
+    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(cadValue);
+    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8); // 1 BTC = 100,000,000 Satoshi
+
+    console.log(this.btcConvertBTCValue.nativeElement.value);
+    console.log(this.btcConvertCADValue.nativeElement.value);
+  }
+
+  convertCADtoBTC(): void {
+    const cadValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0;
+    const btcValue = cadValue / this.btcToCadPrice;
+
+    this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
+    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
+  }
+
+  convertSatoshiToBTC(): void {
+    const satValue = parseInt(this.btcConvertSATValue.nativeElement.value.replace(/,/g, ''), 10) || 0;
+    const btcValue = satValue / 1e8;
+
+    this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
+    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice);
+  }
+   
+  formatToCanadianCurrency(value: number): string {
+    return new Intl.NumberFormat('en-CA', {
+      style: 'currency',
+      currency: 'CAD',
+    }).format(value);
+  }
+   
+  private formatWithCommas(value: number): string {
+    return value.toLocaleString('en-US');
+  }
+
 }

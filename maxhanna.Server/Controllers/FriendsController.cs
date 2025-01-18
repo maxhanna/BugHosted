@@ -232,7 +232,7 @@ namespace maxhanna.Server.Controllers
 					@"INSERT INTO maxhanna.notifications
                         (user_id, from_user_id, user_profile_id, text)
                     VALUES
-                        (@receiverId, @senderId, @senderId, 'Friend request');";
+                        (@receiverId, @senderId, @senderId, 'Started following you');";
 
 					using (var cmd = new MySqlCommand(notificationSql, connection))
 					{

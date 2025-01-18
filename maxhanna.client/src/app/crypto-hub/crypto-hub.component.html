@@ -3,6 +3,39 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Crypto Hub</div>
   <div [class]="noMining ? '' : 'hubSection'">
+
+    <div class="sectionName">BTC to CAD Conversion</div>
+    <div class="BTCtoCADConversionDiv BTCtoCADConversionWrapperDiv">
+      <div class="BTCtoCADConversionDiv">
+        <label for="btcConvertBTCValue">BTC:</label>
+        <input id="btcConvertBTCValue"
+               type="text"
+               value="1"
+               #btcConvertBTCValue
+               (keyup)="convertBTCtoFIAT()"
+               placeholder="Enter BTC amount" />
+      </div>
+
+      <div class="BTCtoCADConversionDiv">
+        <label for="btcConvertCADValue">CAD:</label>
+        <input id="btcConvertCADValue"
+               type="text"
+               #btcConvertCADValue
+               (keyup)="convertCADtoBTC()"
+               placeholder="Enter CAD amount" />
+      </div>
+
+      <div class="BTCtoCADConversionDiv">
+        <label for="btcConvertSATValue">SAT:</label>
+        <input id="btcConvertSATValue"
+               type="text"
+               #btcConvertSATValue
+               (keyup)="convertSatoshiToBTC()"
+               placeholder="Enter Satoshi amount" />
+      </div>
+    </div>
+
+
     <table class="mainTable" id="coinWatchTable">
       <thead>
         <tr>
@@ -15,50 +48,41 @@
         <tr *ngFor="let item of data" (click)="selectCoin(item.name)">
           <td>{{ item.name }}</td>
           <td>{{ item.symbol }}</td>
-          <td>{{ item.valueCAD ? item.valueCAD.toFixed(2) : '-' }}</td>
+          <td>{{ item.valueCAD ? formatToCanadianCurrency(item.valueCAD) : '-' }}</td>
         </tr>
       </tbody>
     </table>
 
-    <div *ngIf="allHistoricalData && allHistoricalData.length > 0">
+    <div *ngIf="allHistoricalData && allHistoricalData.length > 0" class="graphContainerDiv">
       <app-line-graph #lineGraphComponent
                       [data]="allHistoricalData!"
                       [selectedCoin]="currentSelectedCoin">
       </app-line-graph>
     </div>
 
-    <div class="sectionName" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
+    <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
     <div class="wallet" *ngIf="wallet || btcWalletResponse">
       <table>
         <thead>
           <tr>
             <th>Currency</th>
-            <th>Total Balance</th>
-            <th>Available</th>
-            <th>Debt</th>
-            <th>Pending</th>
-            <th title="Fiat rate">CAD</th> 
+            <th>Total Balance</th> 
+            <th title="Fiat rate">$CAD</th>
           </tr>
         </thead>
         <tbody *ngIf="wallet">
           <ng-container *ngIf="wallet.total">
             <tr (click)="selectCoin(wallet.total.currency)">
               <td>{{ wallet.total.currency }}</td>
-              <td>{{ wallet.total.totalBalance }}</td>
-              <td>{{ wallet.total.available }}</td>
-              <td>{{ roundToEightDecimalPlaces(wallet.total.debt!) }}</td>
-              <td>{{ roundToEightDecimalPlaces(wallet.total.pending!) }}</td>
-              <td>{{ multiplyValues(wallet.total.available, btcFiatConversion) }}$</td> 
+              <td>{{ wallet.total.totalBalance }}</td>  
+              <td>{{ multiplyValues(wallet.total.available, btcFiatConversion) }}$</td>
             </tr>
           </ng-container>
           <ng-container *ngFor="let currency of wallet.currencies">
             <tr *ngIf="currency.status === 'ACTIVE' && currency.currency" (click)="selectCoin(currency.currency)">
               <td>{{ currency.currency }}</td>
-              <td>{{ currency.totalBalance }}</td>
-              <td>{{ currency.available }}</td>
-              <td>{{ roundToEightDecimalPlaces(currency.debt!) }}</td>
-              <td>{{ roundToEightDecimalPlaces(currency.pending!) }}</td>
-              <td>{{ calculateTotalValue(currency).toFixed(2) }}$</td> 
+              <td>{{ currency.totalBalance }}</td> 
+              <td>{{ calculateTotalValue(currency).toFixed(2) }}$</td>
             </tr>
           </ng-container>
         </tbody>
@@ -66,10 +90,7 @@
           <ng-container *ngFor="let btcWallet of btcWalletResponse?.currencies">
             <tr>
               <td>BTC</td>
-              <td>{{ btcWallet.totalBalance }}</td>
-              <td>{{ btcWallet.available }}</td>
-              <td>{{ roundToEightDecimalPlaces(btcWallet.debt!) }}</td>
-              <td>{{ roundToEightDecimalPlaces(btcWallet.pending!) }}</td>
+              <td>{{ btcWallet.totalBalance }}</td> 
               <td>{{ calculateTotalValue(btcWallet).toFixed(2) }}$</td>
             </tr>
           </ng-container>

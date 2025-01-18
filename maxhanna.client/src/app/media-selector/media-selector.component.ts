@@ -64,6 +64,9 @@ export class MediaSelectorComponent {
     this.selectedFiles = this.selectedFiles.filter(x => x != file);
     this.selectFileEvent.emit(this.selectedFiles);
   }
+  removeAllFiles() {
+    this.selectedFiles = [];
+  }
   uploadCancelledEvent(cancelled: boolean) {
     if (this.displaySearchButton) {
       this.displaySearchButton = true;

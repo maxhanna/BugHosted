@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { Story } from './datacontracts/social/story';
 import { StoryResponse } from './datacontracts/social/story-response';
 import { User } from './datacontracts/user/user';
+import { Topic } from './datacontracts/topics/topic';
  
 @Injectable({
   providedIn: 'root'
@@ -84,6 +85,25 @@ export class SocialService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ user, story }),
+      });
+
+      if (!res.ok) {
+        return 'Error editing story';
+      }
+      return 'Story editing successfully';
+    } catch (error) {
+      console.error('Error editing story:', error);
+      return 'Error editing story';
+    }
+  }
+  async editTopics(user: User, story: Story, topics: Topic[]) {
+    try {
+      const res = await fetch('/social/edit-topics', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ Topics: topics, Story: story, User: user }),
       });
 
       if (!res.ok) {

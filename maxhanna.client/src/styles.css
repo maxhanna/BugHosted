@@ -474,3 +474,16 @@ fieldset {
 .popupPanelTitle {
   font-family: var(--title-font-family); 
 }
+
+.matchingTopic {
+  display: inline-flex;
+  padding: 5px;
+  padding-top: 6px;
+  line-height: 12px;
+  border-radius: 4px;
+  background-color: var(--main-highlight-color);
+  cursor: pointer;
+  border: var(--main-border);
+  color: var(--secondary-font-color);
+  align-items: center;
+}

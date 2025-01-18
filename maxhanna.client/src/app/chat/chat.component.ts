@@ -9,6 +9,7 @@ import { AppComponent } from '../app.component';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 import { NotificationService } from '../../services/notification.service';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 
 @Component({
   selector: 'app-chat',
@@ -25,6 +26,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   selectedUsers: User[] = []
   @ViewChild('newMessage') newMessage!: ElementRef<HTMLInputElement>;
   @ViewChild('chatWindow') chatWindow!: ElementRef;
+  @ViewChild(MediaSelectorComponent) attachmentSelector!: MediaSelectorComponent;
   hasManuallyScrolled = false;
   private pollingInterval: any;
 
@@ -116,7 +118,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         await this.subscribeToChatTopic(token);
       }  
     } catch (error) {
-      console.log('Error requesting notification permission:', error);
+      //console.log('Error requesting notification permission:', error);
     }
   }
 
@@ -312,13 +314,19 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.newMessage.nativeElement.value = '';
       const user = this.parentRef?.user ?? new User(0, "Anonymous");
       await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles);
-      this.attachedFiles = [];
+      this.removeAllAttachments(); 
       await this.getMessageHistory();
       this.notificationService.notifyUsers(user, chatUsers);
     } catch (error) {
       console.error(error);
     }
   }
+
+  private removeAllAttachments() {
+    this.attachedFiles = [];
+    this.attachmentSelector.removeAllFiles();
+  }
+
   selectFile(files: FileEntry[]) {
     this.attachedFiles = files;
   }

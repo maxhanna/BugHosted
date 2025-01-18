@@ -1,7 +1,7 @@
 <!-- Placeholder for the graph -->
 <div class="graphContainer">
   <div class="graphTitle sectionName">
-    {{selectedCoin ? selectedCoin + ' to ' : ''}}{{graphTitle ? graphTitle : 'CAD$ Over Time'}} Span : {{selectedPeriod}}
+    {{selectedCoin ? selectedCoin + ' to ' : ''}}{{graphTitle ? graphTitle : '$CAD Over Time'}} Span : {{selectedPeriod}}
   </div>
   <div class="graphOptions">
     <select (change)="changeGraphPeriod($event)" #periodSelect>

@@ -10,7 +10,6 @@ import { AppRoutingModule } from './app-routing.module';
 import { CalendarComponent } from './calendar/calendar.component';
 import { NavigationComponent } from './navigation/navigation.component';
 import { FavouritesComponent } from './favourites/favourites.component';
-import { CoinWatchComponent } from './coin-watch/coin-watch.component';
 import { WeatherComponent } from './weather/weather.component';
 import { MiningDevicesComponent } from './mining-devices/mining-devices.component';
 import { FileComponent } from './file/file.component';
@@ -67,8 +66,7 @@ import { MetaComponent } from './meta/meta.component';
     MusicComponent,
     ContactsComponent,
     CryptoHubComponent, 
-    UserComponent,
-    CoinWatchComponent,
+    UserComponent, 
     ChatComponent,
     UserListComponent,
     MemeComponent,

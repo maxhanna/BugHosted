@@ -567,8 +567,9 @@
 .gameNotification {
   color: var(--secondary-font-color);
   font-size: small;
-}
-
+  padding: 20px;
+  background-color: rgba(54, 25, 25, 0.6);
+} 
 .gameNotificationDiv, .moreInfoTitle {
   top: 35px;
   right: 15px;
@@ -581,10 +582,7 @@
   .gameNotificationDiv div {
     margin-bottom: 10px;
   }
-
-    .gameNotificationDiv div span {
-      background-color: rgba(54, 25, 25, 0.6);
-    }
+   
 
 .unitInput {
   width: 25px;

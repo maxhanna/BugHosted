@@ -247,16 +247,6 @@
 	color: var(--secondary-font-color);
 }
 
-.matchingTopic {
-	display: inline-block;
-	padding: 0px 5px;
-	border-radius: 4px;
-	background-color: var(--main-highlight-color);
-	cursor: pointer;
-	border: var(--main-border);
-	color: var(--secondary-font-color);
-}
-
 .mainFileUploaderAndTopicSelectorDiv {
 	display: flex;
 	justify-content: flex-start;
@@ -377,7 +367,7 @@
 .searchSocialsButtonDiv {
 	cursor: pointer;
 	position: absolute;
-	right: 75px;
+	right: 65px;
 	top: 4px;
 	width: 40px;
 	text-align: right;

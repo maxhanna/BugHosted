@@ -137,7 +137,7 @@ export class MiningRigsComponent extends ChildComponent {
         break;
       }
     }
-    return this.rate != 1 ? (this.rate * totalWeeklyEarnings).toFixed(2) + ' CAD' : totalWeeklyEarnings + ' BTC';
+    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * totalWeeklyEarnings) + ' CAD' : totalWeeklyEarnings + ' BTC';
   }
   calculateAverageDailyEarnings(): string {
     let totalDailyEarnings = 0;
@@ -145,7 +145,7 @@ export class MiningRigsComponent extends ChildComponent {
       totalDailyEarnings += earnings.totalEarnings;
     }
     const averageDailyEarnings = totalDailyEarnings / this.dailyEarnings.length;
-    return this.rate != 1 ? (this.rate * averageDailyEarnings).toFixed(2) + ' CAD' : averageDailyEarnings + ' BTC';
+    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * averageDailyEarnings) + ' CAD' : averageDailyEarnings + ' BTC';
   }
   toggleDeviceDataVisibility(rig: MiningRig): void {
     if (this.miningRigDevices && this.miningRigDevices == rig.devices) {
@@ -173,4 +173,12 @@ export class MiningRigsComponent extends ChildComponent {
     const formatted = speed.toFixed(2); // 2 decimal places
     return formatted.toString().length > 5 ? formatted.toString().slice(0, 5) + '...' : formatted;
   }
+
+  formatToCanadianCurrency(value: number): string {
+    return new Intl.NumberFormat('en-CA', {
+      style: 'currency',
+      currency: 'CAD',
+    }).format(value);
+  }
+
 }

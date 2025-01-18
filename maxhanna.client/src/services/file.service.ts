@@ -3,6 +3,7 @@ import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
 import { User } from './datacontracts/user/user'; 
 import { FileEntry } from './datacontracts/file/file-entry';
+import { Topic } from './datacontracts/topics/topic';
 
 @Injectable({
   providedIn: 'root'
@@ -183,22 +184,7 @@ export class FileService {
       throw error;
     }
   }
-
-  async upvoteComment(user: User, commentId: number) {
-    try {
-      const response = await fetch(`/file/upvotecomment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user: user, commentId, upvote: true, downvote: false }),
-      });
-
-      return await response.text();
-    } catch (error) {
-      throw error;
-    }
-  }
+   
   async deleteComment(user: User, commentId: number) {
     try {
       const response = await fetch(`/file/deletecomment`, {
@@ -213,52 +199,7 @@ export class FileService {
     } catch (error) {
       throw error;
     }
-  }
-  async downvoteComment(user: User, commentId: number) {
-    try {
-      const response = await fetch(`/file/downvotecomment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user: user, commentId, upvote: false, downvote: true }),
-      });
-
-      return await response.text();
-    } catch (error) {
-      throw error;
-    }
-  }
-  async upvoteFile(user: User, fileId: number) {
-    try {
-      const response = await fetch(`/file/upvote`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user, fileId }),
-      });
-
-      return await response.text();
-    } catch (error) {
-      throw error;
-    }
-  }
-  async downvoteFile(user: User, fileId: number) {
-    try {
-      const response = await fetch(`/file/downvote`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user, fileId }),
-      });
-
-      return await response.text();
-    } catch (error) {
-      throw error;
-    }
-  }
+  }  
   uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, user?: User): Observable<HttpEvent<any>> {
     formData.append('user', JSON.stringify(user));
     formData.append('isPublic', isPublic + "");
@@ -405,6 +346,25 @@ export class FileService {
     }
     return '';
   }
+  async editTopics(user: User, file: FileEntry, topics: Topic[]) {
+    try {
+      const res = await fetch('/file/edit-topics', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ Topics: topics, File: file, User: user }),
+      });
+
+      if (!res.ok) {
+        return 'Error editing file';
+      }
+      return 'File editing successfully';
+    } catch (error) {
+      console.error('Error editing file:', error);
+      return 'Error editing file';
+    }
+  } 
   customDecodeURIComponent(encodedString: string): string {
     return encodedString.replace(/%([0-9a-fA-F]{2})/g, (match, hex) => {
       // Convert hex to a character

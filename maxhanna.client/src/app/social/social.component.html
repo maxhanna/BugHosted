@@ -136,12 +136,44 @@
       </div>
       <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
         <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
-        <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post" style="display:inline-block">
+
+        <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post Text" style="display:inline-block">
           <span class="storyEditSpans storyRejectEdit" [style.display]="isEditButtonVisible(optionStory.id) ? 'block' : 'none'" [id]="'storyRejectEditButtonSpan' + optionStory.id">❌</span>
-          ✏️Edit
-        </button>
+          ✏️ Text
+        </button> 
+
         <button (click)="delete(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id)" title="Delete Post" style="display:inline-block">❌Delete</button>
       </div>
+
+      <div>
+        {{ optionStory && optionStory.id && editingTopics.includes(optionStory.id) ? 'Editing ' : ''}}Topics
+        <span (click)="editTopic(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id"
+              title="Edit Post Topic"
+              class="smallFont cursorPointer">
+          ✏️
+        </span>:
+
+        <div class="reactionTopicsAndExpanderDiv reactionTopics">
+          <span *ngIf="optionStory.storyTopics && optionStory.storyTopics.length > 0">
+            <span *ngFor="let topic of optionStory.storyTopics" class="matchingTopic" (click)="topicClicked(topic)">
+              {{topic.topicText}}
+              <span title="Remove Topic From Story"
+                    *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)"
+                    (click)="removeTopicFromStory(topic, optionStory); $event.stopPropagation()">❌</span>
+            </span>
+          </span>
+          <div *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)">
+            <app-topics #topicComponent
+                        [isDropdown]="true"
+                        [user]="parentRef?.user"
+                        [parent]="parent ?? parentRef"
+                        [attachedTopics]="optionStory.storyTopics"
+                        (topicAdded)="editStoryTopic($event, optionStory)">
+            </app-topics>
+          </div>
+        </div>
+      </div>
+
       <div class="createdByStoryOptionsDiv">
         Created: 
         <div style="display:flex; column-gap: 10px;">
@@ -224,7 +256,9 @@
     <div id="mainTableDiv" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
       <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
         <div class="storyHeader">
-          <span style="padding-right:10px"><app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"></app-user-tag></span>
+          <span style="padding-right:10px" (click)="viewProfile(story.user)">
+            <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"></app-user-tag>
+          </span>
           <div class="storyDate">
             {{ daysSinceDate(story.date) }}
           </div>

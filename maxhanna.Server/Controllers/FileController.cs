@@ -9,6 +9,7 @@ using SixLabors.ImageSharp;
 using System.Data;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Topics; 
 
 namespace maxhanna.Server.Controllers
 {
@@ -146,7 +147,20 @@ namespace maxhanna.Server.Controllers
                                 OR f.user_id = @userId
                                 OR FIND_IN_SET(@userId, f.shared_with) > 0
                             )
-                            {(string.IsNullOrEmpty(search) ? "" : "AND (f.file_name LIKE @search OR f.given_file_name LIKE @search OR f.description LIKE @search)")} {fileTypeCondition} {visibilityCondition} {ownershipCondition} {orderBy}
+                            {(string.IsNullOrEmpty(search) ? "" 
+														: @" 
+															AND (
+																f.file_name LIKE @search 
+																OR f.given_file_name LIKE @search 
+																OR f.description LIKE @search
+																OR f.id IN (
+																	SELECT ft.file_id 
+																	FROM maxhanna.file_topics ft
+																	JOIN maxhanna.topics t ON ft.topic_id = t.id
+																	WHERE t.topic LIKE @search
+																)
+															)")} 
+														{fileTypeCondition} {visibilityCondition} {ownershipCondition} {orderBy}
                         LIMIT
                             @pageSize OFFSET @offset;"
 					, connection);
@@ -432,10 +446,48 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
+
+					// Fetch topics separately
+					var topicsCommand = new MySqlCommand($@"
+                        SELECT
+                            ft.file_id,
+                            ft.topic_id,
+														t.topic 
+                        FROM
+                            maxhanna.file_topics ft
+												LEFT JOIN topics t ON t.id = ft.topic_id 
+                        WHERE 1=1
+                        {(fileIds.Count > 0 ? "AND ft.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)};"
+					, connection);
+					 
+					for (int i = 0; i < fileIds.Count; i++)
+					{
+						topicsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
+					}
+					//_logger.LogInformation(topicsCommand.CommandText);
+					using (var reader = topicsCommand.ExecuteReader())
+					{
+						while (reader.Read())
+						{
+							var fileIdV = reader.GetInt32("file_id");
+							var topicIdV = reader.GetInt32("topic_id");
+							var topicTextV = reader.GetString("topic");
+							 
+
+							var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdV);
+							if (fileEntry != null)
+							{
+								if (fileEntry.Topics == null)
+								{
+									fileEntry.Topics = new List<Topic>();
+								}
+								fileEntry.Topics.Add(new Topic(topicIdV, topicTextV));
+							} 
+						}
+					}
 					// Get the total count of files for pagination
 					var totalCountCommand = new MySqlCommand(
-							$@"SELECT 
-                            COUNT(*) 
+							$@"SELECT COUNT(*) 
                         FROM 
                             maxhanna.file_uploads f 
                         WHERE 
@@ -445,7 +497,19 @@ namespace maxhanna.Server.Controllers
                                 f.user_id = @userId OR 
                                 FIND_IN_SET(@userId, f.shared_with) > 0
                             ) 
-                        {(string.IsNullOrEmpty(search) ? "" : " AND f.file_name LIKE @search OR f.given_file_name LIKE @search OR f.description LIKE @search ")}
+                        {(string.IsNullOrEmpty(search) ? "" 
+												: @" 
+													AND (
+														f.file_name LIKE @search 
+														OR f.given_file_name LIKE @search 
+														OR f.description LIKE @search 
+														OR f.id IN (
+															SELECT ft.file_id 
+															FROM maxhanna.file_topics ft
+															JOIN maxhanna.topics t ON ft.topic_id = t.id
+															WHERE t.topic LIKE @search
+														)
+													)")}
                         {fileTypeCondition}
                         {visibilityCondition}
                         {ownershipCondition}"
@@ -781,6 +845,66 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while uploading files.");
 			}
 		}
+
+		[HttpPost("/File/Edit-Topics", Name = "EditFileTopics")]
+		public async Task<IActionResult> EditFileTopics([FromBody] EditTopicRequest request)
+		{
+			_logger.LogInformation($"POST /File/Edit-Topics for user: {request.User?.Id} with fileId: {request.File.Id}");
+
+			try
+			{
+				string deleteSql = "DELETE FROM maxhanna.file_topics WHERE file_id = @FileId;";
+				string insertSql = "INSERT INTO maxhanna.file_topics (file_id, topic_id) VALUES (@FileId, @TopicId);";
+
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					using (var transaction = await conn.BeginTransactionAsync())
+					{
+						try
+						{
+							// Delete existing topics for the story
+							using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+							{
+								deleteCmd.Parameters.AddWithValue("@FileId", request.File.Id);
+								await deleteCmd.ExecuteNonQueryAsync();
+							}
+
+							// Insert new topics
+							if (request.Topics != null && request.Topics.Any())
+							{
+								foreach (var topic in request.Topics)
+								{
+									using (var insertCmd = new MySqlCommand(insertSql, conn, transaction))
+									{
+										insertCmd.Parameters.AddWithValue("@FileId", request.File.Id);
+										insertCmd.Parameters.AddWithValue("@TopicId", topic.Id);
+										await insertCmd.ExecuteNonQueryAsync();
+									}
+								}
+							}
+
+							// Commit the transaction
+							await transaction.CommitAsync();
+							return Ok("File topics updated successfully.");
+						}
+						catch
+						{
+							// Rollback on error
+							await transaction.RollbackAsync();
+							throw;
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while editing file topics.");
+				return StatusCode(500, "An error occurred while editing file topics.");
+			}
+		}
+
 		private bool IsWebPFile(IFormFile file)
 		{
 			var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
