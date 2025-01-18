@@ -1,0 +1,38 @@
+<div> 
+  <div>
+    Current BTC Value (CAD$) {{btcToCadPrice}}
+  </div>
+  <table class="mainTable" id="coinWatchTable">
+    <thead>
+      <tr>
+        <th (click)="sortTable(0, 'coinWatchTable')">Name</th>
+        <th (click)="sortTable(1, 'coinWatchTable')">Symbol</th>
+        <th (click)="sortTable(2, 'coinWatchTable')">Rate ($)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let item of data">
+        <td>{{ item.name }}</td>
+        <td>{{ item.symbol }}</td>
+        <td>{{ item.valueCAD ? item.valueCAD.toFixed(2) : '-' }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+
+  <div *ngIf="allHistoricalData && allHistoricalData.length > 0">
+    <app-line-graph #lineGraphComponent
+                    [data]="allHistoricalData!"
+                    [selectedCoin]="'Bitcoin'">
+    </app-line-graph>
+  </div>
+
+
+
+  <div *ngIf="!data && isLoading">
+    Loading data, please wait...
+  </div>
+  <div *ngIf="!data && !isLoading">
+    Something went wrong, please refresh this component after a while.
+  </div>
+</div>

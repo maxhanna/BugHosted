@@ -3,6 +3,7 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Crypto Hub</div>
   <div [class]="noMining ? '' : 'hubSection'">
+<<<<<<< HEAD
 
     <div class="sectionName">BTC to CAD Conversion</div>
     <div class="BTCtoCADConversionDiv BTCtoCADConversionWrapperDiv">
@@ -36,6 +37,8 @@
     </div>
 
 
+=======
+>>>>>>> 37a4811 (general fixes)
     <table class="mainTable" id="coinWatchTable">
       <thead>
         <tr>
@@ -48,41 +51,77 @@
         <tr *ngFor="let item of data" (click)="selectCoin(item.name)">
           <td>{{ item.name }}</td>
           <td>{{ item.symbol }}</td>
+<<<<<<< HEAD
           <td>{{ item.valueCAD ? formatToCanadianCurrency(item.valueCAD) : '-' }}</td>
+=======
+          <td>{{ item.valueCAD ? item.valueCAD.toFixed(2) : '-' }}</td>
+>>>>>>> 37a4811 (general fixes)
         </tr>
       </tbody>
     </table>
 
+<<<<<<< HEAD
     <div *ngIf="allHistoricalData && allHistoricalData.length > 0" class="graphContainerDiv">
+=======
+    <div *ngIf="allHistoricalData && allHistoricalData.length > 0">
+>>>>>>> 37a4811 (general fixes)
       <app-line-graph #lineGraphComponent
                       [data]="allHistoricalData!"
                       [selectedCoin]="currentSelectedCoin">
       </app-line-graph>
     </div>
 
+<<<<<<< HEAD
     <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
+=======
+    <div class="sectionName" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
+>>>>>>> 37a4811 (general fixes)
     <div class="wallet" *ngIf="wallet || btcWalletResponse">
       <table>
         <thead>
           <tr>
             <th>Currency</th>
+<<<<<<< HEAD
             <th>Total Balance</th> 
             <th title="Fiat rate">$CAD</th>
+=======
+            <th>Total Balance</th>
+            <th>Available</th>
+            <th>Debt</th>
+            <th>Pending</th>
+            <th title="Fiat rate">CAD</th> 
+>>>>>>> 37a4811 (general fixes)
           </tr>
         </thead>
         <tbody *ngIf="wallet">
           <ng-container *ngIf="wallet.total">
             <tr (click)="selectCoin(wallet.total.currency)">
               <td>{{ wallet.total.currency }}</td>
+<<<<<<< HEAD
               <td>{{ wallet.total.totalBalance }}</td>  
               <td>{{ multiplyValues(wallet.total.available, btcFiatConversion) }}$</td>
+=======
+              <td>{{ wallet.total.totalBalance }}</td>
+              <td>{{ wallet.total.available }}</td>
+              <td>{{ roundToEightDecimalPlaces(wallet.total.debt!) }}</td>
+              <td>{{ roundToEightDecimalPlaces(wallet.total.pending!) }}</td>
+              <td>{{ multiplyValues(wallet.total.available, btcFiatConversion) }}$</td> 
+>>>>>>> 37a4811 (general fixes)
             </tr>
           </ng-container>
           <ng-container *ngFor="let currency of wallet.currencies">
             <tr *ngIf="currency.status === 'ACTIVE' && currency.currency" (click)="selectCoin(currency.currency)">
               <td>{{ currency.currency }}</td>
+<<<<<<< HEAD
               <td>{{ currency.totalBalance }}</td> 
               <td>{{ calculateTotalValue(currency).toFixed(2) }}$</td>
+=======
+              <td>{{ currency.totalBalance }}</td>
+              <td>{{ currency.available }}</td>
+              <td>{{ roundToEightDecimalPlaces(currency.debt!) }}</td>
+              <td>{{ roundToEightDecimalPlaces(currency.pending!) }}</td>
+              <td>{{ calculateTotalValue(currency).toFixed(2) }}$</td> 
+>>>>>>> 37a4811 (general fixes)
             </tr>
           </ng-container>
         </tbody>
@@ -90,7 +129,14 @@
           <ng-container *ngFor="let btcWallet of btcWalletResponse?.currencies">
             <tr>
               <td>BTC</td>
+<<<<<<< HEAD
               <td>{{ btcWallet.totalBalance }}</td> 
+=======
+              <td>{{ btcWallet.totalBalance }}</td>
+              <td>{{ btcWallet.available }}</td>
+              <td>{{ roundToEightDecimalPlaces(btcWallet.debt!) }}</td>
+              <td>{{ roundToEightDecimalPlaces(btcWallet.pending!) }}</td>
+>>>>>>> 37a4811 (general fixes)
               <td>{{ calculateTotalValue(btcWallet).toFixed(2) }}$</td>
             </tr>
           </ng-container>

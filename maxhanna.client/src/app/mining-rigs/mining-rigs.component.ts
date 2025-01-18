@@ -173,6 +173,7 @@ export class MiningRigsComponent extends ChildComponent {
     const formatted = speed.toFixed(2); // 2 decimal places
     return formatted.toString().length > 5 ? formatted.toString().slice(0, 5) + '...' : formatted;
   }
+<<<<<<< HEAD
 
   formatToCanadianCurrency(value: number): string {
     return new Intl.NumberFormat('en-CA', {
@@ -181,4 +182,6 @@ export class MiningRigsComponent extends ChildComponent {
     }).format(value);
   }
 
+=======
+>>>>>>> 37a4811 (general fixes)
 }

@@ -47,6 +47,7 @@
   align-items: center;
   font-size: xx-small;
 }
+<<<<<<< HEAD
 
 @media only screen and (max-width : 355px) {
   .searchInput {
@@ -54,6 +55,13 @@
   }
 }
 
+=======
+@media only screen and (max-width : 355px) {
+  .searchInput {
+    display: inline-flex; 
+  }
+} 
+>>>>>>> 37a4811 (general fixes)
 .typeTd {
   text-align: center;
   color: var(--secondary-font-color);
@@ -222,11 +230,14 @@
   overflow: auto;
 }
 
+<<<<<<< HEAD
 .totalPageDisplay {
   margin-left: 5px;
   margin-right: 5px;
 }
 
+=======
+>>>>>>> 37a4811 (general fixes)
 .fileOptionsStats div {
   padding: 5px;
 }

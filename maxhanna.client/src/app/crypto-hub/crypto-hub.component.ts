@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
+=======
+import { Component, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
+>>>>>>> 37a4811 (general fixes)
 import { ChildComponent } from '../child.component';
 import { MiningService } from '../../services/mining.service';
 import { Currency, MiningWalletResponse, Total } from '../../services/datacontracts/crypto/mining-wallet-response';
@@ -22,12 +26,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   allHistoricalData?: CoinValue[] = [];
   btcWalletResponse?: MiningWalletResponse = undefined;
   btcToCadPrice = 0;
+<<<<<<< HEAD
    
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild('btcConvertSATValue') btcConvertSATValue!: ElementRef<HTMLInputElement>;
   @ViewChild('btcConvertCADValue') btcConvertCADValue!: ElementRef<HTMLInputElement>;
   @ViewChild('btcConvertBTCValue') btcConvertBTCValue!: ElementRef<HTMLInputElement>;
+=======
+  @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
+>>>>>>> 37a4811 (general fixes)
   @Output() coinSelected = new EventEmitter<string>();
 
   constructor(private miningService: MiningService, private coinValueService: CoinValueService, private userService: UserService) {
@@ -54,7 +62,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     } catch (error) {
       console.error('Error fetching coin values:', error);
     }
+<<<<<<< HEAD
     this.convertBTCtoFIAT()
+=======
+>>>>>>> 37a4811 (general fixes)
     this.stopLoading();
   }
 
@@ -137,6 +148,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     if (!coinName) return;
     this.coinSelected.emit(this.currentSelectedCoin = coinName === "Total BTC" || coinName === "BTC" ? "Bitcoin" : coinName);
   }
+<<<<<<< HEAD
   convertBTCtoFIAT(): void {
     const btcValue = parseFloat(this.btcConvertBTCValue.nativeElement.value) || 0;
     const cadValue = btcValue * this.btcToCadPrice;
@@ -175,4 +187,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     return value.toLocaleString('en-US');
   }
 
+=======
+>>>>>>> 37a4811 (general fixes)
 }

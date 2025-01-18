@@ -9,7 +9,10 @@ import { AppComponent } from '../app.component';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 import { NotificationService } from '../../services/notification.service';
+<<<<<<< HEAD
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+=======
+>>>>>>> 37a4811 (general fixes)
 
 @Component({
   selector: 'app-chat',
@@ -118,7 +121,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         await this.subscribeToChatTopic(token);
       }  
     } catch (error) {
+<<<<<<< HEAD
       //console.log('Error requesting notification permission:', error);
+=======
+      console.log('Error requesting notification permission:', error);
+>>>>>>> 37a4811 (general fixes)
     }
   }
 
@@ -314,19 +321,26 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.newMessage.nativeElement.value = '';
       const user = this.parentRef?.user ?? new User(0, "Anonymous");
       await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles);
+<<<<<<< HEAD
       this.removeAllAttachments(); 
+=======
+      this.attachedFiles = [];
+>>>>>>> 37a4811 (general fixes)
       await this.getMessageHistory();
       this.notificationService.notifyUsers(user, chatUsers);
     } catch (error) {
       console.error(error);
     }
   }
+<<<<<<< HEAD
 
   private removeAllAttachments() {
     this.attachedFiles = [];
     this.attachmentSelector.removeAllFiles();
   }
 
+=======
+>>>>>>> 37a4811 (general fixes)
   selectFile(files: FileEntry[]) {
     this.attachedFiles = files;
   }

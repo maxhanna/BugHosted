@@ -9,7 +9,11 @@
     </div>
     <div (click)="toggleShowAllData()" class="totalDailyEarningsDiv">
       <span class="cursorPointer">
+<<<<<<< HEAD
         Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? formatToCanadianCurrency(rate * dailyEarnings[0].totalEarnings!) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
+=======
+        Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? (rate * dailyEarnings[0].totalEarnings!).toFixed(2) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
+>>>>>>> 37a4811 (general fixes)
       </span>
       <div class="cursorPointer">
         Total Weekly Earnings: {{ calculateWeeklyEarnings() }} | Daily Average: {{ calculateAverageDailyEarnings() }}

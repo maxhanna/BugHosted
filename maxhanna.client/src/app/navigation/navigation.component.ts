@@ -57,7 +57,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
       "Crypto-Hub", 
       "Notification", 
       "Calendar",
+<<<<<<< HEAD
       "Chat",
+=======
+>>>>>>> 37a4811 (general fixes)
       "Weather", 
       "Wordler"
     ];

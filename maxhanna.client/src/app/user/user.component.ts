@@ -46,9 +46,15 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isFriendRequestsExpanded = false;
   isAboutExpanded = true;
   isWordlerScoresExpanded = false;
+<<<<<<< HEAD
   isAboutOpen = false; 
   isFriendsPanelOpen = false;
   isAboutPanelOpen = false;
+=======
+  isAboutOpen = false;
+  isMoreInfoOpen = false;
+  isFriendsPanelOpen = false;
+>>>>>>> 37a4811 (general fixes)
   isEditingFriends = false;
   hasFriendRequests = false;
   friends: User[] = [];
@@ -348,6 +354,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       case 'showFriends':
         this.openFriendsPanel();
         break;
+      case 'showFriends':
+        this.openFriendsPanel();
+        break;
       case 'settings':
         this.parentRef?.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this.parentRef })
         break;
@@ -529,6 +538,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (parent) {
       parent.closeOverlay();
     }
+<<<<<<< HEAD
   }
   openAboutPanel() {
     this.isAboutPanelOpen = true;
@@ -543,5 +553,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     if (parent) {
       parent.closeOverlay();
     }
+=======
+>>>>>>> 37a4811 (general fixes)
   }
 }

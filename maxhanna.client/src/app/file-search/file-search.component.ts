@@ -499,7 +499,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.inputtedParentRef.showOverlay = false;
     }
   }
+<<<<<<< HEAD
   shouldShowEditButton(optionsFile: any): boolean { 
+=======
+  shouldShowEditButton(optionsFile: any): boolean {
+    console.log(this.currentDirectory);
+>>>>>>> 37a4811 (general fixes)
     if (!optionsFile?.user?.id || !this.user?.id || this.currentDirectory === 'Users/') {
       return false;
     }

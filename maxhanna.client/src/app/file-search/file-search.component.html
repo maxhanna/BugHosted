@@ -27,8 +27,13 @@
 </div>
 
 <div *ngIf="showData">
+<<<<<<< HEAD
   <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
     <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
+=======
+  <div *ngIf="displayTotal" class="totalDisplay">
+    <span class="currentDirectorySpan" *ngIf="fileSearchMode">
+>>>>>>> 37a4811 (general fixes)
       Current Directory:
       <span class="invertedHighlights">{{currentDirectory || '.'}}</span>
     </span>
@@ -39,7 +44,11 @@
   <!-- Main Data -->
   <div>
     <div id="fileTable" *ngIf="!isLoading">
+<<<<<<< HEAD
       <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">
+=======
+      <div *ngIf="showUpFolderRow && canChangeDirectory">
+>>>>>>> 37a4811 (general fixes)
         <div (click)="previousDirectory()"
              class="upOneFolder"
              title="Up one folder"
@@ -146,6 +155,7 @@
       ❌Delete
     </button>
   </div>
+<<<<<<< HEAD
   <div *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)">
     <app-topics #topicComponent
                 [isDropdown]="true"
@@ -155,6 +165,8 @@
                 (topicAdded)="editFileTopicInDB($event, optionsFile)">
     </app-topics>
   </div>
+=======
+>>>>>>> 37a4811 (general fixes)
   <div class="fileOptionsStats">
     <div class="optionsPanelDataDiv"><span class="smallFont">Id:</span> {{optionsFile.id}}</div>
     <div class="optionsPanelDataDiv"><span class="smallFont">{{optionsFile.isFolder ? 'Folder' : 'File'}} Name:</span> {{optionsFile.fileName}}</div>
