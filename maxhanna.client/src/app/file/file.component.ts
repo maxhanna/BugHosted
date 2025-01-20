@@ -4,6 +4,8 @@ import { ChildComponent } from '../child.component';
 import { FileSearchComponent } from '../file-search/file-search.component';
 import { User } from '../../services/datacontracts/user/user';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { TopicRank } from '../../services/datacontracts/topics/topic-rank';
+import { TopicService } from '../../services/topic.service';
   
 @Component({
   selector: 'app-file',
@@ -11,8 +13,9 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
   styleUrls: ['./file.component.css']
 })
 export class FileComponent extends ChildComponent {
-  constructor(private fileService: FileService) {
-    super();
+  constructor(private fileService: FileService, private topicService: TopicService) {
+    super(); 
+    this.topicService.getTopFileTopics().then(res => { if (res) { this.topTopics = res; } });
   }
   fS = "/"; 
   errorMessage: string | null = null;
@@ -43,6 +46,7 @@ export class FileComponent extends ChildComponent {
   selectedThumbnail = "";
   selectedFileType = "";
   abortThumbnailRequestController: AbortController | null = null;
+  topTopics: TopicRank[] = []; 
 
   @Input() user?: User;
   @Input() fileId: string | null = null;
@@ -171,5 +175,8 @@ export class FileComponent extends ChildComponent {
     if (this.parentRef && this.parentRef.showOverlay) {
       this.parentRef.showOverlay = false;
     }
+  }
+  topTopicClicked(topic: TopicRank) {
+    this.fileSearchComponent.searchFiles(topic.topicName);
   }
 }

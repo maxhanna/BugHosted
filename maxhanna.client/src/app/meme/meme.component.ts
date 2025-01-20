@@ -18,6 +18,7 @@ export class MemeComponent extends ChildComponent  {
   isUploadingInProcess = false;
   isMenuPanelOpen = false;
   currentMemePage = 1;
+  searchTerms = "";
   iPhone = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
@@ -67,6 +68,6 @@ export class MemeComponent extends ChildComponent  {
     }
   } 
   topTopicClicked(topic: TopicRank) {
-
+    this.fileSearchComponent.searchFiles(topic.topicName);
   }
 }

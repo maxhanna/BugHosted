@@ -499,8 +499,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.inputtedParentRef.showOverlay = false;
     }
   }
-  shouldShowEditButton(optionsFile: any): boolean {
-    console.log(this.currentDirectory);
+  shouldShowEditButton(optionsFile: any): boolean { 
     if (!optionsFile?.user?.id || !this.user?.id || this.currentDirectory === 'Users/') {
       return false;
     }
@@ -582,6 +581,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   }
   isDisplayingTotalPagesButton() {
     return this.totalPages > 1 && this.totalPages != this.currentPage;
+  }
+  async searchFiles(topic: string) {
+    this.tmpSearchTerms = topic;
+    await this.getDirectory();
   }
   async fileTopicClicked(topic: Topic) {
     this.tmpSearchTerms = topic.topicText;

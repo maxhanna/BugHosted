@@ -18,7 +18,7 @@
 </div>
 
 <!-- Menu Popup -->
-<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen"> 
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Filesystem Menu
   </div>
@@ -53,5 +53,18 @@
     </div>
 
   </div>
+
+  <div>
+    <div class="popupPanelTitle">
+      Search Popular Topics:
+    </div>
+    <div *ngIf="topTopics">
+      <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic)" class="topTopicsDiv">
+        <span class="matchingTopic">{{topic.topicName}}</span>
+        <span class="topicFileCount">({{topic.fileCount}})</span>
+      </span>
+    </div>
+  </div>
+
   <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
 </div> 
