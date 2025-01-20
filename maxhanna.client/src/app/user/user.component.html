@@ -38,12 +38,8 @@
             <option *ngIf="areWeFriends(user)" value="removeFriend">👤 Remove Friend</option>
             <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">👤 Add Contact</option>
             <option value="showFriends">👤 Show Friends</option>
-            <option *ngIf="user" value="chat">🗨️ Chat</option>
-<<<<<<< HEAD
+            <option *ngIf="user" value="chat">🗨️ Chat</option> 
             <option *ngIf="user" value="userInfo">ℹ️ {{ isAboutPanelOpen ? 'Hide ' : '' }} User Info</option>
-=======
-            <option *ngIf="user" value="userInfo">ℹ️ {{ isMoreInfoOpen ? 'Hide ' : '' }} User Info</option>
->>>>>>> 37a4811 (general fixes)
             <option *ngIf="user && user.id == parentRef?.user?.id" value="settings">⚙️ Settings</option>
             <option *ngIf="user && user.id == parentRef?.user?.id" value="logout">🔑 Logout</option>
           </select>
@@ -274,13 +270,9 @@
   </div>
   <div class="aboutPopupPanelContentContainer">
     <div class="topProfileContainer" id="aboutContainer">
-      <div *ngIf="user || parentRef?.user" class="aboutContainer">
-<<<<<<< HEAD
-        <span class="smallExpander mainTable" (click)="expandDiv('aboutContainer');">
-=======
-        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">About</span>
-        <span class="smallExpander mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">
->>>>>>> 37a4811 (general fixes)
+      <div *ngIf="user || parentRef?.user" class="aboutContainer"> 
+        <span class="smallExpander mainTable" (click)="expandDiv('aboutContainer');"> 
+        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">About</span> 
           {{isAboutExpanded ? '-' : '+'}}
         </span> 
         <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer');">About</span>
@@ -321,20 +313,14 @@
             </tbody>
           </table>
         </div>
-      </div>
-<<<<<<< HEAD
-    </div>
-=======
+      </div> 
     </div> 
->>>>>>> 37a4811 (general fixes)
+    </div>  
 
     <!-- WORDLER SCORES-->
     <div class="topProfileContainer" id="wordlerScoresProfileContainer" (click)="expandDiv('wordlerScoresProfileContainer');">
-      <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv">
-<<<<<<< HEAD
-=======
-        <span class="cursorPointerUnderlined mainTable">Best Wordler Scores</span>
->>>>>>> 37a4811 (general fixes)
+      <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv"> 
+        <span class="cursorPointerUnderlined mainTable">Best Wordler Scores</span> 
         <span class="smallExpander mainTable">
           {{isWordlerScoresExpanded ? '-' : '+'}}
         </span> 
@@ -367,8 +353,7 @@
       </div>
     </div>
 
-    <!-- MUSIC -->
-<<<<<<< HEAD
+    <!-- MUSIC --> 
     <div class="topProfileContainer" id="musicProfileContainer"> 
       <span class="smallExpander mainTable" (click)="expandDiv('musicProfileContainer');">
         {{isMusicContainerExpanded ? '-' : '+'}}
@@ -385,8 +370,7 @@
                     [smallPlayer]="true"
                     (gotPlaylistEvent)="gotPlaylistEvent($event)">
         </app-music>
-      </div> 
-=======
+      </div>  
     <div class="topProfileContainer" id="musicProfileContainer">
       <div *ngIf="user || parentRef?.user" class="">
         <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">Music Playlist</span>
@@ -401,8 +385,7 @@
                      (gotPlaylistEvent)="gotPlaylistEvent($event)">
           </app-music>
         </div>
-      </div>
->>>>>>> 37a4811 (general fixes)
+      </div> 
     </div>
   </div>
   <div>

@@ -107,16 +107,5 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     } else if (notification?.text?.toLowerCase().includes("following")) {
       this.viewProfile(notification.fromUser);
     }
-  }
-  notificationTextClick(notification: UserNotification) {
-    if (notification.text?.includes('Captured a base at')) {
-      this.parentRef?.createComponent('Bug-Wars');
-    } else if (notification.fileId) {
-      this.goToFileId(notification.fileId)
-    } else if (notification.storyId) {
-      this.goToStoryId(notification.storyId)
-    } else if (notification.chatId) {
-      this.goToChat(notification.chatId);
-    }
-  }
+  } 
 }

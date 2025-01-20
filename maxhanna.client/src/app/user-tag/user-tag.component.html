@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 <div class="cursorPointer userTag {{displayMiniTag ? 'miniTag' : ''}}" (click)="preventOpenProfile ? '' : viewProfile(user)">
-=======
-<div class="cursorPointer userTag {{displayMiniTag ? 'miniTag' : ''}}" (click)="viewProfile(user)">
->>>>>>> 37a4811 (general fixes)
   <div class="avatar {{displayMiniTag ? 'miniAvatar' : 'largeAvatar'}}" *ngIf="!displayOnlyName">
     <div class="displayPicture avatar {{displayMiniTag ? 'miniAvatarPic' : ''}}" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
       <app-media-viewer #profileImageViewer

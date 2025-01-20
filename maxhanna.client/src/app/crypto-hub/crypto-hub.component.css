@@ -1,65 +1,38 @@
 .componentMain {
   width: 96vw;
   overflow: auto;
-}
-<<<<<<< HEAD
+} 
 
 .wallet {
   min-width: 300px;
   overflow: auto;
   border: 1px solid dashed;
   padding: 10px;
-}
-
-=======
- 
-.wallet {
-    min-width: 300px;
-    overflow:auto;
-    border: 1px solid dashed;
-    padding:10px;
-}
->>>>>>> 37a4811 (general fixes)
+} 
   .wallet table {
     width: 100%;
   }
-
-<<<<<<< HEAD
+   
     .wallet table td {
       text-align: center;
-    }
-=======
-  .wallet table td {
-    text-align: center;
-  }
->>>>>>> 37a4811 (general fixes)
-
+    }   
 /* typical phone screen resolution */
 @media only screen and (max-width : 667px) {
   .wallet {
     font-size: small;
-  }
-<<<<<<< HEAD
+  } 
 }
-
-=======
-} 
->>>>>>> 37a4811 (general fixes)
+  
 .sectionName {
   font-family: Courier New, Arial;
   font-weight: bolder;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   text-align: center;
-}
-<<<<<<< HEAD
-
-=======
->>>>>>> 37a4811 (general fixes)
+} 
 .hubSection {
   display: inline-flex;
   flex-direction: column;
-  width: 100%;
-<<<<<<< HEAD
+  width: 100%; 
   padding: 5px;
 }
 
@@ -95,12 +68,9 @@
   padding: 5px;
   font-size: small;
   font-weight: bold;
-}
-=======
-}
+} 
 @media only screen and (min-width : 1000px) {
   .hubSection {
     width: 50%;
   }
-} 
->>>>>>> 37a4811 (general fixes)
+}  

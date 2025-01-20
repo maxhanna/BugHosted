@@ -65,13 +65,8 @@ import { MetaComponent } from './meta/meta.component';
     NotepadComponent,
     MusicComponent,
     ContactsComponent,
-    CryptoHubComponent, 
-<<<<<<< HEAD
-    UserComponent, 
-=======
-    UserComponent,
-    CoinWatchComponent,
->>>>>>> 37a4811 (general fixes)
+    CryptoHubComponent,  
+    UserComponent,   
     ChatComponent,
     UserListComponent,
     MemeComponent,

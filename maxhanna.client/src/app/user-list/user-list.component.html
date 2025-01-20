@@ -43,12 +43,8 @@
     {{ isFriendsChecked ? 'Friends' : 'User' }} List
   </div>
   <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
-    <span class="user">
-<<<<<<< HEAD
-      <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true" [preventOpenProfile]="true"></app-user-tag> 
-=======
-      <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag> 
->>>>>>> 37a4811 (general fixes)
+    <span class="user"> 
+      <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true" [preventOpenProfile]="true"></app-user-tag>  
     </span>
     <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
       💬

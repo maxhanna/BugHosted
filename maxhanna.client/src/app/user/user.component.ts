@@ -45,16 +45,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isMenuIconsToggled = true;
   isFriendRequestsExpanded = false;
   isAboutExpanded = true;
-  isWordlerScoresExpanded = false;
-<<<<<<< HEAD
+  isWordlerScoresExpanded = false; 
   isAboutOpen = false; 
   isFriendsPanelOpen = false;
-  isAboutPanelOpen = false;
-=======
-  isAboutOpen = false;
-  isMoreInfoOpen = false;
-  isFriendsPanelOpen = false;
->>>>>>> 37a4811 (general fixes)
+  isAboutPanelOpen = false;  
+  isMoreInfoOpen = false; 
   isEditingFriends = false;
   hasFriendRequests = false;
   friends: User[] = [];
@@ -537,8 +532,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
       parent.closeOverlay();
-    }
-<<<<<<< HEAD
+    } 
   }
   openAboutPanel() {
     this.isAboutPanelOpen = true;
@@ -552,8 +546,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
       parent.closeOverlay();
-    }
-=======
->>>>>>> 37a4811 (general fixes)
+    } 
   }
 }

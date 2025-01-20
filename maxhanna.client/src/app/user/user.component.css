@@ -164,15 +164,12 @@
   border-radius: 8px;
   overflow: auto;
   padding: 20px;
-}
-<<<<<<< HEAD
+} 
 .aboutPopupPanel {
   height: 500px;
   justify-content: space-between;
 }
-=======
->>>>>>> 37a4811 (general fixes)
-
+ 
 .popupPanelTitle {
   display: flex;
   width: 100%;
@@ -181,14 +178,11 @@
 
 .friendsListWrapperDiv {
   display: flex;
-  flex-wrap: wrap;
-<<<<<<< HEAD
+  flex-wrap: wrap; 
   justify-content: center;
   align-items: center;
   align-content: center;
-  gap: 25px;
-=======
->>>>>>> 37a4811 (general fixes)
+  gap: 25px; 
 }
 
 .friendsListDiv:hover {
@@ -202,18 +196,14 @@
 .deletingFriendsListWrapper {
   flex-direction: column;
   max-height: 350px;
-  overflow: auto;
-<<<<<<< HEAD
+  overflow: auto; 
   gap: unset;
 }
 
 .deletingFriendsList {
   width: 95%;
 }
-
-=======
-}
->>>>>>> 37a4811 (general fixes)
+  
 .deletingFriendsList, .friendsRequestReceivedList {
   display: flex;
   justify-content: space-between;
@@ -228,12 +218,9 @@
 .friendshipRequestActionDiv button {
   margin-left: 25px;
   padding: 10px;
-}
-<<<<<<< HEAD
+} 
 
 .topProfileContainer {
   max-height: 350px;
   overflow: auto;
-}
-=======
->>>>>>> 37a4811 (general fixes)
+} 

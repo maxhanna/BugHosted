@@ -56,11 +56,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     const itemsToClear = [
       "Crypto-Hub", 
       "Notification", 
-      "Calendar",
-<<<<<<< HEAD
-      "Chat",
-=======
->>>>>>> 37a4811 (general fixes)
+      "Calendar", 
+      "Chat",  
       "Weather", 
       "Wordler"
     ];

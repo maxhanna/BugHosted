@@ -1,19 +1,14 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { ChatService } from '../../services/chat.service';
-import { Message } from '../../services/datacontracts/chat/message';
-import { ChatNotification } from '../../services/datacontracts/chat/chat-notification';
+import { Message } from '../../services/datacontracts/chat/message'; 
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
-import { NotificationService } from '../../services/notification.service';
-<<<<<<< HEAD
-import { MediaSelectorComponent } from '../media-selector/media-selector.component';
-=======
->>>>>>> 37a4811 (general fixes)
-
+import { NotificationService } from '../../services/notification.service'; 
+import { MediaSelectorComponent } from '../media-selector/media-selector.component'; 
 @Component({
   selector: 'app-chat',
   templateUrl: './chat.component.html',
@@ -120,12 +115,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
         await this.subscribeToChatTopic(token);
       }  
-    } catch (error) {
-<<<<<<< HEAD
-      //console.log('Error requesting notification permission:', error);
-=======
-      console.log('Error requesting notification permission:', error);
->>>>>>> 37a4811 (general fixes)
+    } catch (error) {  
+      console.log('Error requesting notification permission:', error); 
     }
   }
 
@@ -320,27 +311,20 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     try {
       this.newMessage.nativeElement.value = '';
       const user = this.parentRef?.user ?? new User(0, "Anonymous");
-      await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles);
-<<<<<<< HEAD
-      this.removeAllAttachments(); 
-=======
-      this.attachedFiles = [];
->>>>>>> 37a4811 (general fixes)
+      await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles); 
+      this.removeAllAttachments();  
+      this.attachedFiles = []; 
       await this.getMessageHistory();
       this.notificationService.notifyUsers(user, chatUsers);
     } catch (error) {
       console.error(error);
     }
-  }
-<<<<<<< HEAD
-
+  } 
   private removeAllAttachments() {
     this.attachedFiles = [];
     this.attachmentSelector.removeAllFiles();
   }
-
-=======
->>>>>>> 37a4811 (general fixes)
+   
   selectFile(files: FileEntry[]) {
     this.attachedFiles = files;
   }
