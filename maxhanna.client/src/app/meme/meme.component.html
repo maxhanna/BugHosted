@@ -1,6 +1,6 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('MemeComponent')"></div>
-  <!--<div class="refreshButton" (click)="ngOnInit()"></div>-->
+  <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Meme</div>
 
   <div class="notifications">
@@ -10,22 +10,7 @@
   </div>
   <div class="memeResultsDiv">
     <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
-
-    <div class="fileUploadInputs">
-      <app-file-upload [currentDirectory]="'Meme'"
-                       [user]="parentRef?.user"
-                       [inputtedParentRef]="parentRef"
-                       [showPrivatePublicOption]="false"
-                       [allowedFileTypes]="'image/*,video/*'"
-                       [uploadButtonText]="'Upload Meme(s)'"
-                       (userNotificationEvent)="uploadNotification($event);"
-                       (userUploadEvent)="uploadFileListEvent($event);"
-                       (userUploadFinishedEvent)="uploadFinished($event)"
-                       (userCancelEvent)="uploadCancelEvent($event);"
-                       id="fileUploader">
-      </app-file-upload>
-    </div>
-
+      
     <app-file-search #fileSearchComponent
                      [inputtedParentRef]="parentRef"
                      [user]="parentRef?.user"
@@ -46,5 +31,40 @@
     <div class="loadMoreResultsDiv">
       <button *ngIf="fileSearchComponent.currentPage < fileSearchComponent.totalPages && (fileSearchComponent.directory && fileSearchComponent.directory.data ? (fileSearchComponent.directory.data.length > 0 ?? false) : false)" (click)="fileSearchComponent.nextPage()">Load More Results</button>
     </div>
-  </div> 
+  </div>
+</div>
+
+
+
+<!-- Menu Popup -->
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    Meme Menu
+  </div>
+  <div class="fileUploadInputs">
+    <app-file-upload [currentDirectory]="'Meme'"
+                     [user]="parentRef?.user"
+                     [inputtedParentRef]="parentRef"
+                     [showPrivatePublicOption]="false"
+                     [allowedFileTypes]="'image/*,video/*'"
+                     [uploadButtonText]="'Upload Meme(s)'"
+                     (userNotificationEvent)="uploadNotification($event);"
+                     (userUploadEvent)="uploadFileListEvent($event);"
+                     (userUploadFinishedEvent)="uploadFinished($event)"
+                     (userCancelEvent)="uploadCancelEvent($event);"
+                     id="fileUploader">
+    </app-file-upload>
+  </div>
+  <div>
+    <div class="popupPanelTitle">
+      Search Popular Topics:
+    </div>
+    <div *ngIf="topTopics">
+      <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic)" class="topTopicsDiv">
+        <span class="matchingTopic">{{topic.topicName}}</span>
+        <span class="topicFileCount">({{topic.fileCount}})</span>
+      </span>
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
 </div>

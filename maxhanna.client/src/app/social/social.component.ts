@@ -108,7 +108,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
 
     await this.getStories();
-    await this.topicService.getTopTopics().then(res => {
+    await this.topicService.getTopStoryTopics().then(res => {
       if (res) {
         this.topTopics = res;
       }

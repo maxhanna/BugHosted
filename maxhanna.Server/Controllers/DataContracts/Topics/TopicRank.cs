@@ -4,6 +4,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Topics
 	{
 		public int TopicId { get; set; }
 		public required string TopicName { get; set; }
-		public int StoryCount { get; set; }
+		public int? StoryCount { get; set; }
+		public int? FileCount { get; set; }
 	}
 }

@@ -119,27 +119,44 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		[HttpGet("/Topic/GetTopTopics/", Name = "GetTopTopics")]
-		public async Task<IActionResult> GetTopTopics()
+		[HttpGet("/Topic/GetTopStoryTopics/", Name = "GetTopStoryTopics")]
+		public async Task<IActionResult> GetTopStoryTopics()
 		{
-			_logger.LogInformation($@"GET /Social/GetTopTopics");
+			_logger.LogInformation($@"GET /Social/GetTopStoryTopics");
 
 			try
 			{
-				List<TopicRank> topics = await GetTopicRanks();
-				return Ok(topics);
+				List<TopicRank> topicRanks = await GetStoryTopicRanks();
+				return Ok(topicRanks);
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching stories.");
-				return StatusCode(500, "An error occurred while fetching stories.");
+				_logger.LogError(ex, "An error occurred while fetching story topic ranks.");
+				return StatusCode(500, "An error occurred while fetching story topic ranks.");
 			}
 		}
 
-		private async Task<List<TopicRank>> GetTopicRanks()
-		{ 
+		[HttpGet("/Topic/GetTopFileTopics/", Name = "GetTopFileTopics")]
+		public async Task<IActionResult> GetTopFileTopics()
+		{
+			_logger.LogInformation($@"GET /Social/GetTopFileTopics");
+
+			try
+			{
+				List<TopicRank> topicRanks = await GetFileTopicRanks();
+				return Ok(topicRanks);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while fetching file topic ranks.");
+				return StatusCode(500, "An error occurred while fetching file topic ranks.");
+			}
+		}
+
+		private async Task<List<TopicRank>> GetStoryTopicRanks()
+		{
 			// Create a list to store the results
-			var topicRanks = new List<TopicRank>();  
+			var topicRanks = new List<TopicRank>();
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				try
@@ -181,10 +198,62 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while fetching topic ranks.");
-					throw; 
+					_logger.LogError(ex, "An error occurred while fetching story topic ranks.");
+					throw;
 				}
-			} 
+			}
+			return topicRanks;
+		}
+
+		private async Task<List<TopicRank>> GetFileTopicRanks()
+		{
+			// Create a list to store the results
+			var topicRanks = new List<TopicRank>();
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					// Open the connection
+					await conn.OpenAsync();
+
+					// SQL query to get topic ranks
+					string sql = @"
+                SELECT 
+                    t.id AS topic_id,
+                    t.topic AS topic_name,
+                    COUNT(st.file_id) AS file_count
+                FROM 
+                    topics t
+                LEFT JOIN 
+                    file_topics st ON t.id = st.topic_id
+                GROUP BY 
+                    t.id, t.topic
+                ORDER BY 
+                    file_count DESC;";
+
+					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+					{
+						using (var reader = await cmd.ExecuteReaderAsync())
+						{
+							// Read data from the query result
+							while (await reader.ReadAsync())
+							{
+								topicRanks.Add(new TopicRank
+								{
+									TopicId = reader.GetInt32("topic_id"),
+									TopicName = reader.GetString("topic_name"),
+									FileCount = reader.GetInt32("file_count")
+								});
+							}
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "An error occurred while fetching file topic ranks.");
+					throw;
+				}
+			}
 			return topicRanks;
 		}
 

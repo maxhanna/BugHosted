@@ -26,6 +26,7 @@ export class FileComponent extends ChildComponent {
   showMakeDirectoryPrompt = false;
   currentDirectory = '';
   isUploadInitiate = false;
+  isMenuPanelOpen = false;
   uploadFileList: Array<File> = []; 
   isSharePanelExpanded = false;
   fileBeingShared = 0;
@@ -153,5 +154,22 @@ export class FileComponent extends ChildComponent {
   } 
   canUploadToFolder() { 
     return !this.showMakeDirectoryPrompt && !(this.currentDirectory == '' && this.parentRef?.user?.id != 1) && !(this.currentDirectory == 'Users/');
+  }
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+    console.log(this.isMenuPanelOpen);
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
   }
 }

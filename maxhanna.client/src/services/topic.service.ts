@@ -35,9 +35,9 @@ export class TopicService {
     } catch (error) {
     }
   }
-  async getTopTopics() {
+  async getTopStoryTopics() {
     try {
-      const res = await fetch('/topic/gettoptopics', {
+      const res = await fetch('/topic/gettopstorytopics', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -45,11 +45,29 @@ export class TopicService {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to get top topics');
+        throw new Error('Failed to get top story topics');
       }
       return res.json();
     } catch (error) {
-      console.error('Error getting top topics:', error);
+      console.error('Error getting top story topics:', error);
+      return null;
+    }
+  }
+  async getTopFileTopics() {
+    try {
+      const res = await fetch('/topic/gettopfiletopics', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to get top file topics');
+      }
+      return res.json();
+    } catch (error) {
+      console.error('Error getting top file topics:', error);
       return null;
     }
   }

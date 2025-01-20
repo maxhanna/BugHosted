@@ -46,14 +46,14 @@
   justify-content: center;
   align-items: center;
   font-size: xx-small;
-} 
+}
 
 @media only screen and (max-width : 355px) {
   .searchInput {
     display: inline-flex;
   }
 }
-  
+
 .typeTd {
   text-align: center;
   color: var(--secondary-font-color);
@@ -196,24 +196,9 @@
   max-height: CALC(100% - 30px);
 }
 
-.popupPanel {
-  position: fixed;
+.popupPanel { 
   width: 300px;
-  height: 380px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: var(--main-bg-color);
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: space-evenly;
-  align-items: center;
-  border-radius: 8px;
-  overflow: auto;
-  padding: 20px;
+  height: 380px;  
 }
 
 .fileOptionsStats {
@@ -221,12 +206,12 @@
   width: 100%;
   overflow: auto;
 }
- 
+
 .totalPageDisplay {
   margin-left: 5px;
   margin-right: 5px;
 }
- 
+
 .fileOptionsStats div {
   padding: 5px;
 }

@@ -9,6 +9,7 @@
   --table-thead-color: var(--main-highlight-color-quarter-opacity);
   --main-font-family: Helvetica, Arial;
   --title-font-family: 'Gill Sans', Verdana, sans-serif;
+  --section-font-family: 'Courier New', Arial, sans-serif;
   --main-font-color: #b0c2b1;
   --main-link-color: chartreuse;
   --primary-font-color: var(--main-font-color);
@@ -471,8 +472,26 @@ fieldset {
     text-shadow: 0 0 5px var(--secondary-font-color), 0 0 6px var(--secondary-font-color), 0 0 7px var(--secondary-font-color), 0 0 8px var(--secondary-font-color), 0 0 9px var(--secondary-font-color);
   }
 }
+
+.popupPanel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--main-bg-color-full-opacity);
+  z-index: 1;
+  border-radius: 8px;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: space-evenly;
+  align-items: center;
+}
 .popupPanelTitle {
-  font-family: var(--title-font-family); 
+  font-family: var(--section-font-family);
 }
 
 .matchingTopic {

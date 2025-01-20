@@ -348,10 +348,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         break;
       case 'showFriends':
         this.openFriendsPanel();
-        break;
-      case 'showFriends':
-        this.openFriendsPanel();
-        break;
+        break; 
       case 'settings':
         this.parentRef?.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this.parentRef })
         break;

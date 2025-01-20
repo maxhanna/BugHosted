@@ -1,40 +1,12 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('FileComponent');" *ngIf="!user"></div>
-  <div class="refreshButton" (click)="ngOnInit();" *ngIf="!user"></div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle" *ngIf="!user">Filesystem</div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" (click)="notifications = [];" title="Click to clear notifications" class="notificationArea notification"></div>
 
   <app-user-list (userClickEvent)="shareFile($event);" [user]="parentRef?.user!" *ngIf="isSharePanelExpanded && !user"></app-user-list>
 
-  <div *ngIf="!user">
-
-    <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="canUploadToFolder()">📂New Folder</button>
-
-    <app-file-upload (userUploadEvent)="uploadInitiate();"
-                     (userUploadFinishedEvent)="uploadFinished($event)"
-                     (userNotificationEvent)="uploadNotification($event);"
-                     (userCancelEvent)="cancelMakeDirectoryOrFile();"
-                     [currentDirectory]="currentDirectory"
-                     [user]="parentRef?.user!"
-                     [inputtedParentRef]="parentRef"
-                     [uploadButtonText]="'Upload File(s)'"
-                     [showPrivatePublicOption]="isUploadInitiate ? true : false"
-                     *ngIf="canUploadToFolder()">
-    </app-file-upload>
-
-    <div *ngIf="showMakeDirectoryPrompt">
-      <input placeholder="Folder Name" #makeFolderName />
-      <label>
-        <select #folderVisibility [value]="createVisibility" (change)="createVisibilityOnChange()">
-          <option value="public">Public</option>
-          <option value="private">Private</option>
-        </select>
-      </label>
-      <button (click)="makeDirectory()">Create Folder</button>
-      <button (click)="cancelMakeDirectoryOrFile()">Cancel</button>
-    </div>
-  </div>
-
+ 
   <app-file-search [user]="parentRef?.user"
                    [inputtedParentRef]="parentRef"
                    [maxResults]="100"
@@ -45,3 +17,41 @@
   </app-file-search>
 </div>
 
+<!-- Menu Popup -->
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen"> 
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    Filesystem Menu
+  </div>
+  <div>
+    <div *ngIf="!user">
+
+      <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="canUploadToFolder()">📂New Folder</button>
+
+      <app-file-upload (userUploadEvent)="uploadInitiate();"
+                       (userUploadFinishedEvent)="uploadFinished($event)"
+                       (userNotificationEvent)="uploadNotification($event);"
+                       (userCancelEvent)="cancelMakeDirectoryOrFile();"
+                       [currentDirectory]="currentDirectory"
+                       [user]="parentRef?.user!"
+                       [inputtedParentRef]="parentRef"
+                       [uploadButtonText]="'Upload File(s)'"
+                       [showPrivatePublicOption]="isUploadInitiate ? true : false"
+                       *ngIf="canUploadToFolder()">
+      </app-file-upload>
+
+      <div *ngIf="showMakeDirectoryPrompt">
+        <input placeholder="Folder Name" #makeFolderName />
+        <label>
+          <select #folderVisibility [value]="createVisibility" (change)="createVisibilityOnChange()">
+            <option value="public">Public</option>
+            <option value="private">Private</option>
+          </select>
+        </label>
+        <button (click)="makeDirectory()">Create Folder</button>
+        <button (click)="cancelMakeDirectoryOrFile()">Cancel</button>
+      </div>
+    </div>
+
+  </div>
+  <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+</div> 
