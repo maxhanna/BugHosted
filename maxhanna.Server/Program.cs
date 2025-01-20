@@ -37,7 +37,7 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 
 var defaultApp = FirebaseApp.Create(new AppOptions
 {
-	Credential = GoogleCredential.FromFile("./Properties/bughosted-firebase-adminsdk-yz2go-3f7f14d8e9.json"),
+	Credential = GoogleCredential.FromFile("./Properties/bughosted-firebase-adminsdk-yz2go-c8f6d83bb6.json"),
 	ProjectId = "bughosted",
 });
 Console.WriteLine(defaultApp.Name); // "[DEFAULT]" 

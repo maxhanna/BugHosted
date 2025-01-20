@@ -10,11 +10,11 @@
     <UserSecretsId>739e1568-60de-4c76-9976-c6d09dabbe47</UserSecretsId>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
   </PropertyGroup>
-
+ 
   <ItemGroup>
     <Content Include="favicon.ico" />
   </ItemGroup>
-
+ 
   <ItemGroup>
     <PackageReference Include="FirebaseAdmin" Version="3.1.0" />
     <PackageReference Include="HtmlAgilityPack" Version="1.11.65" />
