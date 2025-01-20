@@ -362,3 +362,4 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /maxhanna.Server/appsettings.json
+/maxhanna.Server/Properties/bughosted-firebase-adminsdk-yz2go-3f7f14d8e9.json
