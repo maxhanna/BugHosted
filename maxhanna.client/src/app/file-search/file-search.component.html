@@ -26,9 +26,9 @@
   </span>
 </div>
 
-<div *ngIf="showData"> 
+<div *ngIf="showData">
   <div *ngIf="displayTotal && !search?.nativeElement?.value" class="totalDisplay">
-    <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">  
+    <span class="currentDirectorySpan" *ngIf="!search?.nativeElement?.value">
       Current Directory:
       <span class="invertedHighlights">{{currentDirectory || '.'}}</span>
     </span>
@@ -38,8 +38,8 @@
 
   <!-- Main Data -->
   <div>
-    <div id="fileTable" *ngIf="!isLoading"> 
-      <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">  
+    <div id="fileTable" *ngIf="!isLoading">
+      <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">
         <div (click)="previousDirectory()"
              class="upOneFolder"
              title="Up one folder"
@@ -142,10 +142,13 @@
     <button title="Share File" (click)="(optionsFile.visibility.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
       ↗️Share
     </button>
+    <button title="Download File" (click)="download(optionsFile, true);" *ngIf="!optionsFile.isFolder">
+      📥Download
+    </button>
     <button title="Delete File" (click)="this.delete(optionsFile);" *ngIf="shouldShowEditButton(optionsFile)">
       ❌Delete
     </button>
-  </div> 
+  </div>
   <div *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)">
     <app-topics #topicComponent
                 [isDropdown]="true"
@@ -154,7 +157,7 @@
                 [attachedTopics]="optionsFile.topics"
                 (topicAdded)="editFileTopicInDB($event, optionsFile)">
     </app-topics>
-  </div> 
+  </div>
   <div class="fileOptionsStats">
     <div class="optionsPanelDataDiv"><span class="smallFont">Id:</span> {{optionsFile.id}}</div>
     <div class="optionsPanelDataDiv"><span class="smallFont">{{optionsFile.isFolder ? 'Folder' : 'File'}} Name:</span> {{optionsFile.fileName}}</div>
@@ -180,7 +183,15 @@
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileSize"><span class="smallFont">Filesize:</span> {{formatFileSize(optionsFile.fileSize)}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.width"><span class="smallFont">Size (width/height):</span> {{optionsFile.width}}X{{optionsFile.height}} px</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.directory"><span class="smallFont">Directory:</span> {{optionsFile.directory}}</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.visibility"><span class="smallFont">Visibility:</span> {{optionsFile.visibility}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.visibility">
+      <span class="smallFont">Visibility:</span>
+      <span>
+        {{optionsFile.visibility}}
+        <span *ngIf="optionsFile.visibility == 'Private'"
+              class="private"
+              title="This is a private file.">🔒</span>
+      </span>
+    </div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.sharedWith"><span class="smallFont">Shared With:</span> {{optionsFile.sharedWith}}</div>
     <div class="optionsPanelDataDiv">
       <span class="smallFont">

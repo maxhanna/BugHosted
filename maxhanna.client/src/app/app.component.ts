@@ -130,22 +130,22 @@ export class AppComponent implements OnInit, AfterViewInit {
       if (event instanceof NavigationEnd) { 
         if (this.router.url.includes('Memes')) {
           this.checkAndClearRouterOutlet();
-          const memeId = this.router.url.toLowerCase().split('memes/')[1];
+          const memeId = this.router.url.toLowerCase().split('memes/')[1]?.split('?')[0];
           this.createComponent("Meme", { "memeId": memeId });
         }
         if (this.router.url.includes('Social')) {
           this.checkAndClearRouterOutlet();
-          const storyId = this.router.url.toLowerCase().split('social/')[1];
+          const storyId = this.router.url.toLowerCase().split('social/')[1]?.split('?')[0];
           this.createComponent("Social", { "storyId": storyId });
         }
         if (this.router.url.includes('User')) {
           this.checkAndClearRouterOutlet();
-          const userId = this.router.url.toLowerCase().split('user/')[1];
+          const userId = this.router.url.toLowerCase().split('user/')[1]?.split('?')[0];
           this.createComponent("User", { "userId": userId });
         }
         if (this.router.url.includes('File')) {
           this.checkAndClearRouterOutlet();
-          const fileId = this.router.url.toLowerCase().split('file/')[1];
+          const fileId = this.router.url.toLowerCase().split('file/')[1]?.split('?')[0];
           this.createComponent("Files", { "fileId": fileId });
         }
         if (this.router.url.includes('Array')) {

@@ -37,7 +37,7 @@ namespace maxhanna.Server.Controllers
 						type = @Todo 
 						AND ownership = @Owner 
 						{(string.IsNullOrEmpty(search) ? "" : " AND todo LIKE CONCAT('%', @Search, '%') ")} 
-				ORDER BY date DESC";
+				ORDER BY id DESC";
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))

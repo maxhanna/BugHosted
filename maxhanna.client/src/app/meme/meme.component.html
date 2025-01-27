@@ -25,8 +25,7 @@
                      [autoload]="memeId ? false : true"
                      [displayTotal]="false"
                      [showFileSearchOptions]="false"
-                     [currentPage]="currentMemePage"
-                     [searchTerms]="searchTerms"
+                     [currentPage]="currentMemePage" 
                      (userNotificationEvent)="uploadNotification($event);">
     </app-file-search>
     <div class="loadMoreResultsDiv">
@@ -34,9 +33,7 @@
     </div>
   </div>
 </div>
-
-
-
+ 
 <!-- Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">

@@ -833,9 +833,15 @@ namespace maxhanna.Server.Controllers
 						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height);
 						uploaded.Add(fileEntry);
 
+						if (isPublic)
+						{
+							await AppendToSitemapAsync(fileId);
+						}
+
 						_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
 					}
 				}
+
 				_logger.LogInformation($"Uploaded {uploaded.Count} files.");
 				return Ok(uploaded);
 			}
@@ -1757,6 +1763,32 @@ namespace maxhanna.Server.Controllers
 			}
 			return Ok(result);
 		}
+
+
+		private static readonly SemaphoreSlim _sitemapLock = new(1, 1); 
+		private async Task AppendToSitemapAsync(int fileId)
+		{
+			// Construct the file URL
+			string fileUrl = $"https://bughosted.com/File/{fileId}";
+			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+			string sitemapEntry = $"{fileUrl}\nlastmod: {lastMod}\nchangefreq: daily\npriority: 0.8\n";
+			string sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "src/assets/sitemap.txt");
+
+			await _sitemapLock.WaitAsync();
+			try
+			{ 
+				if (!System.IO.File.Exists(sitemapPath) || !System.IO.File.ReadAllText(sitemapPath).Contains(fileUrl))
+				{
+					await using var writer = new StreamWriter(sitemapPath, append: true);
+					await writer.WriteLineAsync(sitemapEntry);
+				}
+			}
+			finally
+			{
+				_sitemapLock.Release();
+			}
+		}
+
 
 		private void MoveDirectory(string sourceDirectory, string destinationDirectory)
 		{

@@ -743,6 +743,8 @@ namespace maxhanna.Server.Controllers
 								var metadataResponse = GetMetadata(metadataRequest, storyId);
 							}
 
+							await AppendToSitemapAsync(storyId);
+
 							return Ok("Story posted successfully.");
 						}
 						else
@@ -966,6 +968,30 @@ namespace maxhanna.Server.Controllers
 
 			// Return the first match if found, otherwise return null
 			return matches.Count > 0 ? matches[0].Value : null;
+		}
+
+		private static readonly SemaphoreSlim _sitemapLock = new(1, 1); 
+		private async Task AppendToSitemapAsync(int storyId)
+		{ 
+			// Construct the story URL
+			string storyUrl = $"https://bughosted.com/Social/{storyId}";
+			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+			string sitemapEntry = $"{storyUrl}\nlastmod: {lastMod}\nchangefreq: daily\npriority: 0.8\n";
+			string sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "src/assets/sitemap.txt");
+
+			await _sitemapLock.WaitAsync();
+			try
+			{
+				if (!System.IO.File.Exists(sitemapPath) || !System.IO.File.ReadAllText(sitemapPath).Contains(storyUrl))
+				{
+					await using var writer = new StreamWriter(sitemapPath, append: true);
+					await writer.WriteLineAsync(sitemapEntry);
+				}
+			}
+			finally
+			{
+				_sitemapLock.Release();
+			}
 		}
 
 		private async Task<MetadataDto> FetchMetadataAsync(string url)

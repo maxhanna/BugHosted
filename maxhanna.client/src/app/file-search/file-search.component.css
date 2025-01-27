@@ -232,8 +232,11 @@
   margin-top: 20px;
   margin-bottom: 20px;
   display: flex;
-  justify-content: space-evenly;
   width: 100%;
+  gap: 12px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .optionsPanelDataDiv {
