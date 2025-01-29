@@ -5,7 +5,7 @@
     <div *ngIf="(menuIconsIncludes(item.title)) 
          || item.title === 'User'
          || (!navbarCollapsed && item.title === 'UpdateUserSettings')" class="navLinkDiv">
-      <span class="navbarNotificationSpan" (click)="goTo($event)" [title]="item.title">
+      <span class="navbarNotificationSpan {{item.content && item.content.length > 10 ? 'largeNotificationSpan' : ''}}" (click)="goTo($event)" [title]="item.title">
         <span (click)="goTo($event)" [title]="item.title">{{item.content! || ''}}</span>
       </span>
 
@@ -53,7 +53,7 @@
           {{ item.title === 'UpdateUserSettings' ? 'Add/Remove' : item.title }}
         </span>
         <!-- for notifications, u need glowing if notifications -->
-        <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar') && item.content && parseNumber(item.content) > 0 ? 'glowing' : '')" (click)="goTo($event)" [title]="item.title">
+        <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar' || item.title === 'Chat') && item.content && parseNumber(item.content) > 0 ? 'glowing' : '')" (click)="goTo($event)" [title]="item.title">
           {{ item.icon!.substring(0, 3) }}
         </a>
 

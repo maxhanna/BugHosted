@@ -73,14 +73,14 @@
                   {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.givenFileName ?? getFileWithoutExtension(file.fileName)!}}
                 </span>
               </span>
-              <div class="fileExtras">
+              <div class="fileExtras fileOptionsAction">
                 <app-reaction *ngIf="displayReactions && !file.isFolder"
                               [user]="user"
                               [inputtedParentRef]="inputtedParentRef ?? parentRef"
                               [currentReactions]="file.reactions"
                               [fileId]="file.id" (click)="$event.stopPropagation()">
                 </app-reaction>
-                <div *ngIf="displayComments && !file.isFolder" style="cursor:pointer;" (click)="openFileWithComments(file); $event.stopPropagation()">
+                <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction" (click)="openFileWithComments(file); $event.stopPropagation()">
                   🗨️ <span class="xxSmallFont">{{file.fileComments ? file.fileComments.length : 0}}</span>
                 </div>
                 <div class="typeTd" (click)="selectFile(file); $event.stopPropagation();" *ngIf="displayFileType">
@@ -89,7 +89,7 @@
                     {{file.visibility == 'Private' ? '🔒' : ''}}
                   </span>
                 </div>
-                <div *ngIf="displayFileActions" (click)="showOptionsPanel(file); $event.stopPropagation();" style="cursor:pointer;" title="Show Options">
+                <div *ngIf="displayFileActions" (click)="showOptionsPanel(file); $event.stopPropagation();" class="fileOptionsAction" title="Show Options">
                   ⚙️
                 </div>
               </div>
@@ -182,7 +182,7 @@
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder"><span class="smallFont">Type:</span> {{optionsFile.fileType.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileSize"><span class="smallFont">Filesize:</span> {{formatFileSize(optionsFile.fileSize)}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.width"><span class="smallFont">Size (width/height):</span> {{optionsFile.width}}X{{optionsFile.height}} px</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.directory"><span class="smallFont">Directory:</span> {{optionsFile.directory}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.directory"><span class="smallFont">Directory:</span> {{getDirectoryName(optionsFile)}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.visibility">
       <span class="smallFont">Visibility:</span>
       <span>

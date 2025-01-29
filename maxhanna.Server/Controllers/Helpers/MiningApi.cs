@@ -132,6 +132,7 @@ namespace maxhanna.Server.Controllers.Helpers
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex.ToString());
                 return "";
             }
         }

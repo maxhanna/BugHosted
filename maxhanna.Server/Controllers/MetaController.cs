@@ -641,9 +641,9 @@ namespace maxhanna.Server.Controllers
 							Id = Convert.ToInt32(reader["hero_id"]),
 							Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
 							Speed = Convert.ToInt32(reader["speed"]),
-							Map = Convert.ToString(reader["map"]),
+							Map = Convert.ToString(reader["map"]) ?? "",
 							Name = Convert.ToString(reader["hero_name"]),
-							Color = Convert.ToString(reader["hero_color"]),
+							Color = Convert.ToString(reader["hero_color"]) ?? "",
 							Mask = reader.IsDBNull(reader.GetOrdinal("hero_mask")) ? null : Convert.ToInt32(reader["hero_mask"]),
 							Metabots = new List<MetaBot>()
 						};
@@ -717,8 +717,8 @@ namespace maxhanna.Server.Controllers
 						{
 							Id = heroId,
 							Name = Convert.ToString(reader["hero_name"]),
-							Map = Convert.ToString(reader["hero_map"]),
-							Color = Convert.ToString(reader["color"]),
+							Map = Convert.ToString(reader["hero_map"]) ?? "",
+							Color = Convert.ToString(reader["color"]) ?? "",
 							Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
 							Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
 							Speed = Convert.ToInt32(reader["speed"]),
@@ -741,6 +741,10 @@ namespace maxhanna.Server.Controllers
 							Level = Convert.ToInt32(reader["metabot_level"]), 
 						};
 
+						if (tmpHero.Metabots == null)
+						{
+							tmpHero.Metabots = new List<MetaBot>();
+						}
 						tmpHero.Metabots.Add(metaBot);
 					}
 				}

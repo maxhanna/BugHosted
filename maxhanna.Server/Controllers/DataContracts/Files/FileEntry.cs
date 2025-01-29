@@ -24,6 +24,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public int FileSize { get; set; }
 		public int? Height { get; set; }
 		public int? Width { get; set; }
+		public int? Duration { get; set; }
 		public List<Reaction>? Reactions { get; set; }
 		public List<Topic>? Topics { get; set; }
 

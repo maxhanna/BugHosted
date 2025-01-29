@@ -25,6 +25,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   romDirectory: FileEntry[] = [];
   soundOn = true;
   currentFileType = '';
+  displayAB = true;
+  displayC = true;
   isSearchVisible = true;
   isFullScreen = false;
   coreMapping: { [key: string]: string } = {
@@ -143,7 +145,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     const response = await this.romService.getRomFile(file.fileName, this.parentRef?.user);
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
-
+    console.log(fileType, this.currentFileType);
     const style = {
       backgroundColor: 'black',
       zIndex: '1',
@@ -162,10 +164,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
 
     await this.nostalgist.launchEmulator();
-    this.stopLoading();
-
+    this.stopLoading(); 
     this.setupAutosave();
-
+    this.getDisplayAB();
+    this.getDisplayC();
   }
 
   onVolumeChange(event: Event) {
@@ -379,10 +381,12 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
 
   overrideGetUserMedia() {
-    navigator.mediaDevices.getUserMedia = async (constraints) => {
-      console.warn("getUserMedia request blocked");
-      return Promise.reject(new Error("Webcam access is blocked."));
-    };
+    if (navigator && navigator.mediaDevices) { 
+      navigator.mediaDevices.getUserMedia = async (constraints) => {
+        console.warn("getUserMedia request blocked");
+        return Promise.reject(new Error("Webcam access is blocked."));
+      };
+    }
   }
   async toggleFullscreen() {
     const elem = this.fullscreenContainer.nativeElement;
@@ -414,7 +418,17 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       }
     }
   }
-
+  getDisplayAB() {
+    const ft = this.currentFileType.toLowerCase().trim();
+    this.displayAB = ft != ''
+      && (this.segaFileTypes.includes(ft)
+      || this.gameboyFileTypes.includes(ft)
+      || ft == 'nes');
+  }
+  getDisplayC() {
+    const ft = this.currentFileType.toLowerCase().trim();
+    this.displayC = ft != '' && this.segaFileTypes.includes(ft);
+  }
   onMobile() {
     return (/Mobi|Android/i.test(navigator.userAgent));
   }

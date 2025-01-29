@@ -4,6 +4,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using Newtonsoft.Json;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
+using System.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -14,12 +15,14 @@ namespace maxhanna.Server.Controllers
 		private readonly ILogger<UserController> _logger;
 		private readonly IConfiguration _config;
 		private readonly IHttpClientFactory _httpClientFactory;
+		private readonly string _baseTarget;
 
 		public UserController(IHttpClientFactory httpClientFactory, ILogger<UserController> logger, IConfiguration config)
 		{
 			_httpClientFactory = httpClientFactory;
 			_logger = logger;
 			_config = config;
+			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
 		}
 
 		[HttpGet(Name = "GetUserCount")]
@@ -409,8 +412,8 @@ namespace maxhanna.Server.Controllers
 				if (!oldUsername.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
 				{
 					// Update the home folder path if the old username is different from the new username
-					string oldPath = Path.Combine("E:/Uploads/Users/", oldUsername);
-					string newPath = Path.Combine("E:/Uploads/Users/", user.Username);
+					string oldPath = Path.Combine(_baseTarget + "Users/", oldUsername);
+					string newPath = Path.Combine(_baseTarget + "Users/", user.Username);
 
 					if (Directory.Exists(oldPath))
 					{
@@ -571,7 +574,7 @@ namespace maxhanna.Server.Controllers
 				{
 					string fileName = reader["file_name"].ToString() ?? "";
 					string folderPath = reader["folder_path"].ToString() ?? "";
-					string fullPath = Path.Combine("E:/Uploads/", folderPath, fileName);
+					string fullPath = Path.Combine(_baseTarget, folderPath, fileName);
 					filePaths.Add(fullPath);
 				}
 			}
@@ -582,8 +585,8 @@ namespace maxhanna.Server.Controllers
 					System.IO.File.Delete(filePath);
 				}
 			}
-			var tmpPath = Path.Combine("E:/Uploads/Users/", user.Username!);
-			if (tmpPath.Contains("E:/Uploads/Users/") && tmpPath.TrimEnd('/') != "E:/Uploads/Users" && Directory.Exists(tmpPath))
+			var tmpPath = Path.Combine(_baseTarget + "Users/", user.Username!);
+			if (tmpPath.Contains(_baseTarget + "Users/") && tmpPath.TrimEnd('/') != (_baseTarget + "Users") && Directory.Exists(tmpPath))
 			{
 				Directory.Delete(tmpPath, true);
 			}
@@ -1026,7 +1029,7 @@ namespace maxhanna.Server.Controllers
 }
 public class IpApiResponse
 {
-	public string Query { get; set; }  // This is the IP
-	public string City { get; set; }
-	public string Country { get; set; }
+	public string? Query { get; set; }  // This is the IP
+	public string? City { get; set; }
+	public string? Country { get; set; }
 }

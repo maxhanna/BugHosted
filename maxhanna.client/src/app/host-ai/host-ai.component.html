@@ -1,0 +1,16 @@
+<div class=componentMain>
+  <div class="closeButton" (click)="remove_me('AiChatComponent');"></div> 
+  <div class="componentTitle">HostAI</div>
+
+  <div class="chat-container">
+    <div class="chat-box">
+      <div class="message" *ngFor="let message of chatMessages">
+        <strong>{{ message.sender }}:</strong> {{ message.message }}
+      </div>
+    </div>
+    <div class="input-container">
+      <textarea [value]="userMessage" placeholder="Type your message..." rows="4" #chatInput></textarea>
+      <button (click)="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>

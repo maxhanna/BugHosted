@@ -49,7 +49,8 @@ import { ModalComponent } from './modal/modal.component';
 import { NexusSupportScreenComponent } from './nexus-support-screen/nexus-support-screen.component';
 import { NotificationsComponent } from './notifications/notifications.component';
 import { InViewDirective } from './in-view.directive';
-import { MetaComponent } from './meta/meta.component';  
+import { MetaComponent } from './meta/meta.component';
+import { HostAiComponent } from './host-ai/host-ai.component';  
 
 @NgModule({
   declarations: [
@@ -96,6 +97,7 @@ import { MetaComponent } from './meta/meta.component';
     InViewDirective,
     MetaComponent,
     ClickableUrlsPipe,
+    HostAiComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

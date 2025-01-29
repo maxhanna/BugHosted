@@ -45,11 +45,11 @@
              [class.align-right]="message.sender.id !== (parentRef?.user?.id ?? 0)">
           <!-- USER MESSAGE -->
           <ng-container *ngIf="message.sender.id === (parentRef?.user?.id ?? 0)">
+            <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
             <div class="profileTag">
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
-              <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
             </div>
             <div class="messageContent">
               {{ message.content }}
@@ -75,6 +75,7 @@
           </ng-container>
           <!-- RECEIVER MESSAGE -->
           <ng-container *ngIf="message.sender.id !== (parentRef?.user?.id ?? 0)">
+            <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
             <div class="messageContent ">
               {{ message.content }}
               <div class="otherPersonsReactionDiv">
@@ -102,7 +103,6 @@
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
-              <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
             </div>
           </ng-container>
         </div>

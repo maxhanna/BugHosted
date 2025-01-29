@@ -63,12 +63,12 @@
   width: 100%;
 }
 .notificationListItem {
-    border: var(--main-border);
-    display: flex;
-    position: relative;
-    overflow: hidden;
-    margin-bottom: 5px;
-    padding: 5px;
+  border: var(--main-border);
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  margin: 20px;
+  padding: 20px;
 }
 .notificationText {
   text-overflow: ellipsis; 

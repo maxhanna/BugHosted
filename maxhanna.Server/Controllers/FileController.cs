@@ -9,7 +9,8 @@ using SixLabors.ImageSharp;
 using System.Data;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
-using maxhanna.Server.Controllers.DataContracts.Topics; 
+using maxhanna.Server.Controllers.DataContracts.Topics;
+using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -20,27 +21,29 @@ namespace maxhanna.Server.Controllers
 		private readonly ILogger<FileController> _logger;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
-		private readonly string baseTarget = "E:/Uploads/";
+		private readonly string _baseTarget;
+		private readonly string _logo = "https://www.bughosted.com/assets/logo.jpg";
 
 		public FileController(ILogger<FileController> logger, IConfiguration config)
 		{
 			_logger = logger;
 			_config = config;
-			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-
+			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
+			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? ""; 
 			FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
 		}
+
 		[HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
 		public IActionResult GetDirectory([FromBody] User? user, [FromQuery] string? directory, [FromQuery] string? visibility, [FromQuery] string? ownership, [FromQuery] string? search,
 		[FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] int? fileId = null, [FromQuery] List<string>? fileType = null)
 		{
 			if (string.IsNullOrEmpty(directory))
 			{
-				directory = baseTarget;
+				directory = _baseTarget;
 			}
 			else
 			{
-				directory = Path.Combine(baseTarget, WebUtility.UrlDecode(directory));
+				directory = Path.Combine(_baseTarget, WebUtility.UrlDecode(directory));
 				if (!directory.EndsWith("/"))
 				{
 					directory += "/";
@@ -51,7 +54,7 @@ namespace maxhanna.Server.Controllers
                  &ownership={ownership}&search={search}&page={page}
                  &pageSize={pageSize}&fileId={fileId}&fileType={(fileType != null ? string.Join(", ", fileType) : "")}");
 
-			if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {baseTarget}"); }
+			if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
 			try
 			{
@@ -147,8 +150,8 @@ namespace maxhanna.Server.Controllers
                                 OR f.user_id = @userId
                                 OR FIND_IN_SET(@userId, f.shared_with) > 0
                             )
-                            {(string.IsNullOrEmpty(search) ? "" 
-														: @" 
+                            {(string.IsNullOrEmpty(search) ? ""
+														: @$" 
 															AND (
 																f.file_name LIKE @search 
 																OR f.given_file_name LIKE @search 
@@ -157,8 +160,12 @@ namespace maxhanna.Server.Controllers
 																	SELECT ft.file_id 
 																	FROM maxhanna.file_topics ft
 																	JOIN maxhanna.topics t ON ft.topic_id = t.id
-																	WHERE t.topic LIKE @search
-																)
+																	WHERE t.topic LIKE @search 
+																) 
+																{(search.Contains("sega") ? "OR f.file_name LIKE '%.md'" 
+																	: search.Contains("nintendo") ? "OR f.file_name LIKE '%.nes'" 
+																	: search.Contains("gameboy") ? "OR f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba'"
+																	: "")}
 															)")} 
 														{fileTypeCondition} {visibilityCondition} {ownershipCondition} {orderBy}
                         LIMIT
@@ -206,7 +213,7 @@ namespace maxhanna.Server.Controllers
 								LastUpdatedUserId = reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
 								Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
 								LastUpdatedBy = new User(
-									reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"), 
+									reader.IsDBNull("last_updated_by_user_id") ? 0 : reader.GetInt32("last_updated_by_user_id"),
 									reader.IsDBNull("last_updated_by_user_name") ? "Anonymous" : reader.GetString("last_updated_by_user_name"),
 									new FileEntry
 									{
@@ -459,7 +466,7 @@ namespace maxhanna.Server.Controllers
                         WHERE 1=1
                         {(fileIds.Count > 0 ? "AND ft.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)};"
 					, connection);
-					 
+
 					for (int i = 0; i < fileIds.Count; i++)
 					{
 						topicsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
@@ -472,7 +479,7 @@ namespace maxhanna.Server.Controllers
 							var fileIdV = reader.GetInt32("file_id");
 							var topicIdV = reader.GetInt32("topic_id");
 							var topicTextV = reader.GetString("topic");
-							 
+
 
 							var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdV);
 							if (fileEntry != null)
@@ -482,7 +489,7 @@ namespace maxhanna.Server.Controllers
 									fileEntry.Topics = new List<Topic>();
 								}
 								fileEntry.Topics.Add(new Topic(topicIdV, topicTextV));
-							} 
+							}
 						}
 					}
 					// Get the total count of files for pagination
@@ -497,8 +504,8 @@ namespace maxhanna.Server.Controllers
                                 f.user_id = @userId OR 
                                 FIND_IN_SET(@userId, f.shared_with) > 0
                             ) 
-                        {(string.IsNullOrEmpty(search) ? "" 
-												: @" 
+                        {(string.IsNullOrEmpty(search) ? ""
+												: $@" 
 													AND (
 														f.file_name LIKE @search 
 														OR f.given_file_name LIKE @search 
@@ -509,6 +516,10 @@ namespace maxhanna.Server.Controllers
 															JOIN maxhanna.topics t ON ft.topic_id = t.id
 															WHERE t.topic LIKE @search
 														)
+														{(search.Contains("sega") ? "OR f.file_name LIKE '%.md'" 
+															: search.Contains("nintendo") ? "OR f.file_name LIKE '%.nes'" 
+															: search.Contains("gameboy") ? "OR f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba'"
+															: "")}
 													)")}
                         {fileTypeCondition}
                         {visibilityCondition}
@@ -525,7 +536,7 @@ namespace maxhanna.Server.Controllers
 					var result = new
 					{
 						TotalCount = totalCount,
-						CurrentDirectory = directory.Replace(baseTarget, ""),
+						CurrentDirectory = directory.Replace(_baseTarget, ""),
 						Page = page,
 						PageSize = pageSize,
 						Data = fileEntries
@@ -569,6 +580,7 @@ namespace maxhanna.Server.Controllers
 					await command.ExecuteNonQueryAsync();
 				}
 
+				await UpdateSitemapEntry(request.FileData.FileId, request.FileData.GivenFileName, request.FileData.Description);
 				return Ok("Filedata added successfully.");
 			}
 			catch (Exception ex)
@@ -581,10 +593,10 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
 		public IActionResult GetFile([FromBody] User? user, string filePath)
 		{
-			filePath = Path.Combine(baseTarget, WebUtility.UrlDecode(filePath) ?? "");
+			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "");
 
 			//_logger.LogInformation($"GET /File/GetFile/{filePath}");
-			if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {baseTarget}"); }
+			if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
 			try
 			{
@@ -687,11 +699,11 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "POST /File/MakeDirectory ERROR: directoryPath cannot be empty!");
 			}
 
-			request.directory = Path.Combine(baseTarget, WebUtility.UrlDecode(request.directory) ?? "");
+			request.directory = Path.Combine(_baseTarget, WebUtility.UrlDecode(request.directory) ?? "");
 			_logger.LogInformation($"POST /File/MakeDirectory/ (directoryPath: {request.directory})");
 			if (!ValidatePath(request.directory))
 			{
-				return StatusCode(500, $"Must be within {baseTarget}");
+				return StatusCode(500, $"Must be within {_baseTarget}");
 			}
 
 			try
@@ -780,7 +792,7 @@ namespace maxhanna.Server.Controllers
 					if (file.Length == 0)
 						continue; // Skip empty files
 
-					var uploadDirectory = string.IsNullOrEmpty(folderPath) ? baseTarget : Path.Combine(baseTarget, WebUtility.UrlDecode(folderPath));
+					var uploadDirectory = string.IsNullOrEmpty(folderPath) ? _baseTarget : Path.Combine(_baseTarget, WebUtility.UrlDecode(folderPath));
 					if (!uploadDirectory.EndsWith("/"))
 					{
 						uploadDirectory += "/";
@@ -805,9 +817,10 @@ namespace maxhanna.Server.Controllers
 						var convertedFilePath = filePath;
 						int? width = null;
 						int? height = null;
+						int? duration = null;
 						if (IsGifFile(file))
 						{
-							(convertedFilePath, width, height) = await ConvertGifToWebp(file, uploadDirectory); 
+							(convertedFilePath, width, height, duration) = await ConvertGifToWebp(file, uploadDirectory);
 						}
 						else if (IsImageFile(file) && !IsWebPFile(file))
 						{
@@ -815,7 +828,7 @@ namespace maxhanna.Server.Controllers
 						}
 						else if (IsVideoFile(file) && !IsWebMFile(file))
 						{
-							(convertedFilePath, width, height) = await ConvertVideoToWebm(file, uploadDirectory);
+							(convertedFilePath, width, height, duration) = await ConvertVideoToWebm(file, uploadDirectory);
 						}
 						else if (IsAudioFile(file) && !file.FileName.EndsWith(".opus"))
 						{
@@ -829,16 +842,13 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
-						var fileId = await InsertFileIntoDB(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height);
-						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height);
+						var fileId = await InsertFileIntoDB(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
+						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
 						uploaded.Add(fileEntry);
 
-						if (isPublic)
-						{
-							await AppendToSitemapAsync(fileId);
-						}
+						await AppendToSitemapAsync(fileEntry);
 
-						_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}");
+						_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}, Type: {fileEntry.FileType}");
 					}
 				}
 
@@ -939,6 +949,12 @@ namespace maxhanna.Server.Controllers
 			var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
 			return allowedExtensions.Contains(fileExtension);
 		}
+		private bool IsVideoFileFromExtensionString(string? fileExtension)
+		{
+			if (string.IsNullOrWhiteSpace(fileExtension)) return false;
+			string[] videoExtensions = { "mp4", "webm", "avi", "mov", "mkv", "flv" };
+			return videoExtensions.Contains(fileExtension.ToLower());
+		}
 		private bool IsVideoFile(IFormFile file)
 		{
 			var allowedExtensions = new[] { ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv" };
@@ -1014,7 +1030,7 @@ namespace maxhanna.Server.Controllers
 
 		}
 
-		private async Task<(string FilePath, int Width, int Height)> ConvertGifToWebp(IFormFile file, string uploadDirectory)
+		private async Task<(string FilePath, int Width, int Height, int Duration)> ConvertGifToWebp(IFormFile file, string uploadDirectory)
 		{
 			var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
 			var convertedFileName = $"{fileNameWithoutExtension}.webp";
@@ -1022,6 +1038,7 @@ namespace maxhanna.Server.Controllers
 			var inputFilePath = Path.Combine(uploadDirectory, file.FileName);
 			int width = 0;
 			int height = 0;
+			int duration = 0;
 
 			try
 			{
@@ -1031,6 +1048,9 @@ namespace maxhanna.Server.Controllers
 				}
 
 				var beforeFileSize = new FileInfo(inputFilePath).Length;
+
+				var ffmpegCommand = await FFmpeg.GetMediaInfo(inputFilePath);
+				duration = (int)ffmpegCommand.Duration.TotalSeconds;
 
 				var conversion = FFmpeg.Conversions.New()
 						.AddParameter($"-i \"{inputFilePath}\"")
@@ -1068,7 +1088,7 @@ namespace maxhanna.Server.Controllers
 
 			}
 
-			return (convertedFilePath, width, height);
+			return (convertedFilePath, width, height, duration);
 		}
 
 		private async Task<(string FilePath, int Width, int Height)> ConvertImageToWebp(IFormFile file, string uploadDirectory)
@@ -1104,7 +1124,7 @@ namespace maxhanna.Server.Controllers
 			return (convertedFilePath, width, height);
 		}
 
-		private async Task<(string FilePath, int Width, int Height)> ConvertVideoToWebm(IFormFile file, string uploadDirectory)
+		private async Task<(string FilePath, int Width, int Height, int Duration)> ConvertVideoToWebm(IFormFile file, string uploadDirectory)
 		{
 			var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
 			var convertedFileName = $"{fileNameWithoutExtension}.webm";
@@ -1112,6 +1132,7 @@ namespace maxhanna.Server.Controllers
 			var inputFilePath = Path.Combine(uploadDirectory, file.FileName);
 			int width = 0;
 			int height = 0;
+			int duration = 0;
 			try
 			{
 				using (var stream = new FileStream(inputFilePath, FileMode.Create))
@@ -1120,6 +1141,10 @@ namespace maxhanna.Server.Controllers
 				}
 
 				var beforeFileSize = new FileInfo(inputFilePath).Length;
+
+
+				var ffmpegCommand = await FFmpeg.GetMediaInfo(inputFilePath);
+				duration = (int)ffmpegCommand.Duration.TotalSeconds;
 
 				var res = await FFmpeg.Conversions.FromSnippet.ToWebM(inputFilePath, convertedFilePath);
 				await res.Start();
@@ -1159,11 +1184,11 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError(ex, "Error occurred during video conversion.");
 			}
 
-	if (System.IO.File.Exists(convertedFilePath) && width == 0 || height == 0)
+			if (System.IO.File.Exists(convertedFilePath) && width == 0 || height == 0)
 			{
 				(width, height) = await GetMediaDimensions(convertedFilePath);
 			}
-			return (convertedFilePath, width, height);
+			return (convertedFilePath, width, height, duration);
 		}
 		private async Task<(int Width, int Height)> GetMediaDimensions(string filePath)
 		{
@@ -1202,15 +1227,15 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task<int> InsertFileIntoDB(User user, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath, int? width, int? height)
+		private async Task<int> InsertFileIntoDB(User user, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath, int? width, int? height, int? duration)
 		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
 
 				var command = new MySqlCommand(
-				@$"INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id)  
-          VALUES (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size, @width, @height, @uploadDate, @user_id); 
+				@$"INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id, duration)  
+          VALUES (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size, @width, @height, @uploadDate, @user_id, @duration); 
           SELECT LAST_INSERT_ID();", connection);
 				command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
 				command.Parameters.AddWithValue("@fileName", Path.GetFileName(convertedFilePath));
@@ -1221,13 +1246,14 @@ namespace maxhanna.Server.Controllers
 				command.Parameters.AddWithValue("@height", height);
 				command.Parameters.AddWithValue("@isFolder", false);
 				command.Parameters.AddWithValue("@file_size", new FileInfo(convertedFilePath).Length);
+				command.Parameters.AddWithValue("@duration", duration);
 
 				var fileId = await command.ExecuteScalarAsync();
 				return Convert.ToInt32(fileId);
 			}
 		}
 
-		private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath, string uploadDirectory, int? height, int? width)
+		private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath, string uploadDirectory, int? height, int? width, int? duration)
 		{
 			return new FileEntry
 			{
@@ -1244,6 +1270,7 @@ namespace maxhanna.Server.Controllers
 				FileSize = (int)new FileInfo(filePath).Length,
 				Height = height,
 				Width = width,
+				Duration = duration,
 			};
 		}
 		private async Task<FileEntry?> GetConflictingFile(int userId, Microsoft.AspNetCore.Http.IFormFile file, string folderPath, bool isPublic)
@@ -1387,7 +1414,7 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpDelete("/File/Delete/", Name = "DeleteFileOrDirectory")]
-		public IActionResult DeleteFileOrDirectory([FromBody] DeleteFileOrDirectory request)
+		public async Task<IActionResult> DeleteFileOrDirectory([FromBody] DeleteFileOrDirectory request)
 		{
 			// Ensure baseTarget ends with a forward slash
 			string filePath;
@@ -1427,7 +1454,7 @@ namespace maxhanna.Server.Controllers
 						var folderPath = ownershipReader.GetString("folder_path").Replace("\\", "/").TrimEnd('/') + "/";
 						var isFolder = ownershipReader.GetBoolean("is_folder");
 
-						filePath = Path.Combine(baseTarget, folderPath, fileName).Replace("\\", "/");
+						filePath = Path.Combine(_baseTarget, folderPath, fileName).Replace("\\", "/");
 						ownershipReader.Close();
 
 						if (!ValidatePath(filePath)) { return BadRequest($"Cannot delete: {filePath}"); }
@@ -1448,7 +1475,7 @@ namespace maxhanna.Server.Controllers
 								_logger.LogError($"Directory not found at {filePath}");
 							}
 
-							if (filePath.TrimEnd('/') + "/" != baseTarget.TrimEnd('/') + "/")
+							if (filePath.TrimEnd('/') + "/" != _baseTarget.TrimEnd('/') + "/")
 							{
 								var innerDeleteCommand = new MySqlCommand(
 										"DELETE FROM maxhanna.file_uploads WHERE folder_path LIKE CONCAT(@FolderPath, '%')",
@@ -1484,7 +1511,10 @@ namespace maxhanna.Server.Controllers
 						transaction.Commit();
 					}
 				}
-
+				if (!request.file.IsFolder)
+				{
+					await RemoveFromSitemapAsync(request.file.Id);
+				}
 				_logger.LogInformation($"File or directory deleted successfully at {filePath}");
 				return Ok("File or directory deleted successfully.");
 			}
@@ -1508,8 +1538,8 @@ namespace maxhanna.Server.Controllers
 				destinationFolder = WebUtility.UrlDecode(destinationFolder ?? "").TrimStart('/');
 
 				// Combine with baseTarget
-				inputFile = Path.Combine(baseTarget, inputFile);
-				destinationFolder = Path.Combine(baseTarget, destinationFolder);
+				inputFile = Path.Combine(_baseTarget, inputFile);
+				destinationFolder = Path.Combine(_baseTarget, destinationFolder);
 
 				if (!ValidatePath(inputFile) || !ValidatePath(destinationFolder))
 				{
@@ -1751,7 +1781,7 @@ namespace maxhanna.Server.Controllers
 				Process p = new Process();
 				p.StartInfo.UseShellExecute = false;
 				p.StartInfo.RedirectStandardOutput = true;
-				p.StartInfo.FileName = "E:/Uploads/hello_world.bat";
+				p.StartInfo.FileName = _baseTarget + "hello_world.bat";
 				p.Start();
 				result = p.StandardOutput.ReadToEnd();
 				p.WaitForExit();
@@ -1764,23 +1794,167 @@ namespace maxhanna.Server.Controllers
 			return Ok(result);
 		}
 
+		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
+		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
-		private static readonly SemaphoreSlim _sitemapLock = new(1, 1); 
-		private async Task AppendToSitemapAsync(int fileId)
+		private async Task AppendToSitemapAsync(FileEntry fileEntry)
 		{
-			// Construct the file URL
-			string fileUrl = $"https://bughosted.com/File/{fileId}";
+			_logger.LogInformation($"AppendToSitemapAsync (inputFile = {fileEntry.FileName}, isPublic = {fileEntry.Visibility}, fileType = {fileEntry.FileType}, fileId = {fileEntry.Id}, directory = {fileEntry.Directory})");
+
+			string fileUrl = $"https://bughosted.com/File/{fileEntry.Id}";
 			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
-			string sitemapEntry = $"{fileUrl}\nlastmod: {lastMod}\nchangefreq: daily\npriority: 0.8\n";
-			string sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "src/assets/sitemap.txt");
 
 			await _sitemapLock.WaitAsync();
 			try
-			{ 
-				if (!System.IO.File.Exists(sitemapPath) || !System.IO.File.ReadAllText(sitemapPath).Contains(fileUrl))
+			{
+				XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+				XNamespace videoNs = "http://www.google.com/schemas/sitemap-video/1.1";
+				XDocument sitemap;
+
+				if (System.IO.File.Exists(_sitemapPath))
 				{
-					await using var writer = new StreamWriter(sitemapPath, append: true);
-					await writer.WriteLineAsync(sitemapEntry);
+					sitemap = XDocument.Load(_sitemapPath);
+				}
+				else
+				{
+					sitemap = new XDocument(new XElement(ns + "urlset"));
+				}
+
+				// Ensure video namespace is declared
+				sitemap.Root.SetAttributeValue(XNamespace.Xmlns + "video", videoNs);
+
+				// Remove existing entry (if any) to prevent duplicates
+				var existingEntry = sitemap.Descendants(ns + "url")
+																	 .FirstOrDefault(x => x.Element(ns + "loc")?.Value == fileUrl);
+				existingEntry?.Remove();
+
+				var urlElement = new XElement(ns + "url",
+						new XElement(ns + "loc", fileUrl),
+						new XElement(ns + "lastmod", lastMod),
+						new XElement(ns + "changefreq", "daily"),
+						new XElement(ns + "priority", "0.8")
+				);
+
+				// Check if the file is a video
+				if (IsVideoFileFromExtensionString(fileEntry.FileType))
+				{
+					var videoElement = new XElement(videoNs + "video",
+							new XElement(videoNs + "title", fileEntry.FileName),
+							new XElement(videoNs + "description", "Video: " + fileEntry.FileName),
+							new XElement(videoNs + "content_loc", GetVideoContentLoc(fileEntry.Directory, fileEntry.FileName)),
+							new XElement(videoNs + "duration", fileEntry.Duration ?? 0),
+							new XElement(videoNs + "publication_date", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssK")),
+							new XElement(videoNs + "family_friendly", "yes"),
+							new XElement(videoNs + "thumbnail_loc", _logo)
+					);
+
+					urlElement.Add(videoElement);
+				}
+
+				sitemap.Root.Add(urlElement);
+				sitemap.Save(_sitemapPath);
+			}
+			finally
+			{
+				_sitemapLock.Release();
+			}
+		}
+
+
+		private async Task UpdateSitemapEntry(int? fileId, string? fileName, string? description)
+		{
+			if (string.IsNullOrEmpty(fileName) || fileId == null)
+			{
+				_logger.LogWarning("FileId and FileName must be provided.");
+				return;
+			}
+			string fileUrl = $"https://bughosted.com/File/{fileId}";
+			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+			await _sitemapLock.WaitAsync();
+			try
+			{
+				XDocument sitemap;
+
+				if (System.IO.File.Exists(_sitemapPath))
+				{
+					sitemap = XDocument.Load(_sitemapPath);
+				}
+				else
+				{
+					_logger.LogWarning("Sitemap not found, unable to update.");
+					return;
+				}
+
+				var urlElement = sitemap.Descendants(XName.Get("url", "http://www.sitemaps.org/schemas/sitemap/0.9"))
+								.FirstOrDefault(x => x.Element(XName.Get("loc", "http://www.sitemaps.org/schemas/sitemap/0.9"))?.Value == fileUrl);
+
+				if (urlElement == null)
+				{
+					_logger.LogWarning($"No sitemap entry found for file {fileId}.");
+					return;
+				}
+
+				urlElement.Element(XName.Get("lastmod", "http://www.sitemaps.org/schemas/sitemap/0.9"))?.SetValue(lastMod);
+				XNamespace videoNamespace = "http://www.google.com/schemas/sitemap-video/1.1";
+
+				var videoElement = urlElement.Element(videoNamespace + "video");
+				if (videoElement != null)
+				{
+					// Update the title and description for the video
+					string desc = "";
+					if (!string.IsNullOrEmpty(description)) { desc = description; }
+					else if (!string.IsNullOrEmpty(fileName)) { desc = fileName; }
+					else { desc = "Updated video file description."; }
+
+					videoElement.Element(videoNamespace + "title")?.SetValue(fileName);
+					videoElement.Element(videoNamespace + "description")?.SetValue(desc);
+				}
+				else
+				{
+					_logger.LogWarning("No <video:video> element found in sitemap for file.");
+				}
+
+				// Save the updated sitemap
+				sitemap.Save(_sitemapPath);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while updating the sitemap entry.");
+			}
+			finally
+			{
+				_sitemapLock.Release();
+			}
+		}
+
+		private async Task RemoveFromSitemapAsync(int targetId)
+		{
+			string targetUrl = $"https://bughosted.com/File/{targetId}";
+			_logger.LogInformation($"Removing {targetUrl} from sitemap.");
+
+			await _sitemapLock.WaitAsync();
+			try
+			{
+				if (System.IO.File.Exists(_sitemapPath))
+				{
+					XDocument sitemap = XDocument.Load(_sitemapPath);
+					XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9"; // Declare the default namespace
+
+					// Use the namespace to search for <url> and <loc> elements
+					var targetElement = sitemap.Descendants(ns + "url")
+																			.FirstOrDefault(x => x.Element(ns + "loc")?.Value == targetUrl);
+
+					if (targetElement != null)
+					{
+						targetElement.Remove();
+						sitemap.Save(_sitemapPath);
+						_logger.LogInformation($"Removed {targetUrl} from sitemap!");
+					}
+					else
+					{
+						_logger.LogInformation($"Could not remove sitemap entry, {targetUrl} not found in sitemap!");
+					}
 				}
 			}
 			finally
@@ -1789,6 +1963,18 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		private string GetVideoContentLoc(string? directory, string? fileName)
+		{
+			if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(fileName))
+			{
+				return _logo;
+			}
+			string basePath = "E:/Dev/maxhanna/maxhanna.client/src/assets/";
+			string relativePath = directory.Replace(basePath, "").TrimStart(Path.DirectorySeparatorChar);
+
+			// Combine the relative path with the file name and return the full URL
+			return $"https://bughosted.com/assets/{Path.Combine(relativePath, fileName).Replace(Path.DirectorySeparatorChar, '/')}";
+		}
 
 		private void MoveDirectory(string sourceDirectory, string destinationDirectory)
 		{
@@ -1799,15 +1985,16 @@ namespace maxhanna.Server.Controllers
 
 		private bool ValidatePath(string directory)
 		{
-			if (!directory.Contains(baseTarget))
+			if (!directory.Contains(_baseTarget))
 			{
-				_logger.LogError($"Must be within {baseTarget}");
+				_logger.LogError($"Must be within {_baseTarget}");
 				return false;
 			}
-			else if (directory.Equals("E:/Uploads/Users") || directory.Equals("E:/Uploads/Roms")
-					|| directory.Equals("E:/Uploads/Meme") || directory.Equals("E:/Uploads/Nexus")
-					|| directory.Equals("E:/Uploads/Array") || directory.Equals("E:/Uploads/BugHosted")
-					|| directory.Equals("E:/Uploads/Files") || directory.Equals("E:/Uploads/Pictures") || directory.Equals("E:/Uploads/Videos"))
+			else if (directory.Equals(_baseTarget + "Users") || directory.Equals(_baseTarget + "Roms")
+					|| directory.Equals(_baseTarget + "Meme") || directory.Equals(_baseTarget + "Nexus")
+					|| directory.Equals(_baseTarget + "Array") || directory.Equals(_baseTarget + "BugHosted")
+					|| directory.Equals(_baseTarget + "Files") || directory.Equals(_baseTarget + "Pictures") 
+					|| directory.Equals(_baseTarget + "Videos"))
 			{
 				_logger.LogError($"Cannot delete {directory}!");
 				return false;

@@ -4,7 +4,9 @@ import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { Location } from '@angular/common'; 
 import { AppComponent } from '../app.component';
-import { User } from '../../services/datacontracts/user/user';  
+import { User } from '../../services/datacontracts/user/user';   
+import { initializeApp } from 'firebase/app';
+import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 
 @Component({
   selector: 'app-notifications',
@@ -12,13 +14,27 @@ import { User } from '../../services/datacontracts/user/user';
   styleUrl: './notifications.component.css'
 })
 export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy {
-  constructor(private notificationService: NotificationService, private location: Location) { super(); }
+  constructor(private notificationService: NotificationService, private location: Location) {
+    super();
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent?.user?.id) { //only allow notifications pushed if user is logged in.
+      try {
+        this.requestNotificationPermission();
+      } catch (e) {
+        console.log("error configuring firebase: ", e);
+      }
+    }
+  } 
 
   @Input() minimalInterface? = false;
   @Input() inputtedParentRef?: AppComponent;
 
   showNotifications = false;
-  notifications?: UserNotification[] = []; 
+  notifications?: UserNotification[] = [];
+
+  app?: any;
+  messaging?: any;
+
   private pollingInterval: any;
 
   ngOnInit() {
@@ -107,5 +123,57 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     } else if (notification?.text?.toLowerCase().includes("following")) {
       this.viewProfile(notification.fromUser);
     }
-  } 
+  }
+
+
+  async requestNotificationPermission() {
+    try {
+      const firebaseConfig = {
+        apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
+        authDomain: "bughosted.firebaseapp.com",
+        projectId: "bughosted",
+        storageBucket: "bughosted.firebasestorage.app",
+        messagingSenderId: "288598058428",
+        appId: "1:288598058428:web:a4605e4d8eea73eac137b9",
+        measurementId: "G-MPRXZ6WVE9"
+      };
+      this.app = initializeApp(firebaseConfig);
+      this.messaging = await getMessaging(this.app);
+
+      onMessage(this.messaging, (payload: any) => {
+        alert(`${payload}`);
+      });
+
+      console.log('Current Notification Permission:', Notification.permission);
+
+      if (Notification.permission === 'default') {
+        // Ask for permission
+        const permission = await Notification.requestPermission();
+        console.log('User responded with:', permission);
+        if (permission === "granted") {
+          const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
+          console.log('FCM Token:', token);
+          await this.subscribeToNotificationTopic(token);
+        } else {
+          console.log('Notification permission denied');
+        }
+      } else {
+        console.log('Permission already:', Notification.permission);
+        const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
+        await this.subscribeToNotificationTopic(token);
+      }
+    } catch (error) {
+      console.log('Error requesting notification permission:', error);
+    }
+  }
+
+
+  private async subscribeToNotificationTopic(token: string) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent && parent?.user?.id) {
+      this.notificationService.subscribeToTopic(parent.user, token, "notification" + parent.user.id).then(res => {
+        console.log(res);
+      });
+    }
+  }
 }

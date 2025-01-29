@@ -3,8 +3,9 @@
   flex-direction: column;
   min-height: 300px;
   min-width: 300px;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px); 
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
 }
+
 .componentTitle {
   white-space: nowrap;
   overflow: hidden;
@@ -13,6 +14,7 @@
   padding-right: 30px;
   width: calc(100% - 60px);
 }
+
 @media only screen and (min-width:800px) {
   .componentMain {
     min-width: 500px;
@@ -21,14 +23,14 @@
 }
 
 @media only screen and (max-width:800px) {
-  .componentMain { 
+  .componentMain {
     width: 99vw;
   }
 }
 
-.userPanel {  
+.userPanel {
   width: 0px;
-  overflow-x: hidden;  
+  overflow-x: hidden;
 }
 
   .userPanel.expanded {
@@ -37,7 +39,7 @@
 
 
 .chatArea {
-  margin-left: 0; 
+  margin-left: 0;
   width: 100%;
 }
 
@@ -63,7 +65,7 @@
   overflow: auto;
   margin-bottom: 10px;
 }
- 
+
 
 .align-left {
   text-align: left;
@@ -71,20 +73,21 @@
 
 .align-right {
   text-align: right;
-} 
+}
+
   .align-right * {
     border-color: var(--secondary-font-color);
   }
 
 .messageContainer {
   display: flex;
-  margin: 10px 0;
+  margin: 20px 0;
   position: relative;
   background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
   border-radius: 12px;
   border: var(--main-border);
-  padding-left:12px;
-  padding-right:12px;
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 .align-left .messageContainer {
@@ -97,15 +100,16 @@
 
 .messageContent {
   display: inline-block;
-  padding: 5px 10px;
+  padding: 10px 10px;
   word-break: break-word;
-  width: 100%; 
+  width: 100%;
 }
+
 .messageSender {
   color: var(--secondary-font-color);
 }
 
-.messageInput { 
+.messageInput {
   display: flex;
   justify-content: center;
   border-radius: 12px;
@@ -116,55 +120,79 @@
   .messageInput input {
     min-width: CALC(100% - 200px);
   }
-   
+
 
 input[type="text"] {
   touch-action: manipulation;
 }
+
 .profileTag {
   margin-left: unset !important;
-  margin-right: unset !important; 
-  text-align:center;
-  width:50px;
+  margin-right: unset !important;
+  margin-top: 5px;
+  text-align: center;
+  width: 50px;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: column; 
 }
+
 .attachedFilesDiv {
   display: flex;
   justify-content: center;
 }
+
 .otherPersonsMessage {
-  background: linear-gradient(to bottom, var(--main-bg-color-full-opacity), transparent); 
+  background: linear-gradient(to bottom, var(--main-bg-color-full-opacity), transparent);
 }
+
 .messageTimestamp {
   font-size: xx-small;
+  white-space: nowrap;
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  height: auto;
 }
+ 
 .reactionDiv {
   display: flex;
   margin-top: 10px;
 }
+
 .otherPersonsReactionDiv {
   display: flex;
   justify-content: flex-end;
-  margin-top:10px;
+  margin-top: 10px;
 }
+
 .chatUserConnected {
-  cursor: pointer; 
+  cursor: pointer;
 }
+
   .chatUserConnected span {
     text-decoration: underline;
   }
+
   .chatUserConnected:not(:last-of-type)::after {
     content: ",";
     margin-right: 5px;
   }
 
 .pagination-controls {
-  white-space: nowrap; 
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.popupPanel { 
-  width: 320px;  
+.popupPanel {
+  width: 320px;
 }
 
 .popupPanelTitle {

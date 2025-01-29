@@ -17,6 +17,8 @@ import { Pipe, PipeTransform } from '@angular/core';
 import { UserService } from '../../services/user.service';
 import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo';
+import { Meta, Title } from '@angular/platform-browser';
+import { ActivatedRoute } from '@angular/router';
 
 @Pipe({ name: 'clickableUrls' })
 export class ClickableUrlsPipe implements PipeTransform {
@@ -75,6 +77,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   totalPages: number = 1;
   totalPagesArray: number[] = [];
   userSearch = "";
+  searchTimeout: any;
+
 
   city : string | undefined;
   country: string | undefined;
@@ -98,7 +102,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     private userService: UserService,
     private todoService: TodoService,
     private sanitizer: DomSanitizer,
-    private cdr: ChangeDetectorRef) {
+    private cdr: ChangeDetectorRef,
+    private title: Title, private meta: Meta, private route: ActivatedRoute) {
     super();
   }
 
@@ -114,7 +119,19 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       }
     });
     if (this.storyId) {
-      this.scrollToStory(this.storyId);
+      this.scrollToStory(this.storyId); 
+      if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
+        const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId); 
+        if (tgtStory) {
+          const storyText = tgtStory.storyText; 
+          if (storyText) { 
+            const cleanedTitle = storyText.replace(/https?:\/\/[^\s]+/g, '').trim();
+
+            this.title.setTitle("BugHosted.com " + cleanedTitle.substring(0, 50));
+            this.meta.updateTag({ name: 'description', content: storyText });
+          }
+        }
+      } 
     }
     
     
@@ -173,7 +190,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.isEditing = this.isEditing.filter(x => x != story.id);
     }
   }  
-  async searchStories(searchTopics?: Array<Topic>) {
+  async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) { 
     let search = "";
     if (this.search && this.search.nativeElement) {
       search = this.search.nativeElement.value;
@@ -186,8 +203,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       searchTopics.forEach(x => { topics += topics.trim() != '' ? ',' + x.id : x.id })
     }
     await this.getStories(this.currentPage, 10, search, topics);
-    this.closeMenuPanel();
-  } 
+    if (!!!debounced) { 
+      this.closeMenuPanel();
+      this.closeSearchSocialsPanel();
+    }
+  }
+   
   async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string) {
     this.startLoading();
 
@@ -212,7 +233,6 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       });
     }
 
-    this.closeSearchSocialsPanel();
     this.cdr.detectChanges();
     this.stopLoading();
   } 
@@ -519,6 +539,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (this.parentRef) {
       this.parentRef.showOverlay = true;
     }
+
+    setTimeout(() => { this.search.nativeElement.focus(); }, 50); 
   }
   closeSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = false;
@@ -600,8 +622,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (this.eachAttachmentSeperatePost) count++;
     return count;
   }
-  showComments(storyId?: number) {
-    console.log(storyId);
+  showComments(storyId?: number) { 
     if (this.openedStoryComments.includes(storyId ?? 0)) {
       this.openedStoryComments = this.openedStoryComments.filter(x => x != (storyId ?? 0));
     } else { 
@@ -697,4 +718,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     return element.scrollHeight >= threshold; 
   }
+  debouncedSearch() {  
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => this.searchStories(undefined, true), 500); 
+  }
+
 }

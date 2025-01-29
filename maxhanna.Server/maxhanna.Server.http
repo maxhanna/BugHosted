@@ -134,4 +134,7 @@ Accept: application/json
 ###
 POST {{maxhanna.Server_HostAddress}}/Meta/
 Accept: application/json
+### 
+POST {{maxhanna.Server_HostAddress}}/Ai/
+Accept: application/json
 ###

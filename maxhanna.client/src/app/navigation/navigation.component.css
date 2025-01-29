@@ -36,7 +36,7 @@ a {
 
 .navbarNotificationSpan {
   position: relative;
-  top: 50px;
+  top: 37px;
   left: 1px; 
   background-color: black;
   text-shadow: 1.2px 1.1px 1.1px black;
@@ -50,6 +50,10 @@ a {
   cursor: pointer;
 }
 
+.largeNotificationSpan {
+  top: 50px;
+}
+
 .navLink {
   display: inline-block;
   width: 50px;
@@ -59,7 +63,7 @@ a {
   font-size: 35px;
   line-height: 52px;
   margin-top: -19px;
-  overflow:hidden;
+  overflow: hidden;
 }
 
   .navLink:before {

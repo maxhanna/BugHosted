@@ -512,3 +512,6 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
 .keyboardControlsSpan {
   cursor: help;
 }
+.popupPanel {
+  z-index: 7;
+}

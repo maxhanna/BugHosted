@@ -66,7 +66,7 @@ namespace maxhanna.Server.Services
             }
             var timer = new Timer(state =>
             {
-                var id = (int)state;
+                var id = (state != null ? (int)state : -1);
                 callback(id);
                 _timers.TryRemove(id, out _);
             }, defenceId, delay, Timeout.InfiniteTimeSpan);

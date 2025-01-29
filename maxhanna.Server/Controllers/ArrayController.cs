@@ -524,7 +524,7 @@ namespace maxhanna.Server.Controllers
             FROM 
                 maxhanna.file_uploads f 
             WHERE 
-                f.folder_path = 'E:/Uploads/Array/Items/Helmets/{Rarity}/'";
+                f.folder_path LIKE '%/Array/Items/Helmets/{Rarity}/'";
 
             using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
             await conn.OpenAsync();

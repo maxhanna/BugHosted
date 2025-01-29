@@ -195,6 +195,11 @@
                               </div>
                             </div>
                           </div>
+                          <div *ngIf="icon.title == 'HostAi'" [id]="icon.title+'tddiv'">
+                            <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                              BugHosted's AI. Get information about anything instantly.
+                            </div>
+                          </div>
                           <div *ngIf="icon.title == 'Notepad'" [id]="icon.title+'tddiv'">
                             <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                               Jot down notes and share them with others.

@@ -63,7 +63,7 @@
     <div *ngFor="let row of messageRows" (click)="openChatById(row.chatId);" class="userList">
       <span class="users">
         <span *ngFor="let user of removeSelfFromReceivers(row.receiver)">
-          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag>
+          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true" [preventOpenProfile]="true"></app-user-tag>
         </span>
       </span>
       

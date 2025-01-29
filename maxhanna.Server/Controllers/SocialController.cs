@@ -11,6 +11,8 @@ using MySqlConnector;
 using System.Data;
 using System.Text;
 using System.Web;
+using System.Xml.Linq;
+using System.Xml.XPath;
 
 namespace maxhanna.Server.Controllers
 {
@@ -20,13 +22,14 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly ILogger<SocialController> _logger;
 		private readonly IConfiguration _config;
-		private readonly string baseTarget = "E:/Uploads/";
+		private readonly string _baseTarget;
 
 
 		public SocialController(ILogger<SocialController> logger, IConfiguration config)
 		{
 			_logger = logger;
 			_config = config;
+			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
 		}
 
 		[HttpPost(Name = "GetStories")]
@@ -239,7 +242,7 @@ namespace maxhanna.Server.Controllers
 			_logger.LogInformation("Stories fetched and processed.");
 			return storyResponse;
 		}
-		
+
 		private async Task FetchAndAttachTopicsAsync(List<Story> stories)
 		{
 			if (stories.Count == 0)
@@ -454,7 +457,7 @@ namespace maxhanna.Server.Controllers
 								{
 									Id = rdr.GetInt32("file_id"),
 									FileName = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? null : rdr.GetString("file_name"),
-									Directory = rdr.IsDBNull(rdr.GetOrdinal("folder_path")) ? baseTarget : rdr.GetString("folder_path"),
+									Directory = rdr.IsDBNull(rdr.GetOrdinal("folder_path")) ? _baseTarget : rdr.GetString("folder_path"),
 									Visibility = rdr.GetBoolean("is_public") ? "Public" : "Private",
 									SharedWith = rdr.IsDBNull(rdr.GetOrdinal("shared_with")) ? null : rdr.GetString("shared_with"),
 									User = new User(
@@ -648,7 +651,7 @@ namespace maxhanna.Server.Controllers
 									{
 										Id = rdr.GetInt32("comment_file_id"),
 										FileName = rdr.IsDBNull("comment_file_name") ? null : rdr.GetString("comment_file_name"),
-										Directory = rdr.IsDBNull("comment_file_folder_path") ? baseTarget : rdr.GetString("comment_file_folder_path"),
+										Directory = rdr.IsDBNull("comment_file_folder_path") ? _baseTarget : rdr.GetString("comment_file_folder_path"),
 										Visibility = rdr.IsDBNull("comment_file_visibility") ? null : rdr.GetBoolean("comment_file_visibility") ? "Public" : "Private",
 										SharedWith = rdr.IsDBNull("comment_file_shared_with") ? null : rdr.GetString("comment_file_shared_with"),
 										User = new User(
@@ -785,6 +788,7 @@ namespace maxhanna.Server.Controllers
 
 						if (rowsAffected == 1)
 						{
+							await RemoveFromSitemapAsync(request.story.Id);
 							return Ok("Story deleted successfully.");
 						}
 						else
@@ -970,22 +974,86 @@ namespace maxhanna.Server.Controllers
 			return matches.Count > 0 ? matches[0].Value : null;
 		}
 
-		private static readonly SemaphoreSlim _sitemapLock = new(1, 1); 
-		private async Task AppendToSitemapAsync(int storyId)
-		{ 
-			// Construct the story URL
-			string storyUrl = $"https://bughosted.com/Social/{storyId}";
+		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
+		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml"); 
+		private async Task AppendToSitemapAsync(int targetId)
+		{
+			string storyUrl = $"https://bughosted.com/Social/{targetId}";
 			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
-			string sitemapEntry = $"{storyUrl}\nlastmod: {lastMod}\nchangefreq: daily\npriority: 0.8\n";
-			string sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "src/assets/sitemap.txt");
 
 			await _sitemapLock.WaitAsync();
 			try
 			{
-				if (!System.IO.File.Exists(sitemapPath) || !System.IO.File.ReadAllText(sitemapPath).Contains(storyUrl))
+				XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+				XDocument sitemap;
+
+				if (System.IO.File.Exists(_sitemapPath))
 				{
-					await using var writer = new StreamWriter(sitemapPath, append: true);
-					await writer.WriteLineAsync(sitemapEntry);
+					sitemap = XDocument.Load(_sitemapPath);
+					var existingUrl = sitemap.Descendants(ns + "loc")
+																	 .FirstOrDefault(x => x.Value == storyUrl);
+					if (existingUrl != null)
+					{
+						// Update lastmod if the entry exists
+						existingUrl.Parent.Element(ns + "lastmod")?.SetValue(lastMod);
+						sitemap.Save(_sitemapPath);
+						return;
+					}
+				}
+				else
+				{
+					sitemap = new XDocument(
+							new XElement(ns + "urlset")
+					);
+				}
+
+				// Add new entry with proper namespace
+				XElement newUrlElement = new XElement(ns + "url",
+						new XElement(ns + "loc", storyUrl),
+						new XElement(ns + "lastmod", lastMod),
+						new XElement(ns + "changefreq", "daily"),
+						new XElement(ns + "priority", "0.8")
+				);
+
+				sitemap.Root.Add(newUrlElement);
+
+				sitemap.Save(_sitemapPath);
+			}
+			finally
+			{
+				_sitemapLock.Release();
+			}
+		}
+		private async Task RemoveFromSitemapAsync(int targetId)
+		{
+			string targetUrl = $"https://bughosted.com/Social/{targetId}";
+			_logger.LogInformation($"Removing {targetUrl} from sitemap...");
+
+			await _sitemapLock.WaitAsync();
+			try
+			{
+				if (System.IO.File.Exists(_sitemapPath))
+				{
+					XDocument sitemap = XDocument.Load(_sitemapPath);
+
+					// Define the namespace for the sitemap
+					XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+
+					// Use LINQ to find the <url> element that contains the target URL in <loc>
+					var targetElement = sitemap.Descendants(ns + "url")
+							.FirstOrDefault(x => x.Element(ns + "loc")?.Value == targetUrl);
+
+					if (targetElement != null)
+					{
+						// Remove the element if found
+						targetElement.Remove();
+						sitemap.Save(_sitemapPath);
+						_logger.LogInformation($"Removed {targetUrl} from sitemap!");
+					}
+					else
+					{
+						_logger.LogWarning($"URL {targetUrl} not found in sitemap.");
+					}
 				}
 			}
 			finally
@@ -993,7 +1061,6 @@ namespace maxhanna.Server.Controllers
 				_sitemapLock.Release();
 			}
 		}
-
 		private async Task<MetadataDto> FetchMetadataAsync(string url)
 		{
 			var httpClient = new HttpClient();

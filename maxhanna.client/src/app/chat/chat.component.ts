@@ -94,7 +94,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.messaging = await getMessaging(this.app);
         
       onMessage(this.messaging, (payload: any) => {
-        alert(`Message received in the foreground: ${payload}`);
+        alert(`${payload}`);
       }); 
 
       console.log('Current Notification Permission:', Notification.permission);
@@ -106,14 +106,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         if (permission === "granted") {
           const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
           console.log('FCM Token:', token);
-          await this.subscribeToChatTopic(token); 
+          await this.subscribeToNotificationTopic(token); 
         } else {
           console.log('Notification permission denied');
         }
       } else {
         console.log('Permission already:', Notification.permission);
         const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
-        await this.subscribeToChatTopic(token);
+        await this.subscribeToNotificationTopic(token);
       }  
     } catch (error) {  
       console.log('Error requesting notification permission:', error); 
@@ -121,7 +121,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
 
-  private async subscribeToChatTopic(token: string) { 
+  private async subscribeToNotificationTopic(token: string) { 
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent?.user?.id) {
       this.notificationService.subscribeToTopic(parent.user, token, "notification" + parent.user.id).then(res => {

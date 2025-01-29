@@ -196,8 +196,8 @@ namespace maxhanna.Server.Controllers
 					{
 						Notification = new FirebaseAdmin.Messaging.Notification()
 						{
-							Title = $"New Chat Message from {request.FromUser.Username}",
-							Body = "You have a new chat!",
+							Title = $"New Notification from {request.FromUser.Username}",
+							Body = $"{tmpUser.Username}, new notification on Bughosted.com",
 						},
 						Topic = "notification" + tmpUser.Id
 					};

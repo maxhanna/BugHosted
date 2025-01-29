@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, ComponentRef, ElementRef, OnDestroy, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { CalendarComponent } from './calendar/calendar.component'; 
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
@@ -16,7 +17,6 @@ import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { NewsComponent } from './news/news.component';
 import { NavigationComponent } from './navigation/navigation.component';
-import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { WordlerComponent } from './wordler/wordler.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
 import { EmulationComponent } from './emulation/emulation.component';
@@ -28,6 +28,7 @@ import { ModalComponent } from './modal/modal.component';
 import { NotificationsComponent } from './notifications/notifications.component';
 import { UserService } from '../services/user.service'; 
 import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
+import { HostAiComponent } from './host-ai/host-ai.component';
 
 
 
@@ -74,6 +75,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📰", title: "News", content: undefined }, 
     { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined }, 
+    { ownership: 0, icon: "💡", title: "HostAi", content: undefined }, 
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
@@ -100,6 +102,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "User": UserComponent,
     "Chat": ChatComponent,
     "Social": SocialComponent,
+    "HostAi": HostAiComponent,
     "Meme": MemeComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent

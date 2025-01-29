@@ -240,7 +240,7 @@ namespace maxhanna.Server.Controllers
 			}
 			List<User> users = new List<User>();
 
-			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
 				try
@@ -333,7 +333,7 @@ namespace maxhanna.Server.Controllers
 					{
 						while (await reader.ReadAsync())
 						{
-							string dbReceiver = reader["receiver"].ToString();
+							string dbReceiver = reader["receiver"].ToString() ?? "";
 							List<string> dbReceiverList = dbReceiver.Split(',').OrderBy(id => id).ToList(); // Sort the db receiver list
 
 							// Compare sorted lists as strings

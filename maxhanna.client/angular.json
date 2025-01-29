@@ -32,7 +32,9 @@
             "tsConfig": "tsconfig.app.json",
             "assets": [
               "src/favicon.ico",
+              "src/sitemap.xml",
               "src/assets/",
+              "src/assets/Uploads",
               "src/assets/metabots",
               "src/firebase-messaging-sw.js"
             ],
@@ -75,13 +77,13 @@
               "ssl": true,
               "sslCert": "ssl/bughosted_com.crt",
               "sslKey": "ssl/bughosted_com.key",
-              "liveReload": false,
-              "watch": false
+              "liveReload": true,
+              "watch": true
             },
             "development": {
               "buildTarget": "maxhanna.client:build:development",
-              "liveReload": false,
-              "watch": false
+              "liveReload": true,
+              "watch": true
             },
             "test": {
               "buildTarget": "maxhanna.client:build:development",
@@ -96,8 +98,8 @@
               "port": 80,
               "host": "0.0.0.0",
               "ssl": false,
-              "liveReload": false,
-              "watch": false
+              "liveReload": true,
+              "watch": true
             },
             "https": {
               "buildTarget": "maxhanna.client:build:production",
@@ -106,8 +108,8 @@
               "ssl": true,
               "sslCert": "ssl/bughosted_com.crt",
               "sslKey": "ssl/bughosted_com.key",
-              "liveReload": false,
-              "watch": false
+              "liveReload": true,
+              "watch": true
             }
           },
           "defaultConfiguration": "production",
@@ -131,7 +133,9 @@
             "tsConfig": "tsconfig.spec.json",
             "assets": [
               "src/favicon.ico",
+              "src/sitemap.xml",
               "src/assets",
+              "src/assets/Uploads",
               "src/assets/metabots",
               "src/firebase-messaging-sw.js"
             ],

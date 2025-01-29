@@ -6,9 +6,7 @@ import { User } from './datacontracts/user/user';
 @Injectable({
   providedIn: 'root'
 })
-export class CommentService {
-
-
+export class CommentService { 
   async addComment(comment: string, user?: User, fileId?: number, storyId?: number, selectedFiles?: FileEntry[]) {
     if ((fileId && storyId) || (!fileId && !storyId)) {
       return;

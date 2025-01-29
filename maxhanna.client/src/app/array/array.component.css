@@ -42,13 +42,17 @@
   z-index:1;
 }
 
-.deathMessage {
-  width: 100%;
-  text-align: center;
-  color: var(--main-highlight-color);
-  font-size: xx-large;
-  font-weight: bolder;
-}
+  .actionButtons button {
+    height: 30px;
+  }
+
+  .deathMessage {
+    width: 100%;
+    text-align: center;
+    color: var(--main-highlight-color);
+    font-size: xx-large;
+    font-weight: bolder;
+  }
 
 .deathMessageDiv {
   display: flex;
@@ -71,7 +75,8 @@
   justify-content: center;
   align-content: center;
   flex-wrap: wrap;
-  position: relative; 
+  position: relative;
+  overflow: hidden;
 }
 
 .locationPicture {

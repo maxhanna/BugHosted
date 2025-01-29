@@ -15,9 +15,7 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly ILogger<NexusController> _logger;
 		private readonly IConfiguration _config;
-		private readonly string _connectionString;
-		private readonly int _mapSizeX = 100;
-		private readonly int _mapSizeY = 100;
+		private readonly string _connectionString; 
 
 		public NexusController(ILogger<NexusController> logger, IConfiguration config)
 		{
