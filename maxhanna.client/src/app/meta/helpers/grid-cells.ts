@@ -9,8 +9,7 @@ export const RIGHT = "RIGHT";
 export const isSpaceFree = (walls: any, x: number, y: number) => {
   return !walls.has(`${x},${y}`);
 }
-export const snapToGrid = (value: number, gridSize: number): number => {
-  console.log(value);
+export const snapToGrid = (value: number, gridSize: number): number => { 
   if (gridSize <= 0) { 
     return 0;
   }

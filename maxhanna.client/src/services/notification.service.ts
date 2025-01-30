@@ -40,6 +40,9 @@ export class NotificationService {
   async deleteNotification(user: User, notificationId?: number): Promise<string> {
     return await this.fetchData('/notification/delete', { User: user, NotificationId: notificationId });
   }
+  async readNotifications(user: User, notificationIds?: number[]): Promise<string> {
+    return await this.fetchData('/notification/read', { User: user, NotificationIds: notificationIds });
+  }
   async subscribeToTopic(user: User, token: string, topic: string): Promise<string> {
     return await this.fetchData('/notification/subscribe', { User: user, Token: token, Topic: topic });
   }

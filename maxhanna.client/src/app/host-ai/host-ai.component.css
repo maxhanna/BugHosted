@@ -1,19 +1,28 @@
+.componentMain {
+  width: 90vw;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px); 
+}
+
 .chat-container {
-  width: 400px;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 75px);
   margin: 0 auto;
   border: 1px solid #ccc;
   padding: 10px;
-  background-color: #f9f9f9;
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-content: space-around;
+  align-items: stretch;
 }
 
 .chat-box {
-  height: 300px;
+  height: calc(100vh - 180px);
   overflow-y: scroll;
   border-bottom: 1px solid #ccc;
   padding: 10px;
   margin-bottom: 10px;
-  background-color: #fff;
 }
 
 .message {
@@ -22,13 +31,12 @@
 
 .input-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
 }
 
 textarea {
   width: 100%;
   padding: 10px;
-  margin-bottom: 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
 }
@@ -45,3 +53,60 @@ button {
   button:hover {
     background-color: #45a049;
   }
+
+.hr {
+  border-bottom: 1px solid white;
+  margin: 20px;
+}
+pre {
+  background: #2d2d2d;
+  color: #ffffff;
+  padding: 10px;
+  border-radius: 5px;
+  overflow-x: auto;
+  font-family: monospace;
+  white-space: pre-wrap; /* Preserve formatting */
+  line-height: 1.5;
+}
+
+code {
+  font-family: monospace;
+  display: block; /* Ensure block-level formatting */
+}
+
+ol, ul {
+  padding-left: 20px;
+}
+
+.textAreaOptionsDiv {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  margin: 5px;
+}
+
+  .textAreaOptionsDiv pre {
+    background: unset;
+    padding: unset;
+    line-height: unset;
+  }
+
+  .textAreaOptionsDiv button {
+    padding: 0px 5px;
+    width:50px;
+    height:55px;
+  }
+
+.loadingResponseDiv {
+  margin:20px;
+  padding: 20px;
+  font-weight: bolder;
+  font-size: small; 
+}
+.chat-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin-top: 10px;
+}

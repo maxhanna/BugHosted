@@ -56,7 +56,7 @@
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
     <div class="controls">
-      <div class="dpad" *ngIf="!parentRef?.showOverlay">
+      <div class="dpad" [style.visibility]="!parentRef?.showOverlay ? 'visible' : 'hidden'">
         <div class="up-left">
           <div class="up-left-triangle"></div>
         </div>

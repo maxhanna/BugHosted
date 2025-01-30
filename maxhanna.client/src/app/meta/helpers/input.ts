@@ -215,6 +215,8 @@ export class Input {
     }
 
     if (action === 'press') {
+      (event?.target as HTMLElement)?.classList?.add("active");
+      console.log(event?.target);
       switch (direction) {
         case 'UP':
           this.onArrowPressed('UP');
@@ -248,6 +250,8 @@ export class Input {
           break;
       }
     } else if (action === 'release') {
+      (event?.target as HTMLElement)?.classList?.remove("active");
+      console.log(event?.target);
       switch (direction) {
         case 'UP':
           this.onArrowReleased('UP');

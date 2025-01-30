@@ -146,9 +146,9 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   border-radius: 5px 5px 0px 0px;
 }
 
-  .up:active {
+  .up:active, .up.active {
     background: linear-gradient(to top, #565e6a 0%, #333 100%);
-  }
+  } 
 
 .right {
   top: 33%;
@@ -160,7 +160,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   box-shadow: 0px -2px 0px #888 inset;
 }
 
-  .right:active {
+  .right:active, .right.active {
     background: linear-gradient(to right, #565e6a 0%, #333 100%);
   }
 
@@ -175,7 +175,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   box-shadow: 0px -2px 0px #888 inset;
 }
 
-  .down:active {
+  .down:active, .down.active {
     background: linear-gradient(to bottom, #565e6a 0%, #333 100%);
   }
 
@@ -190,7 +190,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
 }
 
 
-  .left:active {
+  .left:active, .left.active {
     background: linear-gradient(to left, #565e6a 0%, #333 100%);
   }
 
@@ -234,7 +234,6 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   width: 120px;
   height: 90px;
 }
-
 .a, .b, .c {
   position: absolute;
   display: inline-block;
@@ -251,14 +250,16 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   text-align: center;
   -webkit-user-select: none;
   cursor: pointer;
+  touch-action: manipulation; /* Ensures touch events are handled correctly */
 }
 
-  .a:active, .b:active, .c:active {
+  .a:active, .b:active, .c:active, .a.active, .b.active, .c.active {
     box-shadow: -1px 1px 1px black, 0px 0px 5px black inset;
     border-width: 0px;
     line-height: 70px;
     filter: brightness(85%);
   }
+   
 
 .a {
   top: -10px;
@@ -309,9 +310,9 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
     cursor: pointer;
   }
 
-  .start:active::before, .select:active::before {
+  .start:active::before, .select:active::before, .start.active::before, .select.active::before {
     background: linear-gradient(to bottom, #0b0a1c 0%, #0b0a1c 50%, var(--secondary-font-color) 100%);
-  }
+  } 
 
 .up-triangle {
   position: absolute;

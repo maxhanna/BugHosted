@@ -4,22 +4,22 @@ using maxhanna.Server.Controllers.DataContracts.Notification;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Wordler;
 using Microsoft.AspNetCore.Mvc;
-using MySqlConnector; 
+using MySqlConnector;
 
 namespace maxhanna.Server.Controllers
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class NotificationController : ControllerBase
-    {
-        private readonly ILogger<NotificationController> _logger;
-        private readonly IConfiguration _config;
+	[ApiController]
+	[Route("[controller]")]
+	public class NotificationController : ControllerBase
+	{
+		private readonly ILogger<NotificationController> _logger;
+		private readonly IConfiguration _config;
 
-        public NotificationController(ILogger<NotificationController> logger, IConfiguration config)
-        {
-            _logger = logger;
-            _config = config;  
-				}
+		public NotificationController(ILogger<NotificationController> logger, IConfiguration config)
+		{
+			_logger = logger;
+			_config = config;
+		}
 
 		[HttpPost(Name = "GetNotifications")]
 		public async Task<IActionResult> GetNotifications(User user)
@@ -74,60 +74,58 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private UserNotification MapReaderToNotification(MySqlDataReader reader)
-        {
-            int? displayPicId = reader.IsDBNull(reader.GetOrdinal("user_display_picture")) ? null : reader.GetInt32("user_display_picture");
-            FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
-            User tUser = 
-                new User(
-                    reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"), 
-                    reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString("username"), 
-                    null, dpFileEntry, 
-                    null, null, null);
+		{
+			int? displayPicId = reader.IsDBNull(reader.GetOrdinal("user_display_picture")) ? null : reader.GetInt32("user_display_picture");
+			FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
+			User tUser =
+					new User(
+							reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"),
+							reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString("username"),
+							null, dpFileEntry,
+							null, null, null);
 
-            int? sentDisplayPicId = reader.IsDBNull(reader.GetOrdinal("sent_user_display_picture")) ? null : reader.GetInt32("sent_user_display_picture");
-            FileEntry? sentDpFileEntry = sentDisplayPicId != null ? new FileEntry() { Id = (Int32)(sentDisplayPicId) } : null;
-            User sentUser = 
-                new User(
-                    reader.IsDBNull(reader.GetOrdinal("from_user_id")) ? 0 : reader.GetInt32("from_user_id"), 
-                    reader.IsDBNull(reader.GetOrdinal("from_user_name")) ? "Anonymous" : reader.GetString("from_user_name"),
-                    null, sentDpFileEntry, 
-                    null, null, null);
+			int? sentDisplayPicId = reader.IsDBNull(reader.GetOrdinal("sent_user_display_picture")) ? null : reader.GetInt32("sent_user_display_picture");
+			FileEntry? sentDpFileEntry = sentDisplayPicId != null ? new FileEntry() { Id = (Int32)(sentDisplayPicId) } : null;
+			User sentUser =
+					new User(
+							reader.IsDBNull(reader.GetOrdinal("from_user_id")) ? 0 : reader.GetInt32("from_user_id"),
+							reader.IsDBNull(reader.GetOrdinal("from_user_name")) ? "Anonymous" : reader.GetString("from_user_name"),
+							null, sentDpFileEntry,
+							null, null, null);
 
-            return new UserNotification
-            {
-                Id = reader.GetInt32("id"),
-                Date = reader.GetDateTime("date"),
-                User = tUser,
-                FromUser = sentUser,
-                ChatId = reader.IsDBNull(reader.GetOrdinal("chat_id")) ? null : reader.GetInt32("chat_id"),
-                FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32("file_id"),
-                StoryId = reader.IsDBNull(reader.GetOrdinal("story_id")) ? null : reader.GetInt32("story_id"),
-                UserProfileId = reader.IsDBNull(reader.GetOrdinal("user_profile_id")) ? null : reader.GetInt32("user_profile_id"),
-                Text = reader.IsDBNull(reader.GetOrdinal("text")) ? null : reader.GetString("text"),
-            };
-        }
+			return new UserNotification
+			{
+				Id = reader.GetInt32("id"),
+				Date = reader.GetDateTime("date"),
+				User = tUser,
+				FromUser = sentUser,
+				ChatId = reader.IsDBNull(reader.GetOrdinal("chat_id")) ? null : reader.GetInt32("chat_id"),
+				FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32("file_id"),
+				StoryId = reader.IsDBNull(reader.GetOrdinal("story_id")) ? null : reader.GetInt32("story_id"),
+				UserProfileId = reader.IsDBNull(reader.GetOrdinal("user_profile_id")) ? null : reader.GetInt32("user_profile_id"),
+				Text = reader.IsDBNull(reader.GetOrdinal("text")) ? null : reader.GetString("text"),
+				IsRead = reader.IsDBNull(reader.GetOrdinal("is_read")) ? null : reader.GetBoolean("is_read"),
+			};
+		}
 
 
 		[HttpPost("/Notification/Delete", Name = "DeleteNotifications")]
 		public async Task<IActionResult> DeleteNotifications([FromBody] DeleteNotificationRequest req)
 		{
-			_logger.LogInformation($"POST /Notification/Delete ");
-			List<UserNotification> notifications = new List<UserNotification>();
+			_logger.LogInformation($"POST /Notification/Delete "); 
 			try
 			{
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await connection.OpenAsync();
-
-					// SQL query to get the word of the day
+					 
 					string sql = $@"
                         DELETE FROM maxhanna.notifications WHERE user_id = @UserId
                         {(req.NotificationId != null ? " AND id = @NotificationId LIMIT 1" : "")};
                     ";
 
 					using (var command = new MySqlCommand(sql, connection))
-					{
-
+					{ 
 						command.Parameters.AddWithValue("@UserId", req.User.Id);
 						if (req.NotificationId != null)
 						{
@@ -144,6 +142,44 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while deleting the notifications.");
 			}
 			return Ok(req.NotificationId != null ? "Notification deleted." : "All notifications deleted.");
+		}
+
+
+		[HttpPost("/Notification/Read", Name = "ReadNotifications")]
+		public async Task<IActionResult> ReadNotifications([FromBody] ReadNotificationRequest req)
+		{
+			_logger.LogInformation($"POST /Notification/Read ");
+			List<UserNotification> notifications = new List<UserNotification>();
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					string sql = "UPDATE maxhanna.notifications SET is_read = 1 WHERE user_id = @UserId";
+
+					if (req.NotificationIds != null && req.NotificationIds.Length > 0)
+					{
+						string idList = string.Join(",", req.NotificationIds);
+						sql += $" AND id IN ({idList})";
+					}
+
+					sql += ";";
+
+					using (var command = new MySqlCommand(sql, connection))
+					{
+
+						command.Parameters.AddWithValue("@UserId", req.User.Id); 
+
+						await command.ExecuteNonQueryAsync();
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while deleting the notifications.");
+				return StatusCode(500, "An error occurred while deleting the notifications.");
+			}
+			return Ok(req.NotificationIds != null ? "Notification read." : "All notifications read.");
 		}
 
 
@@ -187,7 +223,7 @@ namespace maxhanna.Server.Controllers
 		public async void NotifyUsers([FromBody] NotificationRequest request)
 		{
 			_logger.LogInformation($"POST /Notification/NotifyUsers");
-			foreach(User tmpUser in request.ToUser)
+			foreach (User tmpUser in request.ToUser)
 			{
 				try
 				{
@@ -209,7 +245,7 @@ namespace maxhanna.Server.Controllers
 				{
 					_logger.LogError(ex, "An error occurred while subscribing to notifications.");
 				}
-			} 
+			}
 		}
 	}
 }

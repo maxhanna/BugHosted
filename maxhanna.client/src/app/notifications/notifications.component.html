@@ -10,23 +10,28 @@
   <div class="notificationsDisplay" [style.width]="minimalInterface ? '90%' : ''">
     <div>
       <div *ngIf="notifications && notifications.length > 0" class="noNotificationsDiv">
-        <button (click)="delete()" *ngIf="notifications && notifications.length > 0">
-          ❌ Clear {{notifications && notifications.length > 1 ? 'All ' : '' }} ({{notifications && notifications.length}}) Notifications
-        </button>
+        <div>
+          {{notifications && notifications.length}} Notifications
+        </div>
+        <div>
+          <button (click)="delete()" *ngIf="notifications && notifications.length > 0">
+            ❌ Clear {{notifications && notifications.length > 1 ? 'All ' : '' }}
+          </button>
+          <button (click)="read()" *ngIf="notifications && notifications.length > 0">
+            Read {{notifications && notifications.length > 1 ? 'All ' : '' }}
+          </button>
+        </div>
       </div>
       <div class="closeButton" id="closeOverlay" (click)="showNotifications = false;  (inputtedParentRef ? inputtedParentRef.closeOverlay() : '')" *ngIf="minimalInterface"></div>
     </div>
-    <div [class]="minimalInterface ? 'notificationsList' : ''" *ngIf="notifications && notifications.length > 0">
-      <!--<div class="noNotificationsDiv">
-        <button (click)="subscribeToPush()">Enable Push Notifications</button> 
-      </div>-->
-
-      <div *ngFor="let notification of notifications" class="notificationListItem">
+    <div [class]="'notificationsListContainer ' + (minimalInterface ? 'notificationsList' : '')" *ngIf="notifications && notifications.length > 0">
+      <div *ngFor="let notification of notifications" class="notificationListItem" [style.opacity]="notification.isRead ? '50%' : '100%'">
         <div class="nliLeftDiv">
           <app-user-tag [user]="notification.fromUser" [inputtedParentRef]="inputtedParentRef ?? parentRef"></app-user-tag>
         </div>
         <div class="nliRightDiv">
-          <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button> 
+          <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>
+          <button title="Read Notification" (click)="read(notification)" class="readNotificationButton">Read</button>
           <div *ngIf="notification.fileId" (click)="goToFileId(notification.fileId)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>File ID:</strong> {{ notification.fileId }}
           </div>
@@ -42,8 +47,8 @@
           <div class="date notificationText" (click)="notificationTextClick(notification)">
             <strong>Date:</strong> {{ notification.date | date: 'short' }}
           </div>
-        </div> 
-      </div>
+        </div>
+      </div> 
     </div>
     <div *ngIf="notifications && notifications.length == 0" class="noNotificationsDiv">
       <div class="noNotificationsWrapperSpan">

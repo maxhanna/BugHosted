@@ -88,7 +88,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
       });
 
       // Add unique timestamps to chartLabelsSet
-      coinFilteredData.forEach(item => chartLabelsSet.add(item.timestamp.replace('T', ' ').replaceAll('-','.')));
+      coinFilteredData.forEach(item => chartLabelsSet.add(item.timestamp.replace('T', ' ').replace('-','.')));
     });
 
     // Convert chartLabelsSet to array

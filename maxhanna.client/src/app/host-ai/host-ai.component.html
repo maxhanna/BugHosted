@@ -1,15 +1,26 @@
-<div class=componentMain>
-  <div class="closeButton" (click)="remove_me('AiChatComponent');"></div> 
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me('HostAiComponent');"></div> 
   <div class="componentTitle">HostAI</div>
 
-  <div class="chat-container">
+  <div class="chat-container" #chatContainer>
     <div class="chat-box">
-      <div class="message" *ngFor="let message of chatMessages">
-        <strong>{{ message.sender }}:</strong> {{ message.message }}
+      <div class="message" *ngFor="let message of chatMessages; let i = index">
+        <div class="hr" *ngIf="message.sender === 'You' && i > 0"></div>
+        <strong>{{ message.sender }}:</strong>
+        <span [innerHTML]="parseGeminiMessage(message)" *ngIf="!message?.message?.mimeType"></span>
+        <img [src]="parseGeminiMessage(message)" *ngIf="message?.message?.mimeType" />
       </div>
+      <div class="loadingResponseDiv" *ngIf="isLoading">Loading...</div>
+    </div>
+
+    <div class="textAreaOptionsDiv">
+      <button (click)="createCodeSnippet()"><pre><\></pre></button>
+      <button (click)="generateImage()">🖼️</button>
     </div>
     <div class="input-container">
-      <textarea [value]="userMessage" placeholder="Type your message..." rows="4" #chatInput></textarea>
+      <textarea [value]="userMessage"
+                (keydown)="handleKeyDown($event)"
+                placeholder="Type your message..." rows="4" #chatInput></textarea>
       <button (click)="sendMessage()">Send</button>
     </div>
   </div>

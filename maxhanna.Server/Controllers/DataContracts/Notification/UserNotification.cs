@@ -13,5 +13,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Wordler
         public int? UserProfileId { get; set; } 
         public string? Text { get; set; } 
         public DateTime? Date { get; set; }
+        public Boolean? IsRead { get; set; }
     }
 }

@@ -2,10 +2,22 @@
     min-width: 300px;
     max-width:98vw;
 }
-.deleteNotificationButton { 
+.deleteNotificationButton, .readNotificationButton {
+  width: 50px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.deleteNotificationButton {
   position: absolute;
   top: 0px;
-  right:0px;
+  right: 0px;
+}
+.readNotificationButton {
+  position: absolute;
+  top: 0px;
+  right: 60px;
 }
 .fileId {
   line-height: 30px;
@@ -57,7 +69,11 @@
   height: CALC(100% - 15px); 
   flex-wrap: nowrap;
 }
-.notificationsList {  
+.notificationsListContainer {
+  overflow: auto;
+  height: CALC(100vh - 100px);
+}
+.notificationsList {
   overflow: auto;
   height: 100%;
   width: 100%;

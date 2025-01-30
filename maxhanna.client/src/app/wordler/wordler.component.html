@@ -1,11 +1,11 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('WordlerComponent');"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Wordler</div>
   <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
   <div>
-    <div class="wordlerTitleDiv">
+    <div class="wordlerTitleDiv" *ngIf="!isMenuPanelOpen">
       <div class="wordlerTitle">
         <span class="wordlerTitleIcons villain">🦹‍</span>
         <span class="wordlerTitleIcons brain">🧠</span>
@@ -75,7 +75,7 @@
         <button id="lButton" class="key" (click)="pressedKey('L',$event)" [disabled]="disableAllInputs">L</button>
       </div>
       <div class="keyboardRow">
-        <button id="enterButton" class="key enter" (click)="pressedKey('enter',$event)" [disabled]="disableAllInputs">ENTER</button> 
+        <button id="enterButton" class="key enter" (click)="pressedKey('enter',$event)" [disabled]="disableAllInputs">ENTER</button>
         <button id="zButton" class="key" (click)="pressedKey('Z',$event)" [disabled]="disableAllInputs">Z</button>
         <button id="xButton" class="key" (click)="pressedKey('X',$event)" [disabled]="disableAllInputs">X</button>
         <button id="cButton" class="key" (click)="pressedKey('C',$event)" [disabled]="disableAllInputs">C</button>
@@ -116,5 +116,47 @@
     <div *ngIf="!scores || scores.length == 0">
       None has beat the Wordler today!
     </div>
+  </div>
+</div>
+
+<!-- Menu Popup -->
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    Menu Options
+    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+  </div>
+  <div>
+    <div>
+      <span class="popupPanelTitle">Current Wordler streak:</span> {{wordlerStreak}} consecutive days.
+    </div>
+    <div>
+      <span class="popupPanelTitle">
+        Best Wordler Scores
+        <span class="xxSmallFont">(out of {{wordlerScoresCount}} total scores)</span>:
+      </span>
+      <div *ngIf="wordlerScores.length > 0">
+        <table *ngIf="wordlerScores && wordlerScores.length > 0" id="scoreTable">
+          <thead>
+            <tr>
+              <th (click)="sortTable(1, 'scoreTable')">Score</th>
+              <th (click)="sortTable(2, 'scoreTable')">Time</th>
+              <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
+              <th (click)="sortTable(3, 'scoreTable')">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let score of wordlerScores">
+              <td>{{score.score + 1}}</td>
+              <td>{{score.time}}</td>
+              <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
+              <td>{{score.submitted!.toString().replace('T', ' ')}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No Worlder scores yet!</div>
+    </div>
+
   </div>
 </div>

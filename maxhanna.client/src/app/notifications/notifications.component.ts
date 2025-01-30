@@ -2,9 +2,9 @@ import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { NotificationService } from '../../services/notification.service';
 import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
-import { Location } from '@angular/common'; 
+import { Location } from '@angular/common';
 import { AppComponent } from '../app.component';
-import { User } from '../../services/datacontracts/user/user';   
+import { User } from '../../services/datacontracts/user/user';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 
@@ -24,7 +24,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         console.log("error configuring firebase: ", e);
       }
     }
-  } 
+  }
 
   @Input() minimalInterface? = false;
   @Input() inputtedParentRef?: AppComponent;
@@ -39,7 +39,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   ngOnInit() {
     this.getNotifications();
-    this.startPolling(); 
+    this.startPolling();
   }
 
   ngOnDestroy() {
@@ -65,35 +65,35 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }, 30000); // Poll every 30 seconds
   }
 
-  removeMe(type: string) { 
-    if (this.inputtedParentRef) { 
+  removeMe(type: string) {
+    if (this.inputtedParentRef) {
       this.inputtedParentRef.removeAllComponents();
-    } else { 
+    } else {
       super.remove_me(type);
     }
   }
 
   createComponent(name: string, args: any) {
-    if (this.parentRef || this.inputtedParentRef) { 
+    if (this.parentRef || this.inputtedParentRef) {
       if (this.parentRef)
         this.parentRef.createComponent(name, args);
       else if (this.inputtedParentRef) {
-        this.inputtedParentRef.createComponent(name, args); 
+        this.inputtedParentRef.createComponent(name, args);
       }
     }
-    this.showNotifications = false; 
+    this.showNotifications = false;
   }
   goToFileId(id: number) {
     console.log("goToFileId");
     this.location.replaceState("/File/" + id);
-    this.createComponent("Files", { "fileId": id }) 
+    this.createComponent("Files", { "fileId": id })
   }
   goToStoryId(id: number) {
     this.location.replaceState("/Social/" + id);
-    this.createComponent("Social", { "storyId": id });  
+    this.createComponent("Social", { "storyId": id });
   }
-  goToChat(chatId?: number) { 
-    if (!chatId) return alert("Error: Must select a user to chat!"); 
+  goToChat(chatId?: number) {
+    if (!chatId) return alert("Error: Must select a user to chat!");
     this.createComponent("Chat", { chatId: chatId });
   }
   async delete(notification?: UserNotification) {
@@ -105,11 +105,24 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       } else {
         this.notifications = [];
       }
-    }
-    if (parent) { 
       parent.getNotifications();
     }
-
+  }
+  async read(notification?: UserNotification) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent && parent.user) {
+      if (notification && notification.id) { 
+        await this.notificationService.readNotifications(parent.user, [notification.id]);
+      } else { 
+        await this.notificationService.readNotifications(parent.user, undefined);
+      }
+      if (notification) {
+        notification.isRead = true;
+      } else if (this.notifications) {
+        this.notifications.forEach(x => x.isRead = true);
+      }
+      parent.getNotifications();
+    }
   }
   notificationTextClick(notification: UserNotification) {
     if (notification.text?.includes('Captured a base at')) {

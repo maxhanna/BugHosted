@@ -23,7 +23,7 @@
       <div style="width:100%; text-align:center;">
         Total : {{songs.length}} Songs <br />
         Order : <select id="orderSelect" (change)="reorderTable($event)" #orderSelect><option *ngFor="let order of orders" value="{{order}}">{{order}}</option></select><br />
-        Search: <input placeholder="Keyword" #searchInput (keypress)="onSearchEnter($event)" /><input type="submit" value="🔍" (click)="searchForSong()" />
+        Search: <input placeholder="Keyword" #searchInput (input)="onSearchEnter()" /><input type="submit" value="🔍" (click)="searchForSong()" />
       </div>
       <div class="mainTableDiv">
         <table id="songListTable" class="mainTable">

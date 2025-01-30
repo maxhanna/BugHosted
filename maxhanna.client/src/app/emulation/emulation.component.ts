@@ -62,7 +62,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   oldCanvasWidth = 0;
   oldCanvasHeight = 0;
   oldSpeakerDisplay = '';
-
+  controlsSet = false;
 
   autosaveInterval: any;
   autosaveIntervalTime: number = 60000; // 1 minute in milliseconds
@@ -72,7 +72,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   actionDelay = 50;
 
   async ngOnInit() {
-    this.setHTMLControls();
     this.overrideGetUserMedia();
     this.setupEventListeners();
 
@@ -86,6 +85,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       }
       this.isFullScreen = !this.isFullScreen;
     });
+
+    this.parentRef?.setViewportScalability(false);
   }
   override async remove_me(componentTitle: string) {
     this.stopEmulator();
@@ -100,6 +101,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     await this.clearAutosave();
     this.nostalgist?.exit();
     this.nostalgist = undefined;
+    this.parentRef?.setViewportScalability(true);
   }
   setupEventListeners() {
     document.addEventListener('keydown', (event) => {
@@ -128,6 +130,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.isSearchVisible = true;
     this.currentFileType = '';
     this.selectedRomName = '';
+    this.controlsSet = false;
+    this.displayAB = false;
+    this.displayC = false;
   }
   async loadState() {
     const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
@@ -136,7 +141,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     await this.nostalgist?.loadState(saveStateResponse!);
   }
   async loadRom(file: FileEntry) {
-
     this.startLoading();
     this.isSearchVisible = false;
     const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName) + ".sav";
@@ -164,10 +168,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
 
     await this.nostalgist.launchEmulator();
-    this.stopLoading(); 
+    this.setHTMLControls();
     this.setupAutosave();
     this.getDisplayAB();
     this.getDisplayC();
+    this.stopLoading();
   }
 
   onVolumeChange(event: Event) {
@@ -254,8 +259,15 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     await this.nostalgist!.saveState();
   }
   setHTMLControls() {
+    if (this.controlsSet) {
+      return;
+    } else {
+      this.controlsSet = true;
+    }
+
     const addPressReleaseEvents = (elementClass: string, joypadIndex: string) => {
       const element = document.getElementsByClassName(elementClass)[0];
+      if (!element) return;
 
       element.addEventListener("mousedown", () => {
         this.nostalgist?.pressDown(joypadIndex);
@@ -281,12 +293,14 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       element.addEventListener("touchend", (e) => {
         e.preventDefault();
         this.nostalgist?.pressUp(joypadIndex);
+        element.classList.remove('active');
       }, { passive: false });
 
       let startX: number, startY: number;
       element.addEventListener("touchstart", (e) => {
         startX = (e as TouchEvent).touches[0].clientX;
         startY = (e as TouchEvent).touches[0].clientY;
+        element.classList.add('active');
       });
 
       element.addEventListener("touchmove", (e) => {
@@ -314,11 +328,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
             this.nostalgist!.pressDown('up'); // Up  
           }
         }
-      }, { passive: false });
-
-      element.addEventListener("touchend", (e) => {
-        e.preventDefault();
-        this.nostalgist!.pressUp(joypadIndex)
       }, { passive: false });
     };
 
@@ -381,7 +390,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
 
   overrideGetUserMedia() {
-    if (navigator && navigator.mediaDevices) { 
+    if (navigator && navigator.mediaDevices) {
       navigator.mediaDevices.getUserMedia = async (constraints) => {
         console.warn("getUserMedia request blocked");
         return Promise.reject(new Error("Webcam access is blocked."));
@@ -422,8 +431,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const ft = this.currentFileType.toLowerCase().trim();
     this.displayAB = ft != ''
       && (this.segaFileTypes.includes(ft)
-      || this.gameboyFileTypes.includes(ft)
-      || ft == 'nes');
+        || this.gameboyFileTypes.includes(ft)
+        || ft == 'nes');
   }
   getDisplayC() {
     const ft = this.currentFileType.toLowerCase().trim();

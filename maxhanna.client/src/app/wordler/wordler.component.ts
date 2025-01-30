@@ -30,6 +30,11 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   disableAllInputs = false;
   guessAttempts: string[] = [];
   currentStreak = 0;
+  isMenuPanelOpen = false;
+
+  wordlerScores: WordlerScore[] = [];
+  wordlerScoresCount: number = 0;
+  wordlerStreak: number = 0;
  
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
 
@@ -48,9 +53,21 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   async ngOnInit() {
     this.showExitGameButton = false;
     this.getHighScores();
-    const res = await this.wordlerService.getConsecutiveDayStreak(this.parentRef?.user!);
-    if (res) {
-      this.currentStreak = parseInt(res);
+    this.loadScoreData();
+  }
+  async loadScoreData() {
+    if (this.parentRef?.user) {
+      try {
+        const res = await this.wordlerService.getAllScores(this.parentRef.user);
+        if (res) {
+          this.wordlerScores = res;
+          this.setTopScores();
+        }
+        const wsRes = await this.wordlerService.getConsecutiveDayStreak(this.parentRef.user);
+        if (wsRes) {
+          this.wordlerStreak = parseInt(wsRes);
+        }
+      } catch (e) { }
     }
   }
   copyLink() {
@@ -424,4 +441,40 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       this.showExitGameButton = false;
     }
   } 
+
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
+  }
+  setTopScores() {
+    const groupedScores: { [key: number]: WordlerScore[] } = this.wordlerScores.reduce((groups, score) => {
+      const difficulty = score.difficulty;
+      if (!groups[difficulty]) {
+        groups[difficulty] = [];
+      }
+      groups[difficulty].push(score);
+      return groups;
+    }, {} as { [key: number]: WordlerScore[] });
+
+    // Get the top 5 scores for each difficulty
+    const topScores = Object.values(groupedScores).flatMap(scores =>
+      scores
+        .sort((a, b) => b.score - a.score || a.time - b.time) // Sort by score descending, then by time ascending
+        .slice(0, 5) // Take the top 5
+    );
+    this.wordlerScoresCount = this.wordlerScores.length;
+    this.wordlerScores = topScores;
+  }
 }

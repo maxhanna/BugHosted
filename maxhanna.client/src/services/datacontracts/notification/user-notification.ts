@@ -7,6 +7,7 @@ export class UserNotification {
   fileId: number | undefined;
   storyId: number | undefined;
   chatId: number | undefined;
+  isRead: boolean | undefined;
   text: string | undefined;
   date: Date | undefined;
 } 

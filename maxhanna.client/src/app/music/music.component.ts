@@ -198,9 +198,10 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       return url;
     }
   }
-  onSearchEnter(event: KeyboardEvent) {
-    if (event.key === 'Enter') {
+  onSearchEnter() { 
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
       this.searchForSong();
-    }
+    }, 100); 
   }
 }

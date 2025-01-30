@@ -14,7 +14,6 @@ namespace maxhanna.Server.Services
 		private DateTime _lastDailyTaskRun = DateTime.MinValue;
 		private DateTime _lastCoinFetchRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
 
-
 		public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config)
 		{
 			_logger = logger;

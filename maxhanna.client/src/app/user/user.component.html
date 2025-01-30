@@ -38,7 +38,7 @@
             <option *ngIf="areWeFriends(user)" value="removeFriend">👤 Remove Friend</option>
             <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">👤 Add Contact</option>
             <option value="showFriends">👤 Show Friends</option>
-            <option *ngIf="user" value="chat">🗨️ Chat</option> 
+            <option *ngIf="user" value="chat">🗨️ Chat</option>
             <option *ngIf="user" value="userInfo">ℹ️ {{ isAboutPanelOpen ? 'Hide ' : '' }} User Info</option>
             <option *ngIf="user && user.id == parentRef?.user?.id" value="settings">⚙️ Settings</option>
             <option *ngIf="user && user.id == parentRef?.user?.id" value="logout">🔑 Logout</option>
@@ -262,7 +262,7 @@
     <button id="closeOverlay" (click)="closeFriendsPanel()">Close</button>
   </div>
 </div>
- 
+
 <!-- About User Popup -->
 <div class="popupPanel aboutPopupPanel" *ngIf="isAboutPanelOpen">
   <div class="popupPanelTitle">
@@ -270,12 +270,11 @@
   </div>
   <div class="aboutPopupPanelContentContainer">
     <div class="topProfileContainer" id="aboutContainer">
-      <div *ngIf="user || parentRef?.user" class="aboutContainer"> 
-        <span class="smallExpander mainTable" (click)="expandDiv('aboutContainer');"> 
-        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer'); isAboutExpanded = !isAboutExpanded">About</span> 
+      <div *ngIf="user || parentRef?.user" class="aboutContainer">
+        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer');">
           {{isAboutExpanded ? '-' : '+'}}
-        </span> 
-        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer');">About</span>
+          About
+        </span>
 
         <div class="mainTableDiv" *ngIf="isAboutExpanded">
           <table class="mainTable aboutTable" *ngIf="user?.about && (user?.about?.description || user?.about?.birthday || user?.about?.email || user?.about?.phone || wordlerStreak > 0)">
@@ -313,79 +312,24 @@
             </tbody>
           </table>
         </div>
-      </div> 
-    </div> 
-    </div>  
-
-    <!-- WORDLER SCORES-->
-    <div class="topProfileContainer" id="wordlerScoresProfileContainer" (click)="expandDiv('wordlerScoresProfileContainer');">
-      <div *ngIf="user || parentRef?.user" class="wordlerScoreDiv"> 
-        <span class="cursorPointerUnderlined mainTable">Best Wordler Scores</span> 
-        <span class="smallExpander mainTable">
-          {{isWordlerScoresExpanded ? '-' : '+'}}
-        </span> 
-        <span class="cursorPointerUnderlined mainTable">
-          Best Wordler Scores
-          <span class="xxSmallFont">(out of {{wordlerScoresCount}} total scores)</span>
-        </span> 
-
-        <div *ngIf="wordlerScores.length > 0 && isWordlerScoresExpanded" class="mainTableDiv">
-          <table *ngIf="wordlerScores && wordlerScores.length > 0" class="mainTable" id="scoreTable">
-            <thead>
-              <tr>
-                <th (click)="sortTable(1, 'scoreTable')">Score</th>
-                <th (click)="sortTable(2, 'scoreTable')">Time</th>
-                <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
-                <th (click)="sortTable(3, 'scoreTable')">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let score of wordlerScores">
-                <td>{{score.score + 1}}</td>
-                <td>{{score.time}}</td>
-                <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
-                <td>{{score.submitted!.toString().replace('T', ' ')}}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading && isWordlerScoresExpanded">No Worlder scores yet!</div>
       </div>
     </div>
-
-    <!-- MUSIC --> 
-    <div class="topProfileContainer" id="musicProfileContainer"> 
-      <span class="smallExpander mainTable" (click)="expandDiv('musicProfileContainer');">
-        {{isMusicContainerExpanded ? '-' : '+'}}
-      </span>
+    <!-- MUSIC -->
+    <div class="topProfileContainer" id="musicProfileContainer">
       <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('musicProfileContainer');">
+        {{isMusicContainerExpanded ? '-' : '+'}} 
         Music Playlist
         <span class="xxSmallFont">{{'('+(playListCount || songPlaylist.length)+')'}}</span>
       </span>
 
       <div *ngIf="isMusicContainerExpanded">
         <app-music *ngIf="isMusicContainerExpanded"
-                    [user]="user"
-                    [songPlaylist]="songPlaylist"
-                    [smallPlayer]="true"
-                    (gotPlaylistEvent)="gotPlaylistEvent($event)">
+                   [user]="user"
+                   [songPlaylist]="songPlaylist"
+                   [smallPlayer]="true"
+                   (gotPlaylistEvent)="gotPlaylistEvent($event)">
         </app-music>
-      </div>  
-    <div class="topProfileContainer" id="musicProfileContainer">
-      <div *ngIf="user || parentRef?.user" class="">
-        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">Music Playlist</span>
-        <span class="smallExpander mainTable" (click)="expandDiv('musicProfileContainer'); isMusicContainerExpanded = !isMusicContainerExpanded">
-          {{'('+(playListCount || songPlaylist.length)+')'}}{{isMusicContainerExpanded ? '-' : '+'}}
-        </span>
-        <div style="width:100%;height:100px;overflow:auto;" *ngIf="isMusicContainerExpanded">
-          <app-music *ngIf="isMusicContainerExpanded"
-                     [user]="user"
-                     [songPlaylist]="songPlaylist"
-                     [smallPlayer]="true"
-                     (gotPlaylistEvent)="gotPlaylistEvent($event)">
-          </app-music>
-        </div>
-      </div> 
+      </div>
     </div>
   </div>
   <div>
@@ -414,27 +358,27 @@
 
     </div>
     <div *ngIf="isLoading && (!friends || friends.length == 0)">Loading friends list...</div>
-    <div *ngIf="!isLoading && (!friends || friends.length == 0)">Friends list is empty.</div> 
+    <div *ngIf="!isLoading && (!friends || friends.length == 0)">Friends list is empty.</div>
   </div>
 
   <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0">
     Following:
   </div>
-  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">  
+  <div *ngIf="!isEditingFriends && friendRequestsSent.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsSent" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.receiver" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
-      <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id"> 
+      <div class="friendshipRequestActionDiv" *ngIf="!userId || userId == parentRef?.user?.id">
         <button (click)="deleteFriendshipRequest(friendReq)" class="cursorPointer" title="Cancel Friendship Request">❌Cancel</button>
       </div>
-    </div> 
+    </div>
   </div>
 
   <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0">
     Followers:
   </div>
-  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" class="friendsPopupContainer mainFriendsPopupDiv"> 
+  <div *ngIf="!isEditingFriends && friendRequestsReceived.length > 0" class="friendsPopupContainer mainFriendsPopupDiv">
     <div *ngFor="let friendReq of friendRequestsReceived" class="friendsListDiv friendsRequestReceivedList">
       <div class="usernameProfileLink">
         <app-user-tag [user]="friendReq.sender" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>

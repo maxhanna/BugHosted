@@ -29,6 +29,7 @@ import { NotificationsComponent } from './notifications/notifications.component'
 import { UserService } from '../services/user.service'; 
 import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
+import { Meta } from '@angular/platform-browser';
 
 
 
@@ -75,7 +76,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📰", title: "News", content: undefined }, 
     { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined }, 
-    { ownership: 0, icon: "💡", title: "HostAi", content: undefined }, 
+    { ownership: 0, icon: "🧐", title: "HostAi", content: undefined }, 
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
@@ -108,7 +109,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
-  constructor(private router: Router, private route: ActivatedRoute, private userService: UserService) {
+  constructor(private router: Router, private route: ActivatedRoute, private userService: UserService, private meta: Meta) {
   
   }
   ngOnInit() {
@@ -323,5 +324,12 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   openUserSettings() {
     this.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this });
+  }
+  setViewportScalability(scalable?: boolean) {
+    const viewportMetaTag = this.meta.getTag('name=viewport');
+    if (scalable === undefined) {
+      scalable = true;
+    }
+    this.meta.updateTag({ name: 'viewport', content: `width=device-width, initial-scale=1.0, user-scalable=${scalable ? 'yes' : 'no'}` }); 
   }
 }

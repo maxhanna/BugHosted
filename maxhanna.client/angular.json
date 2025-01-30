@@ -77,7 +77,7 @@
               "ssl": true,
               "sslCert": "ssl/bughosted_com.crt",
               "sslKey": "ssl/bughosted_com.key",
-              "liveReload": true,
+              "liveReload": false,
               "watch": true
             },
             "development": {
@@ -108,7 +108,7 @@
               "ssl": true,
               "sslCert": "ssl/bughosted_com.crt",
               "sslKey": "ssl/bughosted_com.key",
-              "liveReload": true,
+              "liveReload": false,
               "watch": true
             }
           },

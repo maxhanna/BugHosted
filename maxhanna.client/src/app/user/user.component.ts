@@ -45,7 +45,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isMenuIconsToggled = true;
   isFriendRequestsExpanded = false;
   isAboutExpanded = true;
-  isWordlerScoresExpanded = false; 
   isAboutOpen = false; 
   isFriendsPanelOpen = false;
   isAboutPanelOpen = false;  
@@ -57,8 +56,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   friendRequestsSent: FriendRequest[] = [];
   friendRequestsReceived: FriendRequest[] = [];
   contacts: Contact[] = [];
-  wordlerScores: WordlerScore[] = [];
-  wordlerScoresCount: number = 0;
   isMusicContainerExpanded = false;
   playListCount = 0;
   playListFirstFetch = true;
@@ -153,11 +150,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   async loadWordlerData() {
     if (this.user || this.parentRef?.user) {
       try {
-        const res = await this.wordlerService.getAllScores(this.user ?? this.parentRef?.user);
-        if (res) {
-          this.wordlerScores = res;
-          this.setTopScores();
-        }
         const wsRes = await this.wordlerService.getConsecutiveDayStreak((this.user ?? this.parentRef?.user)!);
         if (wsRes) {
           this.wordlerStreak = parseInt(wsRes);
@@ -187,28 +179,17 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   expandDiv(event: string) {
     console.log(event);
-    const isOpen = (document.getElementById(event) as HTMLDivElement).classList.contains('expanded');
+    const isOpen = event === "aboutContainer" ? this.isAboutExpanded : this.isMusicContainerExpanded;
     console.log(isOpen);
 
-    this.isAboutExpanded = false;
-    (document.getElementById('aboutContainer') as HTMLDivElement).classList.remove('expanded');
-
-    this.isWordlerScoresExpanded = false;
-    (document.getElementById('wordlerScoresProfileContainer') as HTMLDivElement).classList.remove('expanded');
-
-    this.isMusicContainerExpanded = false;
-    (document.getElementById('musicProfileContainer') as HTMLDivElement).classList.remove('expanded');
+    this.isAboutExpanded = false;  
+    this.isMusicContainerExpanded = false; 
 
     if (event === "aboutContainer") { 
-      this.isAboutExpanded = !isOpen;
-    } else if (event === "wordlerScoresProfileContainer") {
-      this.isWordlerScoresExpanded = !isOpen;
+      this.isAboutExpanded = !!!isOpen;
     } else if (event === "musicProfileContainer") {
-      this.isMusicContainerExpanded = !isOpen;
-    }
-    if (!isOpen) { 
-      (document.getElementById(event) as HTMLDivElement).classList.add('expanded');
-    }
+      this.isMusicContainerExpanded = !!!isOpen;
+    } 
   }
 
   async addContact(user: User) {
@@ -275,7 +256,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.parentRef.user = undefined;
     }
     this.clearForm();
-    this.wordlerScores = [];
     this.friendRequests = [];
     this.friends = [];
     this.user = undefined;
@@ -301,25 +281,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.notifications.push(res);
     await this.ngOnInit();
   }
-  setTopScores() {
-    const groupedScores: { [key: number]: WordlerScore[] } = this.wordlerScores.reduce((groups, score) => {
-      const difficulty = score.difficulty;
-      if (!groups[difficulty]) {
-        groups[difficulty] = [];
-      }
-      groups[difficulty].push(score);
-      return groups;
-    }, {} as { [key: number]: WordlerScore[] });
-
-    // Get the top 5 scores for each difficulty
-    const topScores = Object.values(groupedScores).flatMap(scores =>
-      scores
-        .sort((a, b) => b.score - a.score || a.time - b.time) // Sort by score descending, then by time ascending
-        .slice(0, 5) // Take the top 5
-    );
-    this.wordlerScoresCount = this.wordlerScores.length;
-    this.wordlerScores = topScores;
-  }
+ 
   onProfileControlsChange() {
     const command = this.profileControls.nativeElement.value;
 
