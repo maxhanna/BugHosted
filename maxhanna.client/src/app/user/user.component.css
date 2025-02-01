@@ -237,6 +237,7 @@
   align-items: center;
   flex-wrap: nowrap;
   width: 100%;
+  border-bottom: 1px dotted var(--main-font-color); 
 }
 .profileControlsSelector option:first-child {
   text-align: center;

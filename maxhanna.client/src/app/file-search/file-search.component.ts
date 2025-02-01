@@ -425,8 +425,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.getDirectory();
   }
 
-  handleUploadedFiles(files: FileEntry[]) {
-    this.getDirectory();
+  async handleUploadedFiles(files: FileEntry[]) {
+    await this.getDirectory();
   }
   reinitializePages() {
     this.currentPage = this.defaultCurrentPage;

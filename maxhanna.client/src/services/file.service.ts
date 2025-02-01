@@ -199,14 +199,14 @@ export class FileService {
     } catch (error) {
       throw error;
     }
-  }  
-  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, user?: User): Observable<HttpEvent<any>> {
+  }
+  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, user?: User, compress?: boolean): Observable<HttpEvent<any>> {
     formData.append('user', JSON.stringify(user));
     formData.append('isPublic', isPublic + "");
 
     let dir = '';
     try {
-      dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
+      dir = directory ? `?folderPath=${encodeURIComponent(directory)}&compress=${compress ?? false}` : '';
     } catch { }
     const url = `/file/upload${dir}`;
 

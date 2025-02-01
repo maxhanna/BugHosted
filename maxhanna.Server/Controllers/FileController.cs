@@ -767,7 +767,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/File/Upload", Name = "Upload")]
-		public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath)
+		public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath, [FromQuery] Boolean? compress)
 		{
 			List<FileEntry> uploaded = new List<FileEntry>();
 			try
@@ -818,29 +818,40 @@ namespace maxhanna.Server.Controllers
 						int? width = null;
 						int? height = null;
 						int? duration = null;
-						if (IsGifFile(file))
-						{
-							(convertedFilePath, width, height, duration) = await ConvertGifToWebp(file, uploadDirectory);
-						}
-						else if (IsImageFile(file) && !IsWebPFile(file))
-						{
-							(convertedFilePath, width, height) = await ConvertImageToWebp(file, uploadDirectory);
-						}
-						else if (IsVideoFile(file) && !IsWebMFile(file))
-						{
-							(convertedFilePath, width, height, duration) = await ConvertVideoToWebm(file, uploadDirectory);
-						}
-						else if (IsAudioFile(file) && !file.FileName.EndsWith(".opus"))
-						{
-							convertedFilePath = await ConvertAudioToOpusMP4(file, uploadDirectory);
-						}
-						else
+						if (compress != null && compress == false)
 						{
 							using (var stream = new FileStream(filePath, FileMode.Create))
 							{
 								await file.CopyToAsync(stream);
+								(width, height, duration) = await GetMediaInfo(filePath);
+							}
+						} else
+						{
+							if (IsGifFile(file))
+							{
+								(convertedFilePath, width, height, duration) = await ConvertGifToWebp(file, uploadDirectory);
+							}
+							else if (IsImageFile(file) && !IsWebPFile(file))
+							{
+								(convertedFilePath, width, height) = await ConvertImageToWebp(file, uploadDirectory);
+							}
+							else if (IsVideoFile(file) && !IsWebMFile(file))
+							{
+								(convertedFilePath, width, height, duration) = await ConvertVideoToWebm(file, uploadDirectory);
+							}
+							else if (IsAudioFile(file) && !file.FileName.EndsWith(".opus"))
+							{
+								convertedFilePath = await ConvertAudioToOpusMP4(file, uploadDirectory);
+							}
+							else
+							{
+								using (var stream = new FileStream(filePath, FileMode.Create))
+								{
+									await file.CopyToAsync(stream);
+								}
 							}
 						}
+						
 
 						var fileId = await InsertFileIntoDB(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
 						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
@@ -1792,6 +1803,18 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while executing BAT file.");
 			}
 			return Ok(result);
+		}
+		public static async Task<(int? width, int? height, int? duration)> GetMediaInfo(string filePath)
+		{
+			var mediaInfo = await FFmpeg.GetMediaInfo(filePath);
+			var videoStream = mediaInfo.VideoStreams?.FirstOrDefault();
+			var audioStream = mediaInfo.AudioStreams?.FirstOrDefault();
+
+			int? width = videoStream?.Width;
+			int? height = videoStream?.Height;
+			int? duration = (int?)mediaInfo.Duration.TotalSeconds;
+
+			return (width, height, duration);
 		}
 
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);

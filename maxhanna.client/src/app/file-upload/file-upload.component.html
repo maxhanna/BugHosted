@@ -15,25 +15,30 @@
     </select>
   </div>
 
-  {{isUploading ? 'Uploading' : 'Upload'}} {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}{{isUploading ? '...' : '?'}}
+  <div>
+    {{isUploading ? 'Uploading' : 'Upload'}} {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}{{isUploading ? '...' : '?'}}
 
-  <div style="display:flex; flex-direction:column;">
-    <span (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">[Options {{displayFileUploadOptions ? '-' : '+'}}]</span>
-    <div *ngIf="displayFileUploadOptions" style="display: flex; flex-direction: column;">
-      <div>
-        <label><input type="checkbox" /> Do Not Compress Media Files</label>
+    <div class="uploadFileActionWrapper">
+      <div class="uploadFileActionDiv">
+        <span (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">[Options{{displayFileUploadOptions ? '-' : '+'}}]</span>
+        <span (click)="displayFileUploadTopics = !displayFileUploadTopics" class="cursorPointer smallFont">[Topics{{displayFileUploadTopics ? '-' : '+'}}]</span>
       </div>
-      <div>
+      <div *ngIf="displayFileUploadOptions" style="display: flex; flex-direction: column;">
+        <label><input type="checkbox" #compressCheckbox checked /> Compress Media Files</label>
+      </div>
+      <div *ngIf="displayFileUploadTopics">
         <app-topics #topicComponent
                     [isDropdown]="true"
                     [user]="inputtedParentRef?.user"
                     [parent]="inputtedParentRef"
                     [attachedTopics]="undefined"
+                    [preventClosingOverlay]="true"
                     (topicAdded)="onTopicAdded($event);">
         </app-topics>
-      </div> 
+      </div>
     </div>
   </div>
+
 
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index">
@@ -52,4 +57,4 @@
     </button>
     <button type="submit" id="closeOverlay" *ngIf="!isUploading" (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload">❌Cancel</button>
   </div>
-</div> 
+</div>

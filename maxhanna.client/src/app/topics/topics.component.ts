@@ -15,6 +15,7 @@ export class TopicsComponent extends ChildComponent {
   @Input() parent: AppComponent | undefined;
   @Input() attachedTopics?: Topic[] | undefined;
   @Input() isDropdown: boolean = false;
+  @Input() preventClosingOverlay: boolean = false;
   @Output() topicAdded = new EventEmitter<Topic[]>();
   @ViewChild('newTopic') newTopic!: ElementRef<HTMLInputElement>;
   @ViewChild('addTopicButton') addTopicButton!: ElementRef<HTMLButtonElement>;
@@ -114,7 +115,7 @@ export class TopicsComponent extends ChildComponent {
     if (this.addTopicButton) {
       this.addTopicButton.nativeElement.style.visibility = "hidden"; 
     }
-    if (this.parent?.showOverlay) {
+    if (this.parent?.showOverlay && !this.preventClosingOverlay) {
       this.parent.closeOverlay();
       this.isDropdownShowing = false;
     }

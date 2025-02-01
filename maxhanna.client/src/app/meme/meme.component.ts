@@ -14,8 +14,7 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 })
 export class MemeComponent extends ChildComponent  { 
   notifications: string[] = [];
-  topTopics: TopicRank[] = []; 
-  isUploadingInProcess = false;
+  topTopics: TopicRank[] = [];  
   isMenuPanelOpen = false;
   currentMemePage = 1;
   searchTerms = "";
@@ -39,13 +38,9 @@ export class MemeComponent extends ChildComponent  {
     this.notifications.push(event); 
   }
         
-  uploadFileListEvent(event: File[]) {
-    this.isUploadingInProcess = event && event.length > 0;
+  uploadFileListEvent(event: File[]) { 
   }
-  uploadCancelEvent(isCancelled: boolean) {
-    if (isCancelled) {
-      this.isUploadingInProcess = false;
-    }
+  uploadCancelEvent(isCancelled: boolean) { 
   } 
   clickOnUpload() {
     document.getElementById('fileUploader')!.getElementsByTagName('input')[0].click();

@@ -63,3 +63,14 @@ button {
   align-items: center;
   width: 100%;
 }
+
+.uploadFileActionWrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.uploadFileActionDiv {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}

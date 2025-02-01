@@ -25,6 +25,7 @@ export class FileUploadComponent {
   @Output() userCancelEvent = new EventEmitter<boolean>();
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('compressCheckbox') compressCheckbox!: ElementRef<HTMLInputElement>;
   @ViewChild('fileListContainer') fileListContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
 
@@ -35,6 +36,7 @@ export class FileUploadComponent {
   isUploading: boolean = false;
   displayListContainer = false;
   displayFileUploadOptions = false;
+  displayFileUploadTopics = false;
 
   fileUploadTopics: Topic[] = [];
 
@@ -88,7 +90,10 @@ export class FileUploadComponent {
     if (!files || !files.length || this.uploadFileList.length == 0) {
       return alert("No file to upload!");
     }
-    this.isUploading = true;
+    this.isUploading = true; 
+    this.displayFileUploadOptions = false;
+    this.displayFileUploadTopics = false;
+
     const filesArray = Array.from(files);
 
     const isPublic = (this.showPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
@@ -100,18 +105,20 @@ export class FileUploadComponent {
       filesArray.forEach((file, index) => {
         const formData = new FormData();
         formData.append('files', file);
-
-        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user);
+        const compress = this.compressCheckbox?.nativeElement?.checked ?? true;
+        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user, compress);
         if (uploadReq) {
           uploadReq.subscribe({
-            next: (event) => {
+            next: async (event) => {
               if (event.type === HttpEventType.UploadProgress) {
                 this.uploadProgress[file.name] = Math.round(100 * (event.loaded / event.total!));
               }
               else if (event.type === HttpEventType.Response) {
-                const file = JSON.parse(event.body) as FileEntry;
-                this.uploadedFileList.push(file);
-                this.fileService.editTopics(this.inputtedParentRef?.user ?? new User(0, "Anonymous"), file, this.fileUploadTopics);
+                const parsedFile = (JSON.parse(event.body) as FileEntry[])[0];
+                this.uploadedFileList.push(parsedFile);
+                console.log(parsedFile);
+                const tmpFileEntry = new FileEntry(parsedFile.id);
+                await this.fileService.editTopics(this.inputtedParentRef?.user ?? new User(0, "Anonymous"), tmpFileEntry, this.fileUploadTopics);
                 this.checkIfLastFileUploaded(filesArray, this.uploadedFileList.length);
               }
             },
@@ -130,6 +137,10 @@ export class FileUploadComponent {
 
   private checkIfLastFileUploaded(filesArray: File[], index: number) { 
     if (filesArray.length == index) {
+      this.uploadedFileList.forEach(x => {
+        x.topics = this.fileUploadTopics;
+      })
+
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
       this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`); 
 
@@ -138,7 +149,8 @@ export class FileUploadComponent {
       this.uploadFileList = [];
       this.uploadedFileList = [];
       this.fileInput.nativeElement.value = ''; 
-      this.displayListContainer = false;
+      this.displayListContainer = false; 
+
       this.fileUploadTopics = [];
       if (this.inputtedParentRef) {
         this.inputtedParentRef.closeOverlay();
@@ -152,10 +164,15 @@ export class FileUploadComponent {
     return Math.round(totalProgress / this.uploadFileList.length);
   }
 
-  onTopicAdded(topics: Topic[]) { 
+  onTopicAdded(topics: Topic[]) {
+    console.log("topic added", topics);
     this.fileUploadTopics = topics;
     this.preventDisplayClose = true;
-    setTimeout(() => { if (this.inputtedParentRef) this.inputtedParentRef.showOverlay = true; }, 50);
-    setTimeout(() => { this.preventDisplayClose = false }, 1000);
+    setTimeout(() => {
+      if (this.inputtedParentRef) {
+        this.inputtedParentRef.showOverlay = true;
+      }
+      setTimeout(() => { this.preventDisplayClose = false }, 1000);
+    }, 50);
   }
 }
