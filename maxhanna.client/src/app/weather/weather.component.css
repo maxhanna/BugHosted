@@ -11,7 +11,7 @@ td {
   padding-right: 5px;
 }
 .highlight {
-  background-color: var(--main-highlight-color) !important; 
+  background-color: rgba(255, 99, 71, 0.3) !important;
   border: var(--main-border);
 }
 .mainBgColor {

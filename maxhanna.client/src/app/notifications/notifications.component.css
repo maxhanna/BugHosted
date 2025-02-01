@@ -3,7 +3,7 @@
     max-width:98vw;
 }
 .deleteNotificationButton, .readNotificationButton {
-  width: 50px;
+  width: 65px;
   height: 25px;
   display: flex;
   align-items: center;
@@ -17,7 +17,7 @@
 .readNotificationButton {
   position: absolute;
   top: 0px;
-  right: 60px;
+  right: 70px;
 }
 .fileId {
   line-height: 30px;

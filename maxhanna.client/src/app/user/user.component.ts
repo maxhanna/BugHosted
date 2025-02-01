@@ -401,10 +401,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     console.log("logging in " + (guest ? " as " + guest : ""));
     if (this.parentRef?.user) {
       this.parentRef.user = undefined;
-    }
-    if (this.parentRef) {
-      this.parentRef.deleteCookie("user");
-    }
+    } 
     let tmpUserName = this.loginUsername.nativeElement.value;
     if (guest) {
       tmpUserName = guest;
@@ -413,10 +410,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     try {
       const tmpUser = await this.userService.getUser(tmpLoginUser);
 
-      if (tmpUser && tmpUser.username) {
-        tmpUser.password = undefined;
-        this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
-        this.parentRef!.user = tmpUser;
+      if (tmpUser && tmpUser.username && this.parentRef) {
+        tmpUser.password = undefined; 
+        this.parentRef.user = tmpUser;
+        this.parentRef.resetUserCookie();
         this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
         this.updateWeatherInBackground(tmpUser);
 

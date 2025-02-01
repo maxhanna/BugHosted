@@ -4,6 +4,7 @@ import { HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
+import { Topic } from '../../services/datacontracts/topics/topic';
 
 @Component({
   selector: 'app-file-upload',
@@ -33,6 +34,11 @@ export class FileUploadComponent {
   uploadProgress: { [key: string]: number } = {};
   isUploading: boolean = false;
   displayListContainer = false;
+  displayFileUploadOptions = false;
+
+  fileUploadTopics: Topic[] = [];
+
+  preventDisplayClose = false;
   constructor(private fileService: FileService) { }
 
   uploadInitiate() {
@@ -70,7 +76,7 @@ export class FileUploadComponent {
   }
   removeFile(file: File) {
     if (this.uploadProgress[file.name]) { return; }
-    this.uploadFileList = this.uploadFileList.filter(f => f !== file);
+    this.uploadFileList = this.uploadFileList.filter(f => f !== file); 
     if (this.uploadFileList.length == 0) {
       this.cancelFileUpload();
     }
@@ -103,9 +109,9 @@ export class FileUploadComponent {
                 this.uploadProgress[file.name] = Math.round(100 * (event.loaded / event.total!));
               }
               else if (event.type === HttpEventType.Response) {
-                // Handle completion
-                const files = JSON.parse(event.body) as FileEntry;
-                this.uploadedFileList.push(files);
+                const file = JSON.parse(event.body) as FileEntry;
+                this.uploadedFileList.push(file);
+                this.fileService.editTopics(this.inputtedParentRef?.user ?? new User(0, "Anonymous"), file, this.fileUploadTopics);
                 this.checkIfLastFileUploaded(filesArray, this.uploadedFileList.length);
               }
             },
@@ -119,7 +125,7 @@ export class FileUploadComponent {
     } catch (ex) {
       console.log(ex);
       this.userNotificationEvent.emit((ex as Error).message);
-    } 
+    }
   }
 
   private checkIfLastFileUploaded(filesArray: File[], index: number) { 
@@ -132,7 +138,8 @@ export class FileUploadComponent {
       this.uploadFileList = [];
       this.uploadedFileList = [];
       this.fileInput.nativeElement.value = ''; 
-      this.displayListContainer = false; 
+      this.displayListContainer = false;
+      this.fileUploadTopics = [];
       if (this.inputtedParentRef) {
         this.inputtedParentRef.closeOverlay();
       }
@@ -143,5 +150,12 @@ export class FileUploadComponent {
     if (this.uploadFileList.length === 0) return 0;
     const totalProgress = Object.values(this.uploadProgress).reduce((sum, progress) => sum + progress, 0);
     return Math.round(totalProgress / this.uploadFileList.length);
+  }
+
+  onTopicAdded(topics: Topic[]) { 
+    this.fileUploadTopics = topics;
+    this.preventDisplayClose = true;
+    setTimeout(() => { if (this.inputtedParentRef) this.inputtedParentRef.showOverlay = true; }, 50);
+    setTimeout(() => { this.preventDisplayClose = false }, 1000);
   }
 }

@@ -72,3 +72,9 @@
   cursor: pointer;
   margin-left: 10px;
 }
+.popupPanelTitle {
+  margin-bottom: 20px;
+}
+.popupPanel button {
+  margin-top: 20px;
+}

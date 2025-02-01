@@ -4,27 +4,27 @@ import { User } from "../user/user";
 import { FileComment } from "./file-comment"; 
 export class FileEntry {
   id: number;
-  fileName: string;
+  fileName?: string;
   givenFileName?: string;
-  directory: string;
-  visibility: string;
-  sharedWith: string;
-  user: User;
+  directory?: string;
+  visibility?: string;
+  sharedWith?: string;
+  user?: User;
   lastUpdatedBy?: User;
-  isFolder: boolean;
-  fileComments: Array<FileComment>;
-  date: Date;
+  isFolder?: boolean;
+  fileComments?: Array<FileComment>;
+  date?: Date;
   lastUpdated?: Date; 
-  fileSize: number;
-  fileType: string;
+  fileSize?: number;
+  fileType?: string;
   width?: number;
   height?: number;
   reactions?: Array<Reaction>;
   topics?: Array<Topic>;
     
-  constructor(id: number, fileName: string, directory: string, visibility: string, sharedWith: string,
-    user: User, isFolder: boolean, comments: Array<FileComment>, date: Date,
-    fileSize: number, fileType: string, reactions?: Array<Reaction>, lastUpdated?: Date, lastUpdatedBy?: User, givenFileName?: string, width?: number, height?: number) {
+  constructor(id: number, fileName?: string, directory?: string, visibility?: string, sharedWith?: string,
+    user?: User, isFolder?: boolean, comments?: Array<FileComment>, date?: Date,
+    fileSize?: number, fileType?: string, reactions?: Array<Reaction>, lastUpdated?: Date, lastUpdatedBy?: User, givenFileName?: string, width?: number, height?: number) {
     this.id = id;
     this.fileName = fileName;
     this.directory = directory;

@@ -40,5 +40,15 @@ iframe {
     margin: 4px;
   }
 .mainTableDiv {
-  max-height: CALC(50% - 50vh);
+  max-height:  50%;
+  overflow: auto;
+}
+.smallSongList, .normalSongList {
+  overflow: auto;
+}
+.smallSongList {
+  height: 300px;
+}
+.normalSongList {
+  height: CALC(100vh - 120px);
 }

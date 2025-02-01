@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit, SecurityContext, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit, Renderer2, SecurityContext, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
@@ -43,6 +43,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   optionStory?: Story;
   comments: FileComment[] = [];
   openedStoryComments: number[] = [];
+  openedStoryYoutubeVideos: number[] = [];
   isMobileTopicsPanelOpen = false;
   isSearchSocialsPanelOpen = false;
   isMenuPanelOpen = false;
@@ -103,7 +104,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     private todoService: TodoService,
     private sanitizer: DomSanitizer,
     private cdr: ChangeDetectorRef,
-    private title: Title, private meta: Meta, private route: ActivatedRoute) {
+    private title: Title, private meta: Meta, private route: ActivatedRoute,
+    private renderer: Renderer2) {
     super();
   }
 
@@ -231,8 +233,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.storyResponse.stories?.forEach(story => { 
         this.checkOverflow(story.id); 
       });
-    }
-
+    } 
     this.cdr.detectChanges();
     this.stopLoading();
   } 
@@ -340,8 +341,16 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   goToLink(story?: Story) {
     if (story && story.storyText) {
       const goodUrl = this.extractUrl(story.storyText);
-      if (goodUrl) {
-        window.open(goodUrl, '_blank');
+      if (goodUrl) { 
+        const videoId = this.extractYouTubeVideoId(story.storyText);
+        console.log(videoId);
+        if (videoId) { 
+          (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId;
+          (document.getElementById('youtubeVideoStoryIdInput') as HTMLInputElement).value = story.id + "";
+          this.playYoutubeVideo();
+        } else { 
+          window.open(goodUrl, '_blank');
+        }
       }
     }
     else {
@@ -354,15 +363,15 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
   } 
 
-  pageChanged(selectorId?: number) {
+  async pageChanged(selectorId?: number) {
     let pageSelect = this.pageSelect.nativeElement;
     if (selectorId == 2) {
       pageSelect = this.pageSelect2.nativeElement;
     }
     this.currentPage = parseInt(pageSelect.value);
-    this.getStories(this.currentPage);
+    await this.getStories(this.currentPage);
     setTimeout(() => {
-      this.scrollToStory();
+      window.scrollTo({ top: 0});
     }, 50);
   }
   scrollToStory(storyId?: number): void {
@@ -383,10 +392,56 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
   }
   getStoryTextForDOM(story?: Story) {
-    return story?.storyText
-      ?.replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-      .replace(/\n/g, '<br>');
+    if (!story || !story.storyText) return "";
+
+    const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
+
+    let storyText = story.storyText;
+
+    // Step 1: Temporarily replace YouTube links with placeholders
+    storyText = storyText.replace(youtubeRegex, (match, url, videoId, shortVideoId) => {
+      const id = videoId || shortVideoId;
+      return `__YOUTUBE__${id}__YOUTUBE__`; // Placeholder for YouTube videos
+    });
+
+    // Step 2: Convert regular URLs into clickable links
+    storyText = storyText
+      .replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
+
+    // Step 3: Replace the placeholders with embedded YouTube iframes
+    storyText = storyText.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
+      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${story.id}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
+    });
+
+    return this.sanitizer.bypassSecurityTrustHtml(storyText);
   }
+    
+  playYoutubeVideo() {
+    this.openedStoryYoutubeVideos.forEach(x => {
+      let target = document.getElementById(`storyIframe${x}`) as HTMLIFrameElement;
+      target.src = '';
+      target.style.visibility = 'hidden';
+      this.openedStoryYoutubeVideos = this.openedStoryYoutubeVideos.filter(y => y != x);
+    })
+    const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
+    const storyId = (document.getElementById('youtubeVideoStoryIdInput') as HTMLInputElement).value;
+    this.expanded.push("storyTextContainer" + storyId);
+    this.openedStoryYoutubeVideos.push(parseInt(storyId));
+    setTimeout(() => {
+      let target = document.getElementById(`storyIframe${storyId}`) as HTMLIFrameElement;
+      if (!target || !videoId) return; 
+      target.style.visibility = 'visible';
+      target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
+
+    }, 50); 
+  }
+
+  isValidYoutubeImageUrl(url?: string): boolean {
+    if (!url) return false;
+    return url.includes("ytimg");
+  }
+
   onTopicAdded(topics?: Array<Topic>) {
     if (topics) {
       this.attachedTopics = topics;
@@ -404,7 +459,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     this.scrollToStory(); 
     this.closeMobileTopicsPanel();
   }
-  topicClicked(topic: Topic) {
+  topicClicked(topic: Topic) { 
     if (this.attachedTopics.some(x => x.id == topic.id)) {
       return;
     }
@@ -676,7 +731,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (!story) return;
     const url = this.extractUrl(story.storyText);
     const title = story.metadata?.title; 
-    const yturl = this.extractYouTubeVideoId(url); 
+    const yturl = this.extractYouTubeVideoURL(url); 
     if (!yturl || !title || yturl.trim() == "" || title.trim() == "") {
       return alert("Title & URL cannot be empty!");
     }
@@ -696,7 +751,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
     //this.closeStoryOptionsPanel();
   }
-  extractYouTubeVideoId(url?: string) {
+  extractYouTubeVideoURL(url?: string) {
     if (!url) return;
     const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
     const match = url.match(youtubeRegex);
@@ -707,6 +762,32 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       return url;
     }
   }
+
+  extractYouTubeVideoId(input?: string) {
+    if (!input) return '';
+
+    // Trim the input to remove extra spaces and newlines
+    input = input.trim();
+
+    // Use a regex to extract the URL from the input string
+    const urlRegex = /https?:\/\/[^\s]+/;
+    const urlMatch = input.match(urlRegex);
+
+    if (!urlMatch) return '';
+
+    const url = urlMatch[0];
+
+    // Extract the YouTube video ID
+    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S*)?$/;
+    const youtubeMatch = url.match(youtubeRegex);
+
+    if (youtubeMatch && youtubeMatch[1]) {
+      return youtubeMatch[1];
+    } else {
+      return '';
+    }
+  }
+
   hasOverflow(elementId: string): boolean {
     const element = document.getElementById(elementId);
     if (!element) {
@@ -714,13 +795,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     } 
 
     const isDesktop = window.innerWidth > 990;
-    const threshold = isDesktop ? 500 : 100; // 500px for desktop, 100px for mobile
+    const threshold = 400; // 500px for desktop, 100px for mobile
 
     return element.scrollHeight >= threshold; 
   }
   debouncedSearch() {  
     clearTimeout(this.searchTimeout);
     this.searchTimeout = setTimeout(() => this.searchStories(undefined, true), 500); 
-  }
-
+  } 
 }

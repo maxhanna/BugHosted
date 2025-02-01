@@ -1,5 +1,12 @@
-<div [id]="'mediaContainer'+fileId"
-     class="mediaContainerWrapperDiv" 
+<div style="width:100%;position: absolute;top:0px;left:0px;" *ngIf="isLoadedFromURL">
+  <div class="componentTitle"> 
+    <div class="closeButton" (click)="remove_me('MediaViewerComponent');"></div>
+    <div class="componentTitle"><span><a href="https://bughosted.com">BugHosted</a> Media Viewer</span></div>
+  </div>
+</div>
+<div  [id]="'mediaContainer'+fileId"
+      class="mediaContainerWrapperDiv"
+      [style.margin-top]="isLoadedFromURL ? '40px' : '0px'"
       appInView
       (inView)="onInView($event)">
   <!-- Fullscreen Overlay -->

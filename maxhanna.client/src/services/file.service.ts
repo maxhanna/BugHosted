@@ -276,6 +276,21 @@ export class FileService {
       return null;
     }
   }
+  async getFileEntryById(fileId: number) {
+    try {
+      const response = await fetch(`/file/getfileentrybyid`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ FileId: fileId }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async getFileSrcByFileId(fileId: number): Promise<string> {
     const response = await this.getFileById(fileId);
     if (!response || response == null) return '';

@@ -1,9 +1,17 @@
 
 .componentMain {
-  min-width: 350px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+  min-width: 350px; 
 }
- 
+
+@media only screen and (max-width : 667px) {
+  .componentMain {
+    width: unset !important;
+  }
+}
+
+.userProfileContents {
+  max-height: CALC(CALC(var(--vh, 1vh)* 100) - 40px);
+}
 
 .mainTable thead {
   cursor: pointer;
@@ -83,10 +91,18 @@
   padding-left: 2px;
   padding-right: 2px;
 }
+.profileHeaderUserDescription {
+  padding-bottom: 10px;
+  padding-top: 10px;
+  max-width: 230px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
 .profileControls {
   text-align: center;
   display: flex;
   justify-content: flex-start;
+  padding-top: 15px;
 }
 .aboutTable {
     text-align:center;
@@ -124,8 +140,9 @@
   flex-direction: row;
   align-items: center;
   flex-wrap: nowrap;
-  gap: 10px; 
+  gap: clamp(0px, 3vw, 20px);
   justify-content: center;
+  margin-bottom: 10px;
 }
 .emptyUserTagLogo {
   display: flex;
@@ -145,6 +162,7 @@
   justify-content: center;
   align-items: center;
   flex-wrap: nowrap;
+  min-width: 230px;
 }
 
 .popupPanel { 
@@ -163,11 +181,12 @@
 
 .friendsListWrapperDiv {
   display: flex;
-  flex-wrap: wrap; 
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   align-content: center;
-  gap: 25px; 
+  gap: 25px;
+  padding: 5px;
 }
 
 .friendsListDiv:hover {
@@ -208,4 +227,25 @@
 .topProfileContainer {
   max-height: 350px;
   overflow: auto;
-} 
+}
+
+.seperatedUserHeader {
+  display: flex;
+  flex-direction: row;
+  align-content: center;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+.profileControlsSelector option:first-child {
+  text-align: center;
+}
+.friendsPopupPanelTitle {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+.followingFriendsPanelTitle {
+  margin-top: 20px;
+}

@@ -14,9 +14,9 @@
   </div>
 </div>
 
-<div *ngIf="showReactionChoices" class="reactionChoicesContainer" id="reactionChoicesDiv">
+<div *ngIf="showReactionChoices" class="popupPanel" id="reactionChoicesDiv">
   <div class="reactionChoices">
-    <div class="reactionChoice" *ngFor="let reaction of reactions" (click)="selectReaction(reaction.type)">
+    <div class="reactionChoice" *ngFor="let reaction of reactions" (click)="selectReaction(reaction.type)" [title]="reaction.label">
       {{reaction.emoji}}
     </div>
   </div> 

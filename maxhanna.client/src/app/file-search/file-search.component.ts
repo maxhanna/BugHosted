@@ -176,7 +176,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
             if (a.isFolder !== b.isFolder) {
               return a.isFolder ? -1 : 1;
             }
-            return a.date > b.date ? 1 : a.date < b.date ? -1 : 0;
+            return (a.date ?? new Date()) > (b.date ?? new Date()) ? 1 : (a.date ?? new Date()) < (b.date ?? new Date()) ? -1 : 0;
           });
         }
       }
@@ -295,7 +295,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     return userid == this.parentRef?.user?.id;
   }
   async download(file: FileEntry, force: boolean, forceOpenMedia?: boolean) {
-    if ((this.isMediaFile(file.fileName) && !force) || forceOpenMedia) {
+    if ((this.isMediaFile(file.fileName ?? "") && !force) || forceOpenMedia) {
       this.viewMediaFile = true;
       if (this.openedFiles.includes(file.id)) {
         this.openedFiles = [];
@@ -321,7 +321,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
         const a = document.createElement('a');
         a.href = window.URL.createObjectURL(blob);
-        a.download = file.fileName;
+        a.download = file.fileName ?? "";
         a.id = (Math.random() * 100) + "";
         a.click();
 
@@ -544,7 +544,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
   shareLink(fileEntry: FileEntry) {
-    const link = `https://bughosted.com/${fileEntry.directory.includes("Meme") ? 'Memes' : 'File'}/${fileEntry.id}`;
+    const link = `https://bughosted.com/${fileEntry.directory?.includes("Meme") ? 'Memes' : 'File'}/${fileEntry.id}`;
     try {
       navigator.clipboard.writeText(link);
       this.emittedNotification(`${link} copied to clipboard!`);
@@ -626,11 +626,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
   getDirectoryName(file: FileEntry) : string {
-    let base = file.directory.replace('E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/', '').trim(); 
+    let base = file.directory?.replace('E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/', '').trim(); 
     if (base === "") { 
       return ".";
     }
-    return base;
+    return base ?? "";
   }
   private replacePageTitleAndDescription() {
     if (this.directory && this.directory.data && this.directory.data.length > 0) {

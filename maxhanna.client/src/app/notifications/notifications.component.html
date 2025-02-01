@@ -17,8 +17,8 @@
           <button (click)="delete()" *ngIf="notifications && notifications.length > 0">
             ❌ Clear {{notifications && notifications.length > 1 ? 'All ' : '' }}
           </button>
-          <button (click)="read()" *ngIf="notifications && notifications.length > 0">
-            Read {{notifications && notifications.length > 1 ? 'All ' : '' }}
+          <button (click)="read()" *ngIf="getShowReadAll()">
+            👀 Read {{notifications && notifications.length > 1 ? 'All ' : '' }}
           </button>
         </div>
       </div>
@@ -31,7 +31,7 @@
         </div>
         <div class="nliRightDiv">
           <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>
-          <button title="Read Notification" (click)="read(notification)" class="readNotificationButton">Read</button>
+          <button title="Read Notification" (click)="read(notification)" class="readNotificationButton">{{notification.isRead ? 'Unread' : '👀'}}</button>
           <div *ngIf="notification.fileId" (click)="goToFileId(notification.fileId)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>File ID:</strong> {{ notification.fileId }}
           </div>

@@ -12,8 +12,11 @@
 .gamesContainer {
   width: 100%;
   max-height: 200px;
-  overflow: auto;
-  text-align: center;
+  overflow: auto; 
+}
+.gamesContainer.expanded {
+  max-height: unset;
+  height: 100%;
 }
 
   .gamesContainer select {

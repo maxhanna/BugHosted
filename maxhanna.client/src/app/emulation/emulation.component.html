@@ -2,7 +2,7 @@
   <div class="closeButton" (click)="ngOnDestroy(); remove_me('GbcComponent');"></div>
   <!--<div class="refreshButton" (click)="ngAfterViewInit();"></div>-->
   <div class="componentTitle">Emulation</div>
-  <div class="gamesContainer" *ngIf="isSearchVisible">
+  <div class="gamesContainer {{ !selectedRomName ? 'expanded' : '' }}" *ngIf="isSearchVisible">
     <app-file-search [user]="parentRef?.user"
                      [inputtedParentRef]="parentRef"
                      [currentDirectory]="'roms/'"
@@ -19,7 +19,7 @@
     </app-file-search>
   </div>
 
-  <div>
+  <div [style.visibility]="selectedRomName ? 'visible' : 'hidden'">
     <span class="helperSpanTitle"
           title="This emulator autosaves every minute and when the game closes (ie: when you navigate away from this page).
           ◻️ : Toggle fullscreen mode.
@@ -47,7 +47,7 @@
   </div>
    
 
-  <div class="gameboy" id="GameBoy" #fullscreenContainer>
+  <div class="gameboy" id="GameBoy" #fullscreenContainer [style.visibility]="selectedRomName ? 'visible' : 'hidden'">
 
     <div class="screen-area">
       <canvas id="mainCanvas" class="mainCanvas" #canvas slot="lcd"></canvas>
@@ -56,7 +56,7 @@
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
     <div class="controls">
-      <div class="dpad" [style.visibility]="!parentRef?.showOverlay ? 'visible' : 'hidden'">
+      <div class="dpad" [style.visibility]="!selectedRomName ? 'hidden' : !parentRef?.showOverlay ? 'visible' : 'hidden'">
         <div class="up-left">
           <div class="up-left-triangle"></div>
         </div>
@@ -84,91 +84,17 @@
         <div class="middle">
         </div>
       </div>
-      <div class="a-b" *ngIf="!parentRef?.showOverlay"  [style.visibility]="displayAB ? 'visible' : 'hidden'">
+      <div class="a-b" *ngIf="!parentRef?.showOverlay"  [style.visibility]="!selectedRomName ? 'hidden' : displayAB ? 'visible' : 'hidden'">
         <div class="b">B</div>
         <div class="a">A</div>
       </div> 
-      <div class="c" *ngIf="!parentRef?.showOverlay" [style.visibility]="displayC ? 'visible' : 'hidden'">C</div>
+      <div class="c" *ngIf="!parentRef?.showOverlay" [style.visibility]="!selectedRomName ? 'hidden' : displayC ? 'visible' : 'hidden'">C</div>
     </div>
 
     <div class="start-select">
       <div class="select">SELECT</div>
       <div class="start">START</div>
-    </div>
-
-    <!--<div class="speaker" (click)="toggleSound()">
-      <div class="dot placeholder"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot placeholder"></div>
-
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-
-      <div class="dot placeholder"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot closed"></div>
-      <div class="dot open"></div>
-      <div class="dot placeholder"></div>
-    </div>-->
+    </div> 
   </div>
 
 </div>

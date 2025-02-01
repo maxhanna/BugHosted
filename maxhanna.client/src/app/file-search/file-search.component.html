@@ -54,10 +54,10 @@
         <ng-container *ngFor="let file of directory.data; let i = index">
           <div class="draggableDiv"
                draggable="true"
-               (dragstart)="onDragStart($event, file.fileName)">
+               (dragstart)="onDragStart($event, file.fileName ?? '')">
             <div class="fileNameDiv {{ file.isFolder ? 'folder' : '' }}"
                  (dragover)="onDragOver($event)"
-                 (drop)="onDrop(file.fileName)"
+                 (drop)="onDrop(file.fileName ?? '')"
                  [id]="'fileIdDiv'+file.id"
                  [attr.data-content]="file?.givenFileName ?? file?.fileName ?? ''">
               <span class="fileNameWrapperSpan">
@@ -70,7 +70,7 @@
                        [id]="'editFileNameInput'+file.id" />
 
                 <span class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}" (click)="selectFile(file);" [id]="'fileIdName'+file.id">
-                  {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.givenFileName ?? getFileWithoutExtension(file.fileName)!}}
+                  {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '')!}}
                 </span>
               </span>
               <div class="fileExtras fileOptionsAction">
@@ -139,7 +139,7 @@
     <button title="Edit File Name" (click)="startEditing(optionsFile.id);" *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
-    <button title="Share File" (click)="(optionsFile.visibility.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
+    <button title="Share File" (click)="(optionsFile.visibility?.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
       ↗️Share
     </button>
     <button title="Download File" (click)="download(optionsFile, true);" *ngIf="!optionsFile.isFolder">
@@ -179,7 +179,7 @@
         </span>
       </div>
     </div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder"><span class="smallFont">Type:</span> {{optionsFile.fileType.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}</div>
+    <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder"><span class="smallFont">Type:</span> {{optionsFile.fileType?.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileSize"><span class="smallFont">Filesize:</span> {{formatFileSize(optionsFile.fileSize)}}</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.width"><span class="smallFont">Size (width/height):</span> {{optionsFile.width}}X{{optionsFile.height}} px</div>
     <div class="optionsPanelDataDiv" *ngIf="optionsFile.directory"><span class="smallFont">Directory:</span> {{getDirectoryName(optionsFile)}}</div>

@@ -117,7 +117,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         await this.notificationService.readNotifications(parent.user, undefined);
       }
       if (notification) {
-        notification.isRead = true;
+        notification.isRead = !notification.isRead;
       } else if (this.notifications) {
         this.notifications.forEach(x => x.isRead = true);
       }
@@ -188,5 +188,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         console.log(res);
       });
     }
+  }
+
+  getShowReadAll() {
+    return this.notifications && this.notifications.length > 0 && this.notifications.some(x => !x.isRead);
   }
 }

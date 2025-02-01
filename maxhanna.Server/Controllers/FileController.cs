@@ -1842,6 +1842,7 @@ namespace maxhanna.Server.Controllers
 							new XElement(videoNs + "title", fileEntry.FileName),
 							new XElement(videoNs + "description", "Video: " + fileEntry.FileName),
 							new XElement(videoNs + "content_loc", GetVideoContentLoc(fileEntry.Directory, fileEntry.FileName)),
+							new XElement(videoNs + "player_loc", $"https://bughosted.com/Media/{fileEntry.Id}"),
 							new XElement(videoNs + "duration", fileEntry.Duration ?? 0),
 							new XElement(videoNs + "publication_date", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssK")),
 							new XElement(videoNs + "family_friendly", "yes"),

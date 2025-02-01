@@ -16,6 +16,25 @@
   </div>
 
   {{isUploading ? 'Uploading' : 'Upload'}} {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}{{isUploading ? '...' : '?'}}
+
+  <div style="display:flex; flex-direction:column;">
+    <span (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">[Options {{displayFileUploadOptions ? '-' : '+'}}]</span>
+    <div *ngIf="displayFileUploadOptions" style="display: flex; flex-direction: column;">
+      <div>
+        <label><input type="checkbox" /> Do Not Compress Media Files</label>
+      </div>
+      <div>
+        <app-topics #topicComponent
+                    [isDropdown]="true"
+                    [user]="inputtedParentRef?.user"
+                    [parent]="inputtedParentRef"
+                    [attachedTopics]="undefined"
+                    (topicAdded)="onTopicAdded($event);">
+        </app-topics>
+      </div> 
+    </div>
+  </div>
+
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index">
       <div [class]="uploadProgress[file.name] != 100 ? 'removeFileButton' : ''" (click)="removeFile(file)" title="Remove file">
@@ -31,6 +50,6 @@
             title="Upload file(s)">
       {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
-    <button type="submit" id="closeOverlay" *ngIf="!isUploading" (click)="cancelFileUpload()" title="Cancel upload">❌Cancel</button>
+    <button type="submit" id="closeOverlay" *ngIf="!isUploading" (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload">❌Cancel</button>
   </div>
 </div> 

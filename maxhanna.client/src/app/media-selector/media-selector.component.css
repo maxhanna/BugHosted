@@ -21,7 +21,7 @@
     align-content: center;
     justify-content: space-around;
     align-items: center;
-    z-index: 2;
+    z-index: 3;
     border-radius: 8px;
   }
 

@@ -28,25 +28,8 @@
 .addReactionTitleSpan {
   font-size: small;
 }
-.reactionChoicesContainer {
-  width: 300px;
-  height: 200px;
-  position: fixed;
-  z-index: 2;
-  background-color: var(--main-bg-color);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 19px;
-  align-content: center;
-  flex-wrap: wrap;
-  font-size: small;
-  top: 50%; /* Center vertically */
-  left: 50%; /* Center horizontally */
-  transform: translate(-50%, -50%);
-  border-radius: 5%;
-  border: var(--main-border);
+.reactionChoice {
+  cursor: pointer;
 }
 .reactionChoices {
   display: flex;
@@ -56,8 +39,8 @@
   align-content: space-between;
   justify-content: center;
   align-items: center;
-  gap: 10px;
-  font-size: x-large;
+  gap: 20px;
+  font-size: xxx-large;
 }
 .reactionsContainer {
   display: flex;
@@ -70,11 +53,9 @@
 .reactionTypeSpan {
   font-size: 30px;
 }
-.popupPanel {
-  width: 300px;
-  height: 250px;  
-}
+ 
 .popupPanel button {
+  margin-top: 20px;
   cursor: pointer;
 }
 .reactionsOverlayWrapper {

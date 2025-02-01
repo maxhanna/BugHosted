@@ -148,28 +148,40 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Notification/Read", Name = "ReadNotifications")]
 		public async Task<IActionResult> ReadNotifications([FromBody] ReadNotificationRequest req)
 		{
-			_logger.LogInformation($"POST /Notification/Read ");
+			_logger.LogInformation($"POST /Notification/Read");
 			List<UserNotification> notifications = new List<UserNotification>();
 			try
 			{
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await connection.OpenAsync();
-					string sql = "UPDATE maxhanna.notifications SET is_read = 1 WHERE user_id = @UserId";
+					string sql = "UPDATE maxhanna.notifications SET is_read = CASE WHEN is_read = 1 THEN 0 ELSE 1 END WHERE user_id = @UserId";
+
+					List<MySqlParameter> parameters = new List<MySqlParameter> {
+							new MySqlParameter("@UserId", req.User.Id)
+					};
 
 					if (req.NotificationIds != null && req.NotificationIds.Length > 0)
 					{
-						string idList = string.Join(",", req.NotificationIds);
-						sql += $" AND id IN ({idList})";
+						// Create parameter placeholders like @id0, @id1, @id2, ...
+						var idPlaceholders = req.NotificationIds
+								.Select((id, index) => $"@id{index}")
+								.ToArray();
+
+						sql += $" AND id IN ({string.Join(",", idPlaceholders)})";
+
+						// Add parameters for each notification ID
+						for (int i = 0; i < req.NotificationIds.Length; i++)
+						{
+							parameters.Add(new MySqlParameter($"@id{i}", req.NotificationIds[i]));
+						}
 					}
 
 					sql += ";";
 
 					using (var command = new MySqlCommand(sql, connection))
 					{
-
-						command.Parameters.AddWithValue("@UserId", req.User.Id); 
-
+						command.Parameters.AddRange(parameters.ToArray());
 						await command.ExecuteNonQueryAsync();
 					}
 				}
@@ -179,7 +191,8 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError(ex, "An error occurred while deleting the notifications.");
 				return StatusCode(500, "An error occurred while deleting the notifications.");
 			}
-			return Ok(req.NotificationIds != null ? "Notification read." : "All notifications read.");
+			 
+			return Ok(req.NotificationIds != null ? "Notification changed." : "All notifications changed.");
 		}
 
 

@@ -135,7 +135,8 @@ fieldset {
   content: '🔄'; 
 }
 .menuButton::before {
-  content: '☰'; 
+  content: '☰';
+  font-size: 16px !important;
 }
 
 .closeButton::before {
@@ -408,6 +409,11 @@ fieldset {
   max-height: 50px;  
 }
 
+.largeAvatar {
+  max-width: 100px;
+  max-height: 100px;
+}
+
 .avatarBug, .avatarBust {
   display: inline;
   position: relative;
@@ -496,8 +502,17 @@ fieldset {
   justify-content: space-evenly;
   align-items: center;
 }
+
+@media only screen and (max-width : 667px) {
+  .popupPanel {
+    width: 99vw;
+    max-height: 99vh; 
+  }
+} 
+
 .popupPanelTitle {
   font-family: var(--section-font-family);
+  font-size: larger;
 }
 
 .matchingTopic {

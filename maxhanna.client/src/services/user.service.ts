@@ -112,7 +112,7 @@ export class UserService {
         body: JSON.stringify({ user, about }), // Convert the user object to JSON string
       });
 
-      return await response.json(); // Parse JSON response 
+      return await response.text(); // Parse JSON response 
     } catch (error) {
       return null; // Return null in case of error
     }

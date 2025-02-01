@@ -1,11 +1,11 @@
 .componentContainer {
   display: flex;
-  width: 100%;
-  height:100%;
+  height: 100vh;
   flex-wrap: wrap;
   justify-content: space-evenly;
   align-items: flex-start;
   align-content: flex-start;
+  overflow: hidden;
 }
 .routerOutletContainer {
     margin-left:auto;
@@ -15,10 +15,11 @@
 }
 .overlay {
   position: absolute;
-  top: 0px;
-  left: 0px;
-  width: 100vw;
-  height: CALC(var(--vh, 1vh) * 100); 
+  top: 50%;
+  left: 50%;
+  width: 99vw;
+  height: CALC(var(--vh, 1vh) * 100);
   background-color: var(--main-highlight-color-quarter-opacity);
-  z-index:2;
+  z-index: 2;
+  transform: translate(-50%, -50%);
 }

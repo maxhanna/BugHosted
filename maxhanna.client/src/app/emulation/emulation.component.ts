@@ -143,11 +143,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   async loadRom(file: FileEntry) {
     this.startLoading();
     this.isSearchVisible = false;
-    const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName) + ".sav";
-    this.selectedRomName = file.fileName;
+    const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName ?? "") + ".sav";
+    this.selectedRomName = file.fileName ?? "";
     const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
 
-    const response = await this.romService.getRomFile(file.fileName, this.parentRef?.user);
+    const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user);
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
     console.log(fileType, this.currentFileType);
     const style = {

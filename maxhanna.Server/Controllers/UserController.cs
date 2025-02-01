@@ -5,6 +5,7 @@ using maxhanna.Server.Controllers.DataContracts.Files;
 using Newtonsoft.Json;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -336,6 +337,11 @@ namespace maxhanna.Server.Controllers
 
 						int userId = Convert.ToInt32(await selectIdCmd.ExecuteScalarAsync());
 
+						if (user.Username != null && !user.Username.ToLower().Contains("guest"))
+						{ 
+							await AppendToSitemapAsync(userId);
+						} 
+
 						_logger.LogInformation($"User created successfully with ID: {userId}");
 						return Ok(userId);
 					}
@@ -499,10 +505,10 @@ namespace maxhanna.Server.Controllers
 				deleteCmd.Parameters.AddWithValue("@Id", user.Id);
 
 				int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
+				await RemoveFromSitemapAsync(user.Id ?? 0);
 
 				if (rowsAffected > 0)
-				{
-					// User record deleted successfully
+				{ 
 					return Ok(new { message = "User deleted successfully" }); // Return JSON object
 				}
 				else
@@ -1024,7 +1030,95 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return miningWallet;
-		} 
+		}
+
+		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
+		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
+		private async Task AppendToSitemapAsync(int targetId)
+		{
+			string userUrl = $"https://bughosted.com/User/{targetId}";
+			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+			await _sitemapLock.WaitAsync();
+			try
+			{
+				XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+				XDocument sitemap;
+
+				if (System.IO.File.Exists(_sitemapPath))
+				{
+					sitemap = XDocument.Load(_sitemapPath);
+					var existingUrl = sitemap.Descendants(ns + "loc")
+																	 .FirstOrDefault(x => x.Value == userUrl);
+					if (existingUrl != null)
+					{
+						// Update lastmod if the entry exists
+						existingUrl.Parent.Element(ns + "lastmod")?.SetValue(lastMod);
+						sitemap.Save(_sitemapPath);
+						return;
+					}
+				}
+				else
+				{
+					sitemap = new XDocument(
+							new XElement(ns + "urlset")
+					);
+				}
+
+				// Add new entry with proper namespace
+				XElement newUrlElement = new XElement(ns + "url",
+						new XElement(ns + "loc", userUrl),
+						new XElement(ns + "lastmod", lastMod),
+						new XElement(ns + "changefreq", "daily"),
+						new XElement(ns + "priority", "0.8")
+				);
+
+				sitemap.Root.Add(newUrlElement);
+
+				sitemap.Save(_sitemapPath);
+			}
+			finally
+			{
+				_sitemapLock.Release();
+			}
+		}
+		private async Task RemoveFromSitemapAsync(int targetId)
+		{
+			string targetUrl = $"https://bughosted.com/User/{targetId}";
+			_logger.LogInformation($"Removing {targetUrl} from sitemap...");
+
+			await _sitemapLock.WaitAsync();
+			try
+			{
+				if (System.IO.File.Exists(_sitemapPath))
+				{
+					XDocument sitemap = XDocument.Load(_sitemapPath);
+
+					// Define the namespace for the sitemap
+					XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+
+					// Use LINQ to find the <url> element that contains the target URL in <loc>
+					var targetElement = sitemap.Descendants(ns + "url")
+							.FirstOrDefault(x => x.Element(ns + "loc")?.Value == targetUrl);
+
+					if (targetElement != null)
+					{
+						// Remove the element if found
+						targetElement.Remove();
+						sitemap.Save(_sitemapPath);
+						_logger.LogInformation($"Removed {targetUrl} from sitemap!");
+					}
+					else
+					{
+						_logger.LogWarning($"URL {targetUrl} not found in sitemap.");
+					}
+				}
+			}
+			finally
+			{
+				_sitemapLock.Release();
+			}
+		}
 	}
 }
 public class IpApiResponse

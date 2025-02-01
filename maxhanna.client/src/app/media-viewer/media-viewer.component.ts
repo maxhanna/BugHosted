@@ -13,7 +13,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
   styleUrl: './media-viewer.component.css'
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
-  constructor(private fileService: FileService) {
+  constructor(private fileService: FileService) { 
     super();
     if (this.file) {
       this.selectedFile = this.file;
@@ -54,6 +54,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() currentDirectory?: string = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() isLoadedFromURL = false;
   @Output() emittedNotification = new EventEmitter<string>(); 
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(); 
   @Output() expandClickedEvent = new EventEmitter<FileEntry>(); 
@@ -62,7 +63,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   onInView(isInView: boolean) { 
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
-      this.fetchFileSrc();
+      this.fetchFileSrc(); 
     } else {
       // Pause any media playback when not in view or height is insufficient
       if (this.mediaContainer && this.mediaContainer.nativeElement instanceof HTMLVideoElement) {
@@ -159,7 +160,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.ngOnInit();
   }
   copyLink() {
-    const link = `https://bughosted.com/${this.file?.directory.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`; 
+    const link = `https://bughosted.com/${this.file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${this.file?.id ?? this.selectedFile!.id}`; 
     try {
       navigator.clipboard.writeText(link);
       this.emittedNotification.emit(`${link} copied to clipboard!`);
@@ -308,7 +309,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
       const a = document.createElement('a');
       a.href = window.URL.createObjectURL(blob);
-      a.download = file.fileName;
+      a.download = file.fileName ?? "";
       a.id = (Math.random() * 100) + "";
       a.click();
 

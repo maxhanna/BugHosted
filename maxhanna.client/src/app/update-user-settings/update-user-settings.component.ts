@@ -82,10 +82,18 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     about.phone = this.updatedPhone.nativeElement.value != '' ? this.updatedPhone.nativeElement.value : undefined;
     about.email = this.updatedEmail.nativeElement.value != '' ? this.updatedEmail.nativeElement.value : undefined;
     about.birthday = this.updatedBirthday.nativeElement.value != '' ? new Date(this.updatedBirthday.nativeElement.value) : undefined;
-    const res = await this.userService.updateUserAbout(this.parentRef!.user!, about);
-    if (res) {
-      this.notifications.push(res);
-    }
+    await this.userService.updateUserAbout(this.parentRef!.user!, about).then(async res => {
+      if (res) {
+        const parent = this.inputtedParentRef ? this.inputtedParentRef : this.parentRef;
+        const user = parent?.user;
+        if (user  && parent) { 
+          user.about = about;
+          parent.resetUserCookie();
+          this.ngOnInit();
+          this.notifications.push(res);
+        }
+      } 
+    }); 
   }
   async updateNHAPIKeys() {
     if (this.isNicehashApiKeysToggled) {
@@ -101,6 +109,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       } catch {
         this.notifications.push("Error while updating Nicehash API Keys!");
       }
+      this.ngOnInit();
     }
   }
 
@@ -132,6 +141,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       } catch {
         this.notifications.push("Error while updating weather location!");
       }
+      this.ngOnInit();
     }
   }
 
@@ -210,7 +220,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     return this.parentRef!.userSelectedNavigationItems.some(x => x.title == title) || this.inputtedParentRef?.userSelectedNavigationItems.some(x => x.title == title);
   }
 
-  formatDate(date: Date): string {
+  formatDate(date?: Date): string {
     if (!date || !(date instanceof Date)) return ''; // Handle null or undefined cases
     const isoDate = date.toISOString(); // Convert date to ISO string
     return isoDate.substring(0, 10); // Extract YYYY-MM-DD part

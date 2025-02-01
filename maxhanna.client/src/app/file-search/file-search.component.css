@@ -220,9 +220,11 @@
 .fileActionCommands {
   position: absolute;
   top: 3px;
-  right: 40px;
+  right: 45px;
   display: flex;
   gap: 10px;
+  font-size: 22px;
+  line-height: 22px;
 }
 
   .fileActionCommands span {

@@ -9,7 +9,7 @@
     <input type="text" #urlInput placeholder="URL" (keyup.enter)="addSong()" />
     <input type="submit" value="💾" (click)="addSong()" />
   </fieldset>
-  <div id="musicPlayerDiv">
+  <div id="musicPlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
     <div *ngIf="songs && songs.length > 0 && isMusicPlaying" [class]="smallPlayer ? 'smallIframeDiv' : 'iframeDiv'">
       <iframe frameborder=0 id=musicVideo #musicVideo allow="autoplay"></iframe>
     </div>

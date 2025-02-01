@@ -1,72 +1,67 @@
 .componentMain {
-	width: 98vw;
-	max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
-	display: flex;
-	flex-direction: column;
+  width: 98vw;
+/*  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);*/
+  display: flex;
+  flex-direction: column;
 }
 
-.socialComponent {
-	max-height: CALC(100vh - 40px);
-	overflow: auto;
+.socialComponentContents {
+  max-height: CALC(100vh - 40px);
+  overflow: auto;
 }
  
-
-.mobileMaxHeight {
-	max-height: CALC(CALC(var(--vh, 1vh) * 100) - 113px);
-}
-
 .inputDiv {
-	margin-left: auto;
-	margin-right: auto;
-	width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+  width: 90%;
 }
 
 .storyInputDiv {
-	display: flex;
-	flex-flow: column wrap;
-	flex-direction: column;
-	flex-wrap: nowrap;
-	align-content: center;
-	justify-content: flex-start;
-	align-items: stretch;
+  display: flex;
+  flex-flow: column wrap;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: flex-start;
+  align-items: stretch;
 }
 
 .mainTopicSelector {
-	text-align: center;
-	min-height: 30px;
-	display: flex;
-	flex-direction: row;
-	align-content: center;
-	justify-content: center;
-	align-items: flex-start;
+  text-align: center;
+  min-height: 30px;
+  display: flex;
+  flex-direction: row;
+  align-content: center;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-	.mainTopicSelector input {
-		width: 100%;
-	}
+  .mainTopicSelector input {
+    width: 100%;
+  }
 
 .foodForThought {
-	min-width: 200px;
-	width: 100%;
-	padding: 10px;
-	box-sizing: border-box;
+  min-width: 200px;
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
-.storyContainer { 
-	overflow: hidden;
-  margin-bottom:5px;
+.storyContainer {
+  overflow: hidden;
+  margin-bottom: 5px;
 }
 
 .storyText {
-	width: 100%;
-	padding: 5px;
-	display: inline-block;
-	border-radius: 3px;
-	font-weight: 400;
+  width: 100%;
+  padding: 5px;
+  display: inline-block;
+  border-radius: 3px;
+  font-weight: 400;
 }
 
 .storyUserDetails textarea {
-	width: 100%;
+  width: 100%;
 }
 
 .topTopicsDiv {
@@ -82,6 +77,7 @@
   font-size: xx-small;
   display: inline-block
 }
+
 .topTopicSpan {
   display: inline;
   line-height: 25px;
@@ -90,6 +86,7 @@
   flex-direction: row;
   cursor: pointer;
 }
+
 .topTopicTitle {
   display: inline-block;
   padding: 5px;
@@ -97,162 +94,173 @@
 }
 
 .hidden {
-	max-height: 1200px;
-	overflow-x: hidden;
-	text-overflow: ellipsis;
+  max-height: 1200px;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
 }
 
 .metadataContent {
-	display: flex;
-	flex-direction: column;
-	flex-wrap: nowrap;
-	align-content: center;
-	justify-content: center;
-	align-items: center;
+  width: 100%;
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
 }
 
 .metaImgDiv {
-	display: flex;
-	flex-direction: row;
-	flex-wrap: nowrap;
-	align-content: center;
-	justify-content: center;
-	align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
 }
 
 .metadataImage {
-	max-width: 100%;
-	max-height: 500px;
+  max-width: 100%;
+  max-height: 500px;
 }
 
 @media only screen and (max-device-width: 800px) {
-	.metadataImage {
-		max-width: 300px;
-		max-height: 300px;
-	}
+  .metadataImage {
+    max-width: 300px;
+    max-height: 300px;
+  }
 }
 
 .metadataDescription {
-	font-size: smaller;
-	color: var(--secondary-font-color);
-	text-align: center;
+  font-size: smaller;
+  color: var(--secondary-font-color);
+  text-align: center;
 }
 
 .metadataTitle {
-	font-size: small;
-	color: var(--main-font-color);
+  font-size: small;
+  color: var(--main-font-color);
 }
 
 .attachedFileSpan {
-	cursor: pointer;
+  cursor: pointer;
 }
 
 .attachment {
-	display: inline-block;
-	max-width: 225px;
-	max-height: 525px;
-	overflow-y: auto;
+  display: inline-block;
+  max-width: 225px;
+  max-height: 525px;
+  overflow-y: auto;
 }
 
 .attachmentTdTitle {
-	font-size: small;
+  font-size: small;
 }
 
 .fileNotImageOrVideo {
-	font-size: 40px;
+  font-size: 40px;
 }
 
 .downloadAttachmentLink {
-	text-decoration: underline;
-	cursor: pointer;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .expand {
-	display: flex;
-	flex-wrap: nowrap;
-	width: 100%;
-	align-content: space-between;
-	justify-content: space-between;
-	flex-direction: row-reverse;
+  display: flex;
+  flex-wrap: nowrap;
+  width: 100%;
+  align-content: space-between;
+  justify-content: space-between;
+  flex-direction: row-reverse;
 }
 
 .storyOptionsPopupButtons {
   display: flex;
-  justify-content: space-evenly;
-  width: 100%;
-}
+  justify-content: space-evenly; 
+  align-items: center;
+  align-content: center;
+  flex-direction: row;
+  padding: 20px;
+  gap: 20px;
+} 
+
 .createdByStoryOptionsDiv {
   width: 100%;
   margin-bottom: 10px;
   margin-top: 10px;
 }
+
 .addToMusicPlaylistButtonDiv {
   display: flex;
-  justify-content:center;
-  margin-top:5px;
+  justify-content: center;
+  margin-top: 5px;
 }
+
 .storyTopics button {
   float: right;
 }
 
 .storyUserDetails {
-	display: inline-block;
-	width: 100%;
+  display: inline-block;
+  width: 100%;
 }
+
 .showCommentSpan {
-  display: inline-flex; 
+  display: inline-flex;
   cursor: pointer;
   white-space: nowrap;
   font-size: 16px;
 }
+
 .commentVoteButtons {
-	height: 25px;
-	display: flex;
-	flex-direction: row-reverse;
-	flex-wrap: nowrap;
-	align-items: center;
+  height: 25px;
+  display: flex;
+  flex-direction: row-reverse;
+  flex-wrap: nowrap;
+  align-items: center;
 }
 
-	.commentVoteButtons button {
-		width: 33%;
-		max-width: 25px;
-		font-size: 8px;
-		background-color:unset !important;
-	}
+  .commentVoteButtons button {
+    width: 33%;
+    max-width: 25px;
+    font-size: 8px;
+    background-color: unset !important;
+  }
 
 .commentUsername {
 }
 
 .commentText {
-	display: flex;
-	flex-wrap: nowrap;
-	width: 100%;
-	align-content: space-between;
-	justify-content: space-between;
-	flex-direction: row-reverse;
-	display: inline-block;
-	padding: 5px 10px;
-	border-radius: 10px;
-	background-color: var(--main-highlight-color);
-	margin-left: 25px;
-	margin-bottom: 5px;
+  display: flex;
+  flex-wrap: nowrap;
+  width: 100%;
+  align-content: space-between;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background-color: var(--main-highlight-color);
+  margin-left: 25px;
+  margin-bottom: 5px;
 }
 
 .commentsSection {
-	border: var(--main-border);
-	padding: 10px;
+  border: var(--main-border);
+  padding: 10px;
 }
 
 .commentDate {
-	font-size: small;
-	color: var(--secondary-font-color);
+  font-size: small;
+  color: var(--secondary-font-color);
 }
 
 .mainFileUploaderAndTopicSelectorDiv {
-	display: flex;
-	justify-content: flex-start;
-	width:100%;
-	overflow:hidden;
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  overflow: hidden;
   margin-bottom: 6px;
 }
 
@@ -268,66 +276,66 @@
   }
 
 .searchInputs {
-	display: flex;
-	justify-content: center;
-	flex-direction: row;
-	flex-wrap: nowrap;
-	align-content: center;
-	align-items: center;
+  display: flex;
+  justify-content: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  align-items: center;
 }
 
 .additionalSearchFiltersSpan {
-	font-size: smaller;
+  font-size: smaller;
 }
 
 
 .storyTextContainer {
-	display: flex;
-	justify-content: flex-start; 
+  display: flex;
+  justify-content: flex-start;
 }
 
-	.storyTextContainer.collapsed {
-		max-height: 100px;
-		text-overflow: ellipsis;
-		overflow: hidden;
-		box-shadow: 0px 30px 33px -33px rgb(255 255 255 / 80%);
-		cursor: pointer;
-	}
+  .storyTextContainer.collapsed {
+    max-height: 100px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    box-shadow: 0px 30px 33px -33px rgb(255 255 255 / 80%);
+    cursor: pointer;
+  }
 
 .storyContentDiv {
-	padding-left: 10px;
-	padding-right: 10px;
-	width: 100%;
+  padding-left: 10px;
+  padding-right: 10px;
+  width: 100%;
 }
 
 .avatarDiv {
-	overflow: hidden;
-	display: table;
+  overflow: hidden;
+  display: table;
 }
 
 .pageAndSearchInputs {
-	display: flex;
-	flex-direction: row;
-	flex-wrap: nowrap;
-	align-content: center;
-	justify-content: center;
-	align-items: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
 }
 
 .pagination {
-	text-align: right;
-	display: inline-block;
-	width: 35px;
+  text-align: right;
+  display: inline-block;
+  width: 35px;
 }
 
 .topPagination {
-	position: fixed;
-	top: 7px;
-	left: CALC(35px + 2vw);
+  position: fixed;
+  top: 7px;
+  left: CALC(35px + 2vw);
 }
 
 .mainTableDiv {
-	border: var(--main-border);
+  border: var(--main-border);
 }
 
 .storyHeader {
@@ -355,92 +363,92 @@
 }
 
 .storyDate {
-	color: var(--secondary-font-color);
-	font-size: 11px;
-	display: inline-block;
-	width: 100%;
+  color: var(--secondary-font-color);
+  font-size: 11px;
+  display: inline-block;
+  width: 100%;
 }
 
 .notificationCounterDiv {
-	position: absolute;
-	right: 35px;
-	top: 4px;
-	width: 40px;
-	text-align: right;
+  position: absolute;
+  right: 35px;
+  top: 4px;
+  width: 40px;
 }
 
 .searchSocialsButtonDiv {
-	cursor: pointer;
-	position: absolute;
-	right: 65px;
-	top: 4px;
-	width: 40px;
-	text-align: right;
+  cursor: pointer;
+  position: absolute;
+  right: 85px;
+  top: 4px;
+  width: 40px;
+  font-size: 22px;
+  line-height: 22px;
 }
 
 .topicDiv {
-	text-align: center;
+  text-align: center;
 }
 
 .emptyPage {
-	height: 30px;
+  height: 30px;
 }
 
 .attachmentsDiv {
-	display: flex;
-	flex-direction: row;
-	flex-wrap: wrap;
-	align-content: space-between;
-	justify-content: space-evenly;
-	align-items: center;
-	gap: 40px;
-	margin-top: 5px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: space-between;
+  justify-content: space-evenly;
+  align-items: center;
+  gap: 40px;
+  margin-top: 5px;
 }
 
 .expandSpan {
-	display: flex;
-	align-content: space-around;
-	align-items: flex-start;
-	width: 100px;
-	text-align: right;
-	justify-content: space-around;
-	flex-wrap: nowrap;
+  display: flex;
+  align-content: space-around;
+  align-items: flex-start;
+  width: 100px;
+  text-align: right;
+  justify-content: space-around;
+  flex-wrap: nowrap;
 }
 
 .reactionTopics {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	align-content: center;
-	flex-direction: row;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-direction: column-reverse;
 }
 
 .smallExpander {
-	width: 110px;
-	text-align: center;
+  width: 110px;
+  text-align: center;
 }
 
 .reactionsSpan {
-	max-width: 100px;
-	min-width: 35px;
+  max-width: 100px;
+  min-width: 35px;
 }
 
 .textExpanderDiv {
-	width: 100%;
-	text-align: center;
-	cursor: pointer; 
-	margin-bottom: 10px;
-	opacity: 75%;
+  width: 100%;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 10px;
+  opacity: 75%;
 }
 
-.popupPanel { 
-  width: 320px;  
+.popupPanel {
+  width: 320px;
 }
 
 .popupPanelTitle {
   display: flex;
   width: 100%;
-  justify-content: space-evenly; 
+  justify-content: space-evenly;
 }
 
 .largePopupPanel {
@@ -448,29 +456,127 @@
 }
 
 .storyEditSpans {
-	position: relative;
-	transform: scale(0.75);
-	heighT: 0;
-	width: 0;
+  position: relative;
+  transform: scale(0.75);
+  heighT: 0;
+  width: 0;
 }
 
 .storyRejectEdit {
-	left: 7px;
+  left: 7px;
 }
 
 .storyAcceptEdit {
-	left: -2px;
-	top: -3px;
+  left: -2px;
+  top: -3px;
 }
+
 .mainTopicSelections {
-	display: inline-flex;
+  display: inline-flex;
 }
+
 .mainTopicSelectionsHeaderButton {
-	display: inline-block;
-	white-space: nowrap;
+  display: inline-block;
+  white-space: nowrap;
 }
+
 .matchingTopicsInsideButtonWrapper {
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.youtubePlaceholderImageContainer {
+  position: relative;
+}
+
+.playButtonInMetadataImage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 20px; /* Adjust the padding as needed */
+  background-color: rgba(255, 0, 0, 0.7); /* Example background, adjust as needed */
+  color: white;
+  border: none;
+  border-radius: 50%; /* Optional: rounded corners for the button */
+  cursor: pointer;
+}
+
+.playButton {
+  background: rgba(255, 0, 0, 0.25);
+  border-radius: 50% / 10%;
+  color: #FFFFFF;
+  height: 3em;
+  margin: 20px auto;
+  padding: 0;
+  text-align: center;
+  text-indent: 0.1em;
+  transition: all 150ms ease-out;
+  width: 4em;
+  box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.6), /* Soft light reflection */
+  inset 0px -2px 5px rgba(0, 0, 0, 0.5), /* Darker bottom */
+  0px 5px 10px rgba(0, 0, 0, 0.5); /* Outer shadow */
+}
+
+  .playButton:hover {
+    background: red;
+    box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.8), inset 0px -2px 5px rgba(0, 0, 0, 0.6), 0px 5px 15px rgba(0, 0, 0, 0.7);
+  }
+
+  .playButton::before {
+    background: inherit;
+    border-radius: 5% / 50%;
+    bottom: 9%;
+    content: "";
+    left: -5%;
+    position: absolute;
+    right: -5%;
+    top: 9%;
+    background: linear-gradient(60deg, rgba(255, 255, 255, 0.2) 10%, transparent 50%, rgba(0, 0, 0, 0.2) 90%);
+    clip-path: polygon(20% 10%, 80% 10%, 95% 50%, 80% 90%, 20% 90%, 6% 50%);
+  }
+
+  .playButton::after {
+    border-style: solid;
+    border-width: 1em 0 1em 1.732em;
+    border-color: transparent transparent transparent rgba(255, 255, 255, 0.85);
+    content: ' ';
+    font-size: 0.75em;
+    height: 0;
+    margin: -1em 0 0 -0.75em;
+    top: 50%;
+    left: 53%;
+    position: absolute;
+    width: 0;
+  }
+
+.storyOptionsStatsWrapperDiv {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  width: 100%;
+  height: 300px;
+  overflow: auto;
+}
+
+.storyOptionsStatsDiv {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dotted var(--main-font-color);
+}
+
+.storyOptionsStatsHeader {
+  min-width: 125px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.storyOptionsStatsDescription {
+  text-align: right;
+  line-break: anywhere;
 }

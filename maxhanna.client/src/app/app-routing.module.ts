@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router'; 
 import { AppComponent } from './app.component';
+import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 
 const routes: Routes = [
   { path: 'Memes/:memeId', component: AppComponent },
@@ -11,6 +12,7 @@ const routes: Routes = [
   { path: 'File/:fileId', component: AppComponent },
   { path: 'File', component: AppComponent },
   { path: 'Wordler', component: AppComponent },
+  { path: 'Media/:fileId', component: MediaViewerComponent },
   { path: 'Array', component: AppComponent },
   { path: 'War', component: AppComponent },
   { path: 'Meta', component: AppComponent },

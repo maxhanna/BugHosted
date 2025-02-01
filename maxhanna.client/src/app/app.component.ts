@@ -30,6 +30,7 @@ import { UserService } from '../services/user.service';
 import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
 import { Meta } from '@angular/platform-browser';
+import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 
 
 
@@ -104,6 +105,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Chat": ChatComponent,
     "Social": SocialComponent,
     "HostAi": HostAiComponent,
+    "MediaViewer": MediaViewerComponent,
     "Meme": MemeComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent
@@ -151,6 +153,11 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.checkAndClearRouterOutlet();
           const fileId = this.router.url.toLowerCase().split('file/')[1]?.split('?')[0];
           this.createComponent("Files", { "fileId": fileId });
+        }
+        if (this.router.url.includes('Media')) {
+          this.checkAndClearRouterOutlet();
+          const fileId = this.router.url.toLowerCase().split('media/')[1]?.split('?')[0];
+          this.createComponent("MediaViewer", { "fileId": fileId, "isLoadedFromURL": true });
         }
         if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
@@ -272,6 +279,10 @@ export class AppComponent implements OnInit, AfterViewInit {
       }
     }
     return '';
+  }
+  resetUserCookie() {
+    this.deleteCookie("user");
+    this.setCookie("user", JSON.stringify(this.user), 10);
   }
   deleteCookie(name: string) {
     this.setCookie(name, '', 1);

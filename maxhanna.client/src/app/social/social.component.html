@@ -5,7 +5,7 @@
     <div class="componentTitle"><span>Social</span></div>
   </div>
   <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div> 
-  <div class="socialComponent">
+  <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
     <div class="notificationCounterDiv" *ngIf="showTopicSelector">
       <app-notifications [minimalInterface]="true"
                          [inputtedParentRef]="parentRef">
@@ -31,7 +31,7 @@
     <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
 
       <div class="popupPanelTitle" style="margin-bottom:15px;">
-        Menu Options
+        Menu
         <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
       </div>
       <div style="display:flex;margin-bottom:15px;">
@@ -39,9 +39,8 @@
           <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
         </div>
         <div style="display: flex; flex-direction: column; align-content: center; justify-content: space-around; padding-left: 15px; font-family: var(--title-font-family)">
-          <div>{{city}}</div>
-          <div>{{country}}</div>
-          <div>{{daysSinceDate(parentRef?.user?.created)}}</div>
+          <div>{{city}},</div>
+          <div>{{country}}</div> 
         </div>
       </div>
 
@@ -129,90 +128,104 @@
     </div>
 
     <!-- Story Options Popup -->
-    <div class="popupPanel" *ngIf="isStoryOptionsPanelOpen && optionStory">
+    <div class="popupPanel storyOptionsPopup" *ngIf="isStoryOptionsPanelOpen && optionStory">
       <div class="popupPanelTitle" style="margin-bottom: 15px;">
         Story Options
-        <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
       </div>
       <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
         <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
 
         <button (click)="edit(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id" title="Edit Post Text" style="display:inline-block">
           <span class="storyEditSpans storyRejectEdit" [style.display]="isEditButtonVisible(optionStory.id) ? 'block' : 'none'" [id]="'storyRejectEditButtonSpan' + optionStory.id">❌</span>
-          ✏️ Text
-        </button> 
+          ✏️ Edit Text
+        </button>
 
         <button (click)="delete(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id)" title="Delete Post" style="display:inline-block">❌Delete</button>
       </div>
 
-      <div>
-        {{ optionStory && optionStory.id && editingTopics.includes(optionStory.id) ? 'Editing ' : ''}}Topics
-        <span (click)="editTopic(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id"
-              title="Edit Post Topic"
-              class="smallFont cursorPointer">
-          ✏️
-        </span>:
-
-        <div class="reactionTopicsAndExpanderDiv reactionTopics">
-          <span *ngIf="optionStory.storyTopics && optionStory.storyTopics.length > 0">
-            <span *ngFor="let topic of optionStory.storyTopics" class="matchingTopic" (click)="topicClicked(topic)">
-              {{topic.topicText}}
-              <span title="Remove Topic From Story"
-                    *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)"
-                    (click)="removeTopicFromStory(topic, optionStory); $event.stopPropagation()">❌</span>
-            </span>
-          </span>
-          <div *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)">
-            <app-topics #topicComponent
-                        [isDropdown]="true"
-                        [user]="parentRef?.user"
-                        [parent]="parent ?? parentRef"
-                        [attachedTopics]="optionStory.storyTopics"
-                        (topicAdded)="editStoryTopic($event, optionStory)">
-            </app-topics>
+      <div class="storyOptionsStatsWrapperDiv">
+        <div class="storyOptionsStatsDiv">
+          <div class="storyOptionsStatsHeader">
+            Story Id:
+          </div>
+          <div class="storyOptionsStatsDescription">
+            {{optionStory.id}}
           </div>
         </div>
-      </div>
-
-      <div class="createdByStoryOptionsDiv">
-        Created: 
-        <div style="display:flex; column-gap: 10px;">
-          <div> 
-            <app-user-tag [user]="optionStory.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
+        <div class="storyOptionsStatsDiv">
+          <div class="storyOptionsStatsHeader"> 
+            <span (click)="editTopic(optionStory)"
+                  *ngIf="optionStory.user?.id == parentRef?.user?.id"
+                  title="Edit Post Topic"
+                  class="cursorPointer">Topics ✏️:</span>
           </div>
-          <div>
-            <div *ngIf="optionStory.city || optionStory.country">
-              {{optionStory.city}}<span *ngIf="optionStory.country"><span *ngIf="optionStory.city">,</span> {{optionStory.country}}</span>
-            </div>
-            <div>
-              {{formatDate(optionStory.date)}}
+          <div class="storyOptionsStatsDescription">
+            <div class="reactionTopicsAndExpanderDiv reactionTopics">
+              <span *ngIf="optionStory.storyTopics && optionStory.storyTopics.length > 0 && optionStory.id">
+                <span *ngFor="let topic of optionStory.storyTopics" class="matchingTopic" (click)="editingTopics.includes(optionStory.id) ? removeTopicFromStory(topic, optionStory) : topicClicked(topic);">
+                  {{topic.topicText}}
+                  <span title="Remove Topic From Story"
+                        *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)"
+                        (click)="removeTopicFromStory(topic, optionStory); $event.stopPropagation()">❌</span>
+                </span>
+              </span>
+              <div *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)">
+                <app-topics #topicComponent
+                            [isDropdown]="true"
+                            [user]="parentRef?.user"
+                            [parent]="parent ?? parentRef"
+                            [attachedTopics]="optionStory.storyTopics"
+                            (topicAdded)="editStoryTopic($event, optionStory)">
+                </app-topics>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div>
-        <div>
-          Story Id: {{optionStory.id}}
+        <div class="storyOptionsStatsDiv">
+          <div class="storyOptionsStatsHeader">Created By:</div>
+          <div class="storyOptionsStatsDescription">
+            <app-user-tag [user]="optionStory.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"></app-user-tag>
+          </div>
+        </div>
+        <div class="storyOptionsStatsDiv" *ngIf="optionStory.city || optionStory.country">
+          <div class="storyOptionsStatsHeader">Created From:</div>
+          <div class="storyOptionsStatsDescription" [title]="optionStory.city + ', ' + optionStory.country">
+            {{optionStory.city}}<span *ngIf="optionStory.country"><span *ngIf="optionStory.city">,</span> {{optionStory.country}}</span>
+          </div>
+        </div>
+        <div class="storyOptionsStatsDiv">
+          <div class="storyOptionsStatsHeader">Creation Date:</div>
+          <div class="storyOptionsStatsDescription" [title]="formatDate(optionStory.date)">
+            {{formatDate(optionStory.date)}}
+          </div>
+        </div>
+        <div class="storyOptionsStatsDiv" *ngIf="extractUrl(optionStory.storyText)">
+          <div class="storyOptionsStatsHeader">
+            Metadata URL:
+          </div>
+          <div class="storyOptionsStatsDescription">
+            <a [href]="extractUrl(optionStory.storyText)" target="_blank" [title]="extractUrl(optionStory.storyText)">{{extractUrl(optionStory.storyText)}}</a>
+          </div>
+        </div>
+        <div class="storyOptionsStatsDiv" *ngIf="optionStory.metadata?.title">
+          <div class="storyOptionsStatsHeader">
+            Metadata Title:
+          </div>
+          <div class="storyOptionsStatsDescription" [title]="optionStory.metadata?.title">
+            {{optionStory.metadata?.title}}
+          </div>
+        </div>
+        <div class="addToMusicPlaylistButtonDiv" *ngIf="optionStory.metadata?.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
+          <div class="storyOptionsStatsHeader">
+            Save to Music Playlist
+          </div>
+          <div class="storyOptionsStatsDescription">
+            <button (click)="addToMusicPlaylist(optionStory, $event);" title="Save this Youtube URL to your Music Playlist"></button>
+          </div>
         </div>
       </div>
-      <div class="xxSmallFont" *ngIf="extractUrl(optionStory.storyText)"> 
-        <div>
-          Metadata URL:
-          <a href="extractUrl(optionStory.storyText)" target="_blank">{{extractUrl(optionStory.storyText)}}</a> 
-        </div>
-        <div>
-          Metadata Title:
-          {{optionStory.metadata?.title}}
-        </div>
-      </div>
-      <div class="xxSmallFont" *ngIf="optionStory.metadata?.title">
-       
-      </div>
-      <div class="addToMusicPlaylistButtonDiv" *ngIf="optionStory.metadata?.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
-        <button (click)="addToMusicPlaylist(optionStory, $event);" title="Save this Youtube URL to your Music Playlist">
-          Save to Music Playlist
-        </button>
-      </div>
+
+      <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
     </div>
     <!-- Pagination -->
     <div class="pagination topPagination" *ngIf="totalPagesArray.length > 1">
@@ -289,6 +302,9 @@
              (click)="toggleCollapse('storyTextContainer'+story.id)">
           <div class="storyContentDiv">
             <div class="storyText" [style.display]="isEditing.includes(story.id) ? 'none' : 'block'" [innerHtml]="getStoryTextForDOM(story)" [id]="'storyText' + story.id"></div>
+            <ng-container *ngIf="openedStoryYoutubeVideos.includes(story.id)">
+              <iframe [id]="'storyIframe' + story.id" [src]="story.metadata?.imageUrl" style="height:500px; width:100%;"></iframe>
+            </ng-container> 
 
             <textarea [id]="'storyTextTextarea' + story.id" [style.width]="isEditing.includes(story.id) ? '100%' : '0'" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
             <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
@@ -328,7 +344,10 @@
           <div *ngIf="story.metadata" class="metadataContent">
             <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
             <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="story?.metadata?.description | clickableUrls"></div>
-            <div *ngIf="story.metadata.imageUrl" (click)="goToLink(story)" class="cursorPointerUnderlined metaImgDiv"><img class="metadataImage" [src]="story?.metadata?.imageUrl" /></div>
+            <div *ngIf="story.metadata.imageUrl" (click)="goToLink(story)" class="cursorPointerUnderlined metaImgDiv">
+              <img class="metadataImage" [src]="story?.metadata?.imageUrl" /> 
+              <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(story?.metadata?.imageUrl)"></button> 
+            </div>
           </div>
         </div>
         <div>
@@ -362,3 +381,6 @@
   </div>
   
 </div>
+<button id="youtubeVideoButton" [style.visibility]="'hidden'" (click)="playYoutubeVideo()"></button>
+<input type="text" id="youtubeVideoIdInput" [style.visibility]="'hidden'" />
+<input type="text" id="youtubeVideoStoryIdInput" [style.visibility]="'hidden'" />
