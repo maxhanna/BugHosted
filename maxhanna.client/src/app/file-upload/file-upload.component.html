@@ -18,10 +18,14 @@
   <div>
     {{isUploading ? 'Uploading' : 'Upload'}} {{uploadFileList.length}} files to {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}{{isUploading ? '...' : '?'}}
 
-    <div class="uploadFileActionWrapper">
+    <div class="uploadFileActionWrapper" *ngIf="!isUploading">
       <div class="uploadFileActionDiv">
-        <span (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">[Options{{displayFileUploadOptions ? '-' : '+'}}]</span>
-        <span (click)="displayFileUploadTopics = !displayFileUploadTopics" class="cursorPointer smallFont">[Topics{{displayFileUploadTopics ? '-' : '+'}}]</span>
+        <span (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">
+          [Options{{displayFileUploadOptions ? '-' : '+'}}]
+        </span>
+        <span (click)="displayFileUploadTopics = !displayFileUploadTopics" class="cursorPointer smallFont">
+          [Topics{{displayFileUploadTopics ? '-' : '+'}}]
+        </span>
       </div>
       <div *ngIf="displayFileUploadOptions" style="display: flex; flex-direction: column;">
         <label><input type="checkbox" #compressCheckbox checked /> Compress Media Files</label>

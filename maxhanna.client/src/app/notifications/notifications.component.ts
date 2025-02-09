@@ -34,6 +34,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   app?: any;
   messaging?: any;
+  unreadNotifications = 0;
 
   private pollingInterval: any;
 
@@ -53,6 +54,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if ((this.inputtedParentRef && this.inputtedParentRef.user) || (this.parentRef && this.parentRef.user)) {
       const user = this.inputtedParentRef && this.inputtedParentRef.user ? this.inputtedParentRef.user : this.parentRef!.user!;
       this.notifications = await this.notificationService.getNotifications(user);
+      this.unreadNotifications = this.notifications.filter(x => x.isRead == false).length;
     }
   }
   private startPolling() {
@@ -102,6 +104,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       await this.notificationService.deleteNotification(parent.user, notification?.id);
       if (notification && this.notifications) {
         this.notifications = this.notifications.filter(x => x.id != notification.id);
+        if (!notification.isRead) {
+          this.unreadNotifications--;
+        }
       } else {
         this.notifications = [];
       }
@@ -112,17 +117,22 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent.user) {
       if (notification && notification.id) { 
-        await this.notificationService.readNotifications(parent.user, [notification.id]);
+        if (notification.isRead) {
+          notification.isRead = false;
+          this.unreadNotifications++;
+          await this.notificationService.unreadNotifications(parent.user, [notification.id]);
+        } else { 
+          notification.isRead = true;
+          this.unreadNotifications--;
+          await this.notificationService.readNotifications(parent.user, [notification.id]);
+        }
       } else { 
+        this.notifications?.forEach(x => x.isRead = true);
+        this.unreadNotifications = 0;
         await this.notificationService.readNotifications(parent.user, undefined);
-      }
-      if (notification) {
-        notification.isRead = !notification.isRead;
-      } else if (this.notifications) {
-        this.notifications.forEach(x => x.isRead = true);
-      }
+      } 
       parent.getNotifications();
-    }
+    } 
   }
   notificationTextClick(notification: UserNotification) {
     if (notification.text?.includes('Captured a base at')) {

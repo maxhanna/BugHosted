@@ -9,7 +9,6 @@
     </app-notifications>
   </div>
   <div class="memeResultsDiv">
-    <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div>
       
     <app-file-search #fileSearchComponent
                      [inputtedParentRef]="parentRef"
@@ -28,8 +27,8 @@
                      [currentPage]="currentMemePage" 
                      (userNotificationEvent)="uploadNotification($event);">
     </app-file-search>
-    <div class="loadMoreResultsDiv">
-      <button *ngIf="fileSearchComponent.currentPage < fileSearchComponent.totalPages && (fileSearchComponent.directory && fileSearchComponent.directory.data ? (fileSearchComponent.directory.data.length > 0 ?? false) : false)" (click)="fileSearchComponent.nextPage()">Load More Results</button>
+    <div class="loadMoreResultsDiv" *ngIf="fileSearchComponent.currentPage < fileSearchComponent.totalPages && fileSearchComponent.directory?.data?.length">
+      <button (click)="fileSearchComponent.appendNextPage(); $event.preventDefault()">Load More Results</button>
     </div>
   </div>
 </div>

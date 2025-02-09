@@ -18,9 +18,13 @@
 }
 .reactionWrapper {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
   white-space: normal;
+  align-content: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  margin: 20px;
 }
 .myReactionDiv{
     display: inline-block;
@@ -59,7 +63,12 @@
   cursor: pointer;
 }
 .reactionsOverlayWrapper {
-  height: 100%;
-  width: 100%;
+  max-height: 500px;
+  width: 320px;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  flex-wrap: nowrap;
+  align-items: flex-start;
 }

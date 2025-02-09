@@ -53,3 +53,7 @@
   left: -5px;
   position: relative; 
 }
+.avatar {
+  white-space: unset;
+  line-height: 50px !important;
+}

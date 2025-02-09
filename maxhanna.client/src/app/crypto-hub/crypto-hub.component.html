@@ -2,40 +2,41 @@
   <div class="closeButton" (click)="remove_me('CoinWalletComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Crypto Hub</div>
-  <div [class]="noMining ? '' : 'hubSection'"> 
-
-    <div class="sectionName">BTC to CAD Conversion</div>
-    <div class="BTCtoCADConversionDiv BTCtoCADConversionWrapperDiv">
+  <div [class]="noMining ? '' : 'hubSection'">
+    <div class="BTCtoCADConversionWrapperDiv sectionContainer">
+      <div class="sectionName btcToCadConversionHeader">BTC to CAD Conversion</div>
       <div class="BTCtoCADConversionDiv">
-        <label for="btcConvertBTCValue">BTC:</label>
-        <input id="btcConvertBTCValue"
-               type="text"
-               value="1"
-               #btcConvertBTCValue
-               (keyup)="convertBTCtoFIAT()"
-               placeholder="Enter BTC amount" />
-      </div>
+        <div class="BTCtoCADConversionDiv">
+          <label for="btcConvertBTCValue">BTC:</label>
+          <input id="btcConvertBTCValue"
+                 type="text"
+                 value="1"
+                 #btcConvertBTCValue
+                 (keyup)="convertBTCtoFIAT()"
+                 placeholder="Enter BTC amount" />
+        </div>
 
-      <div class="BTCtoCADConversionDiv">
-        <label for="btcConvertCADValue">CAD:</label>
-        <input id="btcConvertCADValue"
-               type="text"
-               #btcConvertCADValue
-               (keyup)="convertCADtoBTC()"
-               placeholder="Enter CAD amount" />
-      </div>
+        <div class="BTCtoCADConversionDiv">
+          <label for="btcConvertCADValue">CAD:</label>
+          <input id="btcConvertCADValue"
+                 type="text"
+                 #btcConvertCADValue
+                 (keyup)="convertCADtoBTC()"
+                 placeholder="Enter CAD amount" />
+        </div>
 
-      <div class="BTCtoCADConversionDiv">
-        <label for="btcConvertSATValue">SAT:</label>
-        <input id="btcConvertSATValue"
-               type="text"
-               #btcConvertSATValue
-               (keyup)="convertSatoshiToBTC()"
-               placeholder="Enter Satoshi amount" />
-      </div>
+        <div class="BTCtoCADConversionDiv">
+          <label for="btcConvertSATValue">SAT:</label>
+          <input id="btcConvertSATValue"
+                 type="text"
+                 #btcConvertSATValue
+                 (keyup)="convertSatoshiToBTC()"
+                 placeholder="Enter Satoshi amount" />
+        </div>
+      </div> 
     </div>
-     
-    <table class="mainTable" id="coinWatchTable">
+
+    <table class="sectionContainer" id="coinWatchTable">
       <thead>
         <tr>
           <th (click)="sortTable(0, 'coinWatchTable')">Name</th>
@@ -46,86 +47,84 @@
       <tbody>
         <tr *ngFor="let item of data" (click)="selectCoin(item.name)">
           <td>{{ item.name }}</td>
-          <td>{{ item.symbol }}</td> 
-          <td>{{ item.valueCAD ? formatToCanadianCurrency(item.valueCAD) : '-' }}</td>  
+          <td>{{ item.symbol }}</td>
+          <td>{{ item.valueCAD ? formatToCanadianCurrency(item.valueCAD) : '-' }}</td>
         </tr>
       </tbody>
     </table>
- 
-    <div *ngIf="allHistoricalData && allHistoricalData.length > 0" class="graphContainerDiv">
-  
+
+    <div *ngIf="allHistoricalData && allHistoricalData.length > 0" class="graphContainerDiv sectionContainer">
+
       <app-line-graph #lineGraphComponent
                       [data]="allHistoricalData!"
                       [selectedCoin]="currentSelectedCoin">
       </app-line-graph>
     </div>
-     
-    <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div> 
-    <div class="wallet" *ngIf="wallet || btcWalletResponse">
+
+    <div class="wallet sectionContainer" *ngIf="wallet || btcWalletResponse">
+      <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
       <table>
         <thead>
           <tr>
-            <th>Currency</th> 
-            <th>Total Balance</th> 
-            <th title="Fiat rate">$CAD</th>  
+            <th>Currency</th>
+            <th>Total Balance</th>
+            <th title="Fiat rate">$CAD</th>
           </tr>
         </thead>
         <tbody *ngIf="wallet">
           <ng-container *ngIf="wallet.total">
             <tr (click)="selectCoin(wallet.total.currency)">
-              <td>{{ wallet.total.currency }}</td> 
-              <td>{{ wallet.total.totalBalance }}</td>  
-              <td>{{ formatToCanadianCurrency(multiplyValues(wallet.total.available, btcFiatConversion)) }}$</td> 
+              <td>{{ wallet.total.currency }}</td>
+              <td>{{ wallet.total.totalBalance }}</td>
+              <td>{{ formatToCanadianCurrency(multiplyValues(wallet.total.available, btcFiatConversion)) }}$</td>
             </tr>
           </ng-container>
           <ng-container *ngFor="let currency of wallet.currencies">
             <tr *ngIf="currency.status === 'ACTIVE' && currency.currency" (click)="selectCoin(currency.currency)">
-              <td>{{ currency.currency }}</td> 
-              <td>{{ currency.totalBalance }}</td> 
-              <td>{{ formatToCanadianCurrency(calculateTotalValue(currency)) }}$</td> 
+              <td>{{ currency.currency }}</td>
+              <td>{{ currency.totalBalance }}</td>
+              <td>{{ formatToCanadianCurrency(calculateTotalValue(currency)) }}$</td>
             </tr>
           </ng-container>
         </tbody>
         <tbody>
           <ng-container *ngFor="let btcWallet of btcWalletResponse?.currencies">
             <tr>
-              <td>BTC</td> 
-              <td>{{ btcWallet.totalBalance }}</td>  
+              <td>BTC</td>
+              <td>{{ btcWallet.totalBalance }}</td>
               <td>{{ formatToCanadianCurrency(calculateTotalValue(btcWallet)) }}$</td>
             </tr>
           </ng-container>
         </tbody>
       </table>
-
-
-      <div *ngIf="(!wallet && !btcWalletResponse) || noMining">
-        No
-        <span *ngIf="!wallet && !btcWalletResponse">coin wallet</span>
-        <span *ngIf="!wallet && !btcWalletResponse && noMining"> and </span>
-        <span *ngIf="noMining">mining</span> detected,
-        Enter your
-        <span *ngIf="!wallet && !btcWalletResponse">wallet</span>
-        <span *ngIf="!wallet && !btcWalletResponse && noMining"> and </span>
-        <span *ngIf="noMining">mining</span> details
-        in the <a (click)="parentRef?.openUserSettings()" class="cursorPointerUnderlined">user settings</a>
-        to be able to track
-        <span *ngIf="!wallet && !btcWalletResponse">them</span>
-        <span *ngIf="noMining && (wallet || btcWalletResponse)">mining</span>
-        here.
-        <div class="xxSmallFont">
-          In the future, we plan on having our own crypto wallets and an exchange for goods and coins; no middle man, just direct person-to-person coin trading!
-        </div>
-      </div>
-
-      <div *ngIf="!data && isLoading">
-        Loading data, please wait...
-      </div>
-      <div *ngIf="!data && !isLoading">
-        Something went wrong, please refresh this component after a while.
-      </div>
     </div>
   </div>
-  <div class="hubSection" *ngIf="!noMining">
+  <div class="hubSection miningHubSection sectionContainer">
+    <div *ngIf="(!wallet && !btcWalletResponse) || noMining">
+      No
+      <span *ngIf="!wallet && !btcWalletResponse">coin wallet</span>
+      <span *ngIf="!wallet && !btcWalletResponse && noMining"> and </span>
+      <span *ngIf="noMining">mining</span> detected,
+      Enter your
+      <span *ngIf="!wallet && !btcWalletResponse">wallet</span>
+      <span *ngIf="!wallet && !btcWalletResponse && noMining"> and </span>
+      <span *ngIf="noMining">mining</span> details
+      in the <a (click)="parentRef?.openUserSettings()" class="cursorPointerUnderlined">user settings</a>
+      to be able to track
+      <span *ngIf="!wallet && !btcWalletResponse">them</span>
+      <span *ngIf="noMining && (wallet || btcWalletResponse)">mining</span>
+      here.
+      <div class="xxSmallFont">
+        In the future, we plan on having our own crypto wallets and an exchange for goods and coins; no middle man, just direct person-to-person coin trading!
+      </div>
+    </div>
     <app-mining-rigs [inputtedParentRef]="parentRef" (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
+  </div>
+
+  <div *ngIf="!data && isLoading">
+    Loading data, please wait...
+  </div>
+  <div *ngIf="!data && !isLoading">
+    Something went wrong, please refresh this component after a while.
   </div>
 </div>

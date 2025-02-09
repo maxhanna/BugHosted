@@ -4,7 +4,6 @@
     <div class="menuButton" (click)="showMenuPanel();"></div>
     <div class="componentTitle"><span>Social</span></div>
   </div>
-  <div *ngFor="let notif of notifications" [innerHTML]="notif" class="notification" (click)="notifications = []"></div> 
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
     <div class="notificationCounterDiv" *ngIf="showTopicSelector">
       <app-notifications [minimalInterface]="true"
@@ -212,15 +211,15 @@
             Metadata Title:
           </div>
           <div class="storyOptionsStatsDescription" [title]="optionStory.metadata?.title">
-            {{optionStory.metadata?.title}}
+            {{optionStory.metadata?.title?.replace(' - YouTube', '')}}
           </div>
         </div>
-        <div class="addToMusicPlaylistButtonDiv" *ngIf="optionStory.metadata?.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
+        <div class="storyOptionsStatsDiv addToMusicPlaylistButtonDiv" *ngIf="optionStory.metadata?.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
           <div class="storyOptionsStatsHeader">
-            Save to Music Playlist
+            Save to Music Playlist:
           </div>
           <div class="storyOptionsStatsDescription">
-            <button (click)="addToMusicPlaylist(optionStory, $event);" title="Save this Youtube URL to your Music Playlist"></button>
+            <button (click)="addToMusicPlaylist(optionStory, $event);" title="Save this Youtube URL to your Music Playlist">💾Save</button>
           </div>
         </div>
       </div>
@@ -239,8 +238,7 @@
       <div>
         <textarea #story
                   placeholder="Whats on your mind ?"
-                  class="foodForThought"
-                  (focus)="focusInput()"></textarea>
+                  class="foodForThought"></textarea>
       </div>
       <div class="mainFileUploaderAndTopicSelectorDiv">
         <button (click)="post()">🗨️ Post</button>
@@ -271,7 +269,7 @@
     </div>
 
     <!-- POST -->
-    <div id="mainTableDiv" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
+    <div id="mainTableDiv" [class]="!user ? 'storyContainerWrapper' : ''" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length > 0">
       <div *ngFor="let story of storyResponse?.stories" [id]="'storyDiv'+story.id" class="storyContainer">
         <div class="storyHeader">
           <span style="padding-right:10px" (click)="viewProfile(story.user)">
@@ -327,7 +325,7 @@
             </span>
           </div>
           <div *ngIf="story.storyFiles && story.storyFiles.length > 0" class="attachmentsDiv">
-            <div *ngFor="let file of story.storyFiles" class="attachment">
+            <div *ngFor="let file of story.storyFiles" [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
               <app-media-viewer [user]="file.user"
                                 [inputtedParentRef]="parentRef"
                                 [currentDirectory]="file.directory"
@@ -357,6 +355,7 @@
                         [showComments]="openedStoryComments.includes(story?.id ?? 0)"
                         [showCommentsHeader]="true"
                         [component_id]="story.id!"
+                        [component]="story"
                         [commentList]="story!.storyComments!"
                         (commentAddedEvent)="commentAddedEvent($event)"
                         (commentHeaderClickedEvent)="showComments(story.id)"
@@ -365,11 +364,16 @@
         </div>
 
       </div>
-      <div class="pagination" *ngIf="totalPagesArray.length > 1">
-        <span class="xxSmallFont">Page:</span>
-        <select [value]="currentPage" (change)="pageChanged(2)" #pageSelect2>
-          <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
-        </select>
+      <div style="display: flex;">
+        <div class="pagination" *ngIf="totalPagesArray.length > 1" style="position:relative; top:0; left: 0; white-space: nowrap;">
+          <span class="xxSmallFont">Page:</span>
+          <select [value]="currentPage" (change)="pageChanged(2)" #pageSelect2>
+            <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
+          </select>
+        </div>
+        <div class="loadMoreResultsDiv" *ngIf="totalPagesArray.length > 1 && currentPage < totalPagesArray.length">
+          <button (click)="loadMorePosts()">Load More</button>
+        </div>
       </div>
     </div>
     <div class="mainTableDiv emptyPage" *ngIf="storyResponse && storyResponse.stories && storyResponse.stories.length == 0">

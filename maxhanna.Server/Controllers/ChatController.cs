@@ -88,6 +88,7 @@ namespace maxhanna.Server.Controllers
 					WHERE 
 						n.user_id = @userId  
 						AND chat_id IS NOT NULL 
+						AND (n.is_read = 0 OR n.is_read IS NULL)
 					GROUP BY chat_id;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -766,14 +767,12 @@ namespace maxhanna.Server.Controllers
 										updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
 										updateCommand.Parameters.AddWithValue("@Content", request.Content);
 										updateCommand.Parameters.AddWithValue("@ChatId", targetChatId);
-
-										Console.WriteLine("updated NOTIFs");
+										 
 										await updateCommand.ExecuteNonQueryAsync();
 									}
 								}
 								else
-								{
-
+								{ 
 									using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
 									{
 										insertCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);

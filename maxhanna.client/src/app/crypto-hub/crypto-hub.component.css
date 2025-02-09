@@ -1,8 +1,19 @@
 .componentMain {
-  width: 96vw;
+  width: 99vw;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  align-content: space-between; 
+}
+@media only screen and (max-width : 1000px) {
+  .componentMain {
+    flex-wrap: nowrap;
+  }
 } 
-
 .wallet {
   min-width: 300px;
   overflow: auto;
@@ -15,14 +26,13 @@
    
     .wallet table td {
       text-align: center;
-    }   
-/* typical phone screen resolution */
+    }    
 @media only screen and (max-width : 667px) {
   .wallet {
     font-size: small;
   } 
-}
-  
+} 
+
 .sectionName {
   font-family: Courier New, Arial;
   font-weight: bolder;
@@ -32,9 +42,24 @@
 .hubSection {
   display: inline-flex;
   flex-direction: column;
-  width: 100%; 
-  padding: 5px;
+  width: CALC(100% - 10px);
+  margin-left: auto;
+  margin-right: auto;
 }
+ 
+@media only screen and (max-width : 667px) { 
+  .hubSection {
+    display: flex !important;
+  }
+} 
+
+
+.sectionContainer {
+  border: 1px solid;
+  margin-top: 20px;
+}
+
+
 
 @media only screen and (min-width : 1000px) {
   .hubSection {
@@ -42,21 +67,33 @@
   }
 }
 
-.graphContainerDiv, .cryptoWalletSectionHeader {
-  margin-top: 20px;
-}
 
+@media only screen and (min-width : 670px) {
+  .btcToCadConversionHeader {
+    display: inline-flex;
+  }
+}
 .BTCtoCADConversionDiv {
-  display: flex;
+  display: inline-flex;
   justify-content: center;
   align-content: flex-start;
   align-items: center;
-  flex-wrap: nowrap;
   flex-direction: row;
+}
+@media only screen and (max-width : 1000px) {
+  .BTCtoCADConversionDiv {
+    flex-wrap: wrap;
+  }
 }
 
 .BTCtoCADConversionWrapperDiv {
   padding: 5px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-items: center;
+  align-content: center; 
 }
 
 .BTCtoCADConversionDiv input {
@@ -68,4 +105,9 @@
   padding: 5px;
   font-size: small;
   font-weight: bold;
-} 
+}
+
+.miningHubSection {
+  display: inline-flex;
+  flex-direction: column;
+}

@@ -1,18 +1,20 @@
 .componentContainer {
   display: flex;
-  height: 100vh;
+  height: CALC(var(--vh, 1vh) * 100);
   flex-wrap: wrap;
   justify-content: space-evenly;
   align-items: flex-start;
   align-content: flex-start;
   overflow: hidden;
 }
+
 .routerOutletContainer {
-    margin-left:auto;
-    margin-right:auto;
-    display:flex;
-    justify-content:center;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  justify-content: center;
 }
+
 .overlay {
   position: absolute;
   top: 50%;
@@ -22,4 +24,30 @@
   background-color: var(--main-highlight-color-quarter-opacity);
   z-index: 2;
   transform: translate(-50%, -50%);
+  overflow: hidden;
 }
+
+.notificationArea {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  position: absolute;
+  top: 0px;
+  right: 25px;
+  background-color: var(--secondary-bg-color);
+  max-height: CALC(var(--vh, 1vh)* 80);
+  overflow: hidden;
+  z-index: 10;
+}
+
+.notificationBubble {
+  background-color: var(--main-bg-color-full-opacity);
+  padding: 30px;
+  width: 200px;
+  z-index: 10;
+  border-radius: 12px;
+  border: 2px solid var(--main-link-color);
+  font-size: larger;
+}
+  .notificationBubble:not(:first-of-type) {
+    margin-top:20px;
+  }

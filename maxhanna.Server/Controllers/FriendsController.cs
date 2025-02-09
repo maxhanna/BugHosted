@@ -183,7 +183,7 @@ namespace maxhanna.Server.Controllers
 		{
 			if (request.Sender == null || request.Receiver == null)
 			{
-				return BadRequest("Invalid friendship request.");
+				return BadRequest("Invalid follow request.");
 			}
 			try
 			{
@@ -192,7 +192,7 @@ namespace maxhanna.Server.Controllers
 				// Validate the request
 				if (request.Sender.Id == request.Receiver.Id)
 				{
-					return BadRequest("You cannot send a friend request to yourself.");
+					return BadRequest("You cannot send a follow request to yourself.");
 				}
 
 				string checkQuery = @"
@@ -215,7 +215,7 @@ namespace maxhanna.Server.Controllers
 						// Update the existing friend request
 						int requestId = Convert.ToInt32(result);
 						await AddFriend(request.Sender, request.Receiver, connection);
-						return Ok("Friend request was already received by this user. Added user as a friend.");
+						return Ok("You are both following each other. Adding a friend instead of follower.");
 					}
 					else
 					{
@@ -243,12 +243,12 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				return Ok("Friend request sent successfully.");
+				return Ok("Follow request sent successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while sending friend request.");
-				return StatusCode(500, "An error occurred while sending friend request.");
+				_logger.LogError(ex, "An error occurred while sending follow request.");
+				return StatusCode(500, "An error occurred while sending follow request.");
 			}
 		}
 
@@ -296,12 +296,12 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 					await DeleteFriendRequestFromDB(request, connection);
 				}
-				return Ok("Friend request deleted successfully.");
+				return Ok("Follow request deleted successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while accepting the friend request.");
-				return StatusCode(500, "An error occurred while accepting the friend request.");
+				_logger.LogError(ex, "An error occurred while deleting the follow request.");
+				return StatusCode(500, "An error occurred while deleting the follow request.");
 			}
 		}
 

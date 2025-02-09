@@ -6,6 +6,8 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
+import { NotificationService } from '../../services/notification.service';
+import { Story } from '../../services/datacontracts/social/story';
 
 @Component({
   selector: 'app-comments',
@@ -31,11 +33,12 @@ export class CommentsComponent extends ChildComponent {
   @Input() showCommentsHeader = true;
   @Input() type: string = '' || "Social" || "File";
   @Input() component_id: number = 0;
+  @Input() component: any = undefined;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
    
-  constructor(private commentService: CommentService, private sanitizer: DomSanitizer) {
+  constructor(private commentService: CommentService, private notificationService: NotificationService, private sanitizer: DomSanitizer) {
     super();
   } 
 
@@ -80,8 +83,15 @@ export class CommentsComponent extends ChildComponent {
       }
       if (this.commentList.find(x => x.date == currentDate)) {
         this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
-      }  
-
+      }
+      if (this.inputtedParentRef && this.inputtedParentRef.user) { 
+        const isStory = this.component instanceof Story;
+        const isFile = this.component instanceof FileEntry;
+        const tmpComponent = this.component_id ? (isStory ? (this.component as Story) : isFile ? (this.component as FileEntry) : undefined) : undefined;
+        if (tmpComponent && tmpComponent.user) { 
+          this.notificationService.notifyUsers(this.inputtedParentRef.user, [tmpComponent.user], "")
+        }
+      }
     }
   }
   async deleteComment(comment: FileComment) {

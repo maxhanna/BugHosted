@@ -38,7 +38,7 @@
 
   <!-- Main Data -->
   <div>
-    <div id="fileTable" *ngIf="!isLoading">
+    <div id="fileTable">
       <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">
         <div (click)="previousDirectory()"
              class="upOneFolder"
@@ -89,7 +89,10 @@
                     {{file.visibility == 'Private' ? '🔒' : ''}}
                   </span>
                 </div>
-                <div *ngIf="displayFileActions" (click)="showOptionsPanel(file); $event.stopPropagation();" class="fileOptionsAction" title="Show Options">
+                <div *ngIf="displayFileActions"
+                     (click)="showOptionsPanel(file); $event.stopPropagation();"
+                     class="fileOptionsAction"
+                     [title]="'Show Options for ' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? ''))">
                   ⚙️
                 </div>
               </div>

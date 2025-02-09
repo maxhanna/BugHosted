@@ -94,7 +94,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.messaging = await getMessaging(this.app);
         
       onMessage(this.messaging, (payload: any) => {
-        alert(`${payload}`);
+        const parent = this.inputtedParentRef ?? this.parentRef;
+        const body = payload.notification.body;
+        const title = payload.notification.title;
+        parent?.showNotification(`${title}: ${body}`);
       }); 
 
       console.log('Current Notification Permission:', Notification.permission);
@@ -163,7 +166,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           return;
         }
         if (this.currentChatUsers) {
-          this.getMessageHistory();
+          this.getMessageHistory(this.pageNumber, this.pageSize);
         }
       }, 5000);
     }
@@ -208,6 +211,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         if (!this.currentChatId && (res.messages[0] as Message).chatId) {
           this.currentChatId = (res.messages[0] as Message).chatId;
         }
+        this.chatHistory.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); 
         this.scrollToBottomIfNeeded();
       }
     } catch { }
@@ -236,10 +240,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isPanelExpanded = !this.isPanelExpanded;
   }
 
-  changePage(event: any) {
+  async changePage(event: any) {
     this.pageNumber = +event.target.value;
     this.chatHistory = [];
-    this.getMessageHistory(this.pageNumber, this.pageSize);
+    await this.getMessageHistory(this.pageNumber, this.pageSize); 
   }
   async openChat(users?: User[]) {
     if (!users) { return; }
@@ -315,7 +319,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.removeAllAttachments();  
       this.attachedFiles = []; 
       await this.getMessageHistory();
-      this.notificationService.notifyUsers(user, chatUsers);
+      this.notificationService.notifyUsers(user, chatUsers.filter(x=> x.id != user.id), "New chat message!");
     } catch (error) {
       console.error(error);
     }

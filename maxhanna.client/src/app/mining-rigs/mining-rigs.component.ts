@@ -13,8 +13,7 @@ import { AppComponent } from '../app.component';
   templateUrl: './mining-rigs.component.html',
   styleUrl: './mining-rigs.component.css'
 })
-export class MiningRigsComponent extends ChildComponent {
-  @ViewChild('notificationArea') notificationArea!: ElementRef<HTMLElement>;
+export class MiningRigsComponent extends ChildComponent { 
   @Input() inputtedParentRef?: AppComponent;
   @Output() closeMiningEvent = new EventEmitter<void>();
   miningRigs: Array<MiningRig> = [];
@@ -65,12 +64,12 @@ export class MiningRigsComponent extends ChildComponent {
         let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
-        this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${rig.rigName} ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
+        this.showNotification(`${requestedActionCapitalized}ing ${rig.rigName} ${isSuccess ? 'Has Succeeded' : 'Has Failed'}`);
 
         this.getMiningInfo();
       }
       catch (error) {
-        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";
+        this.showNotification(JSON.stringify(error));
       }
       this.stopLoading();
     }
@@ -86,13 +85,13 @@ export class MiningRigsComponent extends ChildComponent {
         let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
         const isSuccess = response.success;
-        this.notificationArea.nativeElement.innerHTML += `${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}<br />`;
+        this.showNotification(`${requestedActionCapitalized}ing ${device.deviceName} (${device.rigName}) ${isSuccess ? 'Has Succeeded' : 'Has Failed'}`);
 
         this.getMiningInfo();
         this.miningRigDevices = undefined;
       }
       catch (error) {
-        this.notificationArea.nativeElement.innerHTML += JSON.stringify(error) + "<br />";
+        this.showNotification(JSON.stringify(error));
       }
     }
   }
@@ -180,5 +179,10 @@ export class MiningRigsComponent extends ChildComponent {
       currency: 'CAD',
     }).format(value);
   }
-   
+  showNotification(text: string) { 
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.showNotification(text);
+    } 
+  }
 }

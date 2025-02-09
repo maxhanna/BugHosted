@@ -63,36 +63,16 @@ export class Inventory extends GameObject {
       }
     });
 
+    events.on("CLOSE_INVENTORY_MENU", this, (data: any) => {
+      this.closeStartMenu()
+    });
+
     events.on("START_PRESSED", this, (data: any) => {
-      if (this.startMenu) {
-        this.removeChild(this.startMenu);
-        this.startMenu = undefined;
-        events.emit("HERO_MOVEMENT_UNLOCK");
-        return;
-      }
+      if (this.closeStartMenu()) return;
+      
       this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts });
       this.addChild(this.startMenu);  
-      events.emit("HERO_MOVEMENT_LOCK");
-
-      //if (!this.items || this.items.length === 0) return;
-      //let currentId = undefined;
-      //let itemIndex = this.children.findIndex((x: any) => x.isItemSelected);
-      //if (itemIndex > -1) {
-      //  this.children[itemIndex].isItemSelected = false;
-      //  itemIndex++;
-      //  const nextItem = this.children[itemIndex];
-      //  if (nextItem) {
-      //    nextItem.isItemSelected = true;
-      //    currentId = nextItem.objectId;
-      //  } else {
-      //    itemIndex = 0;
-      //  }
-      //} else if (this.children && this.children.length > 0) {
-      //  this.children[0].isItemSelected = true;
-      //  currentId = this.children[0].objectId;
-      //  itemIndex = 0;
-      //}
-      //this.currentlySelectedId = currentId;
+      events.emit("HERO_MOVEMENT_LOCK"); 
     });
 
 
@@ -111,6 +91,14 @@ export class Inventory extends GameObject {
     });
   }
 
+  closeStartMenu() {
+    if (this.startMenu) {
+      this.removeChild(this.startMenu);
+      this.startMenu = undefined;
+      events.emit("HERO_MOVEMENT_UNLOCK");
+      return true;
+    } return false;
+  }
 
   getCurrentlySelectedItem() {
     return this.items.find(x => x.id == this.currentlySelectedId)?.name ?? "";

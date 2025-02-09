@@ -1,11 +1,7 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('UpdateUserProfile')"></div> 
   <div class="componentTitle">{{ !showOnlySelectableMenuItems ? 'Settings' : 'Select Your Apps' }}</div> 
-  <div *ngFor="let notif of notifications"
-         [innerHTML]="notif"
-         (click)="notifications = [];"
-         title="Click to clear notifications"
-         class="notificationArea notification"></div>
+
   <div class="settingsDiv">
     <fieldset>
       <legend *ngIf="!showOnlySelectableMenuItems">Update:</legend>

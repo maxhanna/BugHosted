@@ -150,6 +150,10 @@ export class Input {
       case 'd':
       case 'D':
         this.onArrowReleased(RIGHT);
+        break; 
+      case 'e':
+      case 'E': 
+        this.pressA();
         break;
       case 'Enter':
       case 'NumpadEnter':
@@ -162,11 +166,13 @@ export class Input {
         this.pressEscape();
         break;
       case ' ':
-        this.pressSpace();
+      case 'q':
+      case 'Q':
+        this.pressB();
         break;
     }
   }
-  pressA(sendChat: boolean = true) { 
+  pressA(sendChat: boolean = true) {
     console.log("pressed A");
     if (sendChat && this.chatInput && this.chatInput.value.trim() != "") {
       events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
@@ -178,7 +184,11 @@ export class Input {
         this.keys["Space"] = false;
       }, 100);
     }
-
+  }
+  pressB() {
+    console.log("pressed B");
+    events.emit("CLOSE_INVENTORY_MENU");
+    events.emit("CLOSE_HERO_DIALOGUE"); 
   }
   pressSpace() { 
     events.emit("SPACEBAR_PRESSED");

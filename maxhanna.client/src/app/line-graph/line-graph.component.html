@@ -23,7 +23,7 @@
       <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}</option>
     </select>
   </div>
-  <div style="display: block">
+  <div style="display: block; background-color: white;">
     <canvas baseChart width="400" height="300"
             [datasets]="lineChartData"
             [labels]="lineChartLabels"

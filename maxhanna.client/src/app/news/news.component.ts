@@ -30,11 +30,11 @@ export class NewsComponent extends ChildComponent implements OnInit {
         this.newsArticles = await this.newsService.getAllNews(this.parentRef?.user!) as ArticlesResult;
 
         if (this.newsArticles == null) {
-          this.notifications.push("Error fetching news data");
+          this.parentRef?.showNotification("Error fetching news data"); 
         }
       }
     } catch {
-      this.notifications.push("Error fetching news data");
+      this.parentRef?.showNotification("Error fetching news data"); 
     }
     this.stopLoading();
   }
@@ -56,13 +56,13 @@ export class NewsComponent extends ChildComponent implements OnInit {
       if (!keywords) { return alert("You must enter some keywords"); }
       const response = await this.newsService.searchNews(this.parentRef?.user!, keywords);
       if (response == null) {
-        this.notifications.push("Error fetching news data");
+        this.parentRef?.showNotification("Error fetching news data"); 
         return;
       }
       this.loadNews(response!);
       this.searchKeywords.nativeElement.value = ''; 
-    } catch { 
-      this.notifications.push("Error fetching news data");
+    } catch {
+      this.parentRef?.showNotification("Error fetching news data"); 
     }
   }
 

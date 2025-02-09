@@ -2,7 +2,6 @@
   <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!loginOnly"></div>
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
-  <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
   <div class="notificationCounterDiv" *ngIf="parentRef?.user">
     <app-notifications [minimalInterface]="true"
@@ -48,8 +47,9 @@
           <select (change)="onProfileControlsChange()" #profileControls class="profileControlsSelector">
             <option selected disabled>Options</option>
             <option *ngIf="user || parentRef?.user" value="shareProfile">📋 Share Profile</option>
-            <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe() && canAddFriend(user)" value="addFriend">👤 Follow</option>
-            <option *ngIf="areWeFriends(user)" value="removeFriend">👤 Remove Friend</option>
+            <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && friendsIncludeMe() && !canAddFriend(user)" value="removeFriend">👤 Unfriend</option>
+            <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && !friendsIncludeMe() && canAddFriend(user)" value="addFriend">👤 Follow {{isBeingFollowedByUser ? 'Back' : ''}}</option>
+            <option *ngIf="user && user != parentRef?.user && (user && parentRef?.user?.username != user.username) && isFollowingUser()" value="unfollow">👤 Unfollow</option>
             <option *ngIf="user && parentRef && parentRef.user && user.id != parentRef.user.id && !contactsContains(user)" value="addContact">👤 Add Contact</option>
             <option value="showFriends">👤 Show Friends</option>
             <option *ngIf="user" value="chat">🗨️ Chat</option>
@@ -74,7 +74,7 @@
             </div>
             <div class="welcomeMessage" *ngIf="!loginOnly">
               <p class="welcomeTitle">Social... <small>and anti-social</small> Community🪲</p>
-              <p class="welcomeTitle">Total users: <span [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount && !isLoading ? usersCount : !usersCount && !isLoading ? 'Server is down!' : 'Unknown Error'}}</span></p>
+              <p class="welcomeTitle">{{ !usersCount && !isLoading ? '' : 'Total users: ' }}<span [class]="!usersCount && !isLoading ? 'redText' : ''">{{usersCount && !isLoading ? usersCount : !usersCount && !isLoading ? 'Server is down!' : 'Unknown Error'}}</span></p>
             </div>
 
             <div *ngIf="loginOnly" class="loginOnlyInstructionDiv">

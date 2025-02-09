@@ -155,7 +155,7 @@ namespace maxhanna.Server.Controllers
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await connection.OpenAsync();
-					string sql = "UPDATE maxhanna.notifications SET is_read = CASE WHEN is_read = 1 THEN 0 ELSE 1 END WHERE user_id = @UserId";
+					string sql = "UPDATE maxhanna.notifications SET is_read = 1 WHERE user_id = @UserId";
 
 					List<MySqlParameter> parameters = new List<MySqlParameter> {
 							new MySqlParameter("@UserId", req.User.Id)
@@ -191,7 +191,58 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError(ex, "An error occurred while deleting the notifications.");
 				return StatusCode(500, "An error occurred while deleting the notifications.");
 			}
-			 
+
+			return Ok(req.NotificationIds != null ? "Notification changed." : "All notifications changed.");
+		}
+
+
+		[HttpPost("/Notification/UnRead", Name = "UnReadNotifications")]
+		public async Task<IActionResult> UnReadNotifications([FromBody] ReadNotificationRequest req)
+		{
+			_logger.LogInformation($"POST /Notification/UnRead");
+			List<UserNotification> notifications = new List<UserNotification>();
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					string sql = "UPDATE maxhanna.notifications SET is_read = 0 WHERE user_id = @UserId";
+
+					List<MySqlParameter> parameters = new List<MySqlParameter> {
+							new MySqlParameter("@UserId", req.User.Id)
+					};
+
+					if (req.NotificationIds != null && req.NotificationIds.Length > 0)
+					{
+						// Create parameter placeholders like @id0, @id1, @id2, ...
+						var idPlaceholders = req.NotificationIds
+								.Select((id, index) => $"@id{index}")
+								.ToArray();
+
+						sql += $" AND id IN ({string.Join(",", idPlaceholders)})";
+
+						// Add parameters for each notification ID
+						for (int i = 0; i < req.NotificationIds.Length; i++)
+						{
+							parameters.Add(new MySqlParameter($"@id{i}", req.NotificationIds[i]));
+						}
+					}
+
+					sql += ";";
+
+					using (var command = new MySqlCommand(sql, connection))
+					{
+						command.Parameters.AddRange(parameters.ToArray());
+						await command.ExecuteNonQueryAsync();
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while deleting the notifications.");
+				return StatusCode(500, "An error occurred while deleting the notifications.");
+			}
+
 			return Ok(req.NotificationIds != null ? "Notification changed." : "All notifications changed.");
 		}
 
@@ -236,8 +287,21 @@ namespace maxhanna.Server.Controllers
 		public async void NotifyUsers([FromBody] NotificationRequest request)
 		{
 			_logger.LogInformation($"POST /Notification/NotifyUsers");
+			string tmpMessage = request.Message;
+
 			foreach (User tmpUser in request.ToUser)
 			{
+				Console.WriteLine("Sending notification to UserId: " + tmpUser.Id);
+				if (tmpUser.Id == request.FromUser.Id)
+				{
+					continue;
+				}
+
+				if (string.IsNullOrEmpty(request.Message))
+				{
+					tmpMessage = $"{tmpUser.Username}, new notification on Bughosted.com";
+				}
+
 				try
 				{
 					// See documentation on defining a message payload.
@@ -245,8 +309,8 @@ namespace maxhanna.Server.Controllers
 					{
 						Notification = new FirebaseAdmin.Messaging.Notification()
 						{
-							Title = $"New Notification from {request.FromUser.Username}",
-							Body = $"{tmpUser.Username}, new notification on Bughosted.com",
+							Title = $"Notification from {request.FromUser.Username}",
+							Body = tmpMessage,
 						},
 						Topic = "notification" + tmpUser.Id
 					};

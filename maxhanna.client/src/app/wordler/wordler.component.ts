@@ -73,9 +73,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   copyLink() {
     const link = `https://bughosted.com/Wordler`;
     navigator.clipboard.writeText(link).then(() => {
-      this.notifications.push('Link copied to clipboard!');
+      this.parentRef?.showNotification('Link copied to clipboard!');
     }).catch(err => {
-      this.notifications.push('Failed to copy link!');
+      this.parentRef?.showNotification('Failed to copy link!');
     });
   }
   getDifficultyByValue(value: number): DifficultyKey | undefined {
@@ -141,7 +141,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       if (this.parentRef && this.parentRef.user) {
         const res = await this.wordlerService.addScore(score);
         if (res) {
-          this.notifications.push(res);
+          this.parentRef?.showNotification(res);
         }
       }
       this.scores = await this.wordlerService.getAllScores();
@@ -217,13 +217,13 @@ export class WordlerComponent extends ChildComponent implements OnInit {
                           }
                         }, 1000);  // Delay to let the flip animations complete
                       
-                      this.notifications.push(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Try another difficulty?`);
+                      this.parentRef?.showNotification(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Try another difficulty?`);
                     }, 1);
                     skipChecks = true;
                     this.disableAllInputs = true;
                   }
                   if (this.currentAttempt >= this.numberOfTries && !skipChecks) {
-                    this.notifications.push(`Game over! The word was: ${this.wordToGuess}. Try another difficulty?`);
+                    this.parentRef?.showNotification(`Game over! The word was: ${this.wordToGuess}. Try another difficulty?`);
                     this.showScores = true;
                     alert(`Game over! The word was: ${this.wordToGuess}. Try another difficulty?`);
                     skipChecks = true;
@@ -237,7 +237,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       } catch (e) { console.log("no guesses, or error fetching: " + e); }
     }
     else {
-      this.notifications.push("You should log in to track your scores and save your guesses!");
+      this.parentRef?.showNotification("You should log in to track your scores and save your guesses!");
     }
   }
 
@@ -254,7 +254,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
     if (guess.length === this.selectedDifficulty) { //if the user filled the guess
       if (this.guessAttempts.includes(guess) || this.guesses.some(x => x.guess == guess)) {
-        this.notifications.push("The Wordler says: 'Hah! Trying again? You're as persistent as you are predictable.'");
+        this.parentRef?.showNotification("The Wordler says: 'Hah! Trying again? You're as persistent as you are predictable.'");
         this.shakeCurrentAttempt();
         return;
       }
@@ -272,16 +272,16 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       if (validityRes && validityRes[0] == "0") {
         const message = validityRes.substring(1, validityRes.length).trim() ?? '';
         if (message && message.trim() != '') {
-          this.notifications.push("Thats not a real word, try again, The Wordler raises his brow at your choices.");
+          this.parentRef?.showNotification("Thats not a real word, try again, The Wordler raises his brow at your choices.");
         } else {
-          this.notifications.push("Thats not a real word, try again! The Wordler laughs at your despair!");
+          this.parentRef?.showNotification("Thats not a real word, try again! The Wordler laughs at your despair!");
         } 
         this.shakeCurrentAttempt();
         return;
       } else if (validityRes && validityRes[0] == "1") {
         const message = validityRes.substring(1, validityRes.length).trim();
         if (message && message.trim() != '') {
-          this.notifications.push(validityRes.substring(1, validityRes.length).trim());
+          this.parentRef?.showNotification(validityRes.substring(1, validityRes.length).trim());
         }
       }
       this.currentAttempt++;
@@ -305,12 +305,12 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       } else {
         this.stopTimer();
         const message = `Game over! The word was: ${this.wordToGuess}; Time elapsed: ${this.elapsedTime}`;
-        this.notifications.push(message);
+        this.parentRef?.showNotification(message);
         this.showScores = true;
         alert(message); 
         const definition = await this.wordlerService.getWordDefinition(this.wordToGuess);
         if (definition) {
-          this.notifications.push(`Word definition: ${definition}`);
+          this.parentRef?.showNotification(`Word definition: ${definition}`);
         }
       }
     }
@@ -324,7 +324,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     await this.getHighScores();
     const definition = await this.wordlerService.getWordDefinition(guess);
     if (definition) {
-      this.notifications.push(`Word definition: ${definition}`);
+      this.parentRef?.showNotification(`Word definition: ${definition}`);
     }
     this.showScores = true;
     this.disableAllInputs = true;

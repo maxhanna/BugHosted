@@ -24,8 +24,7 @@ export class FileComponent extends ChildComponent {
   showThumbnail: boolean = false;
   showUpFolderRow: boolean = true;
   draggedFilename: string | undefined;
-  destinationFilename: string | undefined;
-  notifications: Array<string> = [];
+  destinationFilename: string | undefined; 
   showMakeDirectoryPrompt = false;
   currentDirectory = '';
   isUploadInitiate = false;
@@ -74,9 +73,9 @@ export class FileComponent extends ChildComponent {
       await this.fileService.shareFile(this.parentRef?.user!, userToShareWith, this.fileBeingShared);
       this.fileBeingShared = 0;
       this.isSharePanelExpanded = false;
-      this.notifications.push("File sharing has succeeded.");
+      this.parentRef?.showNotification("File sharing has succeeded."); 
     } catch {
-      this.notifications.push("File sharing has failed.");
+      this.parentRef?.showNotification("File sharing has failed."); 
     }
   }
 
@@ -88,12 +87,11 @@ export class FileComponent extends ChildComponent {
     console.log(this.currentDirectory);
   } 
   uploadNotification(event: string) {
-    if (event != '0') {
-      this.notifications.push(event);
+    if (event != '0' && this.parentRef) {
+      this.parentRef.showNotification(event);
     }
   }
-  uploadInitiate() {
-    this.notifications = []; 
+  uploadInitiate() { 
     this.showMakeDirectoryPrompt = false;
     this.isUploadInitiate = true;
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
@@ -123,8 +121,7 @@ export class FileComponent extends ChildComponent {
   } 
 
   
-  async makeDirectory() {
-    this.notifications = [];
+  async makeDirectory() { 
     const choice = this.makeFolderName.nativeElement.value;
     if (!choice || choice == "") {
       return alert("Folder name cannot be empty!");
@@ -140,7 +137,7 @@ export class FileComponent extends ChildComponent {
       this.startLoading();
       try {
         const res = await this.fileService.createDirectory(this.parentRef?.user!, target, isPublic);
-        this.notifications.push("Created folder " + target);
+        this.parentRef?.showNotification("Created folder " + target);  
 
         if (!res?.toLowerCase().includes("already exists")) {
           this.cancelMakeDirectoryOrFile();

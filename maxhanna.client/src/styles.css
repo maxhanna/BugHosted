@@ -75,17 +75,7 @@ a {
     border-radius: 5px;
     border-bottom: 1px dotted var(--main-font-color);
   }
-
-button {
-  background-color: var(--main-highlight-color);
-  color: var(--main-font-color);
-  font-weight: bold;
-  font-family: Arial;
-  text-align: center;
-  text-shadow: 1.2px 1.1px 1.1px black;
-  user-select: none; /* Prevents text selection */
-}
-
+ 
 legend {
   border: var(--main-border);
   text-align: center;
@@ -137,6 +127,10 @@ fieldset {
 .menuButton::before {
   content: '☰';
   font-size: 16px !important;
+}
+
+.refreshButton::before, .menuButton::before {
+  left: 0px;
 }
 
 .closeButton::before {
@@ -354,6 +348,8 @@ fieldset {
     background: var(--main-font-color);
   }
 
+
+
 .notification {
   color: var(--secondary-font-color);
   font-size: smaller;
@@ -424,7 +420,7 @@ fieldset {
 .avatarBug {
   font-size: 15px;
   left: 8px;
-  top: -50px;
+  top: -75px;
 }
 
 
@@ -506,7 +502,7 @@ fieldset {
 @media only screen and (max-width : 667px) {
   .popupPanel {
     width: 99vw;
-    max-height: 99vh; 
+    max-height: CALC(var(--vh, 1vh) * 99);
   }
 } 
 

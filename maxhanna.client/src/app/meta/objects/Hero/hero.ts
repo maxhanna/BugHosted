@@ -341,7 +341,11 @@ export class Hero extends GameObject {
         }
         else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", this.isObjectNeerby());
-        }
+        } 
+      });
+      events.on("CLOSE_HERO_DIALOGUE", this, () => { 
+        this.isLocked = false;
+        events.emit("END_TEXT_BOX");
       });
       events.on("WARP", this, (params: { x: string, y: string }) => {
 

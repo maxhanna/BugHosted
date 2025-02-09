@@ -78,6 +78,7 @@
               [showComments]="showCommentSectionOnLoad"
               [showCommentsHeader]="showCommentSectionHeader"
               [component_id]="selectedFile?.id || file?.id ?? 0"
+              [component]="selectedFile || file"
               [commentList]="selectedFile?.fileComments || file?.fileComments ?? []"
               (commentAddedEvent)="commentAddedEvent($event)"
               (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">

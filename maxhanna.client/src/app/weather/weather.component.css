@@ -17,3 +17,14 @@ td {
 .mainBgColor {
   background-color: var(--main-bg-color) !important;
 }
+.weatherLegend {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  font-size: x-small;
+  gap: 20px;
+  padding:20px;
+}
+.weatherLegend div {
+  display: flex;
+}

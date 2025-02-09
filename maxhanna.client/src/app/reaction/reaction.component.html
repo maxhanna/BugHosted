@@ -31,7 +31,7 @@
     <button id="closeOverlay" (click)="closeReactionsPanel()">Close</button>
   </div>
   <div class="reactionsOverlayWrapper">
-    <div *ngFor="let reaction of currentReactions" (click)="showReactionsOnClick()" class="reactionWrapper">
+    <div *ngFor="let reaction of currentReactions" class="reactionWrapper">
       <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
       : <span class="reactionTypeSpan">{{replaceReactionType(reaction.type)}}</span>
       <span class="xxSmallFont">{{reaction.timestamp}}</span>

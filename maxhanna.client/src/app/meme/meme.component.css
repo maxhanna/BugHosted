@@ -29,38 +29,8 @@ button {
   @media only screen and (max-width:800px) {
     .componentMain {
       width: 99vw;
-    }
-
-    .mainTable input {
-      max-width: 80% !important;
-      word-wrap: break-word;
-      text-overflow: ellipsis;
-    }
-  }
-
-  .mainTable {
-    display: block;
-    max-height: 68vh;
-    overflow: auto;
-    width: 100%;
-    margin-bottom: 25px;
-  }
-
-    .mainTable th:nth-child(2), td:nth-child(2) {
-      width: 100%;
-    }
-
-    .mainTable tbody tr {
-      cursor: pointer;
-    }
-
-    .mainTable td:not(:nth-last-child(-n+3)) {
-      padding: 5px;
-    }
-
-    .mainTable th {
-      text-align: center;
-    }
+    } 
+  }  
   /* Adjust the appearance of the vote count */
   .vote-count {
     color: var(--main-font-color);
@@ -78,14 +48,14 @@ button {
     cursor: pointer;
   }
 
-  .memeImage, .memeVideo {
-    width: 100%;
-    height: auto;
-    max-width: 70vw;
-    max-height: 50vh;
-    cursor: default;
-    object-fit: contain;
-  }
+.memeImage, .memeVideo {
+  width: 100%;
+  height: auto;
+  max-width: 70vw;
+  max-height: CALC(var(--vh, 1vh) * 50);
+  cursor: default;
+  object-fit: contain;
+}
 
   .SendMemesSpan {
     color: var(--secondary-font-color);

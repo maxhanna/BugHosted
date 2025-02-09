@@ -79,7 +79,8 @@ export class ChildComponent {
   } 
   viewProfile(user?: User) {
     console.log(user);
-    if (user && user.id != 0) { 
+    if (user && user.id != 0) {
+      this.parentRef?.closeOverlay();
       this.parentRef?.createComponent("User", { "userId": user.id });
     }
   }

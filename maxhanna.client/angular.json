@@ -78,7 +78,7 @@
               "sslCert": "ssl/bughosted_com.crt",
               "sslKey": "ssl/bughosted_com.key",
               "liveReload": false,
-              "watch": true
+              "watch": false
             },
             "development": {
               "buildTarget": "maxhanna.client:build:development",
@@ -109,7 +109,7 @@
               "sslCert": "ssl/bughosted_com.crt",
               "sslKey": "ssl/bughosted_com.key",
               "liveReload": false,
-              "watch": true
+              "watch": false
             }
           },
           "defaultConfiguration": "production",

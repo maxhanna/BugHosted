@@ -2,7 +2,6 @@
   <div class="closeButton" (click)="remove_me('WordlerComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Wordler</div>
-  <div *ngFor="let notif of notifications" class="notification" (click)="notifications = []">{{notif}}</div>
 
   <div>
     <div class="wordlerTitleDiv" *ngIf="!isMenuPanelOpen">

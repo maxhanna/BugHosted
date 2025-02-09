@@ -43,7 +43,7 @@
   width: 100%;
   height: auto;
   max-width: 70vw;
-  max-height: 45vh;
+  max-height: CALC(var(--vh, 1vh) * 45);
   max-height: auto;
   cursor: default;
   object-fit: contain;
@@ -55,7 +55,7 @@
 }
 
 .mediaContainerDiv {
-  max-height: 60vh;
+  max-height: CALC(var(--vh, 1vh) * 60);
   overflow: auto;
   object-fit: contain;
 }

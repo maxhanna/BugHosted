@@ -7,11 +7,11 @@
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!minimalInterface"></div>
   <div class="componentTitle" *ngIf="!minimalInterface">Notifications</div>
 
-  <div class="notificationsDisplay" [style.width]="minimalInterface ? '90%' : ''">
+  <div class="notificationsDisplay" [style.width]="minimalInterface ? 'CALC(100% - 15px);' : ''">
     <div>
       <div *ngIf="notifications && notifications.length > 0" class="noNotificationsDiv">
         <div>
-          {{notifications && notifications.length}} Notifications
+          {{notifications && notifications.length}} Notifications<span *ngIf="unreadNotifications"> ({{unreadNotifications}} unread)</span>
         </div>
         <div>
           <button (click)="delete()" *ngIf="notifications && notifications.length > 0">

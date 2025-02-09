@@ -45,12 +45,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isMenuIconsToggled = true;
   isFriendRequestsExpanded = false;
   isAboutExpanded = true;
-  isAboutOpen = false; 
+  isAboutOpen = false;
   isFriendsPanelOpen = false;
-  isAboutPanelOpen = false;  
-  isMoreInfoOpen = false; 
+  isAboutPanelOpen = false;
+  isMoreInfoOpen = false;
   isEditingFriends = false;
   hasFriendRequests = false;
+  isBeingFollowedByUser = false;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   friendRequestsSent: FriendRequest[] = [];
@@ -104,6 +105,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
             this.weatherLocation = res.city;
           }
         });
+        await this.getIsBeingFollowedByUser();
       }
     }
     catch (error) { console.log((error as Error).message); }
@@ -182,19 +184,19 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const isOpen = event === "aboutContainer" ? this.isAboutExpanded : this.isMusicContainerExpanded;
     console.log(isOpen);
 
-    this.isAboutExpanded = false;  
-    this.isMusicContainerExpanded = false; 
+    this.isAboutExpanded = false;
+    this.isMusicContainerExpanded = false;
 
-    if (event === "aboutContainer") { 
+    if (event === "aboutContainer") {
       this.isAboutExpanded = !!!isOpen;
     } else if (event === "musicProfileContainer") {
       this.isMusicContainerExpanded = !!!isOpen;
-    } 
+    }
   }
 
   async addContact(user: User) {
     const res = await this.contactService.addUserContact(this.parentRef!.user!, user);
-    this.notifications.push(res!);
+    this.parentRef?.showNotification(res);
   }
 
   canAddFriend(user: User) {
@@ -229,8 +231,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     return false;
   }
 
-  clearForm() {
-
+  clearForm() { 
     this.isNicehashApiKeysToggled = false;
     this.isGeneralToggled = false;
     this.updateUserDivVisible = false;
@@ -259,7 +260,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.friendRequests = [];
     this.friends = [];
     this.user = undefined;
-    this.notifications.push("Logged out successfully, refresh in 100 milliseconds.");
+    this.parentRef?.showNotification("Logged out successfully, refresh in 100 milliseconds.");     
     setTimeout(() => {
       window.location = window.location;
     }, 100);
@@ -267,21 +268,21 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
   async acceptFriendshipRequest(request: FriendRequest) {
-    const res = await this.friendService.acceptFriendRequest(request)
-    this.notifications.push(res);
+    const res = await this.friendService.acceptFriendRequest(request);
+    this.parentRef?.showNotification(res);
     await this.ngOnInit();
   }
   async denyFriendshipRequest(request: FriendRequest) {
-    const res = await this.friendService.rejectFriendRequest(request)
-    this.notifications.push(res);
-    await this.ngOnInit();
-  } 
-  async deleteFriendshipRequest(request: FriendRequest) {
-    const res = await this.friendService.deleteFriendRequest(request);
-    this.notifications.push(res);
+    const res = await this.friendService.rejectFriendRequest(request);
+    this.parentRef?.showNotification(res);
     await this.ngOnInit();
   }
- 
+  async deleteFriendshipRequest(request: FriendRequest) {
+    const res = await this.friendService.deleteFriendRequest(request);
+    this.parentRef?.showNotification(res);
+    await this.ngOnInit();
+  }
+
   onProfileControlsChange() {
     const command = this.profileControls.nativeElement.value;
 
@@ -297,6 +298,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       case 'removeFriend':
         this.removeFriend(this.user);
         break;
+      case 'unfollow':
+        this.unfollowUser(this.user);
+        break;
       case 'addContact':
         if (this.user) {
           this.addContact(this.user);
@@ -310,7 +314,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         break;
       case 'showFriends':
         this.openFriendsPanel();
-        break; 
+        break;
       case 'settings':
         this.parentRef?.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this.parentRef })
         break;
@@ -329,23 +333,33 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   async addFriend(user: User) {
     if (this.parentRef && this.parentRef.user) {
       const res = await this.friendService.sendFriendRequest(this.parentRef.user, user);
-      this.notifications.push(res);
+      this.parentRef?.showNotification(res);
       await this.ngOnInit();
     } else {
-      this.notifications.push("You must be logged in to send a friendship request");
+      this.parentRef?.showNotification("You must be logged in to send a friendship request");    
     }
   }
   async removeFriend(user?: User) {
     if (!user) return;
     if (this.parentRef && this.parentRef.user) {
       const res = await this.friendService.removeFriend(this.parentRef.user, user);
-      this.notifications.push(res);
+      this.parentRef?.showNotification(res);
       await this.loadFriendData();
     } else {
-      this.notifications.push("You must be logged in to remove a friend");
+      this.parentRef?.showNotification("You must be logged in to remove a friend");     
     }
   }
-
+  async unfollowUser(user?: User) {
+    if (!user) return alert("You must select a user to unfollow first!");
+    const parent = this.parentRef ?? this.inputtedParentRef; 
+    const parentUser = parent?.user;
+    if (parentUser) {
+      const tgtFollowRequest = this.friendRequests.filter(x => x.sender.id == parentUser.id)[0];
+      if (tgtFollowRequest) {
+        this.deleteFriendshipRequest(tgtFollowRequest);
+      }
+    }
+  }
 
   async createUser(guest?: boolean) {
     let tmpUserName = this.loginUsername.nativeElement.value;
@@ -361,16 +375,16 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         const resCreateUser = await this.userService.createUser(tmpUser);
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
           tmpUser.id = parseInt(resCreateUser!);
-          this.notifications.push("Successfully added user");
+          this.parentRef?.showNotification("Successfully added user");
           try {
             this.updateWeatherInBackground(tmpUser);
           } catch {
-            this.notifications.push("No weather data can be fetched");
+            this.parentRef?.showNotification("No weather data can be fetched");
           }
 
           const resAddMenuItemSocial = await this.userService.addMenuItem(tmpUser, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
           if (resAddMenuItemSocial) {
-            this.notifications.push(resAddMenuItemSocial + '');
+            this.parentRef?.showNotification(resAddMenuItemSocial + '');
           }
 
           await this.login(guest ? tmpUserName : undefined);
@@ -378,14 +392,14 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
             this.parentRef?.createComponent('UpdateUserSettings');
           }
         } else {
-          this.notifications.push(`${JSON.parse(resCreateUser!)["message"]}`);
+          this.parentRef?.showNotification(`${JSON.parse(resCreateUser!)["message"]}`);   
         }
       } catch (error: any) {
         const message = error["message"];
         if (message.includes("409")) {
-          this.notifications.push(`User already exists`);
+          this.parentRef?.showNotification(`User already exists`); 
         } else {
-          this.notifications.push(`Error: ${message}`);
+          this.parentRef?.showNotification(`Error: ${message}`); 
         }
       }
     }
@@ -401,7 +415,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     console.log("logging in " + (guest ? " as " + guest : ""));
     if (this.parentRef?.user) {
       this.parentRef.user = undefined;
-    } 
+    }
     let tmpUserName = this.loginUsername.nativeElement.value;
     if (guest) {
       tmpUserName = guest;
@@ -411,10 +425,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       const tmpUser = await this.userService.getUser(tmpLoginUser);
 
       if (tmpUser && tmpUser.username && this.parentRef) {
-        tmpUser.password = undefined; 
+        tmpUser.password = undefined;
         this.parentRef.user = tmpUser;
         this.parentRef.resetUserCookie();
-        this.notifications.push(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
+        this.parentRef?.showNotification(`Access granted. Welcome back ${this.parentRef!.user?.username}`);  
         this.updateWeatherInBackground(tmpUser);
 
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
@@ -422,12 +436,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         if (this.loginOnly) {
           this.closeUserComponentEvent.emit(tmpUser);
         }
-      } else {
-        this.notifications.push("Access denied");
+      } else { 
+        this.parentRef?.showNotification("Access denied");     
       }
 
-    } catch (e) {
-      this.notifications.push("Login error: " + e);
+    } catch (e) { 
+      this.parentRef?.showNotification("Login error: " + e);     
     } finally {
       this.justLoggedIn = true;
       this.ngOnInit();
@@ -450,13 +464,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const link = `https://bughosted.com/${userId ? `User/${userId}` : ''}`;
     try {
       navigator.clipboard.writeText(link).then(() => {
-        this.notifications.push('Link copied to clipboard!');
+        this.parentRef?.showNotification('Link copied to clipboard!');
       }).catch(err => {
-        this.notifications.push('Failed to copy link!');
+        this.parentRef?.showNotification('Failed to copy link!');
       });
     }
     catch {
-      this.notifications.push('Failed to copy link!');
+      this.parentRef?.showNotification('Failed to copy link!');
     }
   }
   getFilteredFriendRequests() {
@@ -488,7 +502,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
       parent.closeOverlay();
-    } 
+    }
   }
   openAboutPanel() {
     this.isAboutPanelOpen = true;
@@ -502,6 +516,32 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
       parent.closeOverlay();
-    } 
+    }
+  }
+  isFollowingUser() {
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    const parentUser = parent?.user;
+    if (parentUser) {
+      const tgtFollowRequest = this.friendRequests.filter(x => x.sender.id == parentUser.id)[0];
+      if (tgtFollowRequest) {
+        return true;
+      }
+    }
+    return false;
+  }
+  async getIsBeingFollowedByUser() {
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    const parentUser = parent?.user;
+    if (parentUser && this.user) {
+      const res = await this.friendService.getFriendRequests(parentUser) as FriendRequest[];
+      if (res) {
+        const tgtFollowRequest = res.filter(x => x.sender.id == this.user?.id)[0];
+        if (tgtFollowRequest) {
+          this.isBeingFollowedByUser = true;
+          return;
+        }
+      } 
+    }
+    this.isBeingFollowedByUser = false;
   }
 }

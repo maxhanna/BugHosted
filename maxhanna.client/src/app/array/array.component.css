@@ -10,7 +10,7 @@
   text-align: left;
 }
   .rankingDiv.expanded {
-    max-height: 80vh;
+    max-height: CALC(var(--vh, 1vh) * 80);
   }
 
 .radar {

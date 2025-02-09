@@ -13,19 +13,19 @@
       <ng-container *ngIf="item.title === 'Weather' || item.title == 'User'; else otherItems">
         <ng-container *ngIf="item.title == 'Weather'">
           <ng-container *ngIf="item.icon !== '☀️'">
-            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <!--<span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>-->
             <img [src]="item.icon" [title]="item.title" class="navLink weatherPic" (click)="goTo($event)" *ngIf="item.icon" />
             <a class="navLink" (click)="goTo($event)" [title]="item.title" *ngIf="!item.icon">☀️</a>
           </ng-container>
           <ng-container #defaultWeatherIcon *ngIf="item.icon == '☀️'">
-            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <!--<span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>-->
             <a class="navLink" (click)="goTo($event)" [title]="item.title">{{_parent.originalWeatherIcon}}</a>
           </ng-container>
         </ng-container>
 
         <ng-container *ngIf="item.title == 'User'">
           <ng-container *ngIf="user && _parent && user?.displayPictureFile?.id">
-            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <!--<span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>-->
             <a class="navLink" (click)="goTo($event)" [title]="item.title">
               <app-media-viewer [file]="user.displayPictureFile"
                                 [inputtedParentRef]="_parent"
@@ -41,7 +41,7 @@
              
           </ng-container>
           <ng-container *ngIf="!user?.displayPictureFile?.id">
-            <span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>
+            <!--<span class="navLinkText" (click)="goTo($event)" [title]="item.title">{{item.title}}</span>-->
             <a class="navLink" (click)="goTo($event)" [title]="item.title">{{ item.icon!.substring(0, 3) }}</a>
           </ng-container>
         </ng-container>
@@ -49,9 +49,9 @@
 
 
       <ng-template #otherItems>
-        <span class="navLinkText" (click)="goTo($event)" [title]="item.title">
+        <!--<span class="navLinkText" (click)="goTo($event)" [title]="item.title">
           {{ item.title === 'UpdateUserSettings' ? 'Add/Remove' : item.title }}
-        </span>
+        </span>-->
         <!-- for notifications, u need glowing if notifications -->
         <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar' || item.title === 'Chat') && item.content && parseNumber(item.content) > 0 ? 'glowing' : '')" (click)="goTo($event)" [title]="item.title">
           {{ item.icon!.substring(0, 3) }}

@@ -4,7 +4,7 @@ import { Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
 import { TopicService } from '../../services/topic.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { AppComponent } from '../app.component'; 
+import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
 import { TopicRank } from '../../services/datacontracts/topics/topic-rank';
 import { TopicsComponent } from '../topics/topics.component';
@@ -19,10 +19,11 @@ import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo';
 import { Meta, Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
+import { NotificationService } from '../../services/notification.service';
 
 @Pipe({ name: 'clickableUrls' })
 export class ClickableUrlsPipe implements PipeTransform {
-  transform(value?: string): string { 
+  transform(value?: string): string {
     if (!value) {
       return '';
     }
@@ -51,7 +52,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   isPostOptionsPanelOpen = false;
   isEditing: number[] = [];
   editingTopics: number[] = [];
-  selectedAttachmentFileExtension: string | null = null; 
+  selectedAttachmentFileExtension: string | null = null;
   eachAttachmentSeperatePost = false;
   isUploadInitiate = true;
   attachedFiles: FileEntry[] = [];
@@ -81,7 +82,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   searchTimeout: any;
 
 
-  city : string | undefined;
+  city: string | undefined;
   country: string | undefined;
 
   @ViewChild('story') story!: ElementRef<HTMLInputElement>;
@@ -102,6 +103,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     private topicService: TopicService,
     private userService: UserService,
     private todoService: TodoService,
+    private notificationService: NotificationService,
     private sanitizer: DomSanitizer,
     private cdr: ChangeDetectorRef,
     private title: Title, private meta: Meta, private route: ActivatedRoute,
@@ -121,26 +123,26 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       }
     });
     if (this.storyId) {
-      this.scrollToStory(this.storyId); 
+      this.scrollToStory(this.storyId);
       if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
-        const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId); 
+        const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
         if (tgtStory) {
-          const storyText = tgtStory.storyText; 
-          if (storyText) { 
+          const storyText = tgtStory.storyText;
+          if (storyText) {
             const cleanedTitle = storyText.replace(/https?:\/\/[^\s]+/g, '').trim();
 
             this.title.setTitle("BugHosted.com " + cleanedTitle.substring(0, 50));
             this.meta.updateTag({ name: 'description', content: storyText });
           }
         }
-      } 
+      }
     }
-    
-    
+
+
     this.userService.getUserIp().then(res => {
-      if (res) { 
-        this.city = res.city;  
-        this.country = res.country; 
+      if (res) {
+        this.city = res.city;
+        this.country = res.country;
       }
     });
   }
@@ -152,7 +154,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
       (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
-    } 
+    }
   }
   async delete(story: Story) {
     if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
@@ -160,7 +162,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     const res = await this.socialService.deleteStory(this.parentRef?.user, story);
     if (res) {
-      this.notifications.push(res);
+      this.parentRef?.showNotification(res);
       if (res.toLowerCase().includes('successful')) {
         this.storyResponse!.stories! = this.storyResponse!.stories!.filter((x: { id: number | undefined; }) => x.id != story.id);
       }
@@ -170,9 +172,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   async edit(story: Story) {
     if (this.isEditing.includes(story.id ?? 0)) {
       this.isEditing = this.isEditing.filter(x => x != story.id);
-    } else { 
+    } else {
       this.isEditing.push(story.id ?? 0);
-    } 
+    }
     this.closeStoryOptionsPanel();
   }
   async editTopic(story: Story) {
@@ -191,8 +193,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.socialService.editStory(this.parentRef.user, story);
       this.isEditing = this.isEditing.filter(x => x != story.id);
     }
-  }  
-  async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) { 
+  }
+  async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) {
     let search = "";
     if (this.search && this.search.nativeElement) {
       search = this.search.nativeElement.value;
@@ -205,13 +207,13 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       searchTopics.forEach(x => { topics += topics.trim() != '' ? ',' + x.id : x.id })
     }
     await this.getStories(this.currentPage, 10, search, topics);
-    if (!!!debounced) { 
+    if (!!!debounced) {
       this.closeMenuPanel();
       this.closeSearchSocialsPanel();
     }
   }
-   
-  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string) {
+
+  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string, append?: boolean) {
     this.startLoading();
 
     const search = keywords ?? this.search?.nativeElement.value;
@@ -227,47 +229,65 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     );
 
     if (res) {
-      this.storyResponse = res;
-      this.totalPages = this.storyResponse.pageCount;
+
+      if (append && res.stories && this.storyResponse?.stories) {
+        this.storyResponse.stories = this.storyResponse.stories.concat(
+          res.stories.filter(
+            (story) =>
+              !this.storyResponse?.stories?.some(
+                (existingStory) => existingStory.id === story.id
+              )
+          )
+        );
+      } else {
+        this.storyResponse = res;
+      }
+      
+      this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
-      this.storyResponse.stories?.forEach(story => { 
-        this.checkOverflow(story.id); 
+      this.storyResponse?.stories?.forEach(story => {
+        this.checkOverflow(story.id);
       });
-    } 
+    }
     this.cdr.detectChanges();
     this.stopLoading();
-  } 
+  }
+  
   async post() {
     const storyText = this.story.nativeElement.value?.trim() || ''; // Ensure it's a string
     if (!storyText && (!this.attachedFiles || this.attachedFiles.length === 0)) {
       alert("Story can't be empty!");
       return;
-    } 
+    }
     this.startLoading();
 
     try {
-      const user = this.parentRef?.user ?? this.parent?.user ?? new User(0, "Anonymous"); 
-
-      // Create and post stories
+      const user = this.parentRef?.user ?? this.parent?.user ?? new User(0, "Anonymous");
+       
       const results = this.eachAttachmentSeperatePost
         ? await this.postEachFileAsSeparateStory(user, storyText)
         : await this.postSingleStory(user, storyText);
-         
+
       if (results) {
         this.clearStoryInputs();
         this.getStories();
         this.topicComponent?.removeAllTopics();
+        this.debounce(async () => {
+          if (this.user && this.user.id) {
+            this.notificationService.notifyUsers(user, [this.user], "New post on your profile!");
+          }
+        }, 1000); 
       } else {
-        this.notifications.push("Something went wrong...");
+        this.parentRef?.showNotification("An unexpected error occurred.");
       }
     } catch (error) {
       console.error("Error while posting story:", error);
-      this.notifications.push("An unexpected error occurred.");
+      this.parentRef?.showNotification("An unexpected error occurred.");
     } finally {
       this.stopLoading();
     }
   }
-   
+
   private createStory(user: User, storyText: string, files: FileEntry[]): Story {
     return {
       id: 0,
@@ -287,12 +307,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       country: this.country,
     };
   }
-   
+
   private async postSingleStory(user: User, storyText: string): Promise<any> {
-    const story = this.createStory(user, storyText, this.attachedFiles);
+    const story = this.createStory(user, storyText, this.attachedFiles); 
     return this.socialService.postStory(user, story);
   }
-   
+
   private async postEachFileAsSeparateStory(user: User, storyText: string): Promise<any[]> {
     const promises = this.attachedFiles.map(file => {
       const story = this.createStory(user, storyText, [file]);
@@ -300,7 +320,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     });
     return Promise.all(promises);
   }
-   
+
   private clearStoryInputs(): void {
     this.attachedFiles = [];
     this.attachedTopics = [];
@@ -337,18 +357,18 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     const urlPattern = /(https?:\/\/[^\s]+)/g;
     const matches = text.match(urlPattern);
     return matches ? matches[0] : undefined;
-  } 
+  }
   goToLink(story?: Story) {
     if (story && story.storyText) {
       const goodUrl = this.extractUrl(story.storyText);
-      if (goodUrl) { 
+      if (goodUrl) {
         const videoId = this.extractYouTubeVideoId(story.storyText);
         console.log(videoId);
-        if (videoId) { 
+        if (videoId) {
           (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId;
           (document.getElementById('youtubeVideoStoryIdInput') as HTMLInputElement).value = story.id + "";
           this.playYoutubeVideo();
-        } else { 
+        } else {
           window.open(goodUrl, '_blank');
         }
       }
@@ -361,7 +381,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         }
       }
     }
-  } 
+  }
 
   async pageChanged(selectorId?: number) {
     let pageSelect = this.pageSelect.nativeElement;
@@ -369,24 +389,25 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       pageSelect = this.pageSelect2.nativeElement;
     }
     this.currentPage = parseInt(pageSelect.value);
-    await this.getStories(this.currentPage);
-    setTimeout(() => {
-      window.scrollTo({ top: 0});
-    }, 50);
+    await this.getStories(this.currentPage).then(res => { 
+      this.scrollToStory();
+    });
   }
   scrollToStory(storyId?: number): void {
     if (storyId) {
       setTimeout(() => {
+        const storyContainer = document.getElementsByClassName('storyContainerWrapper')[0] as HTMLElement;
         const element = document.getElementById('storyDiv' + storyId);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (element && storyContainer) {
+          storyContainer.scrollTop = element.offsetTop - storyContainer.offsetTop; 
         }
       }, 1111);
-    } else {
+    } else { 
       setTimeout(() => {
-        const element = document.getElementsByClassName('foodForThought')[0];
+        const element = document.getElementsByClassName('socialComponentContents')[0];
         if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          element.scrollTop = 0;
+          console.log('scroll top ');
         }
       }, 200);
     }
@@ -416,7 +437,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     return this.sanitizer.bypassSecurityTrustHtml(storyText);
   }
-    
+
   playYoutubeVideo() {
     this.openedStoryYoutubeVideos.forEach(x => {
       let target = document.getElementById(`storyIframe${x}`) as HTMLIFrameElement;
@@ -430,11 +451,11 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     this.openedStoryYoutubeVideos.push(parseInt(storyId));
     setTimeout(() => {
       let target = document.getElementById(`storyIframe${storyId}`) as HTMLIFrameElement;
-      if (!target || !videoId) return; 
+      if (!target || !videoId) return;
       target.style.visibility = 'visible';
       target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
 
-    }, 50); 
+    }, 50);
   }
 
   isValidYoutubeImageUrl(url?: string): boolean {
@@ -456,10 +477,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   removeTopic(topic: Topic) {
     this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
     this.searchStories(this.attachedTopics);
-    this.scrollToStory(); 
+    this.scrollToStory();
     this.closeMobileTopicsPanel();
   }
-  topicClicked(topic: Topic) { 
+  topicClicked(topic: Topic) {
     if (this.attachedTopics.some(x => x.id == topic.id)) {
       return;
     }
@@ -487,16 +508,11 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     const link = `https://bughosted.com/Social/${storyId}`;
     this.closeStoryOptionsPanel();
     navigator.clipboard.writeText(link).then(() => {
-      this.notifications.push('Link copied to clipboard!');
+      this.parentRef?.showNotification('Link copied to clipboard!');
     }).catch(err => {
-      this.notifications.push('Failed to copy link!');
+      this.parentRef?.showNotification('Failed to copy link!');
     });
   } 
-  focusInput(): void {
-    setTimeout(() => {
-      this.story.nativeElement.scrollIntoView({ behavior: 'smooth' });
-    }, 300); // Timeout to wait for the keyboard to appear
-  }
   formatDate(dateString?: Date): string {
     if (!dateString) return '';
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
@@ -572,21 +588,21 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (!storyId) return;
 
     if (!this.expanded.includes(storyId)) {
-      this.storyOverflowMap[storyId as string] = !this.storyOverflowMap[storyId as string]; 
+      this.storyOverflowMap[storyId as string] = !this.storyOverflowMap[storyId as string];
       this.expanded.push(storyId);
     }
   }
 
-  isExpanded(elementId: string) { 
+  isExpanded(elementId: string) {
     return this.expanded.includes(elementId);
   }
   checkOverflow(storyId?: number): void {
-    if (storyId) { 
+    if (storyId) {
       const elementId = 'storyTextContainer' + storyId;
       const element = document.getElementById(elementId);
       if (element) {
         this.storyOverflowMap[storyId] = element.scrollHeight > 70;
-      } 
+      }
     }
   }
   showSearchSocialsPanel() {
@@ -595,7 +611,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.parentRef.showOverlay = true;
     }
 
-    setTimeout(() => { this.search.nativeElement.focus(); }, 50); 
+    setTimeout(() => { this.search.nativeElement.focus(); }, 50);
   }
   closeSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = false;
@@ -654,14 +670,14 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (this.isPostOptionsPanelOpen) {
       this.closePostOptionsPanel();
       return;
-    } 
+    }
     this.isPostOptionsPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay = true;
     }
   }
   closePostOptionsPanel() {
-    this.isPostOptionsPanelOpen = false; 
+    this.isPostOptionsPanelOpen = false;
 
     if (this.parentRef && this.parentRef.showOverlay) {
       this.parentRef.showOverlay = false;
@@ -677,10 +693,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (this.eachAttachmentSeperatePost) count++;
     return count;
   }
-  showComments(storyId?: number) { 
+  showComments(storyId?: number) {
     if (this.openedStoryComments.includes(storyId ?? 0)) {
       this.openedStoryComments = this.openedStoryComments.filter(x => x != (storyId ?? 0));
-    } else { 
+    } else {
       this.openedStoryComments.push(storyId ?? 0)
     }
   }
@@ -695,9 +711,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         }
         if (targetStory.commentsCount) {
           targetStory.commentsCount++;
-        } else { 
+        } else {
           targetStory.commentsCount = 1;
-        } 
+        }
       }
     }
   }
@@ -707,7 +723,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       if (targetStory && targetStory.storyComments) {
 
         targetStory.storyComments = targetStory.storyComments.filter(x => x.id !== comment.id);
-         
+
         if (targetStory.commentsCount) {
           targetStory.commentsCount--;
         } else {
@@ -719,35 +735,35 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   isYoutubeUrl(url?: string): boolean {
     if (!url) return false;
     try {
-      const parsedUrl = new URL(url); 
+      const parsedUrl = new URL(url);
       const isYoutubeDomain = ['www.youtube.com', 'youtube.com', 'youtu.be'].includes(parsedUrl.hostname);
 
       return isYoutubeDomain;
-    } catch (e) { 
+    } catch (e) {
       return false;
     }
   }
-  async addToMusicPlaylist(story?: Story, event?:Event) {
+  async addToMusicPlaylist(story?: Story, event?: Event) {
     if (!story) return;
     const url = this.extractUrl(story.storyText);
-    const title = story.metadata?.title; 
-    const yturl = this.extractYouTubeVideoURL(url); 
+    const title = story.metadata?.title;
+    const yturl = this.extractYouTubeVideoURL(url);
     if (!yturl || !title || yturl.trim() == "" || title.trim() == "") {
       return alert("Title & URL cannot be empty!");
     }
     let tmpTodo = new Todo();
     tmpTodo.type = "music";
     tmpTodo.url = yturl.trim();
-    tmpTodo.todo = title.trim().replace("- YouTube", "");
+    tmpTodo.todo = title.replace("- YouTube", "").trim();
 
     const resTodo = await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
     if (resTodo) {
-      this.notifications.push(`Added ${title} to music playlist.`);
+      this.parentRef?.showNotification(`Added ${title} to music playlist.`);
     }
     if (event) {
       const button = event.target as HTMLButtonElement;
       button.textContent = "Added";
-      button.disabled = true;    
+      button.disabled = true;
     }
     //this.closeStoryOptionsPanel();
   }
@@ -792,15 +808,19 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     const element = document.getElementById(elementId);
     if (!element) {
       return false; // Element not found
-    } 
+    }
 
     const isDesktop = window.innerWidth > 990;
     const threshold = 400; // 500px for desktop, 100px for mobile
 
-    return element.scrollHeight >= threshold; 
+    return element.scrollHeight >= threshold;
   }
-  debouncedSearch() {  
+  async loadMorePosts() {
+    this.currentPage++;
+    await this.getStories(this.currentPage + 1, 10, undefined, undefined, true);
+  }
+  debouncedSearch() {
     clearTimeout(this.searchTimeout);
-    this.searchTimeout = setTimeout(() => this.searchStories(undefined, true), 500); 
-  } 
+    this.searchTimeout = setTimeout(() => this.searchStories(undefined, true), 500);
+  }
 }

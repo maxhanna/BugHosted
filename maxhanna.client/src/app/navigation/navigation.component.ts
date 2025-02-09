@@ -10,6 +10,7 @@ import { MiningWalletResponse } from '../../services/datacontracts/crypto/mining
 import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-entry';
 import { MiningRig } from '../../services/datacontracts/crypto/mining-rig';
 import { NotificationService } from '../../services/notification.service';
+import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 
 @Component({
   selector: 'app-navigation',
@@ -89,13 +90,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user) {
       return;
     }
-    const res = await this.notificationService.getNotifications(this._parent.user);
+    const res = await this.notificationService.getNotifications(this._parent.user) as UserNotification[];
     if (res) {
-      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.length + '';
+      this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.filter(x => x.isRead == false).length + '';
 
       if (this._parent.userSelectedNavigationItems.find(x => x.title == "Chat")) {
         //get # of chat notifs
-        const numberOfChatNotifs = res.filter(x => x.chatId).length;
+        const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
         if (numberOfChatNotifs) { 
           this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + ''; 
         }

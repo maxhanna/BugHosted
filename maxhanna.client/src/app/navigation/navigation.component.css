@@ -58,11 +58,11 @@ a {
   display: inline-block;
   width: 50px;
   height: 100%;
-  border: 2px solid var(--main-highlight-color);
+  line-height: 47px;
+  text-shadow: 1px 1px;
+  border: 2px solid var(--main-font-color);
   border-radius: 65% / 10%;
   font-size: 35px;
-  line-height: 52px;
-  margin-top: -19px;
   overflow: hidden;
 }
 

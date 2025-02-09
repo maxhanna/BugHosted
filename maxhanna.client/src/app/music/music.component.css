@@ -50,5 +50,5 @@ iframe {
   height: 300px;
 }
 .normalSongList {
-  height: CALC(100vh - 120px);
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 120px);
 }

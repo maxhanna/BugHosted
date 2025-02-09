@@ -1,6 +1,8 @@
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.Mvc;
 
 namespace maxhanna.Server.Controllers
@@ -84,30 +86,29 @@ namespace maxhanna.Server.Controllers
 
 			try
 			{
-				string apiKey = _config.GetValue<string>("GoogleGemini:ApiKey") ?? "";
-				if (string.IsNullOrEmpty(apiKey))
-				{
-					return StatusCode(500, "Google AI API key is not configured.");
-				}
+				// Load Service Account credentials from JSON key file
+				GoogleCredential credential = GoogleCredential.FromFile("./Properties/gen-lang-client-0917682158-bbfe62a207b1.json")
+																			.CreateScoped("https://www.googleapis.com/auth/cloud-platform");
+
+				// Get OAuth2 token
+				var token = await credential.UnderlyingCredential.GetAccessTokenForRequestAsync();
 
 				var requestBody = new
 				{
-					prompt = request.Message,
-					model = "imagen-3.0-generate-002", // Specify the Imagen model here
-					config = new
-					{
-						negative_prompt = "people", // You can customize this based on your needs
-						number_of_images = 1, // Number of images to generate
-						include_rai_reason = true, // Include reasons for the generated image
-						output_mime_type = "image/jpeg" // The output mime type
-					}
+					instances = new[]
+						{
+								new { prompt = request.Message }
+						}
 				};
 
 				var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
+				// Attach OAuth token to request headers
+				_httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
 				var response = await _httpClient.PostAsync(
-		$"https://generativelanguage.googleapis.com/v1beta/models/imagen:generateImage?key={apiKey}",
-								jsonContent
+						"https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/publishers/google/models/imagen-3.0-generate-002:predict",
+						jsonContent
 				);
 
 				var responseBody = await response.Content.ReadAsStringAsync();
@@ -116,32 +117,10 @@ namespace maxhanna.Server.Controllers
 				if (!response.IsSuccessStatusCode)
 				{
 					_logger.LogError($"Imagen API error: {response}");
-					return StatusCode((int)response.StatusCode, $"Error communicating with Imagen API: {response}");
+					return StatusCode((int)response.StatusCode, $"Error communicating with Imagen API: {responseBody}");
 				}
 
-				// Parse response
-				var jsonDoc = JsonDocument.Parse(responseBody);
-				if (jsonDoc.RootElement.TryGetProperty("generated_images", out var generatedImages) && generatedImages.GetArrayLength() > 0)
-				{
-					var firstImage = generatedImages[0];
-					if (firstImage.TryGetProperty("image", out var imageElement))
-					{
-						string base64Image = imageElement.GetString() ?? "";
-						base64Image = base64Image.Replace("\n", "").Replace("\r", "");
-
-						// Validate base64
-						if (IsValidBase64(base64Image))
-						{
-							return Ok(new { Reply = base64Image, MimeType = "image/jpeg" });
-						}
-						else
-						{
-							return BadRequest("Invalid base64 image data.");
-						}
-					}
-				}
-
-				return StatusCode(500, "No image was generated.");
+				return Ok(responseBody);
 			}
 			catch (Exception ex)
 			{
@@ -149,6 +128,7 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "Internal server error.");
 			}
 		}
+
 		private bool IsValidBase64(string base64String)
 		{
 			try

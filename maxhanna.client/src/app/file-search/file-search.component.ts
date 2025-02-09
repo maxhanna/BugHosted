@@ -53,7 +53,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   showCommentsInOpenedFiles: number[] = [];
 
   optionsFile: FileEntry | undefined;
-  directory: DirectoryResults | undefined;
+  directory?: DirectoryResults;
   defaultTotalPages = 1;
   totalPages = this.defaultTotalPages;
   showUpFolderRow: boolean = true;
@@ -102,7 +102,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   } 
 
   scrollToFile(fileId: string) {
-    setTimeout(() => {
+    setTimeout(() => { 
       const element = document.getElementById('fileIdName' + fileId);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -129,13 +129,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
 
-  async getDirectory(file?: string, fileId?: number) {
-    this.directory = undefined;
+  async getDirectory(file?: string, fileId?: number, append?: boolean) {
+    this.startLoading(); 
     this.determineSearchTerms();
     this.showData = true;
-    this.isLoading = true;
-
-    try { 
+    try {
       const res = await this.fileService.getDirectory(
         this.currentDirectory,
         this.filter.visibility,
@@ -146,45 +144,53 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         this.searchTerms,
         fileId,
         (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>())
-      );
-
-      if (res) {
-        this.directory = res;
-
-        if (this.directory && this.directory.currentDirectory) {
-          this.currentDirectory = this.directory.currentDirectory;
+      ).then(res => {
+        if (append && this.directory && this.directory.data) { 
+          this.directory.data = this.directory.data.concat(
+            res.data.filter(
+              (d: FileEntry) =>
+                !this.directory?.data?.some(
+                  (existingData) => existingData.id === d.id
+                )
+            )
+          );
         } else {
-          this.currentDirectory = '';
+          this.directory = res;
+        
+          if (this.directory && this.directory.currentDirectory) {
+            this.currentDirectory = this.directory.currentDirectory;
+          } else {
+            this.currentDirectory = '';
+          }
+          this.currentDirectoryChangeEvent.emit(this.currentDirectory);
+          this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() !== "") ? true : false;
+
+          if (this.directory && this.directory.page) {
+            this.currentPage = this.directory.page!;
+          }
+          if (this.directory && this.directory.totalCount) {
+            this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
+          }
+
+          if (this.fileId && this.fileId !== null && this.fileId !== '0' && this.directory && this.directory.data!.find(x => x.id == parseInt(this.fileId!))) {
+            this.scrollToFile(this.fileId!);
+          }
+
+          if (this.currentDirectory !== "Meme/" && this.directory && this.directory.data) {
+            this.directory.data.sort((a, b) => {
+              if (a.isFolder !== b.isFolder) {
+                return a.isFolder ? -1 : 1;
+              }
+              return (a.date ?? new Date()) > (b.date ?? new Date()) ? 1 : (a.date ?? new Date()) < (b.date ?? new Date()) ? -1 : 0;
+            });
+          }
         }
 
-        this.currentDirectoryChangeEvent.emit(this.currentDirectory);
-        this.showUpFolderRow = (this.currentDirectory && this.currentDirectory.trim() !== "") ? true : false;
-
-        if (this.directory && this.directory.page) {
-          this.currentPage = this.directory.page!;
-        }
-        if (this.directory && this.directory.totalCount) {
-          this.totalPages = Math.ceil(this.directory.totalCount / this.maxResults);
-        }
-
-        if (this.fileId && this.fileId !== null && this.fileId !== '0' && this.directory && this.directory.data!.find(x => x.id == parseInt(this.fileId!))) {
-          this.scrollToFile(this.fileId!);
-        }
-
-        if (this.currentDirectory !== "Meme/" && this.directory && this.directory.data) { 
-          this.directory.data.sort((a, b) => {
-            if (a.isFolder !== b.isFolder) {
-              return a.isFolder ? -1 : 1;
-            }
-            return (a.date ?? new Date()) > (b.date ?? new Date()) ? 1 : (a.date ?? new Date()) < (b.date ?? new Date()) ? -1 : 0;
-          });
-        }
-      }
+      });
     } catch (error) {
       this.userNotificationEvent.emit((error as Error).message);
     }
-
-    this.isLoading = false;
+    this.stopLoading();
   }
 
   debounceSearch() {
@@ -230,10 +236,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
   }
 
-  nextPage() {
+  async nextPage() {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
-      this.getDirectory();
+      await this.getDirectory();
+    }
+  }
+  async appendNextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      await this.getDirectory(undefined, undefined, true);
     }
   }
 
@@ -258,7 +270,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   async editFile(fileId: number, text: string) {
     if (!this.user) { return alert("You must be logged in to use this feature!"); }
 
-    if (!text || text.trim() == '') { return; }
+    if (!text || text.trim() == '') {
+      this.isEditing = this.isEditing.filter(x => x != fileId); 
+      return;
+    }
+
     const res = await this.fileService.updateFileData(this.user, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
     if (document.getElementById("fileIdName" + fileId) != null) {
       document.getElementById("fileIdName" + fileId)!.innerText = text;

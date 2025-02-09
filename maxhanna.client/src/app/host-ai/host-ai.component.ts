@@ -14,21 +14,22 @@ export class HostAiComponent extends ChildComponent {
   chatMessages: { sender: string, message: any }[] = [];  
 
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
 
   sendMessage() {
     this.userMessage = this.chatInput.nativeElement.value.trim();
     this.startLoading();
     if (this.userMessage.trim()) { 
-      this.chatMessages.push({ sender: 'You', message: this.userMessage });
+      this.pushMessage({ sender: 'You', message: this.userMessage });
       console.log(this.userMessage);
       this.aiService.sendMessage(this.userMessage).then(
         (response) => { 
-          this.chatMessages.push({ sender: 'Host', message: response.reply });
+          this.pushMessage({ sender: 'Host', message: response.reply });
           this.stopLoading();
         },
         (error) => { 
           console.error(error);
-          this.chatMessages.push({ sender: 'System', message: 'Error communicating with the server.' });
+          this.pushMessage({ sender: 'System', message: 'Error communicating with the server.' });
           this.stopLoading();
         }
       );
@@ -44,14 +45,14 @@ export class HostAiComponent extends ChildComponent {
     if (!prompt) return;
 
     this.startLoading();
-    this.chatMessages.push({ sender: 'You', message: prompt });
+    this.pushMessage({ sender: 'You', message: prompt });
 
     this.aiService.generateImage(prompt).then(
       (response) => {
         if (response && response.reply && response.mimeType) {
-          this.chatMessages.push({ sender: 'Host', message: { reply: response.reply, mimeType: response.mimeType } });
+          this.pushMessage({ sender: 'Host', message: { reply: response.reply, mimeType: response.mimeType } });
         } else { 
-          this.chatMessages.push({ sender: 'Host', message: `Error generating image.` });
+          this.pushMessage({ sender: 'Host', message: `Error generating image.` });
         }
         this.stopLoading();
       },
@@ -147,5 +148,9 @@ console.log("Hello, world!");
       chatInput.selectionStart = chatInput.selectionEnd = cursorPos + text.length;
       chatInput.focus();
     }, 0);
-  } 
+  }
+  pushMessage(message: any) {
+    this.chatMessages.push(message);
+    this.chatContainer.nativeElement.scrollTop = this.chatContainer.nativeElement.scrollHeight;
+  }
 }

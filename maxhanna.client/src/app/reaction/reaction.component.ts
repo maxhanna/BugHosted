@@ -123,7 +123,7 @@ export class ReactionComponent implements OnInit {
   };
 
 
-  showReactionsOnClick() {
+  showReactionsOnClick() { 
     this.showReactions = true;
     if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay = true; 

@@ -1,6 +1,6 @@
 .componentMain {
-    min-width: 300px;
-    max-width:98vw;
+  width: 98vw;
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
 }
 .deleteNotificationButton, .readNotificationButton {
   width: 65px;
@@ -32,7 +32,7 @@
   width: 100%;  
   max-width: 600px;  
   height: 80%;
-  overflow: auto;
+  overflow: hidden;
   transform: translateY(10%);
   left: 50%;
   z-index: 10;
@@ -70,22 +70,38 @@
   flex-wrap: nowrap;
 }
 .notificationsListContainer {
-  overflow: auto;
-  height: CALC(100vh - 100px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 105px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .notificationsList {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   height: 100%;
   width: 100%;
 }
 .notificationListItem {
   border: var(--main-border);
   display: flex;
-  position: relative;
-  overflow: hidden;
+  position: relative; 
   margin: 20px;
   padding: 20px;
+  max-width: 500px;
 }
+@media only screen and (max-width : 1000px) {
+  .notificationListItem {
+    width: 80vw;
+  }
+}
+@media only screen and (min-width : 1000px) { 
+  .notificationListItem {
+    width: 500px;
+  }
+}
+
 .notificationText {
   text-overflow: ellipsis; 
   overflow: hidden;
@@ -116,7 +132,7 @@
   top: -53px;
   left: CALC(-100vw + 2vw);
   width: 100vw;
-  height: CALC(-60px + 100vh); 
+  height: CALC(-60px + CALC(var(--vh, 1vh) * 100));
   z-index: 1;
   background-color: var(--main-highlight-color-quarter-opacity);
 }

@@ -8,10 +8,6 @@
     <BuildOutputFolder>$(MSBuildProjectDirectory)\dist\maxhanna.client\</BuildOutputFolder>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="firebase-messaging-sw.js" />
-  </ItemGroup>
-  <ItemGroup>
-    <TypeScriptConfiguration Include="firebase-messaging-sw.js" />
     <TypeScriptConfiguration Include="tsconfig.json" />
   </ItemGroup>
   <ItemGroup>
@@ -184,10 +180,6 @@
     <None Include="src\app\meta\objects\SpriteTextString\sprite-text-string.ts" />
     <None Include="src\app\meta\objects\TextBox\textbox.ts" />
     <None Include="src\app\meta\objects\Wardrobe\mask.ts" />
-    <None Include="src\app\mining-devices\mining-devices.component.css" />
-    <None Include="src\app\mining-devices\mining-devices.component.html" />
-    <None Include="src\app\mining-devices\mining-devices.component.spec.ts" />
-    <None Include="src\app\mining-devices\mining-devices.component.ts" />
     <None Include="src\app\mining-rigs\mining-rigs.component.css" />
     <None Include="src\app\mining-rigs\mining-rigs.component.html" />
     <None Include="src\app\mining-rigs\mining-rigs.component.spec.ts" />

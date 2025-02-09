@@ -2,8 +2,7 @@ import { AfterViewInit, Component, ComponentRef, ElementRef, OnDestroy, OnInit, 
 import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { CalendarComponent } from './calendar/calendar.component'; 
 import { FavouritesComponent } from './favourites/favourites.component';
-import { WeatherComponent } from './weather/weather.component';
-import { MiningDevicesComponent } from './mining-devices/mining-devices.component';
+import { WeatherComponent } from './weather/weather.component'; 
 import { FileComponent } from './file/file.component';
 import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
 import { TodoComponent } from './todo/todo.component';
@@ -45,19 +44,19 @@ export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild("outlet") outlet!: RouterOutlet;
   @ViewChild(NavigationComponent) navigationComponent!: NavigationComponent;
   @ViewChild(ModalComponent) modalComponent!: ModalComponent;
+  notifications: string[] = [];
   showMainContent = true;
   isModalOpen = false;
   isModal = false;
   isModalCloseVisible = true;
   showOverlay = false;
-  pictureSrcs: { key: string, value: string, type: string, extension: string }[] = [];
-  created: boolean = false; // Global variable accessible throughout the component
+  pictureSrcs: { key: string, value: string, type: string, extension: string }[] = []; 
   isNavigationInitialized: boolean = false;
+  debounceTimer: any;
   originalWeatherIcon = "☀️";
   child_unique_key: number = 0;
   componentsReferences = Array<ComponentRef<any>>();
-  navigationItems: MenuItem[] = [
-    /*{ ownership: 0, icon: "📕", title: "Close Menu", content: '' },*/
+  navigationItems: MenuItem[] = [ 
     { ownership: 0, icon: "🌍", title: "Social", content: undefined },
     { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
     { ownership: 0, icon: "🎖️", title: "Bug-Wars", content: undefined },
@@ -72,8 +71,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "✔️", title: "Todo", content: undefined },
     { ownership: 0, icon: "🎼", title: "Music", content: undefined },
     { ownership: 0, icon: "🗒️", title: "Notepad", content: undefined },
-    { ownership: 0, icon: "📇", title: "Contacts", content: undefined },
-    /*{ ownership: 0, icon: "🎮", title: "Gameboy Color", content: undefined },*/
+    { ownership: 0, icon: "📇", title: "Contacts", content: undefined }, 
     { ownership: 0, icon: "📰", title: "News", content: undefined }, 
     { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined }, 
@@ -304,7 +302,10 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   async getNotifications() {
     this.navigationComponent.clearNotifications();
-    await this.navigationComponent.getNotifications(); 
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => { 
+      await this.navigationComponent.getNotifications(); 
+    }, 500); 
   }
   openModal() {
     this.isModalOpen = true;
@@ -342,5 +343,12 @@ export class AppComponent implements OnInit, AfterViewInit {
       scalable = true;
     }
     this.meta.updateTag({ name: 'viewport', content: `width=device-width, initial-scale=1.0, user-scalable=${scalable ? 'yes' : 'no'}` }); 
+  }
+  showNotification(text?: string) {
+    if (!text) { return; }
+    else {
+      this.notifications.push(text); 
+      setTimeout(() => { this.notifications.shift(); }, 8000);
+    }
   }
 }

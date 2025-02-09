@@ -10,8 +10,7 @@ import { AppRoutingModule } from './app-routing.module';
 import { CalendarComponent } from './calendar/calendar.component';
 import { NavigationComponent } from './navigation/navigation.component';
 import { FavouritesComponent } from './favourites/favourites.component';
-import { WeatherComponent } from './weather/weather.component';
-import { MiningDevicesComponent } from './mining-devices/mining-devices.component';
+import { WeatherComponent } from './weather/weather.component'; 
 import { FileComponent } from './file/file.component';
 import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
 import { TodoComponent } from './todo/todo.component';
@@ -58,8 +57,7 @@ import { HostAiComponent } from './host-ai/host-ai.component';
     CalendarComponent,
     NavigationComponent,
     FavouritesComponent,
-    WeatherComponent,
-    MiningDevicesComponent,
+    WeatherComponent, 
     FileComponent,
     MiningRigsComponent,
     TodoComponent,

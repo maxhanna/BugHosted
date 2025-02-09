@@ -6,7 +6,7 @@
 }
 
 .socialComponentContents {
-  max-height: CALC(100vh - 40px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
   overflow: auto;
 }
  
@@ -148,9 +148,16 @@
 
 .attachment {
   display: inline-block;
+  overflow-y: auto;
+}
+
+singleAttachment {
+  max-width: 100%;
+  max-height: 525px;
+}
+.multipleAttachments {
   max-width: 225px;
   max-height: 525px;
-  overflow-y: auto;
 }
 
 .attachmentTdTitle {
@@ -336,6 +343,10 @@
 
 .mainTableDiv {
   border: var(--main-border);
+}
+.storyContainerWrapper {
+  overflow: auto;
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 130px);
 }
 
 .storyHeader {
@@ -579,4 +590,16 @@
 .storyOptionsStatsDescription {
   text-align: right;
   line-break: anywhere;
+}
+
+.loadMoreResultsDiv {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-content: center;
+  padding: 20px;
+}
+.loadMoreResultsDiv button {
+  font-size: 30px;
+  font-family: var(--title-font-family);
 }

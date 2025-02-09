@@ -1,5 +1,13 @@
 <router-outlet #outlet>
   <div id="loadingDiv"><div id="loadingBar"></div></div>
+  <div class="notificationArea" (click)="notifications = [];">
+    <div *ngFor="let notif of notifications"
+         [innerHTML]="notif"
+         title="Click to clear notifications"
+         class=" notification notificationBubble"></div>
+  </div>
+
+
   <app-navigation [user]="user"></app-navigation>
   <app-modal *ngIf="isModalOpen" (close)="closeModal()" [isCloseButtonVisible]="isModalCloseVisible" [isModal]="isModal" #modalComponent></app-modal>
 

@@ -61,11 +61,20 @@
       Previous Messages
     </div>
     <div *ngFor="let row of messageRows" (click)="openChatById(row.chatId);" class="userList">
-      <span class="users">
-        <span *ngFor="let user of removeSelfFromReceivers(row.receiver)">
-          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true" [preventOpenProfile]="true"></app-user-tag>
+      <div class="users"> 
+        <div class="userAvatars"> 
+          <span *ngFor="let user of removeSelfFromReceivers(row.receiver)">
+            <app-user-tag [user]="user"
+                          [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                          [displayMiniTag]="true"
+                          [preventOpenProfile]="true"
+                          [displayOnlyAvatar]="true"></app-user-tag>
+          </span>
+        </div>
+        <span *ngFor="let user of removeSelfFromReceivers(row.receiver); let i = index; let last = last">
+          <span class="username">{{ user.username }}</span><ng-container *ngIf="!last">, </ng-container>
         </span>
-      </span>
+      </div>
       
       <span class="chatIcon" *ngIf="getChatNotificationsByChatId(row.chatId)">
         💬

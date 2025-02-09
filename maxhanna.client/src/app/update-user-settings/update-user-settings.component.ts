@@ -1,11 +1,11 @@
 import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
- import { MenuItem } from '../../services/datacontracts/user/menu-item';
+import { MenuItem } from '../../services/datacontracts/user/menu-item';
 import { MiningService } from '../../services/mining.service';
 import { WeatherService } from '../../services/weather.service';
 import { UserService } from '../../services/user.service';
-import { ChildComponent } from '../child.component'; 
-import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys'; 
- import { MediaViewerComponent } from '../media-viewer/media-viewer.component'; 
+import { ChildComponent } from '../child.component';
+import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys';
+import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { UserAbout } from '../../services/datacontracts/user/user-about';
 import { WeatherLocation } from '../../services/datacontracts/weather/weather-location';
@@ -86,14 +86,14 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       if (res) {
         const parent = this.inputtedParentRef ? this.inputtedParentRef : this.parentRef;
         const user = parent?.user;
-        if (user  && parent) { 
+        if (user && parent) {
           user.about = about;
           parent.resetUserCookie();
           this.ngOnInit();
-          this.notifications.push(res);
+          this.parentRef?.showNotification(res);
         }
-      } 
-    }); 
+      }
+    });
   }
   async updateNHAPIKeys() {
     if (this.isNicehashApiKeysToggled) {
@@ -105,9 +105,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
       try {
         await this.miningService.updateNicehashApiInfo((this.parentRef?.user)!, keys);
-        this.notifications.push("Nicehash API Keys updated successfully");
+        this.parentRef?.showNotification("Nicehash API Keys updated successfully");
       } catch {
-        this.notifications.push("Error while updating Nicehash API Keys!");
+        this.parentRef?.showNotification("Error while updating Nicehash API Keys!");
       }
       this.ngOnInit();
     }
@@ -137,9 +137,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           }
         }
 
-        this.notifications.push("Weather location updated successfully");
+        this.parentRef?.showNotification("Weather location updated successfully");
       } catch {
-        this.notifications.push("Error while updating weather location!");
+        this.parentRef?.showNotification("Error while updating weather location!");
       }
       this.ngOnInit();
     }
@@ -166,9 +166,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       const res = await this.userService.updateUser(tmpUser);
       const message = res["message"];
       this.parentRef!.setCookie("user", JSON.stringify(tmpUser), 10);
-      this.notifications.push(message);
+      this.parentRef?.showNotification(message);
     } catch (error) {
-      this.notifications.push(`Error updating user ${this.parentRef!.user?.username}. Error: ${JSON.stringify(error)}`);
+      this.parentRef?.showNotification(`Error updating user ${this.parentRef!.user?.username}. Error: ${JSON.stringify(error)}`);
     }
     this.parentRef!.user = await this.userService.getUser(tmpUser);
     this.stopLoading();
@@ -180,11 +180,11 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         const tmpUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
         try {
           const res = await this.userService.deleteUser(tmpUser);
-          this.notifications.push(res["message"]);
+          this.parentRef?.showNotification(res["message"]);
           this.parentRef?.deleteCookie("user");
           window.location = window.location;
         } catch (error) {
-          this.notifications.push(`Error deleting user ${this.parentRef!.user?.username}`);
+          this.parentRef?.showNotification(`Error deleting user ${this.parentRef!.user?.username}`);
         }
       }
     } else { return alert("You must be logged in first!"); }
@@ -205,13 +205,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (this.parentRef && this.parentRef.userSelectedNavigationItems.some(x => x.title == title)) {
       this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
       this.userService.deleteMenuItem(this.parentRef?.user!, title);
-      this.notifications.push(`Deleted menu item : ${title}`);
+      this.parentRef?.showNotification(`Deleted menu item : ${title}`);
     } else {
       this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user?.id ?? 0, title));
       if (this.parentRef && this.parentRef.user) {
         this.userService.addMenuItem(this.parentRef.user, [title]);
       }
-      this.notifications.push(`Added menu item : ${title}`);
+      this.parentRef?.showNotification(`Added menu item : ${title}`);
     }
   }
 

@@ -24,19 +24,24 @@
   justify-content: space-between;
   align-items: center;
 }
-.users {
+.userAvatars {
   display: flex;
   align-items: center;
   justify-content: center;
   align-content: center;
   flex-wrap: nowrap;
-  flex-direction: row;
-  gap: 25px;
+  flex-direction: row; 
+}
+.users {
+  display: flex;
 }
 .user {
     width:100%;
     display: flex;
     margin-right: 10px;
+}
+.username {
+  color: white;
 }
 .searchDiv {
   flex-direction: row;

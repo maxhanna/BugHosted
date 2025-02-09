@@ -2,7 +2,6 @@
   <div class="closeButton" (click)="remove_me('FileComponent');" *ngIf="!user"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle" *ngIf="!user">Filesystem</div>
-  <div *ngFor="let notif of notifications" [innerHTML]="notif" (click)="notifications = [];" title="Click to clear notifications" class="notificationArea notification"></div>
 
   <app-user-list (userClickEvent)="shareFile($event);" [user]="parentRef?.user!" *ngIf="isSharePanelExpanded && !user"></app-user-list>
 

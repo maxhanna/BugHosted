@@ -43,11 +43,14 @@ export class NotificationService {
   async readNotifications(user: User, notificationIds?: number[]): Promise<string> {
     return await this.fetchData('/notification/read', { User: user, NotificationIds: notificationIds });
   }
+  async unreadNotifications(user: User, notificationIds?: number[]): Promise<string> {
+    return await this.fetchData('/notification/unread', { User: user, NotificationIds: notificationIds });
+  }
   async subscribeToTopic(user: User, token: string, topic: string): Promise<string> {
     return await this.fetchData('/notification/subscribe', { User: user, Token: token, Topic: topic });
   }
-  async notifyUsers(fromUser: User, toUser: User[]) {
-    return await this.fetchData('/notification/notifyusers', { FromUser: fromUser, ToUser: toUser });
+  async notifyUsers(fromUser: User, toUser: User[], message: string) {
+    return await this.fetchData('/notification/notifyusers', { FromUser: fromUser, ToUser: toUser, Message: message });
   }  
 
 }
