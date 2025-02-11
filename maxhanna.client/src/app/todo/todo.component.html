@@ -17,8 +17,8 @@
           <th>
 
             <select #selectedType class=selectType (change)="typeOnChange()">
-              <option *ngFor="let type of todoTypes" [value]="type">{{ type }}</option>
-            </select>
+              <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{ todoCount }})</span></option>
+            </select> 
             <input placeholder="Search" #searchInput (keyup)="search()"  />
             <button (click)="search()">🔍</button>
 

@@ -773,7 +773,7 @@ namespace maxhanna.Server.Controllers
 
 			try
 			{
-				string sql = @"DELETE FROM stories WHERE user_id = @userId AND id = @storyId;";
+				string sql = @"DELETE FROM stories WHERE (user_id = @userId OR profile_user_id = @userId) AND id = @storyId;";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{

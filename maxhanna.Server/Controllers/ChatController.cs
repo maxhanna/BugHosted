@@ -713,87 +713,8 @@ namespace maxhanna.Server.Controllers
 							await filecmd.ExecuteNonQueryAsync();
 						}
 					}
-				}
-
-				if (rowsAffected > 0)
-				{
-					if (request.Receiver != null)
-					{
-						foreach (var receiverUser in request.Receiver)
-						{
-							if (receiverUser.Id == request.Sender?.Id)
-							{
-								continue;
-							}
-							string checkSql = @"
-                                    SELECT COUNT(*) 
-                                    FROM maxhanna.notifications
-                                    WHERE user_id = @Receiver
-                                      AND chat_id = @ChatId
-                                      AND chat_id IS NOT NULL
-                                      AND date >= NOW() - INTERVAL 2 MINUTE;
-                                ";
-							string updateNotificationSql = @"
-                                    UPDATE maxhanna.notifications
-                                    SET text = CONCAT(text, @Content)
-                                    WHERE user_id = @Receiver
-                                      AND chat_id = @ChatId
-                                      AND chat_id IS NOT NULL
-                                      AND date >= NOW() - INTERVAL 2 MINUTE;
-                                ";
-
-							string insertNotificationSql = @"
-                                    INSERT INTO maxhanna.notifications
-                                        (user_id, from_user_id, chat_id, text)
-                                    VALUES
-                                        (@Receiver, @Sender, @ChatId, @Content);
-                                ";
-
-							using (var checkCommand = new MySqlCommand(checkSql, conn))
-							{
-								checkCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
-								checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-								checkCommand.Parameters.AddWithValue("@ChatId", targetChatId);
-								checkCommand.Parameters.AddWithValue("@Content", request.Content);
-								Console.WriteLine("Checking to see if notif exists");
-								var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
-
-								Console.WriteLine("NOTIF Count : " + count);
-								if (count > 0)
-								{
-									using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
-									{
-										updateCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
-										updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-										updateCommand.Parameters.AddWithValue("@Content", request.Content);
-										updateCommand.Parameters.AddWithValue("@ChatId", targetChatId);
-										 
-										await updateCommand.ExecuteNonQueryAsync();
-									}
-								}
-								else
-								{ 
-									using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
-									{
-										insertCommand.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
-										insertCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-										insertCommand.Parameters.AddWithValue("@Content", request.Content);
-										insertCommand.Parameters.AddWithValue("@ChatId", targetChatId);
-
-										Console.WriteLine("inserted NOTIF");
-										await insertCommand.ExecuteNonQueryAsync();
-									}
-								}
-							}
-						}
-					}
-
-					return Ok(targetChatId);
-				}
-				else
-				{
-					return StatusCode(500, "An error occurred while sending the message.");
-				}
+				} 
+				return Ok(targetChatId);
 			}
 			catch (Exception ex)
 			{

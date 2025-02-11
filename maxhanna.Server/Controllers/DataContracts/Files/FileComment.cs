@@ -7,6 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
         public int Id { get; set; }
         public int? FileId { get; set; }
         public int? StoryId { get; set; }
+        public int? CommentId { get; set; }
         public User? User { get; set; }
         public string? CommentText { get; set; }
         public DateTime Date { get; set; }

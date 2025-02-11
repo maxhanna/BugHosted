@@ -1,8 +1,8 @@
 import { Component, ElementRef, EventEmitter, Input, OnInit, Output, SecurityContext, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
- import { ChildComponent } from '../child.component';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser'; 
+import { ChildComponent } from '../child.component';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
@@ -14,7 +14,7 @@ import { Story } from '../../services/datacontracts/social/story';
   templateUrl: './comments.component.html',
   styleUrl: './comments.component.css'
 })
-export class CommentsComponent extends ChildComponent { 
+export class CommentsComponent extends ChildComponent {
   showCommentLoadingOverlay = false;
   isOptionsPanelOpen = false;
   optionsComment: FileComment | undefined;
@@ -31,16 +31,16 @@ export class CommentsComponent extends ChildComponent {
   @Input() commentList: FileComment[] = [];
   @Input() showComments = false;
   @Input() showCommentsHeader = true;
-  @Input() type: string = '' || "Social" || "File";
+  @Input() type: string = '' || "Social" || "File" || "Comment";
   @Input() component_id: number = 0;
   @Input() component: any = undefined;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
-   
+
   constructor(private commentService: CommentService, private notificationService: NotificationService, private sanitizer: DomSanitizer) {
     super();
-  } 
+  }
 
   override viewProfile(user: User) {
     this.parentRef = this.inputtedParentRef;
@@ -55,6 +55,7 @@ export class CommentsComponent extends ChildComponent {
 
     const fileId = this.type === 'File' ? this.component_id : undefined;
     const storyId = this.type === 'Social' ? this.component_id : undefined;
+    const commentId = this.type === 'Comment' ? this.component_id : undefined;
     const filesToSend = this.selectedFiles;
     this.selectedFiles = [];
     const currentDate = new Date();
@@ -64,18 +65,20 @@ export class CommentsComponent extends ChildComponent {
     tmpComment.date = currentDate;
     tmpComment.fileId = fileId;
     tmpComment.storyId = storyId;
-    tmpComment.commentFiles = filesToSend; 
+    tmpComment.commentId = commentId;
+    tmpComment.commentFiles = filesToSend;
     if (!this.commentList) { this.commentList = []; }
 
     this.debounceTimer = setTimeout(async () => {
       this.commentAddedEvent.emit(tmpComment as FileComment);
-      this.addAsyncComment(tmpComment, currentDate); 
+      this.addAsyncComment(tmpComment, currentDate);
       this.stopLoadingComment(this.component_id);
     }, 2000);
   }
 
   async addAsyncComment(comment: FileComment, currentDate: Date) {
     const res = await this.commentService.addComment(comment.commentText ?? "", this.inputtedParentRef?.user, comment.fileId, comment.storyId, comment.commentFiles);
+    this.sendNotifications(comment);
 
     if (res && res.toLowerCase().includes("success")) {
       if (!this.commentList) {
@@ -83,23 +86,38 @@ export class CommentsComponent extends ChildComponent {
       }
       if (this.commentList.find(x => x.date == currentDate)) {
         this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
-      }
-      if (this.inputtedParentRef && this.inputtedParentRef.user) { 
-        const isStory = this.component instanceof Story;
-        const isFile = this.component instanceof FileEntry;
-        const tmpComponent = this.component_id ? (isStory ? (this.component as Story) : isFile ? (this.component as FileEntry) : undefined) : undefined;
-        if (tmpComponent && tmpComponent.user) { 
-          this.notificationService.notifyUsers(this.inputtedParentRef.user, [tmpComponent.user], "")
-        }
-      }
+      } 
     }
   }
+  private sendNotifications(comment: FileComment) {
+    const isStory = this.type == "Social";
+    const isFile = this.type == "File";
+    const isFileComment = this.type == "Comment";
+    const tmpComponent = isStory ? (this.component as Story)
+      : isFile ? (this.component as FileEntry)
+      : isFileComment ? (this.component as FileComment) 
+      : undefined; 
+
+    if (this.inputtedParentRef && tmpComponent?.user) {
+      const notificationData: any = {
+        fromUser: this.inputtedParentRef.user ?? new User(0, "Anonymous"),
+        toUser: [tmpComponent.user],
+        message: isStory ? "Social Post Comment" : "File Comment",
+        ...(isStory && { storyId: comment.storyId }),
+        ...(isFile && { fileId: comment.fileId }),
+        ...(isFileComment && { commentId: comment.commentId })
+      };
+
+      this.notificationService.createNotifications(notificationData);
+    }
+  }
+
   async deleteComment(comment: FileComment) {
     if (!confirm("Are you sure?")) { return };
 
     this.showCommentLoadingOverlay = true;
     this.commentList = this.commentList.filter(x => x.id != comment.id);
-    this.deleteCommentAsync(comment); 
+    this.deleteCommentAsync(comment);
     this.showCommentLoadingOverlay = false;
     this.closeOptionsPanel();
   }
@@ -137,8 +155,8 @@ export class CommentsComponent extends ChildComponent {
       this.editingComments = this.editingComments.filter(x => x !== comment.id);
     }
     this.closeOptionsPanel();
-  } 
-  async confirmEditComment(comment: FileComment) { 
+  }
+  async confirmEditComment(comment: FileComment) {
     const message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value;
     this.editingComments = this.editingComments.filter(x => x != comment.id);
     if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
@@ -154,7 +172,7 @@ export class CommentsComponent extends ChildComponent {
     const urlPattern4 = /(Http?:\/\/[^\s]+)/g;
 
     text = text.replace(urlPattern, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
-    let sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';  
+    let sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
     text = text.replace(urlPattern2, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
     sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
     text = text.replace(urlPattern3, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');

@@ -78,6 +78,7 @@
                               [user]="user"
                               [inputtedParentRef]="inputtedParentRef ?? parentRef"
                               [currentReactions]="file.reactions"
+                              [component]="file"
                               [fileId]="file.id" (click)="$event.stopPropagation()">
                 </app-reaction>
                 <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction" (click)="openFileWithComments(file); $event.stopPropagation()">

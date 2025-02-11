@@ -9,6 +9,7 @@ export class FileComment {
   upvotes: number = 0;
   downvotes: number = 0;
   storyId?: number;
+  commentId?: number;
   fileId?: number;
   commentFiles?: FileEntry[];
   date?: Date;

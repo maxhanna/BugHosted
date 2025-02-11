@@ -272,11 +272,15 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         this.clearStoryInputs();
         this.getStories();
         this.topicComponent?.removeAllTopics();
-        this.debounce(async () => {
-          if (this.user && this.user.id) {
-            this.notificationService.notifyUsers(user, [this.user], "New post on your profile!");
-          }
-        }, 1000); 
+        if (this.user && this.user.id) {
+          const notificationData: any = {
+            fromUser: user,
+            toUser: [this.user], 
+            message: "New post on your profile!",
+            userProfileId: this.user.id
+          };
+          this.notificationService.createNotifications(notificationData);
+        }
       } else {
         this.parentRef?.showNotification("An unexpected error occurred.");
       }

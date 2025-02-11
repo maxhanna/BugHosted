@@ -19,6 +19,7 @@
         <div class="commentDate">{{comment.date | date: 'y/MM/d HH:mm'}}</div>
         <div class="commentReaction">
           <app-reaction [commentId]="comment.id"
+                        [component]="comment"
                         [user]="inputtedParentRef?.user"
                         [inputtedParentRef]="inputtedParentRef"
                         [currentReactions]="comment.reactions">
@@ -70,7 +71,10 @@
   <div class="popupPanelTitle">
     Options
     <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
-  </div> 
+  </div>
+  <div>
+    Comment Id: {{optionsComment.id}}
+  </div>
   <div class="commentOptionsPanelButtons">
     <button (click)="deleteComment(optionsComment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">❌ Delete</button>
     <button (click)="editComment(optionsComment)" title="Edit Comment" *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">

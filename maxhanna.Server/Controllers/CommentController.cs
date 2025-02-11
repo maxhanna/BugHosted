@@ -5,6 +5,10 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using maxhanna.Server.Controllers.DataContracts.Comments;
+using maxhanna.Server.Controllers.DataContracts.Contacts;
+using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Users;
+using System.Data;
 
 namespace maxhanna.Server.Controllers
 {
@@ -47,32 +51,32 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string sql;
-					string notificationSql;
+					//string notificationSql;
 					int insertedId = 0;
 					if (request.FileId != null)
 					{
 						sql = "INSERT INTO maxhanna.comments (user_id, file_id, comment) VALUES (@user_id, @file_id, @comment); SELECT LAST_INSERT_ID();";
-						notificationSql =
-								@"INSERT INTO maxhanna.notifications
-                                (user_id, from_user_id, file_id, text)
-                            VALUES
-                                ((SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id), @user_id, @file_id, @comment);
+						//notificationSql =
+						//		@"INSERT INTO maxhanna.notifications
+      //                          (user_id, from_user_id, file_id, text)
+      //                      VALUES
+      //                          ((SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id), @user_id, @file_id, @comment);
 
-                            INSERT INTO maxhanna.notifications
-                                (user_id, from_user_id, file_id, text)
-                            SELECT DISTINCT user_id, @user_id, @file_id, @comment
-                            FROM maxhanna.comments
-                            WHERE file_id = @file_id
-                            AND user_id <> @user_id;";
+      //                      INSERT INTO maxhanna.notifications
+      //                          (user_id, from_user_id, file_id, text)
+      //                      SELECT DISTINCT user_id, @user_id, @file_id, @comment
+      //                      FROM maxhanna.comments
+      //                      WHERE file_id = @file_id
+      //                      AND user_id <> @user_id;";
 					}
 					else if (request.StoryId != null)
 					{
 						sql = "INSERT INTO maxhanna.comments (user_id, story_id, comment) VALUES (@user_id, @story_id, @comment); SELECT LAST_INSERT_ID();";
-						notificationSql =
-								@"INSERT INTO maxhanna.notifications
-                                (user_id, from_user_id, story_id, text)
-                            VALUES
-                                ((SELECT user_id FROM maxhanna.stories WHERE id = @story_id), @user_id, @story_id, @comment);";
+						//notificationSql =
+						//		@"INSERT INTO maxhanna.notifications
+      //                          (user_id, from_user_id, story_id, text)
+      //                      VALUES
+      //                          ((SELECT user_id FROM maxhanna.stories WHERE id = @story_id), @user_id, @story_id, @comment);";
 					}
 					else
 					{
@@ -121,23 +125,23 @@ namespace maxhanna.Server.Controllers
 					}
 
 
-					using (var cmd = new MySqlCommand(notificationSql, conn))
-					{
-						cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
-						cmd.Parameters.AddWithValue("@comment", request.Comment);
+					//using (var cmd = new MySqlCommand(notificationSql, conn))
+					//{
+					//	cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
+					//	cmd.Parameters.AddWithValue("@comment", request.Comment);
 
-						if (request.FileId != null)
-						{
-							cmd.Parameters.AddWithValue("@file_id", request.FileId);
-						}
-						else
-						{
-							cmd.Parameters.AddWithValue("@story_id", request.StoryId);
-						}
+					//	if (request.FileId != null)
+					//	{
+					//		cmd.Parameters.AddWithValue("@file_id", request.FileId);
+					//	}
+					//	else
+					//	{
+					//		cmd.Parameters.AddWithValue("@story_id", request.StoryId);
+					//	}
 
-						await cmd.ExecuteNonQueryAsync();
+					//	await cmd.ExecuteNonQueryAsync();
 
-					}
+					//}
 
 					return Ok($"{insertedId} Comment Successfully Added");
 				}
@@ -213,5 +217,46 @@ namespace maxhanna.Server.Controllers
 			return Ok("Comment successfully edited");
 		}
 
+		[HttpPost("/Comment/GetCommentById", Name = "GetCommentById")]
+		public async Task<IActionResult> GetCommentParentId([FromBody] int commentId)
+		{
+			_logger.LogInformation($"POST /Comment/GetCommentById (for commentId {commentId})");
+
+			FileComment? comment = null;
+			string sql = "SELECT id, file_id, story_id, comment_id FROM maxhanna.comments WHERE id = @comment_id LIMIT 1;"; 
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						// Add user ID as a parameter to the command
+						cmd.Parameters.AddWithValue("@comment_id", commentId);
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{  
+							while (await rdr.ReadAsync())
+							{
+								comment = new FileComment
+								{
+									Id = rdr.GetInt32("id"),
+									StoryId = rdr.IsDBNull("story_id") ? 0 : rdr.GetInt32("story_id"),
+									FileId = rdr.IsDBNull("file_id") ? 0 : rdr.GetInt32("file_id"),
+									CommentId = rdr.IsDBNull("comment_id") ? 0 : rdr.GetInt32("comment_id"),
+								}; 
+							}
+
+							return Ok(comment);
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while fetching comment.");
+				return StatusCode(500, "An error occurred while fetching comment.");
+			} 
+		} 
 	}
 }

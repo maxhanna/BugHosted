@@ -60,33 +60,17 @@ export class CommentService {
     }
   }
 
-  async upvoteComment(user: User, commentId: number) {
+  async getCommentById(commentId: number) {
     try {
-      const response = await fetch(`/comment/upvotecomment`, {
+      const response = await fetch(`/comment/getcommentbyid`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user: user, commentId, upvote: true, downvote: false }),
+        body: JSON.stringify(commentId),
       });
 
-      return await response.text();
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async downvoteComment(user: User, commentId: number) {
-    try {
-      const response = await fetch(`/comment/downvotecomment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user: user, commentId, upvote: false, downvote: true }),
-      });
-
-      return await response.text();
+      return await response.json();
     } catch (error) {
       throw error;
     }

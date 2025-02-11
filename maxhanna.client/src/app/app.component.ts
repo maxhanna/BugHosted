@@ -201,6 +201,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   createComponent(componentType: string, inputs?: { [key: string]: any; }) { 
     this.navigationComponent.minimizeNav();
+    this.closeOverlay();
 
     if (!componentType || componentType.trim() === "") {
       console.log("returning null due to invalid componentType");

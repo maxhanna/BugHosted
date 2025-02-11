@@ -319,7 +319,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.removeAllAttachments();  
       this.attachedFiles = []; 
       await this.getMessageHistory();
-      this.notificationService.notifyUsers(user, chatUsers.filter(x=> x.id != user.id), "New chat message!");
+      this.notificationService.createNotifications(
+        { fromUser: user, toUser: chatUsers.filter(x => x.id != user.id), message: msg, chatId: this.currentChatId }
+      );
     } catch (error) {
       console.error(error);
     }

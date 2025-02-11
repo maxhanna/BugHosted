@@ -51,6 +51,18 @@ export class NotificationService {
   }
   async notifyUsers(fromUser: User, toUser: User[], message: string) {
     return await this.fetchData('/notification/notifyusers', { FromUser: fromUser, ToUser: toUser, Message: message });
+  }
+  async createNotifications(params: {
+    fromUser: User, toUser: User[], message: string,
+    storyId?: number, fileId?: number, chatId?: number,
+    commentId?: number, userProfileId?: number,
+  }) {
+    return await this.fetchData('/notification/createnotifications',
+      {
+        FromUser: params.fromUser, ToUser: params.toUser, Message: params.message,
+        StoryId: params.storyId, FileId: params.fileId, ChatId: params.chatId,
+        CommentId: params.commentId, UserProfileId: params.userProfileId
+      });
   }  
 
 }

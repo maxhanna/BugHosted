@@ -70,35 +70,7 @@ namespace maxhanna.Server.Controllers
                     {
                         commandStr = @"  
                             INSERT INTO reactions (user_id, comment_id, story_id, message_id, file_id, timestamp, type)
-                            VALUES (@userId, @commentId, @storyId, @messageId, @fileId, @timestamp, @type);
-
-                              -- Notify the creator of the content
-                            INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text, story_id)
-                            SELECT 
-                                creator.user_id AS user_id,
-                                @userId AS from_user_id,
-                                CASE 
-                                    WHEN @fileId IS NOT NULL THEN @fileId
-                                    WHEN @commentId IS NOT NULL THEN comment.file_id
-                                    ELSE NULL
-                                END AS file_id,
-                                @comment AS text,
-                                CASE 
-                                    WHEN @storyId IS NOT NULL THEN @storyId
-                                    WHEN @commentId IS NOT NULL THEN comment.story_id
-                                    ELSE NULL
-                                END AS story_id
-                            FROM (
-                                SELECT user_id FROM maxhanna.file_uploads WHERE id = @fileId
-                                UNION ALL
-                                SELECT user_id FROM maxhanna.comments AS comment WHERE id = @commentId
-                                UNION ALL
-                                SELECT sender FROM maxhanna.messages WHERE id = @messageId
-                                UNION ALL
-                                SELECT user_id FROM maxhanna.stories WHERE id = @storyId
-                            ) AS creator
-                            LEFT JOIN maxhanna.comments AS comment ON comment.id = @commentId
-                            WHERE creator.user_id IS NOT NULL;";
+                            VALUES (@userId, @commentId, @storyId, @messageId, @fileId, @timestamp, @type);";
                     }
 
                     var command = new MySqlCommand(commandStr, connection);

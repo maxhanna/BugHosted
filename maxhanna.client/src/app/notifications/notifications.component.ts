@@ -7,6 +7,8 @@ import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
+import { CommentService } from '../../services/comment.service';
+import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 @Component({
   selector: 'app-notifications',
@@ -14,7 +16,7 @@ import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging
   styleUrl: './notifications.component.css'
 })
 export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy {
-  constructor(private notificationService: NotificationService, private location: Location) {
+  constructor(private notificationService: NotificationService, private commentService: CommentService, private location: Location) {
     super();
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent?.user?.id) { //only allow notifications pushed if user is logged in.
@@ -68,6 +70,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
 
   removeMe(type: string) {
+    console.log(type);
     if (this.inputtedParentRef) {
       this.inputtedParentRef.removeAllComponents();
     } else {
@@ -98,6 +101,23 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if (!chatId) return alert("Error: Must select a user to chat!");
     this.createComponent("Chat", { chatId: chatId });
   }
+
+  async goToCommentId(commentId?: number) {
+    if (!commentId) return;
+
+    const res = await this.commentService.getCommentById(commentId) as FileComment;
+    if (!res) return;
+
+    if (res.storyId) {
+      return this.goToStoryId(res.storyId);
+    }
+    if (res.fileId) {
+      return this.goToFileId(res.fileId);
+    }
+
+    alert("No parent component");
+  }
+
   async delete(notification?: UserNotification) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent.user) {

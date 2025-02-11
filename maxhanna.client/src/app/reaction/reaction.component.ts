@@ -3,6 +3,11 @@ import { ReactionService } from '../../services/reaction.service';
 import { User } from '../../services/datacontracts/user/user';
 import { Reaction } from '../../services/datacontracts/reactions/reaction';
 import { AppComponent } from '../app.component';
+import { NotificationService } from '../../services/notification.service';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { Story } from '../../services/datacontracts/social/story';
+import { FileComment } from '../../services/datacontracts/file/file-comment';
+import { Message } from '../../services/datacontracts/chat/message';
 
 @Component({
   selector: 'app-reaction',
@@ -39,7 +44,7 @@ export class ReactionComponent implements OnInit {
     { type: 'celebrate', emoji: '🥳', label: 'Celebrate' },
     { type: 'smile', emoji: '😊', label: 'Smile' }
   ];
-
+  @Input() component?: any;
   @Input() commentId?: number;
   @Input() storyId?: number;
   @Input() messageId?: number;
@@ -47,7 +52,7 @@ export class ReactionComponent implements OnInit {
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
   @Input() currentReactions?: Reaction[] = [];
-  constructor(private reactionService: ReactionService) { }
+  constructor(private reactionService: ReactionService, private notificationService: NotificationService) { }
 
   ngOnInit() {
     this.getReactionsListDisplay();
@@ -73,17 +78,44 @@ export class ReactionComponent implements OnInit {
       } else {
         this.currentReactions = this.currentReactions?.filter(x => x.user?.id != this.user?.id);
       }
-      if (!this.currentReactions)
+      if (!this.currentReactions) { 
         this.currentReactions = [];
+      }
       this.currentReactions.unshift(tmpReaction);
       this.getReactionsListDisplay();
-    }
+    } 
+    this.sendNotification();
     this.showReactionChoices = false;
     if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay = this.showReactionChoices;
     }
     this.userReaction = reaction;
   }
+  private sendNotification() {
+    console.log("sendNotification");
+    const fromUser = this.user ?? new User(0, "Anonymous");
+    let targetNotificationUsers: User[] = [];
+    let notificationData: any = { fromUser, message: `New reaction from ${fromUser.username}` };
+
+    if (this.fileId && (this.component as FileEntry).user?.id !== 0) {
+      targetNotificationUsers = [(this.component as FileEntry).user!];
+      notificationData = { ...notificationData, toUser: targetNotificationUsers, fileId: this.fileId };
+    } else if (this.storyId) {
+      targetNotificationUsers = [(this.component as Story).user];
+      notificationData = { ...notificationData, toUser: targetNotificationUsers, storyId: this.storyId };
+    } else if (this.commentId) {
+      targetNotificationUsers = [(this.component as FileComment).user];
+      notificationData = { ...notificationData, toUser: targetNotificationUsers, commentId: this.commentId };
+    } else if (this.messageId) {
+      const sender = (this.component as Message).sender;
+      targetNotificationUsers = [sender];
+      notificationData = { ...notificationData, toUser: targetNotificationUsers, chatId: (this.component).chatId };
+    }
+    if (targetNotificationUsers.length > 0) {
+      this.notificationService.createNotifications(notificationData);
+    }
+  }
+
   getReactionsListDisplay() {
     if (this.currentReactions && this.currentReactions.length > 0) {
       this.reactionCount = this.currentReactions.length;
@@ -123,14 +155,14 @@ export class ReactionComponent implements OnInit {
   };
 
 
-  showReactionsOnClick() { 
+  showReactionsOnClick() {
     this.showReactions = true;
     if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay = true; 
+      this.inputtedParentRef.showOverlay = true;
     }
   }
   closeReactionsPanel() {
-    this.showReactions = false; 
+    this.showReactions = false;
 
     if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
       this.inputtedParentRef.showOverlay = false;

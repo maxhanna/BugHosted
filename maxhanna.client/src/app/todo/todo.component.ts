@@ -13,6 +13,7 @@ import { TodoService } from '../../services/todo.service';
 export class TodoComponent extends ChildComponent implements OnInit {
   todos: Array<Todo> = [];
   todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe', "Wife"];
+  todoCount = 0;
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -42,6 +43,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
       const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
       const res = await this.todoService.getTodo(this.parentRef?.user!, type, search);
       this.todos = res;
+      this.todoCount = this.todos.length;
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -68,6 +70,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
       document.getElementById("todoNo" + id)!.style.textDecoration = "line-through";
       document.getElementById("todoDeleteNo" + id)?.setAttribute("disabled", "true");
     }
+    this.todoCount--;
     this.clearInputs();
   }
   async search() {

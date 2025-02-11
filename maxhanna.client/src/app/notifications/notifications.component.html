@@ -1,5 +1,5 @@
 <div *ngIf="minimalInterface" class="usernameProfileLink cursorPointer" (click)="showNotifications = !showNotifications; (inputtedParentRef ? inputtedParentRef.showOverlay = showNotifications : '')">
-  <span [class]="notifications && notifications.length > 0 ? 'glowing' : ''">🔔</span>
+  <span [class]="notifications && notifications.length > 0 && unreadNotifications > 0 ? 'glowing' : ''">🔔</span>
 </div>
 
 <div [class]="minimalInterface ? 'minimalInterfaceComponent' : 'componentMain'" *ngIf="!minimalInterface || showNotifications">
@@ -9,7 +9,7 @@
 
   <div class="notificationsDisplay" [style.width]="minimalInterface ? 'CALC(100% - 15px);' : ''">
     <div>
-      <div *ngIf="notifications && notifications.length > 0" class="noNotificationsDiv">
+      <div *ngIf="notifications && notifications.length > 0" class="notificationsCountHeader">
         <div>
           {{notifications && notifications.length}} Notifications<span *ngIf="unreadNotifications"> ({{unreadNotifications}} unread)</span>
         </div>
@@ -38,6 +38,12 @@
           <div *ngIf="notification.storyId" (click)="goToStoryId(notification.storyId)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Story ID:</strong> {{ notification.storyId }}
           </div>
+          <div *ngIf="notification.commentId" (click)="goToCommentId(notification.commentId)" class="usernameProfileLink cursorPointerUnderlined fileId">
+            <strong>Comment ID:</strong> {{ notification.commentId }}
+          </div>
+          <div *ngIf="notification.userProfileId" (click)="viewProfile(notification.user)" class="usernameProfileLink cursorPointerUnderlined fileId">
+            <strong>Profile ID:</strong> {{ notification.userProfileId }}
+          </div>
           <div *ngIf="notification.chatId && notification.fromUser" (click)="goToChat(notification.chatId)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Chat Notification</strong>
           </div>
@@ -54,9 +60,11 @@
       <div class="noNotificationsWrapperSpan">
         <div>You don't have any notifications</div>
         <img style="height: 50px;" src="../../favicon.ico" />
-        <div>Notifications will appear when users interact with you or your content.</div> 
+        <div>Notifications will appear when users interact with you or your content.</div>
       </div>
-      
+      <button
+           id="closeOverlay"
+           (click)="inputtedParentRef ? inputtedParentRef.closeOverlay() : removeMe('Notifications')">Close</button> 
     </div>
   </div>
 </div> 
