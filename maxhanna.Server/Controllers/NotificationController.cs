@@ -490,7 +490,7 @@ namespace maxhanna.Server.Controllers
 
 					if (string.IsNullOrEmpty(request.Message))
 					{
-						tmpMessage = $"{tmpUser.Username}, new notification on Bughosted.com";
+						tmpMessage = $"New notification on Bughosted.com";
 					}
 
 					try
@@ -500,7 +500,7 @@ namespace maxhanna.Server.Controllers
 						{
 							Notification = new FirebaseAdmin.Messaging.Notification()
 							{
-								Title = $"Notification from {(request.FromUser?.Username ?? "Anonymous")}",
+								Title = $"{tmpUser.Username}, Notification from {(request.FromUser?.Username ?? "Anonymous")}",
 								Body = tmpMessage,
 							},
 							Topic = "notification" + tmpUser.Id

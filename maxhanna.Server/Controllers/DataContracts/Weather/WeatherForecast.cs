@@ -13,6 +13,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Weather
         public double? temp_f { get; set; }
         public Condition? condition { get; set; }
         public double? wind_kph { get; set; }
+        public double? wind_mph { get; set; }
         public int? humidity { get; set; }
         public int? cloud { get; set; }
     }
@@ -35,6 +36,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Weather
         public double? temp_f { get; set; }
         public Condition? condition { get; set; }
         public double? wind_kph { get; set; }
+        public double? wind_mph { get; set; }
         public int? humidity { get; set; }
         public int? cloud { get; set; }
     }

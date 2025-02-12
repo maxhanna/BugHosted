@@ -38,7 +38,14 @@
   font-weight: bolder;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   text-align: center;
-} 
+}
+.noMiningHubSection {
+  display: inline-flex;
+  flex-direction: column;
+  width: CALC(100% - 10px);
+  margin-left: auto;
+  margin-right: auto;
+}
 .hubSection {
   display: inline-flex;
   flex-direction: column;
@@ -110,4 +117,33 @@
 .miningHubSection {
   display: inline-flex;
   flex-direction: column;
+}
+.cryptoHubConverterAndCoinWatchWrapper {
+  display: flex; 
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 20px;
+}
+  .cryptoHubConverterAndCoinWatchWrapper div, .cryptoHubConverterAndCoinWatchWrapper table {
+    max-width: 400px;
+  }
+    .cryptoHubConverterAndCoinWatchWrapper table th {
+      padding: 10px;
+      max-width: 400px;
+    }
+/* typical phone screen resolution */
+@media only screen and (max-width : 1000px) {
+  .cryptoHubConverterAndCoinWatchWrapper div {
+    max-width: 200px !important;
+  }
+}
+
+.normalBtcAddress, .hiddenBtcAddress {
+  text-align: left !important;
+}
+.hiddenBtcAddress {
+  max-width: 50px;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }

@@ -523,3 +523,45 @@ fieldset {
   color: var(--secondary-font-color);
   align-items: center;
 }
+
+
+.optionsStatsWrapperDiv {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  width: 100%;
+  height: 300px;
+  overflow: auto; 
+}
+
+.optionsStatsDiv {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dotted var(--main-font-color);
+}
+
+.optionsStatsDiv:hover { 
+  border-bottom: 1px solid var(--main-link-color);
+}
+
+.optionsStatsHeader {
+  min-width: 125px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: flex-start;
+  align-items: center;
+  cursor: default;
+}
+
+.optionsStatsDescription {
+  text-align: right;
+  line-break: anywhere;
+  cursor: default;
+}
+
+
+.popupPanel button, .popupPanel a {
+  cursor: pointer;
+}

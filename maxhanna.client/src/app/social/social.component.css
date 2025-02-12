@@ -560,37 +560,7 @@ singleAttachment {
     left: 53%;
     position: absolute;
     width: 0;
-  }
-
-.storyOptionsStatsWrapperDiv {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  width: 100%;
-  height: 300px;
-  overflow: auto;
-}
-
-.storyOptionsStatsDiv {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px dotted var(--main-font-color);
-}
-
-.storyOptionsStatsHeader {
-  min-width: 125px;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: flex-start;
-  align-items: center;
-}
-
-.storyOptionsStatsDescription {
-  text-align: right;
-  line-break: anywhere;
-}
+  } 
 
 .loadMoreResultsDiv {
   width: 100%;
@@ -602,4 +572,8 @@ singleAttachment {
 .loadMoreResultsDiv button {
   font-size: 30px;
   font-family: var(--title-font-family);
+}
+.searchSocialsPanelContentDiv {
+  margin-top: 15px;
+  margin-bottom: 20px;
 }

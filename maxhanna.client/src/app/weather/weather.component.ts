@@ -44,10 +44,33 @@ export class WeatherComponent extends ChildComponent implements OnInit {
     if (res) {
       this.weather = res;
       this.collapsedDays = res.forecast.forecastday.map((day: { date: any; }) => day.date);
+      this.weather.forecast.forecastday.forEach(fDay => {
+        fDay.hour.forEach(hour => { 
+          hour.feelslike_c = this.calculateFeelsLikeC(hour.temp_c, hour.wind_kph, hour.humidity);
+          hour.feelslike_f = this.calculateFeelsLikeF(hour.temp_f, hour.wind_mph, hour.humidity);
+        });
+      });
+      this.weather.current.feelslike_c = this.calculateFeelsLikeC(this.weather.current.temp_c, this.weather.current.wind_kph, this.weather.current.humidity);
+      this.weather.current.feelslike_f = this.calculateFeelsLikeF(this.weather.current.temp_f, this.weather.current.wind_mph, this.weather.current.humidity);
     }
     
     this.stopLoading();
   }
+  calculateFeelsLikeC(temp_c: number, wind_kph: number, humidity: number) {
+    const Ta = temp_c;
+    const WS = wind_kph;
+    const E = (humidity / 100) * (6.105 * Math.exp((17.27 * Ta) / (237.7 + Ta)));
+    return parseInt((Ta + 0.33 * E - 0.7 * WS - 4).toFixed(2));
+  }
+  calculateFeelsLikeF(temp_f: number, wind_mph: number, humidity: number): number {
+    const Ta_C = (temp_f - 32) * (5 / 9);  
+    const WS = wind_mph;
+    const E = (humidity / 100) * (6.105 * Math.exp((17.27 * Ta_C) / (237.7 + Ta_C))); 
+    const feelsLikeF = (Ta_C + 0.33 * E - 0.7 * WS - 4) * (9 / 5) + 32;
+
+    return parseInt(feelsLikeF.toFixed(2));
+  }
+
   calculateAverage(hours: any[], property: string): string | number {
     if (hours.length === 0) return 0;
 

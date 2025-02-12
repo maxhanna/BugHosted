@@ -78,7 +78,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @ViewChild('shareUserListDiv') shareUserListDiv!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
-  constructor(private fileService: FileService, private route: ActivatedRoute, private title: Title, private meta: Meta) {
+  constructor(private fileService: FileService, private route: ActivatedRoute) {
     super();
   }
 
@@ -654,8 +654,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       if (tgtFile) {
         const title = tgtFile.givenFileName ?? tgtFile.fileName ?? "Bughosted File";
         if (title) {
-          this.title.setTitle("BugHosted.com " + title);
-          this.meta.updateTag({ name: 'description', content: title });
+          const parent = this.inputtedParentRef ?? this.parentRef;
+          if (parent) {
+            parent.replacePageTitleAndDescription(title, title);
+          } 
         }
       }
     }

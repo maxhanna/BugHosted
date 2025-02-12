@@ -22,12 +22,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   allHistoricalData?: CoinValue[] = [];
   btcWalletResponse?: MiningWalletResponse = undefined;
   btcToCadPrice = 0;
-   
+  isAddCryptoDivVisible = false;
+  areWalletAddressesHidden = true;
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild('btcConvertSATValue') btcConvertSATValue!: ElementRef<HTMLInputElement>;
   @ViewChild('btcConvertCADValue') btcConvertCADValue!: ElementRef<HTMLInputElement>;
   @ViewChild('btcConvertBTCValue') btcConvertBTCValue!: ElementRef<HTMLInputElement>;
+  @ViewChild('newWalletInput') newWalletInput!: ElementRef<HTMLInputElement>;
 
   @Output() coinSelected = new EventEmitter<string>();
 
@@ -60,57 +62,47 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   }
 
   private async getBTCWallets() {
-    await this.getNicehashWallets();
+    this.wallet = await this.getNicehashWallets(); 
+    this.wallet = this.wallet || { currencies: [] }; 
 
     if (this.parentRef?.user) {
       await this.userService.getBTCWallet(this.parentRef.user).then(res => {
-        this.btcWalletResponse = res;
+        if (res) {
+          res.currencies.forEach((btcData: Currency) => {
+            const tmpCurrency = {
+              currency: btcData.currency,
+              totalBalance: btcData.totalBalance,
+              available: btcData.available,
+              fiatRate: btcData.fiatRate ?? this.btcFiatConversion,
+              address: btcData.address
+            } as Currency; 
+            this.wallet?.currencies?.push(tmpCurrency); 
+          });
+        }
       });
     }
 
-    if (this.wallet && this.wallet.currencies) {
-      // Find the BTC currency in this.wallet
-      const walletBTC = this.wallet.currencies.find(
-        (x) => x.currency?.toUpperCase() === "BTC"
-      );
-
-      // Get the total BTC balance from btcWalletResponse
-      const btcWalletResponseBalance = this.btcWalletResponse?.currencies?.find(
-        (x) => x.currency?.toUpperCase() === "BTC"
-      )?.totalBalance || 0;
-
-      const btcWalletResponseAvailable = this.btcWalletResponse?.currencies?.find(
-        (x) => x.currency?.toUpperCase() === "BTC"
-      )?.available || 0;
-
-      // Calculate the total BTC balance
-      const totalBTCBalance =
-        (walletBTC?.totalBalance ? Number(walletBTC.totalBalance) : 0) +
-        Number(btcWalletResponseBalance);
-
-      const availableBTCBalance =
-        (walletBTC?.available ? Number(walletBTC.available) : 0) +
-        Number(btcWalletResponseAvailable);
-         
-      this.wallet.total = ({
+    if (this.wallet?.currencies) {
+      this.wallet.total = {
         currency: "Total BTC",
-        totalBalance: totalBTCBalance.toString(),
-        available: availableBTCBalance.toString(),
-        debt: 0,
-        pending: 0,
-      } as any);
-     
+        totalBalance: this.wallet.currencies
+          .filter(x => x.currency?.toUpperCase() === "BTC")
+          .reduce((sum, curr) => sum + Number(curr.totalBalance || 0), 0)
+          .toString(),
+        available: this.wallet.currencies
+          .filter(x => x.currency?.toUpperCase() === "BTC")
+          .reduce((sum, curr) => sum + Number(curr.available || 0), 0)
+          .toString(), 
+      }; 
     }
   }
 
   private async getNicehashWallets() {
-    const res = await this.miningService.getMiningWallet(this.parentRef?.user!);
+    const res = await this.miningService.getMiningWallet(this.parentRef?.user!) as MiningWalletResponse;
     if (res) {
-      this.wallet = res;
-      if (this.wallet && this.wallet.currencies) {
-        this.btcFiatConversion = this.wallet.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate;
-      }
+      this.btcFiatConversion = res.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate; 
     }
+    return res;
   }
 
   calculateTotalValue(currency: Currency): number {
@@ -171,7 +163,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
       currency: 'CAD',
     }).format(value);
   }
-   
+  saveNewCryptoWallet() {
+    const walletInfo = this.newWalletInput.nativeElement.value;
+    if (walletInfo && this.parentRef?.user) {
+      this.userService.updateBTCWalletAddresses(this.parentRef.user, [walletInfo]);
+    }
+    this.isAddCryptoDivVisible = false;
+    this.ngOnInit();
+  }
   private formatWithCommas(value: number): string {
     return value.toLocaleString('en-US');
   } 

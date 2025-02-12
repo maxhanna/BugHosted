@@ -17,9 +17,10 @@
     <!-- Search Popup -->
     <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen">
       <div class="popupPanelTitle">Search the Socials</div>
-      <div>
+      <div class="searchSocialsPanelContentDiv">
         <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user" [value]="userSearch" />
         <input type="submit" (click)="searchStories()" value="🔍" *ngIf="!user" />
+        <div *ngIf="search && search.nativeElement.value != ''" style="text-align:center;">Results : {{storyResponse?.stories?.length ?? 0}}</div>
       </div>
       <div>
         <button id="closeOverlay" (click)="closeSearchSocialsPanel()">Close</button>
@@ -142,23 +143,23 @@
         <button (click)="delete(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id)" title="Delete Post" style="display:inline-block">❌Delete</button>
       </div>
 
-      <div class="storyOptionsStatsWrapperDiv">
-        <div class="storyOptionsStatsDiv">
-          <div class="storyOptionsStatsHeader">
+      <div class="optionsStatsWrapperDiv">
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">
             Story Id:
           </div>
-          <div class="storyOptionsStatsDescription">
+          <div class="optionsStatsDescription">
             {{optionStory.id}}
           </div>
         </div>
-        <div class="storyOptionsStatsDiv">
-          <div class="storyOptionsStatsHeader"> 
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader"> 
             <span (click)="editTopic(optionStory)"
                   *ngIf="optionStory.user?.id == parentRef?.user?.id"
                   title="Edit Post Topic"
                   class="cursorPointer">Topics ✏️:</span>
           </div>
-          <div class="storyOptionsStatsDescription">
+          <div class="optionsStatsDescription">
             <div class="reactionTopicsAndExpanderDiv reactionTopics">
               <span *ngIf="optionStory.storyTopics && optionStory.storyTopics.length > 0 && optionStory.id">
                 <span *ngFor="let topic of optionStory.storyTopics" class="matchingTopic" (click)="editingTopics.includes(optionStory.id) ? removeTopicFromStory(topic, optionStory) : topicClicked(topic);">
@@ -180,45 +181,45 @@
             </div>
           </div>
         </div>
-        <div class="storyOptionsStatsDiv">
-          <div class="storyOptionsStatsHeader">Created By:</div>
-          <div class="storyOptionsStatsDescription">
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Created By:</div>
+          <div class="optionsStatsDescription">
             <app-user-tag [user]="optionStory.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"></app-user-tag>
           </div>
         </div>
-        <div class="storyOptionsStatsDiv" *ngIf="optionStory.city || optionStory.country">
-          <div class="storyOptionsStatsHeader">Created From:</div>
-          <div class="storyOptionsStatsDescription" [title]="optionStory.city + ', ' + optionStory.country">
+        <div class="optionsStatsDiv" *ngIf="optionStory.city || optionStory.country">
+          <div class="optionsStatsHeader">Created From:</div>
+          <div class="optionsStatsDescription" [title]="optionStory.city + ', ' + optionStory.country">
             {{optionStory.city}}<span *ngIf="optionStory.country"><span *ngIf="optionStory.city">,</span> {{optionStory.country}}</span>
           </div>
         </div>
-        <div class="storyOptionsStatsDiv">
-          <div class="storyOptionsStatsHeader">Creation Date:</div>
-          <div class="storyOptionsStatsDescription" [title]="formatDate(optionStory.date)">
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Creation Date:</div>
+          <div class="optionsStatsDescription" [title]="formatDate(optionStory.date)">
             {{formatDate(optionStory.date)}}
           </div>
         </div>
-        <div class="storyOptionsStatsDiv" *ngIf="extractUrl(optionStory.storyText)">
-          <div class="storyOptionsStatsHeader">
+        <div class="optionsStatsDiv" *ngIf="extractUrl(optionStory.storyText)">
+          <div class="optionsStatsHeader">
             Metadata URL:
           </div>
-          <div class="storyOptionsStatsDescription">
+          <div class="optionsStatsDescription">
             <a [href]="extractUrl(optionStory.storyText)" target="_blank" [title]="extractUrl(optionStory.storyText)">{{extractUrl(optionStory.storyText)}}</a>
           </div>
         </div>
-        <div class="storyOptionsStatsDiv" *ngIf="optionStory.metadata?.title">
-          <div class="storyOptionsStatsHeader">
+        <div class="optionsStatsDiv" *ngIf="optionStory.metadata?.title">
+          <div class="optionsStatsHeader">
             Metadata Title:
           </div>
-          <div class="storyOptionsStatsDescription" [title]="optionStory.metadata?.title">
+          <div class="optionsStatsDescription" [title]="optionStory.metadata?.title">
             {{optionStory.metadata?.title?.replace(' - YouTube', '')}}
           </div>
         </div>
-        <div class="storyOptionsStatsDiv addToMusicPlaylistButtonDiv" *ngIf="optionStory.metadata?.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
-          <div class="storyOptionsStatsHeader">
+        <div class="optionsStatsDiv" *ngIf="optionStory.metadata?.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
+          <div class="optionsStatsHeader">
             Save to Music Playlist:
           </div>
-          <div class="storyOptionsStatsDescription">
+          <div class="optionsStatsDescription">
             <button (click)="addToMusicPlaylist(optionStory, $event);" title="Save this Youtube URL to your Music Playlist">💾Save</button>
           </div>
         </div>

@@ -173,4 +173,7 @@
   width: 100%;
   display: flex;
   justify-content: space-evenly;
+  gap: 20px;
+  margin-top: 15px;
+  margin-bottom: 20px;
 }

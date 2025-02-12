@@ -28,7 +28,7 @@ import { NotificationsComponent } from './notifications/notifications.component'
 import { UserService } from '../services/user.service'; 
 import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
-import { Meta } from '@angular/platform-browser';
+import { Meta, Title } from '@angular/platform-browser';
 import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 
 
@@ -109,9 +109,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
-  constructor(private router: Router, private route: ActivatedRoute, private userService: UserService, private meta: Meta) {
-  
-  }
+  constructor(private router: Router, private route: ActivatedRoute, private userService: UserService, private meta: Meta, private title: Title) { }
+
   ngOnInit() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user")); 
@@ -202,6 +201,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   createComponent(componentType: string, inputs?: { [key: string]: any; }) { 
     this.navigationComponent.minimizeNav();
     this.closeOverlay();
+    this.replacePageTitleAndDescription(componentType, componentType);
 
     if (!componentType || componentType.trim() === "") {
       console.log("returning null due to invalid componentType");
@@ -236,6 +236,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   removeComponent(key: number) {
     if (!this.VCR || this.VCR.length < 1) return;
+    this.replacePageTitleAndDescription("", "");
 
     const componentRef = this.componentsReferences.find(
       x => x.instance.unique_key == key
@@ -351,5 +352,10 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.notifications.push(text); 
       setTimeout(() => { this.notifications.shift(); }, 8000);
     }
+  }
+  replacePageTitleAndDescription(title: string, description: string) {
+    const tmpTitle = "BugHosted.com " + title;
+    this.title.setTitle(tmpTitle);
+    this.meta.updateTag({ name: 'description', content: title }); 
   }
 }

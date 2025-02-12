@@ -7,9 +7,9 @@ import { User } from './datacontracts/user/user';
   providedIn: 'root'
 })
 export class CommentService { 
-  async addComment(comment: string, user?: User, fileId?: number, storyId?: number, selectedFiles?: FileEntry[]) {
-    if ((fileId && storyId) || (!fileId && !storyId)) {
-      return;
+  async addComment(comment: string, user?: User, fileId?: number, storyId?: number, commentId?: number, selectedFiles?: FileEntry[]) {
+    if ((fileId && storyId && commentId) || (!fileId && !storyId && !commentId)) {
+      return "Error: No Id supplied";
     }
     try {
       const response = await fetch(`/comment/`, {
@@ -17,7 +17,7 @@ export class CommentService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, fileId, storyId, selectedFiles, comment }),
+        body: JSON.stringify({ user, fileId, storyId, commentId, selectedFiles, comment }),
       });
 
       return await response.text();
@@ -68,6 +68,21 @@ export class CommentService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(commentId),
+      });
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+  async getCommentDataByIds(commentId: number) {
+    try {
+      const response = await fetch(`/comment/getcommentdata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify( commentId ),
       });
 
       return await response.json();

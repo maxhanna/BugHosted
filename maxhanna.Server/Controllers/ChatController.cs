@@ -135,14 +135,19 @@ namespace maxhanna.Server.Controllers
 
 			// Query to get chat IDs and receiver IDs from messages
 			string query = @"
-                SELECT DISTINCT 
-                    m.chat_id,
-                    m.receiver
-                FROM 
-                    messages m  
-                WHERE 
-                    FIND_IN_SET(@ReceiverId, m.receiver) > 0;
-            ";
+				 SELECT 
+						m.chat_id,
+						m.receiver,
+						MAX(m.timestamp) AS latest_timestamp
+				FROM 
+						messages m  
+				WHERE 
+						FIND_IN_SET(1, m.receiver) > 0
+				GROUP BY 
+						m.chat_id, 
+						m.receiver
+				ORDER BY 
+						latest_timestamp DESC;";
 
 			Dictionary<int, List<int>> chatReceivers = new Dictionary<int, List<int>>();
 

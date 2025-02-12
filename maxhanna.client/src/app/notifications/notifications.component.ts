@@ -79,40 +79,46 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
 
   createComponent(name: string, args: any) {
-    if (this.parentRef || this.inputtedParentRef) {
-      if (this.parentRef)
-        this.parentRef.createComponent(name, args);
-      else if (this.inputtedParentRef) {
-        this.inputtedParentRef.createComponent(name, args);
-      }
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (parent) {
+      parent.createComponent(name, args);
     }
     this.showNotifications = false;
   }
-  goToFileId(id: number) {
-    console.log("goToFileId");
-    this.location.replaceState("/File/" + id);
-    this.createComponent("Files", { "fileId": id })
+  goToFileId(notification: UserNotification) {
+    this.location.replaceState("/File/" + notification.fileId);
+    if (!notification.isRead) { this.read(notification); }
+    this.createComponent("Files", { "fileId": notification.fileId });
   }
-  goToStoryId(id: number) {
-    this.location.replaceState("/Social/" + id);
-    this.createComponent("Social", { "storyId": id });
+  goToStoryId(notification: UserNotification) {
+    this.location.replaceState("/Social/" + notification.storyId);
+    if (!notification.isRead) { this.read(notification); }
+    this.createComponent("Social", { "storyId": notification.storyId });
   }
-  goToChat(chatId?: number) {
-    if (!chatId) return alert("Error: Must select a user to chat!");
-    this.createComponent("Chat", { chatId: chatId });
+  goToChat(notification?: UserNotification) {
+    if (!notification?.chatId) return alert("Error: Must select a user to chat!");
+    if (!notification.isRead) { this.read(notification); }
+    this.createComponent("Chat", { chatId: notification.chatId });
   }
 
-  async goToCommentId(commentId?: number) {
-    if (!commentId) return;
+  async goToCommentId(notification?: UserNotification) {
+    if (!notification || !notification.commentId) return;
+    if (!notification.isRead) { this.read(notification); }
+    //const res = await this.commentService.getCommentById(notification.commentId) as FileComment;
+    //if (!res) return;
 
-    const res = await this.commentService.getCommentById(commentId) as FileComment;
-    if (!res) return;
+    //if (res.storyId) {
+    //  return this.goToStoryId(res.storyId);
+    //}
+    //if (res.fileId) {
+    //  return this.goToFileId(res.fileId);
+    //}
 
-    if (res.storyId) {
-      return this.goToStoryId(res.storyId);
+    if (notification.storyId) {
+      return this.goToStoryId(notification);
     }
-    if (res.fileId) {
-      return this.goToFileId(res.fileId);
+    if (notification.fileId) {
+      return this.goToFileId(notification);
     }
 
     alert("No parent component");
@@ -136,33 +142,33 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   async read(notification?: UserNotification) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent.user) {
-      if (notification && notification.id) { 
+      if (notification && notification.id) {
         if (notification.isRead) {
           notification.isRead = false;
           this.unreadNotifications++;
           await this.notificationService.unreadNotifications(parent.user, [notification.id]);
-        } else { 
+        } else {
           notification.isRead = true;
           this.unreadNotifications--;
           await this.notificationService.readNotifications(parent.user, [notification.id]);
         }
-      } else { 
+      } else {
         this.notifications?.forEach(x => x.isRead = true);
         this.unreadNotifications = 0;
         await this.notificationService.readNotifications(parent.user, undefined);
-      } 
+      }
       parent.getNotifications();
-    } 
+    }
   }
   notificationTextClick(notification: UserNotification) {
     if (notification.text?.includes('Captured a base at')) {
       this.parentRef?.createComponent('Bug-Wars');
     } else if (notification.fileId) {
-      this.goToFileId(notification.fileId)
+      this.goToFileId(notification)
     } else if (notification.storyId) {
-      this.goToStoryId(notification.storyId)
+      this.goToStoryId(notification)
     } else if (notification.chatId) {
-      this.goToChat(notification.chatId);
+      this.goToChat(notification);
     } else if (notification?.text?.toLowerCase().includes("following")) {
       this.viewProfile(notification.fromUser);
     }

@@ -14,13 +14,13 @@ import { Story } from '../../services/datacontracts/social/story';
   templateUrl: './comments.component.html',
   styleUrl: './comments.component.css'
 })
-export class CommentsComponent extends ChildComponent {
+export class CommentsComponent extends ChildComponent implements OnInit {
   showCommentLoadingOverlay = false;
   isOptionsPanelOpen = false;
-  optionsComment: FileComment | undefined;
-  upvotedCommentIds: number[] = []
-  downvotedCommentIds: number[] = []
+  isSubCommentsShowing = false;
+  optionsComment: FileComment | undefined; 
   editingComments: number[] = []
+  replyingToCommentIds: number[] = []
   selectedFiles: FileEntry[] = [];
   emojiMap: { [key: string]: string } =
     { ":)": "😊", ":(": "☹️", ";)": "😉", ":D": "😃", "XD": "😆", ":P": "😛", ":O": "😮", "B)": "😎", ":/": "😕", ":'(": "😢", "<3": "❤️", "</3": "💔", ":*": "😘", "O:)": "😇", "3:)": "😈", ":|": "😐", ":$": "😳", "8)": "😎", "^_^": "😊", "-_-": "😑", ">_<": "😣", ":'D": "😂", ":3": "😺", ":v": "✌️", ":S": "😖", ":b": "😛", ":x": "😶", ":X": "🤐", ":Z": "😴", "*_*": "😍", ":@": "😡", ":#": "🤬", ">:(": "😠", ":&": "🤢", ":T": "😋", "T_T": "😭", "Q_Q": "😭", ":1": "😆", "O_O": "😳", "*o*": "😍", "T-T": "😭", ";P": "😜", ":B": "😛", ":W": "😅", ":L": "😞", ":E": "😲", ":M": "🤔", ":C": "😏", ":I": "🤓", ":Q": "😮", ":F": "😇", ":G": "😵", ":H": "😱", ":J": "😜", ":K": "😞", ":Y": "😮", ":N": "😒", ":U": "😕", ":V": "😈", ":wave:": "👋", ":ok:": "👌", ":thumbsup:": "👍", ":thumbsdown:": "👎", ":clap:": "👏", ":star:": "⭐", ":star2:": "🌟", ":dizzy:": "💫", ":sparkles:": "✨", ":boom:": "💥", ":fire:": "🔥", ":droplet:": "💧", ":sweat_drops:": "💦", ":dash:": "💨", ":cloud:": "☁️", ":sunny:": "☀️", ":umbrella:": "☂️", ":snowflake:": "❄️", ":snowman:": "⛄", ":zap:": "⚡", ":cyclone:": "🌀", ":fog:": "🌫️", ":rainbow:": "🌈", ":heart:": "❤️", ":blue_heart:": "💙", ":green_heart:": "💚", ":yellow_heart:": "💛", ":purple_heart:": "💜", ":black_heart:": "🖤", ":white_heart:": "🤍", ":orange_heart:": "🧡", ":broken_heart:": "💔", ":heartbeat:": "💓", ":heartpulse:": "💗", ":two_hearts:": "💕", ":sparkling_heart:": "💖", ":cupid:": "💘", ":gift_heart:": "💝", ":revolving_hearts:": "💞", ":heart_decoration:": "💟", ":peace:": "☮️", ":cross:": "✝️", ":star_and_crescent:": "☪️", ":om:": "🕉️", ":wheel_of_dharma:": "☸️", ":yin_yang:": "☯️", ":orthodox_cross:": "☦️", ":star_of_david:": "✡️", ":six_pointed_star:": "🔯", ":menorah:": "🕎", ":infinity:": "♾️", ":wavy_dash:": "〰️", ":congratulations:": "㊗️", ":secret:": "㊙️", ":red_circle:": "🔴", ":orange_circle:": "🟠", ":yellow_circle:": "🟡", ":green_circle:": "🟢", ":blue_circle:": "🔵", ":purple_circle:": "🟣", ":brown_circle:": "🟤", ":black_circle:": "⚫", ":white_circle:": "⚪", ":red_square:": "🟥", ":orange_square:": "🟧", ":yellow_square:": "🟨", ":green_square:": "🟩", ":blue_square:": "🟦", ":purple_square:": "🟪", ":brown_square:": "🟫", ":black_large_square:": "⬛", ":white_large_square:": "⬜", ":black_medium_square:": "◼️", ": black_medium_small_square: ": "◾", ": white_medium_small_square: ": "◽", ": black_small_square: ": "▪️", ": white_small_square: ": "▫️", ": large_orange_diamond: ": "🔶", ": large_blue_diamond: ": "🔷", ": small_orange_diamond: ": "🔸", ": small_blue_diamond: ": "🔹", ": red_triangle_pointed_up: ": "🔺", ": red_triangle_pointed_down: ": "🔻", ": diamond_shape_with_a_dot_inside: ": "💠", ": radio_button: ": "🔘", ": white_square_button: ": "🔳", ": black_square_button: ": "🔲", ": checkered_flag: ": "🏁", ": triangular_flag_on_post: ": "🚩", ": crossed_flags: ": "🎌", ": black_flag: ": "🏴", ": white_flag: ": "🏳️", ": rainbow_flag: ": "🏳️‍🌈", ": pirate_flag: ": "🏴‍☠️" };
@@ -34,12 +34,30 @@ export class CommentsComponent extends ChildComponent {
   @Input() type: string = '' || "Social" || "File" || "Comment";
   @Input() component_id: number = 0;
   @Input() component: any = undefined;
+  @Input() comment_id?: number = undefined;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);
+  @Output() subCommentCountUpdatedEvent = new EventEmitter<any>();
 
+  commentCount = 0;
+
+  @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
   constructor(private commentService: CommentService, private notificationService: NotificationService, private sanitizer: DomSanitizer) {
-    super();
+    super(); 
+  }
+
+  ngOnInit() {
+    console.log(this.comment_id);
+    if (this.comment_id) {
+      console.log(this.comment_id);
+      this.commentService.getCommentDataByIds(this.comment_id).then(res => {
+        console.log(res);
+        this.commentList = res;
+        this.showComments = true;
+        this.subCommentCountUpdatedEvent.emit({ commentCount: this.commentList.length, comment_id: this.comment_id });
+      });
+    }
   }
 
   override viewProfile(user: User) {
@@ -55,7 +73,7 @@ export class CommentsComponent extends ChildComponent {
 
     const fileId = this.type === 'File' ? this.component_id : undefined;
     const storyId = this.type === 'Social' ? this.component_id : undefined;
-    const commentId = this.type === 'Comment' ? this.component_id : undefined;
+    const commentId = this.type === 'Comment' ? this.comment_id : undefined;
     const filesToSend = this.selectedFiles;
     this.selectedFiles = [];
     const currentDate = new Date();
@@ -77,7 +95,7 @@ export class CommentsComponent extends ChildComponent {
   }
 
   async addAsyncComment(comment: FileComment, currentDate: Date) {
-    const res = await this.commentService.addComment(comment.commentText ?? "", this.inputtedParentRef?.user, comment.fileId, comment.storyId, comment.commentFiles);
+    const res = await this.commentService.addComment(comment.commentText ?? "", this.inputtedParentRef?.user, comment.fileId, comment.storyId, comment.commentId, comment.commentFiles);
     this.sendNotifications(comment);
 
     if (res && res.toLowerCase().includes("success")) {
@@ -86,7 +104,9 @@ export class CommentsComponent extends ChildComponent {
       }
       if (this.commentList.find(x => x.date == currentDate)) {
         this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
-      } 
+      }
+      this.replyingToCommentIds = [];
+      this.editingComments = [];
     }
   }
   private sendNotifications(comment: FileComment) {
@@ -203,6 +223,38 @@ export class CommentsComponent extends ChildComponent {
       this.parentRef.showOverlay = false;
     } else if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
       this.inputtedParentRef.showOverlay = false;
+    }
+  }
+  openReplyToComment(comment: FileComment) {
+    if (this.replyingToCommentIds.includes(comment.id)) {
+      this.replyingToCommentIds = this.replyingToCommentIds.filter(x => x != comment.id);
+    } else {
+      this.replyingToCommentIds.push(comment.id);
+    }
+  }
+  changedCommentCount(event: any) {
+    console.log(event);
+    console.log(this.component);
+    console.log(this.comment_id);
+    if (document.getElementById("commentIdCount" + event.comment_id)) {
+      document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = event.commentCount;
+      (document.getElementById('subCommentComponent' + event.comment_id) as HTMLDivElement).style.display = ((event.commentCount > 0) ? "block" : "none"); 
+    }
+  }
+  showSubComments(commentId: number) {
+    const curr = (document.getElementById('subCommentComponent' + commentId) as HTMLDivElement).style.display;
+    (document.getElementById('subCommentComponent' + commentId) as HTMLDivElement).style.display = ((curr == "block") ? "none" : "block"); 
+  }
+  async replyToComment(comment: FileComment) {
+    const element = document.getElementById('commentReplyInput' + comment.id) as HTMLTextAreaElement;
+    const text = element.value;
+    if (text) {
+      console.log(text);
+      const user = this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
+      const res = await this.commentService.addComment(text, user, undefined, undefined, comment.id, undefined);
+      if (res) {
+        console.log(res);
+      }
     }
   }
 }

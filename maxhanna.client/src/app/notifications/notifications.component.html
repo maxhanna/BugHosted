@@ -13,7 +13,7 @@
         <div>
           {{notifications && notifications.length}} Notifications<span *ngIf="unreadNotifications"> ({{unreadNotifications}} unread)</span>
         </div>
-        <div>
+        <div class="notificationsCountHeaderButtons">
           <button (click)="delete()" *ngIf="notifications && notifications.length > 0">
             ❌ Clear {{notifications && notifications.length > 1 ? 'All ' : '' }}
           </button>
@@ -32,19 +32,19 @@
         <div class="nliRightDiv">
           <button title="Delete Notification" (click)="delete(notification)" class="deleteNotificationButton">❌</button>
           <button title="Read Notification" (click)="read(notification)" class="readNotificationButton">{{notification.isRead ? 'Unread' : '👀'}}</button>
-          <div *ngIf="notification.fileId" (click)="goToFileId(notification.fileId)" class="usernameProfileLink cursorPointerUnderlined fileId">
+          <div *ngIf="notification.fileId" (click)="goToFileId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>File ID:</strong> {{ notification.fileId }}
           </div>
-          <div *ngIf="notification.storyId" (click)="goToStoryId(notification.storyId)" class="usernameProfileLink cursorPointerUnderlined fileId">
+          <div *ngIf="notification.storyId" (click)="goToStoryId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Story ID:</strong> {{ notification.storyId }}
           </div>
-          <div *ngIf="notification.commentId" (click)="goToCommentId(notification.commentId)" class="usernameProfileLink cursorPointerUnderlined fileId">
+          <div *ngIf="notification.commentId" (click)="goToCommentId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Comment ID:</strong> {{ notification.commentId }}
           </div>
           <div *ngIf="notification.userProfileId" (click)="viewProfile(notification.user)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Profile ID:</strong> {{ notification.userProfileId }}
           </div>
-          <div *ngIf="notification.chatId && notification.fromUser" (click)="goToChat(notification.chatId)" class="usernameProfileLink cursorPointerUnderlined fileId">
+          <div *ngIf="notification.chatId && notification.fromUser" (click)="goToChat(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Chat Notification</strong>
           </div>
           <div class="notificationText cursorPointer" (click)="notificationTextClick(notification)">

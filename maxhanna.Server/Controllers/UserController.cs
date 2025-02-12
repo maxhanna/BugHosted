@@ -876,7 +876,7 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.CloseAsync();
 			}
-		}
+		} 
 
 		[HttpPost("/User/BTCWallet/GetBTCWalletData", Name = "GetBTCWalletData")]
 		public async Task<IActionResult> GetBTCWalletData([FromBody] User user)
