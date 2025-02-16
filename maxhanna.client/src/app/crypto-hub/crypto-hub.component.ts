@@ -3,9 +3,11 @@ import { ChildComponent } from '../child.component';
 import { MiningService } from '../../services/mining.service';
 import { Currency, MiningWalletResponse, Total } from '../../services/datacontracts/crypto/mining-wallet-response';
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
+import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 import { LineGraphComponent } from '../line-graph/line-graph.component';
 import { CoinValueService } from '../../services/coin-value.service';
 import { UserService } from '../../services/user.service';
+import { MiningRigsComponent } from '../mining-rigs/mining-rigs.component';
 
 @Component({
   selector: 'app-crypto-hub',
@@ -16,20 +18,26 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   wallet?: MiningWalletResponse | undefined;
   btcFiatConversion?: number = 0;
   currentSelectedCoin: string = 'Bitcoin';
+  selectedCurrency = "CAD";
   noMining = false;
 
   data?: CoinValue[]; 
   allHistoricalData?: CoinValue[] = [];
+  allHistoricalExchangeRateData?: ExchangeRate[] = [];
   btcWalletResponse?: MiningWalletResponse = undefined;
   btcToCadPrice = 0;
   isAddCryptoDivVisible = false;
   areWalletAddressesHidden = true;
+  latestCurrencyPriceRespectToCAD = 0;
+  uniqueCurrencyNames: string[] = []; 
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild('btcConvertSATValue') btcConvertSATValue!: ElementRef<HTMLInputElement>;
   @ViewChild('btcConvertCADValue') btcConvertCADValue!: ElementRef<HTMLInputElement>;
   @ViewChild('btcConvertBTCValue') btcConvertBTCValue!: ElementRef<HTMLInputElement>;
+  @ViewChild('selectedCurrencyDropdown') selectedCurrencyDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('newWalletInput') newWalletInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('miningRigComponent') miningRigComponent!: MiningRigsComponent;
 
   @Output() coinSelected = new EventEmitter<string>();
 
@@ -44,14 +52,37 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
       await this.coinValueService.getLatestCoinValues().then(res => {
         this.data = res;
       });
-      await this.coinValueService.getAllCoinValues().then(res => {
+
+      await this.coinValueService.getAllExchangeRateValues().then(res => {
         if (res) {
-          this.allHistoricalData = res;
+          this.allHistoricalExchangeRateData = res;
         }
       });
       await this.coinValueService.getLatestCoinValuesByName("Bitcoin").then(res => {
         if (res) {
           this.btcToCadPrice = res.valueCAD;
+        }
+      });
+      await this.coinValueService.getUniqueCurrencyNames().then(res => { this.uniqueCurrencyNames = res; })
+      if (this.parentRef?.user) {
+        await this.coinValueService.getUserCurrency(this.parentRef?.user).then(async res => {
+          if (res) {
+            if (res.includes("not found")) { 
+              this.selectedCurrency = "CAD";
+            } else { 
+              this.selectedCurrency = res;
+            }
+            const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(this.selectedCurrency) as ExchangeRate;
+            if (ceRes) {
+              this.latestCurrencyPriceRespectToCAD = ceRes.rate; 
+            }
+          }
+        });
+      }
+      await this.coinValueService.getAllCoinValues().then(res => {
+        if (res) { 
+          this.allHistoricalData = res;
+          this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
         }
       });
     } catch (error) {
@@ -67,7 +98,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
 
     if (this.parentRef?.user) {
       await this.userService.getBTCWallet(this.parentRef.user).then(res => {
-        if (res) {
+        if (res && res.currencies) {
           res.currencies.forEach((btcData: Currency) => {
             const tmpCurrency = {
               currency: btcData.currency,
@@ -132,18 +163,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   }
   convertBTCtoFIAT(): void {
     const btcValue = parseFloat(this.btcConvertBTCValue.nativeElement.value) || 0;
-    const cadValue = btcValue * this.btcToCadPrice;
+    const cadValue = btcValue * this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
 
     this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(cadValue);
-    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8); // 1 BTC = 100,000,000 Satoshi
-
-    console.log(this.btcConvertBTCValue.nativeElement.value);
-    console.log(this.btcConvertCADValue.nativeElement.value);
+    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
   }
 
-  convertCADtoBTC(): void {
+  convertCADtoBTC(): void { 
     const cadValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0;
-    const btcValue = cadValue / this.btcToCadPrice;
+    const btcValue = cadValue / (this.btcToCadPrice * (this.btcFiatConversion ?? 1));
 
     this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
@@ -173,5 +201,22 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   }
   private formatWithCommas(value: number): string {
     return value.toLocaleString('en-US');
-  } 
+  }
+  async changeDefaultCurrency() {
+    const user = this.parentRef?.user;
+    const selectedCoin = this.selectedCurrencyDropdown.nativeElement.value;
+    this.selectedCurrency = selectedCoin;
+    if (selectedCoin && user) {
+      await this.coinValueService.updateUserCurrency(user, selectedCoin);
+    }
+    this.ngOnInit();
+  }
+  getConvertedCurrencyValue(cadValue?: number) {
+    if (!cadValue) return 0;
+    else return cadValue * (this.latestCurrencyPriceRespectToCAD ?? 1);
+  }
+  getConvertedCurrencyValueByString(cadValue?: string) { 
+    if (!cadValue) return 0;
+    else return parseInt(cadValue) * (this.latestCurrencyPriceRespectToCAD ?? 1);
+  }
 }

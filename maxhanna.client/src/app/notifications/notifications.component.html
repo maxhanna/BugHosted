@@ -1,4 +1,4 @@
-<div *ngIf="minimalInterface" class="usernameProfileLink cursorPointer" (click)="showNotifications = !showNotifications; (inputtedParentRef ? inputtedParentRef.showOverlay = showNotifications : '')">
+<div *ngIf="minimalInterface" class="cursorPointer" (click)="showNotifications = !showNotifications; (inputtedParentRef ? inputtedParentRef.showOverlay = showNotifications : '')">
   <span [class]="notifications && notifications.length > 0 && unreadNotifications > 0 ? 'glowing' : ''">🔔</span>
 </div>
 
@@ -9,7 +9,7 @@
 
   <div class="notificationsDisplay" [style.width]="minimalInterface ? 'CALC(100% - 15px);' : ''">
     <div>
-      <div *ngIf="notifications && notifications.length > 0" class="notificationsCountHeader">
+      <div *ngIf="notifications && notifications.length > 0" class="notificationsCountHeader popupPanelTitle">
         <div>
           {{notifications && notifications.length}} Notifications<span *ngIf="unreadNotifications"> ({{unreadNotifications}} unread)</span>
         </div>
@@ -41,7 +41,7 @@
           <div *ngIf="notification.commentId" (click)="goToCommentId(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Comment ID:</strong> {{ notification.commentId }}
           </div>
-          <div *ngIf="notification.userProfileId" (click)="viewProfile(notification.user)" class="usernameProfileLink cursorPointerUnderlined fileId">
+          <div *ngIf="notification.userProfileId" (click)="viewProfile(notification.fromUser)" class="usernameProfileLink cursorPointerUnderlined fileId">
             <strong>Profile ID:</strong> {{ notification.userProfileId }}
           </div>
           <div *ngIf="notification.chatId && notification.fromUser" (click)="goToChat(notification)" class="usernameProfileLink cursorPointerUnderlined fileId">
@@ -58,9 +58,8 @@
     </div>
     <div *ngIf="notifications && notifications.length == 0" class="noNotificationsDiv">
       <div class="noNotificationsWrapperSpan">
-        <div>You don't have any notifications</div>
-        <img style="height: 50px;" src="../../favicon.ico" />
-        <div>Notifications will appear when users interact with you or your content.</div>
+        <div class="popupPanelTitle">You don't have any notifications.</div>
+        <div>Notifications will appear when users interact with you or your content.</div> 
       </div>
       <button
            id="closeOverlay"

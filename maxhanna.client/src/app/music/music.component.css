@@ -1,3 +1,9 @@
+@media only screen and (max-width : 667px) {
+  .componentMain {
+    width: unset !important;
+  }
+}
+
 .iframeDiv {
   width: 100%;
   max-height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
@@ -50,5 +56,5 @@ iframe {
   height: 300px;
 }
 .normalSongList {
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 120px);
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 145px);
 }

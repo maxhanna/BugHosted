@@ -2,8 +2,7 @@
   display: flex;
   flex-direction: column;
   min-height: 300px;
-  min-width: 300px;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+  min-width: 300px; 
 }
 
 .componentTitle {
@@ -61,7 +60,7 @@
 .chatWindow {
   border: 1px solid #ccc;
   padding: 10px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 150px);
+  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 160px);
   overflow: auto;
   margin-bottom: 10px;
 }

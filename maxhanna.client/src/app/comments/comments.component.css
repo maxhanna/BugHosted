@@ -5,7 +5,6 @@
   display: flex;
   justify-content: flex-start;
   padding: 5px;
-  max-height: 300px;
   overflow: auto;
   flex-direction: column;
   flex-wrap: nowrap;
@@ -157,8 +156,7 @@
 }
 
 .popupPanel { 
-  width: 300px;
-  height: 100px;
+  width: 300px; 
 }
 
 .commentActionSection {
@@ -176,4 +174,8 @@
   gap: 20px;
   margin-top: 15px;
   margin-bottom: 20px;
+}
+.replyInputArea {
+  padding-left: 20px;
+  padding-right: 20px;
 }

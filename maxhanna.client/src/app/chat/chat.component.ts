@@ -1,14 +1,14 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { ChatService } from '../../services/chat.service';
-import { Message } from '../../services/datacontracts/chat/message'; 
+import { Message } from '../../services/datacontracts/chat/message';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
-import { NotificationService } from '../../services/notification.service'; 
-import { MediaSelectorComponent } from '../media-selector/media-selector.component'; 
+import { NotificationService } from '../../services/notification.service';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 @Component({
   selector: 'app-chat',
   templateUrl: './chat.component.html',
@@ -76,61 +76,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       } catch (e) {
         console.log("error configuring firebase: ", e);
       }
-    } 
-  }
-   
-  async requestNotificationPermission() {
-    try {
-      const firebaseConfig = {
-        apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
-        authDomain: "bughosted.firebaseapp.com",
-        projectId: "bughosted",
-        storageBucket: "bughosted.firebasestorage.app",
-        messagingSenderId: "288598058428",
-        appId: "1:288598058428:web:a4605e4d8eea73eac137b9",
-        measurementId: "G-MPRXZ6WVE9"
-      };
-      this.app = initializeApp(firebaseConfig);
-      this.messaging = await getMessaging(this.app);
-        
-      onMessage(this.messaging, (payload: any) => {
-        const parent = this.inputtedParentRef ?? this.parentRef;
-        const body = payload.notification.body;
-        const title = payload.notification.title;
-        parent?.showNotification(`${title}: ${body}`);
-      }); 
-
-      console.log('Current Notification Permission:', Notification.permission);
-
-      if (Notification.permission === 'default') {
-        // Ask for permission
-        const permission = await Notification.requestPermission();
-        console.log('User responded with:', permission);
-        if (permission === "granted") {
-          const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
-          console.log('FCM Token:', token);
-          await this.subscribeToNotificationTopic(token); 
-        } else {
-          console.log('Notification permission denied');
-        }
-      } else {
-        console.log('Permission already:', Notification.permission);
-        const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
-        await this.subscribeToNotificationTopic(token);
-      }  
-    } catch (error) {  
-      console.log('Error requesting notification permission:', error); 
     }
-  }
-
-
-  private async subscribeToNotificationTopic(token: string) { 
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent && parent?.user?.id) {
-      this.notificationService.subscribeToTopic(parent.user, token, "notification" + parent.user.id).then(res => {
-        console.log(res);
-      });
-    } 
   }
 
   async ngOnInit() {
@@ -147,7 +93,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       const res = await this.chatService.getChatUsersByChatId(user, this.chatId);
       if (res) {
-        this.selectedUsers = res; 
+        this.selectedUsers = res;
         await this.openChat(this.selectedUsers);
       }
     }
@@ -206,16 +152,28 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       if (res) {
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
+        this.playSoundIfNewMessage(newMessages);
+
         this.chatHistory = [...this.chatHistory, ...newMessages];
         this.pageNumber = res.currentPage;
         if (!this.currentChatId && (res.messages[0] as Message).chatId) {
           this.currentChatId = (res.messages[0] as Message).chatId;
         }
-        this.chatHistory.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); 
+        this.chatHistory.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
         this.scrollToBottomIfNeeded();
       }
     } catch { }
   }
+  private playSoundIfNewMessage(newMessages: Message[]) {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
+    const receivedNewMessages = newMessages.length > 0 && newMessages.some(x => x.sender.id != user.id);
+
+    if (receivedNewMessages) {
+      const notificationSound = new Audio("https://bughosted.com/assets/Uploads/Users/Max/arcade-ui-30-229499.mp4");
+      notificationSound.play().catch(error => console.error("Error playing notification sound:", error));
+    }
+  }
+
   onScroll() {
     if (this.chatWindow) {
       const chatWindow = this.chatWindow.nativeElement;
@@ -243,7 +201,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   async changePage(event: any) {
     this.pageNumber = +event.target.value;
     this.chatHistory = [];
-    await this.getMessageHistory(this.pageNumber, this.pageSize); 
+    await this.getMessageHistory(this.pageNumber, this.pageSize);
   }
   async openChat(users?: User[]) {
     if (!users) { return; }
@@ -282,7 +240,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.pollForMessages();
     }, 410);
     this.togglePanel();
-     
+
     this.stopLoading();
   }
 
@@ -315,9 +273,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     try {
       this.newMessage.nativeElement.value = '';
       const user = this.parentRef?.user ?? new User(0, "Anonymous");
-      await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles); 
-      this.removeAllAttachments();  
-      this.attachedFiles = []; 
+      await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles);
+      this.removeAllAttachments();
+      this.attachedFiles = [];
       await this.getMessageHistory();
       this.notificationService.createNotifications(
         { fromUser: user, toUser: chatUsers.filter(x => x.id != user.id), message: msg, chatId: this.currentChatId }
@@ -325,12 +283,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error(error);
     }
-  } 
+  }
   private removeAllAttachments() {
     this.attachedFiles = [];
     this.attachmentSelector.removeAllFiles();
   }
-   
+
   selectFile(files: FileEntry[]) {
     this.attachedFiles = files;
   }
@@ -364,8 +322,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   getChatUsersWithoutCurrentUser() {
     const parent = this.parentRef ?? this.inputtedParentRef;
     return this.currentChatUsers?.filter(x => x.id != (parent?.user?.id ?? 0));
-  } 
-   
+  }
+
   displayChatMembers() {
     this.isDisplayingChatMembersPanel = true;
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -392,4 +350,59 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.selectedUsers = this.selectedUsers.concat(users);
     this.openGroupChat();
   }
+
+  async requestNotificationPermission() {
+    try {
+      const firebaseConfig = {
+        apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
+        authDomain: "bughosted.firebaseapp.com",
+        projectId: "bughosted",
+        storageBucket: "bughosted.firebasestorage.app",
+        messagingSenderId: "288598058428",
+        appId: "1:288598058428:web:a4605e4d8eea73eac137b9",
+        measurementId: "G-MPRXZ6WVE9"
+      };
+      this.app = initializeApp(firebaseConfig);
+      this.messaging = await getMessaging(this.app);
+
+      onMessage(this.messaging, (payload: any) => {
+        const parent = this.inputtedParentRef ?? this.parentRef;
+        const body = payload.notification.body;
+        const title = payload.notification.title;
+        parent?.showNotification(`${title}: ${body}`);
+      });
+
+      console.log('Current Notification Permission:', Notification.permission);
+
+      if (Notification.permission === 'default') {
+        // Ask for permission
+        const permission = await Notification.requestPermission();
+        console.log('User responded with:', permission);
+        if (permission === "granted") {
+          const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
+          console.log('FCM Token:', token);
+          await this.subscribeToNotificationTopic(token);
+        } else {
+          console.log('Notification permission denied');
+        }
+      } else {
+        console.log('Permission already:', Notification.permission);
+        const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
+        await this.subscribeToNotificationTopic(token);
+      }
+    } catch (error) {
+      console.log('Error requesting notification permission:', error);
+    }
+  }
+
+
+  private async subscribeToNotificationTopic(token: string) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent && parent?.user?.id) {
+      this.notificationService.subscribeToTopic(parent.user, token, "notification" + parent.user.id).then(res => {
+        console.log(res);
+      });
+    }
+  }
+
 }

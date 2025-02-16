@@ -5,10 +5,12 @@ using maxhanna.Server.Controllers.DataContracts.Metadata;
 using maxhanna.Server.Controllers.DataContracts.Social;
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
-using Microsoft.AspNetCore.Mvc; 
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Primitives;
 using MySqlConnector;
 using System.Data;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Web;
 using System.Xml.Linq; 
 
@@ -61,7 +63,15 @@ namespace maxhanna.Server.Controllers
 
 			if (!string.IsNullOrEmpty(search))
 			{
-				whereClause.Append("AND (s.story_text LIKE CONCAT('%', @searchTerm, '%')) ");
+				whereClause.Append(
+					@"
+						AND (
+							MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
+							OR s.city LIKE CONCAT('%', @searchTerm, '%')
+							OR s.country LIKE CONCAT('%', @searchTerm, '%')
+							OR u.username LIKE CONCAT('%', @searchTerm, '%')
+						)"
+				);
 				parameters.Add("@searchTerm", search);
 			}
 			if (!string.IsNullOrEmpty(topics))
@@ -99,6 +109,8 @@ namespace maxhanna.Server.Controllers
             COUNT(*) AS total_count
         FROM 
             stories AS s 
+        JOIN 
+            users AS u ON s.user_id = u.id  
         LEFT JOIN
             story_topics AS st ON s.id = st.story_id
         LEFT JOIN
@@ -209,12 +221,12 @@ namespace maxhanna.Server.Controllers
 								City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
 								Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
 								CommentsCount = rdr.GetInt32("comments_count"),
-								Metadata = new MetadataDto
+								Metadata = [new Metadata
 								{
 									Title = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title"),
 									Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description"),
 									ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
-								},
+								}],
 								StoryFiles = new List<FileEntry>(),
 								StoryComments = new List<FileComment>(),
 								StoryTopics = new List<Topic>(),
@@ -740,7 +752,7 @@ namespace maxhanna.Server.Controllers
 							if (url != null)
 							{
 								// Fetch metadata
-								var metadataRequest = new MetadataRequest { User = request.user, Url = url };
+								var metadataRequest = new MetadataRequest { User = request.user, Url = url[0] };
 								var metadataResponse = GetMetadata(metadataRequest, storyId);
 							}
 
@@ -927,7 +939,7 @@ namespace maxhanna.Server.Controllers
 			}
 			return Ok();
 		}
-		private async Task<string> InsertMetadata(int storyId, MetadataDto metadata)
+		private async Task<string> InsertMetadata(int storyId, Metadata metadata)
 		{
 			string sql = @"INSERT INTO story_metadata (story_id, title, description, image_url) VALUES (@storyId, @title, @description, @imageUrl);";
 			try
@@ -954,22 +966,24 @@ namespace maxhanna.Server.Controllers
 			}
 			return "Inserted metadata";
 
-		}
-
-		private static string? ExtractUrl(string? text)
+		} 
+		private static string[] ExtractUrl(string? text)
 		{
 			if (string.IsNullOrEmpty(text))
 			{
-				return "";
+				return Array.Empty<string>(); // Return an empty array if the text is null or empty
 			}
+
 			// Regular expression pattern to match URLs
 			string urlPattern = @"(https?:\/\/[^\s]+)";
 
 			// Match URLs in the text
 			var matches = System.Text.RegularExpressions.Regex.Matches(text, urlPattern);
 
-			// Return the first match if found, otherwise return null
-			return matches.Count > 0 ? matches[0].Value : null;
+			// Convert the MatchCollection to a string array
+			return matches.Cast<Match>()
+										.Select(m => m.Value)
+										.ToArray();
 		}
 
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
@@ -1059,7 +1073,7 @@ namespace maxhanna.Server.Controllers
 				_sitemapLock.Release();
 			}
 		}
-		private async Task<MetadataDto> FetchMetadataAsync(string url)
+		private async Task<Metadata> FetchMetadataAsync(string url)
 		{
 			var httpClient = new HttpClient();
 			var response = await httpClient.GetAsync(url);
@@ -1067,7 +1081,7 @@ namespace maxhanna.Server.Controllers
 
 			var htmlDocument = new HtmlDocument();
 			htmlDocument.LoadHtml(html);
-			var metadata = new MetadataDto();
+			var metadata = new Metadata();
 			_logger.LogInformation($"Got HTML for {url}.");
 
 			// Extract metadata from HTML document

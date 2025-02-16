@@ -1,6 +1,6 @@
 namespace maxhanna.Server.Controllers.DataContracts.Metadata
 {
-    public class MetadataDto
+    public class Metadata
     {
         public string? Title { get; set; }
         public string? Description { get; set; }

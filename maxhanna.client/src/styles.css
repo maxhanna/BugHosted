@@ -1,5 +1,6 @@
 /* You can add global styles to this file, and also import other style files */
 :root {
+  --main-font-size: 16px;
   --main-bg-color: #0e0e0e;
   --main-bg-color-quarter-opacity: #202020;
   --main-highlight-color: #3a3a3a;
@@ -24,7 +25,7 @@
   --nexus-gamescreen-width: 350px;
 }
 
- 
+
 /* prevent pull-to-refresh for Safari 16+ */
 @media screen and (pointer: coarse) {
   @supports (-webkit-backdrop-filter: blur(1px)) and (overscroll-behavior-y: none) {
@@ -33,17 +34,19 @@
       overscroll-behavior-y: none;
     }
   }
-} 
+}
+
 html {
-  height: 100%; 
+  height: 100%;
 }
 
 body {
   margin: 0px;
-  max-height: 100%; 
-  -webkit-overflow-scrolling: auto !important; 
+  max-height: 100%;
+  -webkit-overflow-scrolling: auto !important;
   overscroll-behavior-y: none;
   font-family: var(--main-font-family), Arial;
+  font-size: var(--main-font-size);
   background-color: var(--main-bg-color);
   color: var(--main-font-color);
   margin: 0;
@@ -71,11 +74,12 @@ a {
   a:active {
     color: var(--secondary-font-color);
   }
+
   a:hover {
     border-radius: 5px;
     border-bottom: 1px dotted var(--main-font-color);
   }
- 
+
 legend {
   border: var(--main-border);
   text-align: center;
@@ -84,12 +88,13 @@ legend {
 fieldset {
   text-align: center;
   border: var(--main-border);
-} 
+}
 
 .componentMain {
+  max-height: CALC(CALC(var(--vh, 1vh)* 100) - 60px);
   background-color: var(--main-bg-color-quarter-opacity);
   position: relative;
-  padding-top: 35px;
+  padding-top: 55px;
   border: var(--main-border);
   border-radius: 5px;
   transition: transform 0.8s ease;
@@ -100,19 +105,21 @@ fieldset {
   .componentMain {
     width: 99vw !important;
   }
-} 
+}
+
 .refreshButton::before, .closeButton::before, .menuButton::before {
   position: absolute;
   top: 0px;
-  width: 25px;
-  height: 25px;
-  font-size: 12px;
-  line-height: 25px;
+  width: 50px;
+  height: 46px;
+  font-size: 35px;
+  line-height: 50px;
   z-index: 1;
-  border: 2px outset black;
+  border: 2px groove black;
   text-align: center;
   padding-left: 0px;
   border-radius: 3px;
+  cursor: pointer;
 }
 
 .refreshButton:active::before,
@@ -122,11 +129,11 @@ fieldset {
 }
 
 .refreshButton::before {
-  content: '🔄'; 
+  content: '🔄';
 }
+
 .menuButton::before {
-  content: '☰';
-  font-size: 16px !important;
+  content: '☰'; 
 }
 
 .refreshButton::before, .menuButton::before {
@@ -145,15 +152,15 @@ fieldset {
   width: 100%;
   text-align: center;
   font-size: 25px;
-  line-height: 29px;
+  line-height: 50px;
   top: 0px;
   display: block;
-  box-shadow: 0px 2px 2px black; 
+  box-shadow: 0px 2px 2px black;
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   background-color: var(--main-highlight-color);
 }
 
-.mainTableDiv { 
+.mainTableDiv {
   overflow-y: auto;
 }
 
@@ -179,16 +186,17 @@ fieldset {
 @media only screen and (max-device-width:800px) {
 
   .componentMain {
-      max-width: 100%;
+    max-width: 100%;
   }
-  .mainTableDiv { 
+
+  .mainTableDiv {
     overflow-x: auto;
   }
 
   .media {
     max-width: unset !important;
   }
-   
+
 
   .mainTable td {
     max-width: 100px !important;
@@ -372,7 +380,7 @@ fieldset {
 .usernameProfileLink {
   text-decoration-color: var(--secondary-font-color);
   text-shadow: 0.1px 0.1px var(--third-font-color);
-  font-weight:100;
+  font-weight: 100;
 }
 
 .smallExpander {
@@ -402,7 +410,7 @@ fieldset {
 
 .avatar {
   max-width: 50px;
-  max-height: 50px;  
+  max-height: 50px;
 }
 
 .largeAvatar {
@@ -425,7 +433,7 @@ fieldset {
 
 
 .avatarBust {
-  font-size: 40px; 
+  font-size: 40px;
 }
 
 .italics {
@@ -443,6 +451,7 @@ fieldset {
 .capitalize {
   text-transform: capitalize;
 }
+
 .invertedHighlights {
   color: var(--secondary-font-color);
   text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
@@ -450,9 +459,10 @@ fieldset {
 
 .redText {
   color: red;
-} 
+}
+
 .greyText {
-    color:grey;
+  color: grey;
 }
 
 .mainInfoSection {
@@ -471,6 +481,7 @@ fieldset {
 .glowing {
   animation: glow 1.5s infinite alternate;
 }
+
 @keyframes glow {
   0% {
     text-shadow: 0 0 0px var(--secondary-font-color), 0 0 5px var(--secondary-font-color), 0 0 6px var(--secondary-font-color), 0 0 7px var(--secondary-font-color), 0 0 8px var(--secondary-font-color);
@@ -497,6 +508,7 @@ fieldset {
   align-content: center;
   justify-content: space-evenly;
   align-items: center;
+  cursor: default;
 }
 
 @media only screen and (max-width : 667px) {
@@ -504,11 +516,11 @@ fieldset {
     width: 99vw;
     max-height: CALC(var(--vh, 1vh) * 99);
   }
-} 
+}
 
 .popupPanelTitle {
   font-family: var(--section-font-family);
-  font-size: larger;
+  font-size: x-large;
 }
 
 .matchingTopic {
@@ -531,7 +543,7 @@ fieldset {
   flex-wrap: nowrap;
   width: 100%;
   height: 300px;
-  overflow: auto; 
+  overflow: auto;
 }
 
 .optionsStatsDiv {
@@ -540,9 +552,9 @@ fieldset {
   border-bottom: 1px dotted var(--main-font-color);
 }
 
-.optionsStatsDiv:hover { 
-  border-bottom: 1px solid var(--main-link-color);
-}
+  .optionsStatsDiv:hover {
+    border-bottom: 1px solid var(--main-link-color);
+  }
 
 .optionsStatsHeader {
   min-width: 125px;
@@ -564,4 +576,32 @@ fieldset {
 
 .popupPanel button, .popupPanel a {
   cursor: pointer;
+}
+
+.topNotificationCounterDiv {
+  position: absolute;
+  right: 55px;
+  top: 8px;
+  width: 40px;
+  font-size: 25px;
+  text-shadow: 1px 1px var(--main-link-color);
+}
+
+.topSearchButtonDiv {
+  cursor: pointer;
+  position: absolute;
+  right: 100px;
+  top: 15px;
+  width: 40px;
+  font-size: 25px;
+  line-height: 22px;
+  text-shadow: 1px 1px var(--main-link-color);
+}
+
+.hiddenInput {
+  width: 0px;
+  height: 0px;
+  position: absolute;
+  top: 99vh;
+  right: 99vw;
 }

@@ -176,7 +176,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
             this.scrollToFile(this.fileId!);
           }
 
-          if (this.currentDirectory !== "Meme/" && this.directory && this.directory.data) {
+          if (this.currentDirectory.toLowerCase() !== "meme/"
+            && this.currentDirectory.toLowerCase() !== "roms/"
+            && this.directory && this.directory.data)
+          {
             this.directory.data.sort((a, b) => {
               if (a.isFolder !== b.isFolder) {
                 return a.isFolder ? -1 : 1;
@@ -276,15 +279,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
 
     const res = await this.fileService.updateFileData(this.user, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
-    if (document.getElementById("fileIdName" + fileId) != null) {
-      document.getElementById("fileIdName" + fileId)!.innerText = text;
-    }
     if (res) {
       this.userNotificationEvent.emit(res);
       this.isEditing = this.isEditing.filter(x => x != fileId);
     }
+    setTimeout(() => {
+      if (document.getElementById("fileIdName" + fileId) != null) {
+        document.getElementById("fileIdName" + fileId)!.innerText = text;
+      }
+    }, 100);
   }
-  async startEditing(fileId: number) {
+  async startEditingFileName(fileId: number) {
     const parent = document.getElementById("fileIdDiv" + fileId)!;
     const text = parent.getElementsByTagName("input")[0].value!;
     this.closeOptionsPanel();
@@ -293,6 +298,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       this.isEditing = this.isEditing.filter(x => x != fileId);
       return;
     }
+
+    this.showCommentsInOpenedFiles = [];
 
     if (!this.isEditing.includes(fileId)) {
       this.isEditing.push(fileId);

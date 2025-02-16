@@ -41,6 +41,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   private pollingInterval: any;
 
   ngOnInit() {
+    if (this.inputtedParentRef && !this.parentRef) { 
+      this.parentRef = this.inputtedParentRef;
+    }
     this.getNotifications();
     this.startPolling();
   }
@@ -170,6 +173,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     } else if (notification.chatId) {
       this.goToChat(notification);
     } else if (notification?.text?.toLowerCase().includes("following")) {
+      this.viewProfile(notification.fromUser);
+    } else if (notification?.text?.toLowerCase().includes("friend request")) {
       this.viewProfile(notification.fromUser);
     }
   }

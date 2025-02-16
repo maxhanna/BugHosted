@@ -4,13 +4,13 @@
       Mining Rigs:
     </div>
     <div class="currentProfitabilityDiv">
-      <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? formatToCanadianCurrency(rate * localProfitability) + " CAD" : localProfitability + " BTC"}}</span></label>
-      <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? formatToCanadianCurrency(rate * actualProfitability) + " CAD" : actualProfitability + " BTC"}}</span></label>
+      <label *ngIf="showLocal" (click)="showLocal = !showLocal">Local Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? formatToCanadianCurrency(rate * localProfitability) + " " + currency : localProfitability + " BTC"}}</span></label>
+      <label *ngIf="!showLocal" (click)="showLocal = !showLocal">Actual Profitability: <span class="currentProfitabilitySpan">{{ rate != 1 ? formatToCanadianCurrency(rate * actualProfitability) + " " + currency : actualProfitability + " BTC"}}</span></label>
     </div>
     <div (click)="toggleShowAllData()" class="totalDailyEarningsDiv">
-      <span class="cursorPointer"> 
-        Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? formatToCanadianCurrency(rate * dailyEarnings[0].totalEarnings!) + " CAD" : dailyEarnings[0].totalEarnings + " BTC") : '' }}
- 
+      <span class="cursorPointer">
+        Yesterday's {{ dailyEarnings[0] ? '(' + dailyEarnings[0].date.toString().split("T")[0] + ')' : '' }} Total Earnings: {{ dailyEarnings[0] ? (rate != 1 ? formatToCanadianCurrency(rate * dailyEarnings[0].totalEarnings!) + " " + currency : dailyEarnings[0].totalEarnings + " BTC") : '' }}
+
       </span>
       <div class="cursorPointer">
         Total Weekly Earnings: {{ calculateWeeklyEarnings() }} | Daily Average: {{ calculateAverageDailyEarnings() }}
@@ -27,7 +27,7 @@
           <tbody>
             <tr *ngFor="let earnings of dailyEarnings">
               <td>{{ earnings.date | date }}</td>
-              <td>{{ rate != 1 ? formatToCanadianCurrency(rate * earnings.totalEarnings) + ' CAD' : earnings.totalEarnings + 'BTC'  }}</td>
+              <td>{{ rate != 1 ? formatToCanadianCurrency(rate * earnings.totalEarnings) + ' ' + currency : earnings.totalEarnings + 'BTC'  }}</td>
             </tr>
           </tbody>
         </table>
@@ -41,8 +41,8 @@
           <th (click)="sortTable(0, 'miningRigTable')">Rig</th>
           <th title="Hottest Device Temperature">°C</th>
           <th (click)="sortTable(1, 'miningRigTable')">State</th>
-          <th (click)="sortTable(3, 'miningRigTable')" title="Local Profitability" *ngIf="showLocal">{{rate != 1 ? "CAD$" : "BTC"}}</th>
-          <th (click)="sortTable(3, 'miningRigTable')" title="Actual Profitability" *ngIf="!showLocal">{{rate != 1 ? "CAD$" : "BTC"}}</th>
+          <th (click)="sortTable(3, 'miningRigTable')" title="Local Profitability" *ngIf="showLocal">{{rate != 1 ? currency + "$" : "BTC"}}</th>
+          <th (click)="sortTable(3, 'miningRigTable')" title="Actual Profitability" *ngIf="!showLocal">{{rate != 1 ? currency + "$" : "BTC"}}</th>
           <th (click)="sortTable(2, 'miningRigTable')" title="Unpaid Amount">Unpaid</th>
           <th (click)="sortTable(3, 'miningRigTable')" title="Speed Rejected">Rejected</th>
           <th (click)="sortTable(4, 'miningRigTable')" title="Devices">Devices</th>
@@ -78,7 +78,7 @@
           <th (click)="sortTable(3, 'deviceRigTable')" title="Sort by State">State</th>
           <th (click)="sortTable(4, 'deviceRigTable')" title="Sort by Speed">Speed</th>
           <th (click)="sortTable(5, 'deviceRigTable')" title="Sort by Fan Speed">Fan</th>
-          <th (click)="sortTable(6, 'deviceRigTable')" title="Sort by Power">Power</th>
+          <th (click)="sortTable(6, 'deviceRigTable')" title="Sort by Power (Watts)">Power</th>
           <!--<th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Core Clock">Core-C</th>
           <th (click)="sortTable(8, 'deviceRigTable')" title="Sort by Memory Clock">Mem-C</th>
           <th (click)="sortTable(9, 'deviceRigTable')" title="Sort by Core Voltage">C-Volt</th>
@@ -90,20 +90,19 @@
       </thead>
       <tbody>
         <tr *ngFor="let device of miningRigDevices">
-          <td>{{ device.deviceName?.replace('NVIDIA GeForce', '')?.replace('CPU @', '') }}</td>
-          <td [style]="device.temperature! >= 70 ? 'color:red;' : device.temperature! >= 68 ? 'color:yellow;' : ''">{{ device.temperature }}</td>
-          <td [style]="device.state == 1 || device.state == -1 ? 'color:red;' : device.state == 4 ? 'color:gray;' : ''">{{ device.state == 1 || device.state == -1 ? 'Offline' : device.state == 2 ? "Mining" : device.state == 3 ? "Benchmarking" : device.state == 4 ? 'Disabled' : device.state}}</td>
-          <td>{{ formatSpeed(device.speed) }}</td>
-          <td>{{ device.fanSpeed }}</td>
-          ow
-          <td>{{ device.power }}</td>
+          <td title="Device Name: {{device.deviceName}}">{{ device.deviceName?.replace('NVIDIA GeForce', '')?.replace('CPU @', '') }}</td>
+          <td title="Device Temperature: {{device.temperature}} °C." [style]="device.temperature! >= 70 ? 'color:red;' : device.temperature! >= 68 ? 'color:yellow;' : ''">{{ device.temperature }}</td>
+          <td title="Device State: {{device.state}}" [style]="device.state == 1 || device.state == -1 ? 'color:red;' : device.state == 4 ? 'color:gray;' : ''">{{ device.state == 1 || device.state == -1 ? 'Offline' : device.state == 2 ? "Mining" : device.state == 3 ? "Benchmarking" : device.state == 4 ? 'Disabled' : device.state}}</td>
+          <td title="Mining speed: {{device.speed}}">{{ formatSpeed(device.speed) }}</td>
+          <td title="Fan Speed: {{device.fanSpeed}}">{{ device.fanSpeed }}</td> 
+          <td title="Power in Watts: {{device.power}}">{{ device.power }}</td>
 
           <!--<td>{{ device.coreClock }}</td>
           <td>{{ device.memoryClock }}</td>
           <td>{{ device.coreVoltage }}</td>
           <td>{{ device.powerLimitPercentage }}</td>
           <td>{{ device.powerLimitWatts }}</td>-->
-          <td>{{ device.miner }}</td>
+          <td title="Miner: {{device.miner}}">{{ device.miner }}</td>
           <td (click)="requestDeviceStateChange(device)">
             <div [title]="isDeviceOffline(device.state!) ? 'Start' : isDeviceDisabled(device.state!) ? 'Start' : 'Stop'" class="stateControllerButton {{ isDeviceOffline(device.state!) ? 'stopped' : isDeviceDisabled(device.state!) ? 'disabled' : 'started' }}"></div>
           </td>

@@ -296,6 +296,7 @@
     <None Include="src\services\datacontracts\calendar\calendar-entry.ts" />
     <None Include="src\services\datacontracts\chat\chat-notification.ts" />
     <None Include="src\services\datacontracts\chat\message.ts" />
+    <None Include="src\services\datacontracts\crypto\exchange-rate.ts" />
     <None Include="src\services\datacontracts\crypto\coin-value.ts" />
     <None Include="src\services\datacontracts\crypto\daily-mining-earnings.ts" />
     <None Include="src\services\datacontracts\crypto\mining-rig-device.ts" />

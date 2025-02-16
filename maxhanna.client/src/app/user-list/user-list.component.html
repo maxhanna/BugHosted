@@ -35,8 +35,8 @@
     <input type="radio" name="userFilter" value="all" (change)="filterUsers()" #allUsersRadio [checked]="!displayOnlyFriends" />
     Show All Users
   </label>
-  <span (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen">🔍</span>
-  <span (click)="userClickEvent.emit()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch && !isSearchPanelOpen">❌</span>
+  <button (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen">🔍Search</button>
+  <button (click)="userClickEvent.emit()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch && !isSearchPanelOpen">❌Cancel</button>
 </div>
 <div class="searchResults">
   <div class="prevChatMessages" *ngIf="!searchOnly">

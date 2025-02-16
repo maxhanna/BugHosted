@@ -18,7 +18,7 @@ export class FriendService {
 
       return await response.json();
     } catch (error) {
-      console.error(error);
+      console.log(error);
       return `Error occured while getting friend requests: ${error}`;
     }
   }
@@ -36,7 +36,7 @@ export class FriendService {
 
       return await response.json();
     } catch (error) {
-      console.error(error);
+      console.log(error as string);
       return `Error occured while getting friends: ${error}`;
     }
   }
@@ -53,7 +53,7 @@ export class FriendService {
 
       return await response.text();
     } catch (error) {
-      console.error(error);
+      console.log(error);
       return `Error occured while sending friend request: ${error}`;
     }
   }
@@ -70,7 +70,7 @@ export class FriendService {
 
       return await response.text();
     } catch (error) {
-      console.error(error);
+      console.log(error);
       return `Error occured while accepting friend request: ${error}`;
     }
   }
@@ -87,7 +87,7 @@ export class FriendService {
 
       return await response.text();
     } catch (error) {
-      console.error(error);
+      console.log(error);
       return `Error occured while rejecting friend request: ${error}`;
     }
   }
@@ -104,7 +104,7 @@ export class FriendService {
 
       return await response.text();
     } catch (error) {
-      console.error(error);
+      console.log(error);
       return `Error occured while rejecting friend request: ${error}`;
     }
   }
@@ -121,7 +121,7 @@ export class FriendService {
 
       return await response.text();
     } catch (error) {
-      console.error(error);
+      console.log(error);
       return `Error occured while removing friend: ${error}`;
     }
   }

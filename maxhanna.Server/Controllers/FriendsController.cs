@@ -82,8 +82,8 @@ namespace maxhanna.Server.Controllers
 							var friend = new User
 							{
 								Id = reader.GetInt32("id"),
-								Username = reader.GetString("username"),
-								DisplayPictureFile = new DataContracts.Files.FileEntry(reader.GetInt32("display_picture_file_id"))
+								Username = reader.GetString("username"), 
+								DisplayPictureFile = reader.IsDBNull("display_picture_file_id") ? null : new FileEntry(reader.GetInt32("display_picture_file_id"))
 							};
 							friends.Add(friend);
 						}

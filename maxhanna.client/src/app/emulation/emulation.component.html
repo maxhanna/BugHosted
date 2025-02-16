@@ -1,4 +1,4 @@
-<div class="componentMain">
+<div [class]="!selectedRomName ? 'componentMain' : ''">
   <div class="closeButton" (click)="ngOnDestroy(); remove_me('GbcComponent');"></div>
   <!--<div class="refreshButton" (click)="ngAfterViewInit();"></div>-->
   <div class="componentTitle">Emulation</div>
@@ -9,6 +9,7 @@
                      [clearAfterSelectFile]="true"
                      [allowedFileTypes]="getAllowedFileTypes()"
                      [showPrivatePublicOption]="false"
+                     [showFileSearchOptions]="false"
                      [canChangeDirectory]="false"
                      [canDragMove]="false"
                      [displayFileActions]="false"

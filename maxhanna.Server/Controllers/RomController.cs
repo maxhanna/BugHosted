@@ -140,7 +140,7 @@ namespace maxhanna.Server.Controllers
 		{
 			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/");
 			_logger.LogInformation($"POST /File/GetRomFile/{filePath}");
-
+			string fileName = Path.GetFileName(filePath);
 			if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
 			try
@@ -150,7 +150,6 @@ namespace maxhanna.Server.Controllers
 					_logger.LogError($"File path is missing.");
 					return BadRequest("File path is missing.");
 				}
-
 				if (user != null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
 				{
 					string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
@@ -176,12 +175,29 @@ namespace maxhanna.Server.Controllers
 				var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 				string contentType = "application/octet-stream";
 
+				updateLastAccessForRom(fileName);
 				return File(fileStream, contentType, Path.GetFileName(filePath));
 			}
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "An error occurred while streaming the file.");
 				return StatusCode(500, "An error occurred while streaming the file.");
+			}
+		}
+
+		private async void updateLastAccessForRom(string fileName)
+		{ 
+			Console.WriteLine("Updating last_access data for: " + fileName);
+
+			using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				await connection.OpenAsync();
+
+				string sql = "UPDATE maxhanna.file_uploads SET last_access = NOW() WHERE file_name = @File_Name LIMIT 1;";
+				var command = new MySqlCommand(sql, connection);
+				command.Parameters.AddWithValue("@File_Name", fileName); 
+
+				await command.ExecuteNonQueryAsync(); 
 			}
 		}
 	}

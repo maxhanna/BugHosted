@@ -1,15 +1,15 @@
 .componentMain {
   width: 98vw;
-/*  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);*/
+  /*  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);*/
   display: flex;
   flex-direction: column;
 }
 
 .socialComponentContents {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+  max-height: 100%;
   overflow: auto;
 }
- 
+
 .inputDiv {
   margin-left: auto;
   margin-right: auto;
@@ -155,6 +155,7 @@ singleAttachment {
   max-width: 100%;
   max-height: 525px;
 }
+
 .multipleAttachments {
   max-width: 225px;
   max-height: 525px;
@@ -184,13 +185,13 @@ singleAttachment {
 
 .storyOptionsPopupButtons {
   display: flex;
-  justify-content: space-evenly; 
+  justify-content: space-evenly;
   align-items: center;
   align-content: center;
   flex-direction: row;
   padding: 20px;
   gap: 20px;
-} 
+}
 
 .createdByStoryOptionsDiv {
   width: 100%;
@@ -302,7 +303,7 @@ singleAttachment {
 }
 
   .storyTextContainer.collapsed {
-    max-height: 100px;
+    max-height: 400px;
     text-overflow: ellipsis;
     overflow: hidden;
     box-shadow: 0px 30px 33px -33px rgb(255 255 255 / 80%);
@@ -337,16 +338,21 @@ singleAttachment {
 
 .topPagination {
   position: fixed;
-  top: 7px;
-  left: CALC(35px + 2vw);
+  top: CALC(50px - 36px);
+  left: CALC(50px + 2vw);
 }
+  .topPagination select {
+    width: 50px;
+    height: 30px;
+  }
 
 .mainTableDiv {
   border: var(--main-border);
 }
+
 .storyContainerWrapper {
   overflow: auto;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 130px);
+  max-height: 100%;
 }
 
 .storyHeader {
@@ -379,24 +385,6 @@ singleAttachment {
   display: inline-block;
   width: 100%;
 }
-
-.notificationCounterDiv {
-  position: absolute;
-  right: 35px;
-  top: 4px;
-  width: 40px;
-}
-
-.searchSocialsButtonDiv {
-  cursor: pointer;
-  position: absolute;
-  right: 85px;
-  top: 4px;
-  width: 40px;
-  font-size: 22px;
-  line-height: 22px;
-}
-
 .topicDiv {
   text-align: center;
 }
@@ -560,7 +548,7 @@ singleAttachment {
     left: 53%;
     position: absolute;
     width: 0;
-  } 
+  }
 
 .loadMoreResultsDiv {
   width: 100%;
@@ -569,11 +557,13 @@ singleAttachment {
   align-content: center;
   padding: 20px;
 }
-.loadMoreResultsDiv button {
-  font-size: 30px;
-  font-family: var(--title-font-family);
-}
+
+  .loadMoreResultsDiv button {
+    font-size: 30px;
+    font-family: var(--title-font-family);
+  }
+
 .searchSocialsPanelContentDiv {
   margin-top: 15px;
   margin-bottom: 20px;
-}
+} 

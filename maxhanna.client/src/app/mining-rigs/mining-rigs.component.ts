@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';  
  import { MiningService } from '../../services/mining.service';
 import { CoinValueService } from '../../services/coin-value.service'; 
@@ -13,8 +13,10 @@ import { AppComponent } from '../app.component';
   templateUrl: './mining-rigs.component.html',
   styleUrl: './mining-rigs.component.css'
 })
-export class MiningRigsComponent extends ChildComponent { 
+export class MiningRigsComponent extends ChildComponent implements OnChanges { 
   @Input() inputtedParentRef?: AppComponent;
+  @Input() conversionRate? = 0;
+  @Input() currency? = "CAD"; 
   @Output() closeMiningEvent = new EventEmitter<void>();
   miningRigs: Array<MiningRig> = [];
   dailyEarnings: Array<DailyMiningEarnings> = [];
@@ -36,7 +38,12 @@ export class MiningRigsComponent extends ChildComponent {
     this.getMiningInfo();
     this.getBTCRate();
     this.getDailyEarnings();
-  } 
+  }
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['conversionRate'] && !changes['conversionRate'].firstChange) {
+      this.ngOnInit();
+    }
+  }
   async getMiningInfo() {
     if (this.inputtedParentRef?.user) { 
       this.startLoading();
@@ -107,6 +114,9 @@ export class MiningRigsComponent extends ChildComponent {
     const data = await this.coinValueService.getLatestCoinValuesByName("Bitcoin") as CoinValue;
     this.stopLoading();
     this.rate = data.valueCAD;
+    if (this.conversionRate) {
+      this.rate = this.rate * this.conversionRate;
+    }
   }
   
   toggleShowAllData() {
@@ -136,7 +146,7 @@ export class MiningRigsComponent extends ChildComponent {
         break;
       }
     }
-    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * totalWeeklyEarnings) + ' CAD' : totalWeeklyEarnings + ' BTC';
+    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * totalWeeklyEarnings) + ' ' + this.currency : totalWeeklyEarnings + ' BTC';
   }
   calculateAverageDailyEarnings(): string {
     let totalDailyEarnings = 0;
@@ -144,7 +154,7 @@ export class MiningRigsComponent extends ChildComponent {
       totalDailyEarnings += earnings.totalEarnings;
     }
     const averageDailyEarnings = totalDailyEarnings / this.dailyEarnings.length;
-    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * averageDailyEarnings) + ' CAD' : averageDailyEarnings + ' BTC';
+    return this.rate != 1 ? this.formatToCanadianCurrency(this.rate * averageDailyEarnings) + ' ' + this.currency : averageDailyEarnings + ' BTC';
   }
   toggleDeviceDataVisibility(rig: MiningRig): void {
     if (this.miningRigDevices && this.miningRigDevices == rig.devices) {

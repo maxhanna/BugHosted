@@ -27,6 +27,7 @@ export class FileService {
     "drf", "eip", "erf", "fff", "iiq", "k25", "kdc", "mdc", "mos", "mrw", "nrw", "obm", "orf", "pef",
     "ptx", "r3d", "raf", "raw", "rwl", "rw2", "sr2", "srf", "srw", "x3f"
   ];
+  romFileExtensions = ["sgx", "vb", "ws", "wsc", "gba", "gbc", "gb", "gen", "md", "smd", "32x", "sms", "gg", "nes", "fds", "sfc", "smc", "snes", "nds"];
 
   async getDirectory(dir: string, visibility: string, ownership: string, user?: User, page?: number, pageSize?: number, search?: string, fileId?: number, fileType?: Array<string>) {
     const params = new URLSearchParams(

@@ -147,3 +147,7 @@
   text-overflow: ellipsis;
   overflow: hidden;
 }
+.selectedCurrencyDropdownWrapper {
+  display: flex;
+  white-space: nowrap;
+}

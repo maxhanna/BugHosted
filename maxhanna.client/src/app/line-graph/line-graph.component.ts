@@ -2,6 +2,7 @@ import { Component, ElementRef, Input, OnChanges, OnInit, ViewChild } from '@ang
  import { CommonModule } from '@angular/common';
 import { BaseChartDirective } from 'ng2-charts'; 
 import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
+import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 
 @Component({
   standalone: true,
@@ -11,10 +12,12 @@ import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
   imports: [BaseChartDirective, CommonModule]
 })
 export class LineGraphComponent implements OnInit, OnChanges {
-  @Input() data: CoinValue[] = [];
+  @Input() data: any[] = [];
   @Input() selectedCoin: string = '';
+  @Input() selectedCurrency?: string = undefined;
   @Input() displayCoinSwitcher: boolean = true;
   @Input() graphTitle: string = '';
+  @Input() type: "Crypto" | "Currency" = "Crypto";
   selectedPeriod: string = '1d'; 
   lineChartData: any[] = [];
   lineChartLabels: any[] = [];
@@ -27,7 +30,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @ViewChild('periodSelect') periodSelect!: ElementRef<HTMLSelectElement>;
 
   ngOnInit() {
-    this.updateGraph(this.data);
+    this.updateGraph(this.data); 
   }
 
   ngOnChanges() { 
@@ -38,8 +41,13 @@ export class LineGraphComponent implements OnInit, OnChanges {
   getUniqueCoinNames(): string[] {
     const uniqueCoinNamesSet = new Set<string>();
     this.data.forEach(item => {
-      if (item.name != "Bitcoin") {
-        uniqueCoinNamesSet.add(item.name)
+      if (this.type == "Crypto") {
+        if (item.name != "Bitcoin") {
+          uniqueCoinNamesSet.add(item.name)
+        }
+      } else if (this.type == "Currency") {
+        const name = (item as ExchangeRate).targetCurrency;
+        uniqueCoinNamesSet.add(name);
       }
     });
     return Array.from(uniqueCoinNamesSet);
@@ -60,9 +68,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
     this.updateGraph(this.data);
   }
 
-  updateGraph(data: CoinValue[]) {
+  updateGraph(data: any[]) {
     this.data = data;
-    let filteredData: CoinValue[] = []; 
+    let filteredData: any[] = []; 
     if (this.selectedCoin !== '') {
       filteredData = this.filterDataByPeriodAndCoin(this.selectedPeriod, this.selectedCoin);
     } else {
@@ -74,22 +82,45 @@ export class LineGraphComponent implements OnInit, OnChanges {
     const chartLabelsSet = new Set<string>();
 
     // Get unique coin names from the filtered data
-    const uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.name)));
- 
-    // Create datasets for each unique coin
-    uniqueCoinNames.forEach(coinName => {
-      const coinFilteredData = filteredData.filter(item => item.name === coinName);
-      datasets.push({
-        data: coinFilteredData.map(item => item.valueCAD),
-        label: `${coinName} Fluctuation (CAD$)`,
-        borderJoinStyle: "round",
-        tension: 0.2,
-        cubicInterpolationMode: 'monotone',
-      });
+    let uniqueCoinNames = undefined;
+    if (this.type == "Crypto") {
+      uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.name)))
+    } else if (this.type == "Currency") {
+      uniqueCoinNames = Array.from(new Set(filteredData.map(item => item.targetCurrency))) 
+    }
 
-      // Add unique timestamps to chartLabelsSet
-      coinFilteredData.forEach(item => chartLabelsSet.add(item.timestamp.replace('T', ' ').replace('-','.')));
-    });
+    if (uniqueCoinNames) {
+      if (this.type == "Crypto") {
+        uniqueCoinNames.forEach(coinName => {
+          const coinFilteredData = filteredData.filter(item => item.name === coinName);
+          datasets.push({
+            data: coinFilteredData.map(item => item.valueCAD),
+            label: `${coinName} Fluctuation (${this.selectedCurrency}$)`,
+            borderJoinStyle: "round",
+            tension: 0.2,
+            cubicInterpolationMode: 'monotone',
+          });
+
+          // Add unique timestamps to chartLabelsSet
+          coinFilteredData.forEach(item => chartLabelsSet.add(item.timestamp.replace('T', ' ').replace('-', '.')));
+        });
+      } else if (this.type == "Currency") {
+        uniqueCoinNames.forEach(coinName => {
+          const coinFilteredData = filteredData.filter(item => item.targetCurrency === coinName);
+          datasets.push({
+            data: coinFilteredData.map(item => item.rate),
+            label: `${coinName} Fluctuation (CAD$)`,
+            borderJoinStyle: "round",
+            tension: 0.2,
+            cubicInterpolationMode: 'monotone',
+          });
+
+          // Add unique timestamps to chartLabelsSet
+          coinFilteredData.forEach(item => chartLabelsSet.add(item.timestamp.replace('T', ' ').replace('-', '.')));
+        });
+      }
+    } 
+
 
     // Convert chartLabelsSet to array
     const chartLabels = Array.from(chartLabelsSet);
@@ -99,7 +130,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
     this.lineChartLabels = chartLabels.length > 0 ? chartLabels : [];
   }
 
-  private filterDataByPeriod(days: number): CoinValue[] {
+  private filterDataByPeriod(days: number): any[] {
     const currentDate = new Date();
     const cutoffDate = new Date();
     cutoffDate.setDate(currentDate.getDate() - days);
@@ -107,13 +138,17 @@ export class LineGraphComponent implements OnInit, OnChanges {
     return this.data.filter(item => new Date(item.timestamp) >= cutoffDate);
   }
 
-  private filterDataByPeriodAndCoin(period: string, coinName: string): CoinValue[] {
+  private filterDataByPeriodAndCoin(period: string, coinName: string): any[] {
     const days = this.getDaysForPeriod(period);
     const currentDate = new Date();
     const cutoffDate = new Date();
     cutoffDate.setDate(currentDate.getDate() - days);
-
-    return this.data.filter(item => item.name === coinName && new Date(item.timestamp) >= cutoffDate);
+    if (this.type == "Crypto") {
+      return this.data.filter(item => item.name === coinName && new Date(item.timestamp) >= cutoffDate);
+    } else if (this.type == "Currency") {
+      return this.data.filter(item => item.targetCurrency === coinName && new Date(item.timestamp) >= cutoffDate);
+    }
+    else return [];
   }
 
   private getDaysForPeriod(period: string): number {

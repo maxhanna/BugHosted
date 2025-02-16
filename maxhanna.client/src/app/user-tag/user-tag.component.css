@@ -29,6 +29,12 @@
 .userTag {
   width: 50px;
   max-height: 80px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: flex-start;
+  justify-content: flex-start;
+  gap: 5px;
 }
 .miniTag {
   display: flex;
@@ -54,6 +60,11 @@
   position: relative; 
 }
 .avatar {
-  white-space: unset;
+  white-space: normal !important;
   line-height: 50px !important;
+}
+.avatarBug {
+  left: 6px;
+  top: -77px;
+  position: relative !important;
 }

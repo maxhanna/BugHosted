@@ -201,37 +201,40 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   canAddFriend(user: User) {
     let found = false;
-    this.friends.forEach(x => {
-      if (x.username == this.parentRef?.user?.username) {
-        found = true;
-      }
-    });
-    this.friendRequests.forEach(x => {
-      if (x.sender.username == this.parentRef?.user?.username) {
-        found = true;
-      }
-    });
+    if (Array.isArray(this.friends)) { 
+      this.friends?.forEach(x => {
+        if (x.username == this.parentRef?.user?.username) {
+          found = true;
+        }
+      });
+    }
+
+    if (Array.isArray(this.friendRequests)) {
+      this.friendRequests?.forEach(x => {
+        if (x.sender.username == this.parentRef?.user?.username) {
+          found = true;
+        }
+      });
+    }
     return !found;
   }
 
   friendsIncludeMe() {
-    let found = false;
-    this.friends.forEach(x => {
-      if (x.username == this.parentRef?.user?.username) {
-        found = true;
-      }
-    });
-    return found;
+    if (!Array.isArray(this.friends)) { 
+      return false;
+    }
+
+    return this.friends.some(x => x.username === this.parentRef?.user?.username);
   }
 
   contactsContains(user: User) {
-    if (this.contacts.some(x => x.user!.id == user.id)) {
+    if (this.contacts?.some(x => x.user!.id == user.id)) {
       return true;
     }
     return false;
   }
 
-  clearForm() { 
+  clearForm() {
     this.isNicehashApiKeysToggled = false;
     this.isGeneralToggled = false;
     this.updateUserDivVisible = false;
@@ -260,7 +263,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.friendRequests = [];
     this.friends = [];
     this.user = undefined;
-    this.parentRef?.showNotification("Logged out successfully, refresh in 100 milliseconds.");     
+    this.parentRef?.showNotification("Logged out successfully, refresh in 100 milliseconds.");
     setTimeout(() => {
       window.location = window.location;
     }, 100);
@@ -336,7 +339,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.parentRef?.showNotification(res);
       await this.ngOnInit();
     } else {
-      this.parentRef?.showNotification("You must be logged in to send a friendship request");    
+      this.parentRef?.showNotification("You must be logged in to send a friendship request");
     }
   }
   async removeFriend(user?: User) {
@@ -346,12 +349,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       this.parentRef?.showNotification(res);
       await this.loadFriendData();
     } else {
-      this.parentRef?.showNotification("You must be logged in to remove a friend");     
+      this.parentRef?.showNotification("You must be logged in to remove a friend");
     }
   }
   async unfollowUser(user?: User) {
     if (!user) return alert("You must select a user to unfollow first!");
-    const parent = this.parentRef ?? this.inputtedParentRef; 
+    const parent = this.parentRef ?? this.inputtedParentRef;
     const parentUser = parent?.user;
     if (parentUser) {
       const tgtFollowRequest = this.friendRequests.filter(x => x.sender.id == parentUser.id)[0];
@@ -392,14 +395,14 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
             this.parentRef?.createComponent('UpdateUserSettings');
           }
         } else {
-          this.parentRef?.showNotification(`${JSON.parse(resCreateUser!)["message"]}`);   
+          this.parentRef?.showNotification(`${JSON.parse(resCreateUser!)["message"]}`);
         }
       } catch (error: any) {
         const message = error["message"];
         if (message.includes("409")) {
-          this.parentRef?.showNotification(`User already exists`); 
+          this.parentRef?.showNotification(`User already exists`);
         } else {
-          this.parentRef?.showNotification(`Error: ${message}`); 
+          this.parentRef?.showNotification(`Error: ${message}`);
         }
       }
     }
@@ -428,7 +431,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         tmpUser.password = undefined;
         this.parentRef.user = tmpUser;
         this.parentRef.resetUserCookie();
-        this.parentRef?.showNotification(`Access granted. Welcome back ${this.parentRef!.user?.username}`);  
+        this.parentRef?.showNotification(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
         this.updateWeatherInBackground(tmpUser);
 
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
@@ -436,12 +439,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         if (this.loginOnly) {
           this.closeUserComponentEvent.emit(tmpUser);
         }
-      } else { 
-        this.parentRef?.showNotification("Access denied");     
+      } else {
+        this.parentRef?.showNotification("Access denied");
       }
 
-    } catch (e) { 
-      this.parentRef?.showNotification("Login error: " + e);     
+    } catch (e) {
+      this.parentRef?.showNotification("Login error: " + e);
     } finally {
       this.justLoggedIn = true;
       this.ngOnInit();
@@ -540,7 +543,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
           this.isBeingFollowedByUser = true;
           return;
         }
-      } 
+      }
     }
     this.isBeingFollowedByUser = false;
   }

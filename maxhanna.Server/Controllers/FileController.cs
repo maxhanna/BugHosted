@@ -23,6 +23,11 @@ namespace maxhanna.Server.Controllers
 		private readonly string _connectionString;
 		private readonly string _baseTarget;
 		private readonly string _logo = "https://www.bughosted.com/assets/logo.jpg";
+		private readonly HashSet<string> romExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+				"sgx", "vb", "ws", "wsc", "gba", "gbc", "gb",
+				"gen", "md", "smd", "32x", "sms", "gg",
+				"nes", "fds", "sfc", "smc", "snes", "nds"
+		};
 
 		public FileController(ILogger<FileController> logger, IConfiguration config)
 		{
@@ -63,6 +68,7 @@ namespace maxhanna.Server.Controllers
 				string fileTypeCondition = fileType != null && fileType.Any() && !string.IsNullOrEmpty(string.Join(',', fileType))
 								? " AND LOWER(f.file_type) IN (" + string.Join(", ", replaced) + ") "
 								: "";
+				bool isRomSearch = DetermineIfRomSearch(fileType ?? new List<string>());
 				string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
 				string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
 				using (var connection = new MySqlConnection(_connectionString))
@@ -87,11 +93,9 @@ namespace maxhanna.Server.Controllers
 						directoryReader.Close();
 
 						var countCommand = new MySqlCommand(
-								@$"SELECT 
-                    COUNT(*) 
-                FROM 
-                    maxhanna.file_uploads f 
-                WHERE 
+								@$"
+									SELECT COUNT(*) FROM maxhanna.file_uploads f 
+									WHERE 
                     {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")} 
                     f.id <= @fileId 
 										{fileTypeCondition} {visibilityCondition} {ownershipCondition};",
@@ -106,7 +110,7 @@ namespace maxhanna.Server.Controllers
 					}
 					Console.WriteLine($"setting page:{page}&offset={offset}; file position is : {filePosition}, page size is : {pageSize}, folder path: {directory}");
 
-					string orderBy = fileId == null ? " ORDER BY f.id desc " : string.Empty;
+					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
 					var command = new MySqlCommand($@"
                         SELECT 
                             f.id AS fileId,
@@ -153,17 +157,18 @@ namespace maxhanna.Server.Controllers
                             {(string.IsNullOrEmpty(search) ? ""
 														: @$" 
 															AND (
-																f.file_name LIKE @search 
-																OR f.given_file_name LIKE @search 
-																OR f.description LIKE @search
+																  LOWER(f.file_name) LIKE CONCAT('%', LOWER(@search), '%') 
+																	OR LOWER(f.given_file_name) LIKE CONCAT('%', LOWER(@search), '%')
+																	OR LOWER(f.description) LIKE CONCAT('%', LOWER(@search), '%')
+																	OR LOWER(u.username) LIKE CONCAT('%', LOWER(@search), '%')
 																OR f.id IN (
 																	SELECT ft.file_id 
 																	FROM maxhanna.file_topics ft
 																	JOIN maxhanna.topics t ON ft.topic_id = t.id
 																	WHERE t.topic LIKE @search 
 																) 
-																{(search.Contains("sega") ? "OR f.file_name LIKE '%.md'" 
-																	: search.Contains("nintendo") ? "OR f.file_name LIKE '%.nes'" 
+																{(search.Contains("sega") ? "OR f.file_name LIKE '%.md'"
+																	: search.Contains("nintendo") ? "OR f.file_name LIKE '%.nes'"
 																	: search.Contains("gameboy") ? "OR f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba'"
 																	: "")}
 															)")} 
@@ -180,9 +185,8 @@ namespace maxhanna.Server.Controllers
 					{
 						command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
 					}
-					//Console.WriteLine(command.CommandText);
+					Console.WriteLine(command.CommandText);
 
-					//_logger.LogInformation(command.CommandText);
 					using (var reader = command.ExecuteReader())
 					{
 						while (reader.Read())
@@ -496,7 +500,9 @@ namespace maxhanna.Server.Controllers
 					var totalCountCommand = new MySqlCommand(
 							$@"SELECT COUNT(*) 
                         FROM 
-                            maxhanna.file_uploads f 
+                            maxhanna.file_uploads f  
+                        LEFT JOIN
+                            maxhanna.users u ON f.user_id = u.id
                         WHERE 
                             {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
                             ( 
@@ -507,17 +513,18 @@ namespace maxhanna.Server.Controllers
                         {(string.IsNullOrEmpty(search) ? ""
 												: $@" 
 													AND (
-														f.file_name LIKE @search 
-														OR f.given_file_name LIKE @search 
-														OR f.description LIKE @search 
+														LOWER(f.file_name) LIKE CONCAT('%', LOWER(@search), '%') 
+														OR LOWER(f.given_file_name) LIKE CONCAT('%', LOWER(@search), '%')
+														OR LOWER(f.description) LIKE CONCAT('%', LOWER(@search), '%')
+														OR LOWER(u.username) LIKE CONCAT('%', LOWER(@search), '%')
 														OR f.id IN (
 															SELECT ft.file_id 
 															FROM maxhanna.file_topics ft
 															JOIN maxhanna.topics t ON ft.topic_id = t.id
 															WHERE t.topic LIKE @search
 														)
-														{(search.Contains("sega") ? "OR f.file_name LIKE '%.md'" 
-															: search.Contains("nintendo") ? "OR f.file_name LIKE '%.nes'" 
+														{(search.Contains("sega") ? "OR f.file_name LIKE '%.md'"
+															: search.Contains("nintendo") ? "OR f.file_name LIKE '%.nes'"
 															: search.Contains("gameboy") ? "OR f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba'"
 															: "")}
 													)")}
@@ -551,7 +558,6 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, ex.Message);
 			}
 		}
-
 
 		[HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
 		public async Task<IActionResult> UpdateFileData([FromBody] FileDataRequest request)
@@ -2029,6 +2035,20 @@ namespace maxhanna.Server.Controllers
 			{
 				return true;
 			}
+		}  
+
+		private bool DetermineIfRomSearch(List<string>? fileType)
+		{
+			if (fileType == null || fileType.Count == 0)
+			{
+				return false; 
+			}
+			 
+			List<string> fileTypeList = (fileType.Count == 1 && fileType[0] != null && fileType[0].Contains(","))
+					? fileType[0].Split(',').Select(s => s.Trim()).ToList()
+					: fileType;
+			 
+			return fileTypeList.Any(ext => romExtensions.Contains(ext));
 		}
 
 		private string GetContentType(string fileExtension)

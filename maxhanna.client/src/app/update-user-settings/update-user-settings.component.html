@@ -111,6 +111,14 @@
                     <td>Phone:</td>
                     <td><input type="tel" #updatedPhone [value]="parentRef?.user?.about?.phone ?? ''" /></td>
                   </tr>
+                  <tr>
+                    <td>Currency:</td>
+                    <td>
+                      <select #selectedCurrencyDropdown>
+                        <option *ngFor="let currency of uniqueCurrencyNames" [selected]="parentRef?.user?.about?.currency === currency">{{ currency }}</option>
+                      </select>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </td>

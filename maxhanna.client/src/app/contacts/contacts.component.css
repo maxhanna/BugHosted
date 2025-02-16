@@ -44,3 +44,7 @@
   .mainTable td:nth-child(3) {
     text-align: center;
   }
+
+  .newContactButton {
+    font-size: 20px;
+  }

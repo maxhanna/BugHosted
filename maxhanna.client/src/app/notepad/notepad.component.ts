@@ -22,7 +22,8 @@ export class NotepadComponent extends ChildComponent {
   noteInputValue: string = ''; // Initialize with an empty string
   isPanelExpanded: boolean = false;
   users: User[] = [];
-
+  selectedNote?: Note;
+  splitNoteOwnershipUsers: User[] = [];
   constructor(private notepadService: NotepadService, private userService: UserService) {
     super();
   }
@@ -45,6 +46,10 @@ export class NotepadComponent extends ChildComponent {
   async getUsers() {
     this.users = await this.userService.getAllUsers(this.parentRef?.user!);
   }
+  shareNoteButtonClick() {
+    this.isPanelExpanded = !this.isPanelExpanded;
+    this.getUsers(); 
+  }
   async shareNote(withUser?: User) {
     if (!withUser) {
       this.isPanelExpanded = false;
@@ -59,10 +64,15 @@ export class NotepadComponent extends ChildComponent {
     if (!id) { return; }
     try {
       const res = await this.notepadService.getNote(this.parentRef?.user!, id);
-      if (this.noteInput)
+      if (this.noteInput) {
         this.noteInput.nativeElement.value = res.note!;
-      if (this.noteId)
+      }
+      if (this.noteId) {
         this.noteId.nativeElement.value = id + "";
+      }
+      this.isPanelExpanded = false;
+      this.selectedNote = res;
+      this.splitNoteOwnership(); 
 
       this.newNoteButton.nativeElement.style.display = "inline-block";
       this.shareNoteButton.nativeElement.style.display = "inline-block";
@@ -114,4 +124,11 @@ export class NotepadComponent extends ChildComponent {
   async search() {
     this.getNotepad();
   }
+  async splitNoteOwnership() {
+    const ids = this.selectedNote?.ownership?.split(',').filter(x => parseInt(x) != this.parentRef?.user?.id);
+    this.splitNoteOwnershipUsers = [];
+    ids?.forEach(async id => {
+      await this.userService.getUserById(parseInt(id), this.parentRef?.user).then((res: User) => { this.splitNoteOwnershipUsers.push(res); });
+    }); 
+  } 
 }

@@ -3,10 +3,24 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Crypto Hub</div>
   <div [class]="noMining ? 'noMiningHubSection' : 'hubSection'">
-    <div class="cryptoHubConverterAndCoinWatchWrapper">
 
+    <div *ngIf="uniqueCurrencyNames" class="selectedCurrencyDropdownWrapper">
+      <div>
+        Selected Currency :
+      </div>
+      <div>
+        <select #selectedCurrencyDropdown (change)="changeDefaultCurrency()">
+          <option *ngFor="let currency of uniqueCurrencyNames" [selected]="selectedCurrency === currency">
+            {{ currency }}
+          </option>
+        </select>
+      </div>
+    </div>
+    
+
+    <div class="cryptoHubConverterAndCoinWatchWrapper">
       <div class="BTCtoCADConversionWrapperDiv sectionContainer">
-        <div class="sectionName btcToCadConversionHeader">BTC to CAD Conversion</div>
+        <div class="sectionName btcToCadConversionHeader">BTC to {{selectedCurrency}} Conversion</div>
         <div class="BTCtoCADConversionDiv">
           <div class="BTCtoCADConversionDiv">
             <label for="btcConvertBTCValue">BTC:</label>
@@ -19,7 +33,7 @@
           </div>
 
           <div class="BTCtoCADConversionDiv">
-            <label for="btcConvertCADValue">CAD:</label>
+            <label for="btcConvertCADValue">{{selectedCurrency}}:</label>
             <input id="btcConvertCADValue"
                    type="text"
                    #btcConvertCADValue
@@ -43,26 +57,43 @@
           <tr>
             <th title="Coin name" (click)="sortTable(0, 'coinWatchTable')" class="cursorPointerUnderlined">Name</th>
             <th title="Symbol" (click)="sortTable(1, 'coinWatchTable')" class="cursorPointerUnderlined">§</th>
-            <th title="Rate (CAD$)" (click)="sortTable(2, 'coinWatchTable')" class="cursorPointerUnderlined">Rate</th>
+            <th title="Rate ({{selectedCurrency}}$)" (click)="sortTable(2, 'coinWatchTable')" class="cursorPointerUnderlined">Rate</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let item of data" (click)="selectCoin(item.name)">
             <td>{{ item.name }}</td>
             <td>{{ item.symbol }}</td>
-            <td>{{ item.valueCAD ? formatToCanadianCurrency(item.valueCAD) : '-' }}</td>
+            <td>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</td>
           </tr>
         </tbody>
       </table>
-    </div> 
+    </div>
 
     <div *ngIf="allHistoricalData && allHistoricalData.length > 0" class="graphContainerDiv sectionContainer">
 
       <app-line-graph #lineGraphComponent
+                      [type]="'Crypto'"
+                      [selectedCurrency]="selectedCurrency"
                       [data]="allHistoricalData!"
                       [selectedCoin]="currentSelectedCoin">
       </app-line-graph>
     </div>
+
+    <div *ngIf="allHistoricalExchangeRateData && allHistoricalExchangeRateData.length > 0" class="graphContainerDiv sectionContainer">
+
+      <app-line-graph [type]="'Currency'"
+                      [selectedCoin]="'USD'"
+                      [data]="allHistoricalExchangeRateData!">
+      </app-line-graph>
+    </div> 
+  </div>
+  <div class="hubSection miningHubSection sectionContainer" *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
+    <app-mining-rigs #miningRigComponent
+                     [inputtedParentRef]="parentRef"
+                     [conversionRate]="latestCurrencyPriceRespectToCAD"
+                     [currency]="selectedCurrency"
+                     (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
 
     <div class="wallet sectionContainer" *ngIf="wallet || btcWalletResponse">
       <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
@@ -72,7 +103,7 @@
             <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden" class="cursorPointerUnderlined normalBtcAddress">Address</th>
             <th>Currency</th>
             <th>Total Balance</th>
-            <th title="Fiat rate">$CAD</th>
+            <th title="Fiat rate">${{selectedCurrency}}</th>
           </tr>
         </thead>
         <tbody *ngIf="wallet">
@@ -81,7 +112,7 @@
               <td></td>
               <td>{{ wallet.total?.currency }}</td>
               <td>{{ wallet.total?.totalBalance }}</td>
-              <td>{{ formatToCanadianCurrency(multiplyValues(wallet.total?.available, btcFiatConversion)) }}$</td>
+              <td>{{ formatToCanadianCurrency(getConvertedCurrencyValue(multiplyValues(wallet.total?.available, btcFiatConversion))) }}$</td>
             </tr>
           </ng-container>
           <ng-container *ngFor="let currency of wallet.currencies">
@@ -89,10 +120,10 @@
               <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden" [class]="areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress'">{{ currency.address }}</td>
               <td>{{ currency.currency }}</td>
               <td>{{ currency.totalBalance }}</td>
-              <td>{{ formatToCanadianCurrency(calculateTotalValue(currency)) }}$</td>
+              <td>{{ formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currency))) }}$</td>
             </tr>
           </ng-container>
-        </tbody> 
+        </tbody>
       </table>
       <div style="margin-top: 10px;">
         <span class="cursorPointerUnderlined" (click)="isAddCryptoDivVisible = !isAddCryptoDivVisible">✚ Add a crypto wallet</span>
@@ -103,9 +134,6 @@
         </div>
       </div>
     </div>
-  </div>
-  <div class="hubSection miningHubSection sectionContainer"> 
-    <app-mining-rigs [inputtedParentRef]="parentRef" (closeMiningEvent)="closeMiningEvent()"></app-mining-rigs>
   </div>
 
   <div *ngIf="!data && isLoading">

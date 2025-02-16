@@ -5,8 +5,8 @@
   background: var(--main-bg-color-full-opacity);
   border: var(--main-border);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  width: 350px;
-  height: 370px;
+  width: 99vw;
+  height: CALC(var(--vh, 1vh) * 100);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -23,6 +23,7 @@
     align-items: center;
     z-index: 3;
     border-radius: 8px;
+    padding: 25px;
   }
 
 .smallContainerForMedia {
@@ -75,7 +76,7 @@
   flex-direction: row;
 }
 .fileSearchDiv { 
-  height: 350px;
+  height: 100%;
   width: 100%;
   overflow:auto;
 }
@@ -103,7 +104,5 @@
   align-content: space-between;
   justify-content: space-between;
   align-items: center;
-  width: 96%;
-  position: absolute;
-  bottom: 0px;
+  width: 96%; 
 }

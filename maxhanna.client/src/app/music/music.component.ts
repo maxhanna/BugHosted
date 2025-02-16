@@ -27,8 +27,8 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   constructor(private todoService: TodoService) { super(); }
   async ngOnInit() {
     await this.getSongList(); 
-    if (this.songs && this.songs[this.songs.length - 1] && this.songs[this.songs.length - 1].url) {
-      this.play(this.songs[this.songs.length - 1].url!);
+    if (this.songs && this.songs[0] && this.songs[0].url) {
+      this.play(this.songs[0].url!);
     }
     this.clearInputs();
     this.reorderTable(undefined, this.orderSelect.nativeElement.value);

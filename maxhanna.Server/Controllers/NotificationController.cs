@@ -420,7 +420,7 @@ namespace maxhanna.Server.Controllers
                                 ";
 						string updateNotificationSql = @"
                                     UPDATE maxhanna.notifications
-                                    SET text = CONCAT(text, @Content)
+                                    SET text = CONCAT(text, @Content), date = NOW()
                                     WHERE user_id = @Receiver
                                       AND chat_id = @ChatId
                                       AND chat_id IS NOT NULL

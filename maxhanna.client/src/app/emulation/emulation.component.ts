@@ -12,7 +12,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 })
 export class EmulationComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private romService: RomService, private fileService: FileService) { super(); }
-  selectedRomName = '';
+  selectedRomName? : string;
   nostalgist: Nostalgist | undefined;
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('localFileOpen') localFileOpen!: ElementRef<HTMLInputElement>;
@@ -115,6 +115,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
   }
   async saveState() {
+    if (!this.selectedRomName) return alert("Must have a rom selected to save!");
     const res = await this.nostalgist?.saveState();
 
     const formData = new FormData();
@@ -122,7 +123,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     await this.romService.uploadRomFile(this.parentRef?.user!, formData);
   }
   async stopEmulator() {
-    if (this.selectedRomName != '' && this.parentRef && this.parentRef.user) {
+    if (this.selectedRomName && this.selectedRomName != '' && this.parentRef && this.parentRef.user) {
       if (confirm("Save game?")) { this.saveState(); }
     }
     await this.clearAutosave();
@@ -135,6 +136,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.displayC = false;
   }
   async loadState() {
+    if (!this.selectedRomName) return alert("You must select a rom to do that");
     const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
     const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
 
@@ -442,6 +444,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     return (/Mobi|Android/i.test(navigator.userAgent));
   }
   getAllowedFileTypes(): string[] {
-    return Object.keys(this.coreMapping);
+    return this.fileService.romFileExtensions;
   }
 }

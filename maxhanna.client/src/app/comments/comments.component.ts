@@ -47,12 +47,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     super(); 
   }
 
-  ngOnInit() {
-    console.log(this.comment_id);
-    if (this.comment_id) {
-      console.log(this.comment_id);
-      this.commentService.getCommentDataByIds(this.comment_id).then(res => {
-        console.log(res);
+  ngOnInit() { 
+    if (this.comment_id) { 
+      this.commentService.getCommentDataByIds(this.comment_id).then(res => { 
         this.commentList = res;
         this.showComments = true;
         this.subCommentCountUpdatedEvent.emit({ commentCount: this.commentList.length, comment_id: this.comment_id });
@@ -104,6 +101,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       }
       if (this.commentList.find(x => x.date == currentDate)) {
         this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
+      }
+      if (this.comment_id) { 
+        this.commentList.push(comment);
       }
       this.replyingToCommentIds = [];
       this.editingComments = [];
@@ -232,18 +232,27 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       this.replyingToCommentIds.push(comment.id);
     }
   }
-  changedCommentCount(event: any) {
-    console.log(event);
-    console.log(this.component);
-    console.log(this.comment_id);
+  changedCommentCount(event: any) { 
     if (document.getElementById("commentIdCount" + event.comment_id)) {
-      document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = event.commentCount;
+      document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = event.commentCount > 0 ? ':' + event.commentCount : '';
       (document.getElementById('subCommentComponent' + event.comment_id) as HTMLDivElement).style.display = ((event.commentCount > 0) ? "block" : "none"); 
     }
   }
   showSubComments(commentId: number) {
-    const curr = (document.getElementById('subCommentComponent' + commentId) as HTMLDivElement).style.display;
-    (document.getElementById('subCommentComponent' + commentId) as HTMLDivElement).style.display = ((curr == "block") ? "none" : "block"); 
+    const currElement = (document.getElementById('subCommentComponent' + commentId) as HTMLDivElement);
+    const shouldDisplay = !(currElement.style.display == "block")
+    currElement.style.display = shouldDisplay ? "block" : "none";
+    if (shouldDisplay) {
+      setTimeout(() => {
+        if (currElement && !this.isElementInViewport(currElement)) {
+          currElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    } 
+  }
+  commentHeaderClicked() {
+    this.showComments = !this.showComments;
+    this.commentHeaderClickedEvent.emit(this.showComments); 
   }
   async replyToComment(comment: FileComment) {
     const element = document.getElementById('commentReplyInput' + comment.id) as HTMLTextAreaElement;

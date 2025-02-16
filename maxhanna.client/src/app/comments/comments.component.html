@@ -1,8 +1,9 @@
 <!-- Comments Section -->
 <div *ngIf="showCommentsHeader && !comment_id"
+     [id]="'commentsHeader'+component.id"
      class="commentsHeader {{showComments && !comment_id ? 'commentsHeaderGradientReverse' : ''}}"
      [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'"
-     (click)="showComments = !showComments; commentHeaderClickedEvent.emit(showComments)">
+     (click)="commentHeaderClicked()">
   <span class="smallExpander">
     🗨️Comments (
       <span class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}">
@@ -11,7 +12,7 @@
     ) {{showComments ? '-' : '+'}}
   </span>
 </div>
-<div class="comments-section" *ngIf="commentList && commentList.length > 0 && showComments"> 
+<div class="comments-section" *ngIf="commentList && commentList.length > 0 && showComments" [style.maxHeight]="comment_id ? '' : '300px'"> 
   <div *ngFor="let comment of commentList!" class="commentListDiv" [style.paddingLeft]="comment_id ? '40px' : '20px'" [style.paddingRight]="comment_id ? '40px' : '20px'">
     <div class="commentContentAndAvatarContainerDiv">
       <div class="commentAvatar usernameProfileLink">
@@ -28,16 +29,15 @@
         <div style="display: inline-block; cursor: pointer; margin-left: 10px;" (click)="showOptionsPanel(comment)" *ngIf="comment.user?.id == inputtedParentRef?.user?.id">
           ⚙️
         </div>
-        <div class="cursorPointer" *ngIf="!comment_id" (click)="showSubComments(comment.id)">
-          🗨️
-          <span [id]="'commentIdCount' + comment.id" class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}">
-            {{ commentCount }}
-          </span> 
+        <div class="cursorPointer smallFont" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
+          [Reply<span [id]="'commentIdCount' + comment.id" class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}">0</span>]
         </div>
       </div>
       <div class="commentContent">
         <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
-        <textarea class="commentTextArea" [style.display]="editingComments.includes(comment.id) ? 'block' : 'none'" [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
+        <textarea class="commentTextArea"
+                  [style.display]="editingComments.includes(comment.id) ? 'block' : 'none'"
+                  [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
 
         <div *ngIf="replyingToCommentIds.includes(comment.id)">
           <textarea [id]="'commentReplyInput'+comment.id" *ngIf="replyingToCommentIds.includes(comment.id)"></textarea>
@@ -64,6 +64,7 @@
              [style.display]="'none'">
           <app-comments #subCommentComponent
                         style="margin:50px;"
+                        [component]="comment"
                         [comment_id]="comment.id"
                         [inputtedParentRef]="inputtedParentRef"
                         [type]="'Comment'"
@@ -73,13 +74,18 @@
     </div> 
   </div> 
 </div>
-<div class="commentsInputArea" *ngIf="showComments" [style.paddingLeft]="comment_id ? '20px' : ''" [style.paddingRight]="comment_id ? '20px' : ''">
+<div class="{{comment_id ? 'replyInputArea' : 'commentsInputArea'}}"
+     *ngIf="showComments"
+     [id]="'commentInputAreaDiv' + component_id">
   <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
     Loading comments...
   </div>
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
-    <textarea [placeholder]='commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"' #addCommentInput class="addCommentTextArea" (keyup.enter)="startLoadingComment();"></textarea>
-    <button (click)="startLoadingComment();" class="commentSubmit">🗨️Post</button>
+    <textarea [placeholder]='comment_id ? "Reply " + component.user.username : commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"'
+              #addCommentInput
+              class="addCommentTextArea"
+              (keyup.enter)="startLoadingComment();"></textarea>
+    <button (click)="startLoadingComment();" class="commentSubmit">🗨️{{comment_id ? 'Reply' : 'Post'}}</button>
     <app-media-selector [currentDirectory]="'Users/' + (inputtedParentRef?.user && inputtedParentRef?.user?.id != 0 ? inputtedParentRef?.user!.username : 'Anonymous')"
                         [user]="inputtedParentRef?.user"
                         [inputtedParentRef]="inputtedParentRef"
@@ -91,8 +97,7 @@
 <!-- Options Popup -->
 <div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsComment">
   <div class="popupPanelTitle">
-    Options
-    <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
+    Comment Options
   </div>
   <div class="commentOptionsPanelButtons">
     <button (click)="deleteComment(optionsComment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">❌ Delete</button>
@@ -100,7 +105,7 @@
       <span class="commentEditSpans commentCancelEdit" [style.display]="editingComments.includes(optionsComment.id) ? 'block' : 'none'" [id]="'commentEditButtonSpan' + optionsComment.id">❌</span>
       ✏️ Edit
     </button>
-  </div> 
+  </div>
   <div class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
@@ -109,6 +114,7 @@
       <div class="optionsStatsDescription">
         {{optionsComment.id}}
       </div>
-    </div> 
+    </div>
   </div>
+  <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
 </div>

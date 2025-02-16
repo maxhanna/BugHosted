@@ -77,11 +77,10 @@ export class ChildComponent {
     }
     this.isLoading = false;
   } 
-  viewProfile(user?: User) {
-    console.log(user);
+  viewProfile(user?: User) { 
     if (user && user.id != 0) {
-      this.parentRef?.closeOverlay();
-      this.parentRef?.createComponent("User", { "userId": user.id });
+      this.parentRef?.closeOverlay();  
+      this.parentRef?.createComponent("User", { "userId": user.id }); 
     }
   }
   sortTable(columnIndex: number, tableId: string): void {
@@ -124,15 +123,16 @@ export class ChildComponent {
       this.asc.push([tableId, columnIndex]);
     }
   }
-  async promiseWrapper(apromise: any) {
-    try {
-      this.startLoading();
-      let response = await apromise;
-      return response;
-    } finally {
-      this.stopLoading();
-    }
+  isElementInViewport(el: HTMLElement): boolean {
+    const rect = el.getBoundingClientRect();
+    return (
+      rect.top >= 0 &&
+      rect.left >= 0 &&
+      rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+      rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    );
   }
+ 
   log(text: any) {
     console.log(text);
   }

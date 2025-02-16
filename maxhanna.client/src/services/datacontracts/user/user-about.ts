@@ -3,5 +3,6 @@ export class UserAbout {
   description?: string;
   phone?: string;
   email?: string;
+  currency?: string;
   birthday?: Date;
 }

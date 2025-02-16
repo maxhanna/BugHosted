@@ -52,10 +52,8 @@ export class ContactsComponent extends ChildComponent implements OnInit {
     tmpContact.notes = this.newContactNotes.nativeElement.value;
     tmpContact.email = this.newContactEmail.nativeElement.value;
 
-    //const headers = { 'Content-Type': 'application/json' };
     try {
       await this.contactService.createContact(this.parentRef?.user!, tmpContact);
-      //await this.promiseWrapper(lastValueFrom(this.http.post(`/contact/`, body, { headers })));
       this.contacts.push(tmpContact);
       this.showNewContactForm = false;
     } catch (error) {
@@ -78,18 +76,13 @@ export class ContactsComponent extends ChildComponent implements OnInit {
       } else {
         this.selectedContact.birthday = null;
       }
-
-      //const headers = { 'Content-Type': 'application/json' };
-      //const body = JSON.stringify(this.selectedContact);
       await this.contactService.updateContact(this.parentRef?.user!, this.selectedContact);
-      //await this.promiseWrapper(lastValueFrom(this.http.put(`/contact/${this.selectedContact.id}`, body, { headers })));
 
       this.selectedContact = undefined;
     }
   }
   async deleteContact(id: number) {
     await this.contactService.deleteContact(this.parentRef?.user!, id);
-    //await this.promiseWrapper(lastValueFrom(this.http.delete(`/contact/${id}`)));
     this.contacts = this.contacts.filter(x => x.id != id);
   }
   formatDate(date: Date | undefined | null): string | undefined {

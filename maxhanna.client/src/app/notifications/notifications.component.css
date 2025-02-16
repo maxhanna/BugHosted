@@ -70,6 +70,8 @@
   padding: 5px;
   height: CALC(100% - 15px); 
   flex-wrap: nowrap;
+  text-shadow: 0 0 black;
+  font-size: var(--main-font-size);
 }
 .notificationsListContainer {
   overflow-y: auto;

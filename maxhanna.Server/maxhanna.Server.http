@@ -113,6 +113,9 @@ Accept: application/json
 ###
 POST {{maxhanna.Server_HostAddress}}/CoinValue/
 Accept: application/json
+### 
+POST {{maxhanna.Server_HostAddress}}/CurrencyValue/
+Accept: application/json
 ###
 POST {{maxhanna.Server_HostAddress}}/Reaction/
 Accept: application/json

@@ -22,7 +22,7 @@
     Filesystem Menu
   </div>
   <div>
-    <div *ngIf="!user">
+    <div *ngIf="!user" class="uploadAndNewFolderButtonDiv">
 
       <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="canUploadToFolder()">📂New Folder</button>
 

@@ -106,8 +106,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       alert("validation failed");
       return;
     }
-
-    await this.promiseWrapper(await this.createCalendarEntry());
+    await this.createCalendarEntry();
   }
   private async setDateHeaders(now: Date) {
     if (!(this.month && this.year && this.yearBack && this.monthBack && this.monthForward && this.yearForward)) {

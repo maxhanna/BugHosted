@@ -172,6 +172,10 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.checkAndClearRouterOutlet();
           this.createComponent('Wordler');
         }
+        if (this.router.url.includes('Crypto')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Crypto-Hub');
+        }
       }
     }); 
   } 
@@ -204,7 +208,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.replacePageTitleAndDescription(componentType, componentType);
 
     if (!componentType || componentType.trim() === "") {
-      console.log("returning null due to invalid componentType");
+      console.log("Returning due to invalid componentType");
       return null;
     }
 
@@ -216,6 +220,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
 
     if (componentType !== "User" && existingComponent) {
+      console.log("Component already exists, leaving as is");
       return;
     }
 

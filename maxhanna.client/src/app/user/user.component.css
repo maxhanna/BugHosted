@@ -1,8 +1,9 @@
-
 .componentMain {
   min-width: 350px; 
 }
-
+.componentMainFullHeight {
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 55px);
+}
 @media only screen and (max-width : 667px) {
   .componentMain {
     width: unset !important;
@@ -10,7 +11,7 @@
 }
 
 .userProfileContents {
-  max-height: CALC(CALC(var(--vh, 1vh)* 100) - 40px);
+  max-height: CALC(CALC(var(--vh, 1vh)* 100) - 55px);
 }
 
 .mainTable thead {
@@ -249,4 +250,8 @@
 }
 .followingFriendsPanelTitle {
   margin-top: 20px;
+}
+
+.aboutPopupPanelContentContainer {
+  width: 100%;
 }

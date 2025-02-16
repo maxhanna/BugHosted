@@ -13,6 +13,8 @@ import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { AppComponent } from '../app.component';
 import { MiningWalletResponse } from '../../services/datacontracts/crypto/mining-wallet-response';
+import { CoinValueService } from '../../services/coin-value.service';
+import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 
 @Component({
   selector: 'app-update-user-settings',
@@ -33,6 +35,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   btcWalletAddresses: string[] = [];
   notifications: string[] = [];
   isNicehashApiKeysToggled: any;
+  selectedCurrency = '';
+  uniqueCurrencyNames: string[] = [];
   nhApiKeys?: NicehashApiKeys;
   displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
 
@@ -51,12 +55,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('updatedPhone') updatedPhone!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedBirthday') updatedBirthday!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedDescription') updatedDescription!: ElementRef<HTMLInputElement>;
+  @ViewChild('selectedCurrencyDropdown') selectedCurrencyDropdown!: ElementRef<HTMLSelectElement>;
 
   @ViewChild(MediaSelectorComponent) displayPictureSelector!: MediaSelectorComponent;
   @ViewChild(MediaViewerComponent) displayPictureViewer!: MediaViewerComponent;
 
 
-  constructor(private miningService: MiningService, private weatherService: WeatherService, private userService: UserService) {
+  constructor(private miningService: MiningService, private weatherService: WeatherService, private userService: UserService, private coinService: CoinValueService) {
     super();
   }
   async ngOnInit() {
@@ -69,19 +74,34 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.isDisplayPictureToggled = false;
     this.isDeleteAccountToggled = false;
     this.isAboutToggled = false;
+
+    this.getUniqueCurrencyNames();
   }
   async getNicehashApiKeys() {
     if (this.isNicehashApiKeysToggled) {
       this.nhApiKeys = await this.miningService.getNicehashApiInfo((this.parentRef?.user)!);
     }
   }
+  async getUniqueCurrencyNames() {
+    try {
+      const res = await this.coinService.getUniqueCurrencyNames() as string[];
+      if (res) {
+        this.uniqueCurrencyNames = res;
+      } 
+    } catch (error) {
+      console.error('Error fetching currency values:', error);
+      this.uniqueCurrencyNames = [];
+    }
+  }
   async updateUserAbout() {
     let about = new UserAbout();
+    console.log(this.selectedCurrency);
     about.userId = this.parentRef!.user!.id!;
     about.description = this.updatedDescription.nativeElement.value != '' ? this.updatedDescription.nativeElement.value : undefined;
     about.phone = this.updatedPhone.nativeElement.value != '' ? this.updatedPhone.nativeElement.value : undefined;
     about.email = this.updatedEmail.nativeElement.value != '' ? this.updatedEmail.nativeElement.value : undefined;
     about.birthday = this.updatedBirthday.nativeElement.value != '' ? new Date(this.updatedBirthday.nativeElement.value) : undefined;
+    about.currency = this.selectedCurrencyDropdown.nativeElement.value != '' ? this.selectedCurrencyDropdown.nativeElement.value : undefined;
     await this.userService.updateUserAbout(this.parentRef!.user!, about).then(async res => {
       if (res) {
         const parent = this.inputtedParentRef ? this.inputtedParentRef : this.parentRef;

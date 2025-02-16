@@ -23,6 +23,7 @@ const PROXY_CONFIG = [
       "/wordler",
       "/comment",
       "/coinvalue",
+      "/currencyvalue",
       "/reaction",
       "/array",
       "/nexus",

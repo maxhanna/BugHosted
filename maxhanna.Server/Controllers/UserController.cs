@@ -89,7 +89,8 @@ namespace maxhanna.Server.Controllers
                         ua.description,
                         ua.phone,
                         ua.email,
-                        ua.birthday
+                        ua.birthday,
+												ua.currency
                     FROM 
                         maxhanna.users u
                     LEFT JOIN  
@@ -125,6 +126,7 @@ namespace maxhanna.Server.Controllers
 							Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"),
 							Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
 							Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateTime("birthday"),
+							Currency = reader.IsDBNull(reader.GetOrdinal("currency")) ? null : reader.GetString("currency"),
 						};
 
 						// User found, return the user details
@@ -175,7 +177,8 @@ namespace maxhanna.Server.Controllers
                         ua.description,
                         ua.phone,
                         ua.email,
-                        ua.birthday
+                        ua.birthday,
+												ua.currency
                     FROM 
                         maxhanna.users u
                     LEFT JOIN 
@@ -209,6 +212,7 @@ namespace maxhanna.Server.Controllers
 							Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"),
 							Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
 							Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateTime("birthday"),
+							Currency = reader.IsDBNull(reader.GetOrdinal("currency")) ? null : reader.GetString("currency"),
 						};
 
 						// User found, return the user details
@@ -641,13 +645,14 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 
 				string checkUserSql = $@"
-                    INSERT INTO maxhanna.user_about (user_id, description, birthday, phone, email)
-                    VALUES (@userId, @description, @birthday, @phone, @email)
+                    INSERT INTO maxhanna.user_about (user_id, description, birthday, phone, email, currency)
+                    VALUES (@userId, @description, @birthday, @phone, @email, @currency)
                     ON DUPLICATE KEY UPDATE 
                         description = VALUES(description),
                         birthday = VALUES(birthday),
                         phone = VALUES(phone),
-                        email = VALUES(email);
+                        email = VALUES(email),
+                        currency = VALUES(currency);
                 ";
 				MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
 				checkUserCmd.Parameters.AddWithValue("@userId", request.User.Id);
@@ -655,6 +660,7 @@ namespace maxhanna.Server.Controllers
 				checkUserCmd.Parameters.AddWithValue("@birthday", request.About.Birthday);
 				checkUserCmd.Parameters.AddWithValue("@phone", request.About.Phone);
 				checkUserCmd.Parameters.AddWithValue("@email", request.About.Email);
+				checkUserCmd.Parameters.AddWithValue("@currency", request.About.Currency);
 				using (var reader = await checkUserCmd.ExecuteReaderAsync())
 				{
 					return Ok("Sucessfully updated about information.");

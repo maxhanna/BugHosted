@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using maxhanna.Server.Controllers.DataContracts.Crypto;
 using MySqlConnector;
 using Newtonsoft.Json;
 
@@ -13,6 +14,7 @@ namespace maxhanna.Server.Services
 		private readonly HttpClient _httpClient;
 		private DateTime _lastDailyTaskRun = DateTime.MinValue;
 		private DateTime _lastCoinFetchRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
+		private DateTime _lastExchangeRateFetchRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
 
 		public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config)
 		{
@@ -33,8 +35,15 @@ namespace maxhanna.Server.Services
 				// Check if 1 hour has passed since the last coin fetch
 				if ((DateTime.Now - _lastCoinFetchRun).TotalHours >= 1)
 				{
-					await FetchAndStoreCoinValues();
+					await FetchAndStoreCoinValues(); 
 					_lastCoinFetchRun = DateTime.Now;
+				}
+
+				// Check if 6 hour has passed since the last exchange rate fetch
+				if ((DateTime.Now - _lastExchangeRateFetchRun).TotalHours >= 6)
+				{ 
+					await FetchExchangeRates();
+					_lastExchangeRateFetchRun = DateTime.Now;
 				}
 
 				// Check and run daily tasks only once every 24 hours
@@ -197,6 +206,97 @@ namespace maxhanna.Server.Services
 				_logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
 			}
 		}
+		private async Task<ExchangeRateData?> FetchExchangeRates()
+		{
+			string apiUrl = $"https://api.exchangerate-api.com/v4/latest/CAD";
+
+			try
+			{
+				var response = await _httpClient.GetAsync(apiUrl);
+				if (response.IsSuccessStatusCode)
+				{
+					var responseContent = await response.Content.ReadAsStringAsync();
+					var exchangeData = JsonConvert.DeserializeObject<ExchangeRateData>(responseContent);
+
+					if (exchangeData != null)
+					{
+						await SaveExchangeRatesToDatabase(exchangeData);
+					}
+
+					return exchangeData;
+				}
+				else
+				{
+					_logger.LogWarning($"Failed to fetch exchange rates for CAD: {response.StatusCode}");
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, $"Error fetching exchange rates for CAD.");
+			}
+
+			return null;
+		}
+
+		private async Task SaveExchangeRatesToDatabase(ExchangeRateData exchangeData)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+
+					// Check if an entry was added in the last 6 hours
+					var checkSql = @"
+                SELECT COUNT(*) FROM exchange_rates 
+                WHERE timestamp >= NOW() - INTERVAL 6 HOUR";
+
+					using (var checkCmd = new MySqlCommand(checkSql, connection))
+					{
+						var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+						if (count > 0)
+						{
+							_logger.LogInformation("Exchange rates not added as entries exist in the last 6 hours.");
+							return;
+						}
+					}
+
+					// Delete old entries (older than 10 years)
+					var deleteSql = @"
+                DELETE FROM exchange_rates 
+                WHERE timestamp < NOW() - INTERVAL 10 YEAR";
+
+					using (var deleteCmd = new MySqlCommand(deleteSql, connection))
+					{
+						await deleteCmd.ExecuteNonQueryAsync();
+					}
+
+					// Insert new exchange rates
+					foreach (var rate in exchangeData.Rates)
+					{
+						var insertSql = @"
+                    INSERT INTO exchange_rates (base_currency, target_currency, rate, timestamp) 
+                    VALUES (@base, @target, @rate, NOW())";
+
+						using (var insertCmd = new MySqlCommand(insertSql, connection))
+						{
+							insertCmd.Parameters.AddWithValue("@base", exchangeData.Base);
+							insertCmd.Parameters.AddWithValue("@target", rate.Key);
+							insertCmd.Parameters.AddWithValue("@rate", rate.Value);
+
+							await insertCmd.ExecuteNonQueryAsync();
+						}
+					}
+
+					_logger.LogInformation("Exchange rates stored successfully.");
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error occurred while storing exchange rates.");
+			}
+		}
+
 
 		private async Task DeleteOldGuests()
 		{
@@ -283,8 +383,8 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					// Delete entries older than five years
-					var deleteSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(NOW(), INTERVAL 5 YEAR)";
+					// Delete entries older than 10 years
+					var deleteSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(NOW(), INTERVAL 10 YEAR)";
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						await deleteCmd.ExecuteNonQueryAsync();

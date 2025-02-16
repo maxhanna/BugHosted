@@ -1,5 +1,5 @@
 
-<div class="fileActionCommands" *ngIf="!fileSearchMode">
+<div class="fileActionCommands topSearchButtonDiv" *ngIf="!fileSearchMode">
   <span (click)="openSearchPanel();">🔍</span>
   <span (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
 </div>
@@ -69,8 +69,11 @@
                        (click)="$event.stopPropagation()"
                        [id]="'editFileNameInput'+file.id" />
 
-                <span class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}" (click)="selectFile(file);" [id]="'fileIdName'+file.id">
-                  {{file.isFolder ? '📁' : ''}}{{isEditing.includes(file.id) ? '' : file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '')!}}
+                <span *ngIf="!isEditing.includes(file.id)"
+                      class="fileFolderNameSpan {{file.isFolder ? 'folder' : ''}}"
+                      (click)="selectFile(file);"
+                      [id]="'fileIdName'+file.id">
+                  {{file.isFolder ? '📁' : ''}}{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '')}}
                 </span>
               </span>
               <div class="fileExtras fileOptionsAction">
@@ -140,7 +143,7 @@
     <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
   </div>
   <div class="popupPanelActions">
-    <button title="Edit File Name" (click)="startEditing(optionsFile.id);" *ngIf="shouldShowEditButton(optionsFile)">
+    <button title="Edit File Name" (click)="startEditingFileName(optionsFile.id);" *ngIf="shouldShowEditButton(optionsFile)">
       ✏️Edit File Name
     </button>
     <button title="Share File" (click)="(optionsFile.visibility?.toLowerCase() == 'private' ? shareFileInitiate(optionsFile) : shareLink(optionsFile));">
@@ -162,19 +165,38 @@
                 (topicAdded)="editFileTopicInDB($event, optionsFile)">
     </app-topics>
   </div>
-  <div class="fileOptionsStats">
-    <div class="optionsPanelDataDiv"><span class="smallFont">Id:</span> {{optionsFile.id}}</div>
-    <div class="optionsPanelDataDiv"><span class="smallFont">{{optionsFile.isFolder ? 'Folder' : 'File'}} Name:</span> {{optionsFile.fileName}}</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.givenFileName"><span class="smallFont">Given File Name:</span> {{optionsFile.givenFileName}}</div>
-    <div class="optionsPanelDataDiv" *ngIf="!optionsFile.isFolder">
-      <span class="smallFont">
+  <div class="optionsStatsWrapperDiv">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Id:</div>
+      <div class="optionsStatsDescription">
+        {{optionsFile.id}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        {{optionsFile.isFolder ? 'Folder' : 'File'}} Name:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsFile.fileName}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.givenFileName">
+      <div class="optionsStatsHeader">
+        Given File Name:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsFile.givenFileName}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
         Topics
         <span *ngIf="optionsFile.user?.id == inputtedParentRef?.user?.id || optionsFile.user?.id == parentRef?.user?.id"
               (click)="editFileTopic(optionsFile)"
               class="cursorPointer"
               title="Edit File Topics">✏️</span>:
-      </span>
-      <div>
+      </div>
+      <div class="optionsStatsDescription">
         <span *ngFor="let topic of optionsFile.topics" class="matchingTopic" (click)="fileTopicClicked(topic)">
           {{topic.topicText}}
           <span title="Remove Topic From File"
@@ -183,46 +205,106 @@
         </span>
       </div>
     </div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder"><span class="smallFont">Type:</span> {{optionsFile.fileType?.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.fileSize"><span class="smallFont">Filesize:</span> {{formatFileSize(optionsFile.fileSize)}}</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.width"><span class="smallFont">Size (width/height):</span> {{optionsFile.width}}X{{optionsFile.height}} px</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.directory"><span class="smallFont">Directory:</span> {{getDirectoryName(optionsFile)}}</div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.visibility">
-      <span class="smallFont">Visibility:</span>
-      <span>
-        {{optionsFile.visibility}}
-        <span *ngIf="optionsFile.visibility == 'Private'"
-              class="private"
-              title="This is a private file.">🔒</span>
-      </span>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.fileType || optionsFile.isFolder">
+      <div class="optionsStatsHeader">
+        Type:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsFile.fileType?.toUpperCase()}} {{optionsFile.isFolder ? 'Folder' : ''}}
+      </div>
     </div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.sharedWith"><span class="smallFont">Shared With:</span> {{optionsFile.sharedWith}}</div>
-    <div class="optionsPanelDataDiv">
-      <span class="smallFont">
+    <div class="optionsStatsDiv" *ngIf="optionsFile.fileSize">
+      <div class="optionsStatsHeader">
+        Filesize:
+      </div>
+      <div class="optionsStatsDescription">
+        {{formatFileSize(optionsFile.fileSize)}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.width">
+      <div class="optionsStatsHeader">
+        Size (width/height):
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsFile.width}}x{{optionsFile.height}} px
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.directory">
+      <div class="optionsStatsHeader">
+        Directory:
+      </div>
+      <div class="optionsStatsDescription">
+        {{getDirectoryName(optionsFile)}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.directory && !optionsFile.isFolder">
+      <div class="optionsStatsHeader">
+        Direct Link:
+      </div>
+      <div class="optionsStatsDescription">
+        <a href="https://bughosted.com/assets/Uploads/{{getDirectoryName(optionsFile) != '.' ? getDirectoryName(optionsFile) : ''}}{{optionsFile.fileName}}" target="_blank">
+          https://bughosted.com/assets/Uploads/{{getDirectoryName(optionsFile) != '.' ? getDirectoryName(optionsFile) : ''}}{{optionsFile.fileName}}
+        </a>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.visibility">
+      <div class="optionsStatsHeader">
+        Visibility:
+      </div>
+      <div class="optionsStatsDescription">
+        <span>
+          {{optionsFile.visibility}}
+          <span *ngIf="optionsFile.visibility == 'Private'"
+                class="private"
+                title="This is a private file.">🔒</span>
+        </span>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.sharedWith">
+      <div class="optionsStatsHeader">
+        Shared With:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsFile.sharedWith}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.date">
+      <div class="optionsStatsHeader">
         Created:
-      </span>
-      <span *ngIf="optionsFile.date" style="display: inline-block;" class="xxSmallFont">
+      </div>
+      <div class="optionsStatsDescription">
         {{optionsFile.date | date: 'y/MM/d HH:mm'}}
-      </span>
-      <div *ngIf="optionsFile.user" (click)="viewProfile(optionsFile.user)">
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.user">
+      <div class="optionsStatsHeader">
+        Created By:
+      </div>
+      <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.user"
                       [inputtedParentRef]="parentRef ?? inputtedParentRef"
                       [displayMiniTag]="true"></app-user-tag>
       </div>
     </div>
-    <div class="optionsPanelDataDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdated !== optionsFile.date">
-      <span class="smallFont">
+    <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy && optionsFile.lastUpdated !== optionsFile.date">
+      <div class="optionsStatsHeader">
         Updated:
-      </span>
-      <span *ngIf="optionsFile.lastUpdated" class="xxSmallFont">
+      </div>
+      <div class="optionsStatsDescription">
         {{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}}
-      </span>
-      <div *ngIf="optionsFile.lastUpdatedBy" (click)="viewProfile(optionsFile.lastUpdatedBy);">
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy">
+      <div class="optionsStatsHeader">
+        Updated By:
+      </div>
+      <div class="optionsStatsDescription">
         <app-user-tag [user]="optionsFile.lastUpdatedBy"
                       [inputtedParentRef]="parentRef ?? inputtedParentRef"
                       [displayMiniTag]="true"></app-user-tag>
       </div>
-    </div>
+    </div> 
+   
   </div>
 </div>
 

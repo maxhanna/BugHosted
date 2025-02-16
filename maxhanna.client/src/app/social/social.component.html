@@ -5,13 +5,13 @@
     <div class="componentTitle"><span>Social</span></div>
   </div>
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
-    <div class="notificationCounterDiv" *ngIf="showTopicSelector">
+    <div class="topNotificationCounterDiv" *ngIf="showTopicSelector">
       <app-notifications [minimalInterface]="true"
                          [inputtedParentRef]="parentRef">
       </app-notifications>
     </div>
     <!-- Search -->
-    <div *ngIf="showTopicSelector" class="searchSocialsButtonDiv" (click)="showSearchSocialsPanel()">
+    <div *ngIf="showTopicSelector" class="topSearchButtonDiv" (click)="showSearchSocialsPanel()">
       🔍
     </div>
     <!-- Search Popup -->
@@ -40,7 +40,7 @@
         </div>
         <div style="display: flex; flex-direction: column; align-content: center; justify-content: space-around; padding-left: 15px; font-family: var(--title-font-family)">
           <div>{{city}},</div>
-          <div>{{country}}</div> 
+          <div>{{country}}</div>
         </div>
       </div>
 
@@ -153,7 +153,7 @@
           </div>
         </div>
         <div class="optionsStatsDiv">
-          <div class="optionsStatsHeader"> 
+          <div class="optionsStatsHeader">
             <span (click)="editTopic(optionStory)"
                   *ngIf="optionStory.user?.id == parentRef?.user?.id"
                   title="Edit Post Topic"
@@ -199,30 +199,32 @@
             {{formatDate(optionStory.date)}}
           </div>
         </div>
-        <div class="optionsStatsDiv" *ngIf="extractUrl(optionStory.storyText)">
-          <div class="optionsStatsHeader">
-            Metadata URL:
+        <ng-container *ngFor="let metadata of optionStory.metadata">
+          <div class="optionsStatsDiv" *ngIf="extractUrl(optionStory.storyText)">
+            <div class="optionsStatsHeader">
+              Metadata URL:
+            </div>
+            <div class="optionsStatsDescription">
+              <a [href]="extractUrl(optionStory.storyText)" target="_blank" [title]="extractUrl(optionStory.storyText)">{{extractUrl(optionStory.storyText)}}</a>
+            </div>
           </div>
-          <div class="optionsStatsDescription">
-            <a [href]="extractUrl(optionStory.storyText)" target="_blank" [title]="extractUrl(optionStory.storyText)">{{extractUrl(optionStory.storyText)}}</a>
+          <div class="optionsStatsDiv" *ngIf="metadata.title">
+            <div class="optionsStatsHeader">
+              Metadata Title:
+            </div>
+            <div class="optionsStatsDescription" [title]="metadata.title">
+              {{ metadata.title.replace(' - YouTube', '') }}
+            </div>
           </div>
-        </div>
-        <div class="optionsStatsDiv" *ngIf="optionStory.metadata?.title">
-          <div class="optionsStatsHeader">
-            Metadata Title:
+          <div class="optionsStatsDiv" *ngIf="metadata.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
+            <div class="optionsStatsHeader">
+              Save to Music Playlist:
+            </div>
+            <div class="optionsStatsDescription">
+              <button (click)="addToMusicPlaylist(optionStory, metadata, $event);" title="Save this Youtube URL to your Music Playlist">💾Save</button>
+            </div>
           </div>
-          <div class="optionsStatsDescription" [title]="optionStory.metadata?.title">
-            {{optionStory.metadata?.title?.replace(' - YouTube', '')}}
-          </div>
-        </div>
-        <div class="optionsStatsDiv" *ngIf="optionStory.metadata?.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
-          <div class="optionsStatsHeader">
-            Save to Music Playlist:
-          </div>
-          <div class="optionsStatsDescription">
-            <button (click)="addToMusicPlaylist(optionStory, $event);" title="Save this Youtube URL to your Music Playlist">💾Save</button>
-          </div>
-        </div>
+        </ng-container>
       </div>
 
       <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
@@ -266,6 +268,12 @@
             )
           </span>
         </button>
+        <button class="mainTopicSelectionsHeaderButton" style="min-width:20px;" (click)="insertBold();" title="Bold">
+          <span style="font-weight:900">B</span>
+        </button>
+        <button class="mainTopicSelectionsHeaderButton" style="min-width:20px;" (click)="insertItalics();" title="Italic">
+          <span style="font-style:italic">I</span>
+        </button>
       </div>
     </div>
 
@@ -301,10 +309,15 @@
              [id]="'storyTextContainer'+story.id"
              (click)="toggleCollapse('storyTextContainer'+story.id)">
           <div class="storyContentDiv">
-            <div class="storyText" [style.display]="isEditing.includes(story.id) ? 'none' : 'block'" [innerHtml]="getStoryTextForDOM(story)" [id]="'storyText' + story.id"></div>
-            <ng-container *ngIf="openedStoryYoutubeVideos.includes(story.id)">
-              <iframe [id]="'storyIframe' + story.id" [src]="story.metadata?.imageUrl" style="height:500px; width:100%;"></iframe>
-            </ng-container> 
+            <div class="storyText"
+                 [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
+                 [innerHtml]="getStoryTextForDOM(story)"
+                 [id]="'storyText' + story.id"></div>
+
+            <iframe *ngIf="openedStoryYoutubeVideos.includes(story.id)"
+                    [id]="'youtubeIframe' + story.id" style="height:500px; width:100%;"></iframe>
+
+
 
             <textarea [id]="'storyTextTextarea' + story.id" [style.width]="isEditing.includes(story.id) ? '100%' : '0'" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
             <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
@@ -341,12 +354,12 @@
               </app-media-viewer>
             </div>
           </div>
-          <div *ngIf="story.metadata" class="metadataContent">
-            <div *ngIf="story.metadata.title" class="metadataTitle">{{story.metadata.title}}</div>
-            <div *ngIf="story.metadata.description" class="metadataDescription" [innerHtml]="story?.metadata?.description | clickableUrls"></div>
-            <div *ngIf="story.metadata.imageUrl" (click)="goToLink(story)" class="cursorPointerUnderlined metaImgDiv">
-              <img class="metadataImage" [src]="story?.metadata?.imageUrl" /> 
-              <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(story?.metadata?.imageUrl)"></button> 
+          <div *ngFor="let metadata of story?.metadata" class="metadataContent">
+            <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
+            <div *ngIf="metadata.description" class="metadataDescription" [innerHtml]="metadata.description | clickableUrls"></div>
+            <div *ngIf="metadata.imageUrl" (click)="goToLink(story)" class="cursorPointerUnderlined metaImgDiv">
+              <img class="metadataImage" [src]="metadata.imageUrl" />
+              <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
             </div>
           </div>
         </div>
@@ -385,8 +398,8 @@
       Loading...
     </div>
   </div>
-  
+
 </div>
-<button id="youtubeVideoButton" [style.visibility]="'hidden'" (click)="playYoutubeVideo()"></button>
-<input type="text" id="youtubeVideoIdInput" [style.visibility]="'hidden'" />
-<input type="text" id="youtubeVideoStoryIdInput" [style.visibility]="'hidden'" />
+<button id="youtubeVideoButton" [style.visibility]="'hidden'" (click)="playYoutubeVideo()" class="hiddenInput"></button>
+<input type="text" id="youtubeVideoIdInput" [style.visibility]="'hidden'" class="hiddenInput" />
+<input type="text" id="youtubeVideoStoryIdInput" [style.visibility]="'hidden'" class="hiddenInput" />

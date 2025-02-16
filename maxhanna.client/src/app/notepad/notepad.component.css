@@ -68,3 +68,13 @@ textarea {
     align-content:center;
     justify-content:center;
 }
+.sharedWithWrapperDiv {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 10px;
+}

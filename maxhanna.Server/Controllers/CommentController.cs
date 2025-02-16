@@ -173,7 +173,7 @@ namespace maxhanna.Server.Controllers
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{ 
 				await conn.OpenAsync();
-				Console.WriteLine(sqlBuilder.ToString());
+				//Console.WriteLine(sqlBuilder.ToString());
 				using (var cmd = new MySqlCommand(sqlBuilder.ToString(), conn))
 				{
 					cmd.Parameters.AddWithValue("@commentId", commentId);

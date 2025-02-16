@@ -48,6 +48,7 @@
   border: 2px solid var(--main-link-color);
   font-size: larger;
 }
+
   .notificationBubble:not(:first-of-type) {
-    margin-top:20px;
+    margin-top: 20px;
   }

@@ -2,9 +2,14 @@
   <div class="closeButton" (click)="remove_me('NotepadComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Notepad</div>
-  <div class="userList" *ngIf="isPanelExpanded">
-    <div style="text-align:center;">
-      Share this note?
+  <div class="userList" *ngIf="isPanelExpanded"> 
+    <div class="sharedWithWrapperDiv">
+      <div>
+        Share Note (id# {{ noteId.value }})? <span *ngIf="splitNoteOwnershipUsers">Currently shared with:</span>
+      </div>
+      <div *ngFor="let user of splitNoteOwnershipUsers">
+        <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+      </div>
     </div>
     <app-user-list (userClickEvent)="shareNote($event);"
                    [user]="parentRef?.user!"
@@ -17,7 +22,7 @@
   <textarea #noteInput (input)="handleNoteInputChange()" required></textarea>
   <fieldset class="buttonFields">
     <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton title="Save Note" />
-    <input type="submit" value="↗️" (click)="isPanelExpanded = !isPanelExpanded; getUsers();" #shareNoteButton title="Share Note" />
+    <input type="submit" value="↗️" (click)="shareNoteButtonClick()" #shareNoteButton title="Share Note" />
     <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
     <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
     <input type="hidden" value="" #noteId />

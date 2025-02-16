@@ -4,7 +4,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Metadata
 {
     public class SetMetadataRequest
     {
-        public MetadataDto? Metadata { get; set; }
+        public Metadata? Metadata { get; set; }
         public User? User { get; set; }
     }
 }

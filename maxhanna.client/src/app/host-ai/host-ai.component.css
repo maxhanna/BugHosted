@@ -1,10 +1,9 @@
 .componentMain {
-  width: 90vw;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px); 
+  width: 90vw; 
 }
 
 .chat-container {
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 75px);
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 85px);
   margin: 0 auto;
   border: 1px solid #ccc;
   padding: 10px;

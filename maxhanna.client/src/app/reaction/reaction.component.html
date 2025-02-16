@@ -26,15 +26,19 @@
 </div>
 
 <div *ngIf="showReactions" class="popupPanel">
-  <div>
+  <div style="margin-bottom: 20px;">
     <span class="popupPanelTitle">Reactions ({{currentReactions?.length ?? 0}}) </span>
     <button id="closeOverlay" (click)="closeReactionsPanel()">Close</button>
   </div>
   <div class="reactionsOverlayWrapper">
-    <div *ngFor="let reaction of currentReactions" class="reactionWrapper">
-      <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
-      : <span class="reactionTypeSpan">{{replaceReactionType(reaction.type)}}</span>
-      <span class="xxSmallFont">{{reaction.timestamp}}</span>
+    <div *ngFor="let reaction of currentReactions">
+      <div>
+        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
+      </div>
+      <div>
+        : <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
+        <span class="smallFont">{{reaction.timestamp?.toString()?.replace('T', ' ')}}</span>
+      </div>
     </div>
   </div> 
 </div>

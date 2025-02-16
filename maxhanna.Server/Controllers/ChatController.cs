@@ -142,7 +142,7 @@ namespace maxhanna.Server.Controllers
 				FROM 
 						messages m  
 				WHERE 
-						FIND_IN_SET(1, m.receiver) > 0
+						FIND_IN_SET(@ReceiverId, m.receiver) > 0
 				GROUP BY 
 						m.chat_id, 
 						m.receiver

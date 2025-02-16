@@ -1,9 +1,9 @@
-<div class="componentMain">
+<div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}">
   <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!loginOnly"></div>
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
 
-  <div class="notificationCounterDiv" *ngIf="parentRef?.user">
+  <div class="topNotificationCounterDiv" *ngIf="parentRef?.user">
     <app-notifications [minimalInterface]="true"
                        [inputtedParentRef]="parentRef">
     </app-notifications>
@@ -291,41 +291,71 @@
           About
         </span>
 
-        <div class="mainTableDiv" *ngIf="isAboutExpanded">
-          <table class="mainTable aboutTable" *ngIf="user?.about && (user?.about?.description || user?.about?.birthday || user?.about?.email || user?.about?.phone || wordlerStreak > 0)">
-            <tbody>
-              <tr *ngIf="user?.about?.description">
-                <td colspan="2" title=Description>
-                  {{user?.about?.description}}
-                </td>
-              </tr>
-              <tr *ngIf="user?.lastSeen">
-                <td title="Last Seen" colspan="2">
-                  Last Seen : {{daysSince(user?.lastSeen)}} days ago.
-                </td>
-              </tr>
-              <tr *ngIf="user?.about?.email">
-                <td colspan="2" title="Email">
-                  {{user?.about?.email}}
-                </td>
-              </tr>
-              <tr *ngIf="user?.about?.birthday">
-                <td title="Birthday" colspan="2">
-                  {{user?.about?.birthday}}
-                </td>
-              </tr>
-              <tr *ngIf="user?.about?.phone">
-                <td title="Phone Number" colspan="2">
-                  {{user?.about?.phone}}
-                </td>
-              </tr>
-              <tr *ngIf="wordlerStreak > 0">
-                <td title="Wordler Streak" colspan="2">
-                  Current Wordler streak: {{wordlerStreak}} consecutive days.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div *ngIf="isAboutExpanded">
+          <div class="optionsStatsWrapperDiv"> 
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                Last Seen :
+              </div>
+              <div class="optionsStatsDescription">
+                {{daysSince(user?.lastSeen)}} days ago.
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="user?.about?.description">
+              <div class="optionsStatsHeader">
+                Description :
+              </div>
+              <div class="optionsStatsDescription">
+                {{user?.about?.description}}
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="user?.about?.email">
+              <div class="optionsStatsHeader">
+                Email :
+              </div>
+              <div class="optionsStatsDescription">
+                {{user?.about?.email}}
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="user?.about?.birthday">
+              <div class="optionsStatsHeader">
+                Birthday :
+              </div>
+              <div class="optionsStatsDescription">
+                {{user?.about?.birthday}}
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="user?.about?.phone">
+              <div class="optionsStatsHeader">
+                Phone Number :
+              </div>
+              <div class="optionsStatsDescription">
+                {{user?.about?.phone}}
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv" *ngIf="user?.about?.currency">
+              <div class="optionsStatsHeader">
+                Currency :
+              </div>
+              <div class="optionsStatsDescription">
+                {{user?.about?.currency}}
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                Current Wordler streak:
+              </div>
+              <div class="optionsStatsDescription">
+                {{wordlerStreak}} consecutive days.
+              </div>
+            </div>
+          </div> 
         </div>
       </div>
     </div>

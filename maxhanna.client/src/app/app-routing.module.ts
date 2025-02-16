@@ -14,6 +14,7 @@ const routes: Routes = [
   { path: 'Wordler', component: AppComponent },
   { path: 'Media/:fileId', component: MediaViewerComponent },
   { path: 'Array', component: AppComponent },
+  { path: 'Crypto', component: AppComponent },
   { path: 'War', component: AppComponent },
   { path: 'Meta', component: AppComponent },
 ];
