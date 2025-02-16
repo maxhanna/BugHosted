@@ -272,3 +272,6 @@
   flex-direction: row;
   flex-wrap: nowrap;
 }
+.noNotificationsSearchDiv {
+  right: 53px !important;
+}

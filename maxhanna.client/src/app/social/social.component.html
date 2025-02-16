@@ -32,9 +32,16 @@
 
       <div class="popupPanelTitle" style="margin-bottom:15px;">
         Menu
-        <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
       </div>
-      <div style="display:flex;margin-bottom:15px;">
+
+      <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection">
+        Page Select:
+        <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
+          <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
+        </select>
+      </div>
+
+      <div style="display:flex;" class="menuPopupSection">
         <div>
           <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
         </div>
@@ -45,15 +52,18 @@
       </div>
 
       <!-- search input area -->
-      <div style="margin-bottom:10px;">
+      <div class="menuPopupSection">
         <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user" [value]="userSearch" />
         <input type="submit" (click)="searchStories()" value="🔍" *ngIf="!user" />
-        <div (click)="searchStories()">
-          <span *ngIf="userSearch">Current Search : </span>
-          {{userSearch}}
+        <div (click)="clearSearchInput()">
+          <span *ngIf="userSearch">
+            Current Search :
+            {{userSearch}} ❌
+          </span>
         </div>
       </div>
-      <div>
+
+      <div class="menuPopupSection">
         <app-topics #topicComponent
                     [isDropdown]="true"
                     [user]="parentRef?.user"
@@ -61,13 +71,10 @@
                     [attachedTopics]="attachedTopics"
                     (topicAdded)="onTopicAdded($event)">
         </app-topics>
-        <div style="display: inline-flex;">
-          <span *ngIf="attachedTopics && attachedTopics.length > 0">Attached Topics : </span><span *ngFor="let topic of attachedTopics" (click)="removeTopic(topic)" class="matchingTopic" title="{{topic.topicText}} : Click to remove topic">{{topic.topicText}}</span>
-        </div>
       </div>
 
       <!-- Top Topic Selector -->
-      <div>
+      <div class="menuPopupSection">
         <div class="topTopicTitle" *ngIf="showTopicSelector">
           Top Topics:
         </div>
@@ -77,6 +84,7 @@
         </span>
       </div>
 
+      <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
     </div>
 
     <!-- Post Options Popup -->
@@ -105,9 +113,6 @@
     <!-- Post Topics Popup -->
     <div class="popupPanel largePopupPanel" *ngIf="isMobileTopicsPanelOpen">
       <div class="popupPanelTitle">Topics <button id="closeOverlay" (click)="closeMobileTopicsPanel()">Close</button></div>
-      <div style="display: inline-flex;">
-        <span *ngFor="let topic of attachedTopics" (click)="removeTopic(topic)" class="matchingTopic" title="{{topic.topicText}} : Click to remove topic">{{topic.topicText}}</span>
-      </div>
       <app-topics #topicComponent
                   [isDropdown]="true"
                   [user]="parentRef?.user"
@@ -228,13 +233,7 @@
       </div>
 
       <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
-    </div>
-    <!-- Pagination -->
-    <div class="pagination topPagination" *ngIf="totalPagesArray.length > 1">
-      <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
-        <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
-      </select>
-    </div>
+    </div> 
 
     <!-- Story Input -->
     <div class="storyInputDiv">
@@ -268,11 +267,22 @@
             )
           </span>
         </button>
-        <button class="mainTopicSelectionsHeaderButton" style="min-width:20px;" (click)="insertBold();" title="Bold">
+        <button class="mainTopicSelectionsHeaderButton"
+                style="min-width:20px;"
+                (click)="insertBold();"
+                title="Bold">
           <span style="font-weight:900">B</span>
         </button>
-        <button class="mainTopicSelectionsHeaderButton" style="min-width:20px;" (click)="insertItalics();" title="Italic">
+        <button class="mainTopicSelectionsHeaderButton"
+                style="min-width:20px;"
+                (click)="insertItalics();"
+                title="Italic">
           <span style="font-style:italic">I</span>
+        </button> 
+        <button class="mainTopicSelectionsHeaderButton"
+                style="min-width:20px;"
+                (click)="insertBullet();" title="Bullet-point">
+          <span>&bull;</span>
         </button>
       </div>
     </div>
@@ -322,10 +332,30 @@
 
 
             <textarea [id]="'storyTextTextarea' + story.id" [style.width]="isEditing.includes(story.id) ? '100%' : '0'" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
-            <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
-              <span class="storyEditSpans storyAcceptEdit" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
-              ✏️Edit
-            </button>
+            <div class="editingTextAreaButtonWrapperDiv">
+              <button [id]="'storyTextEditConfirmButton' + story.id" (click)="editStory(story)" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">
+                <span class="storyEditSpans storyAcceptEdit" [id]="'storyAcceptEditButtonSpan' + story.id">✔️</span>
+                ✏️Edit
+              </button>
+              <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
+                      class="mainTopicSelectionsHeaderButton"
+                      (click)="insertBold('storyTextTextarea' + story.id);"
+                      title="Bold">
+                <span style="font-weight:900">B</span>
+              </button>
+              <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
+                      class="mainTopicSelectionsHeaderButton"
+                      (click)="insertItalics('storyTextTextarea' + story.id);"
+                      title="Italic">
+                <span style="font-style:italic">I</span>
+              </button>
+              <button [style.display]="isEditing.includes(story.id) ? 'block' : 'none'"
+                      class="mainTopicSelectionsHeaderButton"
+                      (click)="insertBullet('storyTextTextarea' + story.id);"
+                      title="Bullet-point">
+                <span>&bull;</span>
+              </button>
+            </div> 
           </div>
         </div>
         <div>

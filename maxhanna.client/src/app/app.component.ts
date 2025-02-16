@@ -28,7 +28,7 @@ import { NotificationsComponent } from './notifications/notifications.component'
 import { UserService } from '../services/user.service'; 
 import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
-import { Meta, Title } from '@angular/platform-browser';
+import { DomSanitizer, Meta, Title } from '@angular/platform-browser';
 import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 
 
@@ -109,7 +109,12 @@ export class AppComponent implements OnInit, AfterViewInit {
     "UpdateUserSettings": UpdateUserSettingsComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
-  constructor(private router: Router, private route: ActivatedRoute, private userService: UserService, private meta: Meta, private title: Title) { }
+  constructor(private router: Router,
+    private route: ActivatedRoute,
+    private userService: UserService,
+    private meta: Meta,
+    private title: Title, 
+    private sanitizer: DomSanitizer) { }
 
   ngOnInit() {
     if (this.getCookie("user")) {
@@ -362,5 +367,36 @@ export class AppComponent implements OnInit, AfterViewInit {
     const tmpTitle = "BugHosted.com " + title;
     this.title.setTitle(tmpTitle);
     this.meta.updateTag({ name: 'description', content: title }); 
+  }
+
+  getTextForDOM(text?: string, component_id?: number) {
+    if (!text) return "";
+     
+    const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
+
+
+    // Step 1: Temporarily replace YouTube links with placeholders
+    text = text.replace(youtubeRegex, (match, url, videoId, shortVideoId) => {
+      const id = videoId || shortVideoId;
+      return `__YOUTUBE__${id}__YOUTUBE__`; // Placeholder for YouTube videos
+    });
+
+    // Step 2: Convert regular URLs into clickable links
+    text = text
+      .replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
+
+    // Step 3: Replace the placeholders with embedded YouTube iframes
+    text = text.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
+      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${(component_id ?? '0')}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
+    });
+
+    // Step 4: Convert Bold, Bullet-point and italic tags
+    text = text
+      .replace(/\[b\](.*?)\[\/b\]/gi, "<b>$1</b>") // Bold
+      .replace(/\[\*\](.*?)\[\/\*\]/gi, "\n&bull; $1") // Bullet-point
+      .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>"); // Italics
+
+    return this.sanitizer.bypassSecurityTrustHtml(text);
   }
 }

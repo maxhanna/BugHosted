@@ -13,15 +13,14 @@ import { ChildComponent } from '../child.component';
 export class TopicsComponent extends ChildComponent {
   @Input() user: User | undefined;
   @Input() parent: AppComponent | undefined;
-  @Input() attachedTopics?: Topic[] | undefined;
+  @Input() attachedTopics: Topic[] | undefined;
   @Input() isDropdown: boolean = false;
   @Input() preventClosingOverlay: boolean = false;
   @Output() topicAdded = new EventEmitter<Topic[]>();
   @ViewChild('newTopic') newTopic!: ElementRef<HTMLInputElement>;
   @ViewChild('addTopicButton') addTopicButton!: ElementRef<HTMLButtonElement>;
 
-  showAddTopicButton = false;
-  topics: Topic[] = [];
+  showAddTopicButton = false; 
   matchingTopics: Topic[] = [];
   isDropdownShowing = false;
   private searchTimer: any;
@@ -38,19 +37,21 @@ export class TopicsComponent extends ChildComponent {
     if (addedTopic !== '') {
       this.newTopic.nativeElement.value = ''; 
       const tmpTopic = await this.topicService.addTopic(this.user ?? this.parent?.user, new Topic(0, addedTopic));
-      this.topics.push(tmpTopic);
-      this.topicAdded.emit(this.topics);
+      if (!this.attachedTopics) {
+        this.attachedTopics = []; // Create array if it doesn't exist
+      }
+      this.attachedTopics.push(tmpTopic);
+      this.topicAdded.emit(this.attachedTopics);
       this.addTopicButton.nativeElement.style.visibility = "hidden"; 
     }
   }
   removeTopic(topic: Topic) {
-    this.topics = this.topics.filter(x => x.id != topic.id); 
-    const tmpTopics = this.attachedTopics ? this.topics.concat(this.attachedTopics) : this.topics;
-    this.topicAdded.emit(tmpTopics);
+    this.attachedTopics = this.attachedTopics?.filter(x => x.id != topic.id); 
+    this.topicAdded.emit(this.attachedTopics);
   }
   removeAllTopics() {
-    this.topics = [];
-    this.topicAdded.emit(this.topics);
+    this.attachedTopics = [];
+    this.topicAdded.emit(this.attachedTopics);
   }
 
 
@@ -64,26 +65,27 @@ export class TopicsComponent extends ChildComponent {
         this.addTopicButton.nativeElement.style.visibility = "hidden"; 
       } 
       if (enteredValue.trim() != '' || force) { 
-        this.matchingTopics = await this.topicService.getTopics(enteredValue);
-        
-        if (enteredValue.trim() == '') {
-          this.showAddTopicButton = false; 
-        } 
-        if (this.matchingTopics.length == 0 && enteredValue.trim() != '') {
-          this.showAddTopicButton = (this.user || this.parent?.user) ? true : false;
-          if (this.showAddTopicButton) {
-            setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
+        await this.topicService.getTopics(enteredValue).then(matchingTopics => {
+          this.matchingTopics = matchingTopics;
+          if (enteredValue.trim() == '') {
+            this.showAddTopicButton = false;
           }
-        } else {
-          if (this.matchingTopics.some(x => x.topicText != '' && x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
-            this.addTopicButton.nativeElement.style.visibility = "hidden"; 
-          } else if (enteredValue.trim() != '') {
-            this.showAddTopicButton = (this.user || this.parent?.user) ? true : false; 
+          if (this.matchingTopics.length == 0 && enteredValue.trim() != '') {
+            this.showAddTopicButton = (this.user || this.parent?.user) ? true : false;
             if (this.showAddTopicButton) {
               setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
             }
+          } else {
+            if (this.matchingTopics.some(x => x.topicText != '' && x.topicText.toLowerCase() == enteredValue.toLowerCase())) {
+              this.addTopicButton.nativeElement.style.visibility = "hidden";
+            } else if (enteredValue.trim() != '') {
+              this.showAddTopicButton = (this.user || this.parent?.user) ? true : false;
+              if (this.showAddTopicButton) {
+                setTimeout(() => { this.addTopicButton.nativeElement.style.visibility = "visible"; }, 10)
+              }
+            }
           }
-        }
+        }); 
       } else {
         this.matchingTopics = [];
         this.showAddTopicButton = false;
@@ -105,11 +107,17 @@ export class TopicsComponent extends ChildComponent {
 
   selectTopic(topic: Topic) {
     console.log(topic);
-    if (this.topics.some(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase())) return; //if the topics selected already contain the topic selected, skip.
-    this.topics.push(topic);
-    const tmpTopics = this.attachedTopics ? this.topics.concat(this.attachedTopics) : this.topics;
+    if (this.attachedTopics?.some(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase())) return;
+    if (!this.attachedTopics) {
+      this.attachedTopics = [];
+    }
 
-    this.topicAdded.emit(tmpTopics);
+    if (!this.attachedTopics.includes(topic)) { 
+      this.attachedTopics.push(topic);
+    }
+     
+    console.log("emitting ", this.attachedTopics);
+    this.topicAdded.emit(this.attachedTopics);
     this.newTopic.nativeElement.value = '';
     this.matchingTopics = [];
     if (this.addTopicButton) {

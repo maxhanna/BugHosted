@@ -170,16 +170,13 @@ fieldset {
 .componentTitle {
   font-family: var(--title-font-family);
   font-weight: bolder;
-  position: absolute;
-  width: 100%;
-  text-align: center;
+  position: absolute; 
   font-size: 25px;
   line-height: 50px;
   top: 0px;
+  left: 55px;
   display: block;
-  box-shadow: 0px 2px 2px black;
-  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
-  background-color: var(--main-highlight-color);
+  text-shadow: 0px 0.50px 0.50px var(--secondary-font-color); 
 }
 
 .mainTableDiv {

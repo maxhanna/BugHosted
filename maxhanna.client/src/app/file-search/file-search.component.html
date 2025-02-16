@@ -1,6 +1,6 @@
 
 <div class="fileActionCommands" *ngIf="!fileSearchMode">
-  <span class="topSearchButtonDiv" (click)="openSearchPanel();">🔍</span>
+  <span class="topSearchButtonDiv {{ (!showSpaceForNotifications && !showFileSearchOptions) ? 'noNotificationsSearchDiv' : '' }}" (click)="openSearchPanel();">🔍</span>
   <span class="notificationTopButton" (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
 </div>
 

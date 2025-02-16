@@ -339,10 +339,10 @@ singleAttachment {
 .topPagination {
   position: fixed;
   top: CALC(50px - 36px);
-  left: CALC(50px + 2vw);
+  left: CALC(100% - 200px);
 }
   .topPagination select {
-    width: 50px;
+    width: 35px;
     height: 30px;
   }
 
@@ -439,11 +439,7 @@ singleAttachment {
   margin-bottom: 10px;
   opacity: 75%;
 }
-
-.popupPanel {
-  width: 320px;
-}
-
+ 
 .popupPanelTitle {
   display: flex;
   width: 100%;
@@ -453,7 +449,10 @@ singleAttachment {
 .largePopupPanel {
   height: 50%;
 }
-
+.editingTextAreaButtonWrapperDiv {
+  display: flex;
+  flex-wrap:nowrap;
+}
 .storyEditSpans {
   position: relative;
   transform: scale(0.75);
@@ -477,6 +476,7 @@ singleAttachment {
 .mainTopicSelectionsHeaderButton {
   display: inline-block;
   white-space: nowrap;
+  min-width: 20px;
 }
 
 .matchingTopicsInsideButtonWrapper {
@@ -566,4 +566,7 @@ singleAttachment {
 .searchSocialsPanelContentDiv {
   margin-top: 15px;
   margin-bottom: 20px;
-} 
+}
+.menuPopupSection {
+  margin: 20px;
+}

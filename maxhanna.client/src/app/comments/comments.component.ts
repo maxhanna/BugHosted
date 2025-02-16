@@ -185,34 +185,10 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
   }
   getTextForDOM(text: string, component_id: number) {
-    if (!text) return "";
-
-    const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
-
-    let tmpTxt = text;
-
-    // Step 1: Temporarily replace YouTube links with placeholders
-    tmpTxt = tmpTxt.replace(youtubeRegex, (match, url, videoId, shortVideoId) => {
-      const id = videoId || shortVideoId;
-      return `__YOUTUBE__${id}__YOUTUBE__`; // Placeholder for YouTube videos
-    });
-
-    // Step 2: Convert regular URLs into clickable links
-    tmpTxt = tmpTxt
-      .replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-      .replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
-
-    // Step 3: Replace the placeholders with embedded YouTube iframes
-    tmpTxt = tmpTxt.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
-      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${component_id}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
-    });
-
-    // Step 4: Convert [b] and [i] tags to <b> and <i>
-    tmpTxt = tmpTxt
-      .replace(/\[b\](.*?)\[\/b\]/gi, "<b>$1</b>") // Bold
-      .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>"); // Italics
-
-    return this.sanitizer.bypassSecurityTrustHtml(tmpTxt);
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      return parent.getTextForDOM(text, component_id);
+    } else return "Error fetching parent component.";
   }
 
   createClickableUrls(text?: string): SafeHtml {
@@ -251,7 +227,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
   changedCommentCount(event: any) { 
     if (document.getElementById("commentIdCount" + event.comment_id)) {
-      document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = event.commentCount > 0 ? ':' + event.commentCount : '';
+      document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = "[Repl" + (event.commentCount > 0 ? 'ies:<span style="color:white">' + event.commentCount + "</span>" : 'y') + "]";
       (document.getElementById('subCommentComponent' + event.comment_id) as HTMLDivElement).style.display = ((event.commentCount > 0) ? "block" : "none"); 
     }
   }

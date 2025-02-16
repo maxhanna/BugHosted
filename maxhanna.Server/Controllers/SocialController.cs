@@ -58,18 +58,18 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10)
 		{
-			var whereClause = new StringBuilder("WHERE 1=1 ");
+			var whereClause = new StringBuilder(" WHERE 1=1 ");
 			var parameters = new Dictionary<string, object>();
 
 			if (!string.IsNullOrEmpty(search))
 			{
 				whereClause.Append(
-						@"AND (
+						@" AND (
                 MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
                 OR s.city LIKE CONCAT('%', @searchTerm, '%')
                 OR s.country LIKE CONCAT('%', @searchTerm, '%')
-                OR u.username LIKE CONCAT('%', @searchTerm, '%')
-            )"
+                OR username LIKE CONCAT('%', @searchTerm, '%')
+            ) "
 				);
 				parameters.Add("@searchTerm", search);
 			}
@@ -78,11 +78,11 @@ namespace maxhanna.Server.Controllers
 				var topicIds = topics.Split(',').Select((t, index) => new { Index = index, Id = t }).ToList();
 				for (int i = 0; i < topicIds.Count; i++)
 				{
-					whereClause.Append($@"AND EXISTS (
+					whereClause.Append($@" AND EXISTS (
                 SELECT 1 FROM story_topics st2 
                 LEFT JOIN topics t2 ON st2.topic_id = t2.id 
                 WHERE st2.story_id = s.id AND t2.id = @topic_id_{i}
-            )");
+            ) ");
 					parameters.Add($"@topic_id_{i}", topicIds[i].Id);
 				}
 			}
@@ -97,12 +97,14 @@ namespace maxhanna.Server.Controllers
 			}
 
 			int offset = (page - 1) * pageSize;
-			string countSql = @"SELECT COUNT(*) AS total_count FROM stories AS s " + whereClause + ";";
-
-			string sql = @"
+			string countSql = @$"SELECT COUNT(*) AS total_count 
+												FROM stories AS s 
+												JOIN users AS u ON s.user_id = u.id {whereClause};"; 
+			string sql = @$"
     SELECT 
         s.id AS story_id, 
-        u.id AS user_id, u.username, 
+        u.id AS user_id, 
+				u.username as username, 
         udp.file_id AS displayPictureFileId,
         udpfu.folder_path AS displayPictureFileFolderPath,
         udpfu.file_name AS displayPictureFileFileName,
@@ -116,7 +118,7 @@ namespace maxhanna.Server.Controllers
     LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
         ON s.id = c.story_id
     LEFT JOIN story_metadata AS sm ON s.id = sm.story_id
-    " + whereClause + @"
+     {whereClause} 
     ORDER BY s.id DESC 
     LIMIT @pageSize OFFSET @offset;";
 
@@ -142,7 +144,7 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue(param.Key, param.Value);
 					}
-					Console.WriteLine(cmd.CommandText);
+					//Console.WriteLine(cmd.CommandText);
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
 						while (await rdr.ReadAsync())
@@ -784,8 +786,8 @@ namespace maxhanna.Server.Controllers
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
 						if (rowsAffected == 1)
-						{
-
+						{ 
+							await AppendToSitemapAsync(request.story.Id);
 							var url = ExtractUrl(request.story.StoryText);
 							if (url != null)
 							{

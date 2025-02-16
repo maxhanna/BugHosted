@@ -39,6 +39,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() fileId: string | null = null;
   @Input() displayTotal = true;
   @Input() showFileSearchOptions = true;
+  @Input() showSpaceForNotifications = false;
   @Input() currentPage = this.defaultCurrentPage;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();

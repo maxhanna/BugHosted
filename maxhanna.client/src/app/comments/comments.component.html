@@ -13,7 +13,7 @@
   </span>
 </div>
 <div class="comments-section" *ngIf="commentList && commentList.length > 0 && showComments" [style.maxHeight]="comment_id ? '' : '300px'"> 
-  <div *ngFor="let comment of commentList!" class="commentListDiv" [style.paddingLeft]="comment_id ? '40px' : '20px'" [style.paddingRight]="comment_id ? '40px' : '20px'">
+  <div *ngFor="let comment of commentList!" class="commentListDiv" [style.paddingLeft]="comment_id ? '40px' : '20px'" >
     <div class="commentContentAndAvatarContainerDiv">
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
@@ -30,7 +30,7 @@
           ⚙️
         </div>
         <div class="cursorPointer smallFont" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
-          [Reply<span [id]="'commentIdCount' + comment.id" class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}"></span>]
+          <span [id]="'commentIdCount' + comment.id">[Reply]</span>
         </div>
       </div>
       <div class="commentContent">

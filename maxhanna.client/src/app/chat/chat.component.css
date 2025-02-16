@@ -8,10 +8,8 @@
 .componentTitle {
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  padding-left: 30px;
-  padding-right: 30px;
-  width: calc(100% - 60px);
+  text-overflow: ellipsis; 
+  width: calc(100% - 100px);
 }
 
 @media only screen and (min-width:800px) {

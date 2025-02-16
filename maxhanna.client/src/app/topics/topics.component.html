@@ -14,10 +14,10 @@
   <div *ngIf="matchingTopics.length > 0 && isDropdown" class="dropdownMenu" id="dropdownMenu">
     <div *ngFor="let topic of matchingTopics" (click)="selectTopic(topic)" class="dropdownMenuTopic">{{topic.topicText}}</div>
   </div>
-  <div>
-    <span *ngFor="let topic of topics" class="matchingTopic">
+  <div *ngIf="attachedTopics">
+    <span *ngFor="let topic of attachedTopics" class="matchingTopic" (click)="removeTopic(topic)">
       {{topic.topicText}}
-      <button class="removeTopicButton" (click)="removeTopic(topic)">❌</button>
+      <button class="removeTopicButton">❌</button>
     </span>
   </div>
 </div>

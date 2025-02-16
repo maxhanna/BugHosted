@@ -107,7 +107,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.setFileSrcByParentRefValue(this.fileId);  
         return;
       } else {
-        await this.setFileSrcById(this.selectedFile.id);
+        this.setFileSrcById(this.selectedFile.id);
       }
 
     }
@@ -119,7 +119,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.setFileSrcByParentRefValue(fileObject.id);  
         return;
       } else {
-        await this.setFileSrcById(fileObject.id);
+        this.setFileSrcById(fileObject.id);
         this.selectedFile = fileObject;
       }
     } else if (this.file && !Array.isArray(this.file)) {
@@ -129,7 +129,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         this.setFileSrcByParentRefValue(this.file.id); 
         return;
       } else {
-        await this.setFileSrcById(this.file.id);
+        this.setFileSrcById(this.file.id);
         this.selectedFile = this.file;
       }
     }
@@ -198,38 +198,39 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } 
     this.abortFileRequestController = new AbortController();
     try { 
-      const response = await this.fileService.getFileById(fileId, {
+      this.fileService.getFileById(fileId, {
         signal: this.abortFileRequestController.signal
-      });
-      if (!response || response == null) return;
+      }).then(response => {
+        if (!response || response == null) return;
 
-      const contentDisposition = response.headers["content-disposition"];
-      this.selectedFileExtension = this.fileService.getFileExtensionFromContentDisposition(contentDisposition);
-      const type = this.fileType = this.fileService.videoFileExtensions.includes(this.selectedFileExtension)
-        ? `video/${this.selectedFileExtension}`
-        : this.fileService.audioFileExtensions.includes(this.selectedFileExtension)
-          ? `audio/${this.selectedFileExtension}`
-          : `image/${this.selectedFileExtension}`;
+        const contentDisposition = response.headers["content-disposition"];
+        this.selectedFileExtension = this.fileService.getFileExtensionFromContentDisposition(contentDisposition);
+        const type = this.fileType = this.fileService.videoFileExtensions.includes(this.selectedFileExtension)
+          ? `video/${this.selectedFileExtension}`
+          : this.fileService.audioFileExtensions.includes(this.selectedFileExtension)
+            ? `audio/${this.selectedFileExtension}`
+            : `image/${this.selectedFileExtension}`;
 
-      const blob = new Blob([response.blob], { type });
-      const reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = () => {
-        this.showThumbnail = true; 
-        this.selectedFileSrc = (reader.result as string);
-        if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-          //console.log("adding file src to parentRef.pictureSrcs " + fileId);
-          this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
-        }
-        else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-          //console.log("adding file src to inputtedParentRef.pictureSrcs " + fileId);  
-          this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
-        }
-        setTimeout(() => { 
-          if (this.mediaContainer && this.mediaContainer.nativeElement)
-            this.mediaContainer.nativeElement.muted = true;
-        }, 50);
-      };
+        const blob = new Blob([response.blob], { type });
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          this.showThumbnail = true;
+          this.selectedFileSrc = (reader.result as string);
+          if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+            //console.log("adding file src to parentRef.pictureSrcs " + fileId);
+            this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
+          }
+          else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
+            //console.log("adding file src to inputtedParentRef.pictureSrcs " + fileId);  
+            this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
+          }
+          setTimeout(() => {
+            if (this.mediaContainer && this.mediaContainer.nativeElement)
+              this.mediaContainer.nativeElement.muted = true;
+          }, 50);
+        };
+      }); 
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         console.error(error);

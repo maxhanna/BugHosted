@@ -2,8 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit,
 import { ChildComponent } from '../child.component';
 import { MetaData, Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
-import { TopicService } from '../../services/topic.service';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { TopicService } from '../../services/topic.service'; 
 import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
 import { TopicRank } from '../../services/datacontracts/topics/topic-rank';
@@ -17,8 +16,7 @@ import { Pipe, PipeTransform } from '@angular/core';
 import { UserService } from '../../services/user.service';
 import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo';
-import { Meta, Title } from '@angular/platform-browser';
-import { ActivatedRoute } from '@angular/router';
+import { Meta, Title } from '@angular/platform-browser'; 
 import { NotificationService } from '../../services/notification.service';
 
 @Pipe({ name: 'clickableUrls' })
@@ -104,10 +102,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     private userService: UserService,
     private todoService: TodoService,
     private notificationService: NotificationService,
-    private sanitizer: DomSanitizer,
-    private cdr: ChangeDetectorRef,
-    private title: Title, private meta: Meta, private route: ActivatedRoute,
-    private renderer: Renderer2) {
+    private title: Title, private meta: Meta) {
     super();
   }
 
@@ -152,9 +147,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       if (elements.length > 0) {
         Array.from(elements).forEach((e) => {
           (e as HTMLElement).style.maxHeight = 'none';
-        });
-
-        console.log("Removing max-height from all .componentMain elements");
+        }); 
       } 
     }
   }
@@ -257,11 +250,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
-      this.storyResponse?.stories?.forEach(story => {
-        this.checkOverflow(story.id);
-      });
-    }
-   /* this.cdr.detectChanges();*/
+    } 
     this.stopLoading();
   }
   
@@ -428,38 +417,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         }
       }, 200);
     }
-  } 
-
-  getTextForDOM(text?: string, component_id?: number) {
-    if (!text) return "";
-
-    const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
-
-    let tmpTxt = text;
-
-    // Step 1: Temporarily replace YouTube links with placeholders
-    tmpTxt = tmpTxt.replace(youtubeRegex, (match, url, videoId, shortVideoId) => {
-      const id = videoId || shortVideoId;
-      return `__YOUTUBE__${id}__YOUTUBE__`; // Placeholder for YouTube videos
-    });
-
-    // Step 2: Convert regular URLs into clickable links
-    tmpTxt = tmpTxt
-      .replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-      .replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
-
-    // Step 3: Replace the placeholders with embedded YouTube iframes
-    tmpTxt = tmpTxt.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
-      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${(component_id ?? '0')}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
-    });
-
-    // Step 4: Convert [b] and [i] tags to <b> and <i>
-    tmpTxt = tmpTxt
-      .replace(/\[b\](.*?)\[\/b\]/gi, "<b>$1</b>") // Bold
-      .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>"); // Italics
-
-    return this.sanitizer.bypassSecurityTrustHtml(tmpTxt);
-  }
+  }  
 
   playYoutubeVideo() {
     this.openedStoryYoutubeVideos.forEach(x => {
@@ -626,15 +584,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   isExpanded(elementId: string) {
     return this.expanded.includes(elementId);
   }
-  checkOverflow(storyId?: number): void {
-    if (storyId) {
-      const elementId = 'storyTextContainer' + storyId;
-      const element = document.getElementById(elementId);
-      if (element) {
-        this.storyOverflowMap[storyId] = element.scrollHeight > 70;
-      }
-    }
-  }
+
   showSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = true;
     if (this.parentRef) {
@@ -865,10 +815,56 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     clearTimeout(this.searchTimeout);
     this.searchTimeout = setTimeout(() => this.searchStories(undefined, true), 500);
   }
-  insertBold() {
-    this.story.nativeElement.value += '[b][/b]';
+  insertTag(tag: string, componentId?: string) {
+    let targetInput = componentId
+      ? document.getElementById(componentId) as HTMLInputElement
+      : this.story.nativeElement;
+
+    if (!targetInput) return;
+
+    const start = targetInput.selectionStart || 0;
+    const end = targetInput.selectionEnd || 0;
+    const selectedText = targetInput.value.substring(start, end);
+
+    let newText;
+    if (selectedText) {
+      // Wrap selected text with the tag
+      newText = targetInput.value.substring(0, start) +
+        `[${tag}]${selectedText}[/${tag}]` +
+        targetInput.value.substring(end);
+    } else {
+      // Insert empty tag at cursor position
+      newText = targetInput.value.substring(0, end) +
+        `[${tag}][/${tag}]` +
+        targetInput.value.substring(end);
+    }
+
+    // Apply the modified text
+    targetInput.value = newText;
+
+    // Adjust cursor position after inserting tags
+    const cursorPos = selectedText ? end + tag.length + 6 : end + tag.length + 6;
+    targetInput.setSelectionRange(cursorPos, cursorPos);
+    targetInput.focus();
   }
-  insertItalics() {
-    this.story.nativeElement.value += '[i][/i]';
+  insertBold(componentId?: string) {
+    this.insertTag('b', componentId);
+  } 
+  insertItalics(componentId?: string) {
+    this.insertTag('i', componentId);
+  } 
+  insertBullet(componentId?: string) {
+    this.insertTag('*', componentId);
+  }
+  getTextForDOM(text?: string, componentId?: any) {
+    const parent = this.parent ?? this.parentRef;
+    if (parent) {
+      return parent.getTextForDOM(text, componentId);
+    } else return "Error fetching parent component.";
+  }
+  clearSearchInput() {
+    this.search.nativeElement.value = '';
+    this.userSearch = '';
+    this.searchStories();
   }
 }
