@@ -5,7 +5,7 @@
     <div class="componentTitle"><span>Social</span></div>
   </div>
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
-    <div class="topNotificationCounterDiv" *ngIf="showTopicSelector">
+    <div *ngIf="showTopicSelector">
       <app-notifications [minimalInterface]="true"
                          [inputtedParentRef]="parentRef">
       </app-notifications>
@@ -311,11 +311,13 @@
           <div class="storyContentDiv">
             <div class="storyText"
                  [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
-                 [innerHtml]="getStoryTextForDOM(story)"
+                 [innerHtml]="getTextForDOM(story.storyText, story.id)"
                  [id]="'storyText' + story.id"></div>
 
-            <iframe *ngIf="openedStoryYoutubeVideos.includes(story.id)"
-                    [id]="'youtubeIframe' + story.id" style="height:500px; width:100%;"></iframe>
+            <iframe [style.height]="openedStoryYoutubeVideos.includes(story.id) ? '500px' : '0px'"
+                    [style.width]="openedStoryYoutubeVideos.includes(story.id) ? '100%' : '0px'"
+                    [style.visibility]="openedStoryYoutubeVideos.includes(story.id) ? 'visible' : 'hidden'"
+                    [id]="'youtubeIframe' + story.id"></iframe>
 
 
 
@@ -330,13 +332,6 @@
           <div class="textExpanderDiv" *ngIf="!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)" (click)="toggleCollapse('storyTextContainer'+story.id)">
             <span class="smallExpander">
               [Expand Text]
-            </span>
-          </div>
-          <div class="reactionTopicsAndExpanderDiv reactionTopics">
-            <span *ngIf="story.storyTopics && story.storyTopics.length > 0">
-              <span *ngFor="let topic of story.storyTopics" class="matchingTopic" (click)="topicClicked(topic)">
-                {{topic.topicText}}
-              </span>
             </span>
           </div>
           <div *ngIf="story.storyFiles && story.storyFiles.length > 0" class="attachmentsDiv">
@@ -354,10 +349,17 @@
               </app-media-viewer>
             </div>
           </div>
+          <div class="reactionTopicsAndExpanderDiv reactionTopics">
+            <span *ngIf="story.storyTopics && story.storyTopics.length > 0">
+              <span *ngFor="let topic of story.storyTopics" class="matchingTopic" (click)="topicClicked(topic)">
+                {{topic.topicText}}
+              </span>
+            </span>
+          </div>
           <div *ngFor="let metadata of story?.metadata" class="metadataContent">
             <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
             <div *ngIf="metadata.description" class="metadataDescription" [innerHtml]="metadata.description | clickableUrls"></div>
-            <div *ngIf="metadata.imageUrl" (click)="goToLink(story)" class="cursorPointerUnderlined metaImgDiv">
+            <div *ngIf="metadata.imageUrl" (click)="goToLink(story, metadata.url)" class="cursorPointerUnderlined metaImgDiv">
               <img class="metadataImage" [src]="metadata.imageUrl" />
               <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
             </div>

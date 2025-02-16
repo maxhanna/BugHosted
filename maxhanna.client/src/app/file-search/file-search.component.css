@@ -204,7 +204,7 @@
 }
 
 .currentDirectorySpan {
-  font-size: xx-small;
+  font-size: small;
 }
 
 .totalDisplay {
@@ -237,15 +237,7 @@
 .fileOptionsStats div {
   padding: 5px;
 }
-
-.fileActionCommands { 
-  display: flex;
-  gap: 10px; 
-}
-
-  .fileActionCommands span {
-    cursor: pointer;
-  }
+ 
 
 .popupPanelActions {
   margin-top: 20px;

@@ -30,7 +30,7 @@
           ⚙️
         </div>
         <div class="cursorPointer smallFont" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
-          [Reply<span [id]="'commentIdCount' + comment.id" class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}">0</span>]
+          [Reply<span [id]="'commentIdCount' + comment.id" class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}"></span>]
         </div>
       </div>
       <div class="commentContent">

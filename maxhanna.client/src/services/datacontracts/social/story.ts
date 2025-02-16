@@ -25,6 +25,7 @@ export class Story {
 
 
 export class MetaData {
+  url!: string;
   title!: string;
   description!: string;
   imageUrl!: string;

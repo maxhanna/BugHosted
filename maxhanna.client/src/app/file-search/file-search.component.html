@@ -1,7 +1,7 @@
 
-<div class="fileActionCommands topSearchButtonDiv" *ngIf="!fileSearchMode">
-  <span (click)="openSearchPanel();">🔍</span>
-  <span (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
+<div class="fileActionCommands" *ngIf="!fileSearchMode">
+  <span class="topSearchButtonDiv" (click)="openSearchPanel();">🔍</span>
+  <span class="notificationTopButton" (click)="openSearchOptionsPanel();" *ngIf="showFileSearchOptions">⚙️</span>
 </div>
 
 
@@ -85,7 +85,7 @@
                               [fileId]="file.id" (click)="$event.stopPropagation()">
                 </app-reaction>
                 <div *ngIf="displayComments && !file.isFolder" class="fileOptionsAction" (click)="openFileWithComments(file); $event.stopPropagation()">
-                  🗨️ <span class="xxSmallFont">{{file.fileComments ? file.fileComments.length : 0}}</span>
+                  🗨️ <span>{{file.fileComments ? file.fileComments.length : 0}}</span>
                 </div>
                 <div class="typeTd" (click)="selectFile(file); $event.stopPropagation();" *ngIf="displayFileType">
                   <span [class]="file.visibility == 'Private' ? 'private':''"

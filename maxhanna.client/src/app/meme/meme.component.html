@@ -2,12 +2,11 @@
   <div class="closeButton" (click)="remove_me('MemeComponent')"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Meme</div>
-
-  <div class="topNotificationCounterDiv">
-    <app-notifications [minimalInterface]="true"
-                       [inputtedParentRef]="parentRef">
-    </app-notifications>
-  </div>
+   
+  <app-notifications [minimalInterface]="true"
+                      [inputtedParentRef]="parentRef">
+  </app-notifications>
+ 
   <div class="memeResultsDiv">
       
     <app-file-search #fileSearchComponent

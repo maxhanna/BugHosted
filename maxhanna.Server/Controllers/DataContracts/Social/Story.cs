@@ -15,7 +15,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 		public int Upvotes { get; set; }
 		public int Downvotes { get; set; }
 		public int CommentsCount { get; set; }
-		public Metadata.Metadata[]? Metadata { get; set; }
+		public List<Metadata.Metadata>? Metadata { get; set; }
 		public List<FileEntry>? StoryFiles { get; set; }
 		public List<FileComment>? StoryComments { get; set; }
 		public List<Topic>? StoryTopics { get; set; }
@@ -27,7 +27,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 		public Story() { }
 
 		public Story(int id, User user, string storyText, int? fileId,
-				DateTime date, int upvotes, int downvotes, int commentsCount, Metadata.Metadata[]? metaData,
+				DateTime date, int upvotes, int downvotes, int commentsCount, List<Metadata.Metadata>? metaData,
 				List<FileEntry> storyFiles, List<FileComment> storyComments, List<Topic> storyTopics,
 				int? profileUserId, string? city, string? country, List<Reaction>? reactions)
 		{

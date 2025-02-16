@@ -116,28 +116,28 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.parentRef = this.parent;
     }
 
-    await this.getStories();
-    await this.topicService.getTopStoryTopics().then(res => {
-      if (res) {
-        this.topTopics = res;
-      }
-    });
-    if (this.storyId) {
-      this.scrollToStory(this.storyId);
-      if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
-        const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
-        if (tgtStory) {
-          const storyText = tgtStory.storyText;
-          if (storyText) {
-            const cleanedTitle = storyText.replace(/https?:\/\/[^\s]+/g, '').trim();
+    this.getStories().then(res => {
+      if (this.storyId) {
+        this.scrollToStory(this.storyId);
+        if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
+          const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
+          if (tgtStory) {
+            const storyText = tgtStory.storyText;
+            if (storyText) {
+              const cleanedTitle = storyText.replace(/https?:\/\/[^\s]+/g, '').trim();
 
-            this.title.setTitle("BugHosted.com " + cleanedTitle.substring(0, 50));
-            this.meta.updateTag({ name: 'description', content: storyText });
+              this.title.setTitle("BugHosted.com " + cleanedTitle.substring(0, 50));
+              this.meta.updateTag({ name: 'description', content: storyText });
+            }
           }
         }
       }
-    }
-
+    });
+    this.topicService.getTopStoryTopics().then(res => {
+      if (res) {
+        this.topTopics = res;
+      }
+    }); 
 
     this.userService.getUserIp().then(res => {
       if (res) {
@@ -374,11 +374,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     const matches = text.match(urlPattern);
     return matches ? matches[0] : undefined;
   }
-  goToLink(story?: Story) {
+  goToLink(story?: Story, metadataUrl?: string) {
+    console.log(metadataUrl);
     if (story && story.storyText) {
-      const goodUrl = this.extractUrl(story.storyText);
+      const goodUrl = metadataUrl ?? this.extractUrl(story.storyText);
       if (goodUrl) {
-        const videoId = this.extractYouTubeVideoId(story.storyText);
+        const videoId = this.extractYouTubeVideoId(metadataUrl ?? story.storyText);
         console.log(videoId);
         if (videoId) {
           (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId;
@@ -427,39 +428,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         }
       }, 200);
     }
-  }
-  getStoryTextForDOM(story?: Story) {
-    if (!story || !story.storyText) return "";
+  } 
 
-    const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
-
-    let storyText = story.storyText;
-
-    // Step 1: Temporarily replace YouTube links with placeholders
-    storyText = storyText.replace(youtubeRegex, (match, url, videoId, shortVideoId) => {
-      const id = videoId || shortVideoId;
-      return `__YOUTUBE__${id}__YOUTUBE__`; // Placeholder for YouTube videos
-    });
-
-    // Step 2: Convert regular URLs into clickable links
-    storyText = storyText
-      .replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-      .replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
-
-    // Step 3: Replace the placeholders with embedded YouTube iframes
-    storyText = storyText.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
-      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${story.id}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
-    });
-
-    // Step 4: Convert [b] and [i] tags to <b> and <i>
-    storyText = storyText
-      .replace(/\[b\](.*?)\[\/b\]/gi, "<b>$1</b>") // Bold
-      .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>"); // Italics
-
-    return this.sanitizer.bypassSecurityTrustHtml(storyText);
-  }
-
-  getTextForDOM(text: string, component_id: number) {
+  getTextForDOM(text?: string, component_id?: number) {
     if (!text) return "";
 
     const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
@@ -479,7 +450,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     // Step 3: Replace the placeholders with embedded YouTube iframes
     tmpTxt = tmpTxt.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
-      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${component_id}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
+      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${(component_id ?? '0')}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
     });
 
     // Step 4: Convert [b] and [i] tags to <b> and <i>
@@ -493,8 +464,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   playYoutubeVideo() {
     this.openedStoryYoutubeVideos.forEach(x => {
       let target = document.getElementById(`youtubeIframe${x}`) as HTMLIFrameElement;
-      target.src = '';
-      target.style.visibility = 'hidden';
+      if (target) { 
+        target.src = '';
+        target.style.visibility = 'hidden';
+      }
       this.openedStoryYoutubeVideos = this.openedStoryYoutubeVideos.filter(y => y != x);
     })
     const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
@@ -506,7 +479,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       if (!target || !videoId) return;
       target.style.visibility = 'visible';
       target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
-
+      setTimeout(() => {
+        let container = document.getElementById(`storyTextContainer${storyId}`)?.getElementsByTagName("iframe")[0];
+        if (container && !this.isElementInViewport(container)) {
+          container.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 200);
     }, 50);
   }
 

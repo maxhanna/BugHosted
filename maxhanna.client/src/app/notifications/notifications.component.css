@@ -29,13 +29,13 @@
 .minimalInterfaceComponent {
   background-color: var(--main-bg-color-full-opacity);
   position: fixed;
-  width: 100%;  
-  max-width: 600px;  
+  width: 100%;
+  max-width: 600px;
   height: 80%;
   overflow: hidden;
   transform: translateY(10%);
   left: 50%;
-  z-index: 10;
+  z-index: 3;
   border: var(--main-border);
   display: flex;
   align-items: center;
@@ -44,7 +44,8 @@
   flex-wrap: wrap;
   flex-direction: column;
   border-radius: 8px;
-  transform: translateX(-50%);  
+  transform: translateX(-50%) !important;
+  cursor: default;
 }
 
 /* typical phone screen resolution */
@@ -66,7 +67,7 @@
   display: flex;
   flex-flow: column wrap;
   justify-content: space-between;
-  z-index: 2;
+  z-index: 3;
   padding: 5px;
   height: CALC(100% - 15px); 
   flex-wrap: nowrap;
@@ -153,7 +154,7 @@
   left: CALC(-100vw + 2vw);
   width: 100vw;
   height: CALC(-60px + CALC(var(--vh, 1vh) * 100));
-  z-index: 1;
+  z-index: 3;
   background-color: var(--main-highlight-color-quarter-opacity);
 }
 

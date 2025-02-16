@@ -64,30 +64,25 @@ namespace maxhanna.Server.Controllers
 			if (!string.IsNullOrEmpty(search))
 			{
 				whereClause.Append(
-					@"
-						AND (
-							MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
-							OR s.city LIKE CONCAT('%', @searchTerm, '%')
-							OR s.country LIKE CONCAT('%', @searchTerm, '%')
-							OR u.username LIKE CONCAT('%', @searchTerm, '%')
-						)"
+						@"AND (
+                MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
+                OR s.city LIKE CONCAT('%', @searchTerm, '%')
+                OR s.country LIKE CONCAT('%', @searchTerm, '%')
+                OR u.username LIKE CONCAT('%', @searchTerm, '%')
+            )"
 				);
 				parameters.Add("@searchTerm", search);
 			}
 			if (!string.IsNullOrEmpty(topics))
 			{
 				var topicIds = topics.Split(',').Select((t, index) => new { Index = index, Id = t }).ToList();
-
 				for (int i = 0; i < topicIds.Count; i++)
 				{
-					whereClause.Append($@"
-                AND EXISTS (
-                    SELECT 1 
-                    FROM story_topics st2 
-                    LEFT JOIN topics t2 ON st2.topic_id = t2.id 
-                    WHERE st2.story_id = s.id 
-                    AND t2.id = @topic_id_{i}
-                )");
+					whereClause.Append($@"AND EXISTS (
+                SELECT 1 FROM story_topics st2 
+                LEFT JOIN topics t2 ON st2.topic_id = t2.id 
+                WHERE st2.story_id = s.id AND t2.id = @topic_id_{i}
+            )");
 					parameters.Add($"@topic_id_{i}", topicIds[i].Id);
 				}
 			}
@@ -96,82 +91,37 @@ namespace maxhanna.Server.Controllers
 				whereClause.Append("AND s.profile_user_id = @profile ");
 				parameters.Add("@profile", request.ProfileUserId.Value);
 			}
-
 			if (request.ProfileUserId == null || request.ProfileUserId == 0)
 			{
 				whereClause.Append("AND s.profile_user_id IS NULL ");
 			}
 
 			int offset = (page - 1) * pageSize;
-
-			string countSql = @"
-        SELECT 
-            COUNT(*) AS total_count
-        FROM 
-            stories AS s 
-        JOIN 
-            users AS u ON s.user_id = u.id  
-        LEFT JOIN
-            story_topics AS st ON s.id = st.story_id
-        LEFT JOIN
-            topics AS t ON st.topic_id = t.id
-        " + whereClause + ";";
+			string countSql = @"SELECT COUNT(*) AS total_count FROM stories AS s " + whereClause + ";";
 
 			string sql = @"
-        SELECT 
-            s.id AS story_id, 
-            u.id AS user_id,
-            u.username, 
-            udp.file_id as displayPictureFileId,
-            udpfu.folder_path as displayPictureFileFolderPath,
-            udpfu.file_name as displayPictureFileFileName,
-            s.story_text, 
-            s.date, 
-            s.city, 
-            s.country, 
-            COALESCE(c.comments_count, 0) AS comments_count,
-            sm.title, 
-            sm.description, 
-            sm.image_url
-        FROM 
-            stories AS s 
-            JOIN 
-                users AS u ON s.user_id = u.id  
-            LEFT JOIN 
-                user_display_pictures AS udp ON udp.user_id = u.id 
-            LEFT JOIN 
-                file_uploads AS udpfu ON udp.file_id = udpfu.id 
-            LEFT JOIN 
-                (SELECT story_id, COUNT(id) AS comments_count
-                 FROM comments
-                 GROUP BY story_id) AS c ON s.id = c.story_id
-            LEFT JOIN 
-                story_metadata AS sm ON s.id = sm.story_id 
-        " + whereClause + @"
-        GROUP BY
-            s.id, 
-            u.id,
-            u.username, 
-            udp.file_id,
-            udpfu.folder_path,
-            udpfu.file_name,
-            s.story_text, 
-            s.date, 
-            s.city, 
-            s.country, 
-            COALESCE(c.comments_count, 0),
-            sm.title, 
-            sm.description, 
-            sm.image_url
-        ORDER BY 
-            s.id DESC 
-        LIMIT 
-            @pageSize 
-        OFFSET 
-            @offset;";
+    SELECT 
+        s.id AS story_id, 
+        u.id AS user_id, u.username, 
+        udp.file_id AS displayPictureFileId,
+        udpfu.folder_path AS displayPictureFileFolderPath,
+        udpfu.file_name AS displayPictureFileFileName,
+        s.story_text, s.date, s.city, s.country, 
+        COALESCE(c.comments_count, 0) AS comments_count,
+        sm.title, sm.description, sm.image_url, sm.metadata_url
+    FROM stories AS s 
+    JOIN users AS u ON s.user_id = u.id  
+    LEFT JOIN user_display_pictures AS udp ON udp.user_id = u.id 
+    LEFT JOIN file_uploads AS udpfu ON udp.file_id = udpfu.id 
+    LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
+        ON s.id = c.story_id
+    LEFT JOIN story_metadata AS sm ON s.id = sm.story_id
+    " + whereClause + @"
+    ORDER BY s.id DESC 
+    LIMIT @pageSize OFFSET @offset;";
 
 			var storyResponse = new StoryResponse();
-			int totalCount = 0;
+			var storyDictionary = new Dictionary<int, Story>();
 
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
@@ -182,74 +132,70 @@ namespace maxhanna.Server.Controllers
 					{
 						countCmd.Parameters.AddWithValue(param.Key, param.Value);
 					}
-					//_logger.LogInformation(countCmd.CommandText);
-
-					totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+					storyResponse.TotalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 				}
 				using (var cmd = new MySqlCommand(sql, conn))
 				{
 					cmd.Parameters.AddWithValue("@pageSize", pageSize);
 					cmd.Parameters.AddWithValue("@offset", offset);
-
 					foreach (var param in parameters)
 					{
 						cmd.Parameters.AddWithValue(param.Key, param.Value);
 					}
-
-					_logger.LogInformation($"pageSize: {pageSize} offset: {offset}");
-					//_logger.LogInformation(cmd.CommandText);
-
+					Console.WriteLine(cmd.CommandText);
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
-						_logger.LogInformation("SQL query executed, processing results.");
-
 						while (await rdr.ReadAsync())
 						{
 							int storyId = rdr.GetInt32("story_id");
-
-							int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
-							string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
-							string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
-							FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
-
-							var story = new Story
+							if (!storyDictionary.TryGetValue(storyId, out var story))
 							{
-								Id = storyId,
-								User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
-								StoryText = rdr.GetString("story_text"),
-								Date = rdr.GetDateTime("date"),
-								City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
-								Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
-								CommentsCount = rdr.GetInt32("comments_count"),
-								Metadata = [new Metadata
+								int? displayPicId = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileId")) ? null : rdr.GetInt32("displayPictureFileId");
+								string? displayPicFolderPath = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFolderPath")) ? null : rdr.GetString("displayPictureFileFolderPath");
+								string? displayPicFileFileName = rdr.IsDBNull(rdr.GetOrdinal("displayPictureFileFileName")) ? null : rdr.GetString("displayPictureFileFileName");
+								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry { Id = (int)displayPicId, Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+
+								story = new Story
 								{
-									Title = rdr.IsDBNull(rdr.GetOrdinal("title")) ? null : rdr.GetString("title"),
+									Id = storyId,
+									User = new User(rdr.GetInt32("user_id"), rdr.GetString("username"), null, dpFileEntry, null, null, null),
+									StoryText = rdr.GetString("story_text"),
+									Date = rdr.GetDateTime("date"),
+									City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city"),
+									Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country"),
+									CommentsCount = rdr.GetInt32("comments_count"),
+									Metadata = new List<Metadata>(),
+									StoryFiles = new List<FileEntry>(),
+									StoryComments = new List<FileComment>(),
+									StoryTopics = new List<Topic>(),
+									Reactions = new List<Reaction>()
+								};
+								storyDictionary[storyId] = story;
+							}
+							if (!rdr.IsDBNull(rdr.GetOrdinal("title")))
+							{ 
+								story.Metadata?.Add(new Metadata
+								{
+									Title = rdr.GetString("title"),
+									Url = rdr.IsDBNull(rdr.GetOrdinal("metadata_url")) ? null : rdr.GetString("metadata_url"),
 									Description = rdr.IsDBNull(rdr.GetOrdinal("description")) ? null : rdr.GetString("description"),
 									ImageUrl = rdr.IsDBNull(rdr.GetOrdinal("image_url")) ? null : rdr.GetString("image_url")
-								}],
-								StoryFiles = new List<FileEntry>(),
-								StoryComments = new List<FileComment>(),
-								StoryTopics = new List<Topic>(),
-								Reactions = new List<Reaction>()
-							};
-
-							// Add the story to the response
-							storyResponse.Stories.Add(story);
+								});
+							}
 						}
 					}
 				}
 			}
 
+			storyResponse.Stories = storyDictionary.Values.ToList();
 			await AttachCommentsToStoriesAsync(storyResponse.Stories);
 			await AttachFilesToStoriesAsync(storyResponse.Stories);
 			await FetchAndAttachTopicsAsync(storyResponse.Stories);
 			await FetchAndAttachReactionsAsync(storyResponse.Stories);
 
-			storyResponse.TotalCount = totalCount;
 			storyResponse.CurrentPage = page;
-			storyResponse.PageCount = (int)Math.Ceiling((double)totalCount / pageSize);
+			storyResponse.PageCount = (int)Math.Ceiling((double)storyResponse.TotalCount / pageSize);
 
-			_logger.LogInformation("Stories fetched and processed.");
 			return storyResponse;
 		}
 
@@ -752,8 +698,8 @@ namespace maxhanna.Server.Controllers
 							if (url != null)
 							{
 								// Fetch metadata
-								var metadataRequest = new MetadataRequest { User = request.user, Url = url[0] };
-								var metadataResponse = GetMetadata(metadataRequest, storyId);
+								var metadataRequest = new MetadataRequest { User = request.user, Url = url };
+								var metadataResponse = SetMetadata(metadataRequest, storyId);
 							}
 
 							await AppendToSitemapAsync(storyId);
@@ -839,6 +785,15 @@ namespace maxhanna.Server.Controllers
 
 						if (rowsAffected == 1)
 						{
+
+							var url = ExtractUrl(request.story.StoryText);
+							if (url != null)
+							{
+								// Fetch metadata
+								var metadataRequest = new MetadataRequest { User = request.user, Url = url };
+								var metadataResponse = SetMetadata(metadataRequest, request.story.Id);
+							}
+
 							return Ok("Story edited successfully.");
 						}
 						else
@@ -915,22 +870,25 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-		[HttpPost("/Social/GetMetadata")]
-		public async Task<IActionResult> GetMetadata([FromBody] MetadataRequest request, int? storyId)
+		[HttpPost("/Social/SetMetadata")]
+		public async Task<IActionResult> SetMetadata([FromBody] MetadataRequest request, int? storyId)
 		{
 			try
 			{
-				_logger.LogInformation($"Getting metadata for user : {request.User?.Id} for url: {request.Url} for storyId: {storyId}");
+				_logger.LogInformation($"Setting metadata for user : {request.User?.Id} for url: {request.Url} for storyId: {storyId}");
 				if (request.Url != null)
 				{
-					var metadata = await FetchMetadataAsync(request.Url);
-
 					if (storyId != null && storyId != 0)
 					{
 						_logger.LogInformation($"Inserting metadata for story {storyId}");
-						return Ok(await InsertMetadata((int)storyId, metadata));
-					}
-					return Ok(metadata);
+						await DeleteMetadata(storyId);
+						for (int i = 0; i < request.Url.Length; i++)
+						{
+							var metadata = await FetchMetadataAsync(request.Url[i]); 
+							await InsertMetadata((int)storyId, metadata);
+						}
+						return Ok($"Inserted metadata for storyId {storyId}");
+					} 
 				}
 			}
 			catch (Exception ex)
@@ -941,7 +899,7 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<string> InsertMetadata(int storyId, Metadata metadata)
 		{
-			string sql = @"INSERT INTO story_metadata (story_id, title, description, image_url) VALUES (@storyId, @title, @description, @imageUrl);";
+			string sql = @"INSERT INTO story_metadata (story_id, title, description, image_url, metadata_url) VALUES (@storyId, @title, @description, @imageUrl, @metadataUrl);";
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -954,6 +912,7 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@title", HttpUtility.HtmlDecode(metadata.Title));
 						cmd.Parameters.AddWithValue("@description", HttpUtility.HtmlDecode(metadata.Description));
 						cmd.Parameters.AddWithValue("@imageUrl", metadata.ImageUrl);
+						cmd.Parameters.AddWithValue("@metadataUrl", metadata.Url);
 
 						await cmd.ExecuteNonQueryAsync();
 					}
@@ -965,8 +924,31 @@ namespace maxhanna.Server.Controllers
 				return "Could not insert metadata";
 			}
 			return "Inserted metadata";
+		}
+		private async Task<string> DeleteMetadata(int? storyId)
+		{
+			if (storyId == null) return "Deleted no metadata";
+			string sql = @"DELETE FROM story_metadata WHERE story_id = @StoryId;";
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
 
-		} 
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@StoryId", storyId);  
+						await cmd.ExecuteNonQueryAsync();
+					}
+				}
+				_logger.LogInformation($"Deleted metadata for storyId {storyId}");
+			}
+			catch
+			{
+				return "Could not delete metadata";
+			}
+			return "Deleted metadata";
+		}
 		private static string[] ExtractUrl(string? text)
 		{
 			if (string.IsNullOrEmpty(text))
@@ -1102,6 +1084,8 @@ namespace maxhanna.Server.Controllers
 			{
 				metadata.ImageUrl = metaImageNode.GetAttributeValue("content", "").Trim();
 			}
+
+			metadata.Url = url;
 
 			return metadata;
 		}

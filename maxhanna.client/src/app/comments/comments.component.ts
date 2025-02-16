@@ -184,23 +184,40 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       (document.getElementById('commentText' + comment.id) as HTMLDivElement).innerHTML = this.createClickableUrls(message).toString();
     }
   }
+  getTextForDOM(text: string, component_id: number) {
+    if (!text) return "";
+
+    const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
+
+    let tmpTxt = text;
+
+    // Step 1: Temporarily replace YouTube links with placeholders
+    tmpTxt = tmpTxt.replace(youtubeRegex, (match, url, videoId, shortVideoId) => {
+      const id = videoId || shortVideoId;
+      return `__YOUTUBE__${id}__YOUTUBE__`; // Placeholder for YouTube videos
+    });
+
+    // Step 2: Convert regular URLs into clickable links
+    tmpTxt = tmpTxt
+      .replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
+
+    // Step 3: Replace the placeholders with embedded YouTube iframes
+    tmpTxt = tmpTxt.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
+      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${component_id}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
+    });
+
+    // Step 4: Convert [b] and [i] tags to <b> and <i>
+    tmpTxt = tmpTxt
+      .replace(/\[b\](.*?)\[\/b\]/gi, "<b>$1</b>") // Bold
+      .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>"); // Italics
+
+    return this.sanitizer.bypassSecurityTrustHtml(tmpTxt);
+  }
+
   createClickableUrls(text?: string): SafeHtml {
-    if (!text) { return ''; }
-    const urlPattern = /(https?:\/\/[^\s]+)/g;
-    const urlPattern2 = /(Https?:\/\/[^\s]+)/g;
-    const urlPattern3 = /(http?:\/\/[^\s]+)/g;
-    const urlPattern4 = /(Http?:\/\/[^\s]+)/g;
 
-    text = text.replace(urlPattern, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
-    let sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
-    text = text.replace(urlPattern2, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
-    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
-    text = text.replace(urlPattern3, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
-    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
-    text = text.replace(urlPattern4, '<a href="$1" target="_blank">$1</a>').replace(/\n/g, '<br>');
-    sanitizedText = this.sanitizer.sanitize(SecurityContext.HTML, text) || '';
-
-    return sanitizedText;
+    return this.getTextForDOM(text ?? "", this.component_id);
   }
   showOptionsPanel(comment: FileComment) {
     if (this.isOptionsPanelOpen) {

@@ -150,17 +150,17 @@
 
 .minesSmokeContainer1 {
   left: 245px;
-  top: 199px;
+  top: 219px;
 }
 
 .minesSmokeContainer2 {
   left: 265px;
-  top: 205px;
+  top: 225px;
 }
 
 .minesSmokeContainer3 {
   left: 282px;
-  top: 210px;
+  top: 230px;
 }
 
 .minesSmoke ul {
@@ -314,7 +314,7 @@
   transform: scale(0.035);
   left: 277px;
   position: absolute;
-  top: 51px;
+  top: 71px;
   width: 5px;
   height: 5px;
 }
@@ -323,7 +323,7 @@
   transform: scale(0.03);
   left: 293px;
   position: absolute;
-  top: 47px;
+  top: 68px;
   width: 5px;
   height: 5px;
 }
@@ -431,7 +431,7 @@
   object-fit: cover;
   opacity: 100% !important;
   left: -25px;
-  top: 33px;
+  top: 50px;
   width: 450px
 }
 
@@ -459,19 +459,19 @@
 
 .mapComponentDiv {
   overflow: hidden;
-  height: CALC(CALC(var(--vh, 1vh)* 100) - 80px);
+  height: CALC(CALC(var(--vh, 1vh)* 100) - 100px);
 }
 
 .baseListComponentDiv {
   display: block;
-  height: CALC(CALC(var(--vh, 1vh)* 100) - 80px);
+  height: CALC(CALC(var(--vh, 1vh)* 100) - 100px);
 }
 
 .battleReportComponentDiv {
   display: flex;
   width: 100%;
   border-bottom: var(--main-border);
-  height: CALC(CALC(var(--vh, 1vh)* 100) - 80px);
+  height: CALC(CALC(var(--vh, 1vh)* 100) - 100px);
 }
 
 .upgradesTableDiv {

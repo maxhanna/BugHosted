@@ -3,7 +3,7 @@
   <div class="refreshButton" (click)="ngOnInit();" *ngIf="!loginOnly"></div>
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
 
-  <div class="topNotificationCounterDiv" *ngIf="parentRef?.user">
+  <div *ngIf="parentRef?.user">
     <app-notifications [minimalInterface]="true"
                        [inputtedParentRef]="parentRef">
     </app-notifications>

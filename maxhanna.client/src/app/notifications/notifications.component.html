@@ -1,5 +1,5 @@
 <div *ngIf="minimalInterface" class="cursorPointer" (click)="showNotifications = !showNotifications; (inputtedParentRef ? inputtedParentRef.showOverlay = showNotifications : '')">
-  <span [class]="notifications && notifications.length > 0 && unreadNotifications > 0 ? 'glowing' : ''">🔔</span>
+  <span [class]="'notificationTopButton ' + (notifications && notifications.length > 0 && unreadNotifications > 0 ? 'glowing' : '')">🔔</span>
 </div>
 
 <div [class]="minimalInterface ? 'minimalInterfaceComponent' : 'componentMain'" *ngIf="!minimalInterface || showNotifications">

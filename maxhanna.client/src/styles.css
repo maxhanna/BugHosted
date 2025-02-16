@@ -108,26 +108,25 @@ fieldset {
 }
 
 .refreshButton::before, .closeButton::before, .menuButton::before {
+  z-index: 1;
+}
+.refreshButton::before, .closeButton::before, .menuButton::before, .notificationTopButton, .topSearchButtonDiv {
   position: absolute;
   top: 0px;
   width: 50px;
   height: 46px;
   font-size: 35px;
   line-height: 50px;
-  z-index: 1;
   border: 2px groove black;
   text-align: center;
   padding-left: 0px;
   border-radius: 3px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.refreshButton:active::before,
-.closeButton:active::before,
-.menuButton:active::before {
-  border-style: inset;
-}
-
+ 
 .refreshButton::before {
   content: '🔄';
 }
@@ -144,6 +143,29 @@ fieldset {
   content: '❌';
   right: 0px;
 }
+
+.refreshButton:active::before,
+.closeButton:active::before,
+.menuButton:active::before,
+.notificationTopButton:active,
+.topSearchButtonDiv:active {
+  border: 2px inset black;
+  transform: translateY(2px);
+  box-shadow: inset 0px 2px 4px rgba(0, 0, 0, 0.3);
+  width: 50px;
+  height: 43px;
+}
+
+.notificationTopButton {
+  right: 53px !important;
+  text-shadow: 1px 1px var(--main-link-color);
+}
+
+.topSearchButtonDiv {  
+  right: 105px;    
+  text-shadow: 1px 1px var(--main-link-color);
+}
+
 
 .componentTitle {
   font-family: var(--title-font-family);
@@ -498,7 +520,7 @@ fieldset {
   left: 50%;
   transform: translate(-50%, -50%);
   background: var(--main-bg-color-full-opacity);
-  z-index: 3;
+  z-index: 4 !important;
   border-radius: 8px;
   overflow: auto;
   padding: 20px;
@@ -576,26 +598,6 @@ fieldset {
 
 .popupPanel button, .popupPanel a {
   cursor: pointer;
-}
-
-.topNotificationCounterDiv {
-  position: absolute;
-  right: 55px;
-  top: 8px;
-  width: 40px;
-  font-size: 25px;
-  text-shadow: 1px 1px var(--main-link-color);
-}
-
-.topSearchButtonDiv {
-  cursor: pointer;
-  position: absolute;
-  right: 100px;
-  top: 15px;
-  width: 40px;
-  font-size: 25px;
-  line-height: 22px;
-  text-shadow: 1px 1px var(--main-link-color);
 }
 
 .hiddenInput {
