@@ -174,6 +174,7 @@ export class FileComponent extends ChildComponent {
     }
   }
   topTopicClicked(topic: TopicRank) {
+    this.closeMenuPanel();
     this.fileSearchComponent.searchFiles(topic.topicName);
   }
 }

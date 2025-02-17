@@ -11,7 +11,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
   styleUrl: './emulation.component.css'
 })
 export class EmulationComponent extends ChildComponent implements OnInit, OnDestroy {
-  constructor(private romService: RomService, private fileService: FileService) { super(); }
+  isMenuPanelOpen = false;
   selectedRomName? : string;
   nostalgist: Nostalgist | undefined;
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
@@ -23,7 +23,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   gbColorGamesList: Array<string> = [];
   pokemonGamesList: Array<string> = [];
   romDirectory: FileEntry[] = [];
-  soundOn = true;
+  soundOn = false;
   currentFileType = '';
   displayAB = true;
   displayC = true;
@@ -69,7 +69,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   autosave = true;
   currentVolume = 99;
   maxVolume = 99;
-  actionDelay = 50;
+  actionDelay = 50; 
+  constructor(private romService: RomService, private fileService: FileService) { super(); }
 
   async ngOnInit() {
     this.overrideGetUserMedia();
@@ -151,12 +152,13 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user);
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
+     
     console.log(fileType, this.currentFileType);
     const style = {
       backgroundColor: 'black',
       zIndex: '1',
       width: '100%',
-      height: '325px',
+      height: (!this.onMobile() ? '625px' : '100%'),
     }
     const core = this.coreMapping[fileType.toLowerCase()] || 'default_core'; // Replace 'default_core' with a fallback core if needed
 
@@ -170,6 +172,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
 
     await this.nostalgist.launchEmulator();
+    setTimeout(() => {
+      this.nostalgist?.sendCommand('MUTE');
+    }, 30);
     this.setHTMLControls();
     this.setupAutosave();
     this.getDisplayAB();
@@ -400,6 +405,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
   }
   async toggleFullscreen() {
+    this.closeMenuPanel();
     const elem = this.fullscreenContainer.nativeElement;
     const canvas = this.nostalgist?.getCanvas();
 
@@ -445,5 +451,21 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
   getAllowedFileTypes(): string[] {
     return this.fileService.romFileExtensions;
+  }
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
   }
 }

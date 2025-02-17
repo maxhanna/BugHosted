@@ -70,6 +70,21 @@ export class FileService {
       return null;
     }
   }
+  async updateFileVisibility(user: User, isVisible: boolean, fileId: number) {
+    try {
+      const response = await fetch(`/file/updatefilevisibility`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ User: user, IsVisible: isVisible, FileId: fileId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async createDirectory(user: User, directory: string, isPublic: boolean) {
     try {
       const response = await fetch(`/file/makedirectory`, {

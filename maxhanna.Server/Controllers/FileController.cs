@@ -111,6 +111,8 @@ namespace maxhanna.Server.Controllers
 					Console.WriteLine($"setting page:{page}&offset={offset}; file position is : {filePosition}, page size is : {pageSize}, folder path: {directory}");
 
 					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
+					(string searchCondition, List<MySqlParameter> extraParameters) = GetWhereCondition(search);
+
 					var command = new MySqlCommand($@"
                         SELECT 
                             f.id AS fileId,
@@ -154,28 +156,15 @@ namespace maxhanna.Server.Controllers
                                 OR f.user_id = @userId
                                 OR FIND_IN_SET(@userId, f.shared_with) > 0
                             )
-                            {(string.IsNullOrEmpty(search) ? ""
-														: @$" 
-															AND (
-																  LOWER(f.file_name) LIKE CONCAT('%', LOWER(@search), '%') 
-																	OR LOWER(f.given_file_name) LIKE CONCAT('%', LOWER(@search), '%')
-																	OR LOWER(f.description) LIKE CONCAT('%', LOWER(@search), '%')
-																	OR LOWER(u.username) LIKE CONCAT('%', LOWER(@search), '%')
-																OR f.id IN (
-																	SELECT ft.file_id 
-																	FROM maxhanna.file_topics ft
-																	JOIN maxhanna.topics t ON ft.topic_id = t.id
-																	WHERE t.topic LIKE @search 
-																) 
-																{(search.Contains("sega") ? "OR f.file_name LIKE '%.md'"
-																	: search.Contains("nintendo") ? "OR f.file_name LIKE '%.nes'"
-																	: search.Contains("gameboy") ? "OR f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba'"
-																	: "")}
-															)")} 
+                            {searchCondition} 
 														{fileTypeCondition} {visibilityCondition} {ownershipCondition} {orderBy}
                         LIMIT
                             @pageSize OFFSET @offset;"
 					, connection);
+					foreach (var param in extraParameters)
+					{
+						command.Parameters.Add(param);
+					}
 					command.Parameters.AddWithValue("@folderPath", directory);
 					command.Parameters.AddWithValue("@userId", user?.Id ?? 0);
 					command.Parameters.AddWithValue("@pageSize", pageSize);
@@ -510,28 +499,15 @@ namespace maxhanna.Server.Controllers
                                 f.user_id = @userId OR 
                                 FIND_IN_SET(@userId, f.shared_with) > 0
                             ) 
-                        {(string.IsNullOrEmpty(search) ? ""
-												: $@" 
-													AND (
-														LOWER(f.file_name) LIKE CONCAT('%', LOWER(@search), '%') 
-														OR LOWER(f.given_file_name) LIKE CONCAT('%', LOWER(@search), '%')
-														OR LOWER(f.description) LIKE CONCAT('%', LOWER(@search), '%')
-														OR LOWER(u.username) LIKE CONCAT('%', LOWER(@search), '%')
-														OR f.id IN (
-															SELECT ft.file_id 
-															FROM maxhanna.file_topics ft
-															JOIN maxhanna.topics t ON ft.topic_id = t.id
-															WHERE t.topic LIKE @search
-														)
-														{(search.Contains("sega") ? "OR f.file_name LIKE '%.md'"
-															: search.Contains("nintendo") ? "OR f.file_name LIKE '%.nes'"
-															: search.Contains("gameboy") ? "OR f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba'"
-															: "")}
-													)")}
+                        {searchCondition}
                         {fileTypeCondition}
                         {visibilityCondition}
                         {ownershipCondition}"
 					 , connection);
+					foreach (var param in extraParameters)
+					{
+						totalCountCommand.Parameters.Add(param);
+					}
 					totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
 					totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
 					if (!string.IsNullOrEmpty(search))
@@ -558,6 +534,56 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, ex.Message);
 			}
 		}
+		private static (string, List<MySqlParameter>) GetWhereCondition(string? search)
+		{
+			List<string> keywords = search?.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>();
+			List<MySqlParameter> parameters = new List<MySqlParameter>();
+
+			string searchCondition = "";
+			if (keywords.Any())
+			{
+				List<string> conditions = new List<string>();
+
+				for (int i = 0; i < keywords.Count; i++)
+				{
+					string keyword = keywords[i];
+					string paramName = $"@search_{i}";
+
+					conditions.Add(@$"
+                LOWER(f.file_name) LIKE CONCAT('%', LOWER({paramName}), '%') 
+                OR LOWER(f.given_file_name) LIKE CONCAT('%', LOWER({paramName}), '%')
+                OR LOWER(f.description) LIKE CONCAT('%', LOWER({paramName}), '%')
+                OR LOWER(u.username) LIKE CONCAT('%', LOWER({paramName}), '%')
+                OR f.id IN (
+                    SELECT ft.file_id 
+                    FROM maxhanna.file_topics ft
+                    JOIN maxhanna.topics t ON ft.topic_id = t.id
+                    WHERE t.topic LIKE {paramName}
+                )");
+
+					parameters.Add(new MySqlParameter(paramName, $"%{keyword}%"));
+
+					// Add special conditions based on keyword content
+					if (keyword.Contains("sega", StringComparison.OrdinalIgnoreCase))
+					{
+						conditions.Add("f.file_name LIKE '%.md'");
+					}
+					else if (keyword.Contains("nintendo", StringComparison.OrdinalIgnoreCase))
+					{
+						conditions.Add("f.file_name LIKE '%.nes'");
+					}
+					else if (keyword.Contains("gameboy", StringComparison.OrdinalIgnoreCase))
+					{
+						conditions.Add("f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba'");
+					}
+				}
+
+				searchCondition = " AND (" + string.Join(" OR ", conditions) + " )";
+			}
+
+			return (searchCondition, parameters);
+		}
+
 
 		[HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
 		public async Task<IActionResult> UpdateFileData([FromBody] FileDataRequest request)
@@ -588,6 +614,41 @@ namespace maxhanna.Server.Controllers
 
 				await UpdateSitemapEntry(request.FileData.FileId, request.FileData.GivenFileName, request.FileData.Description);
 				return Ok("Filedata added successfully.");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while updating the Filedata.");
+				return StatusCode(500, "An error occurred while updating the Filedata.");
+			}
+		}
+
+
+		[HttpPost("/File/UpdateFileVisibility", Name = "UpdateFileVisibility")]
+		public async Task<IActionResult> UpdateFileVisibility([FromBody] UpdateFileVisibilityRequest request)
+		{
+			_logger.LogInformation($"POST /File/UpdateFileVisibility (Updating visivility for file: {request.FileId}  user: {request.User?.Id})");
+
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+
+					var command = new MySqlCommand($@"
+                        UPDATE file_uploads
+                        SET is_public = @is_public,
+                            last_updated_by_user_id = @last_updated_by_user_id,
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE id = @file_id"
+					, connection);
+					command.Parameters.AddWithValue("@is_public", request.IsVisible);
+					command.Parameters.AddWithValue("@last_updated_by_user_id", request.User?.Id ?? 0);
+					command.Parameters.AddWithValue("@file_id", request.FileId);
+
+					await command.ExecuteNonQueryAsync();
+				}
+
+				return Ok("File visibility updated successfully.");
 			}
 			catch (Exception ex)
 			{

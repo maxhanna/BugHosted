@@ -1,20 +1,20 @@
 <div style="width:100%;position: absolute;top:0px;left:0px;" *ngIf="isLoadedFromURL">
-  <div class="componentTitle"> 
+  <div class="componentTitle">
     <div class="closeButton" (click)="remove_me('MediaViewerComponent');"></div>
     <div class="componentTitle"><span><a href="https://bughosted.com">BugHosted</a> Media Viewer</span></div>
   </div>
 </div>
-<div  [id]="'mediaContainer'+fileId"
-      class="mediaContainerWrapperDiv"
-      [style.margin-top]="isLoadedFromURL ? '40px' : '0px'"
-      appInView
-      (inView)="onInView($event)">
+<div [id]="'mediaContainer'+fileId"
+     class="mediaContainerWrapperDiv"
+     [style.margin-top]="isLoadedFromURL ? '40px' : '0px'"
+     appInView
+     (inView)="onInView($event)">
   <!-- Fullscreen Overlay -->
   <div #fullscreenOverlay class="fullscreen-overlay" (click)="imageFileExtensionsIncludes(this.selectedFileExtension) ? shrink() : ''">
     <span class="close-overlay" (click)="shrink()">✖</span>
     <img #fullscreenImage class="fullscreen-media" />
     <video #fullscreenVideo class="fullscreen-media" controls [autoplay]="autoplay"></video>
-    <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio> 
+    <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio>
     <div class="shrinkMediaDiv cursorPointerUnderlined" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
   <div class="mediaContainerDiv" [style.height]="selectedFileSrc == '' ? (file && file.height ? file.height : 250)+ 'px' : ''">
@@ -32,22 +32,22 @@
            class="media" />
       <video #mediaContainer
              *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)"
-             [src]="selectedFileSrc" 
+             [src]="selectedFileSrc"
              controls
              muted
              playsinline
-             preload="auto" 
-             [autoplay]="autoplay" 
+             preload="auto"
+             [autoplay]="autoplay"
              (touchend)="togglePlay(mediaContainer)"
              (play)="togglePlay(mediaContainer)"
              class="video media">
       </video>
       <audio #mediaContainer
              *ngIf="audioFileExtensionsIncludes(this.selectedFileExtension)"
-             [src]="selectedFileSrc" 
+             [src]="selectedFileSrc"
              controls
              preload="auto"
-             [autoplay]="false" 
+             [autoplay]="false"
              (touchend)="togglePlay(mediaContainer)"
              (play)="togglePlay(mediaContainer)"
              class="audio media">
@@ -70,8 +70,13 @@
       </div>
     </div>
   </div>
-</div>
-
+</div> 
+<app-topics [isDropdown]="false"
+            [user]="inputtedParentRef?.user ?? parentRef?.user"
+            [parent]="inputtedParentRef ?? parentRef"
+            [attachedTopics]="selectedFile?.topics"
+            (topicClicked)="topicClicked($event)">
+</app-topics>
 <app-comments *ngIf="(selectedFile || file) && showCommentSection"
               [inputtedParentRef]="inputtedParentRef"
               [type]="'File'"

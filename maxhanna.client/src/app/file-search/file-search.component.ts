@@ -207,11 +207,21 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
   private determineSearchTerms() {
     const popupSearchTerm = this.popupSearch && this.popupSearch.nativeElement.value.trim() != '' ? this.popupSearch.nativeElement.value.trim() : undefined;
-    this.searchTerms = popupSearchTerm ? popupSearchTerm : this.search && this.search.nativeElement.value.trim() != '' ? this.search.nativeElement.value.trim() : "";
+    this.searchTerms = popupSearchTerm ?? "";
+    if (this.search && this.search.nativeElement.value.trim() != '') {
+      if (this.searchTerms) {
+        this.searchTerms = this.searchTerms + ',';
+      }
+      this.searchTerms += this.search.nativeElement.value.trim();
+    }
     if (this.tmpSearchTerms) {
-      this.searchTerms = this.tmpSearchTerms;
+      if (this.searchTerms) {
+        this.searchTerms = this.searchTerms + ',';
+      }
+      this.searchTerms += this.tmpSearchTerms.trim();
       this.tmpSearchTerms = "";
     }
+    console.log(this.searchTerms);
   }
 
   getFileExtension(filename: string) {
@@ -621,8 +631,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.tmpSearchTerms = topic;
     await this.getDirectory();
   }
-  async fileTopicClicked(topic: Topic) {
-    this.tmpSearchTerms = topic.topicText;
+  async fileTopicClicked(topic: Topic[]) {
+    this.tmpSearchTerms = topic.map(t => t.topicText).join(',');
+
     this.closeOptionsPanel();
     await this.getDirectory();
   }
@@ -655,6 +666,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       return ".";
     }
     return base ?? "";
+  }
+  updateFileVisibility(file: FileEntry) {
+    file.visibility = file.visibility == "Private" ? "Public" : "Private";
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
+    this.fileService.updateFileVisibility(user, file.visibility == "Private" ? false : true, file.id);
   }
   private replacePageTitleAndDescription() {
     if (this.directory && this.directory.data && this.directory.data.length > 0) {

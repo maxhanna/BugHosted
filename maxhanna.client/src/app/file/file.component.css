@@ -169,3 +169,6 @@ tr[draggable] {
   display: flex;
   gap: 30px;
 }
+.topTopicsDiv {
+  white-space: nowrap;
+}

@@ -11,16 +11,16 @@
 </div>
 
 <!-- Page Controls -->
-<div class="searchInput">
+<div class="topPageControls">
   <span *ngIf="isDisplayingPreviousPageButton()">
-    <span (click)="previousPage()" class="cursorPointer" style="font-size: large">
+    <span (click)="previousPage()" class="cursorPointer">
       ⬅️
     </span>
   </span>
   <span *ngIf="totalPages > 1" class="totalPageDisplay">{{currentPage}}{{displayTotal ? '/' + totalPages : ''}}</span>
   <input *ngIf="fileSearchMode" #search (keyup)="searchDirectory()" placeholder="🔍Search Files" />
   <span *ngIf="isDisplayingTotalPagesButton()">
-    <span (click)="nextPage()" class="cursorPointer" style="font-size: large">
+    <span (click)="nextPage()" class="cursorPointer">
       ➡️
     </span>
   </span>
@@ -121,6 +121,7 @@
                                 (emittedNotification)="emittedNotification($event)"
                                 (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
                                 (expandClickedEvent)="expandClickedEvent.emit($event)"
+                                (topicClickedEvent)="fileTopicClicked($event)"
                                 class="mediaViewer">
               </app-media-viewer>
             </div>
@@ -140,7 +141,6 @@
 <div class="popupPanel" *ngIf="isOptionsPanelOpen && optionsFile">
   <div class="popupPanelTitle">
     File Options
-    <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
   </div>
   <div class="popupPanelActions">
     <button title="Edit File Name" (click)="startEditingFileName(optionsFile.id);" *ngIf="shouldShowEditButton(optionsFile)">
@@ -197,7 +197,7 @@
               title="Edit File Topics">✏️</span>:
       </div>
       <div class="optionsStatsDescription">
-        <span *ngFor="let topic of optionsFile.topics" class="matchingTopic" (click)="fileTopicClicked(topic)">
+        <span *ngFor="let topic of optionsFile.topics" class="matchingTopic" (click)="fileTopicClicked([topic])">
           {{topic.topicText}}
           <span title="Remove Topic From File"
                 *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)"
@@ -253,7 +253,13 @@
       </div>
       <div class="optionsStatsDescription">
         <span>
-          {{optionsFile.visibility}}
+          <select [value]="optionsFile.visibility"
+                  *ngIf="optionsFile.user?.id == parentRef?.user?.id || optionsFile.user?.id == inputtedParentRef?.user?.id"
+                  (change)="updateFileVisibility(optionsFile)">
+            <option value="Public" [selected]="optionsFile.visibility == 'Public'">Public</option>
+            <option value="Private" [selected]="optionsFile.visibility == 'Private'">Private</option>
+          </select>
+          <span *ngIf="optionsFile.user?.id != parentRef?.user?.id && optionsFile.user?.id != inputtedParentRef?.user?.id">{{optionsFile.visibility}}</span>
           <span *ngIf="optionsFile.visibility == 'Private'"
                 class="private"
                 title="This is a private file.">🔒</span>
@@ -304,8 +310,8 @@
                       [displayMiniTag]="true"></app-user-tag>
       </div>
     </div> 
-   
   </div>
+  <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
 </div>
 
 <!-- Search Popup -->
@@ -340,6 +346,7 @@
         <label>
           Ownership:
           <select (change)="setFilterOwnership($event)">
+            <option value="all" [selected]="filter.ownership === 'all'">All</option>
             <option value="own" [selected]="filter.ownership === 'own'">Own</option>
             <option value="others" [selected]="filter.ownership === 'others'">Others</option>
           </select>

@@ -66,6 +66,7 @@ namespace maxhanna.Server.Controllers
 				whereClause.Append(
 						@" AND (
                 MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
+								OR s.story_text LIKE CONCAT('%', @searchTerm, '%')
                 OR s.city LIKE CONCAT('%', @searchTerm, '%')
                 OR s.country LIKE CONCAT('%', @searchTerm, '%')
                 OR username LIKE CONCAT('%', @searchTerm, '%')
@@ -77,7 +78,7 @@ namespace maxhanna.Server.Controllers
 			{
 				var topicIds = topics.Split(',').Select((t, index) => new { Index = index, Id = t }).ToList();
 				for (int i = 0; i < topicIds.Count; i++)
-				{
+				{ 
 					whereClause.Append($@" AND EXISTS (
                 SELECT 1 FROM story_topics st2 
                 LEFT JOIN topics t2 ON st2.topic_id = t2.id 

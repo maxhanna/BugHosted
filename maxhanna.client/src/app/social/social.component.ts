@@ -48,6 +48,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   isMenuPanelOpen = false;
   isStoryOptionsPanelOpen = false;
   isPostOptionsPanelOpen = false;
+  isEmojiPanelOpen = false;
   isEditing: number[] = [];
   editingTopics: number[] = [];
   selectedAttachmentFileExtension: string | null = null;
@@ -200,12 +201,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }
   }
   async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) {
-    let search = "";
-    if (this.search && this.search.nativeElement) {
-      search = this.search.nativeElement.value;
-    }
-
-    this.userSearch = search;
+    let search = this.userSearch;
+      
     let topics = '';
     if (searchTopics && searchTopics.length > 0) {
       topics = topics.trim() != '' ? topics + ',' : topics;
@@ -663,6 +660,23 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.parentRef.showOverlay = false;
     }
   }
+  openInsertEmojiPanel() {
+    if (this.isEmojiPanelOpen) {
+      this.closeInsertEmojiPanel();
+      return;
+    }
+    this.isEmojiPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeInsertEmojiPanel() {
+    this.isEmojiPanelOpen = false;
+
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
+  }
   isEditButtonVisible(storyId?: number) {
     if (!storyId) return false;
     const element = document.getElementById('storyTextEditConfirmButton' + storyId) as HTMLTextAreaElement;
@@ -812,8 +826,9 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     await this.getStories(this.currentPage + 1, 10, undefined, undefined, true);
   }
   debouncedSearch() {
+    this.userSearch = this.search.nativeElement.value;
     clearTimeout(this.searchTimeout);
-    this.searchTimeout = setTimeout(() => this.searchStories(undefined, true), 500);
+    this.searchTimeout = setTimeout(() => this.searchStories(this.attachedTopics, true), 500);
   }
   insertTag(tag: string, componentId?: string) {
     let targetInput = componentId
@@ -855,7 +870,11 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   } 
   insertBullet(componentId?: string) {
     this.insertTag('*', componentId);
-  }
+  } 
+  insertEmoji(emoji: string) {
+    this.story.nativeElement.value += emoji;
+    this.closeInsertEmojiPanel();
+  } 
   getTextForDOM(text?: string, componentId?: any) {
     const parent = this.parent ?? this.parentRef;
     if (parent) {

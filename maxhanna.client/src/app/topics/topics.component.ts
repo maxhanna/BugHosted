@@ -17,6 +17,7 @@ export class TopicsComponent extends ChildComponent {
   @Input() isDropdown: boolean = false;
   @Input() preventClosingOverlay: boolean = false;
   @Output() topicAdded = new EventEmitter<Topic[]>();
+  @Output() topicClicked = new EventEmitter<Topic[]>();
   @ViewChild('newTopic') newTopic!: ElementRef<HTMLInputElement>;
   @ViewChild('addTopicButton') addTopicButton!: ElementRef<HTMLButtonElement>;
 

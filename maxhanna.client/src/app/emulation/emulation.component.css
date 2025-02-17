@@ -3,7 +3,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.componentMain { 
+.mainComponent {
+  margin-top: 50px;
+}
+.componentMain {
   width: 450px;
   overflow: unset;
 }
@@ -23,7 +26,7 @@
   margin-left: -2px;
   overflow: hidden;
   width: 100%;
-  height: 565px;
+  height: 900px;
   border-radius: 20px;
   padding-top: 10px;
   background-color: var(--gameboyBgColor);
@@ -32,19 +35,36 @@
   -webkit-user-select: none;
   cursor: default;
 }
+@media only screen and (max-width : 667px) {
+  .gameboy {
+    height: 800px;
+  }
+} 
+
 
 
 .screen-area {
-  height: 325px;
+  height: 600px;
   width: 100%;
   image-rendering: pixelated;
-  display: block; 
+  display: flex;
   background-color: black;
-}
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+} 
+@media only screen and (max-width : 667px) {
+  .screen-area {
+    height: 475px !important;
+  }
+} 
+
 
 .mainCanvas {
   width: 353px;
-  height: 318px;
+  height: 100%;
 }
 
 canvas:fullscreen, #fullscreenContainer:fullscreen {
@@ -513,4 +533,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
 }
 .popupPanel {
   z-index: 7;
-} 
+}
+.optionsStatsDiv {
+  margin-top: 15px;
+}

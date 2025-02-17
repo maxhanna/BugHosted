@@ -5,6 +5,7 @@ import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
+import { Topic } from '../../services/datacontracts/topics/topic';
  
 
 @Component({
@@ -58,6 +59,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() emittedNotification = new EventEmitter<string>(); 
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(); 
   @Output() expandClickedEvent = new EventEmitter<FileEntry>(); 
+  @Output() topicClickedEvent = new EventEmitter<Topic[]>(); 
     
   async ngOnInit() { 
   }
@@ -368,5 +370,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     else if (this.selectedFile) {
       addCommentToFile(this.selectedFile);
     }
-  } 
+  }
+  topicClicked(event?: Topic[]) {
+    if (event) {
+      this.topicClickedEvent.emit(event);
+      console.log(event);
+    }
+  }
 }

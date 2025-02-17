@@ -1,5 +1,5 @@
-<div class="topicSelector" (click)="clearSearch()">
-  <div>
+<div class="topicSelector" (click)="isDropdown ? clearSearch() : topicClicked.emit(attachedTopics)">
+  <div *ngIf="isDropdown">
     <input type="text"
            #newTopic
            placeholder="Choose a Topic"
@@ -15,9 +15,9 @@
     <div *ngFor="let topic of matchingTopics" (click)="selectTopic(topic)" class="dropdownMenuTopic">{{topic.topicText}}</div>
   </div>
   <div *ngIf="attachedTopics">
-    <span *ngFor="let topic of attachedTopics" class="matchingTopic" (click)="removeTopic(topic)">
+    <span *ngFor="let topic of attachedTopics" class="matchingTopic" (click)="isDropdown ? removeTopic(topic) : ''">
       {{topic.topicText}}
-      <button class="removeTopicButton">❌</button>
+      <button class="removeTopicButton" *ngIf="isDropdown">❌</button>
     </span>
   </div>
 </div>

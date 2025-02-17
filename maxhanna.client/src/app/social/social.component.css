@@ -71,22 +71,14 @@
   flex-wrap: nowrap;
   flex-direction: row;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .topicStoryCount {
-  font-size: xx-small;
+  font-size: small;
   display: inline-block
 }
-
-.topTopicSpan {
-  display: inline;
-  line-height: 25px;
-  align-items: center;
-  flex-wrap: nowrap;
-  flex-direction: row;
-  cursor: pointer;
-}
-
+ 
 .topTopicTitle {
   display: inline-block;
   padding: 5px;
@@ -479,6 +471,13 @@ singleAttachment {
   min-width: 20px;
 }
 
+.storyControlFlairButton {
+  display: inline-block;
+  white-space: nowrap;
+  width: 25px;
+  min-width: unset !important;
+  max-width: unset !important;
+}
 .matchingTopicsInsideButtonWrapper {
   white-space: nowrap;
   overflow: hidden;

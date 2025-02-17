@@ -112,7 +112,7 @@
 
     <!-- Post Topics Popup -->
     <div class="popupPanel largePopupPanel" *ngIf="isMobileTopicsPanelOpen">
-      <div class="popupPanelTitle">Topics <button id="closeOverlay" (click)="closeMobileTopicsPanel()">Close</button></div>
+      <div class="popupPanelTitle">Topics</div>
       <app-topics #topicComponent
                   [isDropdown]="true"
                   [user]="parentRef?.user"
@@ -125,12 +125,26 @@
         <div class="topTopicTitle" *ngIf="showTopicSelector">
           Top Topics:
         </div>
-        <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)" class="topTopicSpan">
+        <span *ngFor="let topic of topTopics | slice:0:15" (click)="topTopicClicked(topic.topicName, topic.topicId)" class="topTopicsDiv">
           <span class="matchingTopic">{{topic.topicName}}</span>
           <span class="topicStoryCount">({{topic.storyCount}})</span>
         </span>
       </div>
+      <button id="closeOverlay" (click)="closeMobileTopicsPanel()">Close</button>
     </div>
+
+    <!-- Emoji picker Popup -->
+    <div class="popupPanel" *ngIf="isEmojiPanelOpen">
+      <div>
+        <span *ngFor="let emoji of emojiMap | keyvalue"
+              (click)="insertEmoji(emoji.value)"
+              style="cursor: pointer; font-size: 24px; margin: 5px;">
+          {{ emoji.value }}
+        </span>
+      </div>
+      <button id="closeOverlay" (click)="closeInsertEmojiPanel()">Close</button>
+    </div>
+
 
     <!-- Story Options Popup -->
     <div class="popupPanel storyOptionsPopup" *ngIf="isStoryOptionsPanelOpen && optionStory">
@@ -233,7 +247,7 @@
       </div>
 
       <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
-    </div> 
+    </div>
 
     <!-- Story Input -->
     <div class="storyInputDiv">
@@ -267,22 +281,23 @@
             )
           </span>
         </button>
-        <button class="mainTopicSelectionsHeaderButton"
-                style="min-width:20px;"
+        <button class="storyControlFlairButton" 
                 (click)="insertBold();"
                 title="Bold">
           <span style="font-weight:900">B</span>
         </button>
-        <button class="mainTopicSelectionsHeaderButton"
-                style="min-width:20px;"
+        <button class="storyControlFlairButton" 
                 (click)="insertItalics();"
                 title="Italic">
           <span style="font-style:italic">I</span>
-        </button> 
-        <button class="mainTopicSelectionsHeaderButton"
-                style="min-width:20px;"
+        </button>
+        <button class="storyControlFlairButton" 
                 (click)="insertBullet();" title="Bullet-point">
           <span>&bull;</span>
+        </button>
+        <button class="storyControlFlairButton" 
+                (click)="openInsertEmojiPanel();" title="Emoji">
+          <span>😊</span>
         </button>
       </div>
     </div>
@@ -355,7 +370,7 @@
                       title="Bullet-point">
                 <span>&bull;</span>
               </button>
-            </div> 
+            </div>
           </div>
         </div>
         <div>
