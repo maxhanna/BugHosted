@@ -91,7 +91,7 @@ fieldset {
 }
 
 .componentMain {
-  max-height: CALC(CALC(var(--vh, 1vh)* 100) - 60px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
   background-color: var(--main-bg-color-quarter-opacity);
   position: relative;
   padding-top: 55px;
@@ -198,7 +198,7 @@ fieldset {
 }
 
 .mainTableContainer {
-  height: CALC(CALC(var(--vh, 1vh)* 100) - 125px);
+  height: CALC(var(--vh, 1vh) * 100 - 125px);
   overflow: auto;
 }
 

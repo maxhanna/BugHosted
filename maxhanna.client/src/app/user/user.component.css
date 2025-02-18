@@ -2,7 +2,7 @@
   min-width: 350px; 
 }
 .componentMainFullHeight {
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 55px);
+  height: CALC(var(--vh, 1vh) * 100 - 55px);
 }
 @media only screen and (max-width : 667px) {
   .componentMain {
@@ -11,7 +11,7 @@
 }
 
 .userProfileContents {
-  max-height: CALC(CALC(var(--vh, 1vh)* 100) - 55px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 55px);
 }
 
 .mainTable thead {

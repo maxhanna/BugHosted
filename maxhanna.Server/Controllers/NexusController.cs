@@ -4,8 +4,6 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
-using System.Data.Common;
-using System.Transactions;
 
 namespace maxhanna.Server.Controllers
 {

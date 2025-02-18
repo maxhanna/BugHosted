@@ -1,10 +1,8 @@
-using System.Xml.Linq;
 using maxhanna.Server.Controllers.DataContracts.Users;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace maxhanna.Server.Controllers.DataContracts.Files
 {
-    public class FileData
+	public class FileData
     {
         public FileData() { }
         public FileData(int file_id, string givenFileName, string description, DateTime lastUpdated, User lastUpdatedBy)

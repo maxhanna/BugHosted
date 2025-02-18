@@ -3,7 +3,7 @@
 }
 
 .chat-container {
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 85px);
+  height: CALC(var(--vh, 1vh) * 100 - 85px);
   margin: 0 auto;
   border: 1px solid #ccc;
   padding: 10px;
@@ -17,7 +17,7 @@
 }
 
 .chat-box {
-  height: calc(CALC(var(--vh, 1vh) * 100) - 180px);
+  height: CALC(var(--vh, 1vh) * 100 - 180px);
   overflow-y: scroll;
   border-bottom: 1px solid #ccc;
   padding: 10px;

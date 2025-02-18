@@ -1,8 +1,6 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Meta
 {
-    public class MetaBot
+	public class MetaBot
     { 
         public string? Name { get; set; }
         public int Id { get; set; } 

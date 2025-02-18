@@ -77,13 +77,13 @@ export class NewsService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user }),
+        body: JSON.stringify( user ),
       });
 
       if (!res.ok) {
         throw new Error('Fail to get default search');
       }
-      return await res.json(); 
+      return await res.text(); 
     } catch (error) {
       console.error('Error getting default search :', error);
       return null;

@@ -1,6 +1,6 @@
 .componentMain {
   width: 98vw;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 40px);
 }
 .deleteNotificationButton, .readNotificationButton {
   width: 65px;
@@ -76,7 +76,7 @@
 .notificationsListContainer {
   overflow-y: auto;
   overflow-x: hidden;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 105px);
+  height: CALC(var(--vh, 1vh) * 100 - 105px);
   display: flex;
   flex-direction: column;
   align-items: center;

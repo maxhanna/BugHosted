@@ -1,7 +1,7 @@
 .componentMain {
   min-width: 500px;
   max-width: 50vw;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 40px);
 }
 
 @media only screen and (min-device-width: 0px) and (max-device-width: 700px) {
@@ -59,7 +59,7 @@
   }
 
 .settingsDiv {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 40px);
   overflow: auto;
 }
 

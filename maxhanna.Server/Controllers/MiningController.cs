@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using System.Collections.ObjectModel;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
-using System.Net;
 using maxhanna.Server.Controllers.Helpers;
 using System.Text.Json;
 using MySqlConnector;
@@ -11,7 +10,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers
 {
-    [ApiController]
+	[ApiController]
     [Route("[controller]")]
     public class MiningController : ControllerBase
     {

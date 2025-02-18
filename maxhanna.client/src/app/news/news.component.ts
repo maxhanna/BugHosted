@@ -12,7 +12,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
   newsArticles?: undefined | ArticlesResult;
   selectedArticle?: Article;
   notifications: string[] = [];
-  defaultSearch = "";
+  defaultSearch? : string;
   @ViewChild('searchKeywords') searchKeywords!: ElementRef<HTMLInputElement>;
   @ViewChild('defaultSearchInput') defaultSearchInput!: ElementRef<HTMLInputElement>;
 
@@ -20,20 +20,24 @@ export class NewsComponent extends ChildComponent implements OnInit {
     super();
   }
   async ngOnInit() {
-    if (this.parentRef?.user) { 
+    let preventLoadNews = false;
+    if (this.parentRef?.user) {
       this.newsService.getDefaultSearch(this.parentRef.user).then(res => {
         if (res) {
-          this.defaultSearch = res;
+          setTimeout(() => {
+            this.defaultSearch = res;
+            console.log(res);
+            if (this.defaultSearch) {
+              this.searchKeywords.nativeElement.value = this.defaultSearch;
+              this.searchByKeyword();
+              preventLoadNews = true;
+            } 
+          }, 30);
         }
       })
     }
-    this.loadNews();
-    if (this.parentRef?.user) { 
-      await this.newsService.getDefaultSearch(this.parentRef.user).then(res => {
-        if (res) {
-          this.defaultSearch = res;
-        }
-      });
+    if (!preventLoadNews) { 
+      this.loadNews(); 
     }
   }
 
@@ -56,6 +60,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
   }
 
   openSource(url: string) {
+    this.selectedArticle = undefined;
     window.open(url, '_blank');
   }
   selectArticle(article: Article): void {

@@ -2,13 +2,10 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Wordler;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 
 namespace maxhanna.Server.Controllers
 {
-    [ApiController]
+	[ApiController]
     [Route("[controller]")]
     public class WordlerController : ControllerBase
     {

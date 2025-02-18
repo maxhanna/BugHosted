@@ -1,7 +1,6 @@
 using maxhanna.Server.Controllers.DataContracts.Meta;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using MySqlConnector;
 using System.Text;
 

@@ -14,8 +14,8 @@ html, body {
 }
 .componentMain {
   width: 99vw;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
-  max-height: calc(CALC(var(--vh, 1vh) * 100) - 40px);
+  height: CALC(var(--vh, 1vh) * 100 - 40px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 40px);
   overflow: hidden;
   user-select: none;
   display: flex;
@@ -27,7 +27,7 @@ html, body {
   display: block;
   background-color: black;
   width: 100%;
-  max-width: calc(CALC(var(--vh, 1vh) * 100) * (1024 / 910));
+  max-width: CALC(var(--vh, 1vh) * 100 * (1024 / 910));
   margin-left: auto;
   margin-right: auto;
 }
@@ -48,7 +48,7 @@ html, body {
 .loadingModal {
   position: absolute;
   left: CALC(50vw - 150px);
-  top: CALC(CALC(var(--vh, 1vh) * 50) - 225px);
+  top: CALC(var(--vh, 1vh) * 50 - 225px);
   width: 300px;
   height: 250px;
   border: var(--main-border);

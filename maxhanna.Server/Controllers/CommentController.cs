@@ -1,15 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
 using maxhanna.Server.Controllers.DataContracts.Comments;
-using maxhanna.Server.Controllers.DataContracts.Contacts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using System.Data;
-using maxhanna.Server.Controllers.DataContracts.Social;
 using maxhanna.Server.Controllers.DataContracts;
 using System.Text;
 

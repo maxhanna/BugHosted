@@ -1,12 +1,10 @@
 using maxhanna.Server.Controllers.DataContracts;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using System.Net;
 using MySqlConnector;
 
 namespace maxhanna.Server.Controllers
 {
-    [ApiController]
+	[ApiController]
     [Route("[controller]")]
     public class ReactionController : ControllerBase
     {

@@ -336,8 +336,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }, 100);
   }
   
-  updateHeight() {
-    console.log("setting inner height " + window.innerHeight * 0.01);
+  updateHeight() { 
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }

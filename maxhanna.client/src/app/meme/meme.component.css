@@ -181,5 +181,5 @@ button {
 
 .popupPanel {
   width: 99vw;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 30px);
+  height: CALC(var(--vh, 1vh) * 100 - 30px);
 }

@@ -3,7 +3,6 @@
   overflow: auto;
   position: relative;
 }
- 
 
 .selectedArticle {
   position: fixed;
@@ -15,15 +14,21 @@
   border-radius: 5px;
   padding: 20px;
   z-index: 9999;
-  max-height:100%;
-  max-width:100%;
+  max-height: 100%;
+  max-width: 100%;
 }
-.articleContainer{
-    margin-bottom:10px;
+
+.articleContainer {
+  margin-bottom: 30px;
+  padding-bottom: 30px;
+  border-bottom: 1px solid;
 }
 
 .selectedArticleContent {
   position: relative;
+  height: CALC(100% - 50px);
+  margin-top: 50px;
+  padding: 30px;
 }
 
 .closeSelectedArticle {
@@ -52,16 +57,6 @@
 .articleSource {
   cursor: pointer;
 }
-
-
-/* Styling for the message when there's no news to show */
-.noNewsMessage {
-  margin-top: 20px;
-  font-style: italic;
-  color: #999;
-}
-
-
 
 .selectedArticleContent {
   position: relative;
@@ -94,7 +89,7 @@
 
 
 .newsList {
-  margin-top: 20px;  
+  margin-top: 20px;
 }
 
 .newsItem {
@@ -120,7 +115,18 @@
   color: var(--secondary-font-color);
 }
 
-/* Styling for the selected article details */
+.smallArticleImage, .articleImage {
+  max-height: 300px;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  margin: auto;
+}
+
+.articleImage {
+  max-height: CALC(var(--vh, 1vh) * 40);
+}
+
 .selectedArticle {
   margin-top: 20px;
   border: var(--main-border);
@@ -140,15 +146,36 @@
 .articleAuthor,
 .articleSource,
 .articleDate {
-  font-size: small;
-  color: #666;
   text-align: right;
 }
 
-/* Styling for the message when there's no news to show */
 .noNewsMessage {
   margin-top: 20px;
   font-style: italic;
   color: #999;
 }
 
+.topSearchDiv {
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+  .topSearchDiv input {
+    width: 100%;
+  }
+
+.defaultSearchTopDiv {
+  display: flex;
+  flex-wrap: nowrap;
+}
+
+.popupPanel {
+  width: 100vw;
+  height: CALC(var(--vh, 1vh) * 100 - 40px);
+}
+
+.closeButton {
+  position: fixed;
+  top: 0px;
+  right: 21px !important;
+}

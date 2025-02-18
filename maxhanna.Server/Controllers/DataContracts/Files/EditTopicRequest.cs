@@ -1,10 +1,9 @@
-using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers.DataContracts.Files
 {
-    public class EditTopicRequest
+	public class EditTopicRequest
 	{
         public EditTopicRequest(Topic[] topics, FileEntry file, User? user)
         {

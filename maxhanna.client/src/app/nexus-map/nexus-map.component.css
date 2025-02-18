@@ -287,7 +287,7 @@
   font-style: italic;
 }
 .bottomActionDiv {
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 275px - 85px);
+  height: CALC(var(--vh, 1vh) * 100 - 275px - 85px);
   display: flex;
   flex-direction: column;
   align-content: stretch;

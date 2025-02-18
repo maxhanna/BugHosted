@@ -6,13 +6,12 @@ using maxhanna.Server.Controllers.DataContracts.Social;
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Primitives;
 using MySqlConnector;
 using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
-using System.Xml.Linq; 
+using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
 {

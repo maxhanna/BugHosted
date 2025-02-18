@@ -4,11 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
 using RestSharp;
-using System.Reflection.PortableExecutable;
 
 namespace maxhanna.Server.Controllers
 {
-    [ApiController]
+	[ApiController]
     [Route("[controller]")]
     public class WeatherForecastController : ControllerBase
     {

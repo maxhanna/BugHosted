@@ -4,7 +4,6 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using Newtonsoft.Json;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
-using System.Linq;
 using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers

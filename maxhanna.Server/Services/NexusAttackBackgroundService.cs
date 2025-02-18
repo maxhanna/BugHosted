@@ -1,9 +1,7 @@
 ﻿using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
-using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
-using System;
 using System.Collections.Concurrent;
 
 namespace maxhanna.Server.Services

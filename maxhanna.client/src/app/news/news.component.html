@@ -2,14 +2,16 @@
   <div class="closeButton" (click)="remove_me('NewsComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">News</div>
-
-  <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup.enter)="searchByKeyword()" />
-  <div>
+  <div class="topSearchDiv"> 
+    <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup.enter)="searchByKeyword()" />
+    <button (click)="searchByKeyword()">Search</button>
+  </div>
+  <div *ngIf="defaultSearch" class="defaultSearchTopDiv">
     <div>
-      Default search:
+      Load these as the first search keywords when opening the News app:
     </div>
     <div>
-      <input type="text" [placeholder]="defaultSearch" [value]="defaultSearch" #defaultSearchInput />
+      <input type="text" [value]="defaultSearch" placeholder="Default search terms (comma seperated)" #defaultSearchInput />
     </div>
     <div>
       <button (click)="saveDefaultSearch()">Save</button>
@@ -21,29 +23,39 @@
     <div *ngFor="let newsArticle of newsArticles.articles">
       <div class="articleContainer" (click)="selectArticle(newsArticle)">
         <div class="articleTitle">{{ newsArticle.title }}</div>
-        <div class="articleDescription">{{ newsArticle.description }}</div>
+        <div class="articleDescription" [innerHTML]="newsArticle.description"></div>
         <!-- Additional details -->
-        <div class="articleAuthor">Author(s): {{ getAuthors(newsArticle) }}</div>
-        <div class="articleSource">Source: {{ newsArticle.source.name }}</div>
-        <div class="articleDate">Published Date: {{ newsArticle.publishedAt }}</div>
-        <!-- Add more details here as needed -->
+        <div>
+          <div class="articleAuthor cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+            Author(s): {{ getAuthors(newsArticle) }}
+          </div>
+          <div class="articleSource cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+            Source: {{ newsArticle.source.name }}
+          </div>
+          <div class="articleDate cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+            Published Date: {{ newsArticle.publishedAt }}
+          </div>
+          <div><img class="smallArticleImage" src="{{ newsArticle.urlToImage }}" /></div> 
+        </div> 
       </div>
     </div>
   </div>
 
   <!-- Display selected article details -->
-  <div *ngIf="selectedArticle" class="selectedArticle mainTableContainer">
+  <div *ngIf="selectedArticle" class="popupPanel">
     <div class="selectedArticleContent">
-      <div class="closeSelectedArticle" (click)="selectedArticle = undefined">✖</div> <!-- Close button -->
+      <div class="closeButton" (click)="selectedArticle = undefined"></div>
       <div class="articleTitle">{{ selectedArticle.title }}</div>
-      <div class="articleContent">{{ selectedArticle.description }}</div>
-      <div class="articleDetails">
+      <div class="articleContent" [innerHTML]="selectedArticle.content"></div>
+      <div class="articleContent" [innerHTML]="selectedArticle.description"></div>
+      <div class="articleDetails cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">
         <div class="articleAuthor">Author(s): {{ getAuthors(selectedArticle) }}</div>
-        <div class="articleSource" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source.name }}</div>
+        <div class="articleSource">Source: {{ selectedArticle.source.name }}</div>
         <div class="articleDate">Published Date: {{ selectedArticle.publishedAt }}</div>
-        <!-- Add more details here as needed -->
+        <div><img class="articleImage"  src="{{ selectedArticle.urlToImage }}" /></div>
       </div>
-    </div>
+    </div> 
+    <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
   </div>
 
   <div *ngIf="newsArticles == null || !newsArticles">

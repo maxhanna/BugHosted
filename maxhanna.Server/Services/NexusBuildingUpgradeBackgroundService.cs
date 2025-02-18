@@ -1,12 +1,8 @@
 ﻿using maxhanna.Server.Controllers;
-using maxhanna.Server.Controllers.DataContracts.Nexus;
-using maxhanna.Server.Controllers.DataContracts.Users;
-using MySqlConnector;
-using System.Collections.Concurrent; 
 
 namespace maxhanna.Server.Services
 {
-    public class NexusBuildingUpgradeBackgroundService : BackgroundService
+	public class NexusBuildingUpgradeBackgroundService : BackgroundService
     {   
         private readonly IConfiguration _config; 
         private readonly IServiceProvider _serviceProvider;

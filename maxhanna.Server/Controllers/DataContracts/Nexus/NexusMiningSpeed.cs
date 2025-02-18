@@ -1,8 +1,6 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
-    public class NexusMiningSpeed
+	public class NexusMiningSpeed
     {
         public int Id { get; set; } 
         public int MinesLevel { get; set; } 

@@ -1,13 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
-using static maxhanna.Server.Controllers.ChatController;
 using maxhanna.Server.Controllers.DataContracts.Topics;
-using static maxhanna.Server.Controllers.TopicController;
 
 namespace maxhanna.Server.Controllers
 {

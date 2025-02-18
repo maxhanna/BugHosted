@@ -1,6 +1,3 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-using System.Xml.Linq;
-
 namespace maxhanna.Server.Controllers.DataContracts.Meta
 {
 	public class MetaBotPart

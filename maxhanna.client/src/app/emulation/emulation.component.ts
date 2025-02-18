@@ -121,7 +121,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     const formData = new FormData();
     formData.append('files', res?.state!, this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav");
-    await this.romService.uploadRomFile(this.parentRef?.user!, formData);
+    await this.romService.uploadRomFile(this.parentRef?.user!, formData).then(res => { 
+      this.parentRef?.showNotification("Game data saved on the server.");
+      this.closeMenuPanel();
+    });
   }
   async stopEmulator() {
     if (this.selectedRomName && this.selectedRomName != '' && this.parentRef && this.parentRef.user) {
@@ -135,6 +138,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.controlsSet = false;
     this.displayAB = false;
     this.displayC = false;
+    this.closeMenuPanel();
   }
   async loadState() {
     if (!this.selectedRomName) return alert("You must select a rom to do that");
@@ -172,9 +176,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
 
     await this.nostalgist.launchEmulator();
-    setTimeout(() => {
-      this.nostalgist?.sendCommand('MUTE');
-    }, 30);
+    setTimeout(() => { 
+      this.nostalgist?.sendCommand('MUTE'); 
+      this.soundOn = false;
+    }, 1);
     this.setHTMLControls();
     this.setupAutosave();
     this.getDisplayAB();
@@ -261,10 +266,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       this.nostalgist?.sendCommand("MUTE");
     }
     this.soundOn = !this.soundOn;
+    this.closeMenuPanel();
   }
-  async saveGame(forceSaveLocal: boolean) {
-    await this.nostalgist!.saveState();
-  }
+ 
   setHTMLControls() {
     if (this.controlsSet) {
       return;
@@ -467,5 +471,12 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     if (this.parentRef && this.parentRef.showOverlay) {
       this.parentRef.showOverlay = false;
     }
+    console.log("closed");
+    setTimeout(() => {
+      if (this.selectedRomName) { 
+        this.controlsSet = false;
+        this.setHTMLControls(); 
+      } 
+    }, 3);
   }
 }

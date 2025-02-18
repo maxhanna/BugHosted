@@ -18,7 +18,7 @@
 
 .gamesContainer {
   width: 100%;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
+  height: CALC(var(--vh, 1vh) * 100 - 110px);
   overflow: auto;
 }
  
@@ -31,7 +31,7 @@
   margin-left: -2px;
   overflow: hidden;
   width: 100%;
-  height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
+  height: CALC(var(--vh, 1vh) * 100 - 110px);
   border-radius: 20px;
   padding-top: 10px; 
   box-shadow: 0px -5px 0px var(--main-bg-color), 0px 5px 0px var(--main-bg-color);
@@ -120,7 +120,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   display: flex;
   justify-content: space-between;
   position: absolute;
-  top: CALC(CALC(var(--vh, 1vh) * 83) - 160px);
+  top: CALC(var(--vh, 1vh) * 85 - 160px);
 }
 
 .dpad {
@@ -246,7 +246,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   display: inline-block;
   width: 120px;
   height: 90px;
-  top: CALC(CALC(var(--vh, 1vh) * 80) - 100px);
+  top: CALC(var(--vh, 1vh) * 80 - 100px);
   right: 95px;
   z-index: 30;
 }

@@ -58,7 +58,7 @@
 .chatWindow {
   border: 1px solid #ccc;
   padding: 10px;
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 160px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 160px);
   overflow: auto;
   margin-bottom: 10px;
 }

@@ -1,5 +1,5 @@
 .componentMain {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 40px);
+  max-height: CALC(var(--vh, 1vh) * 100 - 40px);
   min-width: 200px;
 } 
 

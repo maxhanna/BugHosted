@@ -3,17 +3,10 @@ using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System;
-using System.ComponentModel;
-using System.Data;
-using System.Reflection;
-using System.Reflection.Emit;
-using System.Reflection.PortableExecutable;
-using Xabe.FFmpeg;
 
 namespace maxhanna.Server.Controllers
 {
-    [ApiController]
+	[ApiController]
     [Route("[controller]")]
     public class ArrayController : ControllerBase
     {

@@ -4,13 +4,7 @@ using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Chat;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
-using System.Reflection;
-using System.Xml.Linq;
 using System.Data;
-using System.Linq;
-using Microsoft.AspNetCore.Identity.UI.Services;
-using FirebaseAdmin.Messaging;
-using maxhanna.Server.Controllers.DataContracts.Topics;
 
 namespace maxhanna.Server.Controllers
 {
