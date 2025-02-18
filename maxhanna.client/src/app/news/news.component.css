@@ -123,6 +123,11 @@
   margin: auto;
 }
 
+.mainTableContainer {
+  height: CALC(var(--vh, 1vh) * 100 - 125px);
+  overflow: auto;
+}
+
 .articleImage {
   max-height: CALC(var(--vh, 1vh) * 40);
 }
@@ -174,7 +179,7 @@
   height: CALC(var(--vh, 1vh) * 100 - 40px);
 }
 
-.closeButton {
+.articleCloseButton {
   position: fixed;
   top: 0px;
   right: 21px !important;

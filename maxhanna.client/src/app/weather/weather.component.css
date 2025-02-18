@@ -1,30 +1,40 @@
 td {
-    text-align:center;
+  text-align: center;
 }
-.smallConditionIcon
- {
-    max-width:30px;
-    max-height:30px;
+
+.smallConditionIcon {
+  max-width: 30px;
+  max-height: 30px;
 }
+
 .mainTable th, td {
   padding-left: 5px;
   padding-right: 5px;
 }
+
 .highlight {
   background-color: rgba(255, 99, 71, 0.3) !important;
   border: var(--main-border);
 }
+
 .mainBgColor {
   background-color: var(--main-bg-color) !important;
 }
+
 .weatherLegend {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   font-size: x-small;
   gap: 20px;
-  padding:20px;
+  padding: 20px;
 }
-.weatherLegend div {
-  display: flex;
+
+  .weatherLegend div {
+    display: flex;
+  }
+
+.mainTableContainer {
+  height: CALC(var(--vh, 1vh) * 100 - 200px);
+  overflow: auto;
 }

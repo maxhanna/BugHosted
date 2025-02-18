@@ -2,6 +2,7 @@
 .componentMain {
   max-width: 800px;
 }
+
 .mainTable td {
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -12,8 +13,12 @@
   align-self: center;
 }
 
-.todoDate  {
+.todoDate {
   font-size: x-small;
   white-space: nowrap !important;
 }
- 
+
+.mainTableContainer {
+  height: CALC(var(--vh, 1vh) * 100 - 145px);
+  overflow: auto;
+}

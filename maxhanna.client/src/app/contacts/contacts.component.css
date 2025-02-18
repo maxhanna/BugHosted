@@ -44,7 +44,9 @@
   .mainTable td:nth-child(3) {
     text-align: center;
   }
-
+.mainTable thead th { 
+  top: -56px !important;
+}
   .newContactButton {
     font-size: 20px;
   }

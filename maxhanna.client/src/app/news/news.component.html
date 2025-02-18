@@ -44,7 +44,7 @@
   <!-- Display selected article details -->
   <div *ngIf="selectedArticle" class="popupPanel">
     <div class="selectedArticleContent">
-      <div class="closeButton" (click)="selectedArticle = undefined"></div>
+      <div class="closeButton articleCloseButton" (click)="selectedArticle = undefined"></div>
       <div class="articleTitle">{{ selectedArticle.title }}</div>
       <div class="articleContent" [innerHTML]="selectedArticle.content"></div>
       <div class="articleContent" [innerHTML]="selectedArticle.description"></div>

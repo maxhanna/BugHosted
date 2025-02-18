@@ -29,12 +29,12 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() inputtedParentRef?: AppComponent;
   @Input() commentList: FileComment[] = [];
   @Input() showComments = false;
-  @Input() automaticallyShowSubComments = false;
   @Input() showCommentsHeader = true;
   @Input() type: string = '' || "Social" || "File" || "Comment";
   @Input() component_id: number = 0;
   @Input() component: any = undefined;
   @Input() comment_id?: number = undefined;
+  @Input() automaticallyShowSubComments = true;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
   @Output() commentHeaderClickedEvent = new EventEmitter<boolean>(this.showComments);

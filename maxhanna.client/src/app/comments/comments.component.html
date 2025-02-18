@@ -12,7 +12,7 @@
     ) {{showComments ? '-' : '+'}}
   </span>
 </div>
-<div class="comments-section" *ngIf="commentList && commentList.length > 0 && showComments" [style.maxHeight]="comment_id ? '' : '300px'"> 
+<div class="comments-section" *ngIf="commentList && commentList.length > 0 && (showComments || (comment_id && automaticallyShowSubComments))" [style.maxHeight]="comment_id ? '' : '300px'"> 
   <div *ngFor="let comment of commentList!" class="commentListDiv" [style.paddingLeft]="comment_id ? '40px' : '20px'" >
     <div class="commentContentAndAvatarContainerDiv">
       <div class="commentAvatar usernameProfileLink">
@@ -75,7 +75,7 @@
   </div> 
 </div>
 <div class="{{comment_id ? 'replyInputArea' : 'commentsInputArea'}}"
-     *ngIf="showComments"
+     *ngIf="(showComments || (comment_id && automaticallyShowSubComments))"
      [id]="'commentInputAreaDiv' + component_id">
   <div *ngIf="showCommentLoadingOverlay" class="loadingCommentOverlay">
     Loading comments...

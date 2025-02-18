@@ -1,7 +1,4 @@
-.componentMain {
-  width: 98vw;
-  max-height: CALC(var(--vh, 1vh) * 100 - 40px);
-}
+ 
 .deleteNotificationButton, .readNotificationButton {
   width: 65px;
   height: 25px;
@@ -68,7 +65,7 @@
   justify-content: space-between;
   z-index: 3;
   padding: 5px;
-  height: CALC(100% - 15px); 
+  height: CALC(var(--vh, 1vh) * 100 - 70px);
   flex-wrap: nowrap;
   text-shadow: 0 0 black;
   font-size: var(--main-font-size);

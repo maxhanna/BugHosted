@@ -196,12 +196,7 @@ fieldset {
     overflow-x: scroll;
   }
 }
-
-.mainTableContainer {
-  height: CALC(var(--vh, 1vh) * 100 - 125px);
-  overflow: auto;
-}
-
+ 
 @media only screen and (max-device-width:800px) {
 
   .componentMain {
