@@ -317,7 +317,7 @@
     <None Include="src\services\datacontracts\meta\meta-hero.ts" />
     <None Include="src\services\datacontracts\meta\pseudorandom.ts" />
     <None Include="src\services\datacontracts\meta\vector2.ts" />
-    <None Include="src\services\datacontracts\news-data.ts" />
+    <None Include="src\services\datacontracts\news\news-data.ts" />
     <None Include="src\services\datacontracts\nexus\attack-event-payload.ts" />
     <None Include="src\services\datacontracts\nexus\mining-speed.ts" />
     <None Include="src\services\datacontracts\nexus\nexus-attack-sent.ts" />

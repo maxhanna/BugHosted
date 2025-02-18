@@ -16,8 +16,7 @@ import { Story } from '../../services/datacontracts/social/story';
 })
 export class CommentsComponent extends ChildComponent implements OnInit {
   showCommentLoadingOverlay = false;
-  isOptionsPanelOpen = false;
-  isSubCommentsShowing = false;
+  isOptionsPanelOpen = false; 
   optionsComment: FileComment | undefined; 
   editingComments: number[] = []
   replyingToCommentIds: number[] = []
@@ -30,6 +29,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() inputtedParentRef?: AppComponent;
   @Input() commentList: FileComment[] = [];
   @Input() showComments = false;
+  @Input() automaticallyShowSubComments = false;
   @Input() showCommentsHeader = true;
   @Input() type: string = '' || "Social" || "File" || "Comment";
   @Input() component_id: number = 0;
@@ -51,10 +51,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     if (this.comment_id) { 
       this.commentService.getCommentDataByIds(this.comment_id).then(res => { 
         this.commentList = res;
-        this.showComments = true;
         this.subCommentCountUpdatedEvent.emit({ commentCount: this.commentList.length, comment_id: this.comment_id });
       });
-    }
+    } 
   }
 
   override viewProfile(user: User) {
@@ -93,7 +92,6 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
   async addAsyncComment(comment: FileComment, currentDate: Date) {
     const res = await this.commentService.addComment(comment.commentText ?? "", this.inputtedParentRef?.user, comment.fileId, comment.storyId, comment.commentId, comment.commentFiles);
-    this.sendNotifications(comment);
 
     if (res && res.toLowerCase().includes("success")) {
       if (!this.commentList) {
@@ -101,13 +99,19 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       }
       if (this.commentList.find(x => x.date == currentDate)) {
         this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
+        console.log("op found the bugger"); 
+      } else { 
+        this.commentList.push(comment); 
       }
       if (this.comment_id) { 
         this.commentList.push(comment);
       }
       this.replyingToCommentIds = [];
       this.editingComments = [];
+
+      this.ngOnInit();
     }
+    this.sendNotifications(comment); 
   }
   private sendNotifications(comment: FileComment) {
     const isStory = this.type == "Social";
@@ -217,22 +221,19 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     } else if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
       this.inputtedParentRef.showOverlay = false;
     }
-  }
-  openReplyToComment(comment: FileComment) {
-    if (this.replyingToCommentIds.includes(comment.id)) {
-      this.replyingToCommentIds = this.replyingToCommentIds.filter(x => x != comment.id);
-    } else {
-      this.replyingToCommentIds.push(comment.id);
-    }
-  }
+  } 
   changedCommentCount(event: any) { 
     if (document.getElementById("commentIdCount" + event.comment_id)) {
       document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = "[Repl" + (event.commentCount > 0 ? 'ies:<span style="color:white">' + event.commentCount + "</span>" : 'y') + "]";
-      (document.getElementById('subCommentComponent' + event.comment_id) as HTMLDivElement).style.display = ((event.commentCount > 0) ? "block" : "none"); 
+      if (this.automaticallyShowSubComments) {
+        (document.getElementById('subCommentComponent' + event.comment_id) as HTMLDivElement).style.display = ((event.commentCount > 0) ? "block" : "none"); 
+      }
     }
   }
   showSubComments(commentId: number) {
+    console.log(commentId);
     const currElement = (document.getElementById('subCommentComponent' + commentId) as HTMLDivElement);
+    console.log(currElement); 
     const shouldDisplay = !(currElement.style.display == "block")
     currElement.style.display = shouldDisplay ? "block" : "none";
     if (shouldDisplay) {
@@ -250,12 +251,18 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   async replyToComment(comment: FileComment) {
     const element = document.getElementById('commentReplyInput' + comment.id) as HTMLTextAreaElement;
     const text = element.value;
+    const currentDate = new Date();
     if (text) {
       console.log(text);
       const user = this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
       const res = await this.commentService.addComment(text, user, undefined, undefined, comment.id, undefined);
       if (res) {
-        console.log(res);
+        console.log(res); 
+        console.log(this.commentList); 
+        if (this.commentList.find(x => x.date == currentDate)) {
+          this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
+          console.log("found a bugger");
+        } 
       }
     }
   }

@@ -1,4 +1,4 @@
-namespace maxhanna.Server.Controllers.DataContracts
+namespace maxhanna.Server.Controllers.DataContracts.News
 {
 
     public class NewsResponse

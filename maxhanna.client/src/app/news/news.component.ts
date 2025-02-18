@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { NewsService } from '../../services/news.service';
-import { Article, ArticlesResult } from '../../services/datacontracts/news-data';
+import { Article, ArticlesResult } from '../../services/datacontracts/news/news-data';
 
 @Component({
   selector: 'app-news',
@@ -12,13 +12,29 @@ export class NewsComponent extends ChildComponent implements OnInit {
   newsArticles?: undefined | ArticlesResult;
   selectedArticle?: Article;
   notifications: string[] = [];
+  defaultSearch = "";
   @ViewChild('searchKeywords') searchKeywords!: ElementRef<HTMLInputElement>;
+  @ViewChild('defaultSearchInput') defaultSearchInput!: ElementRef<HTMLInputElement>;
 
   constructor(private newsService: NewsService) {
     super();
   }
-  ngOnInit() {
+  async ngOnInit() {
+    if (this.parentRef?.user) { 
+      this.newsService.getDefaultSearch(this.parentRef.user).then(res => {
+        if (res) {
+          this.defaultSearch = res;
+        }
+      })
+    }
     this.loadNews();
+    if (this.parentRef?.user) { 
+      await this.newsService.getDefaultSearch(this.parentRef.user).then(res => {
+        if (res) {
+          this.defaultSearch = res;
+        }
+      });
+    }
   }
 
   async loadNews(data?: ArticlesResult) {
@@ -75,5 +91,16 @@ export class NewsComponent extends ChildComponent implements OnInit {
       const authors = article.author.split(',').map(author => author.trim());
       return authors.join(', ');
     }
+  }
+  saveDefaultSearch() {
+    const text = this.defaultSearchInput.nativeElement.value;
+    if (this.parentRef?.user) { 
+      this.newsService.saveDefaultSearch(this.parentRef.user, text).then(res => {
+        if (res) { 
+          this.parentRef?.showNotification(res);
+        }
+      });
+    }
+    console.log(text);
   }
 }

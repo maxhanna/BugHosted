@@ -4,7 +4,17 @@
   <div class="componentTitle">News</div>
 
   <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup.enter)="searchByKeyword()" />
-
+  <div>
+    <div>
+      Default search:
+    </div>
+    <div>
+      <input type="text" [placeholder]="defaultSearch" [value]="defaultSearch" #defaultSearchInput />
+    </div>
+    <div>
+      <button (click)="saveDefaultSearch()">Save</button>
+    </div>
+  </div>
   <!-- Display list of news articles -->
   <div class="newsList mainTableContainer" *ngIf="newsArticles != null">
     Newest Articles: (status: {{newsArticles.status}}, # of Results: {{newsArticles.totalResults}})

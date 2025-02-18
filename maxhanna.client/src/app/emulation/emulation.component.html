@@ -58,11 +58,11 @@
         <div class="middle">
         </div>
       </div>
-      <div class="a-b" *ngIf="!parentRef?.showOverlay" [style.visibility]="!selectedRomName ? 'hidden' : displayAB ? 'visible' : 'hidden'">
-        <div class="b">B</div>
-        <div class="a">A</div>
+      <div class="a-b" *ngIf="!parentRef?.showOverlay">
+        <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : displayAB ? 'visible' : 'hidden'">B</div>
+        <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : displayAB ? 'visible' : 'hidden'">A</div>
+        <div class="c" [style.visibility]="!selectedRomName ? 'hidden' : displayC ? 'visible' : 'hidden'">C</div>
       </div>
-      <div class="c" *ngIf="!parentRef?.showOverlay" [style.visibility]="!selectedRomName ? 'hidden' : displayC ? 'visible' : 'hidden'">C</div>
     </div>
 
     <div class="start-select">

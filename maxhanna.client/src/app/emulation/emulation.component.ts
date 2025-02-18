@@ -158,7 +158,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       backgroundColor: 'black',
       zIndex: '1',
       width: '100%',
-      height: (!this.onMobile() ? '625px' : '100%'),
+      height: (this.onMobile() ? '100%' : '60vh'),
     }
     const core = this.coreMapping[fileType.toLowerCase()] || 'default_core'; // Replace 'default_core' with a fallback core if needed
 

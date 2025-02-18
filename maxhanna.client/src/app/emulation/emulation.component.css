@@ -6,9 +6,14 @@
 .mainComponent {
   margin-top: 50px;
 }
+.componentContainer {
+  background-color: black !important;
+}
 .componentMain {
-  width: 450px;
+  width: 100vw;
   overflow: unset;
+  background-color: black !important;
+  border: unset !important;
 }
 
 .gamesContainer {
@@ -26,25 +31,18 @@
   margin-left: -2px;
   overflow: hidden;
   width: 100%;
-  height: 900px;
+  height: CALC(CALC(var(--vh, 1vh) * 100) - 110px);
   border-radius: 20px;
-  padding-top: 10px;
-  background-color: var(--gameboyBgColor);
+  padding-top: 10px; 
   box-shadow: 0px -5px 0px var(--main-bg-color), 0px 5px 0px var(--main-bg-color);
   font-family: sans-serif;
   -webkit-user-select: none;
   cursor: default;
 }
-@media only screen and (max-width : 667px) {
-  .gameboy {
-    height: 800px;
-  }
-} 
+ 
 
 
-
-.screen-area {
-  height: 600px;
+.screen-area { 
   width: 100%;
   image-rendering: pixelated;
   display: flex;
@@ -55,16 +53,11 @@
   flex-wrap: nowrap;
   flex-direction: row;
 } 
-@media only screen and (max-width : 667px) {
-  .screen-area {
-    height: 475px !important;
-  }
-} 
-
+ 
 
 .mainCanvas {
-  width: 353px;
-  height: 100%;
+  width: 100vw;
+  height: 60vh !important;
 }
 
 canvas:fullscreen, #fullscreenContainer:fullscreen {
@@ -126,6 +119,8 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
 .controls {
   display: flex;
   justify-content: space-between;
+  position: absolute;
+  top: CALC(CALC(var(--vh, 1vh) * 83) - 160px);
 }
 
 .dpad {
@@ -247,10 +242,13 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
 }
 
 .a-b {
-  position: relative;
+  position: fixed;
   display: inline-block;
   width: 120px;
   height: 90px;
+  top: CALC(CALC(var(--vh, 1vh) * 80) - 100px);
+  right: 95px;
+  z-index: 30;
 }
 .a, .b, .c {
   position: absolute;
@@ -293,14 +291,20 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   position: relative;
   display: inline-block;
   top: 74px;
-  left: -35%;
+  left: -10px;
 }
 
-.gameboy .start-select {
-  width: 100%;
+.gameboy .start-select { 
   height: 60px;
   display: flex;
   justify-content: center;
+}
+
+.start-select {
+  position: absolute;
+  top: CALC(var(--vh, 1vh) * 90);
+  left: 10px;
+  z-index: 30;
 }
 
 .start, .select {

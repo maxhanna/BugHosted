@@ -198,7 +198,7 @@ fieldset {
 }
 
 .mainTableContainer {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 120px);
+  height: CALC(CALC(var(--vh, 1vh)* 100) - 125px);
   overflow: auto;
 }
 

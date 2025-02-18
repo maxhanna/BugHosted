@@ -401,14 +401,16 @@
               </span>
             </span>
           </div>
-          <div *ngFor="let metadata of story?.metadata" class="metadataContent">
-            <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
-            <div *ngIf="metadata.description" class="metadataDescription" [innerHtml]="metadata.description | clickableUrls"></div>
-            <div *ngIf="metadata.imageUrl" (click)="goToLink(story, metadata.url)" class="cursorPointerUnderlined metaImgDiv">
-              <img class="metadataImage" [src]="metadata.imageUrl" />
-              <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
+          <div style="display:flex; flex-wrap:wrap; gap: 15px;">
+            <div *ngFor="let metadata of story?.metadata" class="metadataContent">
+              <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
+              <div *ngIf="metadata.description" class="metadataDescription" [innerHtml]="metadata.description | clickableUrls"></div>
+              <div *ngIf="metadata.imageUrl" (click)="goToLink(story, metadata.url)" class="cursorPointerUnderlined metaImgDiv">
+                <img class="metadataImage" [src]="metadata.imageUrl" />
+                <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
+              </div>
             </div>
-          </div>
+          </div> 
         </div>
         <div>
           <app-comments *ngIf="story"

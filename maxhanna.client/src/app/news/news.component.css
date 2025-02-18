@@ -3,10 +3,7 @@
   overflow: auto;
   position: relative;
 }
-
-.mainTableContainer {
-  max-height: CALC(CALC(var(--vh, 1vh) * 100) - 85px);
-}
+ 
 
 .selectedArticle {
   position: fixed;
