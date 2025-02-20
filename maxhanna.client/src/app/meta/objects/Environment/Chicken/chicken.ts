@@ -22,7 +22,7 @@ export class Chicken extends Npc {
     this.position = new Vector2(x, y);
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
-    this.name = "Anon";
+    this.name = "Chicken";
     this.id = 0; 
     const shadow = new Sprite({
       resource: resources.images["shadow"],

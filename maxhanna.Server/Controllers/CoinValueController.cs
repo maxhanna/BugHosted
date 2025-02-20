@@ -378,11 +378,19 @@ namespace maxhanna.Server.Controllers
 
 				// Single query to get both latest price and price from one day ago
 				string sql = @"
-            SELECT 
-                MAX(CASE WHEN timestamp = (SELECT MAX(timestamp) FROM coin_value WHERE symbol = 'BTC') THEN value_cad END) AS latest_price,
-                MAX(CASE WHEN timestamp <= DATE_SUB(NOW(), INTERVAL 1 DAY) THEN value_cad END) AS previous_price
-            FROM coin_value
-            WHERE symbol = 'BTC';";
+            SELECT  
+							(SELECT value_cad 
+							 FROM coin_value 
+							 WHERE name = 'Bitcoin' 
+							 ORDER BY timestamp DESC 
+							 LIMIT 1) AS latest_price,
+ 
+							(SELECT value_cad 
+							 FROM coin_value 
+							 WHERE name = 'Bitcoin' 
+								 AND timestamp <= DATE_SUB(NOW(), INTERVAL 1 DAY)
+							 ORDER BY timestamp DESC 
+							 LIMIT 1) AS previous_price;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				using (var reader = await cmd.ExecuteReaderAsync())
@@ -391,7 +399,7 @@ namespace maxhanna.Server.Controllers
 					{
 						var latestPrice = reader.IsDBNull(0) ? (decimal?)null : reader.GetDecimal(0);
 						var previousPrice = reader.IsDBNull(1) ? (decimal?)null : reader.GetDecimal(1);
-						Console.WriteLine($"latestPrice : {latestPrice} versus previousPrice: {previousPrice}");
+						//Console.WriteLine($"latestPrice : {latestPrice} versus previousPrice: {previousPrice}");
 
 						if (latestPrice.HasValue && previousPrice.HasValue)
 						{

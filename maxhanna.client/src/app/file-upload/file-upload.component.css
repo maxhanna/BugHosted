@@ -42,7 +42,6 @@ button {
     flex-wrap: nowrap;
     justify-content: space-around;
     align-items: center;
-    padding: 25px;
   }
 
 .fileListDiv {

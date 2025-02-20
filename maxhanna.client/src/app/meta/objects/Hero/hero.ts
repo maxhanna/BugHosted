@@ -527,7 +527,7 @@ export class Hero extends GameObject {
         console.log("No body at space, setting to previous position ", this.lastPosition);
         return;
       }
-      console.log(position);
+      /*console.log(position);*/
       if (isSpaceFree(root.level?.walls, position.x, position.y) && !this.bodyAtSpace(position, true)) {
         this.destinationPosition = position;
         if (this.slopeType) {

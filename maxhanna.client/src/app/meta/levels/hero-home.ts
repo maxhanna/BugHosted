@@ -15,7 +15,7 @@ import { BASE, FLOOR, HUD } from "../objects/game-object";
 
 
 export class HeroHome extends Level { 
-  override defaultHeroPosition = new Vector2(gridCells(18), gridCells(2));
+  override defaultHeroPosition = new Vector2(gridCells(19), gridCells(2));
   showDebugSprites = false;
 
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
@@ -169,17 +169,22 @@ export class HeroHome extends Level {
     const mom = new Mom(gridCells(13), gridCells(6)); 
     this.addChild(mom);
 
+    for (let y = 0; y < 2; y++) {
+      const exitBackToRoom = new Exit({
+        position: new Vector2(gridCells(18), gridCells(2 + y)),
+        showSprite: (y==0 ? true : false),
+        rotation: (Math.PI * 3) / 2,
+        targetMap: "HeroRoom",
+      });
+      this.addChild(exitBackToRoom);
+    }
 
-    const exitBackToRoom = new Exit({
-      position: new Vector2(gridCells(18), gridCells(2)), showSprite: true, rotation: (Math.PI * 3) / 2, targetMap: "HeroRoom"
-    }); 
-    this.addChild(exitBackToRoom);
-
-
-    const exitOutside = new Exit({
-      position: new Vector2(gridCells(10), gridCells(13)), showSprite: false, targetMap: "BrushLevel1"
-    }); 
-    this.addChild(exitOutside);
+    for (let x = 0; x < 3; x++) { 
+      const exitOutside = new Exit({
+        position: new Vector2(gridCells(9 + x), gridCells(13)), showSprite: this.showDebugSprites, targetMap: "BrushLevel1"
+      });
+      this.addChild(exitOutside);
+    }
 
     this.walls = new Set();
     //walls:

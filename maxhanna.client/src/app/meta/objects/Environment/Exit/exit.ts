@@ -19,10 +19,11 @@ export class Exit extends GameObject {
       const exitSprite = new Sprite({
         resource: resources.images[sprite],
         position: sprite === "exit2" ? new Vector2(0, -10) : new Vector2(0, 0),
-        scale: sprite === "exit2" ? new Vector2(0.85, 0.85) : sprite === "white" ? new Vector2(8, 8) : undefined,
+        scale: sprite === "exit2" ? new Vector2(0.95, 0.95) : sprite === "white" ? new Vector2(8, 8) : undefined,
         frameSize: sprite === "exit2" ? new Vector2(42, 45) : sprite === "white" ? new Vector2(2, 2) : new Vector2(32, 32),
         colorSwap: params.colorSwap,
-        name: "exit"
+        name: "exit",
+        rotation: params.rotation
       });
       this.addChild(exitSprite);
     } 

@@ -15,8 +15,9 @@ export class Deer extends Npc {
   constructor(x: number, y: number) {
     super({
       id: 0,
-      position: new Vector2(x, y)
+      position: new Vector2(x, y),
     })
+    this.textPortraitFrame = undefined;
    
     this.position = new Vector2(x, y);
     this.destinationPosition = this.position.duplicate();
@@ -31,7 +32,7 @@ export class Deer extends Npc {
     this.addChild(shadow);
 
     this.body = new Sprite({
-      objectId: this.id,
+      objectId: this.id, 
       resource: resources.images["deer"],
       position: new Vector2(-7, -20),
       frameSize: new Vector2(32, 32),

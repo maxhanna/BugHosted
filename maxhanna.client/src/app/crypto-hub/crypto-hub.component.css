@@ -42,7 +42,7 @@
 .noMiningHubSection {
   display: inline-flex;
   flex-direction: column;
-  width: CALC(100% - 10px);
+  width: CALC(50% - 10px);
   margin-left: auto;
   margin-right: auto;
 }
@@ -57,6 +57,13 @@
 @media only screen and (max-width : 667px) { 
   .hubSection {
     display: flex !important;
+  }
+  .noMiningHubSection {
+    display: inline-flex;
+    flex-direction: column;
+    width: CALC(100% - 10px);
+    margin-left: auto;
+    margin-right: auto;
   }
 } 
 

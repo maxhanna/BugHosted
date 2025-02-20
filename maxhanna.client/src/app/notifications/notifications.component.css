@@ -161,4 +161,8 @@
   flex-wrap: nowrap;
   align-items: flex-start;
   justify-content: space-evenly;
-} 
+}
+.unreadNotifications {
+  font-size: initial;
+  text-align: center;
+}

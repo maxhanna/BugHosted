@@ -386,6 +386,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       }
       return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`; // Convert only plain URLs to links
     }).replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
+
     // Step 3: Replace the placeholders with embedded YouTube iframes
     text = text.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
       return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${(component_id ?? '0')}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;

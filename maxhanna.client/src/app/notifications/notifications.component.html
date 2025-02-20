@@ -11,7 +11,8 @@
     <div>
       <div *ngIf="notifications && notifications.length > 0" class="notificationsCountHeader popupPanelTitle">
         <div>
-          {{notifications && notifications.length}} Notifications<span *ngIf="unreadNotifications"> ({{unreadNotifications}} unread)</span>
+          {{notifications && notifications.length}} Notifications
+          <div *ngIf="unreadNotifications" class="unreadNotifications">({{unreadNotifications}} unread)</div>
         </div>
         <div class="notificationsCountHeaderButtons">
           <button (click)="delete()" *ngIf="notifications && notifications.length > 0">

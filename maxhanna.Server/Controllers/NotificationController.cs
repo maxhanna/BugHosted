@@ -416,23 +416,24 @@ namespace maxhanna.Server.Controllers
                                     WHERE user_id = @Receiver
                                       AND chat_id = @ChatId
                                       AND chat_id IS NOT NULL
-                                      AND date >= NOW() - INTERVAL 2 MINUTE;
-                                ";
+                                      AND date >= NOW() - INTERVAL 2 MINUTE;";
 						string updateNotificationSql = @"
                                     UPDATE maxhanna.notifications
-                                    SET text = CONCAT(text, @Content), date = NOW()
-                                    WHERE user_id = @Receiver
-                                      AND chat_id = @ChatId
-                                      AND chat_id IS NOT NULL
-                                      AND date >= NOW() - INTERVAL 2 MINUTE;
-                                ";
+																		SET text = CASE
+																								WHEN LENGTH(text) <= 250 THEN CONCAT(text, ', ', @Content)
+																								ELSE text
+																							 END,
+																				date = NOW()
+																		WHERE user_id = @Receiver
+																			AND chat_id = @ChatId
+																			AND chat_id IS NOT NULL
+																			AND date >= NOW() - INTERVAL 2 MINUTE;";
 
 						string insertNotificationSql = @"
                                     INSERT INTO maxhanna.notifications
                                         (user_id, from_user_id, chat_id, text)
                                     VALUES
-                                        (@Receiver, @Sender, @ChatId, @Content);
-                                ";
+                                        (@Receiver, @Sender, @ChatId, @Content);";
 
 						using (var checkCommand = new MySqlCommand(checkSql, conn))
 						{

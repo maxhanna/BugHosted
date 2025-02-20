@@ -5,30 +5,33 @@ import { resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Input } from "../../helpers/input";
+import { Hero } from "../Hero/hero";
+import { Deer } from "../Environment/Deer/deer";
+import { Gangster } from "../Npc/Gangster/gangster";
+import { Chicken } from "../Environment/Chicken/chicken";
 
 export class SpriteTextStringWithBackdrop extends GameObject {
   backdrop = new Sprite({
     resource: resources.images["textBox"],
     frameSize: new Vector2(256, 64)
-  });
-
-  portrait: Sprite;
+  }); 
+  portrait?: Sprite;
   objectSubject: any;
-  content: string[] = []; 
+  content: string[] = [];
   showingIndex = 0;
   finalIndex = 0;
   textSpeed = 80;
   timeUntilNextShow = this.textSpeed;
   canSelectItems = false;
-  selectionIndex = 0; 
+  selectionIndex = 0;
   constructor(config: {
     string?: string[],
     portraitFrame?: number,
     canSelectItems?: boolean,
     objectSubject?: any
   }) {
-    super({ position: new Vector2(32, 118), drawLayer: HUD }); 
-    if (config.canSelectItems) { 
+    super({ position: new Vector2(32, 118), drawLayer: HUD });
+    if (config.canSelectItems) {
       this.canSelectItems = config.canSelectItems;
     }
     if (config.string) {
@@ -37,26 +40,35 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     if (config.objectSubject) {
       this.objectSubject = config.objectSubject;
     }
-    console.log(config.string, (config.portraitFrame ?? 0));
-    this.portrait = new Sprite({
-      resource: resources.images["portraits"],
-      frame: (config.portraitFrame ?? 0), 
-      vFrames: 1,
-      hFrames: 4
-    }); 
-  }
-   
+    /*console.log(config);*/
+    const isHero = config.objectSubject instanceof Hero; 
+
+    if (isHero || config.portraitFrame) {
+      this.portrait = new Sprite({
+        resource: (isHero || resources.images["portraits"]) ? resources.images["portraits"] : this.objectSubject?.body?.resource,
+        frame: (config.portraitFrame ?? 0),
+        vFrames: 1,
+        hFrames: 4,
+        colorSwap: this.objectSubject.colorSwap,
+      });
+    } else {
+      this.getPortraitOfNonPortraitObject(config);
+    }
+  } 
+
   override step(delta: number, root: GameObject) {
     //listen for user input
     //get parentmost object
     let parent = root?.parent ?? root;
-    if (parent) { 
+    if (parent) {
       while (parent.parent) {
         parent = parent.parent;
       }
     }
     const input = parent?.input as Input;
     const subjectName = this.objectSubject?.name;
+
+
     if (input?.getActionJustPressed("Space")) {
       if (this.showingIndex < this.finalIndex) {
         //skip text
@@ -67,7 +79,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         //console.log(this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
         events.emit("SELECTED_ITEM", this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
         this.canSelectItems = false;
-      } 
+      }
       events.emit("END_TEXT_BOX");
     }
     if (input?.verifyCanPressKey()) {
@@ -75,21 +87,21 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         || input?.heldDirections.includes("UP")
         || input?.getActionJustPressed("KeyW")) {
         this.selectionIndex--;
-        if (this.selectionIndex < 0) {
-          this.selectionIndex = this.content.length - (subjectName ? 0 : 1);
+        if (this.selectionIndex <= 0) {
+          this.selectionIndex = this.content.length;
         }
       }
       else if (input?.getActionJustPressed("ArrowDown")
         || input?.heldDirections.includes("DOWN")
-        || input?.getActionJustPressed("KeyS")) { 
-        this.selectionIndex++; 
+        || input?.getActionJustPressed("KeyS")) {
+        this.selectionIndex++;
         if (this.selectionIndex == this.content.length + (subjectName ? 1 : 0)) {
           this.selectionIndex = 0;
         }
       }
       else if (input?.getActionJustPressed("ArrowLeft")
         || input?.heldDirections.includes("LEFT")
-        || input?.getActionJustPressed("KeyA")) { 
+        || input?.getActionJustPressed("KeyA")) {
         this.selectionIndex--;
         if (this.selectionIndex < 0) {
           this.selectionIndex = this.content.length - (subjectName ? 0 : 1);
@@ -97,14 +109,14 @@ export class SpriteTextStringWithBackdrop extends GameObject {
       }
       else if (input?.getActionJustPressed("ArrowRight")
         || input?.heldDirections.includes("RIGHT")
-        || input?.getActionJustPressed("KeyD")) { 
-        this.selectionIndex++; 
+        || input?.getActionJustPressed("KeyD")) {
+        this.selectionIndex++;
         if (this.selectionIndex == this.content.length + (subjectName ? 1 : 0)) {
           this.selectionIndex = 0;
         }
       }
 
-    }  
+    }
     this.timeUntilNextShow -= delta;
     if (this.timeUntilNextShow <= 0) {
       this.showingIndex += 3;
@@ -116,15 +128,16 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     //Draw the backdrop
     this.backdrop.drawImage(ctx, drawPosX, drawPosY);
-    this.portrait.drawImage(ctx, drawPosX + 6, drawPosY + 6);
+    this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
 
     const subjectName = this.objectSubject?.name + ":";
+    console.log(this.objectSubject);
 
     //configuration options
     const PADDING_LEFT = 27;
     const PADDING_TOP = 12;
     const LINE_WIDTH_MAX = 240;
-    const LINE_VERTICAL_WIDTH = 14; 
+    const LINE_VERTICAL_WIDTH = 14;
 
     let cursorX = drawPosX + PADDING_LEFT;
     let cursorY = drawPosY - 10 + PADDING_TOP;
@@ -169,6 +182,28 @@ export class SpriteTextStringWithBackdrop extends GameObject {
       });
       cursorX = drawPosX + PADDING_LEFT;
       cursorY += PADDING_TOP;
-    } 
+    }
+  }
+
+  private getPortraitOfNonPortraitObject(config: {
+      string?: string[] | undefined;
+      portraitFrame?: number | undefined;
+      canSelectItems?: boolean | undefined;
+      objectSubject?: any; }) {
+    let frame = 0;
+    let vFrames = 0;
+    let hFrames = 0;
+    const objType = config.objectSubject?.constructor?.name;
+    if (objType) {
+     
+    }
+    
+    this.portrait = new Sprite({
+      resource: this.objectSubject?.body?.resource,
+      colorSwap: this.objectSubject.colorSwap,
+      frame: frame,
+      vFrames: vFrames,
+      hFrames: hFrames,
+    });
   }
 }
