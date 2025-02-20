@@ -17,6 +17,7 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
   @Input() inputtedParentRef?: AppComponent;
   @Input() conversionRate? = 0;
   @Input() currency? = "CAD"; 
+  @Input() isDiscreete? = false; 
   @Output() closeMiningEvent = new EventEmitter<void>();
   miningRigs: Array<MiningRig> = [];
   dailyEarnings: Array<DailyMiningEarnings> = [];

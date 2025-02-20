@@ -20,6 +20,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   currentSelectedCoin: string = 'Bitcoin';
   selectedCurrency = "CAD";
   noMining = false;
+  isDiscreete = false;
 
   data?: CoinValue[]; 
   allHistoricalData?: CoinValue[] = [];
@@ -28,6 +29,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   btcToCadPrice = 0;
   isAddCryptoDivVisible = false;
   areWalletAddressesHidden = true;
+  isMenuPanelOpen = false;
   latestCurrencyPriceRespectToCAD = 0;
   uniqueCurrencyNames: string[] = []; 
 
@@ -218,5 +220,24 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   getConvertedCurrencyValueByString(cadValue?: string) { 
     if (!cadValue) return 0;
     else return parseInt(cadValue) * (this.latestCurrencyPriceRespectToCAD ?? 1);
+  }
+  discreete() {
+    this.isDiscreete = !this.isDiscreete;
+  }
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true; 
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
   }
 }

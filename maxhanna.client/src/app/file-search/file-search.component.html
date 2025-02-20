@@ -98,7 +98,7 @@
                      class="fileOptionsAction"
                      [title]="'Show Options for ' + (file.givenFileName && file.givenFileName != '' ? file.givenFileName : getFileWithoutExtension(file.fileName ?? ''))">
                   ⚙️
-                </div>
+                </div> 
               </div>
             </div>
             <div *ngIf="!file.isFolder &&
@@ -152,9 +152,12 @@
     <button title="Download File" (click)="download(optionsFile, true);" *ngIf="!optionsFile.isFolder">
       📥Download
     </button>
-    <button title="Delete File" (click)="this.delete(optionsFile);" *ngIf="shouldShowEditButton(optionsFile)">
+    <button title="Delete File" (click)="delete(optionsFile);" *ngIf="shouldShowEditButton(optionsFile)">
       ❌Delete
     </button>
+    <button title="Hide File" (click)="hide(optionsFile);">
+      🙈Hide
+    </button> 
   </div>
   <div *ngIf="optionsFile && optionsFile.id && editingTopics.includes(optionsFile.id)">
     <app-topics #topicComponent
@@ -274,12 +277,20 @@
         {{optionsFile.sharedWith}}
       </div>
     </div>
+    <div class="optionsStatsDiv" *ngIf="optionsFile.lastAccess">
+      <div class="optionsStatsHeader">
+        Last Access:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsFile.lastAccess | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(optionsFile.lastAccess)}})
+      </div>
+    </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.date">
       <div class="optionsStatsHeader">
         Created:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.date | date: 'y/MM/d HH:mm'}}
+        {{optionsFile.date | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(optionsFile.date)}})
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.user">
@@ -297,7 +308,7 @@
         Updated:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}}
+        {{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(optionsFile.lastUpdated)}})
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy">
@@ -309,7 +320,7 @@
                       [inputtedParentRef]="parentRef ?? inputtedParentRef"
                       [displayMiniTag]="true"></app-user-tag>
       </div>
-    </div> 
+    </div>
   </div>
   <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
 </div>
@@ -332,6 +343,15 @@
   <div class="popupPanelTitle">File Options</div>
   <div> 
     <div class="filters" *ngIf="showPrivatePublicOption && showData">
+      <div>
+        <label>
+          Show Hidden Files?:
+          <select (change)="setFilterHidden($event)">
+            <option value="all" [selected]="filter.hidden === 'all'">All</option>
+            <option value="unhidden" [selected]="filter.hidden === 'unhidden'">Unhidden</option> 
+          </select>
+        </label> 
+      </div>
       <div>
         <label>
           Visibility:

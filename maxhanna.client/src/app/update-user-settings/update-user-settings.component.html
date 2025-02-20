@@ -15,7 +15,7 @@
             </th>
             <th class="cursorPointerUnderlined">General</th>
             <th style="text-align:right;">
-              <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled" *ngIf="isGeneralToggled">🔄</button>
+              <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled" *ngIf="isGeneralToggled">🔄Save</button>
             </th>
           </tr>
         </thead>
@@ -86,7 +86,7 @@
             </th>
             <th class="cursorPointerUnderlined">About You</th>
             <th style="text-align:right;">
-              <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled" *ngIf="isAboutToggled">🔄</button>
+              <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled" *ngIf="isAboutToggled">🔄Save</button>
             </th>
           </tr>
         </thead>
@@ -106,6 +106,17 @@
                   <tr>
                     <td>Email:</td>
                     <td><input type="text" #updatedEmail [value]="parentRef?.user?.about?.email ?? ''" /></td>
+                  </tr>
+                  <tr>
+                    <td>Is Email Public?:</td>
+                    <td>
+                      <label>
+                        <input type="radio" name="emailPublic" #isEmailPublicYes [value]="true" [checked]="parentRef?.user?.about?.isEmailPublic === true" /> Yes
+                      </label>
+                      <label>
+                        <input type="radio" name="emailPublic" #isEmailPublicNo [value]="false" [checked]="parentRef?.user?.about?.isEmailPublic === false" /> No
+                      </label>
+                    </td>
                   </tr>
                   <tr>
                     <td>Phone:</td>
@@ -288,7 +299,7 @@ but you can also set your own City for a more precise location."></span>
             </th>
             <th class="cursorPointerUnderlined">Weather Location</th>
             <th style="text-align:right;">
-              <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled" *ngIf="isWeatherLocationToggled">🔄</button>
+              <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled" *ngIf="isWeatherLocationToggled">🔄Save</button>
             </th>
           </tr>
         </thead>
@@ -307,7 +318,7 @@ but you can also set your own City for a more precise location."></span>
             <th><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></th>
             <th class="cursorPointerUnderlined">Nicehash API Keys</th>
             <th style="text-align:right;">
-              <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled" *ngIf="isNicehashApiKeysToggled">🔄</button>
+              <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled" *ngIf="isNicehashApiKeysToggled">🔄Save</button>
             </th>
           </tr>
         </thead>
@@ -337,8 +348,8 @@ but you can also set your own City for a more precise location."></span>
             <th><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></th>
             <th class="cursorPointerUnderlined">BTC Wallet Addresses</th>
             <th style="text-align:right;">
-              <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">🔄</button>
-              <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses.length > 0">➕</button>
+              <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">🔄Save</button>
+              <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses && btcWalletAddresses.length > 0">➕</button>
             </th>
           </tr>
         </thead>
@@ -348,7 +359,7 @@ but you can also set your own City for a more precise location."></span>
             <td>BTC Wallet Address:</td>
             <td><input type="text"  class="btcWalletInput" placeholder="BTC Wallet Address" [value]="address" /><button *ngIf="address" (click)="deleteBTCWalletAddress(address)">🗑️</button></td>
           </tr>
-          <tr *ngIf="btcWalletAddresses.length === 0 || showAddBTCWalletAddressInput">
+          <tr *ngIf="btcWalletAddresses?.length === 0 || showAddBTCWalletAddressInput">
             <td></td>
             <td>BTC Wallet Address:</td>
             <td><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" /></td>

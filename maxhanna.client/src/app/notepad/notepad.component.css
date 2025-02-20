@@ -8,6 +8,11 @@
     max-width: unset;
   }
 }
+@media only screen and (min-width : 660px) { 
+  .noteInputTextArea {
+    min-width: 60vw;
+  }
+}
 textarea {
   margin-left: auto;
   margin-right: auto;
@@ -61,6 +66,8 @@ textarea {
 .userList {
   max-height: 200px;
   overflow-y:auto;
+  padding: 15px;
+  border: 2px solid;
 }
 .searchBar {  
     padding: 15px;

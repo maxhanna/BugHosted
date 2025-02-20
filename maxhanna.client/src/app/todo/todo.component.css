@@ -19,6 +19,14 @@
 }
 
 .mainTableContainer {
-  height: CALC(var(--vh, 1vh) * 100 - 145px);
   overflow: auto;
+}
+
+.addTodoInputFieldset {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: wrap;
 }

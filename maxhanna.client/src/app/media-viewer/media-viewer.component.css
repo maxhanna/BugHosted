@@ -1,3 +1,6 @@
+.componentTitle {
+  white-space: nowrap;
+}
 
 ::ng-deep .fullscreen-overlay {
   display: none; /* Hidden by default */
@@ -51,7 +54,7 @@
 
 .mediaContainerWrapperDiv { 
   display: flex;
-  justify-content: center;
+  justify-content: center; 
 }
 
 .mediaContainerDiv {

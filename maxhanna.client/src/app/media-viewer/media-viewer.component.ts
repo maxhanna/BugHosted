@@ -113,28 +113,19 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
 
     }
-    else if (this.file && Array.isArray(this.file) && this.file.length > 0) {
-      const fileObject = this.file[0];
-      if (this.parentRef && this.parentRef.pictureSrcs[fileObject.id] && this.parentRef.pictureSrcs[fileObject.id].value
-        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[fileObject.id] && this.inputtedParentRef.pictureSrcs[fileObject.id].value) {
-        console.log("setting file Src for file id" + this.fileId); 
-        this.setFileSrcByParentRefValue(fileObject.id);  
-        return;
+    else if (this.file) {
+      const fileObject = Array.isArray(this.file) && this.file.length > 0 ? this.file[0] : this.file;
+      const fileId = fileObject.id;
+
+      const parentRef = this.parentRef || this.inputtedParentRef;
+      if (parentRef?.pictureSrcs[fileId]?.value) {
+        console.log(`setting file Src for file id ${fileId}`);
+        this.setFileSrcByParentRefValue(fileId);
       } else {
-        this.setFileSrcById(fileObject.id);
+        this.setFileSrcById(fileId);
         this.selectedFile = fileObject;
       }
-    } else if (this.file && !Array.isArray(this.file)) {
-      if (this.parentRef && this.parentRef.pictureSrcs[this.file.id] && this.parentRef.pictureSrcs[this.file.id].value
-        || this.inputtedParentRef && this.inputtedParentRef.pictureSrcs[this.file.id] && this.inputtedParentRef.pictureSrcs[this.file.id].value) {
-        console.log("setting file Src for file id" + this.fileId);
-        this.setFileSrcByParentRefValue(this.file.id); 
-        return;
-      } else {
-        this.setFileSrcById(this.file.id);
-        this.selectedFile = this.file;
-      }
-    }
+    } 
   }
   private setFileSrcByParentRefValue(id: number) {
     this.muteOtherVideos();
@@ -199,10 +190,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.abortFileRequestController.abort();
     } 
     this.abortFileRequestController = new AbortController();
-    try { 
+    try {
+      const user = this.parentRef?.user ?? this.inputtedParentRef?.user;
       this.fileService.getFileById(fileId, {
         signal: this.abortFileRequestController.signal
-      }).then(response => {
+      }, user).then(response => {
         if (!response || response == null) return;
 
         const contentDisposition = response.headers["content-disposition"];

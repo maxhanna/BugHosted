@@ -7,15 +7,14 @@ import { User } from './datacontracts/user/user';
 @Injectable({
   providedIn: 'root'
 })
-export class CoinValueService {
-  private baseUrl: string = '/coinvalue';
+export class CoinValueService { 
 
   constructor(private http: HttpClient) { }
 
   // Get all coin values
   async getAllCoinValues() {
     try {
-      const response = await fetch(`${this.baseUrl}`, {
+      const response = await fetch(`/coinvalue`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -46,7 +45,7 @@ export class CoinValueService {
   // Get the latest coin values
   async getLatestCoinValues() {
     try {
-      const response = await fetch(`${this.baseUrl}/getlatest`, {
+      const response = await fetch(`/coinvalue/getlatest`, {
         method: 'POST',
 
         headers: {
@@ -117,7 +116,7 @@ export class CoinValueService {
     const params = new HttpParams().set('name', name);
 
     try {
-      const response = await fetch(`${this.baseUrl}/getlatestbyname/${name}`, {
+      const response = await fetch(`/coinvalue/getlatestbyname/${name}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -143,6 +142,20 @@ export class CoinValueService {
       });
 
       return await response.json() as ExchangeRate;
+    } catch (error) {
+      return null;
+    }
+  }
+  async isBTCRising() {  
+    try {
+      const response = await fetch(`/coinvalue/isbtcrising`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return await response.json();
     } catch (error) {
       return null;
     }

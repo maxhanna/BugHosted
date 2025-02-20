@@ -8,5 +8,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
         public string? Phone { get; set; }
         public string? Email { get; set; }
         public string? Currency { get; set; }
+        public Boolean IsEmailPublic { get; set; }
     }
 }

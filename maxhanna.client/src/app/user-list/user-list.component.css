@@ -56,7 +56,7 @@
 .prevChatMessages {
     color: var(--secondary-font-color);
     text-align:center;
-
+    margin-top: 20px;
 } 
 .popupPanel { 
   width: 320px; 

@@ -2,6 +2,7 @@ import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { NewsService } from '../../services/news.service';
 import { Article, ArticlesResult } from '../../services/datacontracts/news/news-data';
+import { NotepadService } from '../../services/notepad.service';
 
 @Component({
   selector: 'app-news',
@@ -16,7 +17,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
   @ViewChild('searchKeywords') searchKeywords!: ElementRef<HTMLInputElement>;
   @ViewChild('defaultSearchInput') defaultSearchInput!: ElementRef<HTMLInputElement>;
 
-  constructor(private newsService: NewsService) {
+  constructor(private newsService: NewsService, private notepadService: NotepadService) {
     super();
   }
   async ngOnInit() {
@@ -107,5 +108,13 @@ export class NewsComponent extends ChildComponent implements OnInit {
       });
     }
     console.log(text);
+  }
+  saveArticle(article: Article) {
+    if (this.parentRef?.user) {
+      let text = article.title + "\n" + article.content + "\n" + article.url;
+      this.notepadService.addNote(this.parentRef.user, text).then(res => { 
+        this.parentRef?.createComponent("Notepad", { "inputtedSearch": text });  
+      }); 
+    }
   }
 }

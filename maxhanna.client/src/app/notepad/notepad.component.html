@@ -5,7 +5,7 @@
   <div class="userList" *ngIf="isPanelExpanded"> 
     <div class="sharedWithWrapperDiv">
       <div>
-        Share Note (id# {{ noteId.value }})? <span *ngIf="splitNoteOwnershipUsers">Currently shared with:</span>
+        Share Note (id# {{ noteId.value }})? <span *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0">Currently shared with:</span>
       </div>
       <div *ngFor="let user of splitNoteOwnershipUsers">
         <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
@@ -19,7 +19,7 @@
   </div>
 
 
-  <textarea #noteInput (input)="handleNoteInputChange()" required></textarea>
+  <textarea #noteInput class="noteInputTextArea" (input)="handleNoteInputChange()" required></textarea>
   <fieldset class="buttonFields">
     <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton title="Save Note" />
     <input type="submit" value="↗️" (click)="shareNoteButtonClick()" #shareNoteButton title="Share Note" />

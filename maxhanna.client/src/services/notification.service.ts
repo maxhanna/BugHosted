@@ -48,10 +48,7 @@ export class NotificationService {
   }
   async subscribeToTopic(user: User, token: string, topic: string): Promise<string> {
     return await this.fetchData('/notification/subscribe', { User: user, Token: token, Topic: topic });
-  }
-  async notifyUsers(fromUser: User, toUser: User[], message: string) {
-    return await this.fetchData('/notification/notifyusers', { FromUser: fromUser, ToUser: toUser, Message: message });
-  }
+  } 
   async createNotifications(params: {
     fromUser: User, toUser: User[], message: string,
     storyId?: number, fileId?: number, chatId?: number,

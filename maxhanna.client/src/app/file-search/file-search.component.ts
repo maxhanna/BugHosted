@@ -40,6 +40,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() displayTotal = true;
   @Input() showFileSearchOptions = true;
   @Input() showSpaceForNotifications = false;
+  @Input() showHiddenFiles: boolean = true;
   @Input() currentPage = this.defaultCurrentPage;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -70,6 +71,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   tmpSearchTerms = ""
   filter = {
     visibility: 'all',
+    hidden: this.showHiddenFiles ? 'all' : 'unhidden',
     ownership: 'all'
   };
 
@@ -80,10 +82,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
   constructor(private fileService: FileService, private route: ActivatedRoute) {
-    super();
+    super(); 
   }
 
-  async ngOnInit() {
+  async ngOnInit() {  
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
     if (this.fileId) {
       await this.getDirectory(undefined, parseInt(this.fileId));
@@ -144,7 +146,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
         this.maxResults,
         this.searchTerms,
         fileId,
-        (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>())
+        (this.allowedFileTypes && this.allowedFileTypes.length > 0 ? this.allowedFileTypes : new Array<string>()),
+        this.filter.hidden == 'all' ? true : false,
       ).then(res => {
         if (append && this.directory && this.directory.data) { 
           this.directory.data = this.directory.data.concat(
@@ -271,6 +274,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   setFilterVisibility(event: Event): void {
     const target = event.target as HTMLSelectElement;
     this.filter.visibility = target.value;
+    this.getDirectory();
+  }
+  setFilterHidden(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.filter.hidden = target.value;
     this.getDirectory();
   }
   editFileKeyUp(event: KeyboardEvent, fileId: number) {
@@ -671,6 +679,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     file.visibility = file.visibility == "Private" ? "Public" : "Private";
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
     this.fileService.updateFileVisibility(user, file.visibility == "Private" ? false : true, file.id);
+  }
+  hide(file: FileEntry) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (parent && user && user.id) {
+      this.fileService.hideFile(file.id, user.id);
+    }
   }
   private replacePageTitleAndDescription() {
     if (this.directory && this.directory.data && this.directory.data.length > 0) {

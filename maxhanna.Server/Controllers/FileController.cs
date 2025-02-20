@@ -39,8 +39,17 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
-		public IActionResult GetDirectory([FromBody] User? user, [FromQuery] string? directory, [FromQuery] string? visibility, [FromQuery] string? ownership, [FromQuery] string? search,
-		[FromQuery] int page = 1, [FromQuery] int pageSize = 10, [FromQuery] int? fileId = null, [FromQuery] List<string>? fileType = null)
+		public IActionResult GetDirectory(
+			[FromBody] User? user,
+			[FromQuery] string? directory,
+			[FromQuery] string? visibility,
+			[FromQuery] string? ownership,
+			[FromQuery] string? search,
+			[FromQuery] int page = 1,
+			[FromQuery] int pageSize = 10,
+			[FromQuery] int? fileId = null,
+			[FromQuery] List<string>? fileType = null,
+			[FromQuery] bool showHidden = false)
 		{
 			if (string.IsNullOrEmpty(directory))
 			{
@@ -57,7 +66,7 @@ namespace maxhanna.Server.Controllers
 			_logger.LogInformation(
 					 @$"POST /File/GetDirectory?directory={directory}&visibility={visibility}
                  &ownership={ownership}&search={search}&page={page}
-                 &pageSize={pageSize}&fileId={fileId}&fileType={(fileType != null ? string.Join(", ", fileType) : "")}");
+                 &pageSize={pageSize}&fileId={fileId}&showHidden={showHidden}&fileType={(fileType != null ? string.Join(", ", fileType) : "")}");
 
 			if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
@@ -71,6 +80,9 @@ namespace maxhanna.Server.Controllers
 				bool isRomSearch = DetermineIfRomSearch(fileType ?? new List<string>());
 				string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
 				string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
+				string hiddenCondition = showHidden
+						? "" // If showHidden is true, don't filter out hidden files
+						: $" AND f.id NOT IN (SELECT file_id FROM maxhanna.hidden_files WHERE user_id = @userId) ";
 				using (var connection = new MySqlConnection(_connectionString))
 				{
 					connection.Open();
@@ -136,7 +148,8 @@ namespace maxhanna.Server.Controllers
                             f.file_type AS file_type,
                             f.file_size AS file_size,
                             f.width AS width,
-                            f.height AS height
+                            f.height AS height,
+                            f.last_access AS last_access
                         FROM
                             maxhanna.file_uploads f 
                         LEFT JOIN
@@ -157,7 +170,11 @@ namespace maxhanna.Server.Controllers
                                 OR FIND_IN_SET(@userId, f.shared_with) > 0
                             )
                             {searchCondition} 
-														{fileTypeCondition} {visibilityCondition} {ownershipCondition} {orderBy}
+														{fileTypeCondition} 
+														{visibilityCondition} 
+														{ownershipCondition} 
+														{hiddenCondition} 
+														{orderBy}
                         LIMIT
                             @pageSize OFFSET @offset;"
 					, connection);
@@ -216,6 +233,7 @@ namespace maxhanna.Server.Controllers
 								FileSize = reader.IsDBNull("file_size") ? 0 : reader.GetInt32("file_size"),
 								Width = reader.IsDBNull("width") ? null : reader.GetInt32("width"),
 								Height = reader.IsDBNull("height") ? null : reader.GetInt32("height"),
+								LastAccess = reader.IsDBNull("last_access") ? null : reader.GetDateTime("last_access"),
 							};
 
 							fileEntries.Add(fileEntry);
@@ -502,7 +520,8 @@ namespace maxhanna.Server.Controllers
                         {searchCondition}
                         {fileTypeCondition}
                         {visibilityCondition}
-                        {ownershipCondition}"
+                        {ownershipCondition}
+                        {hiddenCondition};"
 					 , connection);
 					foreach (var param in extraParameters)
 					{
@@ -708,9 +727,16 @@ namespace maxhanna.Server.Controllers
 				using (var connection = new MySqlConnection(_connectionString))
 				{
 					await connection.OpenAsync();
+					string sql = @"
+						UPDATE maxhanna.file_uploads
+						SET last_access = NOW()
+						WHERE id = @fileId LIMIT 1;
 
+						SELECT user_id, file_name, folder_path, is_public
+						FROM maxhanna.file_uploads
+						WHERE id = @fileId LIMIT 1;";
 					var command = new MySqlCommand(
-							"SELECT user_id, file_name, folder_path, is_public FROM maxhanna.file_uploads WHERE id = @fileId",
+							sql,
 							connection);
 					command.Parameters.AddWithValue("@fileId", fileId);
 
@@ -1389,7 +1415,8 @@ namespace maxhanna.Server.Controllers
                         fc.comment AS commentText,  
                         f.given_file_name,
                         f.description,
-                        f.last_updated as file_data_updated
+                        f.last_updated as file_data_updated,
+                        f.last_access as last_access
                     FROM 
                         maxhanna.file_uploads f    
                     LEFT JOIN 
@@ -1428,6 +1455,7 @@ namespace maxhanna.Server.Controllers
 						int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
 						int? height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : reader.GetInt32("height");
 						var isFolder = reader.GetBoolean("is_folder");
+						var lastAccess = reader.GetDateTime("last_acess");
 
 						var date = reader.GetDateTime("date");
 						var fileData = new FileData();
@@ -1449,6 +1477,7 @@ namespace maxhanna.Server.Controllers
 						fileEntry.FileData = fileData;
 						fileEntry.Width = width;
 						fileEntry.Height = height;
+						fileEntry.LastAccess = lastAccess;
 
 
 						if (!reader.IsDBNull(reader.GetOrdinal("commentId")))
@@ -1490,6 +1519,79 @@ namespace maxhanna.Server.Controllers
 			return null;
 		}
 
+		[HttpPost("/File/Hide/", Name = "HideFile")]
+		public async Task<IActionResult> HideFile([FromBody] HideFileRequest request)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+					_logger.LogInformation($"Opened connection to database for hiding file with id {request.FileId} for user {request.UserId}");
+
+					using (var transaction = await connection.BeginTransactionAsync())
+					{
+						// Insert into hidden_files table (no permission check)
+						var hideCommand = new MySqlCommand(
+								"INSERT INTO maxhanna.hidden_files (user_id, file_id) VALUES (@userId, @fileId) ON DUPLICATE KEY UPDATE updated = CURRENT_TIMESTAMP",
+								connection, transaction);
+						hideCommand.Parameters.AddWithValue("@userId", request.UserId);
+						hideCommand.Parameters.AddWithValue("@fileId", request.FileId);
+
+						await hideCommand.ExecuteNonQueryAsync();
+						_logger.LogInformation($"File {request.FileId} hidden for user {request.UserId}");
+
+						// Commit transaction
+						await transaction.CommitAsync();
+					}
+				}
+
+				_logger.LogInformation($"File {request.FileId} hidden successfully for user {request.UserId}");
+				return Ok("File hidden successfully.");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while hiding the file.");
+				return StatusCode(500, "An error occurred while hiding the file.");
+			}
+		}
+
+		[HttpPost("/File/Unhide/", Name = "UnhideFile")]
+		public async Task<IActionResult> UnhideFile([FromBody] HideFileRequest request)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+					_logger.LogInformation($"Opened connection to database for unhiding file with id {request.FileId} for user {request.UserId}");
+
+					using (var transaction = await connection.BeginTransactionAsync())
+					{
+						// Remove from hidden_files table (no permission check)
+						var unhideCommand = new MySqlCommand(
+								"DELETE FROM maxhanna.hidden_files WHERE user_id = @userId AND file_id = @fileId",
+								connection, transaction);
+						unhideCommand.Parameters.AddWithValue("@userId", request.UserId);
+						unhideCommand.Parameters.AddWithValue("@fileId", request.FileId);
+
+						await unhideCommand.ExecuteNonQueryAsync();
+						_logger.LogInformation($"File {request.FileId} unhidden for user {request.UserId}");
+
+						// Commit transaction
+						await transaction.CommitAsync();
+					}
+				}
+
+				_logger.LogInformation($"File {request.FileId} unhidden successfully for user {request.UserId}");
+				return Ok("File unhidden successfully.");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while unhiding the file.");
+				return StatusCode(500, "An error occurred while unhiding the file.");
+			}
+		}
 
 		[HttpDelete("/File/Delete/", Name = "DeleteFileOrDirectory")]
 		public async Task<IActionResult> DeleteFileOrDirectory([FromBody] DeleteFileOrDirectory request)

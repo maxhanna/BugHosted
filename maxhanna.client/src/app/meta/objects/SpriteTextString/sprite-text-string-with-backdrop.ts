@@ -13,6 +13,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   });
 
   portrait: Sprite;
+  objectSubject: any;
   content: string[] = []; 
   showingIndex = 0;
   finalIndex = 0;
@@ -20,13 +21,21 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   timeUntilNextShow = this.textSpeed;
   canSelectItems = false;
   selectionIndex = 0; 
-  constructor(config: { string?: string[], portraitFrame?: number, canSelectItems?: boolean }) {
+  constructor(config: {
+    string?: string[],
+    portraitFrame?: number,
+    canSelectItems?: boolean,
+    objectSubject?: any
+  }) {
     super({ position: new Vector2(32, 118), drawLayer: HUD }); 
     if (config.canSelectItems) { 
       this.canSelectItems = config.canSelectItems;
     }
     if (config.string) {
       this.content = config.string;
+    }
+    if (config.objectSubject) {
+      this.objectSubject = config.objectSubject;
     }
     console.log(config.string, (config.portraitFrame ?? 0));
     this.portrait = new Sprite({
@@ -47,6 +56,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
       }
     }
     const input = parent?.input as Input;
+    const subjectName = this.objectSubject?.name;
     if (input?.getActionJustPressed("Space")) {
       if (this.showingIndex < this.finalIndex) {
         //skip text
@@ -54,7 +64,8 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         return;
       }
       if (this.canSelectItems) {
-        events.emit("SELECTED_ITEM", this.content[this.selectionIndex]);
+        //console.log(this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
+        events.emit("SELECTED_ITEM", this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
         this.canSelectItems = false;
       } 
       events.emit("END_TEXT_BOX");
@@ -65,14 +76,14 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         || input?.getActionJustPressed("KeyW")) {
         this.selectionIndex--;
         if (this.selectionIndex < 0) {
-          this.selectionIndex = this.content.length - 1;
+          this.selectionIndex = this.content.length - (subjectName ? 0 : 1);
         }
       }
       else if (input?.getActionJustPressed("ArrowDown")
         || input?.heldDirections.includes("DOWN")
         || input?.getActionJustPressed("KeyS")) { 
         this.selectionIndex++; 
-        if (this.selectionIndex == this.content.length) {
+        if (this.selectionIndex == this.content.length + (subjectName ? 1 : 0)) {
           this.selectionIndex = 0;
         }
       }
@@ -81,14 +92,14 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         || input?.getActionJustPressed("KeyA")) { 
         this.selectionIndex--;
         if (this.selectionIndex < 0) {
-          this.selectionIndex = this.content.length - 1;
+          this.selectionIndex = this.content.length - (subjectName ? 0 : 1);
         }
       }
       else if (input?.getActionJustPressed("ArrowRight")
         || input?.heldDirections.includes("RIGHT")
         || input?.getActionJustPressed("KeyD")) { 
         this.selectionIndex++; 
-        if (this.selectionIndex == this.content.length) {
+        if (this.selectionIndex == this.content.length + (subjectName ? 1 : 0)) {
           this.selectionIndex = 0;
         }
       }
@@ -106,28 +117,35 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     //Draw the backdrop
     this.backdrop.drawImage(ctx, drawPosX, drawPosY);
     this.portrait.drawImage(ctx, drawPosX + 6, drawPosY + 6);
+
+    const subjectName = this.objectSubject?.name + ":";
+
     //configuration options
     const PADDING_LEFT = 27;
     const PADDING_TOP = 12;
     const LINE_WIDTH_MAX = 240;
-    const LINE_VERTICAL_WIDTH = 14;
+    const LINE_VERTICAL_WIDTH = 14; 
 
     let cursorX = drawPosX + PADDING_LEFT;
-    let cursorY = drawPosY + PADDING_TOP;
+    let cursorY = drawPosY - 10 + PADDING_TOP;
     let currentShowingIndex = 0;
 
+    const textContent = [subjectName, ... this.content];
+    if (subjectName && this.selectionIndex == 0) {
+      this.selectionIndex++;
+    }
 
-    for (let x = 0; x < this.content.length; x++) {
-      let words = calculateWords({ content: this.content[x], color: "White"}); 
-      const totalWordWidth = words.reduce((sum, word) => sum + word.wordWidth, 0); 
-      if (x === this.selectionIndex && this.canSelectItems) {
+    for (let x = 0; x < textContent.length; x++) {
+      let words = calculateWords({ content: textContent[x], color: "White" });
+      const totalWordWidth = words.reduce((sum, word) => sum + word.wordWidth, 0);
+      if ((subjectName ? x > 0 : true) && x === this.selectionIndex && this.canSelectItems) {
         // Draw a red square beside the selected word
         ctx.strokeStyle = 'red';
         ctx.lineWidth = 2;
         ctx.strokeRect(cursorX, cursorY, totalWordWidth + 10, LINE_VERTICAL_WIDTH);
       }
 
-      words.forEach(word => { 
+      words.forEach(word => {
         //Decide if we can fit this next word on this line
         const spaceRemaining = drawPosX + LINE_WIDTH_MAX - cursorX;
         if (spaceRemaining < word.wordWidth) {

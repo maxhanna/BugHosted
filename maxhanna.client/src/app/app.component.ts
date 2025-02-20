@@ -363,16 +363,15 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   replacePageTitleAndDescription(title: string, description: string) {
-    const tmpTitle = "BugHosted.com " + title;
-    this.title.setTitle(tmpTitle);
-    this.meta.updateTag({ name: 'description', content: title }); 
+    const tmpDescription = title + " - BugHosted.com";
+    this.title.setTitle(title);
+    this.meta.updateTag({ name: 'description', content: tmpDescription }); 
   }
 
   getTextForDOM(text?: string, component_id?: number) {
     if (!text) return "";
      
-    const youtubeRegex = /(https?:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
-
+    const youtubeRegex = /(https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
 
     // Step 1: Temporarily replace YouTube links with placeholders
     text = text.replace(youtubeRegex, (match, url, videoId, shortVideoId) => {
@@ -381,10 +380,12 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
 
     // Step 2: Convert regular URLs into clickable links
-    text = text
-      .replace(/(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-      .replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
-
+    text = text.replace(/(<a[^>]*>.*?<\/a>)|(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, (match, existingLink, url) => {
+      if (existingLink) {
+        return existingLink; // Preserve existing <a> tags without modifying them
+      }
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`; // Convert only plain URLs to links
+    }).replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
     // Step 3: Replace the placeholders with embedded YouTube iframes
     text = text.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
       return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${(component_id ?? '0')}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;

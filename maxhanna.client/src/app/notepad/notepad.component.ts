@@ -1,9 +1,10 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Note } from '../../services/datacontracts/note';
 import { NotepadService } from '../../services/notepad.service'; 
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-notepad',
@@ -19,16 +20,22 @@ export class NotepadComponent extends ChildComponent {
   @ViewChild('shareNoteButton') shareNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('deleteNoteButton') deleteNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
+   
+  @Input() inputtedSearch?: string;
+
   noteInputValue: string = ''; // Initialize with an empty string
   isPanelExpanded: boolean = false;
   users: User[] = [];
   selectedNote?: Note;
   splitNoteOwnershipUsers: User[] = [];
-  constructor(private notepadService: NotepadService, private userService: UserService) {
+  constructor(private notepadService: NotepadService, private userService: UserService, private notificationService: NotificationService) {
     super();
   }
   async ngOnInit() {
     await this.getNotepad();
+    if (this.inputtedSearch) {
+      this.search();
+    }
     this.clearInputs();
   }
   clearInputs() {
@@ -51,6 +58,7 @@ export class NotepadComponent extends ChildComponent {
     this.getUsers(); 
   }
   async shareNote(withUser?: User) {
+    console.log(withUser);
     if (!withUser) {
       this.isPanelExpanded = false;
       return;
@@ -58,6 +66,11 @@ export class NotepadComponent extends ChildComponent {
     if (confirm(`Share note with ${withUser.username}?`)) {
       this.notepadService.shareNote(this.parentRef?.user!, withUser, parseInt(this.noteId.nativeElement.value));
       this.isPanelExpanded = false;
+      this.parentRef?.showNotification(`Shared note with ${withUser.username}.`);
+      if (this.parentRef?.user) {
+        this.notificationService.createNotifications(
+          { fromUser: this.parentRef.user, toUser: [withUser], message: `${this.parentRef.user.username} Shared a note with you.` });      
+      }     
     }
   }
   async getNote(id: number) {
@@ -84,13 +97,20 @@ export class NotepadComponent extends ChildComponent {
   }
   async getNotepad() {
     try {
-      let search = undefined;
-      if (this.searchInput && this.searchInput.nativeElement) {
+      let search = this.inputtedSearch;
+      if (!search && this.searchInput && this.searchInput.nativeElement) {
         search = this.searchInput.nativeElement.value;
       }
       this.notes = await this.notepadService.getNotes(this.parentRef?.user!, search);
     } catch (error) {
       console.error("Error fetching notepad entries:", error);
+    }
+    if (this.inputtedSearch) {
+      setTimeout(() => {
+        document.getElementsByClassName("notesCarousel")[0].getElementsByTagName("label")[0].click();
+        this.search();
+      }, 50);
+      this.inputtedSearch = undefined;
     }
   }
   async addNote() {
@@ -108,6 +128,7 @@ export class NotepadComponent extends ChildComponent {
     } catch (e) {
       console.error(e);
     }
+    this.parentRef?.showNotification(`Note saved.`);
     this.getNotepad();
   }
   async deleteNote() {
@@ -120,6 +141,7 @@ export class NotepadComponent extends ChildComponent {
     } catch (error) {
       console.error(error);
     }
+    this.parentRef?.showNotification(`Note deleted.`);
   } 
   async search() {
     this.getNotepad();

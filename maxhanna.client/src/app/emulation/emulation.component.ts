@@ -14,6 +14,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   isMenuPanelOpen = false;
   selectedRomName? : string;
   nostalgist: Nostalgist | undefined;
+  elementListenerMap = new WeakMap<Element, boolean>();
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('localFileOpen') localFileOpen!: ElementRef<HTMLInputElement>;
   @ViewChild('loadRomSelect') loadRomSelect!: ElementRef<HTMLSelectElement>;
@@ -24,6 +25,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   pokemonGamesList: Array<string> = [];
   romDirectory: FileEntry[] = [];
   soundOn = false;
+  lastSaved?: Date;
   currentFileType = '';
   displayAB = true;
   displayC = true;
@@ -115,14 +117,18 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       }
     });
   }
-  async saveState() {
+  async saveState(isAutosave?: boolean) {
     if (!this.selectedRomName) return alert("Must have a rom selected to save!");
     const res = await this.nostalgist?.saveState();
 
     const formData = new FormData();
     formData.append('files', res?.state!, this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav");
-    await this.romService.uploadRomFile(this.parentRef?.user!, formData).then(res => { 
-      this.parentRef?.showNotification("Game data saved on the server.");
+    await this.romService.uploadRomFile(this.parentRef?.user!, formData).then(res => {
+      if (!isAutosave) {
+        this.parentRef?.showNotification("Game data saved on the server.");
+      }
+
+      this.lastSaved = new Date();
       this.closeMenuPanel();
     });
   }
@@ -238,7 +244,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.autosaveInterval = setInterval(async () => {
       if (this.autosave && this.nostalgist && this.selectedRomName != '') {
         console.log('Autosaving game state...');
-        await this.saveState();
+        await this.saveState(true);
       }
     }, this.autosaveIntervalTime);
   }
@@ -279,6 +285,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const addPressReleaseEvents = (elementClass: string, joypadIndex: string) => {
       const element = document.getElementsByClassName(elementClass)[0];
       if (!element) return;
+
+      if (this.elementListenerMap.get(element)) {
+        return;
+      }
+      this.elementListenerMap.set(element, true);
 
       element.addEventListener("mousedown", () => {
         this.nostalgist?.pressDown(joypadIndex);

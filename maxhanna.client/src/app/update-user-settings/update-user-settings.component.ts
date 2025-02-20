@@ -32,7 +32,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isAboutToggled = false;
   showAddBTCWalletAddressInput = false;
   selectableIcons: MenuItem[] = [];
-  btcWalletAddresses: string[] = [];
+  btcWalletAddresses?: string[];
   notifications: string[] = [];
   isNicehashApiKeysToggled: any;
   selectedCurrency = '';
@@ -52,6 +52,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('weatherLocationInput') weatherLocationInput!: ElementRef<HTMLInputElement>;
 
   @ViewChild('updatedEmail') updatedEmail!: ElementRef<HTMLInputElement>;
+  @ViewChild('isEmailPublicYes') isEmailPublicYes!: ElementRef<HTMLInputElement>;
+  @ViewChild('isEmailPublicNo') isEmailPublicNo!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPhone') updatedPhone!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedBirthday') updatedBirthday!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedDescription') updatedDescription!: ElementRef<HTMLInputElement>;
@@ -100,6 +102,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     about.description = this.updatedDescription.nativeElement.value != '' ? this.updatedDescription.nativeElement.value : undefined;
     about.phone = this.updatedPhone.nativeElement.value != '' ? this.updatedPhone.nativeElement.value : undefined;
     about.email = this.updatedEmail.nativeElement.value != '' ? this.updatedEmail.nativeElement.value : undefined;
+    about.isEmailPublic = this.isEmailPublicYes.nativeElement.checked ? true : false;
     about.birthday = this.updatedBirthday.nativeElement.value != '' ? new Date(this.updatedBirthday.nativeElement.value) : undefined;
     about.currency = this.selectedCurrencyDropdown.nativeElement.value != '' ? this.selectedCurrencyDropdown.nativeElement.value : undefined;
     await this.userService.updateUserAbout(this.parentRef!.user!, about).then(async res => {
@@ -270,12 +273,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     alert("BTC Wallet Addresses Updated. Visit the Crypto-Hub App To Track.");
   }
   async getBTCWalletAddresses() {
+    if (this.btcWalletAddresses) return;
+
+    this.btcWalletAddresses = [];
     if (this.parentRef && this.parentRef.user) {
       this.userService.getBTCWallet(this.parentRef.user).then((res: MiningWalletResponse) => {
         if (res) {
           res?.currencies?.forEach(x => {
             if (x.address) {
-              this.btcWalletAddresses.push(x.address);
+              this.btcWalletAddresses?.push(x.address);
             }
           });
         }

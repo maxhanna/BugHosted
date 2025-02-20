@@ -21,17 +21,22 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   @ViewChild('calendarNoteEntry') calendarNoteEntry!: ElementRef<HTMLInputElement>;
   @ViewChild('calendarTypeEntry') calendarTypeEntry!: ElementRef<HTMLSelectElement>;
   @ViewChild('calendarTimeEntry') calendarTimeEntry!: ElementRef<HTMLInputElement>;
+  @ViewChild('selectedYearDropdown') selectedYearDropdown!: ElementRef<HTMLSelectElement>;
+  @ViewChild('selectedMonthDropdown') selectedMonthDropdown!: ElementRef<HTMLSelectElement>;
 
   getMonthName = new Intl.DateTimeFormat("en-US", { month: "long" }).format;
   dayCells = Array.from(Array(42).keys());
   calendarDays = new Array<CalendarDate>;
-  now = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  now = new Date();
   monthBackFromNow = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
   monthForwardFromNow = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1);
   calendarEntries: CalendarEntry[] = [];
   selectedCalendarEntries?: CalendarEntry[] = undefined;
   currentDate: Date = new Date();
   selectedDate?: CalendarDate = undefined;
+  selectedMonth?: string;
+  selectedYear?: number;
+  isMenuPanelOpen: boolean = false;
   eventSymbolMap: { [key: string]: string } = {
     'Event': '💥',
     'Birthday': '🎁',
@@ -45,16 +50,30 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     'Milestone': '📀',
     'Anniversary': '🌹',
   };
+  monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  years: number[] = [];
 
   constructor(private calendarService: CalendarService) {
     super();
+    const currentYear = new Date().getFullYear();
+    for (let i = currentYear - 10; i <= currentYear + 10; i++) {
+      this.years.push(i);
+    }
   }
 
   async ngOnInit() {
+    this.now = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    await this.initilizeCalendarWithDate();
+  }
+
+  private async initilizeCalendarWithDate() {
     this.selectedDate = undefined;
     await this.setCalendarDates(this.now);
     this.currentDate = new Date();
     this.currentDate.setHours(0, 0, 0, 0);
+    this.selectedYear = this.now.getFullYear();
+    this.selectedMonth = this.monthNames[this.now.getMonth()];
+    console.log(this.selectedMonth);
 
     const tmpSelectedDate = this.calendarDays.find(x => {
       if (x.date)
@@ -180,7 +199,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   async getCalendarEntries() {
     try {
       const from = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 0, 0));
-      const to = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth() + 1, 0, 0, 0, 0, 0)); 
+      const to = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth() + 1, 0, 0, 0, 0, 0));
       this.calendarEntries = await this.calendarService.getCalendarEntries(this.parentRef?.user!, from, to);
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
@@ -245,6 +264,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     await this.getCalendarEntries();
     await this.setCalendarDates(this.now);
     await this.getCalendarDetails(this.selectedDate!);
+
   }
 
   private clearInputValues() {
@@ -258,5 +278,44 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
   getEventTypes(): string[] {
     return Object.keys(this.eventSymbolMap);
+  }
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay = true;
+    }
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    if (this.parentRef && this.parentRef.showOverlay) {
+      this.parentRef.showOverlay = false;
+    }
+  }
+  async onMonthChange() {
+    this.selectedMonth = this.selectedMonthDropdown.nativeElement.value; 
+    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), this.monthNames.indexOf(this.selectedMonth), 1);
+    console.log(" onMonthChange change", this.now, this.selectedMonth, this.selectedYear);
+    setTimeout(() => { 
+      const tmpNow = new Date(this.now);
+      this.now = new Date(tmpNow.setMonth(tmpNow.getMonth()));
+      this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
+      this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
+      this.refreshCalendar();
+    }, 100)
+  }
+  async onYearChange() {
+    this.selectedYear = parseInt(this.selectedYearDropdown.nativeElement.value);
+    const selectMonth = (this.selectedMonth ? this.monthNames.indexOf(this.selectedMonth) + 1 : new Date().getMonth());
+    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), selectMonth, 1);
+    console.log(" year change", this.now, selectMonth, this.selectedYear);
+    const tmpNow = new Date(this.now);
+    this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
+    this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
+    this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
+    this.refreshCalendar();
   }
 }

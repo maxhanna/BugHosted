@@ -1,23 +1,8 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('CoinWalletComponent');"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Crypto Hub</div>
-  <div [class]="noMining ? 'noMiningHubSection' : 'hubSection'">
-
-    <div *ngIf="uniqueCurrencyNames" class="selectedCurrencyDropdownWrapper">
-      <div>
-        Selected Currency :
-      </div>
-      <div>
-        <select #selectedCurrencyDropdown (change)="changeDefaultCurrency()">
-          <option *ngFor="let currency of uniqueCurrencyNames" [selected]="selectedCurrency === currency">
-            {{ currency }}
-          </option>
-        </select>
-      </div>
-    </div>
-    
-
+  <div [class]="noMining ? 'noMiningHubSection' : 'hubSection'"> 
     <div class="cryptoHubConverterAndCoinWatchWrapper">
       <div class="BTCtoCADConversionWrapperDiv sectionContainer">
         <div class="sectionName btcToCadConversionHeader">BTC to {{selectedCurrency}} Conversion</div>
@@ -86,10 +71,11 @@
                       [selectedCoin]="'USD'"
                       [data]="allHistoricalExchangeRateData!">
       </app-line-graph>
-    </div> 
+    </div>
   </div>
   <div class="hubSection miningHubSection sectionContainer" *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
     <app-mining-rigs #miningRigComponent
+                     [isDiscreete]="isDiscreete"
                      [inputtedParentRef]="parentRef"
                      [conversionRate]="latestCurrencyPriceRespectToCAD"
                      [currency]="selectedCurrency"
@@ -111,16 +97,19 @@
             <tr (click)="selectCoin(wallet.total?.currency)">
               <td></td>
               <td>{{ wallet.total?.currency }}</td>
-              <td>{{ wallet.total?.totalBalance }}</td>
-              <td>{{ formatToCanadianCurrency(getConvertedCurrencyValue(multiplyValues(wallet.total?.available, btcFiatConversion))) }}$</td>
+              <td>{{ isDiscreete ? '***' : wallet.total?.totalBalance }}</td>
+              <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(multiplyValues(wallet.total?.available, btcFiatConversion))) }}$</td>
             </tr>
           </ng-container>
           <ng-container *ngFor="let currency of wallet.currencies">
             <tr (click)="selectCoin(currency.currency)">
-              <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden" [class]="areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress'">{{ currency.address }}</td>
+              <td (click)="areWalletAddressesHidden = !areWalletAddressesHidden"
+                  [class]="areWalletAddressesHidden ? 'hiddenBtcAddress' : 'normalBtcAddress'">
+                {{ isDiscreete && currency.address ? currency.address.substring(0,3) + '***' + currency.address.substring(currency.address.length - 3, currency.address.length) : currency.address }}
+              </td>
               <td>{{ currency.currency }}</td>
-              <td>{{ currency.totalBalance }}</td>
-              <td>{{ formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currency))) }}$</td>
+              <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
+              <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currency))) }}$</td>
             </tr>
           </ng-container>
         </tbody>
@@ -141,5 +130,38 @@
   </div>
   <div *ngIf="!data && !isLoading">
     Something went wrong, please refresh this component after a while.
+  </div>
+</div>
+
+
+<div *ngIf="isMenuPanelOpen" class="popupPanel">
+  <div class="popupPanelTitle">
+    Menu
+  </div>
+  <div class="optionsStatsWrapperDiv menuPanelOptionsDiv">
+    <div *ngIf="uniqueCurrencyNames" class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Selected Currency :
+      </div>
+      <div class="optionsStatsDescription">
+        <select #selectedCurrencyDropdown (change)="changeDefaultCurrency()">
+          <option *ngFor="let currency of uniqueCurrencyNames" [selected]="selectedCurrency === currency">
+            {{ currency }}
+          </option>
+        </select>
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Discreete mode :
+      </div>
+      <div class="optionsStatsDescription discreeteModeSelectorDiv" title="Enable/Disable discreete mode">
+        <input type="checkbox" (click)="discreete()" [checked]="isDiscreete" />
+        <span (click)="discreete()" class="discreeteModeSpan">{{ isDiscreete ? '🙈' : '🙉' }}</span>
+      </div>
+    </div>
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
 </div>

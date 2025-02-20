@@ -1,6 +1,6 @@
 <div class=componentMain>
   <div class="closeButton" (click)="remove_me('CalendarComponent');"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Calendar</div>
 
   <table class="calendarMonthTable">
@@ -104,5 +104,37 @@
       <input #calendarTimeEntry type="time" value="00:00" />
       <input type="button" (click)="validateNoteEntry()" value="💾" />
     </fieldset>
+  </div>
+</div>
+
+
+<div *ngIf="isMenuPanelOpen" class="popupPanel">
+  <div class="popupPanelTitle">
+    Calendar
+  </div>
+  <div class="optionsStatsWrapperDiv menuPanelOptionsDiv">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Month : 
+      </div>
+      <div class="optionsStatsDescription"> 
+        <select [value]="selectedMonth" (change)="onMonthChange()" #selectedMonthDropdown>
+          <option *ngFor="let month of monthNames" [selected]="month === selectedMonth" [value]="month">{{ month }}</option> 
+        </select>
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader"> 
+        Year :
+      </div>
+      <div class="optionsStatsDescription">
+        <select [value]="selectedYear" (change)="onYearChange()" #selectedYearDropdown> 
+          <option *ngFor="let year of years" [selected]="year === selectedYear" [value]="year">{{ year }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
 </div>

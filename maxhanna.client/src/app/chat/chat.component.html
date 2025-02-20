@@ -12,20 +12,20 @@
                  [displayRadioFilters]="true"
                  [inputtedParentRef]="parentRef"
                  class="userPanel"
-                 *ngIf="isPanelExpanded">
+                 *ngIf="isPanelExpanded && showUserList">
   </app-user-list>
 
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUsers">
       <div class="chatHeader">
 
-        <div class="pagination-controls" *ngIf="!isPanelExpanded">
+        <div class="pagination-controls" *ngIf="!showUserList">
           <select (change)="changePage($event)">
             <option *ngFor="let page of totalPagesArray; let i = index" [value]="i+1">{{ i+1 }}</option>
           </select>
           <span style="margin-right:10px; overflow:hidden; white-space: nowrap; text-overflow: ellipsis;">
-            <span (click)="displayChatMembers()" style="cursor:pointer;">Connected With</span>
-            <span *ngIf="currentChatUsers.length > 1" style="font-size:x-small; cursor: pointer" (click)="displayChatMembers()"> ({{currentChatUsers.length}})</span> :
+            <span (click)="displayChatMembers()" class="cursorPointerUnderlined">Connected With</span>
+            <span *ngIf="currentChatUsers.length > 1" style="cursor: pointer" (click)="displayChatMembers()"> ({{currentChatUsers.length}})</span> :
             <span *ngFor="let chatUser of getChatUsersWithoutCurrentUser()" class="chatUserConnected" (click)="viewProfile(chatUser); $event.preventDefault();">
               <span>{{chatUser.username}}</span>
             </span>
@@ -139,8 +139,8 @@
       <button id="closeOverlay" (click)="closeChatMembersPanel()">Close</button>
     </div>
   </div>
-  <div style="margin-top: 15px; min-height:100px; overflow:auto;">
-    <div *ngFor="let chatMember of currentChatUsers">
+  <div class="addChatMembersList">
+    <div *ngFor="let chatMember of currentChatUsers" class="addChatMemberLi">
       <app-user-tag [user]="chatMember" [inputtedParentRef]="parentRef ?? inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
     </div>
   </div>

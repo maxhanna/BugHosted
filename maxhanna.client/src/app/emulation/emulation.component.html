@@ -100,12 +100,20 @@
         <input type="radio" id="autosaveOff" name="autosave" [checked]="!autosave" (change)="autosave = false">
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!autosave" >
+    <div class="optionsStatsDiv" *ngIf="!autosave">
       <div class="optionsStatsHeader">
         Save your game:
       </div>
       <div class="optionsStatsDescription">
         <span class="uploadRomSpan upload-label" (click)="saveState()" title="Save your game">💾</span>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="lastSaved">
+      <div class="optionsStatsHeader">
+        Last Saved:
+      </div>
+      <div class="optionsStatsDescription">
+        {{ lastSaved | date: 'HH:mm' }} ({{ daysSinceDate(lastSaved) }})
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!isSearchVisible">
@@ -124,6 +132,14 @@
         <div class="uploadRomSpan upload-label" id="fullscreenBtn" (click)="toggleFullscreen()" title="Fullscreen mode">◻️</div>
       </div>
     </div>
+    <div class="optionsStatsDiv" *ngIf="nostalgist">
+      <div class="optionsStatsHeader">
+        Reset game:
+      </div>
+      <div class="optionsStatsDescription">
+        <button (click)="nostalgist.restart()">Reset</button>
+      </div>
+    </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
         Mute/Unmute:
@@ -131,7 +147,7 @@
       <div class="optionsStatsDescription">
         <span class="uploadRomSpan upload-label" (click)="toggleSound()" title="Toggle audio">{{ soundOn ? '🔊' : '🔇' }}</span>
       </div>
-    </div> 
+    </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
         Volume:
@@ -140,7 +156,7 @@
         <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)" title="Adjust volume levels">
       </div>
     </div>
-   
+
 
 
   </div>

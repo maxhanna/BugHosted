@@ -366,6 +366,54 @@ namespace maxhanna.Server.Controllers
 			return coinValues;
 		}
 
+		[HttpPost("/CoinValue/IsBTCRising", Name = "IsBTCRising")]
+		public async Task<bool> IsBTCRising()
+		{
+			_logger.LogInformation("POST /CoinValue/IsBTCRising");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				// Single query to get both latest price and price from one day ago
+				string sql = @"
+            SELECT 
+                MAX(CASE WHEN timestamp = (SELECT MAX(timestamp) FROM coin_value WHERE symbol = 'BTC') THEN value_cad END) AS latest_price,
+                MAX(CASE WHEN timestamp <= DATE_SUB(NOW(), INTERVAL 1 DAY) THEN value_cad END) AS previous_price
+            FROM coin_value
+            WHERE symbol = 'BTC';";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					if (await reader.ReadAsync())
+					{
+						var latestPrice = reader.IsDBNull(0) ? (decimal?)null : reader.GetDecimal(0);
+						var previousPrice = reader.IsDBNull(1) ? (decimal?)null : reader.GetDecimal(1);
+						Console.WriteLine($"latestPrice : {latestPrice} versus previousPrice: {previousPrice}");
+
+						if (latestPrice.HasValue && previousPrice.HasValue)
+						{
+							return latestPrice.Value > previousPrice.Value;
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while checking if BTC is rising.");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+
+			return false;
+		}
+
+
+
 		[HttpPost("/CurrencyValue/GetLatestByName/{name}", Name = "GetLatestCurrencyValuesByName")]
 		public async Task<ExchangeRate> GetLatestCurrencyValuesByName(string name)
 		{

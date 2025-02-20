@@ -65,8 +65,12 @@
 .topPageControls {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-end;
   font-size: x-large;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  gap: 30px;
 }
 
 @media only screen and (max-width : 355px) {

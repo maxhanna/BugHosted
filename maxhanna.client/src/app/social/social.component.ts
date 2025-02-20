@@ -518,55 +518,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     hours = hours % 12 || 12;
 
     return `${month} ${day}, ${year} - ${hours}:${minutes} ${ampm}`;
-  }
-  daysSinceDate(dateString?: Date): string {
-    if (!dateString) return '';
-
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    const now = new Date();
-
-    // Calculate differences
-    let years = now.getFullYear() - date.getFullYear();
-    let months = now.getMonth() - date.getMonth();
-    let days = now.getDate() - date.getDate();
-    let hours = now.getHours() - date.getHours();
-    let minutes = now.getMinutes() - date.getMinutes();
-    let seconds = now.getSeconds() - date.getSeconds();
-
-    // Adjust for negative values
-    if (seconds < 0) {
-      minutes--;
-      seconds += 60;
-    }
-    if (minutes < 0) {
-      hours--;
-      minutes += 60;
-    }
-    if (hours < 0) {
-      days--;
-      hours += 24;
-    }
-    if (days < 0) {
-      months--;
-      const daysInLastMonth = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
-      days += daysInLastMonth;
-    }
-    if (months < 0) {
-      years--;
-      months += 12;
-    }
-
-    // Build the result string dynamically
-    const parts: string[] = [];
-    if (years > 0) parts.push(`${years}y`);
-    if (months > 0) parts.push(`${months}m`);
-    if (days > 0) parts.push(`${days}d`);
-    if (hours > 0) parts.push(`${hours}h`);
-    if (minutes > 0) parts.push(`${minutes}m`);
-    if (seconds > 0) parts.push(`${seconds}s`);
-
-    return parts.join(' ');
-  }
+  } 
 
 
   toggleCollapse(storyId?: string): void {

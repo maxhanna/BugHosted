@@ -302,9 +302,16 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
 
 .start-select {
   position: absolute;
-  top: CALC(var(--vh, 1vh) * 90);
+  top: CALC(var(--vh, 1vh) * 95 - 60px);
   left: 10px;
   z-index: 30;
+}
+  
+@media only screen and (max-height : 600px) {
+  .start-select {
+    top: CALC(var(--vh, 1vh) * 90 - 60px);
+    left: CALC(50vw - 60px);
+  }
 }
 
 .start, .select {

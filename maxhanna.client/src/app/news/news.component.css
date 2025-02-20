@@ -50,8 +50,7 @@
 .articleAuthor,
 .articleSource,
 .articleDate {
-  margin-top: 10px;
-  text-shadow: 0.5px 0.5px 1px var(--secondary-font-color);
+  margin-top: 10px; 
 }
 
 .articleSource {
@@ -172,6 +171,9 @@
 .defaultSearchTopDiv {
   display: flex;
   flex-wrap: nowrap;
+  align-content: stretch;
+  justify-content: space-evenly;
+  align-items: center;
 }
 
 .popupPanel {
@@ -183,4 +185,14 @@
   position: fixed;
   top: 0px;
   right: 21px !important;
+}
+
+.newsArticleActionButtons {
+  display: flex;
+  gap : 25px;
+}
+
+.newsArticleActionButtons button {
+  height: 30px;
+  width: 70px;
 }

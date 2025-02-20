@@ -142,11 +142,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       parent.getNotifications();
     }
   }
-  async read(notification?: UserNotification) {
+  async read(notification?: UserNotification, forceRead: boolean = false) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent.user) {
       if (notification && notification.id) {
-        if (notification.isRead) {
+        if (notification.isRead && !forceRead) {
           notification.isRead = false;
           this.unreadNotifications++;
           await this.notificationService.unreadNotifications(parent.user, [notification.id]);
@@ -164,8 +164,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
   notificationTextClick(notification: UserNotification) {
+    this.read(notification, true);
     if (notification.text?.includes('Captured a base at')) {
       this.parentRef?.createComponent('Bug-Wars');
+    } if (notification.text?.includes('Shared a note')) {
+      this.parentRef?.createComponent('Notepad');
     } else if (notification.fileId) {
       this.goToFileId(notification)
     } else if (notification.storyId) {

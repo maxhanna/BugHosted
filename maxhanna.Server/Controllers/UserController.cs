@@ -89,7 +89,8 @@ namespace maxhanna.Server.Controllers
                         ua.phone,
                         ua.email,
                         ua.birthday,
-												ua.currency
+												ua.currency,
+												ua.is_email_public
                     FROM 
                         maxhanna.users u
                     LEFT JOIN  
@@ -126,6 +127,7 @@ namespace maxhanna.Server.Controllers
 							Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
 							Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateTime("birthday"),
 							Currency = reader.IsDBNull(reader.GetOrdinal("currency")) ? null : reader.GetString("currency"),
+							IsEmailPublic = reader.IsDBNull(reader.GetOrdinal("is_email_public")) ? true : reader.GetBoolean("is_email_public"),
 						};
 
 						// User found, return the user details
@@ -177,7 +179,8 @@ namespace maxhanna.Server.Controllers
                         ua.phone,
                         ua.email,
                         ua.birthday,
-												ua.currency
+												ua.currency,
+												ua.is_email_public
                     FROM 
                         maxhanna.users u
                     LEFT JOIN 
@@ -212,6 +215,7 @@ namespace maxhanna.Server.Controllers
 							Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
 							Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateTime("birthday"),
 							Currency = reader.IsDBNull(reader.GetOrdinal("currency")) ? null : reader.GetString("currency"),
+							IsEmailPublic = reader.IsDBNull(reader.GetOrdinal("is_email_public")) ? true : reader.GetBoolean("is_email_public"),
 						};
 
 						// User found, return the user details
@@ -644,13 +648,14 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 
 				string checkUserSql = $@"
-                    INSERT INTO maxhanna.user_about (user_id, description, birthday, phone, email, currency)
-                    VALUES (@userId, @description, @birthday, @phone, @email, @currency)
+                    INSERT INTO maxhanna.user_about (user_id, description, birthday, phone, email, currency, is_email_public)
+                    VALUES (@userId, @description, @birthday, @phone, @email, @currency, @is_email_public)
                     ON DUPLICATE KEY UPDATE 
                         description = VALUES(description),
                         birthday = VALUES(birthday),
                         phone = VALUES(phone),
                         email = VALUES(email),
+                        is_email_public = VALUES(is_email_public),
                         currency = VALUES(currency);
                 ";
 				MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
@@ -659,6 +664,7 @@ namespace maxhanna.Server.Controllers
 				checkUserCmd.Parameters.AddWithValue("@birthday", request.About.Birthday);
 				checkUserCmd.Parameters.AddWithValue("@phone", request.About.Phone);
 				checkUserCmd.Parameters.AddWithValue("@email", request.About.Email);
+				checkUserCmd.Parameters.AddWithValue("@is_email_public", request.About.IsEmailPublic);
 				checkUserCmd.Parameters.AddWithValue("@currency", request.About.Currency);
 				using (var reader = await checkUserCmd.ExecuteReaderAsync())
 				{

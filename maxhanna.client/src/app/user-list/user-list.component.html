@@ -39,7 +39,7 @@
   <button (click)="userClickEvent.emit()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch && !isSearchPanelOpen">❌Cancel</button>
 </div>
 <div class="searchResults">
-  <div class="prevChatMessages" *ngIf="!searchOnly">
+  <div class="prevChatMessages popupPanelTitle" *ngIf="!searchOnly">
     {{ isFriendsChecked ? 'Friends' : 'User' }} List
   </div>
   <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
@@ -57,7 +57,7 @@
     No {{ isFriendsChecked ? 'Friends' : 'Users' }} to Display.
   </div>
   <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly && !sharingSearch">
-    <div class="prevChatMessages" *ngIf="messageRows.length > 0">
+    <div class="prevChatMessages popupPanelTitle" *ngIf="messageRows.length > 0">
       Previous Messages
     </div>
     <div *ngFor="let row of messageRows" (click)="openChatById(row.chatId);" class="userList">

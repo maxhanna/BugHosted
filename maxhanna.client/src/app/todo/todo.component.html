@@ -4,7 +4,7 @@
   <div class="componentTitle">Checklist</div>
 
 
-  <fieldset>
+  <fieldset class="addTodoInputFieldset">
     <legend>Add</legend>
     <input type="text" id="todoInput" placeholder="todo" #todoInput required (keydown.enter)="addTodo()" />
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
@@ -14,14 +14,12 @@
     <table class="mainTable" id="todoTable">
       <thead>
         <tr>
-          <th>
-
+          <th> 
             <select #selectedType class=selectType (change)="typeOnChange()">
               <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{ todoCount }})</span></option>
             </select> 
-            <input placeholder="Search" #searchInput (keyup)="search()"  />
-            <button (click)="search()">🔍</button>
-
+            <input placeholder="Search" #searchInput (keyup)="search()" [style.visibility]="todos && todos.length > 1 ? 'visible' : 'hidden'" />
+            <button (click)="search()" [style.visibility]="todos && todos.length > 1 ? 'visible' : 'hidden'">🔍</button> 
           </th>
           <th (click)="sortTable(1, 'todoTable')">🔗</th>
           <th (click)="sortTable(2, 'todoTable')">📅</th>

@@ -151,3 +151,20 @@
   display: flex;
   white-space: nowrap;
 }
+.discreeteModeSelectorDiv {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+}
+.discreeteModeSpan {
+  font-size: 25px; 
+  cursor: pointer;
+}
+.menuPanelOptionsDiv {
+  height: 125px !important;
+  min-width: 315px;
+  margin-top: 35px;
+}

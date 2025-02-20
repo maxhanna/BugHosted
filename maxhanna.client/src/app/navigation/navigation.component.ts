@@ -27,7 +27,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private wordlerInfoInterval: any;
 
   navbarReady = false;
-  navbarCollapsed: boolean = false;  
+  navbarCollapsed: boolean = false;
+  isBTCRising = true;
   @Input() user?: User;
 
   constructor(public _parent: AppComponent,
@@ -158,7 +159,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
     res1?.forEach(x => {
       tmpLocalProfitability += x.localProfitability!;
     });
-     
+
+    await this.coinValueService.isBTCRising().then(res => { 
+      this.isBTCRising = (Boolean)(res);
+      console.log(this.isBTCRising);
+    });
     const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
     const result = res;
     if (result) {

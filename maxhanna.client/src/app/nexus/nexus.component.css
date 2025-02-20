@@ -118,7 +118,7 @@
 }
 
 .ccGlowLight1 {
-  top: 140px;
+  top: 160px;
   left: 179px;
   border-radius: 1px !important;
   transform: rotate(113deg);
@@ -138,7 +138,7 @@
 }
 
 .minesGlowLight1 {
-  top: 228px;
+  top: 248px;
   left: 291px;
   border-radius: 0px !important;
   transform: rotate(45deg) skew(-10deg, 40deg);
@@ -241,17 +241,17 @@
 }
 
 .starportGlowLight1 {
-  top: 225px;
+  top: 245px;
   left: 140.5px;
 }
 
 .starportGlowLight2 {
-  top: 196px;
+  top: 216px;
   left: 106.5px;
 }
 
 .starportGlowLight3 {
-  top: 190px;
+  top: 210px;
   left: 150px;
 }
 
@@ -259,7 +259,7 @@
   border-radius: 1px !important;
   transform: rotate(-9deg);
   height: 4px !important;
-  top: 241px;
+  top: 261px;
   left: 100.5px;
   width: 14px !important;
   opacity: 80%;
@@ -277,17 +277,17 @@
 }
 
 .factoryGlowLight1 {
-  top: 142px;
+  top: 162px;
   left: 92px;
 }
 
 .factoryGlowLight2 {
-  top: 144px;
+  top: 164px;
   left: 93px;
 }
 
 .factoryGlowLight3 {
-  top: 146px;
+  top: 166px;
   left: 94px;
 }
 
@@ -301,7 +301,7 @@
 }
 
 .supplyDepotGlowLight1 {
-  top: 73px;
+  top: 93px;
   left: 271px;
   border-radius: 1px !important;
   transform: rotate(224deg) skew(15deg);
@@ -339,7 +339,7 @@
 }
 
 .warehouseGlowLight1 {
-  top: 64px;
+  top: 84px;
   left: 132px;
   border-radius: 1px !important;
   transform: rotate(58deg) skew(-3deg, -31deg) skewY(32deg) skewX(3deg);
@@ -360,22 +360,22 @@
 }
 
 .egineeringBayLongGlowLight1 {
-  top: 165.5px;
+  top: 185.5px;
   left: 344.5px;
 }
 
 .egineeringBayLongGlowLight2 {
-  top: 164.5px;
+  top: 184.5px;
   left: 347.5px;
 }
 
 .egineeringBayLongGlowLight3 {
-  top: 163.5px;
+  top: 183.5px;
   left: 350.5px;
 }
 
 .ebSmallGlowLight1 {
-  top: 169.5px;
+  top: 189.5px;
   left: 300px;
   width: 3px !important;
   height: 1px !important;
@@ -383,7 +383,7 @@
 }
 
 .ebSmallGlowLight2 {
-  top: 171px;
+  top: 191px;
   left: 303px;
   width: 4px !important;
   transform: rotate(16deg);
@@ -392,7 +392,7 @@
 }
 
 .ebSmallGlowLight3 {
-  top: 174px;
+  top: 194px;
   left: 312px;
   width: 2.5px !important;
   HEIGHT: 1px !important;

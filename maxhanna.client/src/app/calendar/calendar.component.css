@@ -87,3 +87,7 @@
 .saveEntryFieldset input{
     display:inline-block;
 }
+
+.menuPanelOptionsDiv {
+  margin-top: 35px;
+}

@@ -278,7 +278,7 @@ namespace maxhanna.Server.Controllers
                     ")";
                 MySqlCommand cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@Id", id);
-                cmd.Parameters.AddWithValue("@Owner", user.Id);
+                cmd.Parameters.AddWithValue("@Owner", user.Id.ToString());
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
                 if (rowsAffected > 0)

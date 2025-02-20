@@ -38,7 +38,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   totalPages = 1;
   totalPagesArray: number[] = [];
   isDisplayingChatMembersPanel = false;
-
+  showUserList = true;
   app?: any;
   messaging?: any;
 
@@ -183,6 +183,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!users) { return; }
     this.startLoading();
     this.isPanelExpanded = true;
+    this.showUserList = false;
     this.chatHistory = [];
     this.currentChatId = undefined;
     const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
@@ -231,7 +232,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.totalPages = 0;
     this.totalPagesArray = new Array<number>();
     clearInterval(this.pollingInterval);
-    this.togglePanel();
+    this.showUserList = true;
+    this.isPanelExpanded = true; 
   }
   async sendMessage() {
     if (!this.currentChatUsers || this.currentChatUsers.length == 0) return;

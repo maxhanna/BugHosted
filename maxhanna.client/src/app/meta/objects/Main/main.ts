@@ -44,7 +44,8 @@ export class Main extends GameObject {
         const textBox = new SpriteTextStringWithBackdrop({
           portraitFrame: content.portraitFrame,
           string: content.string,
-          canSelectItems: content.canSelectItems
+          canSelectItems: content.canSelectItems,
+          objectSubject: withObject
         });
         this.addChild(textBox);
         events.emit("START_TEXT_BOX");

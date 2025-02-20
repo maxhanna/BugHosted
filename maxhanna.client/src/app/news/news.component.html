@@ -35,7 +35,7 @@
           <div class="articleDate cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
             Published Date: {{ newsArticle.publishedAt }}
           </div>
-          <div><img class="smallArticleImage" src="{{ newsArticle.urlToImage }}" /></div> 
+          <div><img class="smallArticleImage" [attr.loading]="'lazy'" src="{{ newsArticle.urlToImage }}" /></div> 
         </div> 
       </div>
     </div>
@@ -52,10 +52,13 @@
         <div class="articleAuthor">Author(s): {{ getAuthors(selectedArticle) }}</div>
         <div class="articleSource">Source: {{ selectedArticle.source.name }}</div>
         <div class="articleDate">Published Date: {{ selectedArticle.publishedAt }}</div>
-        <div><img class="articleImage"  src="{{ selectedArticle.urlToImage }}" /></div>
+        <div><img class="articleImage" [attr.loading]="'lazy'" src="{{ selectedArticle.urlToImage }}" /></div>
       </div>
-    </div> 
-    <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
+    </div>
+    <div class="newsArticleActionButtons"> 
+      <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
+      <button (click)="saveArticle(selectedArticle)">💾Save</button>
+    </div>
   </div>
 
   <div *ngIf="newsArticles == null || !newsArticles">

@@ -5,4 +5,5 @@ export class UserAbout {
   email?: string;
   currency?: string;
   birthday?: Date;
+  isEmailPublic?: Boolean;
 }

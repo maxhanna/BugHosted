@@ -165,11 +165,12 @@ export class Input {
       case 'Escape':
         this.pressEscape();
         break;
-      case ' ':
       case 'q':
       case 'Q':
         this.pressB();
-        break;
+        break; 
+      case ' ':
+        this.pressSpace();
     }
   }
   pressA(sendChat: boolean = true) {

@@ -398,10 +398,10 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@to_user", request.ToUser.FirstOrDefault()?.Id ?? 0);
 						cmd.Parameters.AddWithValue("@from_user", request.FromUser?.Id ?? 0);
 						cmd.Parameters.AddWithValue("@user_profile_id", request.ToUser.FirstOrDefault()?.Id ?? 0);
-						cmd.Parameters.AddWithValue("@comment", request.Message); 
+						cmd.Parameters.AddWithValue("@comment", request.Message);
 						await cmd.ExecuteNonQueryAsync();
 					}
-				}
+				} 
 				else if (request.ChatId != null) // Insert notification for chat messages here
 				{
 					Console.WriteLine($"Sending notif on ChatId : {request.ChatId}");
@@ -470,6 +470,27 @@ namespace maxhanna.Server.Controllers
 									await insertCommand.ExecuteNonQueryAsync();
 								}
 							}
+						}
+					}
+				}
+				else if (request.Message != null)
+				{
+					foreach (var receiverUser in request.ToUser)
+					{
+						if (receiverUser.Id == (request.FromUser?.Id ?? 0))
+						{
+							continue;
+						}
+						Console.WriteLine($"Sending generic notifications");
+						notificationSql = $@"
+						INSERT INTO maxhanna.notifications (user_id, from_user_id, text)
+						VALUES (@to_user, @from_user, @comment);";
+						using (var cmd = new MySqlCommand(notificationSql, conn))
+						{
+							cmd.Parameters.AddWithValue("@to_user", request.ToUser.FirstOrDefault()?.Id ?? 0);
+							cmd.Parameters.AddWithValue("@from_user", request.FromUser?.Id ?? 0); 
+							cmd.Parameters.AddWithValue("@comment", request.Message);
+							await cmd.ExecuteNonQueryAsync();
 						}
 					}
 				}

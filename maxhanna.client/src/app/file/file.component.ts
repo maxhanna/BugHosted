@@ -37,6 +37,7 @@ export class FileComponent extends ChildComponent {
     ownership: 'all'
   };
   createVisibility = 'public';
+  searchHidden = 'unhidden';
   uploadProgress: number = 0;
   showUploadPrivacySelection = false;
   videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
@@ -53,6 +54,7 @@ export class FileComponent extends ChildComponent {
   @ViewChild('directoryInput') directoryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
+  @ViewChild('hiddenVisibility') hiddenVisibility!: ElementRef<HTMLSelectElement>;
   @ViewChild('makeFolderName') makeFolderName!: ElementRef<HTMLInputElement>;
   @ViewChild('thumbnailContainer', { static: false }) thumbnailContainer!: ElementRef;
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
@@ -107,8 +109,7 @@ export class FileComponent extends ChildComponent {
   }
   createVisibilityOnChange() {
     this.createVisibility = this.folderVisibility.nativeElement.value;
-  }
-  
+  } 
 
   getFileExtension(filePath: string) {
     return filePath.split('.').pop();
