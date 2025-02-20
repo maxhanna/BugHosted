@@ -8,7 +8,7 @@ namespace maxhanna.Server.Services
 	public class SystemBackgroundService : BackgroundService
 	{
 		private readonly ILogger<SystemBackgroundService> _logger;
-		private readonly string _apiKey = "49965ff1-ebed-48b2-8ee3-796c390fcde1";
+		private readonly string _apiKey;
 		private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
 		private readonly string _connectionString;
 		private readonly HttpClient _httpClient;
@@ -20,6 +20,7 @@ namespace maxhanna.Server.Services
 		{
 			_logger = logger;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
+			_apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
 			_httpClient = new HttpClient();
 		}
 
