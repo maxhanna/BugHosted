@@ -60,6 +60,7 @@
       <app-line-graph #lineGraphComponent
                       [type]="'Crypto'"
                       [selectedCurrency]="selectedCurrency"
+                      [selectedPeriod]="'5d'"
                       [data]="allHistoricalData!"
                       [selectedCoin]="currentSelectedCoin">
       </app-line-graph>
@@ -69,6 +70,7 @@
 
       <app-line-graph [type]="'Currency'"
                       [selectedCoin]="'USD'"
+                      [selectedPeriod]="'3m'"
                       [data]="allHistoricalExchangeRateData!">
       </app-line-graph>
     </div>

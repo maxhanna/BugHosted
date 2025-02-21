@@ -2,7 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit,
 import { ChildComponent } from '../child.component';
 import { MetaData, Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
-import { TopicService } from '../../services/topic.service'; 
+import { TopicService } from '../../services/topic.service';
 import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
 import { TopicRank } from '../../services/datacontracts/topics/topic-rank';
@@ -16,7 +16,7 @@ import { Pipe, PipeTransform } from '@angular/core';
 import { UserService } from '../../services/user.service';
 import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo';
-import { Meta, Title } from '@angular/platform-browser'; 
+import { Meta, Title } from '@angular/platform-browser';
 import { NotificationService } from '../../services/notification.service';
 
 @Pipe({ name: 'clickableUrls' })
@@ -122,7 +122,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
             if (storyText) {
               const cleanedTitle = storyText.replace(/https?:\/\/[^\s]+/g, '').trim();
 
-              this.title.setTitle("BugHosted.com " + cleanedTitle.substring(0, 50));
+              this.title.setTitle(cleanedTitle.substring(0, 50) + " - BugHosted.com");
               this.meta.updateTag({ name: 'description', content: storyText });
             }
           }
@@ -133,7 +133,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       if (res) {
         this.topTopics = res;
       }
-    }); 
+    });
 
     this.userService.getUserIp().then(res => {
       if (res) {
@@ -148,8 +148,8 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       if (elements.length > 0) {
         Array.from(elements).forEach((e) => {
           (e as HTMLElement).style.maxHeight = 'none';
-        }); 
-      } 
+        });
+      }
     }
   }
 
@@ -202,7 +202,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
   async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) {
     let search = this.userSearch;
-      
+
     let topics = '';
     if (searchTopics && searchTopics.length > 0) {
       topics = topics.trim() != '' ? topics + ',' : topics;
@@ -244,13 +244,13 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         this.storyResponse = res;
         console.log(this.storyResponse);
       }
-      
+
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
-    } 
+    }
     this.stopLoading();
   }
-  
+
   async post() {
     const storyText = this.story.nativeElement.value?.trim() || ''; // Ensure it's a string
     if (!storyText && (!this.attachedFiles || this.attachedFiles.length === 0)) {
@@ -261,7 +261,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     try {
       const user = this.parentRef?.user ?? this.parent?.user ?? new User(0, "Anonymous");
-       
+
       const results = this.eachAttachmentSeperatePost
         ? await this.postEachFileAsSeparateStory(user, storyText)
         : await this.postSingleStory(user, storyText);
@@ -273,7 +273,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         if (this.user && this.user.id) {
           const notificationData: any = {
             fromUser: user,
-            toUser: [this.user], 
+            toUser: [this.user],
             message: "New post on your profile!",
             userProfileId: this.user.id
           };
@@ -311,7 +311,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
 
   private async postSingleStory(user: User, storyText: string): Promise<any> {
-    const story = this.createStory(user, storyText, this.attachedFiles); 
+    const story = this.createStory(user, storyText, this.attachedFiles);
     return this.socialService.postStory(user, story);
   }
 
@@ -392,7 +392,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       pageSelect = this.pageSelect2.nativeElement;
     }
     this.currentPage = parseInt(pageSelect.value);
-    await this.getStories(this.currentPage).then(res => { 
+    await this.getStories(this.currentPage).then(res => {
       this.scrollToStory();
     });
   }
@@ -402,10 +402,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         const storyContainer = document.getElementsByClassName('storyContainerWrapper')[0] as HTMLElement;
         const element = document.getElementById('storyDiv' + storyId);
         if (element && storyContainer) {
-          storyContainer.scrollTop = element.offsetTop - storyContainer.offsetTop; 
+          storyContainer.scrollTop = element.offsetTop - storyContainer.offsetTop;
         }
       }, 1111);
-    } else { 
+    } else {
       setTimeout(() => {
         const element = document.getElementsByClassName('socialComponentContents')[0];
         if (element) {
@@ -414,12 +414,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
         }
       }, 200);
     }
-  }  
+  }
 
   playYoutubeVideo() {
     this.openedStoryYoutubeVideos.forEach(x => {
       let target = document.getElementById(`youtubeIframe${x}`) as HTMLIFrameElement;
-      if (target) { 
+      if (target) {
         target.src = '';
         target.style.visibility = 'hidden';
       }
@@ -497,7 +497,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }).catch(err => {
       this.parentRef?.showNotification('Failed to copy link!');
     });
-  } 
+  }
   formatDate(dateString?: Date): string {
     if (!dateString) return '';
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
@@ -518,7 +518,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     hours = hours % 12 || 12;
 
     return `${month} ${day}, ${year} - ${hours}:${minutes} ${ampm}`;
-  } 
+  }
 
 
   toggleCollapse(storyId?: string): void {
@@ -656,7 +656,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       }
     }, 100);
   }
-   
+
 
   commentAddedEvent(comment: FileComment) {
     if (comment.storyId) {
@@ -694,7 +694,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     if (!url) return false;
     try {
       const parsedUrl = new URL(url);
-      const isYoutubeDomain = ['www.youtube.com', 'youtube.com', 'youtu.be'].includes(parsedUrl.hostname);
+      const isYoutubeDomain = ['www.youtube.com', 'm.youtube.com', 'youtube.com', 'youtu.be'].includes(parsedUrl.hostname);
 
       return isYoutubeDomain;
     } catch (e) {
@@ -751,15 +751,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     const url = urlMatch[0];
 
-    // Extract the YouTube video ID
-    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S*)?$/;
+    // Updated regex to support mobile links
+    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+
     const youtubeMatch = url.match(youtubeRegex);
 
-    if (youtubeMatch && youtubeMatch[1]) {
-      return youtubeMatch[1];
-    } else {
-      return '';
-    }
+    return youtubeMatch?.[1] ?? '';
   }
 
   hasOverflow(elementId: string): boolean {
@@ -816,17 +813,17 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   }
   insertBold(componentId?: string) {
     this.insertTag('b', componentId);
-  } 
+  }
   insertItalics(componentId?: string) {
     this.insertTag('i', componentId);
-  } 
+  }
   insertBullet(componentId?: string) {
     this.insertTag('*', componentId);
-  } 
+  }
   insertEmoji(emoji: string) {
     this.story.nativeElement.value += emoji;
     this.closeInsertEmojiPanel();
-  } 
+  }
   getTextForDOM(text?: string, componentId?: any) {
     const parent = this.parent ?? this.parentRef;
     if (parent) {

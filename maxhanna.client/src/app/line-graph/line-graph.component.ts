@@ -18,7 +18,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   @Input() displayCoinSwitcher: boolean = true;
   @Input() graphTitle: string = '';
   @Input() type: "Crypto" | "Currency" = "Crypto";
-  selectedPeriod: string = '1d'; 
+  @Input() selectedPeriod: '1d' | '2d' | '5d' | '1m' | '2m' | '3m' | '6m' | '1y' | '2y' | '3y' | '5y' = '1d';
   lineChartData: any[] = [];
   lineChartLabels: any[] = [];
   lineChartOptions: any = {
@@ -54,7 +54,7 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   changeGraphPeriod(event: Event) {
-    this.selectedPeriod = (event.target as HTMLSelectElement).value;
+    this.selectedPeriod = (event.target as HTMLSelectElement).value as typeof this.selectedPeriod;
     this.updateGraph(this.data);
   }
 
@@ -69,6 +69,9 @@ export class LineGraphComponent implements OnInit, OnChanges {
   }
 
   updateGraph(data: any[]) {
+    if (!this.selectedPeriod) {
+      this.selectedPeriod = '1d';
+    }
     this.data = data;
     let filteredData: any[] = []; 
     if (this.selectedCoin !== '') {

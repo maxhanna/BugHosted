@@ -219,12 +219,12 @@
           </div>
         </div>
         <ng-container *ngFor="let metadata of optionStory.metadata">
-          <div class="optionsStatsDiv" *ngIf="extractUrl(optionStory.storyText)">
+          <div class="optionsStatsDiv">
             <div class="optionsStatsHeader">
               Metadata URL:
             </div>
             <div class="optionsStatsDescription">
-              <a [href]="extractUrl(optionStory.storyText)" target="_blank" [title]="extractUrl(optionStory.storyText)">{{extractUrl(optionStory.storyText)}}</a>
+              <a [href]="metadata.url" target="_blank" [title]="metadata.url">{{metadata.url}}</a>
             </div>
           </div>
           <div class="optionsStatsDiv" *ngIf="metadata.title">

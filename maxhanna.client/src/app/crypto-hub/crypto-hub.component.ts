@@ -126,7 +126,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
           .filter(x => x.currency?.toUpperCase() === "BTC")
           .reduce((sum, curr) => sum + Number(curr.available || 0), 0)
           .toString(), 
-      }; 
+      };
+      this.wallet.currencies.forEach(x => !x.address ? x.address = "Nicehash Wallet" : x.address);
     }
   }
 

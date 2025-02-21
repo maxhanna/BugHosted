@@ -6,18 +6,18 @@
     Span : {{selectedPeriod}} 
   </div>
   <div class="graphOptions">
-    <select (change)="changeGraphPeriod($event)" #periodSelect>
-      <option value="1d">1 Day</option>
-      <option value="2d">2 Days</option>
-      <option value="5d">5 Days</option>
-      <option value="1m">1 Month</option>
-      <option value="2m">2 Months</option>
-      <option value="3m">3 Months</option>
-      <option value="6m">6 Months</option>
-      <option value="1y">1 Year</option>
-      <option value="2y">2 Years</option>
-      <option value="3y">3 Years</option>
-      <option value="5y">5 Years</option>
+    <select (change)="changeGraphPeriod($event)" #periodSelect [value]="selectedPeriod">
+      <option value="1d" [selected]="selectedPeriod === '1d'">1 Day</option>
+      <option value="2d" [selected]="selectedPeriod === '2d'">2 Days</option>
+      <option value="5d" [selected]="selectedPeriod === '5d'">5 Days</option>
+      <option value="1m" [selected]="selectedPeriod === '1m'">1 Month</option>
+      <option value="2m" [selected]="selectedPeriod === '2m'">2 Months</option>
+      <option value="3m" [selected]="selectedPeriod === '3m'">3 Months</option>
+      <option value="6m" [selected]="selectedPeriod === '6m'">6 Months</option>
+      <option value="1y" [selected]="selectedPeriod === '1y'">1 Year</option>
+      <option value="2y" [selected]="selectedPeriod === '2y'">2 Years</option>
+      <option value="3y" [selected]="selectedPeriod === '3y'">3 Years</option>
+      <option value="5y" [selected]="selectedPeriod === '5y'">5 Years</option>
     </select>
     <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher">
       <option value="">All</option> 

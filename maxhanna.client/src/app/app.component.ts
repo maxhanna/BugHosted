@@ -246,7 +246,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   removeComponent(key: number) {
     if (!this.VCR || this.VCR.length < 1) return;
-    this.replacePageTitleAndDescription("", "");
+    this.replacePageTitleAndDescription("Bug Hosted", "Bug Hosted");
 
     const componentRef = this.componentsReferences.find(
       x => x.instance.unique_key == key
@@ -363,9 +363,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   replacePageTitleAndDescription(title: string, description: string) {
-    const tmpDescription = title + " - BugHosted.com";
-    this.title.setTitle(title);
-    this.meta.updateTag({ name: 'description', content: tmpDescription }); 
+    const tmpTitle = title + " - Bug Hosted";
+    this.title.setTitle(tmpTitle);
+    this.meta.updateTag({ name: 'description', content: title }); 
   }
 
   getTextForDOM(text?: string, component_id?: number) {

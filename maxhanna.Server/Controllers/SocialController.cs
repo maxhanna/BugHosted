@@ -696,11 +696,11 @@ namespace maxhanna.Server.Controllers
 							}
 
 							// Extract URL from story text
-							var url = ExtractUrl(request.story.StoryText);
-							if (url != null)
+							var urls = ExtractUrls(request.story.StoryText);
+							if (urls != null)
 							{
 								// Fetch metadata
-								var metadataRequest = new MetadataRequest { User = request.user, Url = url };
+								var metadataRequest = new MetadataRequest { User = request.user, Url = urls };
 								var metadataResponse = SetMetadata(metadataRequest, storyId);
 							}
 
@@ -788,7 +788,7 @@ namespace maxhanna.Server.Controllers
 						if (rowsAffected == 1)
 						{ 
 							await AppendToSitemapAsync(request.story.Id);
-							var url = ExtractUrl(request.story.StoryText);
+							var url = ExtractUrls(request.story.StoryText);
 							if (url != null)
 							{
 								// Fetch metadata
@@ -951,22 +951,23 @@ namespace maxhanna.Server.Controllers
 			}
 			return "Deleted metadata";
 		}
-		private static string[] ExtractUrl(string? text)
+		private static string[] ExtractUrls(string? text)
 		{
 			if (string.IsNullOrEmpty(text))
 			{
 				return Array.Empty<string>(); // Return an empty array if the text is null or empty
 			}
 
-			// Regular expression pattern to match URLs
-			string urlPattern = @"(https?:\/\/[^\s]+)";
+			// Regular expression to match URLs both inside href="" and standalone links
+			string urlPattern = @"(?:href=[""'](https?:\/\/[^\s""']+)[""']|(?<!href=[""'])(https?:\/\/[^\s<]+))";
 
 			// Match URLs in the text
 			var matches = System.Text.RegularExpressions.Regex.Matches(text, urlPattern);
 
-			// Convert the MatchCollection to a string array
+			// Convert the MatchCollection to a string array, filtering out empty matches
 			return matches.Cast<Match>()
-										.Select(m => m.Value)
+										.Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
+										.Where(url => !string.IsNullOrEmpty(url))
 										.ToArray();
 		}
 
