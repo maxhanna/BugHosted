@@ -123,17 +123,17 @@
 
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Menu Options
-    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
   <div>
-    <div>
-      <span class="popupPanelTitle">Current Wordler streak:</span> {{wordlerStreak}} consecutive days.
+    <div class="wordlerPopupPanelSection">
+      <span class="popupPanelTitle">Current Wordler streak:</span>
+      <div>{{wordlerStreak}} consecutive days.</div>
     </div>
-    <div>
-      <span class="popupPanelTitle">
-        Best Wordler Scores
-        <span class="xxSmallFont">(out of {{wordlerScoresCount}} total scores)</span>:
-      </span>
+    <div class="wordlerPopupPanelSection">
+      <div class="popupPanelTitle">
+        Best Wordler Scores:
+        <div>(out of {{wordlerScoresCount}} total scores)</div>
+      </div>
       <div *ngIf="wordlerScores.length > 0">
         <table *ngIf="wordlerScores && wordlerScores.length > 0" id="scoreTable">
           <thead>
@@ -156,6 +156,7 @@
       </div>
       <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No Worlder scores yet!</div>
     </div>
-
   </div>
+
+  <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
 </div>

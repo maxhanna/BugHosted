@@ -498,6 +498,11 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     });
 
+
+    events.on("Deploy", this, (metabot: MetaBot) => {
+      console.log(metabot);
+    });
+
     events.on("HERO_CREATED", this, (name: string) => {
       if (this.chatInput.nativeElement.placeholder === "Enter your name" && this.parentRef && this.parentRef.user) {
         this.metaService.createHero(this.parentRef.user, name);

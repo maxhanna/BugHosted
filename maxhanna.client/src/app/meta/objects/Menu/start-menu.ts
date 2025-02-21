@@ -94,6 +94,9 @@ export class StartMenu extends GameObject {
         else if (this.items[this.currentlySelectedId] === "Warp Coords Input") {
           this.displayWarpCoordsInput("00", "00");
         }
+        else if (this.items[this.currentlySelectedId] === "Deploy" && this.selectedMetabot) {
+          events.emit("Deploy", this.selectedMetabot);
+        }
         else if (this.items[this.currentlySelectedId] === `X ${this.currentWarpX}, Y ${this.currentWarpY}`) {
           let set = false;
           if (this.coordXSelected) {
@@ -307,7 +310,7 @@ export class StartMenu extends GameObject {
     this.selectedMetabot = selectedBot;
     // Initial menu items with parts
     const itemsWithStats: string[] = [];
-    const items: string[] = this.metabotPartItems.concat("Back");
+    const items: string[] = ["Deploy", ... this.metabotPartItems, "Back"];
 
     for (let x = 0; x < items.length; x++) {
       const partName = items[x];

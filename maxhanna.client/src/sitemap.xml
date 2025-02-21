@@ -8726,7 +8726,7 @@
   </url>
   <url>
     <loc>https://bughosted.com/File/16348</loc>
-    <lastmod>2025-02-12</lastmod>
+    <lastmod>2025-02-20</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
@@ -15460,9 +15460,24 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://bughosted.com/File/17064</loc>
+    <loc>https://bughosted.com/File/17065</loc>
     <lastmod>2025-02-20</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/17066</loc>
+    <lastmod>2025-02-20</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000038126.webm</video:title>
+      <video:description>Video: 1000038126.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000038126.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-02-20T21:42:33Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
   </url>
 </urlset>

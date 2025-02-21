@@ -195,7 +195,15 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     let hFrames = 0;
     const objType = config.objectSubject?.constructor?.name;
     if (objType) {
-     
+      if (objType == "Deer") {
+        frame = 11;
+        vFrames = 5;
+        hFrames = 5;
+      } else if (objType == "Gangster") {
+        frame = 0;
+      } else if (objType == "Chicken") {
+        frame = 0;
+      }
     }
     
     this.portrait = new Sprite({

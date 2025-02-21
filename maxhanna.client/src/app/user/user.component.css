@@ -68,11 +68,9 @@
 .welcomeMessage {
   text-align: center;
   font-size: 24px;
+  z-index: 1;
 }
-
-  .welcomeMessage p {
-    background-color: var(--main-bg-color);
-  }
+ 
 .welcomeTitle {
   color: var(--secondary-font-color);
   font-weight: bold;
@@ -255,3 +253,11 @@
 .aboutPopupPanelContentContainer {
   width: 100%;
 }
+.aboutPictureContainer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: space-between;
+  align-content: space-between;
+  gap: 30px;
+} 
