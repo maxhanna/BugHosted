@@ -22,6 +22,10 @@ export class ChildComponent {
     }
   }
 
+  onMobile() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+
   daysSinceDate(dateString?: Date): string {
     if (!dateString) return '';
 

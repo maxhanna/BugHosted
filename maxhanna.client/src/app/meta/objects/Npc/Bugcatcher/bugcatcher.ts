@@ -44,7 +44,7 @@ export class Bugcatcher extends Npc {
     this.name = "bugcatcher";   
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(this.body.position.x - 9, -30),
+      position: new Vector2((this.body?.position.x ?? 0) - 9, -30),
       scale: new Vector2(1.2, 1.2),
       frameSize: new Vector2(32, 32),
     });

@@ -25,7 +25,7 @@ export class Spiderbot extends Bot {
 
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(this.body.position.x - 9, -30), 
+      position: new Vector2((this.body?.position.x ?? 0) - 9, -30), 
       frameSize: new Vector2(32, 32),
     });
     shadow.drawLayer = "FLOOR";

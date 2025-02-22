@@ -1,27 +1,19 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { GameObject } from "../game-object";
+import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Scenario } from "../../helpers/story-flags";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
-import { moveTowards } from "../../helpers/move-towards";
+import { moveTowards, bodyAtSpace, recalculateScaleBasedOnSlope, otherPlayerMove } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 
-export class Npc extends GameObject {
-  metabots: MetaBot[];
-  body: Sprite;
+export class Npc extends Character {
+  metabots: MetaBot[]; 
   type?: string;
-  partnerNpcs: Npc[] = [];
-  id: number;
-  finishedMoving = false;
-  lastStandAnimationTime = 0;
-  facingDirection: string;
-  destinationPosition: Vector2;
-  lastPosition: Vector2;
-  name?: string;
-  latestMessage = "";
-  speed? = 1;
+  partnerNpcs: Npc[] = []; 
+  finishedMoving = false; 
 
   moveUpDown?: number;
   moveLeftRight?: number;
@@ -40,7 +32,11 @@ export class Npc extends GameObject {
     colorSwap?: ColorSwap,
     speed?: number
   }) {
-    super({ position: config.position });
+    super({
+      id: config.id,
+      name: config.type ?? "",
+      position: config.position
+    });
     this.type = config.type;
     this.id = config.id;
     this.isSolid = true;
@@ -48,7 +44,7 @@ export class Npc extends GameObject {
     this.position = config.position;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
-    this.name = config.type;
+    this.name = config.type ?? "Anon";
     this.textContent = config.textConfig?.content;
     this.textPortraitFrame = config.textConfig?.portraitFrame;
     this.metabots = [];
@@ -57,7 +53,7 @@ export class Npc extends GameObject {
     this.moveLeftRight = config.moveLeftRight;
     this.preventDraw = !!config.preventDraw;
     this.colorSwap = config.colorSwap;
-    this.speed = config.speed;
+    this.speed = config.speed ?? 1;
 
     if (config.body) {
       this.body = config.body;
@@ -84,7 +80,8 @@ export class Npc extends GameObject {
       this.finishedMoving = true;
     } else {
       this.finishedMoving = false;
-      this.moveNpc(root);
+      otherPlayerMove(this, root);
+      //this.moveNpc(root);
     }
   }
 
@@ -210,9 +207,9 @@ export class Npc extends GameObject {
   }
 
   moveNpc(root: any) {
+    let moved = false;
     this.position = this.position.duplicate();
     this.destinationPosition = this.destinationPosition.duplicate();
-
     const destPos = this.destinationPosition;
     let tmpPosition = this.position;
     if (destPos) {
@@ -224,11 +221,15 @@ export class Npc extends GameObject {
         if (deltaX > 0) {
           tmpPosition.x = (tmpPosition.x);
           this.facingDirection = RIGHT;
-          this.body?.animations?.play("walkRight"); 
+          this.body?.animations?.play("walkRight");
+          console.log("walk right");
+          moved = true;
         } else if (deltaX < 0) {
           tmpPosition.x = (tmpPosition.x);
           this.facingDirection = LEFT;
           this.body?.animations?.play("walkLeft");
+          console.log("walk left");
+          moved = true;
         }
       }
       if (deltaY != 0) {
@@ -236,22 +237,24 @@ export class Npc extends GameObject {
           tmpPosition.y = tmpPosition.y;
           this.facingDirection = DOWN;
           this.body?.animations?.play("walkDown");
+          moved = true;
         } else if (deltaY < 0) {
           tmpPosition.y = tmpPosition.y;
           this.facingDirection = UP;
           this.body?.animations?.play("walkUp");
+          moved = true;
         }
       }
       this.updateAnimation();
       const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
-      const solidBodyAtSpace = this.parent.children.find((c: any) => {
-        return c.isSolid
-          && c.position.x == tmpPosition.x
-          && c.position.y == tmpPosition.y
-      })
+      const solidBodyAtSpace = bodyAtSpace(this.parent, tmpPosition, true);
+
       if (spaceIsFree && !solidBodyAtSpace) {
         this.position = tmpPosition;
+        if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) {
+          recalculateScaleBasedOnSlope(this);
+        }
       }
     }
-  }
+  } 
 }

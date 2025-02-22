@@ -1455,7 +1455,7 @@ namespace maxhanna.Server.Controllers
 						int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
 						int? height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : reader.GetInt32("height");
 						var isFolder = reader.GetBoolean("is_folder");
-						var lastAccess = reader.GetDateTime("last_acess");
+						var lastAccess = reader.GetDateTime("last_access");
 
 						var date = reader.GetDateTime("date");
 						var fileData = new FileData();

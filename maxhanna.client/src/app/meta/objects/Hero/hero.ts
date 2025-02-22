@@ -1,12 +1,13 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { GameObject } from "../game-object";
+import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
 import { Input } from "../../helpers/input";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { moveTowards } from "../../helpers/move-towards";
+import { moveTowards, bodyAtSpace, otherPlayerMove, shouldResetSlope, recalculateScaleBasedOnSlope } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
@@ -14,39 +15,45 @@ import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STA
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
 
-export class Hero extends GameObject {
-  facingDirection: string;
-  destinationPosition: Vector2;
-  body: Sprite;
-  isUserControlled = false;
-  id: number;
-  name: string;
+export class Hero extends Character {
   metabots?: MetaBot[];
-  lastPosition: Vector2;
   itemPickupTime: number;
-  lastStandAnimationTime = 0;
   itemPickupShell: any;
-  isLocked = false;
-  latestMessage = "";
-  speed: number;
-  scale: Vector2;
+  isLocked = false; 
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
 
-  mask?: Mask = undefined
-  slopeType: undefined | typeof UP | typeof DOWN;
-  slopeDirection: undefined | typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT;
-  ogScale = new Vector2(1, 1);
-  endScale = new Vector2(1, 1);
-  steppedUpOrDown = false;
-  slopeIncrements = 0.05;
-  slopeStepHeight?: Vector2;
-  distance? = 0;
+  distanceLeftToTravel? = 0;
 
   constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2 }) {
     super({
+      id: params.id ?? 0,
       position: params.position,
       colorSwap: params.colorSwap,
+      name: params.name ?? "Anon",
+      body: new Sprite({
+        objectId: params.id ?? 0,
+        resource: resources.images["hero"],
+        position: new Vector2(-8, -20),
+        frameSize: new Vector2(32, 32),
+        hFrames: 4,
+        vFrames: 5,
+        animations: new Animations(
+          {
+            walkDown: new FrameIndexPattern(WALK_DOWN),
+            walkUp: new FrameIndexPattern(WALK_UP),
+            walkLeft: new FrameIndexPattern(WALK_LEFT),
+            walkRight: new FrameIndexPattern(WALK_RIGHT),
+            standDown: new FrameIndexPattern(STAND_DOWN),
+            standRight: new FrameIndexPattern(STAND_RIGHT),
+            standLeft: new FrameIndexPattern(STAND_LEFT),
+            standUp: new FrameIndexPattern(STAND_UP),
+            pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
+          }),
+        colorSwap: params.colorSwap,
+        scale: params.scale,
+
+      })
     })
     if (params.isUserControlled) {
       this.isUserControlled = params.isUserControlled;
@@ -54,11 +61,9 @@ export class Hero extends GameObject {
     //console.log("New Hero at position : ", this.position);
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
-    this.lastPosition = this.position.duplicate();
-    this.name = params.name ?? "Anon";
+    this.lastPosition = this.position.duplicate(); 
     this.speed = params.speed ?? 1;
-    this.mask = params.mask;
-    this.id = params.id ?? 0;
+    this.mask = params.mask; 
     this.itemPickupTime = 0;
     this.scale = params.scale ?? new Vector2(1, 1);
     this.metabots = params.metabots ?? [];
@@ -69,84 +74,19 @@ export class Hero extends GameObject {
       frameSize: new Vector2(32, 32),
     });
     shadow.drawLayer = "FLOOR";
-    this.addChild(shadow);
-
-    this.body = this.initializeBody();
+    this.addChild(shadow); 
   }
 
-  private destroyBody() {
-    console.log("destroying body");
-    if (this.body) {
-      this.body.destroy();
-    }
-    if (this.mask) {
-      this.mask.destroy();
-    }
-  }
+  //private destroyBody() {
+  //  console.log("destroying body");
+  //  if (this.body) {
+  //    this.body.destroy();
+  //  }
+  //  if (this.mask) {
+  //    this.mask.destroy();
+  //  }
+  //}
 
-  private initializeBody(redraw?: boolean) {
-    let offsetY;
-    if (this.scale.y < 0.75) {
-      offsetY = 7;
-    } else if (this.scale.y < 0.8) {
-      offsetY = 5;
-    } else if (this.scale.y < 0.9) {
-      offsetY = 5;
-    } else if (this.scale.y < 0.95) {
-      offsetY = 3;
-    } else {
-      offsetY = 0;
-    }
-
-    let tmpBody = new Sprite({
-      objectId: this.id,
-      resource: resources.images["hero"],
-      position: new Vector2(-8, -20),
-      frameSize: new Vector2(32, 32),
-      hFrames: 4,
-      vFrames: 5,
-      animations: new Animations(
-        {
-          walkDown: new FrameIndexPattern(WALK_DOWN),
-          walkUp: new FrameIndexPattern(WALK_UP),
-          walkLeft: new FrameIndexPattern(WALK_LEFT),
-          walkRight: new FrameIndexPattern(WALK_RIGHT),
-          standDown: new FrameIndexPattern(STAND_DOWN),
-          standRight: new FrameIndexPattern(STAND_RIGHT),
-          standLeft: new FrameIndexPattern(STAND_LEFT),
-          standUp: new FrameIndexPattern(STAND_UP),
-          pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
-        }),
-      colorSwap: this.colorSwap,
-      scale: this.scale,
-      offsetY: offsetY
-
-    });
-    this.addChild(tmpBody);
-    let animation = this.body?.animations?.activeKey;
-    tmpBody.animations?.play(animation ?? "standDown");
-
-    if (this.mask) {
-      if (redraw) {
-        if (this.facingDirection == UP) {
-          return tmpBody;
-        } else if (this.facingDirection == DOWN) {
-          this.mask.frame = 0;
-        } else if (this.facingDirection == LEFT) {
-          this.mask.frame = 1;
-        } else if (this.facingDirection == RIGHT) {
-          this.mask.frame = 2;
-        }
-      }
-      console.log("offset", offsetY);
-      this.mask.scale = this.scale;
-      this.mask.position = tmpBody.position.duplicate();
-      this.mask.position.y += offsetY;
-      this.mask.offsetX = offsetY / 2;
-      this.addChild(this.mask);
-    }
-    return tmpBody;
-  }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Draw the player's name
@@ -316,8 +256,8 @@ export class Hero extends GameObject {
         if (!blockUpdate) {
           this.scale = params.startScale;
           this.ogScale = params.startScale;
-          this.destroyBody();
-          this.body = this.initializeBody(true);
+          //this.destroyBody();
+          this.initializeBody(true);
         }
 
       }
@@ -351,8 +291,8 @@ export class Hero extends GameObject {
       events.on("WARP", this, (params: { x: string, y: string }) => {
 
         const warpPosition = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
-        const bodyAtSpace = this.bodyAtSpace(warpPosition);
-        if (bodyAtSpace) {
+        const isBodyAtSpace = bodyAtSpace(this.parent, warpPosition);
+        if (isBodyAtSpace) {
           this.destinationPosition = warpPosition.duplicate();
           this.position = this.destinationPosition.duplicate();
         } else {
@@ -375,24 +315,25 @@ export class Hero extends GameObject {
       const objectAtPosition = this.isObjectNeerby();
 
       if (objectAtPosition) {
-        console.log(objectAtPosition);
+       // console.log(objectAtPosition);
         events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
       }
     }
-    this.distance = moveTowards(this, this.destinationPosition, this.speed);
-    const hasArrived = (this.distance ?? 0) <= 1;
+    this.distanceLeftToTravel = moveTowards(this, this.destinationPosition, this.speed);
+    const hasArrived = (this.distanceLeftToTravel ?? 0) <= 1;
     if (hasArrived && this.isUserControlled) {
       this.tryMove(root);
     }
 
-
-    this.otherPlayerMove(root);
+    if (!this.isUserControlled) { 
+      otherPlayerMove(this, root);
+    }
     this.tryEmitPosition();
     this.recalculateMaskPositioning();
   }
 
   private recalculateMaskPositioning() {
-    if (!this.mask) return;
+    if (!this.mask || !this.body) return;
     this.mask.offsetY = 0;
     if (this.body.frame >= 12 && this.body.frame < 16) {
       this.mask.preventDraw = true;
@@ -466,20 +407,7 @@ export class Hero extends GameObject {
     return posibilities[0];
   }
 
-  updateAnimation() {
-    setTimeout(() => {
-      const currentTime = new Date().getTime();
-      if (currentTime - this.lastStandAnimationTime >= 300) {
-        if (this.destinationPosition.matches(this.position)) {
-          this.body.animations?.play(
-            "stand" + this.facingDirection.charAt(0) +
-            this.facingDirection.substring(1, this.facingDirection.length).toLowerCase()
-          );
-        }
-        this.lastStandAnimationTime = currentTime; // Update the last time it was run
-      }
-    }, (this.isUserControlled ? 1000 : 2000));
-  }
+
   tryEmitPosition() {
     if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
       return;
@@ -490,6 +418,8 @@ export class Hero extends GameObject {
 
   tryMove(root: any) {
     const { input } = root;
+    if (!this.body) return;
+
     if (!input.direction) {
       //console.log("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase()); 
       this.body.animations?.play("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
@@ -523,17 +453,17 @@ export class Hero extends GameObject {
 
       this.facingDirection = input.direction ?? this.facingDirection;   
 
-      if (!this.bodyAtSpace(position)) {
+      if (!bodyAtSpace(this.parent, position)) {
         this.destinationPosition = this.lastPosition.duplicate();
         console.log("No body at space, setting to previous position ", this.lastPosition);
         return;
       }
       /*console.log(position);*/
-      if (isSpaceFree(root.level?.walls, position.x, position.y) && !this.bodyAtSpace(position, true)) {
+      if (isSpaceFree(root.level?.walls, position.x, position.y) && !bodyAtSpace(this.parent, position, true)) {
         this.destinationPosition = position;
         if (this.slopeType) {
-          this.recalculateScaleBasedOnSlope();
-          console.log(`slopeType: ${this.slopeType}, slopeDirection: ${this.slopeDirection}, slopeStepHeight: ${this.slopeStepHeight}, facingDirection: ${this.facingDirection}, scale: ${this.scale}`);
+          recalculateScaleBasedOnSlope(this);
+         // console.log(`slopeType: ${this.slopeType}, slopeDirection: ${this.slopeDirection}, slopeStepHeight: ${this.slopeStepHeight}, facingDirection: ${this.facingDirection}, scale: ${this.scale}`);
         }
       } else {
         this.destinationPosition = this.position.duplicate();
@@ -542,67 +472,6 @@ export class Hero extends GameObject {
   }
 
 
-  private bodyAtSpace(position: Vector2, solid?: boolean) {
-    return this.parent.children.find((c: any) => {
-      return (solid ? c.isSolid : true) && c.position.x == position.x
-        && c.position.y == position.y;
-    });
-  } 
-
-  otherPlayerMove(root: any) {
-    if (!this.isUserControlled) {
-      let moved = false;
-      this.position = this.position.duplicate();
-      this.destinationPosition = this.destinationPosition.duplicate();
-      const destPos = this.destinationPosition;
-      let tmpPosition = this.position;
-      if (destPos) {
-        // Calculate the difference between destination and current position
-        const deltaX = destPos.x - tmpPosition.x;
-        const deltaY = destPos.y - tmpPosition.y;
-        const gridSize = gridCells(1);
-        if (deltaX != 0 || deltaY != 0) {
-          if (deltaX > 0) {
-            tmpPosition.x = (tmpPosition.x);
-            this.facingDirection = RIGHT;
-            this.body.animations?.play("walkRight");
-            console.log("walk right");
-            moved = true;
-          } else if (deltaX < 0) {
-            tmpPosition.x = (tmpPosition.x);
-            this.facingDirection = LEFT;
-            this.body.animations?.play("walkLeft");
-            console.log("walk left");
-            moved = true;
-          }
-        }
-        if (deltaY != 0) {
-          if (deltaY > 0) {
-            tmpPosition.y = tmpPosition.y;
-            this.facingDirection = DOWN;
-            this.body.animations?.play("walkDown");
-            moved = true;
-          } else if (deltaY < 0) {
-            tmpPosition.y = tmpPosition.y;
-            this.facingDirection = UP;
-            this.body.animations?.play("walkUp");
-            moved = true;
-          }
-        }
-        this.updateAnimation();
-        const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
-        const solidBodyAtSpace = this.bodyAtSpace(tmpPosition, true);
-
-        if (spaceIsFree && !solidBodyAtSpace) {
-          this.position = tmpPosition;
-          if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) {
-            this.recalculateScaleBasedOnSlope();
-          }
-        }
-      }
-    }
-
-  }
 
   onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
     console.log(data);
@@ -622,8 +491,8 @@ export class Hero extends GameObject {
   workOnItemPickup(delta: number) {
     console.log("workOnItemPickup activated", delta);
     this.itemPickupTime -= delta;
-    if (this.body.animations?.activeKey != "pickupDown") {
-      this.body.animations?.play("pickupDown");
+    if (this.body?.animations?.activeKey != "pickupDown") {
+      this.body?.animations?.play("pickupDown");
       console.log("set pickup down animation");
     }
     if (this.itemPickupTime <= 0) {
@@ -638,150 +507,5 @@ export class Hero extends GameObject {
       canSelectItems: true,
       addsFlag: null
     }
-  }
-
-  private shouldResetSlope() {
-    // Check DOWN slope conditions
-    if (this.slopeDirection === DOWN && this.facingDirection === UP) {
-      if (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y) {
-        return true;
-      }
-    }
-    // Check RIGHT slope conditions
-    if (this.slopeDirection === UP && this.facingDirection === DOWN) {
-      if (this.ogScale.x <= this.scale.x || this.ogScale.y <= this.scale.y) {
-        return true;
-      }
-    }
-
-    // Check LEFT slope conditions
-    if (this.slopeDirection === LEFT && this.facingDirection === RIGHT) {
-      if (this.slopeType === UP && (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y)) {
-        return true;
-      }
-      if (this.slopeType === DOWN && (this.scale.x >= this.ogScale.x || this.scale.y >= this.ogScale.y)) {
-        return true;
-      }
-    }
-
-    // Check RIGHT slope conditions
-    if (this.slopeDirection === RIGHT && this.facingDirection === LEFT) {
-      if (this.slopeType === DOWN && (this.ogScale.x <= this.scale.x || this.ogScale.y <= this.scale.y)) {
-        return true;
-      }
-      if (this.slopeType === UP && (this.ogScale.x >= this.scale.x || this.ogScale.y >= this.scale.y)) {
-        return true;
-      }
-    }
-
-    // If none of the conditions matched, return false
-    return false;
-  }
-
-  private recalculateScaleBasedOnSlope() {
-    if (!this.slopeDirection || !this.slopeType) return;
-    console.log(`before: scale:${this.scale.x}${this.scale.y}, endScale:${this.endScale.x}${this.endScale.y}, ogScale:${this.ogScale.x}${this.ogScale.y}, slopeDir:${this.slopeDirection}, slopeType:${this.slopeType}`);
-
-    if (this.shouldResetSlope()) {
-      console.log("autoreset");
-      return this.resetSlope(true);
-    }
-
-    const preScale = new Vector2(this.scale.x, this.scale.y);
-    this.scaleWithStep(preScale);
-    console.log(`after : scale:${this.scale.x}${this.scale.y}, endScale:${this.endScale.x}${this.endScale.y}, ogScale:${this.ogScale.x}${this.ogScale.y}, slopeDir:${this.slopeDirection}, slopeType:${this.slopeType}`);
-    let forceResetSlope = this.isSlopeResetFromEndScale();
-
-    if (forceResetSlope) {
-      console.log("force reset");
-      return this.resetSlope(true);
-    }
-    else {
-      if (this.scale.x > 0 && this.scale.y > 0 && !preScale.matches(this.scale)) {
-        this.destroyBody();
-        this.body = this.initializeBody(true);
-        return true;
-      }
-      else
-        return false;
-    }
-  }
-
-  private isSlopeResetFromEndScale(): boolean {
-    let resetSlope = false;
-    if (this.slopeType == UP && this.endScale.x <= this.scale.x && this.endScale.y <= this.scale.y) {
-      resetSlope = true;
-    } else if (this.slopeType == DOWN && this.endScale.x >= this.scale.x && this.endScale.y >= this.scale.y) {
-      resetSlope = true;
-    }
-    return resetSlope;
-  }
-
-  private scaleWithStep(preScale: Vector2) {
-    if (!this.slopeStepHeight) return;
-    const se = this.slopeStepHeight.x;
-    if (this.facingDirection === LEFT) {
-      if (this.slopeDirection === LEFT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
-      } else if (this.slopeDirection === LEFT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
-      } else if (this.slopeDirection === RIGHT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
-      } else if (this.slopeDirection === RIGHT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
-      }
-    } else if (this.facingDirection === RIGHT) {
-      if (this.slopeDirection === RIGHT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
-      } else if (this.slopeDirection === LEFT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
-      } else if (this.slopeDirection === LEFT && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
-      } else if (this.slopeDirection === RIGHT && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
-      }
-    } else if (this.facingDirection === UP) {
-      if (this.slopeDirection === UP && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
-      } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
-      } else if (this.slopeDirection === DOWN && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
-      } else if (this.slopeDirection === DOWN && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
-      }
-    } else if (this.facingDirection === DOWN) {
-      if (this.slopeDirection === DOWN && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
-      } else if (this.slopeDirection === DOWN && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
-      } else if (this.slopeDirection === UP && this.slopeType === DOWN) {
-        this.scale = new Vector2(this.scale.x + se, this.scale.y + se);
-      } else if (this.slopeDirection === UP && this.slopeType === UP) {
-        this.scale = new Vector2(this.scale.x - se, this.scale.y - se);
-      }
-    }
-    if (Math.abs(this.ogScale.y - this.scale.y) > 0.1) {
-      this.steppedUpOrDown = !this.steppedUpOrDown;
-      if (this.ogScale.y < this.scale.y && this.steppedUpOrDown || (this.facingDirection != this.slopeDirection && !this.steppedUpOrDown)) {
-        this.destinationPosition.y -= gridCells(1);
-        console.log("adjusting down");
-      } else if ((this.ogScale.y > this.scale.y && this.steppedUpOrDown) || (this.facingDirection != this.slopeDirection && !this.steppedUpOrDown)) {
-        this.destinationPosition.y += gridCells(1);
-        //console.log("adjusting down");
-      }
-    }
-  }
-
-  private resetSlope(skipDestroy?: boolean) {
-    this.slopeDirection = undefined;
-    this.slopeType = undefined;
-    this.slopeStepHeight = undefined; 
-    this.steppedUpOrDown = false;
-    if (!skipDestroy) {
-      this.destroyBody();
-      this.body = this.initializeBody(true);
-    }
-    console.log("slope reset", this.endScale);
-  }
+  } 
 }

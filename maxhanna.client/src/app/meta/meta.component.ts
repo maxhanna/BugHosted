@@ -47,7 +47,7 @@ import { Bot } from './objects/Bot/bot';
 export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('gameCanvas', { static: true }) gameCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('colorInput') colorInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('colorInput') colorInput!: ElementRef<HTMLInputElement>; 
 
   constructor(private metaService: MetaService) {
     super();
@@ -74,6 +74,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   stopPollingForUpdates = false;
   isDecidingOnParty = false;
   actionBlocker = false;
+  isStartMenuOpened: boolean = false;
 
   private pollingInterval: any;
 
@@ -97,6 +98,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       this.gameLoop.start();
       this.stopLoading();
     }
+
+    window.addEventListener("resize", this.adjustCanvasSize);
+    this.adjustCanvasSize();
   }
 
   update = async (delta: number) => {
@@ -634,7 +638,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       );
     });
 
-
+    events.on("START_PRESSED", this, (data: any) => {
+      this.isStartMenuOpened = true;
+    });
+    events.on("CLOSE_INVENTORY_MENU", this, (data: any) => {
+      this.isStartMenuOpened = false;
+    });
     //Reposition Safely handler
     events.on("REPOSITION_SAFELY", this, () => {
       if (this.metaHero) {
@@ -852,6 +861,27 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.parentRef?.closeModal();
     await this.reinitializeHero(this.metaHero);
     events.emit("HERO_MOVEMENT_UNLOCK");
+  }
+  private adjustCanvasSize = () => {
+    const containers = document.querySelectorAll('.componentContainer');
+    containers.forEach((container: any) => {   
+      container.style.height = '100vh'; 
+    });
+
+    //const isLandscape = this.onMobile() && window.innerWidth > window.innerHeight;
+    //if (isLandscape) {
+    //  console.log("Rotated to landscape - Fullscreen Canvas");
+    //  this.goFullScreen();
+    //} else {
+    //  this.exitFullScreen();
+    //}
+  };
+  
+  goFullScreen() {
+    this.canvas.requestFullscreen(); // having a hard time getting controls to appear ontop of canvas.
+  }
+  exitFullScreen() { 
+    document.exitFullscreen();
   }
   closeUserComponent(user: User) {
     this.isUserComponentOpen = false;

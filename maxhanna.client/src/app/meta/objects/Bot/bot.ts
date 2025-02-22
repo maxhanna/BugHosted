@@ -11,7 +11,7 @@ import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./bot-animations";
-import { Npc } from "../Npc/npc"; 
+import { Npc } from "../Npc/npc";
 import { MetaBotPart } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { Hero } from "../Hero/hero";
@@ -25,6 +25,7 @@ export class Bot extends Npc {
   legs?: MetaBotPart;
   head?: MetaBotPart;
   isDeployed? = false;
+  previousHeroPosition?: Vector2;
 
   constructor(params: {
     position: Vector2, id?: number, heroId?: number,
@@ -74,12 +75,13 @@ export class Bot extends Npc {
     this.rightArm = params.rightArm;
     this.head = params.head;
     this.legs = params.legs;
-    this.name = params.name;
+    this.name = params.name ?? "Anon";
     this.isDeployed = params.isDeployed;
-
-    this.addChild(this.body); 
-    let animation = this.body?.animations?.activeKey;
-    this.body.animations?.play(animation ?? "standDown");
+    if (this.body) { 
+      this.addChild(this.body);
+      let animation = this.body.animations?.activeKey;
+      this.body.animations?.play(animation ?? "standDown");
+    }
 
     if (this.type != "white") {
       const bodyScale = params.scale ?? new Vector2(1, 1);
@@ -98,48 +100,52 @@ export class Bot extends Npc {
 
   override ready() {
     events.on("HERO_POSITION", this, (hero: Hero) => {
-      if ((hero.distance ?? 0) < 5 && this.heroId === hero.id && this.isDeployed) {
-        const directionX = hero.position.x - this.destinationPosition.x; // Detect horizontal movement
-        const directionY = hero.position.y - this.destinationPosition.y; // Detect vertical movement
-
-        let newX = hero.position.x;
-        let newY = hero.position.y;
-
-        // If hero moved horizontally (left or right), adjust bot's position
-        if (directionX > 0) {
-          // Hero moved right, bot moves to the left
-          newX = hero.position.x - gridCells(1);
-        } else if (directionX < 0) {
-          // Hero moved left, bot moves to the right
-          newX = hero.position.x + gridCells(1);
-        }
-
-        // Check if hero changed horizontal direction (left to right or vice versa)
-        if (directionX !== 0) {
-          // Hero's movement direction has changed
-          if (this.destinationPosition.x < hero.position.x) {
-            // Bot was on the left side of the hero, now move to the right
-            newX = hero.position.x + gridCells(1);
-          } else {
-            // Bot was on the right side of the hero, now move to the left
-            newX = hero.position.x - gridCells(1);
-          }
-        }
-
-        // Maintain vertical positioning
-        if (directionY > 0) {
-          // Hero moved down, bot moves up
-          newY = hero.position.y - gridCells(1);
-        } else if (directionY < 0) {
-          // Hero moved up, bot moves down
-          newY = hero.position.y + gridCells(1);
-        }
-
-        this.destinationPosition = new Vector2(newX, newY);
-      } 
+      this.followHero(hero);
     });
   }
 
+
+  private followHero(hero: Hero) {
+    if ((hero.distanceLeftToTravel ?? 0) < 5 && this.heroId === hero.id && this.isDeployed) {
+      const directionX = hero.position.x - (this.previousHeroPosition?.x ?? hero.position.x);
+      const directionY = hero.position.y - (this.previousHeroPosition?.y ?? hero.position.y);
+      const distanceFromHero = gridCells(2);
+      let newX = hero.position.x;
+      let newY = hero.position.y; 
+
+      console.log(this.body?.animations?.activeKey);
+      // Move bot to always be behind the hero based on their movement direction
+      if (Math.abs(directionX) > Math.abs(directionY)) {
+        // Hero is primarily moving horizontally
+        if (directionX > 0) {
+          // Hero moved RIGHT → Bot should be to the LEFT
+          newX = hero.position.x - distanceFromHero;
+          newY = hero.position.y; // Stay aligned vertically
+        } else if (directionX < 0) {
+          // Hero moved LEFT → Bot should be to the RIGHT
+          newX = hero.position.x + distanceFromHero;
+          newY = hero.position.y;
+        }
+      } else {
+        // Hero is primarily moving vertically
+        if (directionY > 0) {
+          // Hero moved DOWN → Bot should be ABOVE
+          newX = hero.position.x; // Stay aligned horizontally
+          newY = hero.position.y - distanceFromHero;
+        } else if (directionY < 0) {
+          // Hero moved UP → Bot should be BELOW
+          newX = hero.position.x;
+          newY = hero.position.y + distanceFromHero;
+        }
+      }
+
+      // Update the bot's destination position
+      this.destinationPosition = new Vector2(newX, newY);
+
+      // Store hero's last position to track movement direction
+      this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
+    }
+  }
 
   private getBotType() {
     let bType = SkillType.SPEED;

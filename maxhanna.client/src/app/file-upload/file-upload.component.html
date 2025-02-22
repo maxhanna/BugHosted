@@ -51,6 +51,9 @@
         <span *ngIf="uploadProgress[file.name]">
           - {{ uploadProgress[file.name] === 100 ? '✅' : uploadProgress[file.name] + '%' }}
         </span>
+        <span *ngIf="!uploadProgress[file.name] && totalProgress">
+          - 0%
+        </span>
       </div>
     </div>
   </div>

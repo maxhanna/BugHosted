@@ -12,7 +12,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 })
 export class EmulationComponent extends ChildComponent implements OnInit, OnDestroy {
   isMenuPanelOpen = false;
-  selectedRomName? : string;
+  selectedRomName?: string;
   nostalgist: Nostalgist | undefined;
   elementListenerMap = new WeakMap<Element, boolean>();
   @ViewChild('canvas') canvas!: ElementRef<HTMLCanvasElement>;
@@ -71,7 +71,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   autosave = true;
   currentVolume = 99;
   maxVolume = 99;
-  actionDelay = 50; 
+  actionDelay = 50;
   constructor(private romService: RomService, private fileService: FileService) { super(); }
 
   async ngOnInit() {
@@ -162,7 +162,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user);
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
-     
+
     console.log(fileType, this.currentFileType);
     const style = {
       backgroundColor: 'black',
@@ -182,8 +182,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
 
     await this.nostalgist.launchEmulator();
-    setTimeout(() => { 
-      this.nostalgist?.sendCommand('MUTE'); 
+    setTimeout(() => {
+      this.nostalgist?.sendCommand('MUTE');
       this.soundOn = false;
     }, 1);
     this.setHTMLControls();
@@ -274,7 +274,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.soundOn = !this.soundOn;
     this.closeMenuPanel();
   }
- 
+
   setHTMLControls() {
     if (this.controlsSet) {
       return;
@@ -461,12 +461,11 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     const ft = this.currentFileType.toLowerCase().trim();
     this.displayC = ft != '' && this.segaFileTypes.includes(ft);
   }
-  onMobile() {
-    return (/Mobi|Android/i.test(navigator.userAgent));
-  }
+
   getAllowedFileTypes(): string[] {
     return this.fileService.romFileExtensions;
   }
+
   showMenuPanel() {
     if (this.isMenuPanelOpen) {
       this.closeMenuPanel();
@@ -484,10 +483,10 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     }
     console.log("closed");
     setTimeout(() => {
-      if (this.selectedRomName) { 
+      if (this.selectedRomName) {
         this.controlsSet = false;
-        this.setHTMLControls(); 
-      } 
+        this.setHTMLControls();
+      }
     }, 3);
   }
 }

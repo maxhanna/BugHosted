@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { WordlerService } from '../../services/wordler.service'; 
+import { WordlerService } from '../../services/wordler.service';
 import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
 import { WordlerGuess } from '../../services/datacontracts/wordler/wordler-guess';
 import { User } from '../../services/datacontracts/user/user';
@@ -35,15 +35,15 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   wordlerScores: WordlerScore[] = [];
   wordlerScoresCount: number = 0;
   wordlerStreak: number = 0;
- 
+
   @ViewChild('difficultySelect') difficultySelect!: ElementRef<HTMLSelectElement>;
 
   difficultyMapping: Record<DifficultyKey, number> = {
-  "Easy Difficulty": 4,
-  "Medium Difficulty": 5,
-  "Hard Difficulty": 6,
-  "Master Wordler": 7,
-};
+    "Easy Difficulty": 4,
+    "Medium Difficulty": 5,
+    "Hard Difficulty": 6,
+    "Master Wordler": 7,
+  };
 
   difficulties: DifficultyKey[] = ["Easy Difficulty", "Medium Difficulty", "Hard Difficulty", "Master Wordler"];
 
@@ -81,13 +81,10 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   getDifficultyByValue(value: number): DifficultyKey | undefined {
     return Object.keys(this.difficultyMapping).find(key => this.difficultyMapping[key as DifficultyKey] === value) as DifficultyKey | undefined;
   }
-  onMobile() {
-    return (/Mobi|Android/i.test(navigator.userAgent));
-  }
-   
+
   keyFocus(event: Event) {
     if (this.onMobile())
-    event.preventDefault();
+      event.preventDefault();
   }
   pressedKey(char: string, event: Event) {
     event.preventDefault();
@@ -189,10 +186,10 @@ export class WordlerComponent extends ChildComponent implements OnInit {
               for (let difficultyIndex = 0; difficultyIndex < this.selectedDifficulty; difficultyIndex++) {
                 if (res && res[tryIndex] && res[tryIndex].guess && res[tryIndex].guess[difficultyIndex]) {
                   // REINSERT the guess into the inputs
-                  (document.getElementById('inputIdRow' + tryIndex + 'Letter' + difficultyIndex) as HTMLInputElement).value = res[tryIndex].guess[difficultyIndex]; 
+                  (document.getElementById('inputIdRow' + tryIndex + 'Letter' + difficultyIndex) as HTMLInputElement).value = res[tryIndex].guess[difficultyIndex];
                   word += res[tryIndex].guess[difficultyIndex];
                   (document.getElementById('inputIdRow' + tryIndex + 'Letter' + difficultyIndex) as HTMLInputElement).classList.add("grey");
-                } 
+                }
                 if (word.length == this.selectedDifficulty) {
                   this.guessAttempts.push(word);
                   this.provideFeedback(word, this.currentAttempt);
@@ -203,20 +200,20 @@ export class WordlerComponent extends ChildComponent implements OnInit {
                       }
                     }
                   }
-                  this.currentAttempt++; 
+                  this.currentAttempt++;
                   if (numberOfGreens >= this.selectedDifficulty && !skipChecks) {
                     setTimeout(() => {
-                     // alert(`Congratulations, you have defeated the Wordler!`);
+                      // alert(`Congratulations, you have defeated the Wordler!`);
                       //const mode = this.selectedDifficulty == '4' ?
                       setTimeout(() => {
                         const inputs = document.getElementById("attemptDiv" + (this.currentAttempt - 1))?.getElementsByTagName("input");
-                          if (inputs) {
-                            Array.from(inputs).forEach(input => {
-                              input.classList.add("toss");
-                            });
-                          }
-                        }, 1000);  // Delay to let the flip animations complete
-                      
+                        if (inputs) {
+                          Array.from(inputs).forEach(input => {
+                            input.classList.add("toss");
+                          });
+                        }
+                      }, 1000);  // Delay to let the flip animations complete
+
                       this.parentRef?.showNotification(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Try another difficulty?`);
                     }, 1);
                     skipChecks = true;
@@ -231,7 +228,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
                   }
                 }
               }
-            } 
+            }
           }
         }, 1);
       } catch (e) { console.log("no guesses, or error fetching: " + e); }
@@ -266,7 +263,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         difficulty: this.selectedDifficulty,
         guess: guess,
       }
-      
+
       //first check if valid word
       const validityRes = await this.wordlerService.checkGuess(this.selectedDifficulty, guess);
       if (validityRes && validityRes[0] == "0") {
@@ -275,7 +272,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
           this.parentRef?.showNotification("Thats not a real word, try again, The Wordler raises his brow at your choices.");
         } else {
           this.parentRef?.showNotification("Thats not a real word, try again! The Wordler laughs at your despair!");
-        } 
+        }
         this.shakeCurrentAttempt();
         return;
       } else if (validityRes && validityRes[0] == "1") {
@@ -286,18 +283,18 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       }
       this.currentAttempt++;
       this.provideFeedback(guess, attemptIndex);
-      
+
       this.guesses.push(newGuess);
- 
-      if (this.parentRef && this.parentRef.user && this.parentRef.user.id != 0) { 
+
+      if (this.parentRef && this.parentRef.user && this.parentRef.user.id != 0) {
         try {
           await this.wordlerService.submitGuess(newGuess);
-        } catch { } 
+        } catch { }
       }
-     
+
       if (guess === this.wordToGuess) {
-        await this.winningScenario(guess); 
-        this.showScores = true; 
+        await this.winningScenario(guess);
+        this.showScores = true;
       } else if (this.currentAttempt < this.numberOfTries) {
         if (!this.onMobile()) {
           setTimeout(() => document.getElementById("inputIdRow" + this.currentAttempt + "Letter0")?.focus(), 1);
@@ -307,7 +304,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         const message = `Game over! The word was: ${this.wordToGuess}; Time elapsed: ${this.elapsedTime}`;
         this.parentRef?.showNotification(message);
         this.showScores = true;
-        alert(message); 
+        alert(message);
         const definition = await this.wordlerService.getWordDefinition(this.wordToGuess);
         if (definition) {
           this.parentRef?.showNotification(`Word definition: ${definition}`);
@@ -315,7 +312,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       }
     }
   }
-   
+
   async winningScenario(guess: string) {
     this.stopTimer();
     alert(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Time Elapsed: ${this.elapsedTime}`);
@@ -352,7 +349,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   }
 
 
-  provideFeedback(guess: string, attemptIndex: number) { 
+  provideFeedback(guess: string, attemptIndex: number) {
     const guessArray = guess.split('');
     const wordArray = this.wordToGuess.split('');
     let correctLetters: string[] = [];
@@ -403,7 +400,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
           input.classList.add("flip");
           setTimeout(() => input.classList.remove("flip"), 600);
         }
-      } 
+      }
     });
 
     if (guess === this.wordToGuess) {
@@ -432,7 +429,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
   giveUp() {
     if (confirm("Are you sure ?")) {
-      this.showScores = true; 
+      this.showScores = true;
       this.gameStarted = false;
       this.currentAttempt = 0;
       this.wordToGuess = '';
@@ -440,7 +437,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       this.disableAllInputs = true;
       this.showExitGameButton = false;
     }
-  } 
+  }
 
   showMenuPanel() {
     if (this.isMenuPanelOpen) {

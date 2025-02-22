@@ -151,8 +151,10 @@ export class RainbowAlleys1 extends Level {
         heroPosition: new Vector2(gridCells(8), gridCells(11)),
         entranceLevel: tmpLvl,
         items: maskSelection
-      }); 
-    salesMan.body.offsetY += 10;
+      });
+    if (salesMan.body) { 
+      salesMan.body.offsetY += 10;
+    }
     this.addChild(salesMan); 
     const stand = new Stand(gridCells(5), gridCells(10));
     this.addChild(stand); 

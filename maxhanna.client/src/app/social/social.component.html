@@ -225,17 +225,13 @@
             </div>
             <div class="optionsStatsDescription">
               <a [href]="metadata.url" target="_blank" [title]="metadata.url">{{metadata.url}}</a>
-            </div>
-          </div>
-          <div class="optionsStatsDiv" *ngIf="metadata.title">
+            </div> 
             <div class="optionsStatsHeader">
               Metadata Title:
             </div>
             <div class="optionsStatsDescription" [title]="metadata.title">
               {{ metadata.title.replace(' - YouTube', '') }}
-            </div>
-          </div>
-          <div class="optionsStatsDiv" *ngIf="metadata.title && isYoutubeUrl(extractUrl(optionStory.storyText))">
+            </div> 
             <div class="optionsStatsHeader">
               Save to Music Playlist:
             </div>

@@ -12,6 +12,7 @@ html, body {
   -moz-user-select: none;
   -ms-user-select: none;
 }
+ 
 .componentMain {
   width: 99vw;
   height: CALC(var(--vh, 1vh) * 100 - 60px);
@@ -20,6 +21,7 @@ html, body {
   display: flex;
   flex-direction: column;
 }
+
 
 .gameCanvas {
   border: var(--main-border);
@@ -103,10 +105,13 @@ html, body {
   }
 } 
 /* landscape orientation */
-@media only screen and (max-width: 1000px) and (orientation : landscape) {
- 
+@media only screen and (max-height: 500px) and (orientation : landscape) { 
   .componentTitle {
-    height: 0px;
+    display: none;
+  }
+
+  .refreshButton {
+    display: none;
   }
 
   .componentMain {
@@ -173,6 +178,19 @@ html, body {
   height: 160px;
   z-index: 5;
 }
+@media only screen and (max-width : 900px) and (min-height: 950px) {
+  .dpad {
+    position: relative;
+    top: 100px;
+    left: 10px;
+  }
+}
+@media only screen and (max-width : 900px) and (max-height: 950px) {
+  .dpad {
+    position: absolute;
+    bottom: 100px; 
+  }
+} 
 
   .dpad > * {
     width: 36%;
@@ -288,13 +306,27 @@ html, body {
 }
 
 .a-b {
-  position: fixed;
-  bottom:10px;
-  right:100px;
+  position: absolute;
+  bottom: 10px;
+  right: 100px;
   display: inline-block;
   width: 120px;
   height: 90px;
 }
+@media only screen and (max-width : 900px) and (min-height: 950px) {
+  .a-b {
+    position: relative;
+    top: 100px;
+    right: 100px;
+  }
+}
+@media only screen and (max-width : 900px) and (max-height: 950px) {
+  .a-b {  
+    bottom: 100px; 
+    z-index: 9999999;
+  }
+}
+
 
 .a, .b {
   position: absolute;
@@ -343,6 +375,20 @@ html, body {
   font-size: 16px;
   text-align: center;
 }
+@media only screen and (min-width : 650px) and (max-width: 860px) and (min-height: 950px) {
+  .start {
+    position: relative;
+    top: 30px;
+    right: 200px;
+  }
+}
+@media only screen and (max-width : 900px) and (max-height: 950px) {
+  .start {
+    position: absolute;
+    bottom: 250px;
+  }
+} 
+
 
   .start::before  {
     content: "";

@@ -50,7 +50,7 @@ export class Salesman extends Npc {
     if (!this.preventDraw) { 
       const shadow = new Sprite({
         resource: resources.images["shadow"],
-        position: new Vector2(this.body.position.x + 5, -16),
+        position: new Vector2((this.body?.position.x ?? 0) + 5, -16),
         scale: new Vector2(1.25, 1),
         frameSize: new Vector2(32, 32),
       });

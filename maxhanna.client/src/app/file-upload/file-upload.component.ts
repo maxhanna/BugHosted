@@ -37,6 +37,7 @@ export class FileUploadComponent {
   displayListContainer = false;
   displayFileUploadOptions = false;
   displayFileUploadTopics = false;
+  totalProgress? = 0;
 
   fileUploadTopics: Topic[] = [];
 
@@ -160,8 +161,8 @@ export class FileUploadComponent {
 
   getOverallProgress(): number {
     if (this.uploadFileList.length === 0) return 0;
-    const totalProgress = Object.values(this.uploadProgress).reduce((sum, progress) => sum + progress, 0);
-    return Math.round(totalProgress / this.uploadFileList.length);
+    this.totalProgress = Object.values(this.uploadProgress).reduce((sum, progress) => sum + progress, 0);
+    return this.totalProgress = Math.round(this.totalProgress / this.uploadFileList.length);
   }
 
   onTopicAdded(topics: Topic[]) {
