@@ -7,6 +7,7 @@ import { Input } from "../../helpers/input";
 import { storyFlags } from "../../helpers/story-flags";
 import { Level } from "../Level/level";
 import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
+import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
 
 export class Main extends GameObject {
   level?: Level = undefined;
@@ -14,10 +15,12 @@ export class Main extends GameObject {
   input: Input = new Input();
   inventory: Inventory = new Inventory();
   heroId?: number;
+  metaHero?: MetaHero;
 
-  constructor(config: { position: Vector2, heroId?: number }) {
+  constructor(config: { position: Vector2, heroId?: number, metaHero?: MetaHero }) {
     super({ position: config.position });
     this.heroId = config.heroId;
+    this.metaHero = config.metaHero;
     this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId })
   }
 

@@ -6,6 +6,7 @@ import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "../../helpers/gri
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { moveTowards } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
+import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 
 export class Npc extends GameObject {
   metabots: MetaBot[];
@@ -20,6 +21,7 @@ export class Npc extends GameObject {
   lastPosition: Vector2;
   name?: string;
   latestMessage = "";
+  speed? = 1;
 
   moveUpDown?: number;
   moveLeftRight?: number;
@@ -34,7 +36,9 @@ export class Npc extends GameObject {
     partners?: Npc[],
     moveUpDown?: number
     moveLeftRight?: number,
-    preventDraw?: boolean
+    preventDraw?: boolean,
+    colorSwap?: ColorSwap,
+    speed?: number
   }) {
     super({ position: config.position });
     this.type = config.type;
@@ -52,6 +56,8 @@ export class Npc extends GameObject {
     this.moveUpDown = config.moveUpDown;
     this.moveLeftRight = config.moveLeftRight;
     this.preventDraw = !!config.preventDraw;
+    this.colorSwap = config.colorSwap;
+    this.speed = config.speed;
 
     if (config.body) {
       this.body = config.body;
@@ -71,13 +77,15 @@ export class Npc extends GameObject {
   }
 
   override step(delta: number, root: any) {
-    const distance = moveTowards(this, this.destinationPosition, 1);
+    const distance = moveTowards(this, this.destinationPosition, this.speed ?? 1);
 
     const hasArrived = (distance ?? 0) <= 1;
     if (hasArrived) {
       this.finishedMoving = true;
-    } else this.finishedMoving = false;
-    this.moveNpc(root);
+    } else {
+      this.finishedMoving = false;
+      this.moveNpc(root);
+    }
   }
 
   private randomMove() { 

@@ -95,7 +95,9 @@ export class StartMenu extends GameObject {
           this.displayWarpCoordsInput("00", "00");
         }
         else if (this.items[this.currentlySelectedId] === "Deploy" && this.selectedMetabot) {
-          events.emit("Deploy", this.selectedMetabot);
+          if (this.selectedMetabot != undefined) { 
+            events.emit("DEPLOY", { metaHero: undefined, bot: this.selectedMetabot });
+          }
         }
         else if (this.items[this.currentlySelectedId] === `X ${this.currentWarpX}, Y ${this.currentWarpY}`) {
           let set = false;

@@ -8,7 +8,7 @@ export class Input {
   heldDirections: string[] = [];
   keys: Record<string, boolean> = {};
   lastKeys: Record<string, boolean> = {};
-  inputKeyPressedTimeout = 120;
+  inputKeyPressedTimeout = 140;
   chatSelected = false;
   constructor() {
     document.addEventListener("keydown", (e) => {
@@ -43,7 +43,7 @@ export class Input {
   }
 
   onArrowPressed(direction: string) {
-    if (this.heldDirections.indexOf(direction) === -1) {
+    if (document.activeElement != this.chatInput && this.heldDirections.indexOf(direction) === -1) {
       this.heldDirections.unshift(direction);
     }
   }
@@ -63,10 +63,12 @@ export class Input {
           this.chatInput.focus();
           this.chatSelected = true;
           moveLock = true;
+          console.log("chat selected");
         } else {
           this.chatInput.blur();
           this.chatSelected = false;
           moveLock = false;
+          console.log("chat blur");
         }
       }
       else if (this.chatInput.value != '') {
@@ -153,7 +155,7 @@ export class Input {
         break; 
       case 'e':
       case 'E': 
-        this.pressA();
+        this.pressA(false);
         break;
       case 'Enter':
       case 'NumpadEnter':
@@ -175,8 +177,9 @@ export class Input {
   }
   pressA(sendChat: boolean = true) {
     console.log("pressed A");
-    if (sendChat && this.chatInput && this.chatInput.value.trim() != "") {
+    if (sendChat && this.chatInput && document.activeElement === this.chatInput) {
       events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
+      console.log("chat sent", this.keys);
     }
     else {
       events.emit("SPACEBAR_PRESSED");
@@ -187,15 +190,21 @@ export class Input {
     }
   }
   pressB() {
-    console.log("pressed B");
-    events.emit("CLOSE_INVENTORY_MENU");
-    events.emit("CLOSE_HERO_DIALOGUE"); 
+    if (document.activeElement != this.chatInput) { 
+      console.log("pressed B");
+      events.emit("CLOSE_INVENTORY_MENU");
+      events.emit("CLOSE_HERO_DIALOGUE"); 
+    }
   }
-  pressSpace() { 
-    events.emit("SPACEBAR_PRESSED");
+  pressSpace() {
+    if (document.activeElement != this.chatInput) {
+      console.log("press space");
+      events.emit("SPACEBAR_PRESSED");
+    }
   }
   pressStart(sendChat: boolean = true) {
-    if (this.chatInput.value != '') {
+    console.log("press start");
+    if (this.chatInput.value != '') { 
       this.pressA(sendChat);
       this.chatInput.blur();
       this.chatSelected = false;
@@ -205,7 +214,8 @@ export class Input {
     }
   }
   pressBackspace() {
-    if (this.chatInput.value.trim() == "") {
+    if (this.chatInput.value.trim() == "" && document.activeElement == this.chatInput) {
+      console.log("press backspace");
       this.chatInput.blur();
       this.chatSelected = false;
       events.emit("HERO_MOVEMENT_UNLOCK"); 
@@ -213,6 +223,7 @@ export class Input {
   }
 
   pressEscape() {
+    console.log("press esc");
     this.chatInput.blur();
     this.chatSelected = false;
     events.emit("HERO_MOVEMENT_UNLOCK"); 

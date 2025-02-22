@@ -17,6 +17,7 @@ export class Armobot extends Bot {
   constructor(params: { position: Vector2, hp?: number, level?: number  }) {
     super({
       spriteName: "armobot",
+      name: "armobot",
       hp: params.hp ?? 1,
       level: params.level ?? 1,
       position: params.position, 

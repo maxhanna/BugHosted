@@ -41,6 +41,7 @@ export class Hero extends GameObject {
   steppedUpOrDown = false;
   slopeIncrements = 0.05;
   slopeStepHeight?: Vector2;
+  distance? = 0;
 
   constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2 }) {
     super({
@@ -378,8 +379,8 @@ export class Hero extends GameObject {
         events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
       }
     }
-    const distance = moveTowards(this, this.destinationPosition, this.speed);
-    const hasArrived = (distance ?? 0) <= 1;
+    this.distance = moveTowards(this, this.destinationPosition, this.speed);
+    const hasArrived = (this.distance ?? 0) <= 1;
     if (hasArrived && this.isUserControlled) {
       this.tryMove(root);
     }

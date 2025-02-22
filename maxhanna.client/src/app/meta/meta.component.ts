@@ -36,6 +36,7 @@ import { GameObject } from './objects/game-object';
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../services/datacontracts/meta/meta-bot-part';
 import { Skill, HEADBUTT, LEFT_PUNCH, RIGHT_PUNCH } from './helpers/skill-types';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
+import { Bot } from './objects/Bot/bot';
 
 @Component({
   selector: 'app-meta',
@@ -52,7 +53,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     super();
     this.hero = {} as Hero;
     this.metaHero = {} as MetaHero;
-    this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id });
+    this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id, metaHero: this.metaHero });
     this.subscribeToMainGameEvents();
     this.parentRef?.setViewportScalability(false);
   }
@@ -205,12 +206,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   private addHeroToScene(hero: MetaHero) {
     const tmpHero = new Hero({
       id: hero.id,
-      name: hero.name ?? "Anon", 
+      name: hero.name ?? "Anon",
       position: new Vector2(hero.id == this.metaHero.id ? this.metaHero.position.x : hero.position.x, hero.id == this.metaHero.id ? this.metaHero.position.y : hero.position.y),
       colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
       speed: hero.speed,
       mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined,
-    }); 
+    });
     tmpHero.lastPosition = tmpHero.position.duplicate();
     tmpHero.destinationPosition = tmpHero.lastPosition.duplicate();
     if (hero.id === this.metaHero.id) {
@@ -219,6 +220,22 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     this.mainScene.level?.addChild(tmpHero);
     return tmpHero;
+  }
+
+  private addBotToScene(hero: MetaHero, bot: MetaBot) { 
+    const tmpBot = new Bot({
+      id: bot.id,
+      heroId: bot.heroId,
+      botType: bot.type,
+      name: bot.name ?? "Anon",
+      spriteName: "botFrame",
+      position: new Vector2(hero.position.x + gridCells(1), hero.position.y + gridCells(1)),
+      colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
+      isDeployed: true,
+    }); 
+    console.log("depployed bot! ", tmpBot);
+    this.mainScene.level?.addChild(tmpBot);
+    return tmpBot;
   }
 
   private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {
@@ -499,8 +516,11 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     });
 
 
-    events.on("Deploy", this, (metabot: MetaBot) => {
-      console.log(metabot);
+    events.on("DEPLOY", this, (params: { bot: MetaBot, hero?: MetaHero}) => {
+      console.log(params);
+      if (params.bot.id) { 
+        this.addBotToScene(params.hero ?? this.metaHero, params.bot);
+      }
     });
 
     events.on("HERO_CREATED", this, (name: string) => {

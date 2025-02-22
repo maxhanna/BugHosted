@@ -3,6 +3,7 @@ import { User } from "../user/user";
 import { Vector2 } from "./vector2";
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "./meta-bot-part";
 import { HEADBUTT, KICK, LEFT_PUNCH, RIGHT_PUNCH } from "../../../app/meta/helpers/skill-types";
+import { ColorSwap } from "./color-swap";
 
 export class MetaBot {
   id: number;
@@ -15,15 +16,21 @@ export class MetaBot {
   hasAwardedExp = false
   name?: string;
   spriteName?: string;
-  isDeployed: boolean = false;
+  isDeployed?: boolean = false;
   position?: Vector2;
   head?: MetaBotPart;
   legs?: MetaBotPart;
   leftArm?: MetaBotPart;
   rightArm?: MetaBotPart;
+  colorSwap?: ColorSwap;
 
 
-  constructor(params: { id: number, heroId: number, type: number, name: string, position?: Vector2, hp?: number, level?: number, spriteName?: string, leftArm?: MetaBotPart, rightArm?: MetaBotPart, legs?: MetaBotPart, head?: MetaBotPart }) {
+  constructor(params: {
+    id: number, heroId: number, type: number, name: string,
+    position?: Vector2, hp?: number, level?: number, spriteName?: string,
+    leftArm?: MetaBotPart, rightArm?: MetaBotPart, legs?: MetaBotPart,
+    head?: MetaBotPart, colorSwap?: ColorSwap, isDeployed?: boolean,
+  }) {
     this.id = params.id;
     this.name = params.name;
     this.heroId = params.heroId;
@@ -36,6 +43,8 @@ export class MetaBot {
     this.leftArm = params.leftArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: LEFT_PUNCH, damageMod: 1, partName: LEFT_ARM })
     this.rightArm = params.rightArm ?? new MetaBotPart({ id: 0, metabotId: this.id, skill: RIGHT_PUNCH, damageMod: 1, partName: RIGHT_ARM })
     this.spriteName = params.spriteName;
+    this.colorSwap = params.colorSwap;
+    this.isDeployed = params.isDeployed;
   }
 
   calculateExpForNextLevel() {
