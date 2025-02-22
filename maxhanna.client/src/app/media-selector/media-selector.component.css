@@ -10,8 +10,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  overflow: hidden;
-  padding-bottom: 35px;
+  overflow: hidden; 
 }
 
   #selectMediaDiv.open {
@@ -19,11 +18,10 @@
     flex-direction: column;
     flex-wrap: nowrap;
     align-content: center;
-    justify-content: space-around;
+    justify-content: center;
     align-items: center;
     z-index: 3;
-    border-radius: 8px;
-    padding: 25px;
+    border-radius: 8px; 
   }
 
 .smallContainerForMedia {
@@ -91,18 +89,21 @@
   background-color: var(--main-highlight-color-quarter-opacity);
 }
 .selectFilesTitle {
-  font-family: var(--title-font-family);  
+  font-family: var(--title-font-family);
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-evenly;
+  justify-content: center;
+  gap: 35px;
 }
 .searchUploadButtonChoiceDiv {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   align-content: space-between;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  width: 96%; 
+  width: 96%;
+  gap: 35px;
+  margin-top: 30px;
 }
