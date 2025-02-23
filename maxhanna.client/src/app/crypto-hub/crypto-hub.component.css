@@ -175,3 +175,7 @@
   min-width: 315px;
   margin-top: 35px;
 }
+#coinWatchTable tr:hover {
+  text-decoration: underline dotted var(--main-link-color);
+  cursor: pointer;
+}

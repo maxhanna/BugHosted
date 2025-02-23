@@ -19,7 +19,7 @@ export class Hero extends Character {
   metabots?: MetaBot[];
   itemPickupTime: number;
   itemPickupShell: any;
-  isLocked = false; 
+  isLocked = false;
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
 

@@ -39,16 +39,14 @@
 
       <table class="sectionContainer" id="coinWatchTable">
         <thead>
-          <tr>
+          <tr> 
             <th title="Coin name" (click)="sortTable(0, 'coinWatchTable')" class="cursorPointerUnderlined">Name</th>
-            <th title="Symbol" (click)="sortTable(1, 'coinWatchTable')" class="cursorPointerUnderlined">§</th>
-            <th title="Rate ({{selectedCurrency}}$)" (click)="sortTable(2, 'coinWatchTable')" class="cursorPointerUnderlined">Rate</th>
+            <th title="Rate ({{selectedCurrency}}$)" (click)="sortTable(1, 'coinWatchTable')" class="cursorPointerUnderlined">Rate</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of data" (click)="selectCoin(item.name)">
-            <td>{{ item.name }}</td>
-            <td>{{ item.symbol }}</td>
+          <tr *ngFor="let item of data" (click)="selectCoin(item.name)"> 
+            <td>{{ item.name }} <span *ngIf="item.symbol">({{ item.symbol }})</span></td>
             <td>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</td>
           </tr>
         </tbody>

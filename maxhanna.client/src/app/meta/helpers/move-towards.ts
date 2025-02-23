@@ -1,4 +1,5 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+import { Character } from "../objects/character";
 import { GameObject } from "../objects/game-object";
 import { Sprite } from "../objects/sprite";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "./grid-cells";
@@ -137,7 +138,7 @@ export function shouldResetSlope(player: any) {
 
  export function recalculateScaleBasedOnSlope(player: any) {
   if (!player.slopeDirection || !player.slopeType) return;
-  //console.log(`before: scale:${player.scale.x}${player.scale.y}, endScale:${player.endScale.x}${player.endScale.y}, ogScale:${player.ogScale.x}${player.ogScale.y}, slopeDir:${player.slopeDirection}, slopeType:${player.slopeType}`);
+  console.log(`before: scale:${player.scale.x}${player.scale.y}, endScale:${player.endScale.x}${player.endScale.y}, ogScale:${player.ogScale.x}${player.ogScale.y}, slopeDir:${player.slopeDirection}, slopeType:${player.slopeType}`);
 
   if (shouldResetSlope(player)) {
     console.log("autoreset");
@@ -155,7 +156,7 @@ export function shouldResetSlope(player: any) {
   }
   else {
     if (player.scale.x > 0 && player.scale.y > 0 && !preScale.matches(player.scale)) {
-      //player.destroyBody();
+      player.destroyBody();
       player.initializeBody(true);
       return true;
     }
@@ -172,61 +173,94 @@ export function isSlopeResetFromEndScale(player: any): boolean {
   }
   return resetSlope;
 }
+ 
+export function adjustScale(se: number, scaleX: number, scaleY: number): Vector2 {
+  return new Vector2(scaleX + se, scaleY + se);
+}
 
-export function scaleWithStep(player: any, preScale: Vector2) {
-  if (!player.slopeStepHeight) return;
-  const se = player.slopeStepHeight.x;
-  if (player.facingDirection === LEFT) {
-    if (player.slopeDirection === LEFT && player.slopeType === UP) {
-      player.scale = new Vector2(player.scale.x + se, player.scale.y + se);
-    } else if (player.slopeDirection === LEFT && player.slopeType === DOWN) {
-      player.scale = new Vector2(player.scale.x - se, player.scale.y - se);
-    } else if (player.slopeDirection === RIGHT && player.slopeType === DOWN) {
-      player.scale = new Vector2(player.scale.x + se, player.scale.y + se);
-    } else if (player.slopeDirection === RIGHT && player.slopeType === UP) {
-      player.scale = new Vector2(player.scale.x - se, player.scale.y - se);
-    }
-  } else if (player.facingDirection === RIGHT) {
-    if (player.slopeDirection === RIGHT && player.slopeType === UP) {
-      player.scale = new Vector2(player.scale.x + se, player.scale.y + se);
-    } else if (player.slopeDirection === LEFT && player.slopeType === DOWN) {
-      player.scale = new Vector2(player.scale.x + se, player.scale.y + se);
-    } else if (player.slopeDirection === LEFT && player.slopeType === UP) {
-      player.scale = new Vector2(player.scale.x - se, player.scale.y - se);
-    } else if (player.slopeDirection === RIGHT && player.slopeType === DOWN) {
-      player.scale = new Vector2(player.scale.x - se, player.scale.y - se);
-    }
-  } else if (player.facingDirection === UP) {
-    if (player.slopeDirection === UP && player.slopeType === UP) {
-      player.scale = new Vector2(player.scale.x + se, player.scale.y + se);
-    } else if (player.slopeDirection === UP && player.slopeType === DOWN) {
-      player.scale = new Vector2(player.scale.x - se, player.scale.y - se);
-    } else if (player.slopeDirection === DOWN && player.slopeType === DOWN) {
-      player.scale = new Vector2(player.scale.x + se, player.scale.y + se);
-    } else if (player.slopeDirection === DOWN && player.slopeType === UP) {
-      player.scale = new Vector2(player.scale.x - se, player.scale.y - se);
-    }
-  } else if (player.facingDirection === DOWN) {
-    if (player.slopeDirection === DOWN && player.slopeType === UP) {
-      player.scale = new Vector2(player.scale.x + se, player.scale.y + se);
-    } else if (player.slopeDirection === DOWN && player.slopeType === DOWN) {
-      player.scale = new Vector2(player.scale.x - se, player.scale.y - se);
-    } else if (player.slopeDirection === UP && player.slopeType === DOWN) {
-      player.scale = new Vector2(player.scale.x + se, player.scale.y + se);
-    } else if (player.slopeDirection === UP && player.slopeType === UP) {
-      player.scale = new Vector2(player.scale.x - se, player.scale.y - se);
-    }
-  }
+export function adjustVerticalMovement(player: Character, se: number): void {
   if (Math.abs(player.ogScale.y - player.scale.y) > 0.1) {
     player.steppedUpOrDown = !player.steppedUpOrDown;
-    if (player.ogScale.y < player.scale.y && player.steppedUpOrDown || (player.facingDirection != player.slopeDirection && !player.steppedUpOrDown)) {
+
+    const shouldMoveDown =
+      (player.ogScale.y < player.scale.y && player.steppedUpOrDown) ||
+      (player.facingDirection !== player.slopeDirection && !player.steppedUpOrDown);
+    const shouldMoveUp =
+      (player.ogScale.y > player.scale.y && player.steppedUpOrDown) ||
+      (player.facingDirection !== player.slopeDirection && !player.steppedUpOrDown);
+
+    if (shouldMoveDown) {
       player.destinationPosition.y -= gridCells(1);
-      console.log("adjusting down");
-    } else if ((player.ogScale.y > player.scale.y && player.steppedUpOrDown) || (player.facingDirection != player.slopeDirection && !player.steppedUpOrDown)) {
+      console.log('adjusting down');
+    } else if (shouldMoveUp) {
       player.destinationPosition.y += gridCells(1);
-      //console.log("adjusting down");
+      // console.log("adjusting down");
     }
   }
+}
+
+export function scalePlayerBasedOnSlope(player: Character, se: number): void {
+  switch (player.facingDirection) {
+    case 'LEFT':
+      if (player.slopeDirection === 'LEFT' && player.slopeType === 'UP') {
+        player.scale = adjustScale(se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'LEFT' && player.slopeType === 'DOWN') {
+        player.scale = adjustScale(-se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'RIGHT' && player.slopeType === 'DOWN') {
+        player.scale = adjustScale(se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'RIGHT' && player.slopeType === 'UP') {
+        player.scale = adjustScale(-se, player.scale.x, player.scale.y);
+      }
+      break;
+
+    case 'RIGHT':
+      if (player.slopeDirection === 'RIGHT' && player.slopeType === 'UP') {
+        player.scale = adjustScale(se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'LEFT' && player.slopeType === 'DOWN') {
+        player.scale = adjustScale(se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'LEFT' && player.slopeType === 'UP') {
+        player.scale = adjustScale(-se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'RIGHT' && player.slopeType === 'DOWN') {
+        player.scale = adjustScale(-se, player.scale.x, player.scale.y);
+      }
+      break;
+
+    case 'UP':
+      if (player.slopeDirection === 'UP' && player.slopeType === 'UP') {
+        player.scale = adjustScale(se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'UP' && player.slopeType === 'DOWN') {
+        player.scale = adjustScale(-se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'DOWN' && player.slopeType === 'DOWN') {
+        player.scale = adjustScale(se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'DOWN' && player.slopeType === 'UP') {
+        player.scale = adjustScale(-se, player.scale.x, player.scale.y);
+      }
+      break;
+
+    case 'DOWN':
+      if (player.slopeDirection === 'DOWN' && player.slopeType === 'UP') {
+        player.scale = adjustScale(se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'DOWN' && player.slopeType === 'DOWN') {
+        player.scale = adjustScale(-se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'UP' && player.slopeType === 'DOWN') {
+        player.scale = adjustScale(se, player.scale.x, player.scale.y);
+      } else if (player.slopeDirection === 'UP' && player.slopeType === 'UP') {
+        player.scale = adjustScale(-se, player.scale.x, player.scale.y);
+      }
+      break;
+  }
+}
+
+export function scaleWithStep(player: Character, preScale: Vector2): void {
+  if (!player.slopeStepHeight) return;
+
+  const se = player.slopeStepHeight.x;
+  console.log('slope step height x', se);
+  console.log('player.facingDirection', player.facingDirection);
+  console.log('player.slopeDirection', player.slopeDirection);
+
+  scalePlayerBasedOnSlope(player, se);
+  adjustVerticalMovement(player, se);
 }
 
 export function resetSlope(player: any, skipDestroy ?: boolean) {

@@ -17419,9 +17419,111 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://bughosted.com/File/17240</loc>
+    <loc>https://bughosted.com/File/17241</loc>
     <lastmod>2025-02-22</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/17242</loc>
+    <lastmod>2025-02-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000038394.webm</video:title>
+      <video:description>Video: 1000038394.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000038394.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-02-22T23:12:31Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/17243</loc>
+    <lastmod>2025-02-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/17244</loc>
+    <lastmod>2025-02-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000038397.webm</video:title>
+      <video:description>Video: 1000038397.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000038397.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-02-22T23:12:31Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/17245</loc>
+    <lastmod>2025-02-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000038392.webm</video:title>
+      <video:description>Video: 1000038392.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000038392.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-02-22T23:12:31Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/17246</loc>
+    <lastmod>2025-02-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000038391.webm</video:title>
+      <video:description>Video: 1000038391.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000038391.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-02-22T23:12:31Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/17247</loc>
+    <lastmod>2025-02-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/17248</loc>
+    <lastmod>2025-02-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000038395.mp4</video:title>
+      <video:description>Video: 1000038395.mp4</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000038395.mp4</video:content_loc>
+      <video:duration>50</video:duration>
+      <video:publication_date>2025-02-22T23:12:42Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/17249</loc>
+    <lastmod>2025-02-22</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000038396.webm</video:title>
+      <video:description>Video: 1000038396.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000038396.webm</video:content_loc>
+      <video:duration>16</video:duration>
+      <video:publication_date>2025-02-22T23:12:44Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
   </url>
 </urlset>

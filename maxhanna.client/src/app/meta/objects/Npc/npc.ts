@@ -5,7 +5,7 @@ import { Sprite } from "../sprite";
 import { Scenario } from "../../helpers/story-flags";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
-import { moveTowards, bodyAtSpace, recalculateScaleBasedOnSlope, otherPlayerMove } from "../../helpers/move-towards";
+import { moveTowards, bodyAtSpace, recalculateScaleBasedOnSlope, otherPlayerMove, updateAnimation } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 
@@ -190,21 +190,7 @@ export class Npc extends Character {
       });
     }
   }
-
-  updateAnimation() {
-    setTimeout(() => {
-      const currentTime = new Date().getTime();
-      if (currentTime - this.lastStandAnimationTime >= 300) {
-        if (this.destinationPosition.matches(this.position) && this.finishedMoving) {
-          this.body?.animations?.play(
-            "stand" + this.facingDirection.charAt(0) +
-            this.facingDirection.substring(1, this.facingDirection.length).toLowerCase()
-          );
-        }
-        this.lastStandAnimationTime = currentTime; // Update the last time it was run
-      }
-    }, 2000);
-  }
+   
 
   moveNpc(root: any) {
     let moved = false;
@@ -245,7 +231,7 @@ export class Npc extends Character {
           moved = true;
         }
       }
-      this.updateAnimation();
+      updateAnimation(this);
       const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
       const solidBodyAtSpace = bodyAtSpace(this.parent, tmpPosition, true);
 

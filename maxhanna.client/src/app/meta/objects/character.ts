@@ -43,6 +43,10 @@ export class Character extends GameObject {
     }
   }
 
+  destroyBody() {
+    this.body?.destroy();
+  }
+
   initializeBody(redraw?: boolean) {
     let offsetY;
     if (this.scale.y < 0.75) {
@@ -65,8 +69,8 @@ export class Character extends GameObject {
       this.body.destroy();
       this.addChild(this.body);
       
-      //let animation = this.body?.animations?.activeKey;
-      //tmpBody.animations?.play(animation ?? "standDown");
+      let animation = this.body?.animations?.activeKey;
+      this.body?.animations?.play(animation ?? "standDown");
 
       if (this.mask) {
         if (redraw) {

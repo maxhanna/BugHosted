@@ -49,7 +49,17 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
 	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
+
 app.UseDefaultFiles();
+
+app.MapWhen(context => context.Request.Path.Value.Contains("firebase-messaging-sw.js"), appBranch =>
+{
+	appBranch.Run(async context =>
+	{
+		context.Response.StatusCode = StatusCodes.Status403Forbidden;
+		await context.Response.WriteAsync("Access Denied");
+	});
+});
 app.UseStaticFiles();
  
 // Configure the HTTP request pipeline.
