@@ -40,7 +40,7 @@ export class Salesman extends Npc {
           })
       })
     }) 
-    this.name = "salesPerson";  
+    this.name = "Sales Person";  
     this.textPortraitFrame = 3;
     this.entranceLevel = params.entranceLevel;
     this.heroPosition = params.heroPosition; 

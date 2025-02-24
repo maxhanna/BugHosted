@@ -19,6 +19,7 @@ export class GameObject {
   textPortraitFrame?: number;
   colorSwap?: ColorSwap = undefined;
   preventDraw: boolean = false;
+  name?: string;
 
   constructor(params: {
     position: Vector2,
@@ -27,7 +28,8 @@ export class GameObject {
     preventDraw?: boolean,
     isSolid?: boolean,
     textContent?: Scenario[],
-    textPortraitFrame?: number, 
+    textPortraitFrame?: number,
+    name?: string,
   }) {
     this.position = params.position ?? new Vector2(0, 0);
     this.colorSwap = params.colorSwap;
@@ -36,6 +38,7 @@ export class GameObject {
     this.isSolid = params.isSolid ?? false;
     this.textContent = params.textContent;
     this.textPortraitFrame = params.textPortraitFrame;
+    this.name = params.name;
   }
 
   stepEntry(delta: number, root: any) {

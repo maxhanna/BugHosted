@@ -95,7 +95,7 @@ export class StartMenu extends GameObject {
           this.displayWarpCoordsInput("00", "00");
         }
         else if (this.items[this.currentlySelectedId] === "Deploy" && this.selectedMetabot) {
-          if (this.selectedMetabot != undefined) { 
+          if (this.selectedMetabot != undefined) {
             events.emit("DEPLOY", { metaHero: undefined, bot: this.selectedMetabot });
           }
         }
@@ -266,11 +266,11 @@ export class StartMenu extends GameObject {
       messages = ["Talk to mom."];
     } else if (!storyFlags.contains(GOT_FIRST_METABOT)) {
       messages = ["Visit the store."];
-    } else { 
+    } else {
       messages = ["Explore."];
     }
 
-    const backLabel = new SpriteTextString(`Journal:`, new Vector2(this.menuLocationX + 5, this.menuLocationY + 20 +(10 * messages.length)), "Black");
+    const backLabel = new SpriteTextString(`Journal:`, new Vector2(this.menuLocationX + 5, this.menuLocationY + 20 + (10 * messages.length)), "Black");
     this.addChild(backLabel);
 
 
@@ -285,20 +285,20 @@ export class StartMenu extends GameObject {
 
   private displayMetabots() {
     this.clearMenu();
-    this.isDisplayingMetabots = true; 
-    const botFrames = this.inventoryItems.filter(x => x.category === "botFrame"); 
-    for (let x = 0; x < botFrames.length; x++) { 
-      this.items.push(botFrames[x].name);
-      let botStartY = 10 + ( x * 10 );
-      const stsName = new SpriteTextString(botFrames[x].name, new Vector2(this.menuLocationX + 5, this.menuLocationY + botStartY), "Black");
+    this.isDisplayingMetabots = true;
+    const botFrames = this.inventoryItems.filter(x => x.category === "botFrame");
+    for (let x = 0; x < botFrames.length; x++) {
+      this.items.push((botFrames[x].name ?? ""));
+      let botStartY = 10 + (x * 10);
+      const stsName = new SpriteTextString((botFrames[x].name ?? ""), new Vector2(this.menuLocationX + 5, this.menuLocationY + botStartY), "Black");
       this.addChild(stsName);
       if (botFrames[x].stats) {
         const stats = typeof botFrames[x].stats === "string"
           ? JSON.parse(botFrames[x].stats) as MetaBot
-          : botFrames[x].stats as MetaBot; 
+          : botFrames[x].stats as MetaBot;
         const stsStats = new SpriteTextString(`HP${stats.hp} L${stats.level ?? 1}`, new Vector2(this.menuLocationX + 45, this.menuLocationY + botStartY), "Black");
         this.addChild(stsStats);
-      } 
+      }
     }
 
     this.items = this.items.concat("Back");

@@ -24,18 +24,20 @@ export class Npc extends Character {
     position: Vector2,
     textConfig?: { content?: Scenario[], portraitFrame?: number },
     type?: string,
+    name?: string,
     body?: Sprite,
     partners?: Npc[],
     moveUpDown?: number
     moveLeftRight?: number,
     preventDraw?: boolean,
     colorSwap?: ColorSwap,
-    speed?: number
+    speed?: number, 
   }) {
     super({
       id: config.id,
       name: config.type ?? "",
-      position: config.position
+      position: config.position,
+      body: config.body,
     });
     this.type = config.type;
     this.id = config.id;
@@ -44,7 +46,7 @@ export class Npc extends Character {
     this.position = config.position;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
-    this.name = config.type ?? "Anon";
+    this.name = config.name ?? "Anon";
     this.textContent = config.textConfig?.content;
     this.textPortraitFrame = config.textConfig?.portraitFrame;
     this.metabots = [];
@@ -55,11 +57,7 @@ export class Npc extends Character {
     this.colorSwap = config.colorSwap;
     this.speed = config.speed ?? 1;
 
-    if (config.body) {
-      this.body = config.body;
-      this.addChild(this.body);
-      this.body.animations?.play("standDown");
-    } else {
+    if (!config.body) { 
       this.body = new Sprite({ resource: resources.images["white"] });
     }
 
@@ -71,19 +69,7 @@ export class Npc extends Character {
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     this.drawLatestChatMessage(ctx, drawPosX, drawPosY);    // Draw the latest message as a chat bubble above the player 
   }
-
-  override step(delta: number, root: any) {
-    const distance = moveTowards(this, this.destinationPosition, this.speed ?? 1);
-
-    const hasArrived = (distance ?? 0) <= 1;
-    if (hasArrived) {
-      this.finishedMoving = true;
-    } else {
-      this.finishedMoving = false;
-      otherPlayerMove(this, root);
-      //this.moveNpc(root);
-    }
-  }
+   
 
   private randomMove() { 
     if (this.moveCounter > 40) { this.moveCounter = 0; }
@@ -192,55 +178,55 @@ export class Npc extends Character {
   }
    
 
-  moveNpc(root: any) {
-    let moved = false;
-    this.position = this.position.duplicate();
-    this.destinationPosition = this.destinationPosition.duplicate();
-    const destPos = this.destinationPosition;
-    let tmpPosition = this.position;
-    if (destPos) {
-      // Calculate the difference between destination and current position
-      const deltaX = destPos.x - tmpPosition.x;
-      const deltaY = destPos.y - tmpPosition.y;
-      const gridSize = gridCells(1);
-      if (deltaX != 0 || deltaY != 0) {
-        if (deltaX > 0) {
-          tmpPosition.x = (tmpPosition.x);
-          this.facingDirection = RIGHT;
-          this.body?.animations?.play("walkRight");
-          console.log("walk right");
-          moved = true;
-        } else if (deltaX < 0) {
-          tmpPosition.x = (tmpPosition.x);
-          this.facingDirection = LEFT;
-          this.body?.animations?.play("walkLeft");
-          console.log("walk left");
-          moved = true;
-        }
-      }
-      if (deltaY != 0) {
-        if (deltaY > 0) {
-          tmpPosition.y = tmpPosition.y;
-          this.facingDirection = DOWN;
-          this.body?.animations?.play("walkDown");
-          moved = true;
-        } else if (deltaY < 0) {
-          tmpPosition.y = tmpPosition.y;
-          this.facingDirection = UP;
-          this.body?.animations?.play("walkUp");
-          moved = true;
-        }
-      }
-      updateAnimation(this);
-      const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
-      const solidBodyAtSpace = bodyAtSpace(this.parent, tmpPosition, true);
+  //moveNpc(root: any) {
+  //  let moved = false;
+  //  this.position = this.position.duplicate();
+  //  this.destinationPosition = this.destinationPosition.duplicate();
+  //  const destPos = this.destinationPosition;
+  //  let tmpPosition = this.position;
+  //  if (destPos) {
+  //    // Calculate the difference between destination and current position
+  //    const deltaX = destPos.x - tmpPosition.x;
+  //    const deltaY = destPos.y - tmpPosition.y;
+  //    const gridSize = gridCells(1);
+  //    if (deltaX != 0 || deltaY != 0) {
+  //      if (deltaX > 0) {
+  //        tmpPosition.x = (tmpPosition.x);
+  //        this.facingDirection = RIGHT;
+  //        this.body?.animations?.play("walkRight");
+  //        console.log("walk right");
+  //        moved = true;
+  //      } else if (deltaX < 0) {
+  //        tmpPosition.x = (tmpPosition.x);
+  //        this.facingDirection = LEFT;
+  //        this.body?.animations?.play("walkLeft");
+  //        console.log("walk left");
+  //        moved = true;
+  //      }
+  //    }
+  //    if (deltaY != 0) {
+  //      if (deltaY > 0) {
+  //        tmpPosition.y = tmpPosition.y;
+  //        this.facingDirection = DOWN;
+  //        this.body?.animations?.play("walkDown");
+  //        moved = true;
+  //      } else if (deltaY < 0) {
+  //        tmpPosition.y = tmpPosition.y;
+  //        this.facingDirection = UP;
+  //        this.body?.animations?.play("walkUp");
+  //        moved = true;
+  //      }
+  //    }
+  //    updateAnimation(this);
+  //    const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
+  //    const solidBodyAtSpace = bodyAtSpace(this.parent, tmpPosition, true);
 
-      if (spaceIsFree && !solidBodyAtSpace) {
-        this.position = tmpPosition;
-        if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) {
-          recalculateScaleBasedOnSlope(this);
-        }
-      }
-    }
-  } 
+  //    if (spaceIsFree && !solidBodyAtSpace) {
+  //      this.position = tmpPosition;
+  //      if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) {
+  //        recalculateScaleBasedOnSlope(this);
+  //      }
+  //    }
+  //  }
+  //} 
 }

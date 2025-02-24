@@ -6,12 +6,12 @@ import { events } from "../../../helpers/events";
 import { Scenario } from "../../../helpers/story-flags";
 export class Wardrobe extends GameObject { 
   body?: Sprite;
-  blockSelection = false;
-
+  blockSelection = false; 
   constructor(config: { position: Vector2, isVisible?: boolean }) {
     super({
-      position: config.position
-    }) 
+      position: config.position,
+      name: "Wardrobe",
+    })
     this.isSolid = true;
     if (config.isVisible !== false) {
       this.body = new Sprite({

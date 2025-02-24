@@ -129,7 +129,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     //Draw the backdrop
     this.backdrop.drawImage(ctx, drawPosX, drawPosY);
     this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
-
+     
     const subjectName = this.objectSubject?.name + ":";
     console.log(this.objectSubject);
 

@@ -13,13 +13,13 @@ export class Sprite extends GameObject {
   frameMap: Map<number, Vector2>;
   scale: Vector2;
   animations?: Animations;
-  name?: string;
   rotation: number;
   flipX?: boolean;
   flipY?: boolean;
   offsetX: number;
   offsetY: number; 
   precomputedCanvases: Map<string, HTMLCanvasElement> = new Map(); // Cache for precomputed frames
+  recalculatePrecomputedCanvases = true;
 
   constructor(params: {
     objectId?: number,
@@ -115,7 +115,8 @@ export class Sprite extends GameObject {
     const frame = this.frameMap.get(this.frame);
     const frameCoordX = frame?.x ?? 0;
     const frameCoordY = frame?.y ?? 0;
-
+    //if (this.name == "hero")
+    //  console.log(this);
     if (!this.drawCachedColorSwappedCanvas(ctx, x , y)) {
       ctx.save();
 
@@ -151,6 +152,11 @@ export class Sprite extends GameObject {
 
 
   private precomputeRecoloredFrames(originalColor: number[], replacementColor: number[]) {
+    if (this.recalculatePrecomputedCanvases) {
+      this.precomputedCanvases.clear();
+      this.recalculatePrecomputedCanvases = false;
+    } else return;
+
     for (let frame = 0; frame < this.hFrames * this.vFrames; frame++) { // Adjusted loop condition
       const frameCoord = this.frameMap.get(frame); 
       if (frameCoord) {
@@ -214,13 +220,17 @@ export class Sprite extends GameObject {
     if (!this.colorSwap) {
       return false;
     }
+    if (this.scale.x != 1) {
+      this.precomputeRecoloredFrames(this.colorSwap.originalRGB, this.colorSwap.replacementRGB);
+    }
 
     const { originalRGB, replacementRGB } = this.colorSwap;
     const key = `${originalRGB.join(',')}-${replacementRGB.join(',')}-frame-`;
     const primaryKey = `${key}${this.frame}`;
     const fallbackKey = `${key}0`;
 
-    // Attempt to get the primary cached canvas
+    // Attempt to get the primary cached canvas\
+
     let cachedCanvas = this.precomputedCanvases.get(primaryKey) || this.precomputedCanvases.get(fallbackKey);
 
     if (cachedCanvas) { 

@@ -178,7 +178,7 @@ export class WardrobeMenu extends Level {
   private displayMaskMenu() {
     this.clearMenu();
     this.isDisplayingMasks = true;
-    const ownedMasks = this.inventoryItems.filter(x => x.category.toLowerCase() === "mask").map(x => x.name);
+    const ownedMasks = this.inventoryItems.filter(x => x.category.toLowerCase() === "mask").map(x => (x.name ?? ""));
     this.items = ownedMasks.concat(["Unequip", "Back"]);
 
     for (let x = 0; x < this.items.length; x++) {

@@ -4,8 +4,7 @@ import { GameObject } from "../game-object";
  
 export class InventoryItem extends GameObject { 
   isItemSelected = false;
-  id: number = 0;
-  name = "";
+  id: number = 0; 
   image = "";
   category = "";
   stats: any;

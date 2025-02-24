@@ -4,26 +4,21 @@ import { GameObject } from "../game-object";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
-import { Input } from "../../helpers/input";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { moveTowards, bodyAtSpace, otherPlayerMove, shouldResetSlope, recalculateScaleBasedOnSlope } from "../../helpers/move-towards";
+import { moveTowards, bodyAtSpace, otherPlayerMove, shouldResetSlope, recalculateScaleBasedOnSlope, tryMove, isObjectNeerby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
-import { events } from "../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
+import { events } from "../../helpers/events";
 
 export class Hero extends Character {
   metabots?: MetaBot[];
-  itemPickupTime: number;
-  itemPickupShell: any;
-  isLocked = false;
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
 
-  distanceLeftToTravel? = 0;
 
   constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2 }) {
     super({
@@ -31,9 +26,12 @@ export class Hero extends Character {
       position: params.position,
       colorSwap: params.colorSwap,
       name: params.name ?? "Anon",
+      mask: params.mask,
+      isUserControlled: params.isUserControlled,
       body: new Sprite({
         objectId: params.id ?? 0,
         resource: resources.images["hero"],
+        name: "hero",
         position: new Vector2(-8, -20),
         frameSize: new Vector2(32, 32),
         hFrames: 4,
@@ -51,14 +49,10 @@ export class Hero extends Character {
             pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
           }),
         colorSwap: params.colorSwap,
-        scale: params.scale,
-
+        scale: params.scale, 
       })
-    })
-    if (params.isUserControlled) {
-      this.isUserControlled = params.isUserControlled;
-    }
-    //console.log("New Hero at position : ", this.position);
+    }) 
+   console.log("New Hero : ", this);
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate(); 
@@ -76,17 +70,7 @@ export class Hero extends Character {
     shadow.drawLayer = "FLOOR";
     this.addChild(shadow); 
   }
-
-  //private destroyBody() {
-  //  console.log("destroying body");
-  //  if (this.body) {
-  //    this.body.destroy();
-  //  }
-  //  if (this.mask) {
-  //    this.mask.destroy();
-  //  }
-  //}
-
+   
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Draw the player's name
@@ -164,9 +148,7 @@ export class Hero extends Character {
       const bubbleTopX = characterCenterX - this.messageCache.width / 2 - horizontalOffset;
       ctx.drawImage(this.messageCache, bubbleTopX, bubbleTopY);
     }
-  }
-
-
+  }  
 
   private splitMessageIntoLines(message: string, ctx: CanvasRenderingContext2D): string[] {
     const words = message.split(" ");
@@ -255,8 +237,7 @@ export class Hero extends Character {
 
         if (!blockUpdate) {
           this.scale = params.startScale;
-          this.ogScale = params.startScale;
-          //this.destroyBody();
+          this.ogScale = params.startScale; 
           this.initializeBody(true);
         }
 
@@ -278,10 +259,10 @@ export class Hero extends Character {
       });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => {
         if (selectedItem === "Party Up") {
-          events.emit("PARTY_UP", this.isObjectNeerby());
+          events.emit("PARTY_UP", isObjectNeerby(this));
         }
         else if (selectedItem === "Wave") {
-          events.emit("WAVE_AT", this.isObjectNeerby());
+          events.emit("WAVE_AT", isObjectNeerby(this));
         } 
       });
       events.on("CLOSE_HERO_DIALOGUE", this, () => { 
@@ -301,178 +282,8 @@ export class Hero extends Character {
       });
     }
   }
-
-  override step(delta: number, root: any) {
-    if (this.isLocked) return;
-
-    if (this.itemPickupTime > 0) {
-      this.workOnItemPickup(delta);
-      return;
-    }
-    const input = root.input as Input;
-    if (input?.getActionJustPressed("Space") && this.isUserControlled) {
-      //look for an object at the next space (according to where the hero is facing)
-      const objectAtPosition = this.isObjectNeerby();
-
-      if (objectAtPosition) {
-       // console.log(objectAtPosition);
-        events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
-      }
-    }
-    this.distanceLeftToTravel = moveTowards(this, this.destinationPosition, this.speed);
-    const hasArrived = (this.distanceLeftToTravel ?? 0) <= 1;
-    if (hasArrived && this.isUserControlled) {
-      this.tryMove(root);
-    }
-
-    if (!this.isUserControlled) { 
-      otherPlayerMove(this, root);
-    }
-    this.tryEmitPosition();
-    this.recalculateMaskPositioning();
-  }
-
-  private recalculateMaskPositioning() {
-    if (!this.mask || !this.body) return;
-    this.mask.offsetY = 0;
-    if (this.body.frame >= 12 && this.body.frame < 16) {
-      this.mask.preventDraw = true;
-    } else {
-      this.mask.preventDraw = false;
-
-      switch (this.body.frame) {
-        case 5:
-        case 7:
-          this.mask.offsetY = 2;
-          break;
-
-        case 8:
-          // Set frame 1 and keep offsetY at 0 for frame 8
-          this.mask.frame = 1;
-          break;
-
-        case 9:
-          // Set frame 1 with an adjusted offsetY for frame 9
-          this.mask.frame = 1;
-          this.mask.offsetY = -2;
-          break;
-
-        case 10:
-          this.mask.frame = 2;
-          break;
-
-        case 11:
-          // Set frame 2 for frames 10 and 11
-          this.mask.frame = 2;
-          this.mask.offsetY = -2;
-          break;
-
-        default:
-          // Default to frame 0 for any other cases
-          this.mask.frame = 0;
-          break;
-      }
-    }
-
-  }
-
-  private isObjectNeerby() {
-    const posibilities = this.parent.children.filter((child: GameObject) => {
-      // Calculate the neighboring position with the facing direction
-      const neighborPosition = this.position.toNeighbour(this.facingDirection);
-      // Define the discrepancy value
-      const discrepancy = 1;
-      // Check if the child's position is within the discrepancy range of the neighbor position
-      return (
-        (!(child instanceof Sprite) || child.textContent) &&
-        child.position.x >= neighborPosition.x - discrepancy &&
-        child.position.x <= neighborPosition.x + discrepancy &&
-        child.position.y >= neighborPosition.y - discrepancy &&
-        child.position.y <= neighborPosition.y + discrepancy
-      );
-    });
-    console.log(posibilities);
-    const bestChoice = posibilities.find((x: any) => x.textContent?.string);
-    if (bestChoice) {
-      return bestChoice;
-    }
-    const bestChoiceContent = posibilities.find((x: any) => typeof x.getContent === 'function' && x.getContent());
-    if (bestChoiceContent) {
-      return bestChoiceContent;
-    }
-    const secondBestChoice = posibilities.find((x: any) => x.drawLayer != "FLOOR");
-    if (secondBestChoice) {
-      return secondBestChoice;
-    }
-    return posibilities[0];
-  }
-
-
-  tryEmitPosition() {
-    if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
-      return;
-    }
-    events.emit("HERO_POSITION", this);
-    this.lastPosition = this.position.duplicate();
-  }
-
-  tryMove(root: any) {
-    const { input } = root;
-    if (!this.body) return;
-
-    if (!input.direction) {
-      //console.log("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase()); 
-      this.body.animations?.play("stand" + this.facingDirection.charAt(0) + this.facingDirection.substring(1, this.facingDirection.length).toLowerCase());
-      return;
-    }
-
-    const gridSize = gridCells(1);
-    if (this.destinationPosition) {
-      let position = this.destinationPosition.duplicate();
-
-      if (input.direction === DOWN) {
-        position.x = snapToGrid(position.x, gridSize);
-        position.y = snapToGrid(position.y + gridSize, gridSize);
-        this.body.animations?.play("walkDown");
-      }
-      else if (input.direction === UP) {
-        position.x = snapToGrid(position.x, gridSize);
-        position.y = snapToGrid(position.y - gridSize, gridSize);
-        this.body.animations?.play("walkUp");
-      }
-      else if (input.direction === LEFT) {
-        position.x = snapToGrid(position.x - gridSize, gridSize);
-        position.y = snapToGrid(position.y, gridSize);
-        this.body.animations?.play("walkLeft");
-      }
-      else if (input.direction === RIGHT) {
-        position.x = snapToGrid(position.x + gridSize, gridSize);
-        position.y = snapToGrid(position.y, gridSize);
-        this.body.animations?.play("walkRight");
-      }
-
-      this.facingDirection = input.direction ?? this.facingDirection;   
-
-      if (!bodyAtSpace(this.parent, position)) {
-        this.destinationPosition = this.lastPosition.duplicate();
-        console.log("No body at space, setting to previous position ", this.lastPosition);
-        return;
-      }
-      /*console.log(position);*/
-      if (isSpaceFree(root.level?.walls, position.x, position.y) && !bodyAtSpace(this.parent, position, true)) {
-        this.destinationPosition = position;
-        if (this.slopeType) {
-          recalculateScaleBasedOnSlope(this);
-         // console.log(`slopeType: ${this.slopeType}, slopeDirection: ${this.slopeDirection}, slopeStepHeight: ${this.slopeStepHeight}, facingDirection: ${this.facingDirection}, scale: ${this.scale}`);
-        }
-      } else {
-        this.destinationPosition = this.position.duplicate();
-      }
-    }
-  }
-
-
-
+   
+   
   onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
     console.log(data);
     if (data.hero?.id == this.id) {
@@ -488,18 +299,7 @@ export class Hero extends Character {
       this.addChild(this.itemPickupShell);
     }
   }
-  workOnItemPickup(delta: number) {
-    console.log("workOnItemPickup activated", delta);
-    this.itemPickupTime -= delta;
-    if (this.body?.animations?.activeKey != "pickupDown") {
-      this.body?.animations?.play("pickupDown");
-      console.log("set pickup down animation");
-    }
-    if (this.itemPickupTime <= 0) {
-      console.log("destroyed itemShell");
-      this.itemPickupShell.destroy();
-    }
-  }
+ 
   override getContent() {
     return {
       portraitFrame: 0,

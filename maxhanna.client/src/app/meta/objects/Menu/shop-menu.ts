@@ -74,7 +74,7 @@ export class ShopMenu extends Level {
       }
     }
     for (let x = 0; x < Math.min(shopItemsToDisplay.length, this.MAX_VISIBLE_ITEMS); x++) {
-      const sts = new SpriteTextString(shopItemsToDisplay[x].name, new Vector2(10 + (offsetPictures ? 20 : 0), 90 + (32 * x)), "Black");
+      const sts = new SpriteTextString(shopItemsToDisplay[x].name ?? "", new Vector2(10 + (offsetPictures ? 20 : 0), 90 + (32 * x)), "Black");
       this.addChild(sts);
     }
     for (let x = 0; x < Math.min(shopItemsToDisplay.length, this.MAX_VISIBLE_ITEMS); x++) {

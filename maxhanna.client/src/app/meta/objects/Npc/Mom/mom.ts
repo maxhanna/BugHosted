@@ -39,7 +39,7 @@ export class Mom extends Npc {
       })
     });
       
-    this.name = "mom";  
+    this.name = "Mom";  
     this.type = "mom";  
     const shadow = new Sprite({
       resource: resources.images["shadow"],

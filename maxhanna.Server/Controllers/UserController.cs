@@ -5,6 +5,8 @@ using maxhanna.Server.Controllers.DataContracts.Files;
 using Newtonsoft.Json;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using System.Xml.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace maxhanna.Server.Controllers
 {
@@ -66,97 +68,125 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> GetUser([FromBody] User user)
 		{
 			_logger.LogInformation($"POST /GetUser with username: {user.Username}");
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			try
+
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
-				conn.Open();
-
-				string sql = $@"
-										UPDATE 
-												maxhanna.users 
-										SET 
-												last_seen = NOW()
-										WHERE 
-												LOWER(username) = LOWER(@Username) 
-												AND pass = @Password;
-
-                   SELECT 
-                        u.*, 
-                        dp.file_id AS latest_file_id,
-                        dpf.file_name,
-                        dpf.folder_path,
-                        ua.description,
-                        ua.phone,
-                        ua.email,
-                        ua.birthday,
-												ua.currency,
-												ua.is_email_public
-                    FROM 
-                        maxhanna.users u
-                    LEFT JOIN  
-                        maxhanna.user_display_pictures dp ON dp.user_id = u.id 
-                    LEFT JOIN  
-                        maxhanna.user_about ua ON ua.user_id = u.id 
-                    LEFT JOIN  
-                        maxhanna.file_uploads dpf ON dpf.id = dp.file_id 
-                    WHERE
-                        LOWER(u.username) = LOWER(@Username) 
-                        AND u.pass = @Password;
-                ";
-
-				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@Username", (user.Username ?? "").Trim());
-				cmd.Parameters.AddWithValue("@Password", (user.Pass ?? "").Trim());
-
-				using (var reader = await cmd.ExecuteReaderAsync())
+				try
 				{
-					if (reader.Read())
-					{
-						Console.WriteLine("Found user : " + user.Username);
-						FileEntry displayPic = new FileEntry()
-						{
-							Id = reader.IsDBNull(reader.GetOrdinal("latest_file_id")) ? 0 : reader.GetInt32("latest_file_id"),
-							FileName = reader.IsDBNull(reader.GetOrdinal("file_name")) ? "" : reader.GetString("file_name"),
-							Directory = reader.IsDBNull(reader.GetOrdinal("folder_path")) ? "" : reader.GetString("folder_path"),
-						};
-						UserAbout tmpAbout = new UserAbout()
-						{
-							UserId = reader.IsDBNull(reader.GetOrdinal("id")) ? 0 : reader.GetInt32("id"),
-							Description = reader.IsDBNull(reader.GetOrdinal("description")) ? "" : reader.GetString("description"),
-							Phone = reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"),
-							Email = reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
-							Birthday = reader.IsDBNull(reader.GetOrdinal("birthday")) ? null : reader.GetDateTime("birthday"),
-							Currency = reader.IsDBNull(reader.GetOrdinal("currency")) ? null : reader.GetString("currency"),
-							IsEmailPublic = reader.IsDBNull(reader.GetOrdinal("is_email_public")) ? true : reader.GetBoolean("is_email_public"),
-						};
+					await conn.OpenAsync();
 
-						// User found, return the user details
-						return Ok(new User
-						(
-								Convert.ToInt32(reader["id"]),
-								reader["username"].ToString()!,
-								null,
-								displayPic.Id != 0 ? displayPic : null,
-								tmpAbout,
-								(DateTime)reader["created"],
-								(DateTime)reader["last_seen"]
-						));
-					}
-					else
+					// Step 1: Retrieve stored hash and salt for the given username
+					string selectSql = @"
+                SELECT id, pass, salt FROM maxhanna.users 
+                WHERE LOWER(username) = LOWER(@Username);";
+
+					using (MySqlCommand selectCmd = new MySqlCommand(selectSql, conn))
 					{
-						// User not found
-						return NotFound();
+						selectCmd.Parameters.AddWithValue("@Username", (user.Username ?? "").Trim());
+
+						using (var reader = await selectCmd.ExecuteReaderAsync())
+						{
+							if (!reader.Read())
+							{
+								return NotFound("User not found");
+							}
+
+							int userId = reader.GetInt32("id");
+							string storedHash = reader.GetString("pass");
+							string storedSalt = reader.IsDBNull(2) ? GenerateSalt() : reader.GetString("salt"); // Handle missing salt
+
+							// Step 2: Hash the input password with the stored salt
+							string inputHashedPassword = HashPassword(user.Pass ?? "", storedSalt);
+
+							// Step 3: Compare the hashed input password with the stored hash
+							if (!storedHash.Equals(inputHashedPassword, StringComparison.Ordinal))
+							{
+								return Unauthorized("Invalid username or password.");
+							}
+
+							// Close the reader before executing the next query
+							reader.Close();
+
+							// Step 4: Update last_seen and fetch user details
+							string sql = @"
+                        UPDATE maxhanna.users 
+                        SET last_seen = NOW() 
+                        WHERE id = @UserId;
+
+                        SELECT 
+                            u.*, 
+                            dp.file_id AS latest_file_id,
+                            dpf.file_name,
+                            dpf.folder_path,
+                            ua.description,
+                            ua.phone,
+                            ua.email,
+                            ua.birthday,
+                            ua.currency,
+                            ua.is_email_public
+                        FROM 
+                            maxhanna.users u
+                        LEFT JOIN  
+                            maxhanna.user_display_pictures dp ON dp.user_id = u.id 
+                        LEFT JOIN  
+                            maxhanna.user_about ua ON ua.user_id = u.id 
+                        LEFT JOIN  
+                            maxhanna.file_uploads dpf ON dpf.id = dp.file_id 
+                        WHERE
+                            u.id = @UserId;
+                    ";
+
+							using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+							{
+								cmd.Parameters.AddWithValue("@UserId", userId);
+
+								using (var dataReader = await cmd.ExecuteReaderAsync())
+								{
+									if (dataReader.Read())
+									{
+										Console.WriteLine("Found user : " + user.Username);
+										FileEntry displayPic = new FileEntry()
+										{
+											Id = dataReader.IsDBNull(dataReader.GetOrdinal("latest_file_id")) ? 0 : dataReader.GetInt32("latest_file_id"),
+											FileName = dataReader.IsDBNull(dataReader.GetOrdinal("file_name")) ? "" : dataReader.GetString("file_name"),
+											Directory = dataReader.IsDBNull(dataReader.GetOrdinal("folder_path")) ? "" : dataReader.GetString("folder_path"),
+										};
+										UserAbout tmpAbout = new UserAbout()
+										{
+											UserId = dataReader.IsDBNull(dataReader.GetOrdinal("id")) ? 0 : dataReader.GetInt32("id"),
+											Description = dataReader.IsDBNull(dataReader.GetOrdinal("description")) ? "" : dataReader.GetString("description"),
+											Phone = dataReader.IsDBNull(dataReader.GetOrdinal("phone")) ? "" : dataReader.GetString("phone"),
+											Email = dataReader.IsDBNull(dataReader.GetOrdinal("email")) ? "" : dataReader.GetString("email"),
+											Birthday = dataReader.IsDBNull(dataReader.GetOrdinal("birthday")) ? null : dataReader.GetDateTime("birthday"),
+											Currency = dataReader.IsDBNull(dataReader.GetOrdinal("currency")) ? null : dataReader.GetString("currency"),
+											IsEmailPublic = dataReader.IsDBNull(dataReader.GetOrdinal("is_email_public")) ? true : dataReader.GetBoolean("is_email_public"),
+										};
+
+										return Ok(new User
+										(
+												Convert.ToInt32(dataReader["id"]),
+												dataReader["username"].ToString()!,
+												null, // Password should never be returned
+												displayPic.Id != 0 ? displayPic : null,
+												tmpAbout,
+												(DateTime)dataReader["created"],
+												(DateTime)dataReader["last_seen"]
+										));
+									}
+								}
+							}
+						}
 					}
+
+					return NotFound("User details not found.");
 				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "An error occurred while processing the GET request.");
-				return StatusCode(500, "An error occurred while processing the request.");
-			}
-			finally
-			{
-				conn.Close();
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "An error occurred while processing the GET request.");
+					return StatusCode(500, "An error occurred while processing the request.");
+				}
 			}
 		}
 
@@ -327,42 +357,43 @@ namespace maxhanna.Server.Controllers
 
 				if (userCount == 0)
 				{
-					// User doesn't exist, proceed with insertion
-					string insertSql = @"INSERT INTO maxhanna.users (username, pass) VALUES (@Username, @Password);";
+					// Generate a random salt
+					string salt = GenerateSalt();
+
+					// Hash the password with the salt
+					string hashedPassword = HashPassword(user.Pass, salt);
+
+					string insertSql = @"INSERT INTO maxhanna.users (username, pass, salt) VALUES (@Username, @Password, @Salt);";
 					MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
 					insertCmd.Parameters.AddWithValue("@Username", user.Username);
-					insertCmd.Parameters.AddWithValue("@Password", user.Pass);
+					insertCmd.Parameters.AddWithValue("@Password", hashedPassword);
+					insertCmd.Parameters.AddWithValue("@Salt", salt); // Store salt separately
 
 					int rowsAffected = await insertCmd.ExecuteNonQueryAsync();
 					if (rowsAffected > 0)
 					{
-						// Retrieve the inserted user's ID
-						string selectIdSql = @"SELECT id FROM maxhanna.users WHERE username = @Username AND pass = @Password";
+						string selectIdSql = @"SELECT id FROM maxhanna.users WHERE username = @Username";
 						MySqlCommand selectIdCmd = new MySqlCommand(selectIdSql, conn);
 						selectIdCmd.Parameters.AddWithValue("@Username", user.Username);
-						selectIdCmd.Parameters.AddWithValue("@Password", user.Pass);
 
 						int userId = Convert.ToInt32(await selectIdCmd.ExecuteScalarAsync());
 
 						if (user.Username != null && !user.Username.ToLower().Contains("guest"))
-						{ 
+						{
 							await AppendToSitemapAsync(userId);
-						} 
+						}
 
 						_logger.LogInformation($"User created successfully with ID: {userId}");
 						return Ok(userId);
 					}
 					else
 					{
-						string result = "Error: Failed to create user";
-						return StatusCode(500, new { message = result });
+						return StatusCode(500, new { message = "Error: Failed to create user" });
 					}
 				}
 				else
 				{
-					// User already exists, return conflict
-					string result = "Error: User already exists";
-					return Conflict(new { message = result });
+					return Conflict(new { message = "Error: User already exists" });
 				}
 			}
 			catch (Exception ex)
@@ -373,6 +404,28 @@ namespace maxhanna.Server.Controllers
 			finally
 			{
 				conn.Close();
+			}
+		}
+
+		// Generate a random salt
+		private string GenerateSalt()
+		{
+			byte[] saltBytes = new byte[16];
+			using (var rng = RandomNumberGenerator.Create())
+			{
+				rng.GetBytes(saltBytes);
+			}
+			return Convert.ToBase64String(saltBytes);
+		}
+
+		// Hash password with SHA-256
+		private string HashPassword(string password, string salt)
+		{
+			using (SHA256 sha256 = SHA256.Create())
+			{
+				byte[] inputBytes = Encoding.UTF8.GetBytes(password + salt);
+				byte[] hashedBytes = sha256.ComputeHash(inputBytes);
+				return Convert.ToBase64String(hashedBytes);
 			}
 		}
 
@@ -387,93 +440,101 @@ namespace maxhanna.Server.Controllers
 				return BadRequest("Username cannot be empty!");
 			}
 
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			try
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
-				conn.Open();
-
-				// Check if the user with the provided ID exists and get the current username
-				string selectSql = "SELECT username FROM maxhanna.users WHERE id = @Id";
-				MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
-				selectCmd.Parameters.AddWithValue("@Id", user.Id);
-
-				string oldUsername;
-				using (var reader = await selectCmd.ExecuteReaderAsync())
+				try
 				{
-					if (!reader.Read())
+					await conn.OpenAsync();
+
+					// Check if the user exists and get the current username and salt
+					string selectSql = "SELECT username, salt FROM maxhanna.users WHERE id = @Id";
+					using (MySqlCommand selectCmd = new MySqlCommand(selectSql, conn))
 					{
-						// User with the provided ID not found
-						return NotFound();
-					}
-					oldUsername = reader.GetString("username");
-				}
+						selectCmd.Parameters.AddWithValue("@Id", user.Id);
 
-				// Check if the new username already exists in the database
-				string checkUsernameSql = "SELECT COUNT(*) FROM maxhanna.users WHERE username = @Username AND id != @Id";
-				MySqlCommand checkUsernameCmd = new MySqlCommand(checkUsernameSql, conn);
-				checkUsernameCmd.Parameters.AddWithValue("@Username", user.Username);
-				checkUsernameCmd.Parameters.AddWithValue("@Id", user.Id);
+						string oldUsername, existingSalt;
+						using (var reader = await selectCmd.ExecuteReaderAsync())
+						{
+							if (!reader.Read())
+							{
+								return NotFound("User not found");
+							}
+							oldUsername = reader.GetString("username");
+							existingSalt = reader.IsDBNull(1) ? GenerateSalt() : reader.GetString("salt"); // Handle missing salt
+						}
 
-				int usernameCount = Convert.ToInt32(await checkUsernameCmd.ExecuteScalarAsync());
+						// Check if the new username already exists in the database
+						string checkUsernameSql = "SELECT COUNT(*) FROM maxhanna.users WHERE username = @Username AND id != @Id";
+						using (MySqlCommand checkUsernameCmd = new MySqlCommand(checkUsernameSql, conn))
+						{
+							checkUsernameCmd.Parameters.AddWithValue("@Username", user.Username);
+							checkUsernameCmd.Parameters.AddWithValue("@Id", user.Id);
 
-				if (usernameCount > 0)
-				{
-					// Username already exists in the database
-					return Conflict("Username already exists!");
-				}
+							int usernameCount = Convert.ToInt32(await checkUsernameCmd.ExecuteScalarAsync());
+							if (usernameCount > 0)
+							{
+								return Conflict("Username already exists!");
+							}
+						}
 
-				if (!oldUsername.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
-				{
-					// Update the home folder path if the old username is different from the new username
-					string oldPath = Path.Combine(_baseTarget + "Users/", oldUsername);
-					string newPath = Path.Combine(_baseTarget + "Users/", user.Username);
+						// Hash the new password with the existing salt
+						string hashedPassword = HashPassword(user.Pass, existingSalt);
 
-					if (Directory.Exists(oldPath))
-					{
-						Directory.Move(oldPath, newPath);
-					}
+						// Handle renaming directories if username changes
+						if (!oldUsername.Equals(user.Username, StringComparison.OrdinalIgnoreCase))
+						{
+							string oldPath = Path.Combine(_baseTarget + "Users/", oldUsername);
+							string newPath = Path.Combine(_baseTarget + "Users/", user.Username);
 
-					// Update the file paths in the file_uploads table
-					string updateFileUploadsSql = @"
+							if (Directory.Exists(oldPath))
+							{
+								Directory.Move(oldPath, newPath);
+							}
+
+							// Update the file paths in the file_uploads table
+							string updateFileUploadsSql = @"
                         UPDATE maxhanna.file_uploads 
                         SET folder_path = REPLACE(folder_path, @OldPath, @NewPath) 
                         WHERE user_id = @UserId;
                     ";
-					MySqlCommand updateFileUploadsCmd = new MySqlCommand(updateFileUploadsSql, conn);
-					updateFileUploadsCmd.Parameters.AddWithValue("@OldPath", oldUsername);
-					updateFileUploadsCmd.Parameters.AddWithValue("@NewPath", user.Username);
-					updateFileUploadsCmd.Parameters.AddWithValue("@UserId", user.Id);
-					await updateFileUploadsCmd.ExecuteNonQueryAsync();
+							using (MySqlCommand updateFileUploadsCmd = new MySqlCommand(updateFileUploadsSql, conn))
+							{
+								updateFileUploadsCmd.Parameters.AddWithValue("@OldPath", oldUsername);
+								updateFileUploadsCmd.Parameters.AddWithValue("@NewPath", user.Username);
+								updateFileUploadsCmd.Parameters.AddWithValue("@UserId", user.Id);
+								await updateFileUploadsCmd.ExecuteNonQueryAsync();
+							}
+						}
+
+						// Update the user record with hashed password
+						string updateSql = "UPDATE maxhanna.users SET username = @Username, pass = @Password, salt = @Salt WHERE id = @Id";
+						using (MySqlCommand updateCmd = new MySqlCommand(updateSql, conn))
+						{
+							updateCmd.Parameters.AddWithValue("@Username", user.Username);
+							updateCmd.Parameters.AddWithValue("@Password", hashedPassword);
+							updateCmd.Parameters.AddWithValue("@Salt", existingSalt);
+							updateCmd.Parameters.AddWithValue("@Id", user.Id);
+
+							int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+
+							if (rowsAffected > 0)
+							{
+								return Ok(new { message = "User updated successfully" });
+							}
+							else
+							{
+								return Ok(new { message = "No changes made to the user" });
+							}
+						}
+					}
 				}
-
-				// Update the user record
-				string updateSql = "UPDATE maxhanna.users SET username = @Username, pass = @Password WHERE id = @Id";
-				MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-				updateCmd.Parameters.AddWithValue("@Username", user.Username);
-				updateCmd.Parameters.AddWithValue("@Password", user.Pass);
-				updateCmd.Parameters.AddWithValue("@Id", user.Id);
-
-				int rowsAffected = await updateCmd.ExecuteNonQueryAsync();
-
-				if (rowsAffected > 0)
+				catch (Exception ex)
 				{
-					// User record updated successfully
-					return Ok(new { message = "User updated successfully" });
+					_logger.LogError(ex, "An error occurred while processing the PATCH request.");
+					return StatusCode(500, "An error occurred while processing the request.");
 				}
-				else
-				{
-					// No rows affected, possibly due to no changes in data
-					return Ok(new { message = "User not updated" });
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "An error occurred while processing the PATCH request.");
-				return StatusCode(500, "An error occurred while processing the request.");
-			}
-			finally
-			{
-				conn.Close();
 			}
 		}
 
@@ -515,7 +576,7 @@ namespace maxhanna.Server.Controllers
 				await RemoveFromSitemapAsync(user.Id ?? 0);
 
 				if (rowsAffected > 0)
-				{ 
+				{
 					return Ok(new { message = "User deleted successfully" }); // Return JSON object
 				}
 				else
@@ -887,7 +948,7 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.CloseAsync();
 			}
-		} 
+		}
 
 		[HttpPost("/User/BTCWallet/GetBTCWalletData", Name = "GetBTCWalletData")]
 		public async Task<IActionResult> GetBTCWalletData([FromBody] User user)
@@ -942,9 +1003,9 @@ namespace maxhanna.Server.Controllers
 						// Add parameters
 						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
 						cmd.Parameters.AddWithValue("@Address", request.Address);
-					 
+
 						rowsAffected += await cmd.ExecuteNonQueryAsync();
-					 
+
 
 						// Commit the transaction
 						await transaction.CommitAsync();

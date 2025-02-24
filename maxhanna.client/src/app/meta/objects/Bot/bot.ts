@@ -42,6 +42,7 @@ export class Bot extends Npc {
       type: params.spriteName ?? "botFrame",
       colorSwap: params.colorSwap,
       speed: 1,
+      name: "Bot",
       body: new Sprite({
         resource: resources.images[params.spriteName ?? "botFrame"],
         frameSize: params.spriteName == "white" ? new Vector2(0, 0) : new Vector2(32, 32),
@@ -113,7 +114,7 @@ export class Bot extends Npc {
       let newX = hero.position.x;
       let newY = hero.position.y; 
 
-      console.log(this.body?.animations?.activeKey);
+      //console.log(this.body?.animations?.activeKey);
       // Move bot to always be behind the hero based on their movement direction
       if (Math.abs(directionX) > Math.abs(directionY)) {
         // Hero is primarily moving horizontally

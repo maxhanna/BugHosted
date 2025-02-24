@@ -266,7 +266,7 @@ export class RainbowAlleys1 extends Level {
       this.addChild(slopeUp);
     }
     const sign = new Sprite(
-      { objectId: -1, resource: resources.images["sign"], position: new Vector2(gridCells(21), gridCells(-5)), frameSize: new Vector2(16, 18), isSolid: true }
+      { objectId: -1, resource: resources.images["sign"], name:"Sign", position: new Vector2(gridCells(21), gridCells(-5)), frameSize: new Vector2(16, 18), isSolid: true }
     );
     sign.textContent = [
       {
@@ -275,7 +275,7 @@ export class RainbowAlleys1 extends Level {
     ];
     this.addChild(sign);
     const sign2 = new Sprite(
-      { objectId: -1, resource: resources.images["sign"], position: new Vector2(gridCells(28), gridCells(-5)), frameSize: new Vector2(16, 18), isSolid: true, flipX: true }
+      { objectId: -1, resource: resources.images["sign"], name: "Sign", position: new Vector2(gridCells(28), gridCells(-5)), frameSize: new Vector2(16, 18), isSolid: true, flipX: true }
     );
     sign2.textContent = [
       {

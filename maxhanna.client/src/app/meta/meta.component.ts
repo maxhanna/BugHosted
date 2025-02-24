@@ -37,6 +37,7 @@ import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../services/dat
 import { Skill, HEADBUTT, LEFT_PUNCH, RIGHT_PUNCH } from './helpers/skill-types';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
+import { Character } from './objects/character';
 
 @Component({
   selector: 'app-meta',
@@ -165,7 +166,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   private updateMissingOrNewHeroSprites() {
     let ids: number[] = [];
     for (const hero of this.otherHeroes) {
-      let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Hero | undefined;
+      let existingHero = this.mainScene.level?.children.find((x: any) => x.id === hero.id) as Character | undefined;
       if (!storyFlags.flags.has("START_FIGHT") || this.partyMembers.find(x => x.id === hero.id)) {
         if (existingHero) {
           this.setUpdatedHeroPosition(existingHero, hero);
@@ -317,7 +318,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       id: rz.id, name: rz.name ?? "Anon", position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)),
       isUserControlled: true, speed: rz.speed, mask: rz.mask ? new Mask(getMaskNameById(rz.mask)) : undefined
     }); 
-    this.metaHero = new MetaHero(this.hero.id, this.hero.name, this.hero.position.duplicate(), rz.speed, rz.map, rz.metabots, rz.color, rz.mask);
+    this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"), this.hero.position.duplicate(), rz.speed, rz.map, rz.metabots, rz.color, rz.mask);
     this.mainScene.setHeroId(this.metaHero.id);
 
     if (!!skipDataFetch == false) {
@@ -394,7 +395,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       if (this.mainScene && this.mainScene.level) {
         if (level.name != "Fight") {
-          this.metaHero.map = level.name;
+          this.metaHero.map = level.name ?? "HERO_ROOM";
           this.metaHero.position = level.getDefaultHeroPosition();
         } else {
           let i = 0;
@@ -420,7 +421,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       const invItems = this.mainScene.inventory.items;
       if (this.mainScene.level) {
         console.log(this.mainScene.level);
-        this.mainScene.setLevel(new WardrobeMenu({ entranceLevel: this.getLevelFromLevelName(this.mainScene.level.name), heroPosition: this.metaHero.position, inventoryItems: invItems, hero: this.metaHero }));
+        this.mainScene.setLevel(new WardrobeMenu({ entranceLevel: this.getLevelFromLevelName((this.mainScene.level.name ?? "HERO_ROOM")), heroPosition: this.metaHero.position, inventoryItems: invItems, hero: this.metaHero }));
       }
       this.stopPollingForUpdates = true;
       this.setActionBlocker(50);
@@ -464,14 +465,14 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     }); 
     events.on("WARDROBE_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
       this.stopPollingForUpdates = false;
-      const newLevel = this.getLevelFromLevelName(params.entranceLevel.name);
+      const newLevel = this.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
       console.log(newLevel, params.entranceLevel);
       newLevel.defaultHeroPosition = params.heroPosition;
       events.emit("CHANGE_LEVEL", newLevel);
     });
     events.on("SHOP_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
       this.stopPollingForUpdates = false;
-      const newLevel = this.getLevelFromLevelName(params.entranceLevel.name);
+      const newLevel = this.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
       newLevel.defaultHeroPosition = params.heroPosition;
       events.emit("CHANGE_LEVEL", newLevel);
     });
@@ -569,7 +570,15 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "BUY_ITEM", this.metaHero.map, { "item": `${JSON.stringify(item)}` })
       this.metaService.updateEvents(metaEvent);
       if (item.category === "botFrame") {
-        const newBot = new MetaBot({ id: this.metaHero.metabots.length + 1, heroId: this.metaHero.id, type: item.stats["type"], hp: item.stats["hp"], name: item.name, level: 1 });
+        const newBot = new MetaBot(
+          {
+            id: this.metaHero.metabots.length + 1,
+            heroId: this.metaHero.id,
+            type: item.stats["type"],
+            hp: item.stats["hp"],
+            name: item.name ?? "",
+            level: 1
+          });
         this.metaService.createBot(newBot).then(res => {
           if (res) { 
             this.metaHero.metabots.push(res);
@@ -584,7 +593,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       let partIdNumbers = []
       //`${part.partName} ${part.skill.name} ${part.damageMod}`
       for (let item of botPartsSold) {
-        let itmString = item.name;
+        let itmString = item.name ?? "";
         itmString = itmString.replace("Left Punch", "Left_Punch");
         itmString = itmString.replace("Right Punch", "Right_Punch");
         console.log(itmString);
@@ -639,11 +648,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     });
 
     events.on("START_PRESSED", this, (data: any) => {
-      this.isStartMenuOpened = true;
+      this.isStartMenuOpened = !this.isStartMenuOpened;
     });
-    events.on("CLOSE_INVENTORY_MENU", this, (data: any) => {
-      this.isStartMenuOpened = false;
-    });
+ 
     //Reposition Safely handler
     events.on("REPOSITION_SAFELY", this, () => {
       if (this.metaHero) {
