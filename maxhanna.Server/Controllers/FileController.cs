@@ -1,16 +1,16 @@
 using maxhanna.Server.Controllers.DataContracts;
+using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Topics;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using System.Diagnostics;
-using System.Net;
 using MySqlConnector;
-using Xabe.FFmpeg;
+using Newtonsoft.Json;
 using SixLabors.ImageSharp;
 using System.Data;
-using maxhanna.Server.Controllers.DataContracts.Files;
-using maxhanna.Server.Controllers.DataContracts.Users;
-using maxhanna.Server.Controllers.DataContracts.Topics;
+using System.Diagnostics;
+using System.Net;
 using System.Xml.Linq;
+using Xabe.FFmpeg;
 
 namespace maxhanna.Server.Controllers
 {
@@ -33,8 +33,8 @@ namespace maxhanna.Server.Controllers
 		{
 			_logger = logger;
 			_config = config;
-			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
-			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? ""; 
+			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
 			FFmpeg.SetExecutablesPath("E:\\ffmpeg-latest-win64-static\\bin");
 		}
 
@@ -918,7 +918,8 @@ namespace maxhanna.Server.Controllers
 								await file.CopyToAsync(stream);
 								(width, height, duration) = await GetMediaInfo(filePath);
 							}
-						} else
+						}
+						else
 						{
 							if (IsGifFile(file))
 							{
@@ -944,7 +945,7 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 						}
-						
+
 
 						var fileId = await InsertFileIntoDB(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
 						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
@@ -1994,8 +1995,8 @@ namespace maxhanna.Server.Controllers
 			_logger.LogInformation($"AppendToSitemapAsync (inputFile = {fileEntry.FileName}, isPublic = {fileEntry.Visibility}, fileType = {fileEntry.FileType}, fileId = {fileEntry.Id}, directory = {fileEntry.Directory})");
 
 			string fileUrl = IsVideoFileFromExtensionString(fileEntry.FileType)
-					? $"https://bughosted.com/Media/{fileEntry.Id}"  
-					: $"https://bughosted.com/File/{fileEntry.Id}"; 
+					? $"https://bughosted.com/Media/{fileEntry.Id}"
+					: $"https://bughosted.com/File/{fileEntry.Id}";
 
 			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
@@ -2188,7 +2189,7 @@ namespace maxhanna.Server.Controllers
 			else if (directory.Equals(_baseTarget + "Users") || directory.Equals(_baseTarget + "Roms")
 					|| directory.Equals(_baseTarget + "Meme") || directory.Equals(_baseTarget + "Nexus")
 					|| directory.Equals(_baseTarget + "Array") || directory.Equals(_baseTarget + "BugHosted")
-					|| directory.Equals(_baseTarget + "Files") || directory.Equals(_baseTarget + "Pictures") 
+					|| directory.Equals(_baseTarget + "Files") || directory.Equals(_baseTarget + "Pictures")
 					|| directory.Equals(_baseTarget + "Videos"))
 			{
 				_logger.LogError($"Cannot delete {directory}!");
@@ -2198,19 +2199,19 @@ namespace maxhanna.Server.Controllers
 			{
 				return true;
 			}
-		}  
+		}
 
 		private bool DetermineIfRomSearch(List<string>? fileType)
 		{
 			if (fileType == null || fileType.Count == 0)
 			{
-				return false; 
+				return false;
 			}
-			 
+
 			List<string> fileTypeList = (fileType.Count == 1 && fileType[0] != null && fileType[0].Contains(","))
 					? fileType[0].Split(',').Select(s => s.Trim()).ToList()
 					: fileType;
-			 
+
 			return fileTypeList.Any(ext => romExtensions.Contains(ext));
 		}
 

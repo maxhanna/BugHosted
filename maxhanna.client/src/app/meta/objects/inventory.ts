@@ -9,16 +9,19 @@ import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../helpers/story-flags
 import { StartMenu } from "./Menu/start-menu";
 import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { MetaBotPart } from "../../../services/datacontracts/meta/meta-bot-part";
+import { Character } from "./character";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: InventoryItem[] = []; 
   parts: MetaBotPart[] = [];
   currentlySelectedId?: number = undefined;
   startMenu?: StartMenu;
-  constructor() {
+  parentCharacter: Character;
+  constructor(config: { character: Character }) {
     super({ position: new Vector2(0, 0) });
     this.drawLayer = HUD;
     this.items = [];
+    this.parentCharacter = config.character;
      
    
     //DEMO of removing an item from inventory
@@ -29,7 +32,7 @@ export class Inventory extends GameObject {
   }
 
   override ready() {
-    events.on("HERO_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string, stats?: any }) => {
+    events.on("CHARACTER_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string, stats?: any }) => {
       if (data.hero?.isUserControlled) {
         const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category, stats: data.stats } as InventoryItem;
         this.updateStoryFlags(itemData);
@@ -125,7 +128,7 @@ export class Inventory extends GameObject {
     const itemsFound = this.items;
     const itemsFoundNames = [];
     for (let item of itemsFound) {
-      if (item.name) {
+      if (item.name && item.name != undefined) {
         itemsFoundNames.push(item.name);
       }
     }

@@ -56,7 +56,7 @@ export class RandomEncounter extends Bot {
   }
 
   override ready() {
-    events.on("HERO_POSITION", this, (hero: Hero) => {
+    events.on("CHARACTER_POSITION", this, (hero: Hero) => {
       if (hero.position.matches(this.position)) {
         events.emit("HERO_REQUESTS_ACTION", this);
       }

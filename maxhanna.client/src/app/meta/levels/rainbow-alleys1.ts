@@ -290,7 +290,7 @@ export class RainbowAlleys1 extends Level {
     const spiderBot = new Spiderbot({ position: new Vector2(gridCells(24), gridCells(20)), hp: 5, level: 5 });
     const armobot = new Armobot({ position: new Vector2(gridCells(28), gridCells(20)), hp: 5, level: 5 });
 
-    const bystander = new Bugcatcher({ position: new Vector2(gridCells(19), gridCells(8)), moveUpDown: 4, moveLeftRight: 2 });
+    const bystander = new Bugcatcher({ position: new Vector2(gridCells(19), gridCells(8)), moveUpDown: 4, moveLeftRight: 4 });
     this.addChild(bystander); 
 
     //EXITS

@@ -1,8 +1,8 @@
+using Google.Apis.Auth.OAuth2;
+using Microsoft.AspNetCore.Mvc;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Google.Apis.Auth.OAuth2;
-using Microsoft.AspNetCore.Mvc;
 
 namespace maxhanna.Server.Controllers
 {
@@ -139,7 +139,7 @@ namespace maxhanna.Server.Controllers
 			{
 				return false;
 			}
-		} 
+		}
 
 		public class AiRequest
 		{

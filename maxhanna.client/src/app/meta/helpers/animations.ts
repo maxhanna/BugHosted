@@ -10,7 +10,10 @@ export class Animations {
 
   }
   get frame() {
-    return this.patterns[this.activeKey].frame;
+    if (this.patterns[this.activeKey]) { 
+      return this.patterns[this.activeKey].frame;
+    }
+    return 0;
   }
 
   play(key: string, startAtTime = 0) {
@@ -18,10 +21,14 @@ export class Animations {
       return;
     }
     this.activeKey = key;
-    this.patterns[this.activeKey].currentTime = startAtTime;
+    if (this.patterns[this.activeKey]) {
+      this.patterns[this.activeKey].currentTime = startAtTime;
+    }  
   }
   
   step(delta: number) {
-    this.patterns[this.activeKey].step(delta);
+    if (this.patterns[this.activeKey]) { 
+      this.patterns[this.activeKey].step(delta);
+    }
   }
 }

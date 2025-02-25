@@ -161,8 +161,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     });
 
     await this.coinValueService.isBTCRising().then(res => { 
-      this.isBTCRising = (Boolean)(res);
-      console.log(this.isBTCRising);
+      this.isBTCRising = (Boolean)(res); 
     });
     const res = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
     const result = res;

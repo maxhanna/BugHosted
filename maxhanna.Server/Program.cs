@@ -1,11 +1,11 @@
- 
+
+using FirebaseAdmin;
+using FirebaseAdmin.Auth;
+using Google.Apis.Auth.OAuth2;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
 using MySqlConnector;
-using FirebaseAdmin;
-using Google.Apis.Auth.OAuth2;
-using FirebaseAdmin.Auth;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,9 +13,10 @@ builder.Services.AddMySqlDataSource(builder.Configuration.GetConnectionString("C
 builder.Services.AddControllers();
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = long.MaxValue; // Allows for large files
+	options.MultipartBodyLengthLimit = long.MaxValue; // Allows for large files
 });
-builder.Services.Configure<ForwardedHeadersOptions>(options => {
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
 	options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
 	options.KnownNetworks.Clear();
 	options.KnownProxies.Clear();
@@ -32,7 +33,7 @@ builder.Services.AddHostedService<NexusUnitUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusBuildingUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusUnitBackgroundService>();
 builder.Services.AddHostedService<NexusDefenceBackgroundService>();
- 
+
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
 
 var defaultApp = FirebaseApp.Create(new AppOptions
@@ -41,7 +42,7 @@ var defaultApp = FirebaseApp.Create(new AppOptions
 	ProjectId = "bughosted",
 });
 Console.WriteLine(defaultApp.Name); // "[DEFAULT]" 
-var defaultAuth = FirebaseAuth.GetAuth(defaultApp); 
+var defaultAuth = FirebaseAuth.GetAuth(defaultApp);
 defaultAuth = FirebaseAuth.DefaultInstance;
 
 var app = builder.Build();
@@ -61,28 +62,28 @@ app.MapWhen(context => context.Request.Path.Value.Contains("firebase-messaging-s
 	});
 });
 app.UseStaticFiles();
- 
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+	app.UseSwagger();
+	app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
 
 app.UseRouting();
 
-app.UseAuthorization(); 
+app.UseAuthorization();
 
 app.MapControllers();
 
 app.MapFallbackToFile("/index.html");
 try
 {
-    app.Run();
+	app.Run();
 }
 catch (Exception ex)
 {
-    Console.WriteLine(ex.ToString());
+	Console.WriteLine(ex.ToString());
 }

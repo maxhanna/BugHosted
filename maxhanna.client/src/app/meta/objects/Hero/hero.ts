@@ -6,7 +6,7 @@ import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { moveTowards, bodyAtSpace, otherPlayerMove, shouldResetSlope, recalculateScaleBasedOnSlope, tryMove, isObjectNeerby } from "../../helpers/move-towards";
+import { moveTowards, bodyAtSpace, shouldResetSlope, recalculateScaleBasedOnSlope, tryMove, isObjectNeerby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
@@ -32,8 +32,9 @@ export class Hero extends Character {
         objectId: params.id ?? 0,
         resource: resources.images["hero"],
         name: "hero",
-        position: new Vector2(-8, -20),
-        frameSize: new Vector2(32, 32),
+        position: new Vector2(-8, -23),
+        frameSize: new Vector2(32, 32), 
+        offsetY: -10,
         hFrames: 4,
         vFrames: 5,
         animations: new Animations(
@@ -63,6 +64,7 @@ export class Hero extends Character {
     this.metabots = params.metabots ?? [];
     const shadow = new Sprite({
       resource: resources.images["shadow"],
+      offsetY:  10,
       position: new Vector2(-18, -18),
       scale: new Vector2(1.25, 1),
       frameSize: new Vector2(32, 32),
@@ -186,8 +188,8 @@ export class Hero extends Character {
       const boxPadding = 2; // Padding around the text
       const boxWidth = textWidth + boxPadding * 2; // Box width
       const boxHeight = 8; // Box height (fixed height)
-      const boxX = drawPosX - (boxWidth / 2) + 6; // Center the box horizontally
-      const boxY = drawPosY + 10; // Position the box below the player
+      const boxX = drawPosX - (boxWidth / 2) + 7; // Center the box horizontally
+      const boxY = drawPosY + 23; // Position the box below the player
 
 
       // Draw the dark background box for the name
@@ -196,54 +198,14 @@ export class Hero extends Character {
 
       // Draw the name text on top of the box
       ctx.fillStyle = "chartreuse";
-      ctx.fillText(this.name, drawPosX + 6, boxY + boxHeight - 1);
+      ctx.fillText(this.name, drawPosX + 7, boxY + boxHeight - 1);
     }
   }
 
   override ready() {
     events.emit("HERO_CREATED", this);
-    events.on("HERO_PICKS_UP_ITEM", this, (data:
-      {
-        position: Vector2,
-        hero: Hero,
-        name: string,
-        imageName: string,
-        category: string,
-        stats: any,
-      }) => {
-      this.onPickupItem(data);
-    });
-    events.on("HERO_SLOPE", this, (params: {
-      heroId: number,
-      slopeType: typeof UP | typeof DOWN,
-      slopeDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT,
-      startScale: Vector2,
-      endScale: Vector2,
-      slopeStepHeight: Vector2
-    }) => {
-      if (params.heroId === this.id) {
-        this.ogScale = this.scale;
-        this.endScale = params.endScale;
-        this.slopeType = params.slopeType;
-        this.slopeDirection = params.slopeDirection;
-        this.slopeStepHeight = params.slopeStepHeight;
-
-        let blockUpdate = false;
-        if (this.scale.matches(params.startScale)) {
-          blockUpdate = true;
-        } else if (this.slopeDirection === DOWN && (this.facingDirection === LEFT || this.facingDirection === RIGHT)) {
-          blockUpdate = true;
-        }
-
-        if (!blockUpdate) {
-          this.scale = params.startScale;
-          this.ogScale = params.startScale; 
-          this.initializeBody(true);
-        }
-
-      }
-    });
-
+   
+    
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
         this.isLocked = true;
@@ -284,21 +246,6 @@ export class Hero extends Character {
   }
    
    
-  onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
-    console.log(data);
-    if (data.hero?.id == this.id) {
-      this.destinationPosition = data.position.duplicate();
-      this.itemPickupTime = 2500;
-      this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
-      this.itemPickupShell.addChild(new Sprite({
-        resource: resources.images[data.imageName],
-        position: new Vector2(0, -30),
-        scale: new Vector2(0.85, 0.85),
-        frameSize: new Vector2(22, 24),
-      }));
-      this.addChild(this.itemPickupShell);
-    }
-  }
  
   override getContent() {
     return {

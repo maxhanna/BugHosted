@@ -4,18 +4,17 @@ import { GameObject } from "../objects/game-object";
 import { Sprite } from "../objects/sprite";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "./grid-cells";
 
-export function moveTowards(sprite: GameObject, destinationPosition: Vector2, speed: number) {
-  if (!sprite || !sprite.position || !destinationPosition) return;
+export function moveTowards(player: Character, destinationPosition: Vector2, speed: number) {
+  if (!player || !player.position || !destinationPosition) return;
 
-  // Calculate distances
-  let distanceToTravelX = destinationPosition.x - sprite.position.x;
-  let distanceToTravelY = destinationPosition.y - sprite.position.y;
+  let distanceToTravelX = destinationPosition.x - player.position.x;
+  let distanceToTravelY = destinationPosition.y - player.position.y;
   let distance = Math.sqrt(distanceToTravelX ** 2 + distanceToTravelY ** 2);
 
   // Check if the sprite is at the destination or close enough to stop
   if (distance <= speed) {
     // Snap the position exactly to the destination to prevent overshooting
-    sprite.position = destinationPosition.duplicate();
+    player.position = destinationPosition.duplicate();
     return 0; // Return 0 to indicate the sprite has arrived
   } else {
     // Normalize the direction vector
@@ -23,12 +22,12 @@ export function moveTowards(sprite: GameObject, destinationPosition: Vector2, sp
     let normalizedY = distanceToTravelY / distance;
 
     // Move the sprite towards the destination
-    sprite.position.x += normalizedX * speed;
-    sprite.position.y += normalizedY * speed;
+    player.position.x += normalizedX * speed;
+    player.position.y += normalizedY * speed;
 
     // Recalculate the remaining distance
-    distanceToTravelX = destinationPosition.x - sprite.position.x;
-    distanceToTravelY = destinationPosition.y - sprite.position.y;
+    distanceToTravelX = destinationPosition.x - player.position.x;
+    distanceToTravelY = destinationPosition.y - player.position.y;
     distance = Math.sqrt(distanceToTravelX ** 2 + distanceToTravelY ** 2);
   }
 
@@ -44,117 +43,95 @@ export function bodyAtSpace(parent: GameObject, position: Vector2, solid?: boole
 }
 
 
-export function tryMove(player: Character, root: any) {
-  const { input } = root;
+export function tryMove(player: Character, root: any, isUserControlled: boolean, distanceToTravel: number) {
   if (!player.body) return;
 
-  if (!input.direction) {
+  const { input } = root;
+  if (isUserControlled && !input.direction) {
     //console.log("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase()); 
     player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
     return;
-  }
-
+  } 
   const gridSize = gridCells(1);
-  if (player.destinationPosition) {
-    let position = player.destinationPosition.duplicate();
-
-    if (input.direction === DOWN) {
-      position.x = snapToGrid(position.x, gridSize);
-      position.y = snapToGrid(position.y + gridSize, gridSize);
-      player.body.animations?.play("walkDown");
-    }
-    else if (input.direction === UP) {
-      position.x = snapToGrid(position.x, gridSize);
-      position.y = snapToGrid(position.y - gridSize, gridSize);
-      player.body.animations?.play("walkUp");
-    }
-    else if (input.direction === LEFT) {
-      position.x = snapToGrid(position.x - gridSize, gridSize);
-      position.y = snapToGrid(position.y, gridSize);
-      player.body.animations?.play("walkLeft");
-    }
-    else if (input.direction === RIGHT) {
-      position.x = snapToGrid(position.x + gridSize, gridSize);
-      position.y = snapToGrid(position.y, gridSize);
-      player.body.animations?.play("walkRight");
-    }
-
-
-    player.facingDirection = input.direction ?? player.facingDirection;
-
-    if (!bodyAtSpace(player.parent, position)) {
-      player.destinationPosition = player.lastPosition.duplicate();
-      console.log("No body at space, setting to previous position ", player.lastPosition);
-      return;
-    }
-    /*console.log(position);*/
-    if (isSpaceFree(root.level?.walls, position.x, position.y) && !bodyAtSpace(player.parent, position, true)) {
-      player.destinationPosition = position;
-      if (player.slopeType) {
-        recalculateScaleBasedOnSlope(player);
-        // console.log(`slopeType: ${player.slopeType}, slopeDirection: ${player.slopeDirection}, slopeStepHeight: ${player.slopeStepHeight}, facingDirection: ${player.facingDirection}, scale: ${player.scale}`);
+  let position = player.destinationPosition.duplicate();
+  if (player.destinationPosition) { 
+    if (isUserControlled) {
+      if (input.direction === DOWN) {
+        position.x = snapToGrid(position.x, gridSize);
+        position.y = snapToGrid(position.y + gridSize, gridSize);
+        player.body.animations?.play("walkDown"); 
       }
-    } else {
-      player.destinationPosition = player.position.duplicate();
+      else if (input.direction === UP) {
+        position.x = snapToGrid(position.x, gridSize);
+        position.y = snapToGrid(position.y - gridSize, gridSize);
+        player.body.animations?.play("walkUp"); 
+      }
+      else if (input.direction === LEFT) {
+        position.x = snapToGrid(position.x - gridSize, gridSize);
+        position.y = snapToGrid(position.y, gridSize);
+        player.body.animations?.play("walkLeft"); 
+      }
+      else if (input.direction === RIGHT) {
+        position.x = snapToGrid(position.x + gridSize, gridSize);
+        position.y = snapToGrid(position.y, gridSize);
+        player.body.animations?.play("walkRight"); 
+      }
+      player.facingDirection = input.direction ?? player.facingDirection;
+    } 
+  } 
+  if (!isUserControlled) {
+    if (distanceToTravel > 0) {
+      const destPos = player.destinationPosition;
+      let tmpPosition = player.position;
+      //if (player.name == "Bug Catcher") { 
+      //  console.log("moving npc");
+      //}
+      // Calculate the difference between destination and current position
+      const deltaX = destPos.x - tmpPosition.x;
+      const deltaY = destPos.y - tmpPosition.y;
+      const gridSize = gridCells(1);
+      if (deltaX != 0 || deltaY != 0) {
+        if (deltaX > 0) {
+          player.facingDirection = RIGHT;
+          player.body?.animations?.play("walkRight");
+        } else if (deltaX < 0) {
+          player.facingDirection = LEFT;
+          player.body?.animations?.play("walkLeft");
+        }
+      }
+      if (deltaY != 0) {
+        if (deltaY > 0) {
+          player.facingDirection = DOWN;
+          player.body?.animations?.play("walkDown");
+        } else if (deltaY < 0) {
+          player.facingDirection = UP;
+          player.body?.animations?.play("walkUp");
+        }
+      }
+      updateAnimation(player); 
+    } 
+    else { 
+      //if (player.name == "Bug Catcher") {
+      //  console.log("standing still with npc");
+      //}
+      player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
     }
   }
-}
-
-export function otherPlayerMove(player: Character, root: any) {
-  let moved = false;
-  player.position = player.position.duplicate();
-  player.destinationPosition = player.destinationPosition.duplicate();
-  const destPos = player.destinationPosition;
-  let tmpPosition = player.position;
-  if (destPos) {
-    // Calculate the difference between destination and current position
-    const deltaX = destPos.x - tmpPosition.x;
-    const deltaY = destPos.y - tmpPosition.y;
-    const gridSize = gridCells(1);
-    if (deltaX != 0 || deltaY != 0) {
-      if (deltaX > 0) {
-        tmpPosition.x = (tmpPosition.x);
-        player.facingDirection = RIGHT;
-        player.body?.animations?.play("walkRight");
-        if (player.name == "Bot") {
-          console.log("walk right", player);
-        }
-        moved = true;
-      } else if (deltaX < 0) {
-        tmpPosition.x = (tmpPosition.x);
-        player.facingDirection = LEFT;
-        player.body?.animations?.play("walkLeft");
-        if (player.name == "Bot") {
-          console.log("walk left", player);
-        }
-        moved = true;
-      }
-    }
-    if (deltaY != 0) {
-      if (deltaY > 0) {
-        tmpPosition.y = tmpPosition.y;
-        player.facingDirection = DOWN;
-        player.body?.animations?.play("walkDown");
-        moved = true;
-      } else if (deltaY < 0) {
-        tmpPosition.y = tmpPosition.y;
-        player.facingDirection = UP;
-        player.body?.animations?.play("walkUp");
-        moved = true;
-      }
-    }
-    updateAnimation(player);
-    const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
-    const solidBodyAtSpace = bodyAtSpace(player.parent, tmpPosition, true);
-
-    if (spaceIsFree && !solidBodyAtSpace) {
-      player.position = tmpPosition;
-      if (player.slopeType && moved && player.lastPosition.x % 16 == 0 && player.lastPosition.y % 16 == 0) {
-        recalculateScaleBasedOnSlope(player);
-      }
-    }
+  if (!bodyAtSpace(player.parent, position)) {
+    player.destinationPosition = player.lastPosition.duplicate();
+    return;
   }
-}
+  /*console.log(position);*/
+  if (isSpaceFree(root.level?.walls, position.x, position.y) && !bodyAtSpace(player.parent, position, true)) {
+
+    player.destinationPosition = position;
+
+    if (player.slopeType) {
+      console.log(`slopeType: ${player.slopeType}, slopeDirection: ${player.slopeDirection}, slopeStepHeight: ${player.slopeStepHeight}, facingDirection: ${player.facingDirection}, scale: ${player.scale}`);
+      recalculateScaleBasedOnSlope(player);
+    }
+  } 
+} 
 
 export function shouldResetSlope(player: any) {
   // Check DOWN slope conditions
@@ -197,34 +174,38 @@ export function shouldResetSlope(player: any) {
 
 export function recalculateScaleBasedOnSlope(player: any) {
   if (!player.slopeDirection || !player.slopeType) return;
-  if (player.name == "Bot") {
+  if (player.name == "Max") {
     console.log(`before: scale:${player.scale.x}${player.scale.y}, endScale:${player.endScale.x}${player.endScale.y}, ogScale:${player.ogScale.x}${player.ogScale.y}, slopeDir:${player.slopeDirection}, slopeType:${player.slopeType}`);
   }
 
   if (shouldResetSlope(player)) {
-    if (player.name == "Bot") {
+    if (player.name == "Max") {
       console.log("autoreset");
     }
-    return resetSlope(player, true);
+    return resetSlope(player, false);
   }
 
-  const preScale = new Vector2(player.scale.x, player.scale.y);
+  const preScale = player.scale.duplicate();
   scaleWithStep(player, preScale);
-  if (player.name == "Bot") {
+  if (player.name == "Max") {
     console.log(`after : scale:${player.scale.x}${player.scale.y}, endScale:${player.endScale.x}${player.endScale.y}, ogScale:${player.ogScale.x}${player.ogScale.y}, slopeDir:${player.slopeDirection}, slopeType:${player.slopeType}`);
   }
   let forceResetSlope = isSlopeResetFromEndScale(player);
 
   if (forceResetSlope) {
-    if (player.name == "Bot") {
+    if (player.name == "Max") {
       console.log("force reset");
     }
     return resetSlope(player, true);
   }
   else {
     if (player.scale.x > 0 && player.scale.y > 0 && !preScale.matches(player.scale)) {
-      player.destroyBody();
-      player.initializeBody(true);
+
+      if (player.name == "Max") {
+        console.log("reinitialize body", player.scale);
+      } 
+      player.initializeBody();
+       
       return true;
     }
     else
@@ -340,12 +321,12 @@ export function resetSlope(player: any, skipDestroy?: boolean) {
   player.slopeDirection = undefined;
   player.slopeType = undefined;
   player.slopeStepHeight = undefined;
-  player.steppedUpOrDown = false;
+  player.steppedUpOrDown = false; 
   if (!skipDestroy) {
     player.body.recalculatePrecomputedCanvases = true;
   }
-  if (player.name == "Bot") {
-    console.log("slope reset", player.endScale);
+  if (player.name == "Max") {
+    console.log("slope reset", player.scale);
   }
 }
 
@@ -361,7 +342,7 @@ export function updateAnimation(player: any) {
       }
       player.lastStandAnimationTime = currentTime; // Update the last time it was run
     }
-  }, (player.isUserControlled ? 1000 : 2000));
+  }, (player.isUserControlled ? 1000 : 1500));
 }
 
 

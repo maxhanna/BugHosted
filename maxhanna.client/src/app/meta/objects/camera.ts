@@ -8,7 +8,7 @@ export class Camera extends GameObject {
     super({ position: config.position }); 
     this.heroId = config.heroId;
 
-    events.on("HERO_POSITION", this, (hero: any) => {
+    events.on("CHARACTER_POSITION", this, (hero: any) => {
       if (hero.id === this.heroId) {
         this.centerPositionOnTarget(hero.position); 
       }

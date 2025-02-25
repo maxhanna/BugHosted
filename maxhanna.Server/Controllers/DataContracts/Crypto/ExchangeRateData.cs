@@ -4,5 +4,5 @@ namespace maxhanna.Server.Controllers.DataContracts.Crypto
 	{
 		public string Base { get; set; }
 		public Dictionary<string, decimal> Rates { get; set; }
-	} 
+	}
 }

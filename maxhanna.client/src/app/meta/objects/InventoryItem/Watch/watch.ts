@@ -3,6 +3,7 @@ import { InventoryItem } from "../../InventoryItem/inventory-item";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources"; 
 import { events } from "../../../helpers/events";
+import { Character } from "../../character";
 
 export class Watch extends InventoryItem {
   body: Sprite;
@@ -20,7 +21,7 @@ export class Watch extends InventoryItem {
   }
 
   override ready() { 
-    events.on("HERO_POSITION", this, (hero: any) => {
+    events.on("CHARACTER_POSITION", this, (hero: Character) => {
       if (hero.isUserControlled) {
         const roundedHeroX = Math.round(hero.position.x);
         const roundedHeroY = Math.round(hero.position.y);
@@ -31,10 +32,10 @@ export class Watch extends InventoryItem {
     });
   }
 
-  onCollideWithHero(hero: any) {
+  onCollideWithHero(hero: Character) {
     //remove this instance from scene
     this.destroy();
-    events.emit("HERO_PICKS_UP_ITEM", { 
+    events.emit("CHARACTER_PICKS_UP_ITEM", { 
       position: this.position,
       hero: hero,
       name: this.name,

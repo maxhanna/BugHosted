@@ -3,24 +3,24 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers.DataContracts.Chat
 {
-    public class MessageHistoryRequest
-    {
-        public int? ChatId { get; set; }
-        public User? User { get; set; }
-        public User[]? Receivers { get; set; }
-        public int? PageSize { get; set; }
-        public int? PageNumber { get; set; }
-    }
+	public class MessageHistoryRequest
+	{
+		public int? ChatId { get; set; }
+		public User? User { get; set; }
+		public User[]? Receivers { get; set; }
+		public int? PageSize { get; set; }
+		public int? PageNumber { get; set; }
+	}
 
-    public class ChatMessage
-    {
-        public int Id { get; set; }
-        public int ChatId { get; set; }
-        public User? Sender { get; set; }
-        public User[]? Receiver { get; set; }
-        public string? Content { get; set; }
-        public DateTime Timestamp { get; set; }
-        public List<Reaction>? Reactions { get; set; }
-        public List<FileEntry> Files { get; set; } = new List<FileEntry>();
-    }
+	public class ChatMessage
+	{
+		public int Id { get; set; }
+		public int ChatId { get; set; }
+		public User? Sender { get; set; }
+		public User[]? Receiver { get; set; }
+		public string? Content { get; set; }
+		public DateTime Timestamp { get; set; }
+		public List<Reaction>? Reactions { get; set; }
+		public List<FileEntry> Files { get; set; } = new List<FileEntry>();
+	}
 }

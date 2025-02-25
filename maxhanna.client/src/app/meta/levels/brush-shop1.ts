@@ -253,7 +253,7 @@ export class BrushShop1 extends Level {
         events.emit("CHANGE_LEVEL", new BrushLevel1({ heroPosition: new Vector2(gridCells(30), gridCells(18)), itemsFound: this.itemsFound }));
       }
     });
-    events.on("HERO_PICKS_UP_ITEM", this, (level: any) => { 
+    events.on("CHARACTER_PICKS_UP_ITEM", this, (level: any) => { 
       if (storyFlags.contains(GOT_FIRST_METABOT)) {
         console.log("fixing items");
         this.firstBotSelection = [];

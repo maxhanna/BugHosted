@@ -1,8 +1,8 @@
+using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 using Newtonsoft.Json;
 using System.Net;
-using MySqlConnector;
-using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers
 {
@@ -186,7 +186,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private async void updateLastAccessForRom(string fileName)
-		{ 
+		{
 			Console.WriteLine("Updating last_access data for: " + fileName);
 
 			using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -195,9 +195,9 @@ namespace maxhanna.Server.Controllers
 
 				string sql = "UPDATE maxhanna.file_uploads SET last_access = NOW() WHERE file_name = @File_Name LIMIT 1;";
 				var command = new MySqlCommand(sql, connection);
-				command.Parameters.AddWithValue("@File_Name", fileName); 
+				command.Parameters.AddWithValue("@File_Name", fileName);
 
-				await command.ExecuteNonQueryAsync(); 
+				await command.ExecuteNonQueryAsync();
 			}
 		}
 	}

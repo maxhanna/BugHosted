@@ -54,7 +54,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     super();
     this.hero = {} as Hero;
     this.metaHero = {} as MetaHero;
-    this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id, metaHero: this.metaHero });
+    this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id, metaHero: this.metaHero, hero: this.hero });
     this.subscribeToMainGameEvents();
     this.parentRef?.setViewportScalability(false);
   }
@@ -618,7 +618,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       const shopItem = JSON.parse(params.item) as InventoryItem;
       if (params.heroId === this.metaHero.id) {
         setTimeout(() => {
-          events.emit("HERO_PICKS_UP_ITEM", {
+          events.emit("CHARACTER_PICKS_UP_ITEM", {
             position: new Vector2(0, 0),
             id: this.mainScene.inventory.nextId,
             hero: this.hero,
@@ -695,7 +695,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "PARTY_UP", this.metaHero.map, { "hero_id": `${person.id}`, "party_members": `${JSON.stringify(this.partyMembers)}` })
       this.metaService.updateEvents(metaEvent);
     });
-    events.on("HERO_PICKS_UP_ITEM", this, (data:
+    events.on("CHARACTER_PICKS_UP_ITEM", this, (data:
       { 
         position: Vector2,
         hero: Hero,

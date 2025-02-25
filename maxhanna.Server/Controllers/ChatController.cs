@@ -1,9 +1,9 @@
-using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Chat;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Users;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 using System.Data;
 
 namespace maxhanna.Server.Controllers
@@ -195,7 +195,7 @@ namespace maxhanna.Server.Controllers
 							udp.file_id as display_file_id
 						FROM maxhanna.users u 
 						LEFT JOIN maxhanna.user_display_pictures udp on udp.user_id = u.id
-						WHERE id IN (" + idList + @");"; 
+						WHERE id IN (" + idList + @");";
 					MySqlCommand userCmd = new MySqlCommand(userQuery, conn);
 
 					using (MySqlDataReader userReader = await userCmd.ExecuteReaderAsync())
@@ -712,7 +712,7 @@ namespace maxhanna.Server.Controllers
 							await filecmd.ExecuteNonQueryAsync();
 						}
 					}
-				} 
+				}
 				return Ok(targetChatId);
 			}
 			catch (Exception ex)

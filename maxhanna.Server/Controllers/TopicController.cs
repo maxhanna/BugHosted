@@ -1,6 +1,6 @@
+using maxhanna.Server.Controllers.DataContracts.Topics;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using maxhanna.Server.Controllers.DataContracts.Topics;
 
 namespace maxhanna.Server.Controllers
 {

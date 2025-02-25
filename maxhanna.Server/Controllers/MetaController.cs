@@ -72,7 +72,7 @@ namespace maxhanna.Server.Controllers
 						{
 							map = hero.Map,
 							hero.Position,
-							heroes, 
+							heroes,
 							events
 						});
 					}
@@ -88,7 +88,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Meta/FetchInventoryData", Name = "FetchInventoryData")]
 		public async Task<IActionResult> FetchInventoryData([FromBody] MetaHero hero)
 		{
-			Console.WriteLine($"POST /Meta/FetchInventoryData (HeroId: {hero.Id})"); 
+			Console.WriteLine($"POST /Meta/FetchInventoryData (HeroId: {hero.Id})");
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -97,7 +97,7 @@ namespace maxhanna.Server.Controllers
 					try
 					{
 						MetaInventoryItem[]? inventory = await GetInventoryFromDB(hero, connection, transaction);
-						MetaBotPart[]? parts  = await GetMetabotPartsFromDB(hero, connection, transaction);
+						MetaBotPart[]? parts = await GetMetabotPartsFromDB(hero, connection, transaction);
 						await transaction.CommitAsync();
 						return Ok(new
 						{
@@ -348,7 +348,7 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						string sql = @"UPDATE maxhanna.meta_bot_part SET metabot_id = @MetabotId WHERE id = @PartId LIMIT 1;"; 
+						string sql = @"UPDATE maxhanna.meta_bot_part SET metabot_id = @MetabotId WHERE id = @PartId LIMIT 1;";
 						Dictionary<string, object?> parameters = new Dictionary<string, object?>
 												{
 														{ "@MetabotId", req.MetabotId },
@@ -429,7 +429,7 @@ namespace maxhanna.Server.Controllers
 							ON DUPLICATE KEY UPDATE crypto_balance = crypto_balance + VALUES(crypto_balance);
  
 							DELETE FROM maxhanna.meta_bot_part
-							WHERE id IN ({partIdsString});"; 
+							WHERE id IN ({partIdsString});";
 
 						using (var command = new MySqlCommand(singleSql, connection, transaction))
 						{
@@ -501,7 +501,7 @@ namespace maxhanna.Server.Controllers
 					botParameters.Add($"@Type{botIndex}", bot.Type);
 					botParameters.Add($"@Hp{botIndex}", bot.Hp);
 					botParameters.Add($"@Level{botIndex}", bot.Level);
-					botParameters.Add($"@Exp{botIndex}", bot.Exp); 
+					botParameters.Add($"@Exp{botIndex}", bot.Exp);
 					botParameters.Add($"@HeroId{botIndex}", bot.HeroId);
 
 					botIndex++;
@@ -511,7 +511,7 @@ namespace maxhanna.Server.Controllers
 				await ExecuteInsertOrUpdateOrDeleteAsync(botSqlBuilder.ToString(), botParameters, connection, transaction);
 			}
 
-			return hero; 
+			return hero;
 		}
 		private async Task UpdateEventsInDB(MetaEvent @event, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -551,7 +551,7 @@ namespace maxhanna.Server.Controllers
 				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
 			return;
-		} 
+		}
 
 		private async Task<List<MetaEvent>> GetEventsFromDb(string map, MySqlConnection connection, MySqlTransaction transaction)
 		{
@@ -658,7 +658,7 @@ namespace maxhanna.Server.Controllers
 							Type = Convert.ToInt32(reader["bot_type"]),
 							Hp = Convert.ToInt32(reader["bot_hp"]),
 							Level = Convert.ToInt32(reader["bot_level"]),
-							Exp = Convert.ToInt32(reader["bot_exp"]), 
+							Exp = Convert.ToInt32(reader["bot_exp"]),
 							HeroId = hero.Id
 						};
 						metabots.Add(bot);
@@ -737,7 +737,7 @@ namespace maxhanna.Server.Controllers
 							Type = Convert.ToInt32(reader["metabot_type"]),
 							Hp = Convert.ToInt32(reader["metabot_hp"]),
 							Exp = Convert.ToInt32(reader["metabot_exp"]),
-							Level = Convert.ToInt32(reader["metabot_level"]), 
+							Level = Convert.ToInt32(reader["metabot_level"]),
 						};
 
 						if (tmpHero.Metabots == null)
@@ -820,17 +820,17 @@ namespace maxhanna.Server.Controllers
 			{
 
 				while (reader.Read())
-				{ 
+				{
 					MetaBotPart tmpPart = new MetaBotPart
 					{
 						Id = Convert.ToInt32(reader["id"]),
 						HeroId = Convert.ToInt32(reader["hero_id"]),
 						MetabotId = reader.IsDBNull(reader.GetOrdinal("metabot_id")) ? null : Convert.ToInt32(reader["metabot_id"]),
-						Created = Convert.ToDateTime(reader["created"]), 
+						Created = Convert.ToDateTime(reader["created"]),
 						PartName = Convert.ToString(reader["part_name"]),
 						Skill = new Skill(name: Convert.ToString(reader["skill"]) ?? "Headbutt", type: Convert.ToInt32(reader["type"])),
 						DamageMod = Convert.ToInt32(reader["damage_mod"]),
-					};  
+					};
 					partInv.Add(tmpPart);
 				}
 			}

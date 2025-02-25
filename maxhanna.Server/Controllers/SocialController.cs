@@ -77,7 +77,7 @@ namespace maxhanna.Server.Controllers
 			{
 				var topicIds = topics.Split(',').Select((t, index) => new { Index = index, Id = t }).ToList();
 				for (int i = 0; i < topicIds.Count; i++)
-				{ 
+				{
 					whereClause.Append($@" AND EXISTS (
                 SELECT 1 FROM story_topics st2 
                 LEFT JOIN topics t2 ON st2.topic_id = t2.id 
@@ -99,7 +99,7 @@ namespace maxhanna.Server.Controllers
 			int offset = (page - 1) * pageSize;
 			string countSql = @$"SELECT COUNT(*) AS total_count 
 												FROM stories AS s 
-												JOIN users AS u ON s.user_id = u.id {whereClause};"; 
+												JOIN users AS u ON s.user_id = u.id {whereClause};";
 			string sql = @$"
     SELECT 
         s.id AS story_id, 
@@ -175,7 +175,7 @@ namespace maxhanna.Server.Controllers
 								storyDictionary[storyId] = story;
 							}
 							if (!rdr.IsDBNull(rdr.GetOrdinal("title")))
-							{ 
+							{
 								story.Metadata?.Add(new Metadata
 								{
 									Title = rdr.GetString("title"),
@@ -786,7 +786,7 @@ namespace maxhanna.Server.Controllers
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
 						if (rowsAffected == 1)
-						{ 
+						{
 							await AppendToSitemapAsync(request.story.Id);
 							var url = ExtractUrls(request.story.StoryText);
 							if (url != null)
@@ -886,11 +886,11 @@ namespace maxhanna.Server.Controllers
 						await DeleteMetadata(storyId);
 						for (int i = 0; i < request.Url.Length; i++)
 						{
-							var metadata = await FetchMetadataAsync(request.Url[i]); 
+							var metadata = await FetchMetadataAsync(request.Url[i]);
 							await InsertMetadata((int)storyId, metadata);
 						}
 						return Ok($"Inserted metadata for storyId {storyId}");
-					} 
+					}
 				}
 			}
 			catch (Exception ex)
@@ -939,7 +939,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@StoryId", storyId);  
+						cmd.Parameters.AddWithValue("@StoryId", storyId);
 						await cmd.ExecuteNonQueryAsync();
 					}
 				}
@@ -972,7 +972,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
-		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml"); 
+		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 		private async Task AppendToSitemapAsync(int targetId)
 		{
 			string storyUrl = $"https://bughosted.com/Social/{targetId}";

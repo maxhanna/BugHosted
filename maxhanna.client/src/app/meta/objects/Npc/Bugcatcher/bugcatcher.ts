@@ -16,6 +16,7 @@ export class Bugcatcher extends Npc {
     super({
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       type: "bugcatcher",
+      name: "Bug Catcher",
       partners: [],
       position: params.position,
       moveUpDown: params.moveUpDown,
@@ -40,8 +41,7 @@ export class Bugcatcher extends Npc {
           })
       }), 
     });
-      
-    this.name = "bugcatcher";   
+        
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       position: new Vector2((this.body?.position.x ?? 0) - 9, -30),

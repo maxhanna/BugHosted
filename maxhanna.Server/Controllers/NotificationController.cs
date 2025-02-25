@@ -343,7 +343,7 @@ namespace maxhanna.Server.Controllers
 				string notificationSql = "";
 				string? targetColumn = request.FileId != null ? "file_id" :
 															request.StoryId != null ? "story_id" :
-															request.CommentId != null ? "comment_id" : 
+															request.CommentId != null ? "comment_id" :
 															null;
 
 				if (targetColumn != null) //Insert notification for Files, Stories or Comments here
@@ -401,7 +401,7 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@comment", request.Message);
 						await cmd.ExecuteNonQueryAsync();
 					}
-				} 
+				}
 				else if (request.ChatId != null) // Insert notification for chat messages here
 				{
 					Console.WriteLine($"Sending notif on ChatId : {request.ChatId}");
@@ -489,7 +489,7 @@ namespace maxhanna.Server.Controllers
 						using (var cmd = new MySqlCommand(notificationSql, conn))
 						{
 							cmd.Parameters.AddWithValue("@to_user", request.ToUser.FirstOrDefault()?.Id ?? 0);
-							cmd.Parameters.AddWithValue("@from_user", request.FromUser?.Id ?? 0); 
+							cmd.Parameters.AddWithValue("@from_user", request.FromUser?.Id ?? 0);
 							cmd.Parameters.AddWithValue("@comment", request.Message);
 							await cmd.ExecuteNonQueryAsync();
 						}
@@ -537,7 +537,7 @@ namespace maxhanna.Server.Controllers
 						return BadRequest("Notification(s) could not be created.");
 					}
 				}
-			} 
+			}
 
 			return Ok("Notification(s) Created");
 		}

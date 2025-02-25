@@ -82,7 +82,7 @@ namespace maxhanna.Server.Controllers
 							var friend = new User
 							{
 								Id = reader.GetInt32("id"),
-								Username = reader.GetString("username"), 
+								Username = reader.GetString("username"),
 								DisplayPictureFile = reader.IsDBNull("display_picture_file_id") ? null : new FileEntry(reader.GetInt32("display_picture_file_id"))
 							};
 							friends.Add(friend);
@@ -97,7 +97,7 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError(ex, "An error occurred while fetching friends.");
 				return StatusCode(500, "An error occurred while fetching friends.");
 			}
-		} 
+		}
 
 		[HttpPost("/Friend/Requests", Name = "GetFriendRequests")]
 		public async Task<IActionResult> GetFriendRequests([FromBody] User user)
@@ -176,7 +176,7 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError(ex, "An error occurred while fetching friend requests.");
 				return StatusCode(500, "An error occurred while fetching friend requests.");
 			}
-		} 
+		}
 
 		[HttpPost("/Friend/Request", Name = "SendFriendRequest")]
 		public async Task<IActionResult> SendFriendRequest([FromBody] FriendshipRequest request)
@@ -488,6 +488,6 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError(ex, "An error occurred while rejecting friend request.");
 				return StatusCode(500, "An error occurred while rejecting friend request.");
 			}
-		}  
+		}
 	}
 }

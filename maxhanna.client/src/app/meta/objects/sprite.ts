@@ -220,7 +220,7 @@ export class Sprite extends GameObject {
     if (!this.colorSwap) {
       return false;
     }
-    if (this.scale.x != 1) {
+    if (this.scale.x != 1 || this.recalculatePrecomputedCanvases) {
       this.precomputeRecoloredFrames(this.colorSwap.originalRGB, this.colorSwap.replacementRGB);
     }
 

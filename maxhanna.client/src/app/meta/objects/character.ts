@@ -7,10 +7,11 @@ import { Mask } from "./Wardrobe/mask";
 import { isObjectNeerby, moveTowards, tryMove } from "../helpers/move-towards";
 import { Input } from "../helpers/input";
 import { events } from "../helpers/events";
+import { resources } from "../helpers/resources";
 
 export class Character extends GameObject {
   id: number;
-  facingDirection: string = DOWN;
+  facingDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT = DOWN;
   destinationPosition: Vector2 = new Vector2(1, 1);
   lastPosition: Vector2 = new Vector2(1, 1);
   body?: Sprite;
@@ -61,7 +62,7 @@ export class Character extends GameObject {
     this.mask?.destroy();
   }
 
-  initializeBody(redraw?: boolean) {
+  initializeBody() {
     let offsetY;
     if (this.scale.y < 0.75) {
       offsetY = 7;
@@ -78,34 +79,75 @@ export class Character extends GameObject {
       this.destroyBody();
       this.body.scale = this.scale;
       this.body.position.y = offsetY;
-      this.body.offsetX = offsetY / 2;
-      if (this.name == "Bot") {
+      this.body.offsetX = offsetY / 2; 
+
+      if (!this.children.includes(this.body)) { 
+        this.addChild(this.body);
         console.log("adding child body", this.scale, this.body.animations?.activeKey);
       }
-      this.addChild(this.body);
 
       let animation = this.body?.animations?.activeKey;
-      this.body?.animations?.play(animation ?? "standDown");
+      if (!animation) { 
+        this.body?.animations?.play(animation ?? "standDown");
+      }
 
-      if (this.mask) {
-        if (redraw) {
-          if (this.facingDirection == UP) {
-          } else if (this.facingDirection == DOWN) {
-            this.mask.frame = 0;
-          } else if (this.facingDirection == LEFT) {
-            this.mask.frame = 1;
-          } else if (this.facingDirection == RIGHT) {
-            this.mask.frame = 2;
-          }
+      if (this.mask) { 
+        if (this.facingDirection == UP) {
+        } else if (this.facingDirection == DOWN) {
+          this.mask.frame = 0;
+        } else if (this.facingDirection == LEFT) {
+          this.mask.frame = 1;
+        } else if (this.facingDirection == RIGHT) {
+          this.mask.frame = 2;
         }
+         
         this.mask.scale = this.scale;
         this.mask.position = this.body.position.duplicate();
         this.mask.position.y += offsetY;
         this.mask.offsetX = offsetY / 2;
-        this.addChild(this.mask);
+
+        if (!this.children.includes(this.mask)) {
+          this.addChild(this.mask);
+        }
       }
     }
 
+  }
+
+  override ready() {
+    events.on("CHARACTER_SLOPE", this, (params: {
+      heroId: number,
+      slopeType: typeof UP | typeof DOWN,
+      slopeDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT,
+      startScale: Vector2,
+      endScale: Vector2,
+      slopeStepHeight: Vector2
+    }) => {
+      if (params.heroId === this.id) {
+        this.ogScale = this.scale;
+        this.endScale = params.endScale;
+        this.slopeType = params.slopeType;
+        this.slopeDirection = params.slopeDirection;
+        this.slopeStepHeight = params.slopeStepHeight;
+         
+        if (!this.scale.matches(params.startScale)) { 
+          this.scale = params.startScale;
+          this.ogScale = params.startScale;
+          this.initializeBody(); 
+        } 
+      }
+    });
+    events.on("CHARACTER_PICKS_UP_ITEM", this, (data:
+      {
+        position: Vector2,
+        hero: Character,
+        name: string,
+        imageName: string,
+        category: string,
+        stats: any,
+      }) => {
+      this.onPickupItem(data);
+    });
   }
   override step(delta: number, root: any) {
     const input = root.input as Input;
@@ -125,9 +167,13 @@ export class Character extends GameObject {
       }
     }  
     this.distanceLeftToTravel = moveTowards(this, this.destinationPosition, this.speed);
+
     const hasArrived = (this.distanceLeftToTravel ?? 0) <= 1;
-    if (hasArrived) {
-      tryMove(this, root);
+    if (hasArrived || !this.isUserControlled) {
+      //if (this.name == "Bug Catcher") {
+      //  console.log(this.distanceLeftToTravel);
+      //}
+      tryMove(this, root, (this.isUserControlled ?? false), this.distanceLeftToTravel ?? 0);
     }
     this.tryEmitPosition();
     this.recalculateMaskPositioning();
@@ -137,13 +183,31 @@ export class Character extends GameObject {
     if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
       return;
     }
-    events.emit("HERO_POSITION", this);
-    this.lastPosition = this.position.duplicate();
+    this.lastPosition.x = this.position.x;
+    this.lastPosition.y = this.position.y;
+    if (this.isUserControlled) { 
+      events.emit("CHARACTER_POSITION", this);
+    }
   }
 
+  onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
+    console.log(data);
+    if (data.hero?.id == this.id) {
+      this.destinationPosition = data.position.duplicate();
+      this.itemPickupTime = 2500;
+      this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
+      this.itemPickupShell.addChild(new Sprite({
+        resource: resources.images[data.imageName],
+        position: new Vector2(0, -30),
+        scale: new Vector2(0.85, 0.85),
+        frameSize: new Vector2(22, 24),
+      }));
+      this.addChild(this.itemPickupShell);
+    }
+  }
   private recalculateMaskPositioning() {
     if (!this.mask || !this.body) return;
-    this.mask.offsetY = 0;
+    this.mask.offsetY = this.body.offsetY;
     if (this.body.frame >= 12 && this.body.frame < 16) {
       this.mask.preventDraw = true;
     } else {
@@ -152,7 +216,7 @@ export class Character extends GameObject {
       switch (this.body.frame) {
         case 5:
         case 7:
-          this.mask.offsetY = 2;
+          this.mask.offsetY += 2;
           break;
 
         case 8:
@@ -163,7 +227,7 @@ export class Character extends GameObject {
         case 9:
           // Set frame 1 with an adjusted offsetY for frame 9
           this.mask.frame = 1;
-          this.mask.offsetY = -2;
+          this.mask.offsetY += -2;
           break;
 
         case 10:
@@ -173,7 +237,7 @@ export class Character extends GameObject {
         case 11:
           // Set frame 2 for frames 10 and 11
           this.mask.frame = 2;
-          this.mask.offsetY = -2;
+          this.mask.offsetY += -2;
           break;
 
         default:

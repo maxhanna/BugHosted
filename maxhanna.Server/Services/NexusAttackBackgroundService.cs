@@ -15,7 +15,7 @@ namespace maxhanna.Server.Services
 		private readonly IServiceProvider _serviceProvider;
 		private readonly ILogger<NexusController> _logger;
 		private Timer _checkForNewAttacksTimer;
-		private Timer _processAttackQueueTimer; 
+		private Timer _processAttackQueueTimer;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
 

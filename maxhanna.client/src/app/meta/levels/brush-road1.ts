@@ -169,7 +169,13 @@ export class BrushRoad1 extends Level {
     for (let x = 0; x < 20; x++) {
       for (let y = 0; y < 25; y++) {
         const grassBlade = new Sprite(
-          { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(6) + (gridCells(x) / 2), gridCells(15) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9), offsetX: -8 }
+          {
+            objectId: 0,
+            resource: resources.images["grassBlade"],
+            position: new Vector2(gridCells(6) + (gridCells(x) / 2), gridCells(15) + (gridCells(y) / 2)),
+            frameSize: new Vector2(7, 9), offsetX: -8,
+            drawLayer: GROUND
+          }
         );
         this.addChild(grassBlade);
       }
@@ -178,7 +184,14 @@ export class BrushRoad1 extends Level {
     for (let x = 0; x < 27; x++) {
       for (let y = 0; y < 25; y++) {
         const grassBlade = new Sprite(
-          { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(21) + (gridCells(x) / 2), gridCells(15) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9), offsetX: -10 }
+          {
+            objectId: 0,
+            resource: resources.images["grassBlade"],
+            position: new Vector2(gridCells(21) + (gridCells(x) / 2), gridCells(15) + (gridCells(y) / 2)),
+            frameSize: new Vector2(7, 9),
+            offsetX: -10,
+            drawLayer: GROUND
+          }
         );
         this.addChild(grassBlade);
       }
@@ -187,7 +200,14 @@ export class BrushRoad1 extends Level {
     for (let x = 0; x < 67; x++) {
       for (let y = 0; y < 8; y++) {
         const grassBlade = new Sprite(
-          { objectId: 0, resource: resources.images["grassBlade"], position: new Vector2(gridCells(1) + (gridCells(x) / 2), gridCells(9) + (gridCells(y) / 2)), frameSize: new Vector2(7, 9), offsetX: -10 }
+          {
+            objectId: 0,
+            resource: resources.images["grassBlade"],
+            position: new Vector2(gridCells(1) + (gridCells(x) / 2), gridCells(9) + (gridCells(y) / 2)),
+            frameSize: new Vector2(7, 9),
+            offsetX: -10,
+            drawLayer: GROUND
+          }
         );
         this.addChild(grassBlade);
       }

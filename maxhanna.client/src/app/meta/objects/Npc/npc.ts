@@ -5,7 +5,7 @@ import { Sprite } from "../sprite";
 import { Scenario } from "../../helpers/story-flags";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
-import { moveTowards, bodyAtSpace, recalculateScaleBasedOnSlope, otherPlayerMove, updateAnimation } from "../../helpers/move-towards";
+import { moveTowards, bodyAtSpace, recalculateScaleBasedOnSlope, updateAnimation } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 
@@ -31,13 +31,14 @@ export class Npc extends Character {
     moveLeftRight?: number,
     preventDraw?: boolean,
     colorSwap?: ColorSwap,
-    speed?: number, 
+    speed?: number,
   }) {
     super({
       id: config.id,
       name: config.type ?? "",
       position: config.position,
       body: config.body,
+      isUserControlled: false,
     });
     this.type = config.type;
     this.id = config.id;
@@ -175,58 +176,5 @@ export class Npc extends Character {
         ctx.fillText(line, drawPosX + 6, textStartY + (index * lineHeight));
       });
     }
-  }
-   
-
-  //moveNpc(root: any) {
-  //  let moved = false;
-  //  this.position = this.position.duplicate();
-  //  this.destinationPosition = this.destinationPosition.duplicate();
-  //  const destPos = this.destinationPosition;
-  //  let tmpPosition = this.position;
-  //  if (destPos) {
-  //    // Calculate the difference between destination and current position
-  //    const deltaX = destPos.x - tmpPosition.x;
-  //    const deltaY = destPos.y - tmpPosition.y;
-  //    const gridSize = gridCells(1);
-  //    if (deltaX != 0 || deltaY != 0) {
-  //      if (deltaX > 0) {
-  //        tmpPosition.x = (tmpPosition.x);
-  //        this.facingDirection = RIGHT;
-  //        this.body?.animations?.play("walkRight");
-  //        console.log("walk right");
-  //        moved = true;
-  //      } else if (deltaX < 0) {
-  //        tmpPosition.x = (tmpPosition.x);
-  //        this.facingDirection = LEFT;
-  //        this.body?.animations?.play("walkLeft");
-  //        console.log("walk left");
-  //        moved = true;
-  //      }
-  //    }
-  //    if (deltaY != 0) {
-  //      if (deltaY > 0) {
-  //        tmpPosition.y = tmpPosition.y;
-  //        this.facingDirection = DOWN;
-  //        this.body?.animations?.play("walkDown");
-  //        moved = true;
-  //      } else if (deltaY < 0) {
-  //        tmpPosition.y = tmpPosition.y;
-  //        this.facingDirection = UP;
-  //        this.body?.animations?.play("walkUp");
-  //        moved = true;
-  //      }
-  //    }
-  //    updateAnimation(this);
-  //    const spaceIsFree = isSpaceFree(root.level?.walls, tmpPosition.x, tmpPosition.y);
-  //    const solidBodyAtSpace = bodyAtSpace(this.parent, tmpPosition, true);
-
-  //    if (spaceIsFree && !solidBodyAtSpace) {
-  //      this.position = tmpPosition;
-  //      if (this.slopeType && moved && this.lastPosition.x % 16 == 0 && this.lastPosition.y % 16 == 0) {
-  //        recalculateScaleBasedOnSlope(this);
-  //      }
-  //    }
-  //  }
-  //} 
+  } 
 }

@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
+using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Comments;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 using System.Data;
-using maxhanna.Server.Controllers.DataContracts;
 using System.Text;
 
 namespace maxhanna.Server.Controllers
@@ -165,7 +165,7 @@ namespace maxhanna.Server.Controllers
         ORDER BY c.id, r.id, cf.file_id;");
 
 			using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-			{ 
+			{
 				await conn.OpenAsync();
 				//Console.WriteLine(sqlBuilder.ToString());
 				using (var cmd = new MySqlCommand(sqlBuilder.ToString(), conn))
@@ -175,7 +175,7 @@ namespace maxhanna.Server.Controllers
 					{
 
 						while (await rdr.ReadAsync())
-						{   
+						{
 							int userId = rdr.GetInt32("comment_user_id");
 							string userName = rdr.GetString("comment_username");
 							string commentText = rdr.GetString("comment");
@@ -187,12 +187,13 @@ namespace maxhanna.Server.Controllers
 
 							FileEntry? dpFileEntry = displayPicId.HasValue
 									? new FileEntry { Id = displayPicId.Value, Directory = displayPicFolderPath, FileName = displayPicFileName }
-									: null; 
+									: null;
 
 							// Check if comment already exists
-							var tmpComment = new FileComment {
+							var tmpComment = new FileComment
+							{
 								Id = commentId,
-								CommentText = commentText, 
+								CommentText = commentText,
 								User = new User(userId, userName, null, dpFileEntry, null, null, null),
 								Date = date,
 								CommentFiles = new List<FileEntry>(),

@@ -1,7 +1,7 @@
-﻿using System.Text;
-using maxhanna.Server.Controllers.DataContracts.Crypto;
+﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
 using MySqlConnector;
 using Newtonsoft.Json;
+using System.Text;
 
 namespace maxhanna.Server.Services
 {
@@ -36,13 +36,13 @@ namespace maxhanna.Server.Services
 				// Check if 1 hour has passed since the last coin fetch
 				if ((DateTime.Now - _lastCoinFetchRun).TotalHours >= 1)
 				{
-					await FetchAndStoreCoinValues(); 
+					await FetchAndStoreCoinValues();
 					_lastCoinFetchRun = DateTime.Now;
 				}
 
 				// Check if 6 hour has passed since the last exchange rate fetch
 				if ((DateTime.Now - _lastExchangeRateFetchRun).TotalHours >= 6)
-				{ 
+				{
 					await FetchExchangeRates();
 					_lastExchangeRateFetchRun = DateTime.Now;
 				}
@@ -73,7 +73,7 @@ namespace maxhanna.Server.Services
             ORDER BY last_fetched ASC 
             LIMIT 1;";
 
-				WalletInfo? wallet = null; 
+				WalletInfo? wallet = null;
 				using (var cmd = new MySqlCommand(fetchWalletSql, conn))
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{

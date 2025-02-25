@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using NewsAPI.Models;
-using NewsAPI;
-using NewsAPI.Constants;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Weather;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
+using NewsAPI;
+using NewsAPI.Constants;
+using NewsAPI.Models;
 
 namespace maxhanna.Server.Controllers
 {
@@ -23,7 +23,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost(Name = "GetAllNews")]
 		public ArticlesResult GetAllNews([FromBody] User user, [FromQuery] string? keywords)
-		{ 
+		{
 			string cleanKeywords = string.Join(" OR ", (keywords ?? "").Split(',')
 														 .Select(k => k.Trim())
 														 .Where(k => !string.IsNullOrEmpty(k)));
@@ -83,7 +83,7 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@user_id", User.Id);
 						using (var reader = await cmd.ExecuteReaderAsync())
 						{
-							if (await reader.ReadAsync()) 
+							if (await reader.ReadAsync())
 							{
 								defaultSearch = reader["default_search"]?.ToString();
 							}
@@ -135,6 +135,6 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError($"Error saving default search: {ex.Message}");
 				return StatusCode(500, "An error occurred while saving the default search.");
 			}
-		} 
+		}
 	}
 }

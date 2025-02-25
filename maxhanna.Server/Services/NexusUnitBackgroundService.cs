@@ -1,75 +1,75 @@
 ﻿using maxhanna.Server.Controllers;
 namespace maxhanna.Server.Services
 {
-    public class NexusUnitBackgroundService : BackgroundService
-    { 
-        private readonly IConfiguration _config; 
-        private readonly IServiceProvider _serviceProvider;
-        private readonly ILogger<NexusController> _logger;
+	public class NexusUnitBackgroundService : BackgroundService
+	{
+		private readonly IConfiguration _config;
+		private readonly IServiceProvider _serviceProvider;
+		private readonly ILogger<NexusController> _logger;
 
-        private Timer _checkForNewUnitsTimer;
-        private Timer _processUnitQueueTimer;
+		private Timer _checkForNewUnitsTimer;
+		private Timer _processUnitQueueTimer;
 
-        private int timerDuration = 1;
+		private int timerDuration = 1;
 
 
-        public NexusUnitBackgroundService(IConfiguration config)
-        {
-            _config = config; 
-            var serviceCollection = new ServiceCollection();
-            ConfigureServices(serviceCollection);
-            _serviceProvider = serviceCollection.BuildServiceProvider();
-            _logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>(); 
-        }
-        private void ConfigureServices(IServiceCollection services)
-        {
-            // Configure logging
-            services.AddLogging(configure => configure.AddConsole())
-                    .Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
+		public NexusUnitBackgroundService(IConfiguration config)
+		{
+			_config = config;
+			var serviceCollection = new ServiceCollection();
+			ConfigureServices(serviceCollection);
+			_serviceProvider = serviceCollection.BuildServiceProvider();
+			_logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+		}
+		private void ConfigureServices(IServiceCollection services)
+		{
+			// Configure logging
+			services.AddLogging(configure => configure.AddConsole())
+							.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
 
-            // Configure configuration
-            services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .Build());
-        }
-           
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        { 
-            _checkForNewUnitsTimer = new Timer(
-                async _ => await CheckForNewPurchases(stoppingToken),
-                null,
-                TimeSpan.FromSeconds(timerDuration),
-                TimeSpan.FromSeconds(timerDuration)
-            );
-        }
+			// Configure configuration
+			services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+					.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+					.Build());
+		}
 
-        private async Task CheckForNewPurchases(CancellationToken stoppingToken)
-        {
-            _checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-            try
-            {
-                await LoadAndScheduleExistingPurchases(stoppingToken);
-            }
-            finally
-            {
-                _checkForNewUnitsTimer?.Change(TimeSpan.FromSeconds(timerDuration), TimeSpan.FromSeconds(timerDuration)); // Re-enable timer
-            }
-        }
+		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+		{
+			_checkForNewUnitsTimer = new Timer(
+					async _ => await CheckForNewPurchases(stoppingToken),
+					null,
+					TimeSpan.FromSeconds(timerDuration),
+					TimeSpan.FromSeconds(timerDuration)
+			);
+		}
 
-        private async Task LoadAndScheduleExistingPurchases(CancellationToken stoppingToken)
-        {
+		private async Task CheckForNewPurchases(CancellationToken stoppingToken)
+		{
+			_checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			try
+			{
+				await LoadAndScheduleExistingPurchases(stoppingToken);
+			}
+			finally
+			{
+				_checkForNewUnitsTimer?.Change(TimeSpan.FromSeconds(timerDuration), TimeSpan.FromSeconds(timerDuration)); // Re-enable timer
+			}
+		}
 
-            var nexusController = new NexusController(_logger, _config);
-            await nexusController.UpdateNexusUnitTrainingCompletes();
-        } 
+		private async Task LoadAndScheduleExistingPurchases(CancellationToken stoppingToken)
+		{
 
-        public override void Dispose()
-        {
-            _processUnitQueueTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-            _checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-            _processUnitQueueTimer?.Dispose();
-            _checkForNewUnitsTimer?.Dispose(); 
-            base.Dispose();
-        }
-    }
+			var nexusController = new NexusController(_logger, _config);
+			await nexusController.UpdateNexusUnitTrainingCompletes();
+		}
+
+		public override void Dispose()
+		{
+			_processUnitQueueTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_checkForNewUnitsTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+			_processUnitQueueTimer?.Dispose();
+			_checkForNewUnitsTimer?.Dispose();
+			base.Dispose();
+		}
+	}
 }

@@ -100,14 +100,14 @@ export class Bot extends Npc {
 
 
   override ready() {
-    events.on("HERO_POSITION", this, (hero: Hero) => {
+    events.on("CHARACTER_POSITION", this, (hero: Hero) => {
       this.followHero(hero);
     });
   }
 
 
   private followHero(hero: Hero) {
-    if ((hero.distanceLeftToTravel ?? 0) < 5 && this.heroId === hero.id && this.isDeployed) {
+    if ((hero.distanceLeftToTravel ?? 0) < 15 && this.heroId === hero.id && this.isDeployed) {
       const directionX = hero.position.x - (this.previousHeroPosition?.x ?? hero.position.x);
       const directionY = hero.position.y - (this.previousHeroPosition?.y ?? hero.position.y);
       const distanceFromHero = gridCells(2);
