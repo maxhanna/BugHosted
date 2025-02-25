@@ -5,6 +5,7 @@ import { resources } from "../../../helpers/resources";
 import { events } from "../../../helpers/events";
 import { ColorSwap } from "../../../../../services/datacontracts/meta/color-swap";
 import { Hero } from "../../Hero/hero";
+import { Character } from "../../character";
 
 export class Exit extends GameObject {
   targetMap: string;
@@ -30,12 +31,14 @@ export class Exit extends GameObject {
   }
 
   override ready() {
-    events.on("HERO_POSITION", this, (hero: Hero) => {
-      const roundedHeroX = Math.round(hero.position.x);
-      const roundedHeroY = Math.round(hero.position.y);
+    events.on("CHARACTER_POSITION", this, (character: Character) => {
+      const roundedHeroX = Math.round(character.position.x);
+      const roundedHeroY = Math.round(character.position.y);
       if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {
-        console.log("HERO ENTERS EXIT SPACE", this.targetMap);
-        events.emit("HERO_EXITS", this.targetMap);
+        console.log("CHARACTER ENTERS EXIT SPACE", this.targetMap);
+        if (character.isUserControlled) { 
+          events.emit("CHARACTER_EXITS", this.targetMap);
+        }
       }
     });
   }

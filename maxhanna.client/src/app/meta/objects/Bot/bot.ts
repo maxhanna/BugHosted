@@ -6,7 +6,7 @@ import { Input } from "../../helpers/input";
 import { SkillType } from "../../helpers/skill-types";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { moveTowards } from "../../helpers/move-towards";
+import { isObjectInRange, isObjectNearby, moveTowards } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
@@ -15,17 +15,23 @@ import { Npc } from "../Npc/npc";
 import { MetaBotPart } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { Hero } from "../Hero/hero";
+import { Character } from "../character";
 export class Bot extends Npc {
   heroId?: number;
   botType: number;
   botLevel: number;
-  botHp: number;
+
+  previousHeroPosition?: Vector2;
   leftArm?: MetaBotPart;
   rightArm?: MetaBotPart;
   legs?: MetaBotPart;
   head?: MetaBotPart;
   isDeployed? = false;
-  previousHeroPosition?: Vector2;
+  isEnemy = false;
+  targetedBy: Set<Bot> = new Set();
+  targeting: Set<Bot> = new Set();
+  lastAttack = new Date();
+
 
   constructor(params: {
     position: Vector2, id?: number, heroId?: number,
@@ -71,18 +77,14 @@ export class Bot extends Npc {
     this.facingDirection = DOWN;
     this.botType = params.botType ?? this.getBotType();
     this.botLevel = params.level ?? 1;
-    this.botHp = params.hp ?? 1;
+    this.hp = params.hp ?? 1;
     this.leftArm = params.leftArm;
     this.rightArm = params.rightArm;
     this.head = params.head;
     this.legs = params.legs;
     this.name = params.name ?? "Anon";
     this.isDeployed = params.isDeployed;
-    if (this.body) { 
-      this.addChild(this.body);
-      let animation = this.body.animations?.activeKey;
-      this.body.animations?.play(animation ?? "standDown");
-    }
+ 
 
     if (this.type != "white") {
       const bodyScale = params.scale ?? new Vector2(1, 1);
@@ -96,20 +98,68 @@ export class Bot extends Npc {
       });
       this.addChild(shadow);
     }
-  }
+
+    this.setupEvents();
+  } 
 
 
-  override ready() {
-    events.on("CHARACTER_POSITION", this, (hero: Hero) => {
-      this.followHero(hero);
+  override ready() { 
+    events.on("CHARACTER_POSITION", this, (hero: Character) => {
+      if (hero.id === this.heroId) {
+        this.followHero(hero);
+      }
+      if (hero.id == this.id) {
+        const nearby = isObjectInRange(this);
+        let nearest = null;
+        if (nearby && nearby.length > 0) {
+          nearest = nearby.some((obj: any) => obj.isEnemy == true); 
+        } else if (nearby) {
+          nearest = nearby;
+        }
+        if (nearest) {
+          this.targeting.add(nearest);
+					nearest.targetedBy.add(this);
+        } 
+      }
     });
   }
 
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {  
+    this.drawHP(ctx, drawPosX, drawPosY); 
+  }
 
-  private followHero(hero: Hero) {
+  override step(delta: number, root: any) {
+    super.step(delta, root);
+    if (this.targeting) {
+      this.targeting.forEach((target: Bot) => {
+        if (target.hp <= 0) {
+          this.targeting.delete(target);
+          target.targetedBy.delete(this);
+          target.destroy();
+          console.log(target.name + " has been destroyed!");
+        } else {
+          if (this.lastAttack.getTime() + 1000 < new Date().getTime()) {
+            console.log("attacking!");
+            this.attack(target);
+          }
+        }
+			}); 
+    }
+  }
+
+  attack(target: Bot) {
+    console.log(this, target);
+		if (this.leftArm) { 
+			const damage = this.botLevel; 
+      target.hp -= this.leftArm.damageMod * damage; 
+		}
+  };
+
+
+  private followHero(hero: Character) { 
     if ((hero.distanceLeftToTravel ?? 0) < 15 && this.heroId === hero.id && this.isDeployed) {
-      const directionX = hero.position.x - (this.previousHeroPosition?.x ?? hero.position.x);
-      const directionY = hero.position.y - (this.previousHeroPosition?.y ?? hero.position.y);
+      const directionX = hero.position.x - (this.previousHeroPosition?.x ?? this.position.x);
+      const directionY = hero.position.y - (this.previousHeroPosition?.y ?? this.position.y);
       const distanceFromHero = gridCells(2);
       let newX = hero.position.x;
       let newY = hero.position.y; 
@@ -145,6 +195,7 @@ export class Bot extends Npc {
 
       // Store hero's last position to track movement direction
       this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
+     // console.log(this.destinationPosition);
     }
   }
 

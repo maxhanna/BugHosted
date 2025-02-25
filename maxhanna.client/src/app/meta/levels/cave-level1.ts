@@ -93,7 +93,7 @@ export class CaveLevel1 extends Level {
   }
 
   override ready() {
-    events.on("HERO_EXITS", this, () => { 
+    events.on("CHARACTER_EXITS", this, () => { 
       events.emit("CHANGE_LEVEL", new HeroRoomLevel({
         heroPosition: new Vector2(gridCells(18), gridCells(2)), 
       }));

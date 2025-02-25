@@ -1,11 +1,9 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { GameObject } from "../game-object";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Scenario } from "../../helpers/story-flags";
-import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree } from "../../helpers/grid-cells";
+import { DOWN, gridCells } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
-import { moveTowards, bodyAtSpace, recalculateScaleBasedOnSlope, updateAnimation } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 

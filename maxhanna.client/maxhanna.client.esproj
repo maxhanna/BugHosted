@@ -13,7 +13,7 @@
   <ItemGroup>
     <None Include="src/*" />
     <None Include="src/app/*" />
-    <None Include="src/app/*/**" /> 
+    <None Include="src/app/*/**" />
     <None Include="src/assets/*" />
     <None Include="src/assets/metabots/*" />
     <None Include="src/services/*" />

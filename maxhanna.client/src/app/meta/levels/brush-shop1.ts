@@ -248,7 +248,7 @@ export class BrushShop1 extends Level {
   }
 
   override ready() {
-    events.on("HERO_EXITS", this, (targetMap: string) => {
+    events.on("CHARACTER_EXITS", this, (targetMap: string) => {
       if (targetMap === "BrushLevel1") {
         events.emit("CHANGE_LEVEL", new BrushLevel1({ heroPosition: new Vector2(gridCells(30), gridCells(18)), itemsFound: this.itemsFound }));
       }

@@ -105,7 +105,7 @@ export class HeroRoomLevel extends Level {
   }
 
   override ready() {
-    events.on("HERO_EXITS", this, () => {
+    events.on("CHARACTER_EXITS", this, () => {
       events.emit("CHANGE_LEVEL", new HeroHome({ heroPosition: new Vector2(gridCells(17), gridCells(2)), itemsFound: this.itemsFound }));
     });
   }

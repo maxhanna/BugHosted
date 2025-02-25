@@ -339,7 +339,7 @@ export class RainbowAlleys1 extends Level {
   }
 
   override ready() {
-    events.on("HERO_EXITS", this, (targetMap: string) => {
+    events.on("CHARACTER_EXITS", this, (targetMap: string) => {
       if (targetMap === "BrushRoad2") {
         events.emit("CHANGE_LEVEL", new BrushRoad2({
           heroPosition: new Vector2(gridCells(9), gridCells(1)), itemsFound: this.itemsFound

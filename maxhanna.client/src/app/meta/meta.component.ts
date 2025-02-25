@@ -7,9 +7,9 @@ import { MetaService } from '../../services/meta.service';
 import { MetaChat } from '../../services/datacontracts/meta/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
-import { hexToRgb, resources } from './helpers/resources';
+import { hexToRgb } from './helpers/resources';
 import { events } from './helpers/events';
-import { GOT_FIRST_METABOT, GOT_WATCH, storyFlags } from './helpers/story-flags';
+import { storyFlags } from './helpers/story-flags';
 import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
 import { HeroRoomLevel } from './levels/hero-room';
@@ -34,7 +34,7 @@ import { ColorSwap } from '../../services/datacontracts/meta/color-swap';
 import { MetaBot } from '../../services/datacontracts/meta/meta-bot';
 import { GameObject } from './objects/game-object';
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../services/datacontracts/meta/meta-bot-part';
-import { Skill, HEADBUTT, LEFT_PUNCH, RIGHT_PUNCH } from './helpers/skill-types';
+import { Skill, HEADBUTT } from './helpers/skill-types';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
@@ -185,7 +185,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
             //put on mask
             existingHero.destroy();
             this.addHeroToScene(hero);
-            console.log(`destroying fresh mask ${getMaskNameById(hero.mask).toLowerCase()} - ${existingHero.mask } `);
+            //console.log(`destroying fresh mask ${getMaskNameById(hero.mask).toLowerCase()} - ${existingHero.mask } `);
           }
         }
         else {
@@ -227,18 +227,28 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     return tmpHero;
   }
 
-  private addBotToScene(hero: MetaHero, bot: MetaBot) { 
+  private addBotToScene(metaHero: MetaHero, bot: MetaBot) {
+    console.log("addBotToScene ! ", bot, metaHero);
+    const tgtBot = this.otherHeroes.find(x => x.id === metaHero.id)?.metabots.find(x => x.id === bot.id);
+    if (tgtBot) {
+      console.log("target bot ", tgtBot);
+    }
     const tmpBot = new Bot({
       id: bot.id,
-      heroId: bot.heroId,
+      heroId: metaHero.id,
       botType: bot.type,
-      name: bot.name ?? "Anon",
+      name: bot.name ?? "Bot",
       spriteName: "botFrame",
-      position: new Vector2(hero.position.x + gridCells(1), hero.position.y + gridCells(1)),
-      colorSwap: (hero.color ? new ColorSwap([0, 160, 200], hexToRgb(hero.color)) : undefined),
+      position: new Vector2(metaHero.position.x + gridCells(1), metaHero.position.y + gridCells(1)),
+      colorSwap: (metaHero.color ? new ColorSwap([0, 160, 200], hexToRgb(metaHero.color)) : undefined),
       isDeployed: true,
+      leftArm: bot.leftArm,
+      rightArm: bot.rightArm,
+      head: bot.head,
+      legs: bot.legs,
     }); 
-    console.log("depployed bot! ", tmpBot);
+    const existingBots = this.mainScene.level?.children?.filter((x: any) => x.heroId === metaHero.id && x.isDeployed);
+    existingBots.forEach((x: any) => x.destroy());
     this.mainScene.level?.addChild(tmpBot);
     return tmpBot;
   }
@@ -320,6 +330,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     }); 
     this.metaHero = new MetaHero(this.hero.id, (this.hero.name ?? "Anon"), this.hero.position.duplicate(), rz.speed, rz.map, rz.metabots, rz.color, rz.mask);
     this.mainScene.setHeroId(this.metaHero.id);
+    this.mainScene.hero = this.hero;
+    this.mainScene.metaHero = this.metaHero;
 
     if (!!skipDataFetch == false) {
       await this.reinitializeInventoryData();
@@ -354,7 +366,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
             invItem.stats = JSON.stringify(this.metaHero.metabots.find(bot => bot.name === invItem.name));
           }
           events.emit("INVENTORY_UPDATED", invItem);
-        }
+        } 
       }
     });
   }
@@ -521,14 +533,14 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     });
 
 
-    events.on("DEPLOY", this, (params: { bot: MetaBot, hero?: MetaHero}) => {
+    events.on("DEPLOY", this, (params: { bot: MetaBot, metaHero?: MetaHero}) => {
       console.log(params);
       if (params.bot.id) { 
-        this.addBotToScene(params.hero ?? this.metaHero, params.bot);
+        this.addBotToScene(params.metaHero ?? this.metaHero, params.bot);
       }
     });
 
-    events.on("HERO_CREATED", this, (name: string) => {
+    events.on("CHARACTER_CREATED", this, (name: string) => {
       if (this.chatInput.nativeElement.placeholder === "Enter your name" && this.parentRef && this.parentRef.user) {
         this.metaService.createHero(this.parentRef.user, name);
       }

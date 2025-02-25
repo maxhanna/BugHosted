@@ -7,6 +7,8 @@ import { ColorSwap } from "../../../../../services/datacontracts/meta/color-swap
 import { UP, DOWN, LEFT, RIGHT } from "../../../helpers/grid-cells";
 import { Level } from "../../Level/level";
 import { Hero } from "../../Hero/hero";
+import { Character } from "../../character";
+import { isObjectNearby } from "../../../helpers/move-towards";
 
 export class Slope extends GameObject {
   slopeType: typeof UP | typeof DOWN | undefined; // Will increase/decrease scale depending on Slope Direction 
@@ -46,21 +48,31 @@ export class Slope extends GameObject {
     } 
   }
 
-  override ready() {
-    events.on("CHARACTER_POSITION", this, (hero: Hero) => {
-      const roundedHeroX = Math.round(hero.destinationPosition.x);
-      const roundedHeroY = Math.round(hero.destinationPosition.y);
+  override ready() { 
+    events.on("CHARACTER_POSITION", this, (character: Character) => {
+      const roundedHeroX = Math.round(character.destinationPosition.x);
+      const roundedHeroY = Math.round(character.destinationPosition.y);
       if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {
-        //console.log("CHARACTER_SLOPE", roundedHeroX, roundedHeroY, this.startScale);
-        events.emit("CHARACTER_SLOPE", { heroId: hero.id, slopeType: this.slopeType, slopeDirection: this.slopeDirection, startScale: this.startScale, endScale: this.endScale, slopeStepHeight: this.slopeStepHeight });
+        console.log("CHARACTER_SLOPE", character);
+
+        events.emit("CHARACTER_SLOPE",
+          {
+            character: character,
+            slopeType: this.slopeType,
+            slopeDirection: this.slopeDirection,
+            startScale: this.startScale,
+            endScale: this.endScale,
+            slopeStepHeight: this.slopeStepHeight
+          });
       }  
     });
 
-    events.on("HERO_CREATED", this, (hero: Hero) => { 
-      if (hero.position.x === this.position.x && hero.position.y === this.position.y) {
-        console.log(`CHARACTER_SLOPE FROM HERO_CREATED, hero.position ${hero.position}, this.startScale ${this.startScale}, this.endScale ${this.endScale}`);
+    events.on("CHARACTER_CREATED", this, (character: Character) => { 
+      console.log("chracter created detected from slope");
+      if (character.position.x === this.position.x && character.position.y === this.position.y) {
+        console.log(`CHARACTER_SLOPE FROM CHARACTER_CREATED, hero.position ${character.position}, this.startScale ${this.startScale}, this.endScale ${this.endScale}`);
         setTimeout(() => {
-          events.emit("CHARACTER_SLOPE", { heroId: hero.id, slopeType: this.slopeType, slopeDirection: this.slopeDirection, startScale: this.startScale, endScale: this.endScale, slopeStepHeight: this.slopeStepHeight });
+          events.emit("CHARACTER_SLOPE", { character: character, slopeType: this.slopeType, slopeDirection: this.slopeDirection, startScale: this.startScale, endScale: this.endScale, slopeStepHeight: this.slopeStepHeight });
         }, 1); //idk why but mandatory timeout here
       }
     })

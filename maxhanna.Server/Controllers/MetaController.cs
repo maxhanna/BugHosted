@@ -608,16 +608,19 @@ namespace maxhanna.Server.Controllers
 				return null;
 			}
 
-			// Fetch hero and associated metabots
+			// Fetch hero, associated metabots, and metabot parts
 			string sql = $@"
         SELECT 
             h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask,
             b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, 
-            b.level as bot_level, b.exp as bot_exp 
+            b.level as bot_level, b.exp as bot_exp,
+            p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
         FROM 
             maxhanna.meta_hero h
         LEFT JOIN 
             maxhanna.meta_bot b ON h.id = b.hero_id
+        LEFT JOIN
+            maxhanna.meta_bot_part p ON b.id = p.metabot_id
         WHERE 
             {(heroId == null ? "h.user_id = @UserId" : "h.id = @UserId")}
         ;";
@@ -626,7 +629,7 @@ namespace maxhanna.Server.Controllers
 			cmd.Parameters.AddWithValue("@UserId", heroId != null ? heroId : (user?.Id ?? 0));
 
 			MetaHero? hero = null;
-			List<MetaBot> metabots = new List<MetaBot>();
+			Dictionary<int, MetaBot> metabotDict = new Dictionary<int, MetaBot>();
 
 			using (var reader = await cmd.ExecuteReaderAsync())
 			{
@@ -651,29 +654,63 @@ namespace maxhanna.Server.Controllers
 					// Check if there's a MetaBot associated with this hero
 					if (!reader.IsDBNull(reader.GetOrdinal("bot_id")))
 					{
-						MetaBot bot = new MetaBot
+						int botId = Convert.ToInt32(reader["bot_id"]);
+
+						if (!metabotDict.TryGetValue(botId, out MetaBot? bot))
 						{
-							Id = Convert.ToInt32(reader["bot_id"]),
-							Name = Convert.ToString(reader["bot_name"]),
-							Type = Convert.ToInt32(reader["bot_type"]),
-							Hp = Convert.ToInt32(reader["bot_hp"]),
-							Level = Convert.ToInt32(reader["bot_level"]),
-							Exp = Convert.ToInt32(reader["bot_exp"]),
-							HeroId = hero.Id
-						};
-						metabots.Add(bot);
+							bot = new MetaBot
+							{
+								Id = botId,
+								Name = Convert.ToString(reader["bot_name"]),
+								Type = Convert.ToInt32(reader["bot_type"]),
+								Hp = Convert.ToInt32(reader["bot_hp"]),
+								Level = Convert.ToInt32(reader["bot_level"]),
+								Exp = Convert.ToInt32(reader["bot_exp"]),
+								HeroId = hero.Id
+							};
+							metabotDict[botId] = bot;
+							if (hero.Metabots == null)
+							{
+								hero.Metabots = [];
+							}
+							hero.Metabots.Add(bot);
+						}
+
+						// Check if there's a MetaBotPart associated with this MetaBot
+						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+						{
+							MetaBotPart part = new MetaBotPart
+							{
+								Id = Convert.ToInt32(reader["part_id"]),
+								PartName = Convert.ToString(reader["part_name"]),
+								Type = Convert.ToInt32(reader["part_type"]),
+								DamageMod = Convert.ToInt32(reader["damage_mod"]),
+								Skill = Convert.ToString(reader["skill"]) == null ? null : new Skill(Convert.ToString(reader["skill"]) ?? "Headbutt", 0),
+							};
+
+							// Assign the part to the correct property based on its name
+							switch (part.PartName.ToLower())
+							{
+								case "head":
+									bot.Head = part;
+									break;
+								case "legs":
+									bot.Legs = part;
+									break;
+								case "leftarm":
+									bot.LeftArm = part;
+									break;
+								case "rightarm":
+									bot.RightArm = part;
+									break;
+							}
+						}
 					}
 				}
 			}
 
-			if (hero != null)
-			{
-				hero.Metabots = metabots; // Attach metabots to the hero
-			}
-
 			return hero;
 		}
-
 		private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
 		{
 			// Ensure the connection is open
@@ -690,12 +727,27 @@ namespace maxhanna.Server.Controllers
 			Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
 			string sql = @"
         SELECT 
-            m.id as hero_id, m.name as hero_name, m.map as hero_map, m.coordsX, m.coordsY, m.speed, m.color, m.mask,
-            b.id as metabot_id, b.name as metabot_name, b.type as metabot_type, b.hp as metabot_hp, b.level as metabot_level, b.exp as metabot_exp 
+            m.id as hero_id, 
+            m.name as hero_name,
+            m.map as hero_map,
+            m.coordsX, 
+            m.coordsY,
+            m.speed, 
+            m.color, 
+            m.mask,
+            b.id as metabot_id, 
+            b.name as metabot_name, 
+            b.type as metabot_type, 
+            b.hp as metabot_hp, 
+            b.level as metabot_level, 
+            b.exp as metabot_exp,
+            p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
         FROM 
             maxhanna.meta_hero m 
         LEFT JOIN
             maxhanna.meta_bot b on b.hero_id = m.id
+        LEFT JOIN
+            maxhanna.meta_bot_part p ON b.id = p.metabot_id
         WHERE m.map = @HeroMapId
         ORDER BY m.coordsY ASC;";
 
@@ -721,7 +773,7 @@ namespace maxhanna.Server.Controllers
 							Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
 							Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
 							Speed = Convert.ToInt32(reader["speed"]),
-							Metabots = []
+							Metabots = new List<MetaBot>()
 						};
 						heroesDict[heroId] = tmpHero;
 					}
@@ -729,22 +781,53 @@ namespace maxhanna.Server.Controllers
 					// If there's a MetaBot in this row, add it to the MetaHero's MetaBots list
 					if (!reader.IsDBNull(reader.GetOrdinal("metabot_id")))
 					{
-						MetaBot metaBot = new MetaBot
-						{
-							Id = Convert.ToInt32(reader["metabot_id"]),
-							Name = Convert.ToString(reader["metabot_name"]),
-							HeroId = heroId,
-							Type = Convert.ToInt32(reader["metabot_type"]),
-							Hp = Convert.ToInt32(reader["metabot_hp"]),
-							Exp = Convert.ToInt32(reader["metabot_exp"]),
-							Level = Convert.ToInt32(reader["metabot_level"]),
-						};
+						int metabotId = Convert.ToInt32(reader["metabot_id"]);
 
-						if (tmpHero.Metabots == null)
+						MetaBot? metabot = tmpHero.Metabots.FirstOrDefault(m => m.Id == metabotId);
+						if (metabot == null)
 						{
-							tmpHero.Metabots = new List<MetaBot>();
+							metabot = new MetaBot
+							{
+								Id = metabotId,
+								Name = Convert.ToString(reader["metabot_name"]),
+								HeroId = heroId,
+								Type = Convert.ToInt32(reader["metabot_type"]),
+								Hp = Convert.ToInt32(reader["metabot_hp"]),
+								Exp = Convert.ToInt32(reader["metabot_exp"]),
+								Level = Convert.ToInt32(reader["metabot_level"])
+							};
+							tmpHero.Metabots.Add(metabot);
 						}
-						tmpHero.Metabots.Add(metaBot);
+
+						// If there's a MetaBotPart in this row, assign it to the correct property
+						if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+						{
+							MetaBotPart part = new MetaBotPart
+							{
+								Id = Convert.ToInt32(reader["part_id"]),
+								PartName = Convert.ToString(reader["part_name"]),
+								Type = Convert.ToInt32(reader["part_type"]),
+								DamageMod = Convert.ToInt32(reader["damage_mod"]),
+								Skill = Convert.ToString(reader["skill"]) == null ? null : new Skill(Convert.ToString(reader["skill"]) ?? "Headbutt", 0),
+							};
+
+							// Assign the part to the correct property based on its name
+							switch (part.PartName.ToLower())
+							{
+								case "head":
+									metabot.Head = part;
+									break;
+								case "legs":
+									metabot.Legs = part;
+									break;
+								case "leftarm":
+									metabot.LeftArm = part;
+									break;
+								case "rightarm":
+									metabot.RightArm = part;
+									break;
+							}
+						}
 					}
 				}
 			}

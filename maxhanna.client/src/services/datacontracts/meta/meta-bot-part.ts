@@ -6,11 +6,18 @@ export class MetaBotPart {
   id: number;
   metabotId?: number;
   type: number;
-  partName: string;
+  partName: "HEAD" | "LEGS" | "LEFT_ARM" | "RIGHT_ARM";
   damageMod: number;
   skill: Skill;
 
-  constructor(params: { id: number, metabotId?: number, partName: string, type?: number, damageMod: number, skill: Skill }) {
+  constructor(params: {
+    id: number,
+    metabotId?: number, 
+    partName: "HEAD" | "LEGS" | "LEFT_ARM" | "RIGHT_ARM",
+    type?: number,
+    damageMod: number,
+    skill: Skill
+  }) {
     this.id = params.id;
     this.metabotId = params.metabotId;
     this.partName = params.partName;

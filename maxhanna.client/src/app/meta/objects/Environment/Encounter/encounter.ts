@@ -41,7 +41,7 @@ export class RandomEncounter extends Bot {
         head: enemy.head
       }
     );
-    enemyMetabot.hp = enemy.botHp;
+    enemyMetabot.hp = enemy.hp;
     enemyMetabot.level = enemy.botLevel;
 
     this.metabots.push(enemyMetabot);

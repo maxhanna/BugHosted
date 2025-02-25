@@ -114,7 +114,7 @@ export class CharacterCreate extends Level {
       if (content) {
         this.displayContent(content);
       }
-      events.emit("HERO_CREATED", this.characterName);
+      events.emit("CHARACTER_CREATED", this.characterName);
     });
     events.on("SPACEBAR_PRESSED", this, () => {
       console.log("space pressed");

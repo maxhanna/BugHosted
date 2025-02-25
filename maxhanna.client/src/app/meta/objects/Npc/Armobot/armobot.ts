@@ -23,7 +23,7 @@ export class Armobot extends Bot {
       position: params.position, 
     });
     this.isSolid = true;
-
+    this.isEnemy = true;
     const shadow = new Sprite({
       resource: resources.images["shadow"],
       position: new Vector2((this.body?.position?.x ?? 0) - 9, -30),

@@ -6,7 +6,7 @@ import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { moveTowards, bodyAtSpace, shouldResetSlope, recalculateScaleBasedOnSlope, tryMove, isObjectNeerby } from "../../helpers/move-towards";
+import { moveTowards, bodyAtSpace, shouldResetSlope, recalculateScaleBasedOnSlope, tryMove, isObjectNearby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
@@ -53,7 +53,7 @@ export class Hero extends Character {
         scale: params.scale, 
       })
     }) 
-   console.log("New Hero : ", this);
+/*   console.log("New Hero : ", this);*/
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate(); 
@@ -74,10 +74,7 @@ export class Hero extends Character {
   }
    
 
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    // Draw the player's name
-    this.drawName(ctx, drawPosX, drawPosY);
-
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {  
     // Draw the latest message as a chat bubble above the player
     this.drawLatestMessage(ctx, drawPosX, drawPosY);
   }
@@ -173,39 +170,8 @@ export class Hero extends Character {
     return lines;
   }
 
-  private drawName(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    if (this.name) {
-      // Set the font style and size for the name
-      ctx.font = "7px fontRetroGaming"; // Font and size
-      ctx.fillStyle = "chartreuse"; // Text color
-      ctx.textAlign = "center"; // Center the text
 
-
-      // Measure the width of the text
-      const textWidth = ctx.measureText(this.name).width;
-
-      // Set box properties for name
-      const boxPadding = 2; // Padding around the text
-      const boxWidth = textWidth + boxPadding * 2; // Box width
-      const boxHeight = 8; // Box height (fixed height)
-      const boxX = drawPosX - (boxWidth / 2) + 7; // Center the box horizontally
-      const boxY = drawPosY + 23; // Position the box below the player
-
-
-      // Draw the dark background box for the name
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
-      ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
-
-      // Draw the name text on top of the box
-      ctx.fillStyle = "chartreuse";
-      ctx.fillText(this.name, drawPosX + 7, boxY + boxHeight - 1);
-    }
-  }
-
-  override ready() {
-    events.emit("HERO_CREATED", this);
-   
-    
+  override ready() { 
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
         this.isLocked = true;
@@ -221,10 +187,10 @@ export class Hero extends Character {
       });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => {
         if (selectedItem === "Party Up") {
-          events.emit("PARTY_UP", isObjectNeerby(this));
+          events.emit("PARTY_UP", isObjectNearby(this));
         }
         else if (selectedItem === "Wave") {
-          events.emit("WAVE_AT", isObjectNeerby(this));
+          events.emit("WAVE_AT", isObjectNearby(this));
         } 
       });
       events.on("CLOSE_HERO_DIALOGUE", this, () => { 

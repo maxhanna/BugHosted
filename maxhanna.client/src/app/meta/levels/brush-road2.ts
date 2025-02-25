@@ -540,7 +540,7 @@ export class BrushRoad2 extends Level {
   };
 
   override ready() {
-    events.on("HERO_EXITS", this, (targetMap: string) => {
+    events.on("CHARACTER_EXITS", this, (targetMap: string) => {
 
       if (targetMap === "BrushRoad1") {
         events.emit("CHANGE_LEVEL", new BrushRoad1({

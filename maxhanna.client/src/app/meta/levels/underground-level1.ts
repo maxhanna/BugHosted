@@ -529,7 +529,7 @@ export class UndergroundLevel1 extends Level {
   }
 
   override ready() {
-    events.on("HERO_EXITS", this, (targetMap: string) => {
+    events.on("CHARACTER_EXITS", this, (targetMap: string) => {
       if (targetMap === "RainbowAlleys1") {
         events.emit("CHANGE_LEVEL", new RainbowAlleys1({
           heroPosition: new Vector2(gridCells(23), gridCells(-12)), itemsFound: this.itemsFound

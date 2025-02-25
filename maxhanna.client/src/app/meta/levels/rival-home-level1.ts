@@ -187,7 +187,7 @@ export class RivalHomeLevel1 extends Level {
   }
 
   override ready() {
-    events.on("HERO_EXITS", this, (targetMap: string) => {
+    events.on("CHARACTER_EXITS", this, (targetMap: string) => {
       if (targetMap === "HeroRoom") {
         events.emit("CHANGE_LEVEL", new HeroRoomLevel({ heroPosition: new Vector2(gridCells(18), gridCells(2)), itemsFound: this.itemsFound }));
       }
