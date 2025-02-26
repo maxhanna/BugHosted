@@ -1,22 +1,20 @@
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
 import { Sprite } from "../../sprite";
-import { gridCells } from "../../../helpers/grid-cells";
-import { Animations } from "../../../helpers/animations";
 import { resources } from "../../../helpers/resources";
 import { START_FIGHT, Scenario } from "../../../helpers/story-flags";
-import { Npc } from "../../Npc/npc";
-import { Spiderbot } from "../../Npc/Spiderbot/spiderbot";
 import { MetaBot } from "../../../../../services/datacontracts/meta/meta-bot";
 import { events } from "../../../helpers/events";
 import { Hero } from "../../Hero/hero";
 import { Bot } from "../../Bot/bot";
+import { Npc } from "../../Npc/npc";
 
-export class RandomEncounter extends Bot {
+export class RandomEncounter extends Npc {
 
   constructor(params: { position: Vector2, possibleEnemies: Bot[] }) {
     const enemy = params.possibleEnemies[Math.floor(Math.random() * params.possibleEnemies.length)]; 
     super({
-      position: params.position, spriteName: "white", 
+      id: 12313213,
+      position: params.position, 
     });
     this.body = new Sprite({
       objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
@@ -32,9 +30,9 @@ export class RandomEncounter extends Bot {
         id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         heroId: this.id,
         type: enemy.botType,
-        name: enemy.type ?? "botFrame",
+        name: "botFrame",
         position: new Vector2(0, 0),
-        spriteName: enemy.type,
+        spriteName: "botFrame",
         leftArm: enemy.leftArm,
         rightArm: enemy.rightArm,
         legs: enemy.legs,

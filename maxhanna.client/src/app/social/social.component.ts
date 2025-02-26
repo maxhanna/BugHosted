@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnInit, Renderer2, SecurityContext, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { MetaData, Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
@@ -35,7 +35,7 @@ export class ClickableUrlsPipe implements PipeTransform {
   templateUrl: './social.component.html',
   styleUrls: ['./social.component.css']
 })
-export class SocialComponent extends ChildComponent implements OnInit, AfterViewInit {
+export class SocialComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   fileMetadata: any;
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
@@ -79,6 +79,7 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
   totalPagesArray: number[] = [];
   userSearch = "";
   searchTimeout: any;
+  private storyUpdateInterval: any;
 
 
   city: string | undefined;
@@ -114,16 +115,15 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
 
     this.getStories().then(res => {
       if (this.storyId) {
-        this.scrollToStory(this.storyId);
         if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
           const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
           if (tgtStory) {
+
+            this.scrollToStory(tgtStory.id);
             const storyText = tgtStory.storyText;
             if (storyText) {
-              const cleanedTitle = storyText.replace(/https?:\/\/[^\s]+/g, '').trim();
-
-              this.title.setTitle(cleanedTitle.substring(0, 50) + " - BugHosted.com");
-              this.meta.updateTag({ name: 'description', content: storyText });
+              const cleanedTitle = storyText.replace(/https?:\/\/[^\s]+/g, '').trim().split("\n")[0];
+              this.parentRef?.replacePageTitleAndDescription(cleanedTitle, storyText); 
             }
           }
         }
@@ -150,6 +150,12 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
           (e as HTMLElement).style.maxHeight = 'none';
         });
       }
+    } 
+  }
+
+  ngOnDestroy() {
+    if (this.storyUpdateInterval) {
+      clearInterval(this.storyUpdateInterval); // Clean up interval on component destroy
     }
   }
 
@@ -161,6 +167,10 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
       (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
     }
+    this.updateStoryDates();
+    this.storyUpdateInterval = setInterval(() => {
+      this.updateStoryDates();  
+    }, 15000);
   }
   async delete(story: Story) {
     if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
@@ -396,24 +406,21 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
       this.scrollToStory();
     });
   }
-  scrollToStory(storyId?: number): void {
-    if (storyId) {
-      setTimeout(() => {
-        const storyContainer = document.getElementsByClassName('storyContainerWrapper')[0] as HTMLElement;
-        const element = document.getElementById('storyDiv' + storyId);
-        if (element && storyContainer) {
-          storyContainer.scrollTop = element.offsetTop - storyContainer.offsetTop;
-        }
-      }, 1111);
-    } else {
-      setTimeout(() => {
+  scrollToStory(storyId?: number): void { 
+    setTimeout(() => {
+      if (storyId) {
+          const storyContainer = document.getElementById(`storyDiv${storyId}`) as HTMLElement; 
+          if (storyContainer) {
+            storyContainer.scrollIntoView();
+          } 
+      } else { 
         const element = document.getElementsByClassName('socialComponentContents')[0];
         if (element) {
           element.scrollTop = 0;
           console.log('scroll top ');
         }
-      }, 200);
-    }
+      }
+    }, 20);
   }
 
   playYoutubeVideo() {
@@ -497,6 +504,14 @@ export class SocialComponent extends ChildComponent implements OnInit, AfterView
     }).catch(err => {
       this.parentRef?.showNotification('Failed to copy link!');
     });
+  }
+  updateStoryDates() {
+    console.log("updating story dates");
+    if (this.storyResponse?.stories) {
+      this.storyResponse.stories.forEach(story => {
+        story.timeSince = this.daysSinceDate(story.date);
+      });
+    } 
   }
   formatDate(dateString?: Date): string {
     if (!dateString) return '';

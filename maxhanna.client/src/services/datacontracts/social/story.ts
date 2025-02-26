@@ -21,6 +21,7 @@ export class Story {
   city?: string | undefined;
   country?: string | undefined;
   reactions?: Array<Reaction> | undefined;
+  timeSince?: string;
 }
 
 

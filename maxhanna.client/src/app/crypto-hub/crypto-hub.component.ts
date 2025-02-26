@@ -167,7 +167,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   convertBTCtoFIAT(): void {
     const btcValue = parseFloat(this.btcConvertBTCValue.nativeElement.value) || 0;
     const cadValue = btcValue * this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
-
+     
     this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(cadValue);
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
   }
@@ -178,6 +178,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
 
     this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
+    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(cadValue); 
   }
 
   convertSatoshiToBTC(): void {
@@ -186,6 +187,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
 
     this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
     this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice);
+    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(satValue);
   }
    
   formatToCanadianCurrency(value: number): string {

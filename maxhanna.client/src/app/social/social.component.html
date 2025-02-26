@@ -306,7 +306,7 @@
             <app-user-tag [user]="story.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"></app-user-tag>
           </span>
           <div class="storyDate">
-            {{ daysSinceDate(story.date) }}
+            {{ story.timeSince }}
           </div>
           <div class="commentVoteButtons">
             <button (click)="showStoryOptionsPanel(story);" style="border:0px;">

@@ -1,18 +1,17 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
-import { GameObject } from "../game-object";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
-import { DOWN, LEFT, RIGHT, UP, gridCells, isSpaceFree, snapToGrid } from "../../helpers/grid-cells";
+import { DOWN, gridCells, snapToGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
-import { moveTowards, bodyAtSpace, shouldResetSlope, recalculateScaleBasedOnSlope, tryMove, isObjectNearby } from "../../helpers/move-towards";
+import { bodyAtSpace, isObjectNearby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
-import { SpriteTextString } from "../SpriteTextString/sprite-text-string";
 import { events } from "../../helpers/events";
+import { Bot } from "../Bot/bot";
 
 export class Hero extends Character {
   metabots?: MetaBot[];
@@ -64,13 +63,16 @@ export class Hero extends Character {
     this.metabots = params.metabots ?? [];
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      offsetY:  10,
+      offsetY: 10,
+      name: "shadow",
       position: new Vector2(-18, -18),
       scale: new Vector2(1.25, 1),
       frameSize: new Vector2(32, 32),
     });
     shadow.drawLayer = "FLOOR";
-    this.addChild(shadow); 
+    this.addChild(shadow);
+   
+    
   }
    
 

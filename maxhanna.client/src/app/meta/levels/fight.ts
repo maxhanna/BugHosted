@@ -2,23 +2,17 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
 import { hexToRgb, resources } from "../helpers/resources";
 import { events } from "../helpers/events";
-import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, START_FIGHT } from "../helpers/story-flags";
-import { Exit } from "../objects/Environment/Exit/exit";
+import { storyFlags, START_FIGHT } from "../helpers/story-flags";
 import { Level } from "../objects/Level/level";
 import { Sprite } from "../objects/sprite";
 import { Npc } from "../objects/Npc/npc";
-import { HeroRoomLevel } from "./hero-room";
-import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
-import { BASE, GameObject } from "../objects/game-object";
+import { BASE } from "../objects/game-object";
 import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { Hero } from "../objects/Hero/hero";
-import { Bot } from "../objects/Bot/bot";
 import { FightMenu } from "../objects/Fight/FightMenu/fight-menu";
 import { FightStatBox } from "../objects/Fight/FightStatBox/fight-stat-box";
 import { FightRewardBox } from "../objects/Fight/FightRewardBox/fight-reward-box";
-import { HeroHome } from "./hero-home";
-import { BrushLevel1 } from "./brush-level1";
 import { MetaBotPart } from "../../../services/datacontracts/meta/meta-bot-part";
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
@@ -71,6 +65,9 @@ export class Fight extends Level {
     } else {
       this.leaveFightFlag = true;
     }
+
+
+	console.log("fight!");
   }
 
 

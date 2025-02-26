@@ -13,7 +13,7 @@
                    type="text"
                    value="1"
                    #btcConvertBTCValue
-                   (keyup)="convertBTCtoFIAT()"
+                   (input)="convertBTCtoFIAT()"
                    placeholder="Enter BTC amount" />
           </div>
 
@@ -22,7 +22,7 @@
             <input id="btcConvertCADValue"
                    type="text"
                    #btcConvertCADValue
-                   (keyup)="convertCADtoBTC()"
+                   (input)="convertCADtoBTC()"
                    placeholder="Enter CAD amount" />
           </div>
 
@@ -31,7 +31,7 @@
             <input id="btcConvertSATValue"
                    type="text"
                    #btcConvertSATValue
-                   (keyup)="convertSatoshiToBTC()"
+                   (input)="convertSatoshiToBTC()"
                    placeholder="Enter Satoshi amount" />
           </div>
         </div>

@@ -521,8 +521,8 @@ export class BrushRoad2 extends Level {
     const armobot = new Bot({ position: new Vector2(gridCells(24), gridCells(20)), spriteName: "armobot" });
     this.addChild(armobot);
 
-    const encounter = new RandomEncounter({ position: new Vector2(gridCells(26), gridCells(22)), possibleEnemies: [armobot] });
-    this.addChild(encounter);
+    //const encounter = new RandomEncounter({ position: new Vector2(gridCells(26), gridCells(22)), possibleEnemies: [armobot] });
+    //this.addChild(encounter);
   }
   createFences = (startX: number, startY: number, count: number, offsetX: number, offsetY: number, resource: string) => {
     for (let i = 0; i < count; i++) {

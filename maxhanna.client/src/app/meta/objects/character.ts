@@ -40,13 +40,15 @@ export class Character extends GameObject {
 		body?: Sprite,
 		position?: Vector2,
 		colorSwap?: ColorSwap,
-		isUserControlled?: boolean,
+    isUserControlled?: boolean,
+    speed?: number,
 		mask?: Mask,
 	}) {
 		super({ position: params.position ?? new Vector2(0, 0), colorSwap: params.colorSwap });
 		this.id = params.id;
 		this.name = params.name;
-		this.body = params.body;
+    this.body = params.body;
+    this.speed = params.speed ?? 1;
 		this.isUserControlled = params.isUserControlled ?? false;
 		this.mask = params.mask;
 		if (this.body) {
@@ -138,14 +140,14 @@ export class Character extends GameObject {
 				// console.log(objectAtPosition);
 				events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
 			}
-		}
-		this.distanceLeftToTravel = moveTowards(this, this.destinationPosition, this.speed);
+    }
 
+    this.distanceLeftToTravel = moveTowards(this, this.destinationPosition, this.speed); 
 		const hasArrived = (this.distanceLeftToTravel ?? 0) <= 1;
-		if (hasArrived || !this.isUserControlled) {
-
+		if (hasArrived || !this.isUserControlled) { 
 			tryMove(this, root, (this.isUserControlled ?? false), this.distanceLeftToTravel ?? 0);
-		}
+    }
+
 		this.tryEmitPosition();
 		this.recalculateMaskPositioning();
 	}
@@ -231,7 +233,7 @@ export class Character extends GameObject {
 
 	setupEvents() {
 		events.emit("CHARACTER_CREATED", this);
-		console.log("is object neerby?", isObjectNearby(this)); 
+		//console.log("is object neerby?", isObjectNearby(this)); 
 
 		events.on("CHARACTER_SLOPE", this, (params: {
 			character: Character;
@@ -297,34 +299,47 @@ export class Character extends GameObject {
 			ctx.fillStyle = "chartreuse";
 			ctx.fillText(this.name, drawPosX + 7, boxY + boxHeight - 1);
 		}
-	}
+  }
 
-	drawHP(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-		// Set font style for HP
-		ctx.font = "7px fontRetroGaming";
-		ctx.fillStyle = "red"; // HP color
-		ctx.textAlign = "center";
+  drawHP(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+    // Define HP bar dimensions
+    const barWidth = 40;  // Total width of HP bar
+    const barHeight = 6;  // Height of HP bar
+    const barX = drawPosX - barWidth / 2 + 10;  // Center the bar
+    const barY = drawPosY - 12;  // Position above character
 
-		// Measure text width
-		const hpText = `HP: ${this.hp}`;
-		const hpTextWidth = ctx.measureText(hpText).width;
+    // Calculate HP percentage
+    const hpPercentage = Math.max(0, this.hp / 100); // Ensure non-negative
 
-		// Box properties for HP
-		const hpBoxPadding = 2;
-		const hpBoxWidth = hpTextWidth + hpBoxPadding * 2;
-		const hpBoxHeight = 8;
-		const hpBoxX = drawPosX - hpBoxWidth / 2 + 7;
-		const hpBoxY = drawPosY - 12; // Position above the character
+    // Colors
+    const backgroundColor = "rgba(0, 0, 0, 0.7)"; // Dark background
+    const hpColor = "red"; // HP bar fill
 
-		// Draw HP background box
-		ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-		ctx.fillRect(hpBoxX, hpBoxY, hpBoxWidth, hpBoxHeight);
+    // Draw background box
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(barX, barY, barWidth, barHeight);
 
-		// Draw HP text
-		ctx.fillStyle = "red";
-		ctx.fillText(hpText, drawPosX + 7, hpBoxY + hpBoxHeight - 1);
-	}
+    // Draw red HP bar (filled portion)
+    ctx.fillStyle = hpColor;
+    ctx.fillRect(barX, barY, barWidth * hpPercentage, barHeight);
 
+    // HP text
+    const hpText = `HP: ${this.hp}`;
+    ctx.font = "6px fontRetroGaming";
+    ctx.textAlign = "center";
+
+    // Measure text width
+    const textWidth = ctx.measureText(hpText).width;
+    const textX = drawPosX + 7;
+    const textY = barY + barHeight - 1;
+
+    // Determine text color for contrast (White if dark, Black if bright)
+    const textColor = hpPercentage > 0.85 ? "black" : "white";
+
+    // Draw HP text
+    ctx.fillStyle = textColor;
+    ctx.fillText(hpText, textX, textY);
+  }
 }
 
 export interface Resource {

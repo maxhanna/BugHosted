@@ -319,14 +319,19 @@ export class BrushLevel1 extends Level {
       gangster3.textContent = [
         {
           string: ["We're under strict orders not to let anyone in!!"],
-          addsFlag: START_FIGHT,
+          //addsFlag: START_FIGHT,
         } as Scenario
       ];
-      const gangster3Metabot = new MetaBot({ id: -146, heroId: gangster3.id, type: SkillType.SPEED, name: "GG3", position: new Vector2(0, 0) });
-      gangster3Metabot.hp = 80;
-      gangster3Metabot.level = 2;
-      gangster3.metabots.push(gangster3Metabot);
-
+      for (let x = 0; x < 3; x++) {
+        const gangster3Metabot = new MetaBot({ id: (-146 - x), heroId: gangster3.id, type: SkillType.SPEED, name: "Jaguar", position: new Vector2(gridCells(14), gridCells(30)) });
+        gangster3Metabot.hp = 80;
+        gangster3Metabot.level = 2;
+        gangster3Metabot.isDeployed = (x == 0);
+        gangster3Metabot.spriteName = "Jaguar";
+        gangster3Metabot.name = "Jaguar";
+        gangster3.metabots.push(gangster3Metabot); 
+      }
+    
       gangster3.partnerNpcs.push(gangster1);
       gangster3.partnerNpcs.push(gangster2);
       this.addChild(gangster3);

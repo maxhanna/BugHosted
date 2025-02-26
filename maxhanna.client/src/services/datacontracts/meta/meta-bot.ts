@@ -11,7 +11,7 @@ export class MetaBot {
   type: number;
   hp: number;
   exp: number = 0;
-  level: number = 1;
+  level: number = 1; 
   expForNextLevel: number = (this.level + 1) * 5;
   hasAwardedExp = false
   name?: string;

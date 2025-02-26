@@ -1,4 +1,5 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+import { Bot } from "../objects/Bot/bot";
 import { Character } from "../objects/character";
 import { GameObject } from "../objects/game-object";
 import { Sprite } from "../objects/sprite";
@@ -107,8 +108,10 @@ export function tryMove(player: Character, root: any, isUserControlled: boolean,
 			player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
 		}
 	}
-	if (!bodyAtSpace(player.parent, position)) {
-		player.destinationPosition = player.lastPosition.duplicate();
+  if (!bodyAtSpace(player.parent, position)) {
+    const lastPos = player.position.duplicate();
+    player.destinationPosition.x = snapToGrid(lastPos.x, gridSize);
+    player.destinationPosition.y = snapToGrid(lastPos.y, gridSize); 
 		return;
 	}
 	if (isSpaceFree(root.level?.walls, position.x, position.y) && !bodyAtSpace(player.parent, position, true)) {
@@ -332,35 +335,23 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 	}, (player.isUserControlled ? 1000 : 1500));
 }
 
-export function isObjectInRange(player: Character) {
-	const posibilities = player.parent.children.filter((child: GameObject) => {
-		// Calculate the neighboring position with the facing direction
-		const neighborPosition = player.position.toNeighbour(player.facingDirection);
-		// Define the discrepancy value
-		const discrepancy = gridCells(10);
-		// Check if the child's position is within the discrepancy range of the neighbor position
-		return (
-			(!(child instanceof Sprite) || child.textContent) &&
-			child.position.x >= neighborPosition.x - discrepancy &&
-			child.position.x <= neighborPosition.x + discrepancy &&
-			child.position.y >= neighborPosition.y - discrepancy &&
-			child.position.y <= neighborPosition.y + discrepancy
-		);
-	});
-	//console.log(posibilities);
-	const bestChoice = posibilities.find((x: any) => x.textContent?.string);
-	if (bestChoice) {
-		return bestChoice;
-	}
-	const bestChoiceContent = posibilities.find((x: any) => typeof x.getContent === 'function' && x.getContent());
-	if (bestChoiceContent) {
-		return bestChoiceContent;
-	}
-	const secondBestChoice = posibilities.find((x: any) => x.drawLayer != "FLOOR");
-	if (secondBestChoice) {
-		return secondBestChoice;
-	}
-	return posibilities[0];
+export function getBotsInRange(player: Character) { 
+  const discrepancy = gridCells(5);
+ 
+  const posibilities = player.parent.children.filter((child: any) => {
+    return (
+      (child.constructor.name === "Bot") &&
+      (child.isDeployed) &&
+      (child.isEnemy) &&
+      !(child instanceof Sprite) &&
+      child.position.x >= player.position.x - discrepancy &&
+      child.position.x <= player.position.x + discrepancy &&
+      child.position.y >= player.position.y - discrepancy &&
+      child.position.y <= player.position.y + discrepancy
+    );
+  });
+
+  return posibilities.length > 0 ? posibilities : [];
 }
 export function isObjectNearby(playerOrObject: any) {
 	const basePosition = playerOrObject.position;
@@ -383,7 +374,7 @@ export function isObjectNearby(playerOrObject: any) {
 		);
 	}) ?? [];
 
-	console.log(possibilities);
+	//console.log(possibilities);
 
 	// Prioritize objects with text content
 	const bestChoice = possibilities.find((x: any) => x.textContent?.string);

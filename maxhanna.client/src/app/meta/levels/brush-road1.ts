@@ -4,33 +4,17 @@ import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
-import { BrushShop1 } from "./brush-shop1";
-import { RivalHomeLevel1 } from "./rival-home-level1";
-import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite"; 
-import { CaveLevel1 } from "./cave-level1";
-import { HeroHome } from "./hero-home";
-import { GOT_FIRST_METABOT, GOT_WATCH, START_FIGHT, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH, storyFlags } from "../helpers/story-flags";
-import { Npc } from "../objects/Npc/npc";
-import { Referee } from "../objects/Npc/Referee/referee";
-import { Gangster } from "../objects/Npc/Gangster/gangster";
 import { Animations } from "../helpers/animations";
 import { STAND_DOWN } from "../objects/Hero/hero-animations";
 import { Spiderbot } from "../objects/Npc/Spiderbot/spiderbot";
 import { Armobot } from "../objects/Npc/Armobot/armobot";
-import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
 import { FrameIndexPattern } from "../helpers/frame-index-pattern";
-import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
-import { Chicken } from "../objects/Environment/Chicken/chicken";
-import { House } from "../objects/Environment/House/house";
-import { Shop } from "../objects/Environment/Shop/shop";
 import { Deer } from "../objects/Environment/Deer/deer";
-import { Water } from "../objects/Environment/Water/water";
 import { GiantTree2 } from "../objects/Environment/GiantTree/giant-tree2";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { BrushLevel1 } from "./brush-level1";
 import { BrushRoad2 } from "./brush-road2";
-import { Bot } from "../objects/Bot/bot";
 import { GROUND, FLOOR, HUD } from "../objects/game-object";
  
 
@@ -368,11 +352,11 @@ export class BrushRoad1 extends Level {
     const armobot = new Armobot({ position: new Vector2(gridCells(28), gridCells(20)), hp: 5, level: 5 });
     this.addChild(armobot);
 
-    const encounter = new RandomEncounter({ position: new Vector2(gridCells(26), gridCells(22)), possibleEnemies: [spiderBot, armobot] });
-    this.addChild(encounter);
+    //const encounter = new RandomEncounter({ position: new Vector2(gridCells(26), gridCells(22)), possibleEnemies: [spiderBot, armobot] });
+    //this.addChild(encounter);
 
-    const encounter2 = new RandomEncounter({ position: new Vector2(gridCells(8), gridCells(10)), possibleEnemies: [spiderBot, armobot] });
-    this.addChild(encounter2);
+    //const encounter2 = new RandomEncounter({ position: new Vector2(gridCells(8), gridCells(10)), possibleEnemies: [spiderBot, armobot] });
+    //this.addChild(encounter2);
   }
 
   override ready() {

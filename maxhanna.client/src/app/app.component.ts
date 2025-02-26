@@ -363,9 +363,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   replacePageTitleAndDescription(title: string, description: string) {
-    const tmpTitle = title + " - Bug Hosted";
+    let tmpTitle = title;
+    let tmpDescription = description;
+
+    tmpTitle = tmpTitle.replace(/\[\/?[^]\]/g, '');
+    tmpDescription = tmpDescription.replace(/\[\/?[^]\]/g, '');
+
     this.title.setTitle(tmpTitle);
-    this.meta.updateTag({ name: 'description', content: title }); 
+    this.meta.updateTag({ name: 'description', content: tmpDescription ?? tmpTitle }); 
   }
 
   getTextForDOM(text?: string, component_id?: number) {

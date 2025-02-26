@@ -137,6 +137,7 @@ export class GameObject {
       return null;
     }
     if (match.addsFlag && match.addsFlag == "START_FIGHT") {
+      console.log("emitting start fight because match adds flag start fight");
       events.emit("START_FIGHT", this);
     } 
     return {

@@ -483,14 +483,15 @@ namespace maxhanna.Server.Controllers
 				{
 					// Building SQL for both insert and update
 					string botSql = $@"
-						INSERT INTO maxhanna.meta_bot (id, name, type, hp, level, exp, hero_id) 
-						VALUES (@BotId{botIndex}, @Name{botIndex}, @Type{botIndex}, @Hp{botIndex}, @Level{botIndex}, @Exp{botIndex}, @HeroId{botIndex})
+						INSERT INTO maxhanna.meta_bot (id, name, type, hp, level, exp, hero_id, is_deployed) 
+						VALUES (@BotId{botIndex}, @Name{botIndex}, @Type{botIndex}, @Hp{botIndex}, @Level{botIndex}, @Exp{botIndex}, @HeroId{botIndex}, @IsDeployed{botIndex})
 						ON DUPLICATE KEY UPDATE 
 								name = VALUES(name),
 								type = VALUES(type),
 								hp = VALUES(hp),
 								level = VALUES(level),
-								exp = VALUES(exp);";
+								exp = VALUES(exp),
+								is_deployed = VALUES(is_deployed);";
 
 					// Append each bot's insert or update statement to the query builder
 					botSqlBuilder.Append(botSql);
@@ -503,6 +504,7 @@ namespace maxhanna.Server.Controllers
 					botParameters.Add($"@Level{botIndex}", bot.Level);
 					botParameters.Add($"@Exp{botIndex}", bot.Exp);
 					botParameters.Add($"@HeroId{botIndex}", bot.HeroId);
+					botParameters.Add($"@IsDeployed{botIndex}", bot.IsDeployed);
 
 					botIndex++;
 				}
@@ -612,7 +614,7 @@ namespace maxhanna.Server.Controllers
 			string sql = $@"
         SELECT 
             h.id as hero_id, h.coordsX, h.coordsY, h.map, h.speed, h.name as hero_name, h.color as hero_color, h.mask as hero_mask,
-            b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, 
+            b.id as bot_id, b.name as bot_name, b.type as bot_type, b.hp as bot_hp, b.is_deployed as bot_is_deployed,
             b.level as bot_level, b.exp as bot_exp,
             p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
         FROM 
@@ -666,6 +668,7 @@ namespace maxhanna.Server.Controllers
 								Hp = Convert.ToInt32(reader["bot_hp"]),
 								Level = Convert.ToInt32(reader["bot_level"]),
 								Exp = Convert.ToInt32(reader["bot_exp"]),
+								IsDeployed = Convert.ToBoolean(reader["bot_is_deployed"]),
 								HeroId = hero.Id
 							};
 							metabotDict[botId] = bot;
@@ -681,6 +684,7 @@ namespace maxhanna.Server.Controllers
 						{
 							MetaBotPart part = new MetaBotPart
 							{
+								HeroId = hero.Id,
 								Id = Convert.ToInt32(reader["part_id"]),
 								PartName = Convert.ToString(reader["part_name"]),
 								Type = Convert.ToInt32(reader["part_type"]),
@@ -697,10 +701,10 @@ namespace maxhanna.Server.Controllers
 								case "legs":
 									bot.Legs = part;
 									break;
-								case "leftarm":
+								case "left_arm":
 									bot.LeftArm = part;
 									break;
-								case "rightarm":
+								case "right_arm":
 									bot.RightArm = part;
 									break;
 							}
@@ -741,6 +745,7 @@ namespace maxhanna.Server.Controllers
             b.hp as metabot_hp, 
             b.level as metabot_level, 
             b.exp as metabot_exp,
+            b.is_deployed as metabot_is_deployed,
             p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
         FROM 
             maxhanna.meta_hero m 
@@ -794,7 +799,8 @@ namespace maxhanna.Server.Controllers
 								Type = Convert.ToInt32(reader["metabot_type"]),
 								Hp = Convert.ToInt32(reader["metabot_hp"]),
 								Exp = Convert.ToInt32(reader["metabot_exp"]),
-								Level = Convert.ToInt32(reader["metabot_level"])
+								Level = Convert.ToInt32(reader["metabot_level"]),
+								IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]),
 							};
 							tmpHero.Metabots.Add(metabot);
 						}
@@ -804,6 +810,7 @@ namespace maxhanna.Server.Controllers
 						{
 							MetaBotPart part = new MetaBotPart
 							{
+								HeroId = heroId,
 								Id = Convert.ToInt32(reader["part_id"]),
 								PartName = Convert.ToString(reader["part_name"]),
 								Type = Convert.ToInt32(reader["part_type"]),
@@ -820,10 +827,10 @@ namespace maxhanna.Server.Controllers
 								case "legs":
 									metabot.Legs = part;
 									break;
-								case "leftarm":
+								case "left_arm":
 									metabot.LeftArm = part;
 									break;
-								case "rightarm":
+								case "right_arm":
 									metabot.RightArm = part;
 									break;
 							}

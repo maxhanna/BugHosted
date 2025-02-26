@@ -90,7 +90,7 @@ export class BrushShop1 extends Level {
 
 
     const botFrame = new Bot(
-      { position: new Vector2(gridCells(2), gridCells(1)), spriteName: "botFrame2", offsetX: 8, offsetY: -8 }
+      { position: new Vector2(gridCells(2), gridCells(1)), spriteName: "botFrame2", offsetX: 8, offsetY: -8, isEnemy: false, isDeployed: false }
     );
     botFrame.textContent = [
       {

@@ -2,10 +2,11 @@ import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Scenario } from "../../helpers/story-flags";
-import { DOWN, gridCells } from "../../helpers/grid-cells";
+import { DOWN, gridCells, snapToGrid } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
-import { resources } from "../../helpers/resources";
-import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
+import { hexToRgb, resources } from "../../helpers/resources";
+import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap"; 
+import { Bot } from "../Bot/bot";
 
 export class Npc extends Character {
   metabots: MetaBot[]; 
@@ -63,7 +64,35 @@ export class Npc extends Character {
     if (this.moveUpDown || this.moveLeftRight) {
       this.randomMove();
     }
-
+    if (this.name === "Gangster") { 
+      console.log(this.name);
+      console.log(this.metabots);
+    }
+    console.log(this.metabots.length);
+    setTimeout(() => {
+      for (let i = 0; i < this.metabots.length; i++) {
+        if (this.metabots[i].isDeployed == true) {
+          const bot = this.metabots[i];
+          const tmpBot = new Bot({
+            id: bot.id,
+            heroId: this.id,
+            botType: bot.type,
+            name: bot.name ?? "Bot", 
+            position: new Vector2(snapToGrid(this.position.x + gridCells(1), gridCells(1)), snapToGrid(this.position.y + gridCells(1), gridCells(1))), 
+            colorSwap: this.colorSwap,
+            isDeployed: true,
+            isEnemy: true,
+            hp: bot.hp,
+            leftArm: bot.leftArm,
+            rightArm: bot.rightArm,
+            head: bot.head,
+            legs: bot.legs,
+          });
+          console.log("adding child: ", tmpBot);  
+          this.parent.addChild(tmpBot);
+        }
+      }
+    }, 5); 
   }
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     this.drawLatestChatMessage(ctx, drawPosX, drawPosY);    // Draw the latest message as a chat bubble above the player 
