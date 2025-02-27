@@ -1,7 +1,7 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Sprite } from "../sprite";
 import { SkillType } from "../../helpers/skill-types";
-import { DOWN, gridCells } from "../../helpers/grid-cells";
+import { DOWN, LEFT, RIGHT, UP, gridCells } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { getBotsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
@@ -84,7 +84,7 @@ export class Bot extends Character {
     this.name = params.name ?? "Anon";
     this.isDeployed = params.isDeployed;
     this.isEnemy = params.isEnemy ?? false;
-    this.isSolid = true;
+    this.isSolid = false;
 
     const bodyScale = params.scale ?? new Vector2(1, 1);
     const shadowScale = new Vector2(bodyScale.x, bodyScale.y);
@@ -143,10 +143,10 @@ export class Bot extends Character {
           if (this.lastAttack.getTime() + 1000 < new Date().getTime()) {
             this.lastAttack = new Date();
 
-            const botsInRange = getBotsInRange(this); 
+            const botsInRange = getBotsInRange(this);
             if (botsInRange.some((x: Bot) => x.id == target.id) && target.targetedBy.has(this)) {
               this.attack(target);
-            }  
+            }
           }
         }
       });
@@ -154,31 +154,34 @@ export class Bot extends Character {
   }
 
   private setTargetToDestroyed(target: Bot) {
+    if (!target.isDeployed) return;
     target.isDeployed = false;
     this.untarget(target);
     target.untarget(this);
     target.destroy();
     console.log(target.name + " has been destroyed!");
+    events.emit("BOT_DESTROYED", target);
   }
 
-  attack(target: Bot) { 
+  attack(target: Bot) {
     if (!target.targeting.has(this)) {
       if (this.heroId != 102)
         console.log("Cannot attack: Target is not actively targeted by this bot.");
       this.untarget(target);
-      return;  
+      return;
     }
+    this.faceTarget(target);
     // Define available attack parts
-    const attackParts: string[] = ["leftArm", "rightArm", "legs", "head"];  
+    const attackParts: string[] = ["leftArm", "rightArm", "legs", "head"];
     const attackPart = this[attackParts[Math.floor(Math.random() * attackParts.length)] as keyof Bot];
     const damage = this.botLevel * (attackPart?.damageMod ?? 1);
 
     // Apply damage
     target.hp -= damage;
 
-    if (this.heroId != 102)
-      console.log(`${this.name} attacking with ${attackPart.partName}: ${target.name} for damage: ${damage}, target remaining hp: ${target.hp}`);
+    console.log(`${this.name} attacking ${target.name} with ${attackPart?.partName}. Damage : ${damage}, target remaining hp: ${target.hp}`);
   }
+
 
   findTargets() {
     let nearest = undefined;
@@ -193,12 +196,12 @@ export class Bot extends Character {
   }
 
   target(player: Bot) {
-    if (player.id === this.id || this.targeting.has(player)) return;
+    if (player.id === this.id || this.targetedBy.has(player)) return;
     this.targeting.add(player);
     this.targetedBy.add(player);
     player.target(this);
+    this.faceTarget(player);
 
-    if (this.heroId != 102)
     console.log(this.name + " targeting : " + player.name);
   }
 
@@ -211,8 +214,19 @@ export class Bot extends Character {
         this.targetedBy.delete(player);
       }
       player.untarget(this);
-      if (this.heroId != 102)
+
       console.log(this.name + " lost target: " + player.name);
+    }
+  }
+
+  faceTarget(target: Bot) {
+    const dx = target.position.x - this.position.x;
+    const dy = target.position.y - this.position.y;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.facingDirection = dx > 0 ? RIGHT : LEFT;
+    } else {
+      this.facingDirection = dy > 0 ? DOWN : UP;
     }
   }
 

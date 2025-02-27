@@ -131,7 +131,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
      
     const subjectName = this.objectSubject?.name + ":";
-    console.log(this.objectSubject);
+/*    console.log(this.objectSubject);*/
 
     //configuration options
     const PADDING_LEFT = 27;

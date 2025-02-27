@@ -339,8 +339,7 @@ export function getBotsInRange(player: Character) {
   const discrepancy = gridCells(5);
  
   const posibilities = player.parent.children.filter((child: any) => {
-    return (
-      (child.constructor.name === "Bot") &&
+    return ( 
       (child.isDeployed) &&
       (child.isEnemy) &&
       !(child instanceof Sprite) &&

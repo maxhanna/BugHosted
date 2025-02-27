@@ -224,6 +224,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 			tmpHero.isUserControlled = true;
 			this.hero = tmpHero;
     }
+
+    this.mainScene.level?.addChild(tmpHero);
+
     for (let i = 0; i < hero.metabots.length; i++) {
       if (hero.metabots[i].isDeployed == true) {
         console.log("deploying " + hero.metabots[i].name);
@@ -232,12 +235,13 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     }
 
-		this.mainScene.level?.addChild(tmpHero);
 		return tmpHero;
 	}
 
 	private addBotToScene(metaHero: MetaHero, bot: MetaBot) {
-		console.log("addBotToScene ! ", bot, metaHero);
+    if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return; }
+
+    console.log("addBotToScene ! ", bot, metaHero);
     if (metaHero && metaHero.metabots && metaHero.metabots.length > 0) {
       let tgtBot = metaHero.metabots.find(x => x.id === bot.id);
       if (tgtBot) {
@@ -303,8 +307,14 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           }
           if (event.event === "DEPLOY" && event.data && event.data["metaHero"] && event.data["metaBot"]) {
             const hero = JSON.parse(event.data["metaHero"]) as MetaHero;
-            if (hero.id != this.metaHero.id) { 
+            if (hero.id != this.metaHero.id) {
               this.addBotToScene(hero, JSON.parse(event.data["metaBot"]) as MetaBot);
+            }
+          }
+          if (event.event === "BOT_DESTROYED") { 
+            const bot = this.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
+            if (bot) {
+              bot.destroy();
             }
           }
 					if (event.event === "START_FIGHT" && event.heroId != this.metaHero.id && !storyFlags.flags.has("START_FIGHT")) {
@@ -585,7 +595,30 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           this.metaService.updateEvents(metaEvent);
         }
       }  
-		});
+    });
+
+    events.on("BOT_DESTROYED", this, (params: { bot: Bot }) => { 
+      if (params.bot?.id) {
+        if (params.bot.heroId === this.metaHero.id) {
+          const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "BOT_DESTROYED", this.metaHero.map);
+          this.metaService.updateEvents(metaEvent);
+        }
+        const tgt = this.mainScene.children.first((x: any) => x.id === params.bot.id);
+        const hero = this.mainScene.children.first((x: any) => x.id === params.bot.heroId);
+        if (hero) {
+          const tgtBot = hero.metabots.find((x : any) => x.id === params.bot.id);
+          if (tgtBot) { 
+            tgtBot.isDeployed = false;
+            tgtBot.hp = 0;
+          }
+        }
+        if (tgt) {
+          tgt.isDeployed = false;
+          tgt.hp = 0;
+          tgt.destroy();
+        }
+      }
+    });
 
 		events.on("CHARACTER_CREATED", this, (name: string) => {
 			if (this.chatInput.nativeElement.placeholder === "Enter your name" && this.parentRef && this.parentRef.user) {

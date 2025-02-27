@@ -172,13 +172,23 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
   }
 
-  convertCADtoBTC(): void { 
-    const cadValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0;
-    const btcValue = cadValue / (this.btcToCadPrice * (this.btcFiatConversion ?? 1));
+  convertCurrencyToBTC(): void {
+    const currencyValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0;
+    const sanitizedValue = parseFloat(currencyValue.toString().replace(/[$,]/g, '')) || 0;
+    const btcValue = sanitizedValue / (this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1));
 
     this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
-    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(cadValue); 
+    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(sanitizedValue);
+  }
+
+  convertCADtoBTC(): void { 
+    const currencyValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0;
+    const btcValue = currencyValue / (this.btcToCadPrice * (this.btcFiatConversion ?? 1));
+
+    this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
+    this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
+    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(currencyValue); 
   }
 
   convertSatoshiToBTC(): void {
@@ -186,7 +196,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     const btcValue = satValue / 1e8;
 
     this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
-    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice);
+    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD);
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(satValue);
   }
    
