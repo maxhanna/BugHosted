@@ -8,7 +8,7 @@
 
       <div class="mediaSelectorTitle selectFilesTitle">
         <span>
-          Select Media Files <span class="smallFont" *ngIf="selectedFiles && selectedFiles.length > 0">({{selectedFiles.length}})</span>
+          Select Media Files <span class="smallFont" *ngIf="selectedFiles && selectedFiles.length > 0">({{selectedFiles.length}} selected)</span>
         </span>
         <button id="closeOverlay" class="doneButton cursorPointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Done' : 'Cancel'}}</button>
       </div>
@@ -67,11 +67,11 @@
       <!-- SEARCH/UPLOAD buttons -->
       <div class="searchUploadButtonChoiceDiv">
         <button (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()" title="Search for files" class="cursorPointer">
-          {{displaySearch ? 'Close Search' : ('🔍Search ' + (selectedFiles.length > 0 ? 'More ' : '') + ' Files' )}}
+          {{displaySearch ? 'Close Search' : ('🔍Search' )}}
         </button>
         <div *ngIf="!displaySearch">
           <app-file-upload #fileUploadComponent
-                           [uploadButtonText]="'Upload Files'"
+                           [uploadButtonText]="'Upload'"
                            [inputtedParentRef]="inputtedParentRef"
                            [showPrivatePublicOption]="false"
                            [currentDirectory]="currentDirectory"

@@ -107,7 +107,10 @@ input {
 }
 
 .instructions {
-  font-size: small;
+  padding: 20px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+  font-size: large;
 }
 
 #enterButton {
@@ -124,6 +127,24 @@ input {
 .difficultySelectDiv {
   width: 100%;
   text-align: center;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+
+.difficultySelectionAndPlay {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  padding: 20px;
+  border: var(--main-border);
+}
+
+.sharebuttonDiv {
+  margin-bottom: 20px;
 }
 
 @keyframes shake {
@@ -188,9 +209,26 @@ input {
   margin-top: 15px;
   text-align: center;
 }
+
 .instructionTitle {
-    text-align:center;
+  margin-bottom: 10px;
+  text-align: center;
 }
+
 .wordlerPopupPanelSection {
   margin-bottom: 15px;
+}
+
+.popupPanelTitle{
+  text-align: center;
+  width: 100%;
+}
+.mainPopupTitle {
+  font-size: 2.5em;
+  margin-bottom: 10px;
+}
+#scoreTablePopup tr:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--main-link-color);
 }

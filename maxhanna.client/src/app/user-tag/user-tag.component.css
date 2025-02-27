@@ -1,10 +1,12 @@
 .largeAvatar {
   border: unset;
   text-align: center;
+  white-space: normal !important;
 }
 .miniAvatar {
   width:25px;
   height:25px;
+  white-space: nowrap;
 }
 
 .displayPicture {
@@ -59,8 +61,7 @@
   left: -5px;
   position: relative; 
 }
-.avatar {
-  white-space: normal !important;
+.avatar { 
   line-height: 50px !important;
 }
 .avatarBug {

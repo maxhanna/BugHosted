@@ -74,65 +74,8 @@ export class WardrobeMenu extends Level {
 
   override step(delta: number, root: GameObject) {
     const input = (root as Main).input as Input;
-
-    if (input?.keys["Escape"]) {
-      this.closeWardrobe();
-      setTimeout(() => { 
-        events.emit("PRESSED_ESCAPE");
-      }, 100);
-    }
-    else if (input?.keys["Space"] && !this.blockSelection) {
-      if (input?.verifyCanPressKey()) {
-        console.log(this.items[this.currentlySelectedId]);
-        if (this.items[this.currentlySelectedId] === "Exit") {
-          this.closeWardrobe();
-        } else if (this.items[this.currentlySelectedId] === "Back") {
-          this.displayStartMenu();
-        } else if (this.items[this.currentlySelectedId] === "Masks") {
-          this.displayMaskMenu();
-        } else if (this.isDisplayingMasks) {
-          const maskMap = {
-            [BUNNYEARS_MASK.name.toLowerCase()]: BUNNYEARS_MASK,
-            [BOT_MASK.name.toLowerCase()]: BOT_MASK,
-            [BUNNY_MASK.name.toLowerCase()]: BUNNY_MASK,
-            [ANBU_MASK.name.toLowerCase()]: ANBU_MASK,
-            [NO_MASK.name.toLowerCase()]: NO_MASK,
-          };
-          let maskStats = maskMap[this.items[this.currentlySelectedId].toLowerCase()] || NO_MASK;
-
-          if (this.hero) { 
-            this.hero.mask = maskStats.id === 0 ? undefined : maskStats.id;
-            this.removeChild(this.heroSprite);
-            this.heroSprite = new Hero({ name: this.hero.name, position: new Vector2(70, 80), colorSwap: this.heroSprite.colorSwap, mask: new Mask(maskStats.name) });
-            this.addChild(this.heroSprite);
-            console.log("replaced hero sprite");
-          }
-          this.maskEquipped = maskStats.id;
-        }
-      }
-    }
-
-    if (input?.verifyCanPressKey()) {
-      if (input?.getActionJustPressed("ArrowUp")
-        || input?.heldDirections.includes("UP")
-        || input?.getActionJustPressed("KeyW")) {
-        this.decrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowDown")
-        || input?.heldDirections.includes("DOWN")
-        || input?.getActionJustPressed("KeyS")) {
-        this.incrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowLeft")
-        || input?.heldDirections.includes("LEFT")
-        || input?.getActionJustPressed("KeyA")) {
-        this.decrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowRight")
-        || input?.heldDirections.includes("RIGHT")
-        || input?.getActionJustPressed("KeyD")) {
-        this.incrementCurrentlySelectedId();
-      }
+    if (Object.values(input.keys).some(value => value === true)) {
+      this.handleKeyboardInput(input);
     }
   }
    
@@ -216,6 +159,68 @@ export class WardrobeMenu extends Level {
       this.blockClearMenu = false;
       this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.items.length - 1 : --this.currentlySelectedId);
       this.selectorSprite.position.y = 30 + (this.currentlySelectedId * 10);
+    }
+  }
+
+  private handleKeyboardInput(input: Input) { 
+    if (input?.keys["Escape"]) {
+      this.closeWardrobe();
+      setTimeout(() => {
+        events.emit("PRESSED_ESCAPE");
+      }, 100);
+    }
+    else if (input?.keys["Space"] && !this.blockSelection) {
+      if (input?.verifyCanPressKey()) {
+        console.log(this.items[this.currentlySelectedId]);
+        if (this.items[this.currentlySelectedId] === "Exit") {
+          this.closeWardrobe();
+        } else if (this.items[this.currentlySelectedId] === "Back") {
+          this.displayStartMenu();
+        } else if (this.items[this.currentlySelectedId] === "Masks") {
+          this.displayMaskMenu();
+        } else if (this.isDisplayingMasks) {
+          const maskMap = {
+            [BUNNYEARS_MASK.name.toLowerCase()]: BUNNYEARS_MASK,
+            [BOT_MASK.name.toLowerCase()]: BOT_MASK,
+            [BUNNY_MASK.name.toLowerCase()]: BUNNY_MASK,
+            [ANBU_MASK.name.toLowerCase()]: ANBU_MASK,
+            [NO_MASK.name.toLowerCase()]: NO_MASK,
+          };
+          let maskStats = maskMap[this.items[this.currentlySelectedId].toLowerCase()] || NO_MASK;
+
+          if (this.hero) {
+            this.hero.mask = maskStats.id === 0 ? undefined : maskStats.id;
+            this.removeChild(this.heroSprite);
+            this.heroSprite = new Hero({ name: this.hero.name, position: new Vector2(70, 80), colorSwap: this.heroSprite.colorSwap, mask: new Mask(maskStats.name) });
+            this.addChild(this.heroSprite);
+            console.log("replaced hero sprite");
+          }
+          this.maskEquipped = maskStats.id;
+        }
+      }
+    }
+
+    if (input?.verifyCanPressKey()) {
+      if (input?.getActionJustPressed("ArrowUp")
+        || input?.heldDirections.includes("UP")
+        || input?.getActionJustPressed("KeyW")) {
+        this.decrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowDown")
+        || input?.heldDirections.includes("DOWN")
+        || input?.getActionJustPressed("KeyS")) {
+        this.incrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowLeft")
+        || input?.heldDirections.includes("LEFT")
+        || input?.getActionJustPressed("KeyA")) {
+        this.decrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowRight")
+        || input?.heldDirections.includes("RIGHT")
+        || input?.getActionJustPressed("KeyD")) {
+        this.incrementCurrentlySelectedId();
+      }
     }
   }
 

@@ -16,6 +16,7 @@ export class Referee extends Npc {
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       position: new Vector2(x, y),
       type: "referee",
+      name: "Mr. Referee",
       partners: partners ? partners : [],
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
@@ -24,6 +25,7 @@ export class Referee extends Npc {
         frameSize: new Vector2(32, 32),
         hFrames: 4,
         vFrames: 4,
+        name: "Mr. Referee",
         animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
@@ -36,8 +38,7 @@ export class Referee extends Npc {
             standUp: new FrameIndexPattern(STAND_UP),
           })
       })
-    })
-    this.name = "referee";
+    }) 
     this.type = "referee"; 
     this.textPortraitFrame = 1;
     const shadow = new Sprite({

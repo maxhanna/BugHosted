@@ -36,23 +36,24 @@
   text-shadow: 1.2px 1.1px 1.1px black;
   box-shadow: inset 0 0 8px rgba(66, 133, 244, 0.8),inset 0 0 12px rgba(66, 133, 244, 0.6),inset 0 0 16px rgba(66, 133, 244, 0.4);
   transition: box-shadow 0.2s ease-in-out, transform 0.1s ease-in-out;
-}  
+}
+
   .upOneFolder:hover {
     box-shadow: inset 0 0 12px rgba(66, 133, 244, 1), inset 0 0 18px rgba(66, 133, 244, 0.8), inset 0 0 24px rgba(66, 133, 244, 0.6);
   }
-   
+
   .upOneFolder:active {
     box-shadow: inset 0 0 20px rgba(66, 133, 244, 1), inset 0 0 30px rgba(66, 133, 244, 0.8);
-    transform: scale(0.95);  
+    transform: scale(0.95);
   }
-   
+
   .upOneFolder:active,
   .upOneFolder:focus,
   .upOneFolder:focus-visible {
     box-shadow: inset 0 0 22px rgba(66, 133, 244, 1), inset 0 0 30px rgba(66, 133, 244, 0.9);
     transform: scale(0.95);
   }
-   
+
     .upOneFolder:focus:not(:focus-visible) {
       outline: none;
     }
@@ -70,7 +71,7 @@
   align-content: center;
   flex-wrap: nowrap;
   flex-direction: row;
-  gap: 30px;
+  gap: clamp(10px, 3vw, 30px);
 }
 
 @media only screen and (max-width : 355px) {
@@ -122,15 +123,22 @@
   display: flex;
   justify-content: space-between;
   flex-wrap: nowrap;
-  border-bottom: var(--main-border);
+  border-top: var(--main-border);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  margin-top: 5px;
+  padding: 5px;
 }
 
 .fileNameWrapperSpan {
   width: 100%;
 }
 
+  .fileNameDiv:hover {
+    border-bottom: 1px dotted var(--main-link-color);
+  }
+
 .mediaViewDiv {
-  border-bottom: var(--main-border);
   display: flex;
 }
 
@@ -150,14 +158,8 @@
   white-space: nowrap;
   font-size: small;
   margin-right: 15px;
-}
-
-  .fileExtras div {
-    margin-left: 5px;
-  }
-
-.directoryDisplayDiv {
-  border-top: var(--main-border);
+} 
+.directoryDisplayDiv { 
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -197,10 +199,10 @@
 
 .mediaViewer {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   flex-wrap: wrap;
   align-content: center;
-  justify-content: space-evenly;
+  justify-content: center;
   align-items: center;
   flex-grow: 1;
   flex-basis: 100%;
@@ -222,9 +224,9 @@
   max-height: CALC(100% - 30px);
 }
 
-.popupPanel { 
+.popupPanel {
   width: 300px;
-  height: 380px;  
+  height: 380px;
 }
 
 .fileOptionsStats {
@@ -241,7 +243,7 @@
 .fileOptionsStats div {
   padding: 5px;
 }
- 
+
 
 .popupPanelActions {
   margin-top: 20px;
@@ -265,17 +267,19 @@
 .searchPopup, .fileOptionsPopup {
   height: 150px !important;
 }
+
 .fileOptionsAction {
   cursor: pointer;
   font-size: 16px;
-  padding: 3px;
   line-height: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: row;
   flex-wrap: nowrap;
+  padding-left: 5px;
 }
+
 .noNotificationsSearchDiv {
   right: 53px !important;
 }

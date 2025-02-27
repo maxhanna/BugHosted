@@ -75,101 +75,9 @@ export class FightMenu extends GameObject {
     }
 
     const input = parent.input as Input;
-    if (input?.verifyCanPressKey()) {
-      if (input?.keys["Space"]) {
-        if (this.showFightMenuOptions) {
-          if (this.selectedFightMenuIndex == (this.fightMenuOptions.length - 1)) {
-            this.leaveFight();
-          }
-          else if (this.selectedFightMenuIndex == 0) {
-            this.showFightMenuOptions = false;
-            this.showAttackMenuOptions = true;
-          }
-          else if (this.selectedFightMenuIndex == 2) {
-            this.showFightMenuOptions = false;
-            this.showFighterSelectionMenu = true;
-          }
-        }
-        else if (this.showEndOfFightMenu) {
-          this.leaveFight();
-        }
-        else if (this.showFighterSelectionMenu) {
-          if (this.selectedFighterIndex == this.metabotChoices.length) {
-            this.leaveFight();
-          } else {
-            this.selectFighter();
-          }
-        }
-        else if (this.showAttackMenuOptions) {
-          if (this.selectedAttackIndex == 4) {
-            this.showAttackMenuOptions = false;
-            this.showFightMenuOptions = true;
-          }
-          else { // USER HAS SELECTED AN ATTACK
-            this.showAttackMenuOptions = false;
-            this.showWaitingForOthers = true;
-            const skill = this.selectedAttackIndex == 0 ? this.leftArmSkill
-              : this.selectedAttackIndex == 1 ? this.rightArmSkill
-                : this.selectedAttackIndex == 2 ? this.legsSkill
-                  : this.headSkill;
-            events.emit("USER_ATTACK_SELECTED", skill);
-          }
-        }
-      }
-      else if (input?.getActionJustPressed("ArrowUp")
-        || input?.heldDirections.includes("UP")
-        || input?.getActionJustPressed("KeyW")) {
-        if (this.showFighterSelectionMenu) {
-          this.cycleDownSelectedFighter();
-        }
-        else if (this.showFightMenuOptions) {
-          this.selectedFightMenuIndex = (this.selectedFightMenuIndex - 1 + this.fightMenuOptions.length) % this.fightMenuOptions.length;
-        }
-        else if (this.showAttackMenuOptions) {
-          this.selectedAttackIndex = (this.selectedAttackIndex - 1 + 5) % 5;
-        }
-      }
-      else if (input?.getActionJustPressed("ArrowDown")
-        || input?.heldDirections.includes("DOWN")
-        || input?.getActionJustPressed("KeyS")) {
-        if (this.showFighterSelectionMenu) {
-          this.cycleUpSelectedFighter();
-        }
-        else if (this.showFightMenuOptions) {
-          this.selectedFightMenuIndex = (this.selectedFightMenuIndex + 1) % this.fightMenuOptions.length;
-        }
-        else if (this.showAttackMenuOptions) {
-          this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5;
-          console.log(this.selectedAttackIndex)
-        }
-      }
-      else if (input?.getActionJustPressed("ArrowLeft")
-        || input?.heldDirections.includes("LEFT")
-        || input?.getActionJustPressed("KeyA")) {
-        if (this.showFighterSelectionMenu) {
-          this.cycleDownSelectedFighter();
-        }
-        else if (this.showFightMenuOptions) {
-          this.selectedFightMenuIndex = (this.selectedFightMenuIndex - 1 + this.fightMenuOptions.length) % this.fightMenuOptions.length;
-        }
-        else if (this.showAttackMenuOptions) {
-          this.selectedAttackIndex = (this.selectedAttackIndex - 1 + 5) % 5;
-        }
-      }
-      else if (input?.getActionJustPressed("ArrowRight")
-        || input?.heldDirections.includes("RIGHT")
-        || input?.getActionJustPressed("KeyD")) {
-        if (this.showFighterSelectionMenu) {
-          this.cycleUpSelectedFighter();
-        }
-        else if (this.showFightMenuOptions) {
-          this.selectedFightMenuIndex = (this.selectedFightMenuIndex + 1) % this.fightMenuOptions.length;
-        }
-        else if (this.showAttackMenuOptions) {
-          this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5;
-        }
-      }
-    } 
+    if (Object.values(input.keys).some(value => value === true)) {
+      this.handleKeyboardInput(input);
+    }
   }
 
   leaveFight() {
@@ -499,5 +407,103 @@ export class FightMenu extends GameObject {
     this.showFightMenuOptions = true;
     this.showFighterSelectionMenu = false;
     this.removeFighterSelectionSprites();
+  }
+
+  private handleKeyboardInput(input: Input) { 
+    if (input?.verifyCanPressKey()) {
+      if (input?.keys["Space"]) {
+        if (this.showFightMenuOptions) {
+          if (this.selectedFightMenuIndex == (this.fightMenuOptions.length - 1)) {
+            this.leaveFight();
+          }
+          else if (this.selectedFightMenuIndex == 0) {
+            this.showFightMenuOptions = false;
+            this.showAttackMenuOptions = true;
+          }
+          else if (this.selectedFightMenuIndex == 2) {
+            this.showFightMenuOptions = false;
+            this.showFighterSelectionMenu = true;
+          }
+        }
+        else if (this.showEndOfFightMenu) {
+          this.leaveFight();
+        }
+        else if (this.showFighterSelectionMenu) {
+          if (this.selectedFighterIndex == this.metabotChoices.length) {
+            this.leaveFight();
+          } else {
+            this.selectFighter();
+          }
+        }
+        else if (this.showAttackMenuOptions) {
+          if (this.selectedAttackIndex == 4) {
+            this.showAttackMenuOptions = false;
+            this.showFightMenuOptions = true;
+          }
+          else { // USER HAS SELECTED AN ATTACK
+            this.showAttackMenuOptions = false;
+            this.showWaitingForOthers = true;
+            const skill = this.selectedAttackIndex == 0 ? this.leftArmSkill
+              : this.selectedAttackIndex == 1 ? this.rightArmSkill
+                : this.selectedAttackIndex == 2 ? this.legsSkill
+                  : this.headSkill;
+            events.emit("USER_ATTACK_SELECTED", skill);
+          }
+        }
+      }
+      else if (input?.getActionJustPressed("ArrowUp")
+        || input?.heldDirections.includes("UP")
+        || input?.getActionJustPressed("KeyW")) {
+        if (this.showFighterSelectionMenu) {
+          this.cycleDownSelectedFighter();
+        }
+        else if (this.showFightMenuOptions) {
+          this.selectedFightMenuIndex = (this.selectedFightMenuIndex - 1 + this.fightMenuOptions.length) % this.fightMenuOptions.length;
+        }
+        else if (this.showAttackMenuOptions) {
+          this.selectedAttackIndex = (this.selectedAttackIndex - 1 + 5) % 5;
+        }
+      }
+      else if (input?.getActionJustPressed("ArrowDown")
+        || input?.heldDirections.includes("DOWN")
+        || input?.getActionJustPressed("KeyS")) {
+        if (this.showFighterSelectionMenu) {
+          this.cycleUpSelectedFighter();
+        }
+        else if (this.showFightMenuOptions) {
+          this.selectedFightMenuIndex = (this.selectedFightMenuIndex + 1) % this.fightMenuOptions.length;
+        }
+        else if (this.showAttackMenuOptions) {
+          this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5;
+          console.log(this.selectedAttackIndex)
+        }
+      }
+      else if (input?.getActionJustPressed("ArrowLeft")
+        || input?.heldDirections.includes("LEFT")
+        || input?.getActionJustPressed("KeyA")) {
+        if (this.showFighterSelectionMenu) {
+          this.cycleDownSelectedFighter();
+        }
+        else if (this.showFightMenuOptions) {
+          this.selectedFightMenuIndex = (this.selectedFightMenuIndex - 1 + this.fightMenuOptions.length) % this.fightMenuOptions.length;
+        }
+        else if (this.showAttackMenuOptions) {
+          this.selectedAttackIndex = (this.selectedAttackIndex - 1 + 5) % 5;
+        }
+      }
+      else if (input?.getActionJustPressed("ArrowRight")
+        || input?.heldDirections.includes("RIGHT")
+        || input?.getActionJustPressed("KeyD")) {
+        if (this.showFighterSelectionMenu) {
+          this.cycleUpSelectedFighter();
+        }
+        else if (this.showFightMenuOptions) {
+          this.selectedFightMenuIndex = (this.selectedFightMenuIndex + 1) % this.fightMenuOptions.length;
+        }
+        else if (this.showAttackMenuOptions) {
+          this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5;
+        }
+      }
+    }
   }
 }

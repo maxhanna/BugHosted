@@ -76,111 +76,8 @@ export class StartMenu extends GameObject {
   }
   override step(delta: number, root: GameObject) {
     const input = (root as Main).input as Input;
-    if (input?.keys["Space"] && !this.blockSelection) {
-      if (input?.verifyCanPressKey()) {
-        if (this.items[this.currentlySelectedId] === "Exit") {
-          events.emit("START_PRESSED");
-        }
-        else if (this.items[this.currentlySelectedId] === "Watch") {
-          this.displayWatchMenu();
-        }
-        else if (this.items[this.currentlySelectedId] === "Journal") {
-          this.displayJournalMenu();
-        }
-        else if (this.items[this.currentlySelectedId] === "Warp") {
-          events.emit("START_PRESSED");
-          events.emit("WARP", { x: this.currentWarpX, y: this.currentWarpY });
-        }
-        else if (this.items[this.currentlySelectedId] === "Warp Coords Input") {
-          this.displayWarpCoordsInput("00", "00");
-        }
-        else if (this.items[this.currentlySelectedId] === "Deploy" && this.selectedMetabot) {
-          if (this.selectedMetabot != undefined) { 
-            events.emit("DEPLOY", { metaHero: (root as Main).metaHero, bot: this.selectedMetabot });
-          }
-        }
-        else if (this.items[this.currentlySelectedId] === `X ${this.currentWarpX}, Y ${this.currentWarpY}`) {
-          let set = false;
-          if (this.coordXSelected) {
-            this.coordYSelected = true;
-            this.coordXSelected = false;
-            this.selectorSprite.position.x = 30 + (this.selectorSprite.position.x);
-            set = true;
-          } else if (this.coordYSelected) {
-            this.coordYSelected = false;
-            this.coordXSelected = false;
-            this.selectorSprite.position.x = this.selectorSprite.position.x - 50;
-            set = true;
-          }
-          if (!this.coordXSelected && !this.coordYSelected && !set) {
-            this.coordXSelected = true;
-            this.selectorSprite.position.x = 20 + (this.selectorSprite.position.x);
-          }
-        }
-        else if (this.items[this.currentlySelectedId] === "Back" || (this.selectedMetabot && this.currentlySelectedId == this.metabotPartItems.length)) {
-          if (this.selectedMetabot && !this.selectedMetabotId) {
-            this.displayMetabots();
-          } else if (this.selectedMetabotId && this.selectedPart && this.selectedMetabotForParts) {
-            this.displayMetabot(this.selectedMetabotForParts);
-          }
-          else {
-            this.displayStartMenu();
-          }
-        } else if (this.items[this.currentlySelectedId] === "Meta-Bots") {
-          this.displayMetabots();
-        }
-        else if (this.selectedMetabot && (this.metabotPartItems[this.currentlySelectedId] === LEGS
-          || this.metabotPartItems[this.currentlySelectedId] === LEFT_ARM
-          || this.metabotPartItems[this.currentlySelectedId] === RIGHT_ARM
-          || this.metabotPartItems[this.currentlySelectedId] === HEAD)) {
-          this.displayPartSelection(this.metabotPartItems[this.currentlySelectedId], this.selectedMetabot);
-        }
-        else if (this.isDisplayingMetabots) {
-          const selection = this.items[this.currentlySelectedId];
-          const bot = this.inventoryItems.find(ii => ii.name === selection);
-          if (bot) {
-            console.log(bot);
-            const stats = typeof bot.stats === "string"
-              ? JSON.parse(bot.stats) as MetaBot
-              : bot.stats as MetaBot;
-
-            this.selectedMetabot = stats;
-            if (this.selectedMetabot) {
-              this.displayMetabot(this.selectedMetabot);
-            }
-          }
-        }
-        else if (this.selectedPart) {
-          const selection = this.items[this.currentlySelectedId];
-          events.emit("SELECTED_PART", { selectedPart: this.selectedPart, selection: selection, selectedMetabotId: this.selectedMetabotId });
-          if (this.selectedMetabotForParts) {
-            this.displayMetabot(this.selectedMetabotForParts);
-          }
-        }
-      }
-    }
-
-    if (input?.verifyCanPressKey()) {
-      if (input?.getActionJustPressed("ArrowUp")
-        || input?.heldDirections.includes("UP")
-        || input?.getActionJustPressed("KeyW")) {
-        this.decrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowDown")
-        || input?.heldDirections.includes("DOWN")
-        || input?.getActionJustPressed("KeyS")) {
-        this.incrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowLeft")
-        || input?.heldDirections.includes("LEFT")
-        || input?.getActionJustPressed("KeyA")) {
-        this.decrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowRight")
-        || input?.heldDirections.includes("RIGHT")
-        || input?.getActionJustPressed("KeyD")) {
-        this.incrementCurrentlySelectedId();
-      }
+    if (Object.values(input.keys).some(value => value === true)) {
+      this.handleKeyboardInput(root, input);
     }
   }
   override drawImage(ctx: CanvasRenderingContext2D) {
@@ -419,6 +316,114 @@ export class StartMenu extends GameObject {
     }
   }
 
+  private handleKeyboardInput(root: GameObject, input: Input) { 
+    if (input?.keys["Space"] && !this.blockSelection) {
+      if (input?.verifyCanPressKey()) {
+        if (this.items[this.currentlySelectedId] === "Exit") {
+          events.emit("START_PRESSED");
+        }
+        else if (this.items[this.currentlySelectedId] === "Watch") {
+          this.displayWatchMenu();
+        }
+        else if (this.items[this.currentlySelectedId] === "Journal") {
+          this.displayJournalMenu();
+        }
+        else if (this.items[this.currentlySelectedId] === "Warp") {
+          events.emit("START_PRESSED");
+          events.emit("WARP", { x: this.currentWarpX, y: this.currentWarpY });
+        }
+        else if (this.items[this.currentlySelectedId] === "Warp Coords Input") {
+          this.displayWarpCoordsInput("00", "00");
+        }
+        else if (this.items[this.currentlySelectedId] === "Deploy" && this.selectedMetabot) {
+          if (this.selectedMetabot != undefined) {
+            events.emit("DEPLOY", { metaHero: (root as Main).metaHero, bot: this.selectedMetabot });
+          }
+        }
+        else if (this.items[this.currentlySelectedId] === `X ${this.currentWarpX}, Y ${this.currentWarpY}`) {
+          let set = false;
+          if (this.coordXSelected) {
+            this.coordYSelected = true;
+            this.coordXSelected = false;
+            this.selectorSprite.position.x = 30 + (this.selectorSprite.position.x);
+            set = true;
+          } else if (this.coordYSelected) {
+            this.coordYSelected = false;
+            this.coordXSelected = false;
+            this.selectorSprite.position.x = this.selectorSprite.position.x - 50;
+            set = true;
+          }
+          if (!this.coordXSelected && !this.coordYSelected && !set) {
+            this.coordXSelected = true;
+            this.selectorSprite.position.x = 20 + (this.selectorSprite.position.x);
+          }
+        }
+        else if (this.items[this.currentlySelectedId] === "Back" || (this.selectedMetabot && this.currentlySelectedId == this.metabotPartItems.length)) {
+          if (this.selectedMetabot && !this.selectedMetabotId) {
+            this.displayMetabots();
+          } else if (this.selectedMetabotId && this.selectedPart && this.selectedMetabotForParts) {
+            this.displayMetabot(this.selectedMetabotForParts);
+          }
+          else {
+            this.displayStartMenu();
+          }
+        } else if (this.items[this.currentlySelectedId] === "Meta-Bots") {
+          this.displayMetabots();
+        }
+        else if (this.selectedMetabot && (this.metabotPartItems[this.currentlySelectedId] === LEGS
+          || this.metabotPartItems[this.currentlySelectedId] === LEFT_ARM
+          || this.metabotPartItems[this.currentlySelectedId] === RIGHT_ARM
+          || this.metabotPartItems[this.currentlySelectedId] === HEAD)) {
+          this.displayPartSelection(this.metabotPartItems[this.currentlySelectedId], this.selectedMetabot);
+        }
+        else if (this.isDisplayingMetabots) {
+          const selection = this.items[this.currentlySelectedId];
+          const bot = this.inventoryItems.find(ii => ii.name === selection);
+          if (bot) {
+            console.log(bot);
+            const stats = typeof bot.stats === "string"
+              ? JSON.parse(bot.stats) as MetaBot
+              : bot.stats as MetaBot;
+
+            this.selectedMetabot = stats;
+            if (this.selectedMetabot) {
+              this.displayMetabot(this.selectedMetabot);
+            }
+          }
+        }
+        else if (this.selectedPart) {
+          const selection = this.items[this.currentlySelectedId];
+          events.emit("SELECTED_PART", { selectedPart: this.selectedPart, selection: selection, selectedMetabotId: this.selectedMetabotId });
+          if (this.selectedMetabotForParts) {
+            this.displayMetabot(this.selectedMetabotForParts);
+          }
+        }
+      }
+    }
+
+    if (input?.verifyCanPressKey()) {
+      if (input?.getActionJustPressed("ArrowUp")
+        || input?.heldDirections.includes("UP")
+        || input?.getActionJustPressed("KeyW")) {
+        this.decrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowDown")
+        || input?.heldDirections.includes("DOWN")
+        || input?.getActionJustPressed("KeyS")) {
+        this.incrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowLeft")
+        || input?.heldDirections.includes("LEFT")
+        || input?.getActionJustPressed("KeyA")) {
+        this.decrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowRight")
+        || input?.heldDirections.includes("RIGHT")
+        || input?.getActionJustPressed("KeyD")) {
+        this.incrementCurrentlySelectedId();
+      }
+    }
+  }
 
   private blockSelectionTimeout() {
     this.blockSelection = true;

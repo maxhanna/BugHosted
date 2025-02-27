@@ -93,8 +93,10 @@
   width: 100%;
   display: flex;
   align-items: center;
+  font-size: large;
   justify-content: center;
   gap: 35px;
+  margin-bottom: 15px;
 }
 .searchUploadButtonChoiceDiv {
   display: flex;

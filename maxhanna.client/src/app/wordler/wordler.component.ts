@@ -28,9 +28,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   notifications: string[] = [];
   selectedDifficulty = 0;
   disableAllInputs = false;
-  guessAttempts: string[] = [];
-  currentStreak = 0;
+  guessAttempts: string[] = []; 
   isMenuPanelOpen = false;
+  definition?: string;
 
   wordlerScores: WordlerScore[] = [];
   wordlerScoresCount: number = 0;
@@ -149,6 +149,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     if (!this.difficultySelect.nativeElement.value) {
       return alert("You must select a difficulty!");
     }
+    this.definition = undefined;
     this.disableAllInputs = false;
     this.showExitGameButton = true;
     this.selectedDifficulty = parseInt(this.difficultySelect.nativeElement.value);
@@ -303,12 +304,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         this.stopTimer();
         const message = `Game over! The word was: ${this.wordToGuess}; Time elapsed: ${this.elapsedTime}`;
         this.parentRef?.showNotification(message);
-        this.showScores = true;
-        alert(message);
-        const definition = await this.wordlerService.getWordDefinition(this.wordToGuess);
-        if (definition) {
-          this.parentRef?.showNotification(`Word definition: ${definition}`);
-        }
+        this.showScores = true; 
+        const definition = await this.wordlerService.getWordDefinition(this.wordToGuess); 
+        this.definition = `Word definition: ${definition}`; 
       }
     }
   }
@@ -320,9 +318,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     await this.wordlerService.addScore(tmpScore);
     await this.getHighScores();
     const definition = await this.wordlerService.getWordDefinition(guess);
-    if (definition) {
-      this.parentRef?.showNotification(`Word definition: ${definition}`);
-    }
+
+    this.definition = `Word definition: ${definition}`;
+ 
     this.showScores = true;
     this.disableAllInputs = true;
   }
@@ -436,6 +434,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       this.stopTimer();
       this.disableAllInputs = true;
       this.showExitGameButton = false;
+      this.definition = undefined;
     }
   }
 

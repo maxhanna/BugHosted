@@ -11,6 +11,7 @@ import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
 import { input } from "@angular/core";
 import { Referee } from "../objects/Npc/Referee/referee";
+import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 
 export class CharacterCreate extends Level { 
   textBox = new SpriteTextStringWithBackdrop({});
@@ -100,6 +101,14 @@ export class CharacterCreate extends Level {
     ];
     this.addChild(this.referee);
     this.hideChatInput();
+
+    const sts = new SpriteTextString(
+      `Press ${!this.onMobile() ? 'Spacebar or ' : ''}the A Button to Start`,
+       new Vector2(10, 10),
+       "White",
+    );
+    this.addChild(sts);
+
     this.walls = new Set<string>();
   }
 
@@ -126,6 +135,11 @@ export class CharacterCreate extends Level {
           events.emit("CHANGE_LEVEL", new HeroRoomLevel({
             heroPosition: new Vector2(gridCells(4), gridCells(4))
           }));
+        } else if (storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_4)) {
+          const sts = new SpriteTextString(  
+            `Enter your name in the chat input, then press ${!this.onMobile() ? 'Enter or ' : ''}the A Button to confirm`, new Vector2(10, 10)
+          );
+          this.addChild(sts);
         }
         const content = this.referee.getContent();
         if (content) {
@@ -156,7 +170,8 @@ export class CharacterCreate extends Level {
     } 
     this.textBox = new SpriteTextStringWithBackdrop({
       portraitFrame: content.portraitFrame,
-      string: content.string
+      string: content.string,
+      objectSubject: this.referee,
     });
     this.addChild(this.textBox);
   }
@@ -196,6 +211,9 @@ export class CharacterCreate extends Level {
         chatInput.focus();
       }
     }, 100);
+  }
+  private onMobile() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   }
   private verifyCharacterName(name: string) {
     let outcome = undefined;

@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core'; 
+import { Component, OnDestroy } from '@angular/core';
 import { AppComponent } from './app.component';
 import { User } from '../services/datacontracts/user/user';
 
@@ -12,8 +12,8 @@ export class ChildComponent {
   asc: [string, number][] = [];
   isLoading = false;
   debounceTimer: any;
-   
-  remove_me(componentTitle: string) { 
+
+  remove_me(componentTitle: string) {
     this.isLoading = false;
     if (this.parentRef && this.unique_key) {
       this.parentRef.removeComponent(this.unique_key);
@@ -89,11 +89,11 @@ export class ChildComponent {
         func.apply(this, args);
       }, wait);
     };
-  } 
+  }
 
   replaceEmojisInMessage(msg: string) {
     const emojiMap: { [key: string]: string } =
-    { ":)": "😊", ":(": "☹️", ";)": "😉", ":D": "😃", "XD": "😆", ":P": "😛", ":O": "😮", "B-)": "😎", /*":/": "😕",*/ ":'(": "😢", "<3": "❤️", "</3": "💔", ":*": "😘", "O:)": "😇", "3:)": "😈", ":|": "😐", ":$": "😳", "8-)": "😎", "^_^": "😊", "-_-": "😑", ">_<": "😣", ":'D": "😂", ":3": "😺", ":v": "✌️", ":S": "😖", ":b": "😛", ":x": "😶", ":X": "🤐", ":Z": "😴", "*_*": "😍", ":@": "😡", ":#": "🤬", ">:(": "😠", ":&": "🤢", ":T": "😋", "T_T": "😭", "Q_Q": "😭", ":1": "😆", "O_O": "😳", "*o*": "😍", "T-T": "😭", ";P": "😜", ":B": "😛", ":W": "😅", ":L": "😞", ":E": "😲", ":M": "🤔", ":C": "😏", ":I": "🤓", ":Q": "😮", ":F": "😇", ":G": "😵", ":H": "😱", ":J": "😜", ":K": "😞", ":Y": "😮", ":N": "😒", ":U": "😕", ":V": "😈", ":wave:": "👋", ":ok:": "👌", ":thumbsup:": "👍", ":thumbsdown:": "👎", ":clap:": "👏", ":star:": "⭐", ":star2:": "🌟", ":dizzy:": "💫", ":sparkles:": "✨", ":boom:": "💥", ":fire:": "🔥", ":droplet:": "💧", ":sweat_drops:": "💦", ":dash:": "💨", ":cloud:": "☁️", ":sunny:": "☀️", ":umbrella:": "☂️", ":snowflake:": "❄️", ":snowman:": "⛄", ":zap:": "⚡", ":cyclone:": "🌀", ":fog:": "🌫️", ":rainbow:": "🌈", ":heart:": "❤️", ":blue_heart:": "💙", ":green_heart:": "💚", ":yellow_heart:": "💛", ":purple_heart:": "💜", ":black_heart:": "🖤", ":white_heart:": "🤍", ":orange_heart:": "🧡", ":broken_heart:": "💔", ":heartbeat:": "💓", ":heartpulse:": "💗", ":two_hearts:": "💕", ":sparkling_heart:": "💖", ":cupid:": "💘", ":gift_heart:": "💝", ":revolving_hearts:": "💞", ":heart_decoration:": "💟", ":peace:": "☮️", ":cross:": "✝️", ":star_and_crescent:": "☪️", ":om:": "🕉️", ":wheel_of_dharma:": "☸️", ":yin_yang:": "☯️", ":orthodox_cross:": "☦️", ":star_of_david:": "✡️", ":six_pointed_star:": "🔯", ":menorah:": "🕎", ":infinity:": "♾️", ":wavy_dash:": "〰️", ":congratulations:": "㊗️", ":secret:": "㊙️", ":red_circle:": "🔴", ":orange_circle:": "🟠", ":yellow_circle:": "🟡", ":green_circle:": "🟢", ":blue_circle:": "🔵", ":purple_circle:": "🟣", ":brown_circle:": "🟤", ":black_circle:": "⚫", ":white_circle:": "⚪", ":red_square:": "🟥", ":orange_square:": "🟧", ":yellow_square:": "🟨", ":green_square:": "🟩", ":blue_square:": "🟦", ":purple_square:": "🟪", ":brown_square:": "🟫", ":black_large_square:": "⬛", ":white_large_square:": "⬜", ":black_medium_square:": "◼️", ": black_medium_small_square: ": "◾", ": white_medium_small_square: ": "◽", ": black_small_square: ": "▪️", ": white_small_square: ": "▫️", ": large_orange_diamond: ": "🔶", ": large_blue_diamond: ": "🔷", ": small_orange_diamond: ": "🔸", ": small_blue_diamond: ": "🔹", ": red_triangle_pointed_up: ": "🔺", ": red_triangle_pointed_down: ": "🔻", ": diamond_shape_with_a_dot_inside: ": "💠", ": radio_button: ": "🔘", ": white_square_button: ": "🔳", ": black_square_button: ": "🔲", ": checkered_flag: ": "🏁", ": triangular_flag_on_post: ": "🚩", ": crossed_flags: ": "🎌", ": black_flag: ": "🏴", ": white_flag: ": "🏳️", ": rainbow_flag: ": "🏳️‍🌈", ": pirate_flag: ": "🏴‍☠️" };
+      { ":)": "😊", ":(": "☹️", ";)": "😉", ":D": "😃", "XD": "😆", ":P": "😛", ":O": "😮", "B-)": "😎", /*":/": "😕",*/ ":'(": "😢", "<3": "❤️", "</3": "💔", ":*": "😘", "O:)": "😇", "3:)": "😈", ":|": "😐", ":$": "😳", "8-)": "😎", "^_^": "😊", "-_-": "😑", ">_<": "😣", ":'D": "😂", ":3": "😺", ":v": "✌️", ":S": "😖", ":b": "😛", ":x": "😶", ":X": "🤐", ":Z": "😴", "*_*": "😍", ":@": "😡", ":#": "🤬", ">:(": "😠", ":&": "🤢", ":T": "😋", "T_T": "😭", "Q_Q": "😭", ":1": "😆", "O_O": "😳", "*o*": "😍", "T-T": "😭", ";P": "😜", ":B": "😛", ":W": "😅", ":L": "😞", ":E": "😲", ":M": "🤔", ":C": "😏", ":I": "🤓", ":Q": "😮", ":F": "😇", ":G": "😵", ":H": "😱", ":J": "😜", ":K": "😞", ":Y": "😮", ":N": "😒", ":U": "😕", ":V": "😈", ":wave:": "👋", ":ok:": "👌", ":thumbsup:": "👍", ":thumbsdown:": "👎", ":clap:": "👏", ":star:": "⭐", ":star2:": "🌟", ":dizzy:": "💫", ":sparkles:": "✨", ":boom:": "💥", ":fire:": "🔥", ":droplet:": "💧", ":sweat_drops:": "💦", ":dash:": "💨", ":cloud:": "☁️", ":sunny:": "☀️", ":umbrella:": "☂️", ":snowflake:": "❄️", ":snowman:": "⛄", ":zap:": "⚡", ":cyclone:": "🌀", ":fog:": "🌫️", ":rainbow:": "🌈", ":heart:": "❤️", ":blue_heart:": "💙", ":green_heart:": "💚", ":yellow_heart:": "💛", ":purple_heart:": "💜", ":black_heart:": "🖤", ":white_heart:": "🤍", ":orange_heart:": "🧡", ":broken_heart:": "💔", ":heartbeat:": "💓", ":heartpulse:": "💗", ":two_hearts:": "💕", ":sparkling_heart:": "💖", ":cupid:": "💘", ":gift_heart:": "💝", ":revolving_hearts:": "💞", ":heart_decoration:": "💟", ":peace:": "☮️", ":cross:": "✝️", ":star_and_crescent:": "☪️", ":om:": "🕉️", ":wheel_of_dharma:": "☸️", ":yin_yang:": "☯️", ":orthodox_cross:": "☦️", ":star_of_david:": "✡️", ":six_pointed_star:": "🔯", ":menorah:": "🕎", ":infinity:": "♾️", ":wavy_dash:": "〰️", ":congratulations:": "㊗️", ":secret:": "㊙️", ":red_circle:": "🔴", ":orange_circle:": "🟠", ":yellow_circle:": "🟡", ":green_circle:": "🟢", ":blue_circle:": "🔵", ":purple_circle:": "🟣", ":brown_circle:": "🟤", ":black_circle:": "⚫", ":white_circle:": "⚪", ":red_square:": "🟥", ":orange_square:": "🟧", ":yellow_square:": "🟨", ":green_square:": "🟩", ":blue_square:": "🟦", ":purple_square:": "🟪", ":brown_square:": "🟫", ":black_large_square:": "⬛", ":white_large_square:": "⬜", ":black_medium_square:": "◼️", ": black_medium_small_square: ": "◾", ": white_medium_small_square: ": "◽", ": black_small_square: ": "▪️", ": white_small_square: ": "▫️", ": large_orange_diamond: ": "🔶", ": large_blue_diamond: ": "🔷", ": small_orange_diamond: ": "🔸", ": small_blue_diamond: ": "🔹", ": red_triangle_pointed_up: ": "🔺", ": red_triangle_pointed_down: ": "🔻", ": diamond_shape_with_a_dot_inside: ": "💠", ": radio_button: ": "🔘", ": white_square_button: ": "🔳", ": black_square_button: ": "🔲", ": checkered_flag: ": "🏁", ": triangular_flag_on_post: ": "🚩", ": crossed_flags: ": "🎌", ": black_flag: ": "🏴", ": white_flag: ": "🏳️", ": rainbow_flag: ": "🏳️‍🌈", ": pirate_flag: ": "🏴‍☠️" };
 
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const escapedKeys = Object.keys(emojiMap).map(key => key.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
@@ -128,11 +128,11 @@ export class ChildComponent {
       document.getElementById("loadingDiv")!.style.display = "none";
     }
     this.isLoading = false;
-  } 
-  viewProfile(user?: User) { 
+  }
+  viewProfile(user?: User) {
     if (user && user.id != 0) {
-      this.parentRef?.closeOverlay();  
-      this.parentRef?.createComponent("User", { "userId": user.id }); 
+      this.parentRef?.closeOverlay();
+      this.parentRef?.createComponent("User", { "userId": user.id });
     }
   }
   sortTable(columnIndex: number, tableId: string): void {
@@ -140,21 +140,37 @@ export class ChildComponent {
     if (!table) return;
 
     const rowsArray = Array.from(table.rows).slice(1); // Skip the header row
-    const isAscending = this.asc.some(([table, column]) => table === tableId && column === columnIndex);
+    const isAscending = this.asc.some(([tbl, col]) => tbl === tableId && col === columnIndex);
+
+    // Regular expression to detect common date formats
+    const dateRegex = /^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?$/;
 
     // Custom comparator for sorting
     const compare = (rowA: HTMLTableRowElement, rowB: HTMLTableRowElement) => {
-      const cellA = rowA.cells[columnIndex].textContent?.trim().toLowerCase() || '';
-      const cellB = rowB.cells[columnIndex].textContent?.trim().toLowerCase() || '';
+      const cellA = rowA.cells[columnIndex].textContent?.trim() || '';
+      const cellB = rowB.cells[columnIndex].textContent?.trim() || '';
 
-      // Handle numeric sorting if needed
+      // Check if both values match the date pattern
+      const isDateA = dateRegex.test(cellA);
+      const isDateB = dateRegex.test(cellB);
+
+      if (isDateA && isDateB) {
+        const dateA = new Date(cellA).getTime();
+        const dateB = new Date(cellB).getTime();
+        return isAscending ? dateA - dateB : dateB - dateA;
+      }
+
+      // Check if both values are numbers
       const numA = parseFloat(cellA);
       const numB = parseFloat(cellB);
+      const isNumA = !isNaN(numA) && cellA === numA.toString();
+      const isNumB = !isNaN(numB) && cellB === numB.toString();
 
-      if (!isNaN(numA) && !isNaN(numB)) {
+      if (isNumA && isNumB) {
         return isAscending ? numA - numB : numB - numA;
       }
 
+      // Default to string comparison
       return isAscending ? cellA.localeCompare(cellB) : cellB.localeCompare(cellA);
     };
 
@@ -170,11 +186,13 @@ export class ChildComponent {
 
     // Update sort direction tracking
     if (isAscending) {
-      this.asc = this.asc.filter(([table, column]) => !(table === tableId && column === columnIndex));
+      this.asc = this.asc.filter(([tbl, col]) => !(tbl === tableId && col === columnIndex));
     } else {
       this.asc.push([tableId, columnIndex]);
     }
   }
+
+
   isElementInViewport(el: HTMLElement): boolean {
     const rect = el.getBoundingClientRect();
     return (
@@ -184,7 +202,7 @@ export class ChildComponent {
       rect.right <= (window.innerWidth || document.documentElement.clientWidth)
     );
   }
- 
+
   log(text: any) {
     console.log(text);
   }

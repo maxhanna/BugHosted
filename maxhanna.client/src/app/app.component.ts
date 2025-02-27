@@ -362,12 +362,15 @@ export class AppComponent implements OnInit, AfterViewInit {
       setTimeout(() => { this.notifications.shift(); }, 8000);
     }
   }
+  cleanStoryText(text: string) {
+    return text.replace(/\[\/?[^]\]/g, '').replace(/https?:\/\/[^\s]+/g, '');
+  }
   replacePageTitleAndDescription(title: string, description: string) {
     let tmpTitle = title;
     let tmpDescription = description;
 
-    tmpTitle = tmpTitle.replace(/\[\/?[^]\]/g, '');
-    tmpDescription = tmpDescription.replace(/\[\/?[^]\]/g, '');
+    tmpTitle = this.cleanStoryText(tmpTitle);
+    tmpDescription = this.cleanStoryText(tmpDescription);
 
     this.title.setTitle(tmpTitle);
     this.meta.updateTag({ name: 'description', content: tmpDescription ?? tmpTitle }); 

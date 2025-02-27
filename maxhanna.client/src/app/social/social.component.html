@@ -37,7 +37,7 @@
       <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection">
         Page Select:
         <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
-          <option *ngFor="let page of totalPagesArray" [value]="page">{{ page }}</option>
+          <option *ngFor="let page of totalPagesArray" [value]="page" [selected]="page === currentPage">{{ page }}</option>
         </select>
       </div>
 

@@ -52,9 +52,13 @@
   object-fit: contain;
 }
 
-.mediaContainerWrapperDiv { 
-  display: flex;
-  justify-content: center; 
+.mediaContainerWrapperDiv {
+  display: flex; 
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  width: 100%;
 }
 
 .mediaContainerDiv {

@@ -40,7 +40,7 @@
                   [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
 
         <div *ngIf="replyingToCommentIds.includes(comment.id)">
-          <textarea [id]="'commentReplyInput'+comment.id" *ngIf="replyingToCommentIds.includes(comment.id)"></textarea>
+          <textarea [id]="'commentReplyInput'+comment.id"></textarea>
           <button (click)="replyToComment(comment)">🗨️Reply</button>
         </div>
         <button [style.display]="editingComments.includes(comment.id) ? 'block' : 'none'" [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)">

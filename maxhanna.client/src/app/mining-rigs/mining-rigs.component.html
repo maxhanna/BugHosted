@@ -39,13 +39,13 @@
       <thead>
         <tr>
           <th (click)="sortTable(0, 'miningRigTable')">Rig</th>
-          <th title="Hottest Device Temperature">°C</th>
-          <th (click)="sortTable(1, 'miningRigTable')">State</th>
+          <th (click)="sortTable(1, 'miningRigTable')" title="Hottest Device Temperature">°C</th>
+          <th (click)="sortTable(2, 'miningRigTable')">State</th>
           <th (click)="sortTable(3, 'miningRigTable')" title="Local Profitability" *ngIf="showLocal">{{rate != 1 ? currency + "$" : "BTC"}}</th>
-          <th (click)="sortTable(3, 'miningRigTable')" title="Actual Profitability" *ngIf="!showLocal">{{rate != 1 ? currency + "$" : "BTC"}}</th>
-          <th (click)="sortTable(2, 'miningRigTable')" title="Unpaid Amount">Unpaid</th>
-          <th (click)="sortTable(3, 'miningRigTable')" title="Speed Rejected">Rejected</th>
-          <th (click)="sortTable(4, 'miningRigTable')" title="Devices">Devices</th>
+          <th (click)="sortTable(4, 'miningRigTable')" title="Actual Profitability" *ngIf="!showLocal">{{rate != 1 ? currency + "$" : "BTC"}}</th>
+          <th (click)="sortTable(5, 'miningRigTable')" title="Unpaid Amount">Unpaid</th>
+          <th (click)="sortTable(6, 'miningRigTable')" title="Speed Rejected">Rejected</th>
+          <th (click)="sortTable(7, 'miningRigTable')" title="Devices">Devices</th>
           <th></th>
         </tr>
       </thead>
@@ -54,9 +54,9 @@
           <td (click)="toggleDeviceDataVisibility(rig)">{{ rig.rigName }}</td>
           <td (click)="toggleDeviceDataVisibility(rig)" [style]="computeMaxDeviceTemperature(rig) >= 70 ? 'color:red;' : computeMaxDeviceTemperature(rig) >= 68 ? 'color:yellow;' : ''">{{ computeMaxDeviceTemperature(rig) }}</td>
           <td (click)="toggleDeviceDataVisibility(rig)" [style]="rig.minerStatus != 'MINING' ? 'color:red;' : ''">{{ rig.minerStatus != 'MINING' ? '🛑' : '✅' }}</td>
-          <td (click)="toggleDeviceDataVisibility(rig)" *ngIf="showLocal">{{ isDiscreete ? '***' : rate != 1 ? ((rig.localProfitability ?? 0 )* rate!).toFixed(2) + '$' : rig.localProfitability }}</td>
-          <td (click)="toggleDeviceDataVisibility(rig)" *ngIf="!showLocal">{{ isDiscreete ? '***' : rate != 1 ? ((rig.actualProfitability ?? 0)* rate!).toFixed(2) + '$' : rig.actualProfitability }}</td>
-          <td (click)="toggleDeviceDataVisibility(rig)">{{ isDiscreete ? '***' : rig.unpaidAmount! == 0 ? 0 : rate != 1 ? ((rig.unpaidAmount ?? 0 )* rate!).toFixed(2) + '$' : (rig.unpaidAmount ?? 0).toFixed(8) }}</td>
+          <td (click)="toggleDeviceDataVisibility(rig)" *ngIf="showLocal">{{ isDiscreete ? '***' : rate != 1 ? ((rig.localProfitability ?? 0 )* rate!).toFixed(2) : rig.localProfitability }}$</td>
+          <td (click)="toggleDeviceDataVisibility(rig)" *ngIf="!showLocal">{{ isDiscreete ? '***' : rate != 1 ? ((rig.actualProfitability ?? 0)* rate!).toFixed(2) : rig.actualProfitability }}$</td>
+          <td (click)="toggleDeviceDataVisibility(rig)">{{ isDiscreete ? '***' : rig.unpaidAmount! == 0 ? 0 : rate != 1 ? ((rig.unpaidAmount ?? 0 )* rate!).toFixed(2) : (rig.unpaidAmount ?? 0).toFixed(8) }}$</td>
           <td (click)="toggleDeviceDataVisibility(rig)">{{ rig.speedRejected! == 0 ? 0 : (rig.speedRejected ?? 0).toFixed(8) }}</td>
           <td (click)="toggleDeviceDataVisibility(rig)" [style]="computeDeviceCounts(rig).split(' ')[0] == '0' ? 'color:red;' : ''">{{ computeDeviceCounts(rig) }}</td>
           <td (click)="requestRigStateChange(rig)">
@@ -73,18 +73,18 @@
     <table class="mainTable miningStatusTable" id="deviceRigTable">
       <thead>
         <tr>
-          <th (click)="sortTable(1, 'deviceRigTable')" title="Sort by Device Name">Device</th>
-          <th (click)="sortTable(2, 'deviceRigTable')" title="Sort by Temperature">°C</th>
-          <th (click)="sortTable(3, 'deviceRigTable')" title="Sort by State">State</th>
-          <th (click)="sortTable(4, 'deviceRigTable')" title="Sort by Speed">Speed</th>
-          <th (click)="sortTable(5, 'deviceRigTable')" title="Sort by Fan Speed">Fan</th>
-          <th (click)="sortTable(6, 'deviceRigTable')" title="Sort by Power (Watts)">Power</th>
+          <th (click)="sortTable(0, 'deviceRigTable')" title="Sort by Device Name">Device</th>
+          <th (click)="sortTable(1, 'deviceRigTable')" title="Sort by Temperature">°C</th>
+          <th (click)="sortTable(2, 'deviceRigTable')" title="Sort by State">State</th>
+          <th (click)="sortTable(3, 'deviceRigTable')" title="Sort by Speed">Speed</th>
+          <th (click)="sortTable(4, 'deviceRigTable')" title="Sort by Fan Speed">Fan</th>
+          <th (click)="sortTable(5, 'deviceRigTable')" title="Sort by Power (Watts)">Power</th>
           <!--<th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Core Clock">Core-C</th>
           <th (click)="sortTable(8, 'deviceRigTable')" title="Sort by Memory Clock">Mem-C</th>
           <th (click)="sortTable(9, 'deviceRigTable')" title="Sort by Core Voltage">C-Volt</th>
           <th (click)="sortTable(10, 'deviceRigTable')" title="Sort by Power Limit %">P%</th>
           <th (click)="sortTable(11, 'deviceRigTable')" title="Sort by Power Limit W">PW</th>-->
-          <th (click)="sortTable(7, 'deviceRigTable')" title="Sort by Miner">Miner</th>
+          <th (click)="sortTable(6, 'deviceRigTable')" title="Sort by Miner">Miner</th>
           <th><input type="submit" value="❌" (click)="miningRigDevices = undefined;" /></th>
         </tr>
       </thead>

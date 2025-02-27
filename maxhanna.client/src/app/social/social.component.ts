@@ -103,8 +103,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private topicService: TopicService,
     private userService: UserService,
     private todoService: TodoService,
-    private notificationService: NotificationService,
-    private title: Title, private meta: Meta) {
+    private notificationService: NotificationService) {
     super();
   }
 
@@ -117,13 +116,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       if (this.storyId) {
         if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
           const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
-          if (tgtStory) {
-
+          if (tgtStory) { 
             this.scrollToStory(tgtStory.id);
             const storyText = tgtStory.storyText;
             if (storyText) {
-              const cleanedTitle = storyText.replace(/https?:\/\/[^\s]+/g, '').trim().split("\n")[0];
-              this.parentRef?.replacePageTitleAndDescription(cleanedTitle, storyText); 
+              const cleanedTitle = this.parentRef?.cleanStoryText(storyText.trim().split("\n")[0]) ?? "";
+              this.parentRef?.replacePageTitleAndDescription(cleanedTitle, storyText);
+              const script = document.createElement('script');
+              script.setAttribute('type', 'application/ld+json');
+              script.textContent = cleanedTitle;
+              document.head.appendChild(script);
             }
           }
         }
@@ -150,7 +152,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           (e as HTMLElement).style.maxHeight = 'none';
         });
       }
-    } 
+    }
+    setTimeout(() => { this.updateStoryDates(); }, 1500);
+
+    this.storyUpdateInterval = setInterval(() => {
+      this.updateStoryDates();
+    }, 15000);
   }
 
   ngOnDestroy() {
@@ -166,11 +173,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
       (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
-    }
-    this.updateStoryDates();
-    this.storyUpdateInterval = setInterval(() => {
-      this.updateStoryDates();  
-    }, 15000);
+    } 
   }
   async delete(story: Story) {
     if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
@@ -397,13 +400,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   async pageChanged(selectorId?: number) {
-    let pageSelect = this.pageSelect.nativeElement;
-    if (selectorId == 2) {
+    let pageSelect = this.pageSelect?.nativeElement;
+    if (!pageSelect || selectorId == 2) {
       pageSelect = this.pageSelect2.nativeElement;
     }
     this.currentPage = parseInt(pageSelect.value);
     await this.getStories(this.currentPage).then(res => {
-      this.scrollToStory();
+      this.scrollToStory(); 
     });
   }
   scrollToStory(storyId?: number): void { 
@@ -414,7 +417,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
             storyContainer.scrollIntoView();
           } 
       } else { 
-        const element = document.getElementsByClassName('socialComponentContents')[0];
+        const element = document.getElementsByClassName('componentMain')[0];
         if (element) {
           element.scrollTop = 0;
           console.log('scroll top ');

@@ -45,11 +45,12 @@ export class SpriteTextStringWithBackdrop extends GameObject {
 
     if (isHero || config.portraitFrame) {
       this.portrait = new Sprite({
+        name: this.objectSubject?.name,
         resource: (isHero || resources.images["portraits"]) ? resources.images["portraits"] : this.objectSubject?.body?.resource,
         frame: (config.portraitFrame ?? 0),
         vFrames: 1,
         hFrames: 4,
-        colorSwap: this.objectSubject.colorSwap,
+        colorSwap: this.objectSubject?.colorSwap,
       });
     } else {
       this.getPortraitOfNonPortraitObject(config);
@@ -65,8 +66,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         parent = parent.parent;
       }
     }
-    const input = parent?.input as Input;
-    const subjectName = this.objectSubject?.name;
+    const input = parent?.input as Input; 
 
 
     if (input?.getActionJustPressed("Space")) {
@@ -77,46 +77,15 @@ export class SpriteTextStringWithBackdrop extends GameObject {
       }
       if (this.canSelectItems) {
         //console.log(this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
-        events.emit("SELECTED_ITEM", this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
+        events.emit("SELECTED_ITEM", this.content[this.selectionIndex - (this.objectSubject?.name ? 1 : 0)]);
         this.canSelectItems = false;
       }
       events.emit("END_TEXT_BOX");
     }
-    if (input?.verifyCanPressKey()) {
-      if (input?.getActionJustPressed("ArrowUp")
-        || input?.heldDirections.includes("UP")
-        || input?.getActionJustPressed("KeyW")) {
-        this.selectionIndex--;
-        if (this.selectionIndex <= 0) {
-          this.selectionIndex = this.content.length;
-        }
-      }
-      else if (input?.getActionJustPressed("ArrowDown")
-        || input?.heldDirections.includes("DOWN")
-        || input?.getActionJustPressed("KeyS")) {
-        this.selectionIndex++;
-        if (this.selectionIndex == this.content.length + (subjectName ? 1 : 0)) {
-          this.selectionIndex = 0;
-        }
-      }
-      else if (input?.getActionJustPressed("ArrowLeft")
-        || input?.heldDirections.includes("LEFT")
-        || input?.getActionJustPressed("KeyA")) {
-        this.selectionIndex--;
-        if (this.selectionIndex < 0) {
-          this.selectionIndex = this.content.length - (subjectName ? 0 : 1);
-        }
-      }
-      else if (input?.getActionJustPressed("ArrowRight")
-        || input?.heldDirections.includes("RIGHT")
-        || input?.getActionJustPressed("KeyD")) {
-        this.selectionIndex++;
-        if (this.selectionIndex == this.content.length + (subjectName ? 1 : 0)) {
-          this.selectionIndex = 0;
-        }
-      }
-
+    if (Object.values(input.keys).some(value => value === true)) {
+      this.handleKeyboardInput(input);
     }
+   
     this.timeUntilNextShow -= delta;
     if (this.timeUntilNextShow <= 0) {
       this.showingIndex += 3;
@@ -208,10 +177,48 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     
     this.portrait = new Sprite({
       resource: this.objectSubject?.body?.resource,
-      colorSwap: this.objectSubject.colorSwap,
+      colorSwap: this.objectSubject?.colorSwap,
       frame: frame,
       vFrames: vFrames,
       hFrames: hFrames,
     });
+  }
+
+  private handleKeyboardInput(input: Input) {
+    if (input?.verifyCanPressKey()) {
+      if (input?.getActionJustPressed("ArrowUp")
+        || input?.heldDirections.includes("UP")
+        || input?.getActionJustPressed("KeyW")) {
+        this.selectionIndex--;
+        if (this.selectionIndex <= 0) {
+          this.selectionIndex = this.content.length;
+        }
+      }
+      else if (input?.getActionJustPressed("ArrowDown")
+        || input?.heldDirections.includes("DOWN")
+        || input?.getActionJustPressed("KeyS")) {
+        this.selectionIndex++;
+        if (this.selectionIndex == this.content.length + (this.objectSubject?.name ? 1 : 0)) {
+          this.selectionIndex = 0;
+        }
+      }
+      else if (input?.getActionJustPressed("ArrowLeft")
+        || input?.heldDirections.includes("LEFT")
+        || input?.getActionJustPressed("KeyA")) {
+        this.selectionIndex--;
+        if (this.selectionIndex < 0) {
+          this.selectionIndex = this.content.length - (this.objectSubject?.name ? 0 : 1);
+        }
+      }
+      else if (input?.getActionJustPressed("ArrowRight")
+        || input?.heldDirections.includes("RIGHT")
+        || input?.getActionJustPressed("KeyD")) {
+        this.selectionIndex++;
+        if (this.selectionIndex == this.content.length + (this.objectSubject?.name ? 1 : 0)) {
+          this.selectionIndex = 0;
+        }
+      }
+
+    }
   }
 }

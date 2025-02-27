@@ -13,9 +13,11 @@ export class Tv extends GameObject {
   constructor(params: { position: Vector2, spritePosition?: Vector2 }) {
     super({
       position: params.position
-    }) 
+    })
+    this.name = "TV";
     const tvBody = new Sprite({
       objectId: 0,
+      name: "TV",
       resource: resources.images["tv"],
       position: params.spritePosition ? params.spritePosition : new Vector2(0, 0),
       frameSize: new Vector2(29, 28),

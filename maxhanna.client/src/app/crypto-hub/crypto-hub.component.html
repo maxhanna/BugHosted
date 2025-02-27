@@ -83,13 +83,13 @@
 
     <div class="wallet sectionContainer" *ngIf="wallet || btcWalletResponse">
       <div class="sectionName cryptoWalletSectionHeader" *ngIf="wallet || btcWalletResponse">Crypto Wallet Balance(s):</div>
-      <table *ngIf="wallet || btcWalletResponse?.currencies">
+      <table *ngIf="wallet || btcWalletResponse?.currencies" id="walletTable">
         <thead>
           <tr>
             <th (click)="areWalletAddressesHidden = !areWalletAddressesHidden" class="cursorPointerUnderlined normalBtcAddress">Address</th>
-            <th>Currency</th>
-            <th>Total Balance</th>
-            <th title="Fiat rate">${{selectedCurrency}}</th>
+            <th (click)="sortTable(1, 'walletTable')">Currency</th>
+            <th (click)="sortTable(2, 'walletTable')">Total Balance</th>
+            <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">${{selectedCurrency}}</th>
           </tr>
         </thead>
         <tbody *ngIf="wallet">
@@ -98,7 +98,7 @@
               <td></td>
               <td>{{ wallet.total?.currency }}</td>
               <td>{{ isDiscreete ? '***' : wallet.total?.totalBalance }}</td>
-              <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(multiplyValues(wallet.total?.available, btcFiatConversion))) }}$</td>
+              <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(multiplyValues(wallet.total?.available, btcFiatConversion))) }}</td>
             </tr>
           </ng-container>
           <ng-container *ngFor="let currency of wallet.currencies">
@@ -109,7 +109,7 @@
               </td>
               <td>{{ currency.currency }}</td>
               <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
-              <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currency))) }}$</td>
+              <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currency))) }}</td>
             </tr>
           </ng-container>
         </tbody>

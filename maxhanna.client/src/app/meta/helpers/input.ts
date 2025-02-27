@@ -56,31 +56,33 @@ export class Input {
   }
 
   private handleEnter() {
-    let moveLock = false;
+    let moveLock = false; 
     if (this.verifyCanPressKey()) {
-      if (this.chatInput && this.chatInput.value == '') {
+      const chatInputElement = document.getElementById("chatInput") as HTMLInputElement;
+      console.log(chatInputElement);
+      if (chatInputElement && chatInputElement.value == '') {
         if (!this.chatSelected) {
-          this.chatInput.focus();
+          chatInputElement.focus();
           this.chatSelected = true;
           moveLock = true;
           console.log("chat selected");
         } else {
-          this.chatInput.blur();
+          chatInputElement.blur();
           this.chatSelected = false;
           moveLock = false;
           console.log("chat blur");
         }
       }
-      else if (this.chatInput.value != '') {
-        if (this.chatInput == document.activeElement) {
-          events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
-          this.chatInput.value = '';
-          this.chatInput.blur();
+      else if (chatInputElement.value != '') {
+        if (chatInputElement === document.activeElement) {
+          events.emit("SEND_CHAT_MESSAGE", chatInputElement.value);
+          chatInputElement.value = '';
+          chatInputElement.blur();
           this.chatSelected = false;
           moveLock = false;
         }
         else {
-          this.chatInput.focus();
+          chatInputElement.focus();
           this.chatSelected = true;
           moveLock = true;
         }
@@ -313,6 +315,7 @@ export class Input {
   }
 
   verifyCanPressKey() {
+    console.log("can press?");
     const currentTime = new Date();
     if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
       inputKeyPressedDate = new Date();

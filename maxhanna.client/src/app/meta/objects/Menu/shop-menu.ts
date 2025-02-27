@@ -168,41 +168,8 @@ export class ShopMenu extends Level {
   }
   override step(delta: number, root: GameObject) {
     const input = (root as Main).input as Input;
-    if (input?.keys["Space"] && !this.blockSelection) {
-      if (input?.verifyCanPressKey()) {
-        if (this.visibleItems && this.visibleItems[this.currentlySelectedId]?.name ? this.visibleItems[this.currentlySelectedId].name === "Exit" : this.items[this.currentlySelectedId]?.name === "Exit") {
-          this.leaveShop();
-        } else {
-          if (this.sellingMode) {
-            this.sellItem(this.visibleItems[this.currentlySelectedId]);
-          } else {
-            this.purchaseItem(this.visibleItems[this.currentlySelectedId]);
-          }
-        }
-      }
-    }
-
-    if (input?.verifyCanPressKey()) {
-      if (input?.getActionJustPressed("ArrowUp")
-        || input?.heldDirections.includes("UP")
-        || input?.getActionJustPressed("KeyW")) {
-        this.decrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowDown")
-        || input?.heldDirections.includes("DOWN")
-        || input?.getActionJustPressed("KeyS")) {
-        this.incrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowLeft")
-        || input?.heldDirections.includes("LEFT")
-        || input?.getActionJustPressed("KeyA")) {
-        this.decrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowRight")
-        || input?.heldDirections.includes("RIGHT")
-        || input?.getActionJustPressed("KeyD")) {
-        this.incrementCurrentlySelectedId();
-      }
+    if (Object.values(input.keys).some(value => value === true)) {
+      this.handleKeyboardInput(input);
     }
   }
   override ready() {
@@ -259,5 +226,42 @@ export class ShopMenu extends Level {
     }, 100);
     console.log(this.itemsSold);
   }
+  handleKeyboardInput(input: Input) { 
+    if (input?.keys["Space"] && !this.blockSelection) {
+      if (input?.verifyCanPressKey()) {
+        if (this.visibleItems && this.visibleItems[this.currentlySelectedId]?.name ? this.visibleItems[this.currentlySelectedId].name === "Exit" : this.items[this.currentlySelectedId]?.name === "Exit") {
+          this.leaveShop();
+        } else {
+          if (this.sellingMode) {
+            this.sellItem(this.visibleItems[this.currentlySelectedId]);
+          } else {
+            this.purchaseItem(this.visibleItems[this.currentlySelectedId]);
+          }
+        }
+      }
+    }
 
+    if (input?.verifyCanPressKey()) {
+      if (input?.getActionJustPressed("ArrowUp")
+        || input?.heldDirections.includes("UP")
+        || input?.getActionJustPressed("KeyW")) {
+        this.decrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowDown")
+        || input?.heldDirections.includes("DOWN")
+        || input?.getActionJustPressed("KeyS")) {
+        this.incrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowLeft")
+        || input?.heldDirections.includes("LEFT")
+        || input?.getActionJustPressed("KeyA")) {
+        this.decrementCurrentlySelectedId();
+      }
+      else if (input?.getActionJustPressed("ArrowRight")
+        || input?.heldDirections.includes("RIGHT")
+        || input?.getActionJustPressed("KeyD")) {
+        this.incrementCurrentlySelectedId();
+      }
+    }
+  }
 } 

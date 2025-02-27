@@ -27,6 +27,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild(MediaSelectorComponent) attachmentSelector!: MediaSelectorComponent;
   hasManuallyScrolled = false;
   private pollingInterval: any;
+  private isChangingPage = false;
 
   @Input() selectedUser?: User;
   @Input() chatId?: number;
@@ -128,7 +129,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       if (res) {
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
-        this.playSoundIfNewMessage(newMessages);
+        if (!this.isChangingPage) { 
+          this.playSoundIfNewMessage(newMessages);
+        }
+        this.isChangingPage = false;
 
         this.chatHistory = [...this.chatHistory, ...newMessages];
         this.pageNumber = res.currentPage;
@@ -177,6 +181,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   async changePage(event: any) {
     this.pageNumber = +event.target.value;
     this.chatHistory = [];
+    this.isChangingPage = true;
     await this.getMessageHistory(this.pageNumber, this.pageSize);
   }
   async openChat(users?: User[]) {

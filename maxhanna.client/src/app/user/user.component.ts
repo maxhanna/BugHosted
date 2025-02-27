@@ -377,20 +377,14 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       try {
         const resCreateUser = await this.userService.createUser(tmpUser);
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
-          tmpUser.id = parseInt(resCreateUser!);
-          this.parentRef?.showNotification("Successfully added user");
+          tmpUser.id = parseInt(resCreateUser!); 
           try {
             this.updateWeatherInBackground(tmpUser);
           } catch {
             this.parentRef?.showNotification("No weather data can be fetched");
           }
-
-          const resAddMenuItemSocial = await this.userService.addMenuItem(tmpUser, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
-          if (resAddMenuItemSocial) {
-            this.parentRef?.showNotification(resAddMenuItemSocial + '');
-          }
-
-          await this.login(guest ? tmpUserName : undefined);
+          await this.userService.addMenuItem(tmpUser, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
+          await this.login(guest ? tmpUserName : undefined, true);
           if (!this.loginOnly) {
             this.parentRef?.createComponent('UpdateUserSettings');
           }
@@ -414,7 +408,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  async login(guest?: string) {
+  async login(guest?: string, fromUserCreation?: boolean) {
     console.log("logging in " + (guest ? " as " + guest : ""));
     if (this.parentRef?.user) {
       this.parentRef.user = undefined;
@@ -431,7 +425,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         tmpUser.password = undefined;
         this.parentRef.user = tmpUser;
         this.parentRef.resetUserCookie();
-        this.parentRef?.showNotification(`Access granted. Welcome back ${this.parentRef!.user?.username}`);
+        this.parentRef?.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.updateWeatherInBackground(tmpUser);
 
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);

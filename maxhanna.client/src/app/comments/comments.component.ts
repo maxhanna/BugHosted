@@ -131,7 +131,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         ...(isFile && { fileId: comment.fileId }),
         ...(isFileComment && { commentId: comment.commentId })
       };
-
+      console.log(this);
       this.notificationService.createNotifications(notificationData);
     }
   }
@@ -195,8 +195,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     } else return "Error fetching parent component.";
   }
 
-  createClickableUrls(text?: string): SafeHtml {
-
+  createClickableUrls(text?: string): SafeHtml { 
     return this.getTextForDOM(text ?? "", this.component_id);
   }
   showOptionsPanel(comment: FileComment) {

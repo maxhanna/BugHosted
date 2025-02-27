@@ -13,20 +13,22 @@
     </div>
     <div class="instructions" *ngIf="!gameStarted">
       <div class="instructionTitle">The Word Guessing Game!</div>
-      <div class="instructionTitle">Current Daily Streak : {{currentStreak}}</div>
+      <div class="instructionTitle">Current Daily Streak : {{wordlerStreak}}</div>
       <div class="notification">You get {{numberOfTries}} tries to guess today's word.</div>
       <div class="notification">Succeed or fail, you must wait until tomorrow to try again.</div>
       <div class="notification">Everyone gets the same word.</div>
       <div class="notification">A <span style="color:green;">green</span> square means a correct letter in the right spot</div>
       <div class="notification">A <span style="color:yellow">yellow</span> square means a correct letter in an incorrect spot.</div>
     </div>
-    <div [style.display]="gameStarted ? 'none' : 'block'" class="difficultySelectDiv">
-      <select #difficultySelect>
-        <option value="" disabled selected>Choose a difficulty</option>
-        <option *ngFor="let difficulty of difficulties" [value]="difficultyMapping[difficulty]">{{ difficulty }}</option>
-      </select>
-      <button (click)="resetGame()">Start ▶️</button>
-      <div>
+    <div [style.display]="gameStarted ? 'none' : 'flex'" class="difficultySelectDiv">
+      <div class="difficultySelectionAndPlay">
+        <select #difficultySelect>
+          <option value="" disabled selected>Choose a difficulty</option>
+          <option *ngFor="let difficulty of difficulties" [value]="difficultyMapping[difficulty]">{{ difficulty }}</option>
+        </select>
+        <button (click)="resetGame()">Start ▶️</button>
+      </div> 
+      <div class="sharebuttonDiv">
         <button class="shareButton" (click)="copyLink()" title="Share Link">Share 📋</button>
       </div>
     </div>
@@ -94,7 +96,7 @@
 
   <div *ngIf="showScores" class="mainTableDiv">
     <span class="mainTableTitle">Today's Scoreboard:</span>
-    <table *ngIf="scores && scores.length > 0" class="mainTable" id="scoreTable">
+    <table *ngIf="scores && scores.length > 0" class="mainTable scoreTable" id="scoreTable">
       <thead>
         <tr>
           <th (click)="sortTable(0, 'scoreTable')">User</th>
@@ -115,46 +117,49 @@
     <div *ngIf="!scores || scores.length == 0">
       None has beat the Wordler today!
     </div>
+    <div *ngIf="definition">
+      {{definition}}
+    </div>
   </div>
 </div>
 
 <!-- Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
 
-  <div class="popupPanelTitle" style="margin-bottom:15px;">
-    Menu Options
+  <div class="popupPanelTitle mainPopupTitle">
+    The Wordler
   </div>
   <div>
     <div class="wordlerPopupPanelSection">
-      <span class="popupPanelTitle">Current Wordler streak:</span>
+      <div class="popupPanelTitle">Current streak:</div>
       <div>{{wordlerStreak}} consecutive days.</div>
     </div>
     <div class="wordlerPopupPanelSection">
       <div class="popupPanelTitle">
-        Best Wordler Scores:
-        <div>(out of {{wordlerScoresCount}} total scores)</div>
+        Best Scores:
+        <div class="smallFont">(out of {{wordlerScoresCount}} games played)</div>
       </div>
       <div *ngIf="wordlerScores.length > 0">
-        <table *ngIf="wordlerScores && wordlerScores.length > 0" id="scoreTable">
+        <table *ngIf="wordlerScores && wordlerScores.length > 0" class="scoreTable" id="scoreTablePopup">
           <thead>
             <tr>
-              <th (click)="sortTable(1, 'scoreTable')">Score</th>
-              <th (click)="sortTable(2, 'scoreTable')">Time</th>
-              <th (click)="sortTable(3, 'scoreTable')">Difficulty</th>
-              <th (click)="sortTable(3, 'scoreTable')">Date</th>
+              <th (click)="sortTable(0, 'scoreTablePopup')">Score</th>
+              <th (click)="sortTable(1, 'scoreTablePopup')">Time</th>
+              <th (click)="sortTable(2, 'scoreTablePopup')">Difficulty</th>
+              <th (click)="sortTable(3, 'scoreTablePopup')">Date</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let score of wordlerScores">
               <td>{{score.score + 1}}</td>
               <td>{{score.time}}</td>
-              <td>{{score.difficulty == 4 ? 'Easy Difficulty' : score.difficulty == 5 ? 'Medium Difficulty' : score.difficulty == 6 ? 'Hard Difficulty' : 'Master Wordler'}}</td>
-              <td>{{score.submitted!.toString().replace('T', ' ')}}</td>
+              <td>{{score.difficulty == 4 ? 'Easy' : score.difficulty == 5 ? 'Medium' : score.difficulty == 6 ? 'Hard' : 'Master Wordler'}}</td>
+              <td>{{score.submitted | date: 'yyyy-MM-dd HH:mm' }}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No Worlder scores yet!</div>
+      <div *ngIf="!wordlerScores || wordlerScores.length == 0 && !isLoading">No scores yet!</div>
     </div>
   </div>
 

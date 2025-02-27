@@ -164,7 +164,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
   notificationTextClick(notification: UserNotification) {
-    this.read(notification, true);
+    if (!notification.isRead) { 
+      this.read(notification, true);
+    }
+    console.log(notification);
     if (notification.text?.includes('Captured a base at')) {
       this.parentRef?.createComponent('Bug-Wars');
     } if (notification.text?.includes('Shared a note')) {
