@@ -81,7 +81,7 @@
     Loading comments...
   </div>
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
-    <textarea [placeholder]='comment_id ? "Reply " + component.user.username : commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️1️⃣Be the FIRST!"'
+    <textarea [placeholder]='comment_id ? "Reply " + component.user.username : commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️Leave the FIRST comment!"'
               #addCommentInput
               class="addCommentTextArea"
               (keyup.enter)="startLoadingComment();"></textarea>

@@ -92,7 +92,7 @@ export class Deer extends Npc {
       portraitFrame: 0,
       string: ["... a look of surprise dawns over the creature ..."],
       canSelectItems: false,
-      addsFlag: null
+      addsFlag: undefined
     }
   }
  }

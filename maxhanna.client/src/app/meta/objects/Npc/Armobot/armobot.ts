@@ -40,7 +40,7 @@ export class Armobot extends Bot {
     return {
       portraitFrame: 0,
       string: ["ZZZzzzt!"],
-      addsFlag: null,
+      addsFlag: undefined,
       canSelectItems: false
     }
   }

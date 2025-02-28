@@ -1,5 +1,4 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
-import { Bot } from "../objects/Bot/bot";
 import { Character } from "../objects/character";
 import { GameObject } from "../objects/game-object";
 import { Sprite } from "../objects/sprite";
@@ -30,8 +29,9 @@ export function moveTowards(player: Character, destinationPosition: Vector2, spe
 		distanceToTravelX = destinationPosition.x - player.position.x;
 		distanceToTravelY = destinationPosition.y - player.position.y;
 		distance = Math.sqrt(distanceToTravelX ** 2 + distanceToTravelY ** 2);
-	}
-
+  }
+  if (player.name === "Steve")
+  console.log(player.destinationPosition);
 	return distance; // Return the updated distance
 }
 
@@ -120,7 +120,7 @@ export function tryMove(player: Character, root: any, isUserControlled: boolean,
 			//console.log(`slopeType: ${player.slopeType}, slopeDirection: ${player.slopeDirection}, slopeStepHeight: ${player.slopeStepHeight}, facingDirection: ${player.facingDirection}, scale: ${player.scale}`);
 			recalculateScaleBasedOnSlope(player);
 		}
-	}
+  } 
 }
 
 export function shouldResetSlope(player: any) {

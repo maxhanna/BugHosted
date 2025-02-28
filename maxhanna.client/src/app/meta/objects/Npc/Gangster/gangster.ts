@@ -12,13 +12,15 @@ import { Npc } from "../../Npc/npc";
 export class Gangster extends Npc {
   directionIndex = 0;
 
-  constructor(x: number, y: number) {
+  constructor(params : { position: Vector2, moveLeftRight?: number, moveUpDown?: number}) {
     super({
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       type: "Gangster",
       name: "Gangster",
+      moveLeftRight: params.moveLeftRight,
+      moveUpDown: params.moveUpDown,
       partners: [],
-      position: new Vector2(x, y),
+      position: params.position,
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["gangster"],
@@ -64,7 +66,7 @@ export class Gangster extends Npc {
     ]; 
   }
 
-  override ready() {
+  override ready() { 
     events.on("HERO_REQUESTS_ACTION", this, (objectAtPosition: any) => {
       if (objectAtPosition.id === this.id) {
         const oldKey = this.body?.animations?.activeKey;

@@ -5,13 +5,10 @@ import { events } from "../helpers/events";
 import { SkillType } from "../helpers/skill-types";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
-import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite";
 import { Salesman } from "../objects/Npc/Salesman/salesman";
 import { BrushLevel1 } from "./brush-level1"; 
-import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER0, TALKED_TO_BRUSH_SHOP_OWNER1, TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH, storyFlags } from "../helpers/story-flags";
-import { Npc } from "../objects/Npc/npc";
-import { Mom } from "../objects/Npc/Mom/mom";
+import { GOT_FIRST_METABOT, GOT_WATCH, Scenario, TALKED_TO_BRUSH_SHOP_OWNER0, TALKED_TO_BRUSH_SHOP_OWNER1, TALKED_TO_BRUSH_SHOP_OWNER2, storyFlags } from "../helpers/story-flags";
 import { Bot } from "../objects/Bot/bot"; 
 import { InventoryItem } from "../objects/InventoryItem/inventory-item"; 
 import { Tv } from "../objects/Environment/Tv/tv";
@@ -19,7 +16,7 @@ import { BASE, FLOOR, HUD } from "../objects/game-object";
 
 
 export class BrushShop1 extends Level { 
-  override defaultHeroPosition = new Vector2(gridCells(3), gridCells(8));
+  override defaultHeroPosition = new Vector2(gridCells(3), gridCells(6));
   showDebugSprites = false;
 
   firstBotSelection = storyFlags.contains(GOT_FIRST_METABOT) ? [] : [
@@ -86,34 +83,37 @@ export class BrushShop1 extends Level {
     const botCasing = new Sprite(
       { resource: resources.images["botcasing"], position: new Vector2(gridCells(2), gridCells(-1)), frameSize: new Vector2(35, 35) }
     );
-    this.addChild(botCasing);
-
-
-    const botFrame = new Bot(
-      { position: new Vector2(gridCells(2), gridCells(1)), spriteName: "botFrame2", offsetX: 8, offsetY: -8, isEnemy: false, isDeployed: false }
-    );
-    botFrame.textContent = [
-      {
-        string: ["Ahh, This one looks so cool!"],
-      } as Scenario,
-    ];
-    this.addChild(botFrame);
-
+    this.addChild(botCasing);  
 
     const botCasing2 = new Sprite(
       { resource: resources.images["botcasing"], position: new Vector2(gridCells(4), gridCells(-1)), frameSize: new Vector2(35, 35) }
     );
     this.addChild(botCasing2);
 
-    const botFrame2 = new Bot(
-      { position: new Vector2(gridCells(4), gridCells(1)), spriteName: "botFrame5", offsetX: 8, offsetY: -8 }
-    );
-    botFrame2.textContent = [
-      {
-        string: ["OH, I saw this in a competition on TV once!"],
-      } as Scenario,
-    ];
-    this.addChild(botFrame2);
+    for (let x = 0; x < 2; x++) { 
+      const botFrame = new Bot({
+          position: new Vector2(gridCells(2) + gridCells(x), gridCells(0)),
+          spriteName: "botFrame2",
+          offsetX: 8,
+          offsetY: -12,
+          isEnemy: false,
+          isDeployed: false,
+          preventDraw: x > 0 ? true : false,
+        }
+      );
+      botFrame.textContent = [{ string: ["Ahh, This one looks so cool!"] } as Scenario];
+      this.addChild(botFrame);
+
+      const botFrame2 = new Bot({
+          position: new Vector2(gridCells(4) + gridCells(x), gridCells(0)),
+          spriteName: "botFrame5",
+          offsetX: 8,
+          offsetY: -12,
+        preventDraw: x > 0 ? true : false,
+      });
+      botFrame2.textContent = [{ string: ["OH, I saw this in a competition on TV once!"]} as Scenario];
+      this.addChild(botFrame2);
+    } 
 
 
     const cornercounter2 = new Sprite(
@@ -163,17 +163,21 @@ export class BrushShop1 extends Level {
     carpet2.drawLayer = FLOOR;
     this.addChild(carpet2);
 
-
-    const exitOutside = new Exit({
-      position: new Vector2(gridCells(3), gridCells(8)), showSprite: false, targetMap: "BrushLevel1"
-    });
-    this.addChild(exitOutside);
+    for (let x = 1; x < 4; x++) { 
+      const exitOutside = new Exit({
+        position: new Vector2(gridCells(1) + gridCells(x), gridCells(7)), showSprite: this.showDebugSprites, targetMap: "BrushLevel1"
+      });
+      this.addChild(exitOutside);
+    }
 
     //walls:
-    for (let y = -16; y <= 224; y += 16) {
+    for (let x = 0; x <= 112; x += 16) {
+      this.walls.add(`${x},${0}`);
+    }
+
+    for (let y = -16; y <= 128; y += 16) {
       for (let x = -16; x <= 320; x += 16) {
-        // Add walls only for the perimeter: top row, bottom row, left column, and right column
-        if (y === -16 || y === 224 || x === -16 || x === 320) {
+        if (x === -16 || x === 320 || y === -16 || y === 128) { 
           this.walls.add(`${x},${y}`);
         }
       }

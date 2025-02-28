@@ -45,6 +45,7 @@ export class ShopMenu extends Level {
 
     setTimeout(() => {
       this.blockSelection = false;
+      events.emit("BLOCK_START_MENU"); 
     }, 700);
   }
 

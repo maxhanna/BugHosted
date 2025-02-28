@@ -6,6 +6,7 @@ export interface Scenario {
   bypass?: string[];   // Flags that can skip conditions
   addsFlag?: string;   // Flag to be added when this scenario is used
   canSelectItems?: boolean; //can select the menu items passed in
+  portraitFrame?: number; //portrait frame to display
 }
 
 class StoryFlags {

@@ -70,7 +70,7 @@ export class Inventory extends GameObject {
       this.closeStartMenu()
     });
 
-    events.on("START_PRESSED", this, (data: any) => {
+    events.on("OPEN_START_MENU", this, (data: any) => {
       if (this.closeStartMenu()) return;
       
       this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts });

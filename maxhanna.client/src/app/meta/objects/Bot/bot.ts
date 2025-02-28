@@ -8,11 +8,11 @@ import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./bot-animations";
-import { Npc } from "../Npc/npc";
 import { MetaBotPart } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { Character } from "../character";
 import { Hero } from "../Hero/hero";
+import { Scenario } from "../../helpers/story-flags";
 
 export class Bot extends Character {
   heroId?: number;
@@ -39,7 +39,8 @@ export class Bot extends Character {
     leftArm?: MetaBotPart, rightArm?: MetaBotPart,
     legs?: MetaBotPart, head?: MetaBotPart,
     offsetX?: number, offsetY?: number, colorSwap?: ColorSwap,
-    isDeployed?: boolean, isEnemy?: boolean
+    isDeployed?: boolean, isEnemy?: boolean,
+    preventDraw?: boolean,
   }) {
     super({
       id: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
@@ -85,7 +86,7 @@ export class Bot extends Character {
     this.isDeployed = params.isDeployed;
     this.isEnemy = params.isEnemy ?? false;
     this.isSolid = false;
-
+    this.preventDraw = params.preventDraw ?? false;
     const bodyScale = params.scale ?? new Vector2(1, 1);
     const shadowScale = new Vector2(bodyScale.x, bodyScale.y);
 
@@ -113,16 +114,22 @@ export class Bot extends Character {
       }
     });
   }
+ 
 
-  override getContent() {
-    const owner = this.parent.children.find((child: any) => child.id == this.heroId);
-    const isHero = (owner instanceof Hero);
-    return {
-      portraitFrame: 0,
-      string: [isHero ? "Monitoring... No threat detected." : "Threat detected. Step away!", `HP: ${this.hp}`, `Owner: ${owner.name}`],
-      addsFlag: null,
-      canSelectItems: false
-    }
+  override getContent() { 
+    if (this.textContent) {
+      return this.textContent[0];
+    } else { 
+      const owner = this.parent.children.find((child: any) => child.id == this.heroId);
+      const isHero = (owner instanceof Hero);
+      let scenario = {
+        portraitFrame: 0,
+        string: [isHero ? "Monitoring... No threat detected." : "Threat detected. Step away!", `HP: ${this.hp}`, `Owner: ${owner.name}`],
+        addsFlag: undefined,
+        canSelectItems: false
+      } as Scenario
+      return  scenario;
+    } 
   }
 
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
@@ -220,6 +227,7 @@ export class Bot extends Character {
   }
 
   faceTarget(target: Bot) {
+    console.log(target);
     const dx = target.position.x - this.position.x;
     const dy = target.position.y - this.position.y;
 

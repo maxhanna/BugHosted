@@ -41,7 +41,7 @@ export class Spiderbot extends Bot {
     return {
       portraitFrame: 0,
       string: ["ZZZzzzt!"],
-      addsFlag: null,
+      addsFlag: undefined,
       canSelectItems: false
     }
   }

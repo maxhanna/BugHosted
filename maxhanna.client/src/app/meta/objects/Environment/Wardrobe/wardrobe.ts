@@ -41,7 +41,7 @@ export class Wardrobe extends GameObject {
       portraitFrame: 0,
       string: ["Change Color", "Open Wardrobe", "Cancel"],
       canSelectItems: true,
-      addsFlag: null
+      addsFlag: undefined,
     } 
   }
  }

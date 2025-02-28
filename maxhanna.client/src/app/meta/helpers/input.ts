@@ -58,7 +58,7 @@ export class Input {
   private handleEnter() {
     let moveLock = false; 
     if (this.verifyCanPressKey()) {
-      const chatInputElement = document.getElementById("chatInput") as HTMLInputElement;
+      const chatInputElement = this.chatInput;
       console.log(chatInputElement);
       if (chatInputElement && chatInputElement.value == '') {
         if (!this.chatSelected) {
@@ -199,13 +199,11 @@ export class Input {
     }
   }
   pressSpace() {
-    if (document.activeElement != this.chatInput) {
-      console.log("press space");
+    if (document.activeElement != this.chatInput) { 
       events.emit("SPACEBAR_PRESSED");
     }
   }
-  pressStart(sendChat: boolean = true) {
-    console.log("press start");
+  pressStart(sendChat: boolean = true) { 
     if (this.chatInput.value != '') { 
       this.pressA(sendChat);
       this.chatInput.blur();
@@ -224,8 +222,7 @@ export class Input {
     }
   }
 
-  pressEscape() {
-    console.log("press esc");
+  pressEscape() { 
     this.chatInput.blur();
     this.chatSelected = false;
     events.emit("HERO_MOVEMENT_UNLOCK"); 

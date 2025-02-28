@@ -75,6 +75,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 	stopPollingForUpdates = false;
 	isDecidingOnParty = false;
 	actionBlocker = false;
+	blockOpenStartMenu = false;
 	isStartMenuOpened: boolean = false;
 
 	private pollingInterval: any;
@@ -208,7 +209,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		}
 	}
 
-	private addHeroToScene(hero: MetaHero) {
+  private addHeroToScene(hero: MetaHero) {
+    console.log("adding hero to scene: " + hero.name);
 		const tmpHero = new Hero({
 			id: hero.id,
 			name: hero.name ?? "Anon",
@@ -317,6 +319,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
               bot.destroy();
             }
           }
+          if (event.event === "CALL_BOT_BACK") { 
+            const bot = this.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
+            if (bot) {
+              bot.destroy();
+            }
+          }
 					if (event.event === "START_FIGHT" && event.heroId != this.metaHero.id && !storyFlags.flags.has("START_FIGHT")) {
 						this.actionStartFightEvent(event);
 					}
@@ -350,11 +358,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 	}
 
 
-	private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) {
-		if (this.mainScene.level) {
-			this.mainScene.inventory.items.forEach((item: any) => this.mainScene.inventory.removeFromInventory(item.id));
-    }
-
+	private async reinitializeHero(rz: MetaHero, skipDataFetch?: boolean) { 
 		this.hero = new Hero({
       id: rz.id, name: rz.name ?? "Anon",
       position: new Vector2(snapToGrid(rz.position.x, 16), snapToGrid(rz.position.y, 16)),
@@ -400,7 +404,11 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
 	}
 
-	private async reinitializeInventoryData() {
+  private async reinitializeInventoryData() {
+    if (this.mainScene?.inventory?.items) {
+      this.mainScene.inventory.items.forEach((item: any) => this.mainScene.inventory.removeFromInventory(item.id));
+    }
+
 		storyFlags.flags = new Map<string, boolean>();
 		await this.metaService.fetchInventoryData(this.metaHero).then(inventoryData => {
 			if (inventoryData) {
@@ -481,7 +489,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 			}
 		});
 		events.on("WARDROBE_OPENED", this, () => {
-			if (this.actionBlocker) return;
+      if (this.actionBlocker) return;
+      this.blockOpenStartMenu = true;
 
 			const invItems = this.mainScene.inventory.items;
 			if (this.mainScene.level) {
@@ -502,7 +511,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		});
 
 		events.on("SHOP_OPENED", this, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
-			if (!this.actionBlocker) {
+      if (!this.actionBlocker) {
+        console.log("shop opened");
+        this.blockOpenStartMenu = true;
 				this.mainScene.setLevel(new ShopMenu(params));
 				this.stopPollingForUpdates = true;
 				this.setActionBlocker(50);
@@ -525,18 +536,21 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 			params.items = shopParts;
 			let config = { ...params, sellingMode: true };
 
+      this.blockOpenStartMenu = true;
 			this.mainScene.setLevel(new ShopMenu(config));
 			this.stopPollingForUpdates = true;
 		});
 		events.on("WARDROBE_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
-			this.stopPollingForUpdates = false;
+      this.stopPollingForUpdates = false;
+      this.blockOpenStartMenu = false;
 			const newLevel = this.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
 			console.log(newLevel, params.entranceLevel);
 			newLevel.defaultHeroPosition = params.heroPosition;
 			events.emit("CHANGE_LEVEL", newLevel);
 		});
 		events.on("SHOP_CLOSED", this, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
-			this.stopPollingForUpdates = false;
+      this.stopPollingForUpdates = false;
+      this.blockOpenStartMenu = false;
 			const newLevel = this.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
 			newLevel.defaultHeroPosition = params.heroPosition;
 			events.emit("CHANGE_LEVEL", newLevel);
@@ -586,15 +600,43 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		});
 
 
-		events.on("DEPLOY", this, (params: { bot: MetaBot, metaHero?: MetaHero }) => {
-      const hero = params.metaHero ?? this.metaHero; 
-			if (params.bot.id) {
+    events.on("DEPLOY", this, async (params: { bot: MetaBot, metaHero?: MetaHero }) => {
+      const hero = params.metaHero ?? this.metaHero;
+      if (params.bot.id) {
         this.addBotToScene(hero, params.bot);
         if (this.metaHero.id === hero.id) {
           const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "DEPLOY", this.metaHero.map, { "metaHero": `${JSON.stringify(hero)}`, "metaBot": `${JSON.stringify(params.bot)}` });
           this.metaService.updateEvents(metaEvent);
         }
-      }  
+        await this.reinitializeInventoryData();
+      }
+    });
+
+    events.on("CALL_BOT_BACK", this, async (params: { bot: MetaBot }) => {
+      if (params.bot?.id) {
+        if (params.bot.heroId === this.metaHero.id) {
+          const metaEvent = new MetaEvent(0, params.bot.heroId, new Date(), "CALL_BOT_BACK", this.metaHero.map);
+          this.metaService.updateEvents(metaEvent);
+        }
+        const tgt = this.mainScene?.level?.children?.find((x: any) => x.id === params.bot.id);
+        const hero = this.mainScene?.level?.children?.find((x: any) => x.id === params.bot.heroId);
+        if (hero) {
+          const tgtBot = hero.metabots.find((x: any) => x.id === params.bot.id);
+          if (tgtBot) {
+            tgtBot.isDeployed = false; 
+          }
+        }
+        if (tgt) {
+          tgt.isDeployed = false;  
+          tgt.destroy();
+        }
+        const tgtHeroBot = this.metaHero.metabots.find((x: any) => x.id === params.bot.id);
+        if (tgtHeroBot) { 
+          tgtHeroBot.isDeployed = false;
+        }
+
+        await this.reinitializeInventoryData();
+      }
     });
 
     events.on("BOT_DESTROYED", this, (params: { bot: Bot }) => { 
@@ -603,8 +645,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           const metaEvent = new MetaEvent(0, this.metaHero.id, new Date(), "BOT_DESTROYED", this.metaHero.map);
           this.metaService.updateEvents(metaEvent);
         }
-        const tgt = this.mainScene.children.first((x: any) => x.id === params.bot.id);
-        const hero = this.mainScene.children.first((x: any) => x.id === params.bot.heroId);
+        const tgt = this.mainScene?.level?.children?.find((x: any) => x.id === params.bot.id);
+        const hero = this.mainScene?.level?.children?.find((x: any) => x.id === params.bot.heroId);
         if (hero) {
           const tgtBot = hero.metabots.find((x : any) => x.id === params.bot.id);
           if (tgtBot) { 
@@ -740,9 +782,23 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 			);
 		});
 
-		events.on("START_PRESSED", this, (data: any) => {
-			this.isStartMenuOpened = !this.isStartMenuOpened;
-		});
+    events.on("START_PRESSED", this, (data: any) => {
+      if (this.blockOpenStartMenu) {
+        console.log("bloccked");
+        return;
+      }
+      console.log("start pressed", this.blockOpenStartMenu);
+      if (this.isStartMenuOpened) { 
+        events.emit("CLOSE_INVENTORY_MENU", data); 
+        this.isStartMenuOpened = false;
+      } else { 
+        events.emit("OPEN_START_MENU", data);
+        this.isStartMenuOpened = true;
+      }
+    });
+
+    events.on("BLOCK_START_MENU", this, () => { console.log("blocking"); this.blockOpenStartMenu = true; });
+    events.on("UNBLOCK_START_MENU", this, () => { console.log("unblocking"); this.blockOpenStartMenu = false; });
 
 		//Reposition Safely handler
 		events.on("REPOSITION_SAFELY", this, () => {

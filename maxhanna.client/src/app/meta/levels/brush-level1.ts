@@ -7,12 +7,9 @@ import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
 import { BrushShop1 } from "./brush-shop1";
 import { RivalHomeLevel1 } from "./rival-home-level1";
-import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite"; 
-import { CaveLevel1 } from "./cave-level1";
 import { HeroHome } from "./hero-home";
-import { GOT_FIRST_METABOT, GOT_WATCH, START_FIGHT, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH, storyFlags } from "../helpers/story-flags";
-import { Npc } from "../objects/Npc/npc";
+import { GOT_FIRST_METABOT, START_FIGHT, Scenario, storyFlags } from "../helpers/story-flags";
 import { Referee } from "../objects/Npc/Referee/referee";
 import { Gangster } from "../objects/Npc/Gangster/gangster";
 import { Animations } from "../helpers/animations";
@@ -25,7 +22,7 @@ import { Shop } from "../objects/Environment/Shop/shop";
 import { Deer } from "../objects/Environment/Deer/deer";
 import { Water } from "../objects/Environment/Water/water";
 import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
-import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
+import { Sign } from "../objects/Environment/Sign/sign";
 import { BrushRoad1 } from "./brush-road1";
 import { GROUND, FLOOR, HUD } from "../objects/game-object";
  
@@ -110,29 +107,21 @@ export class BrushLevel1 extends Level {
 
 
     const house = new House(gridCells(8), gridCells(28));
-    this.addChild(house); 
-    const sign = new Sprite(
-      { objectId: 0, resource: resources.images["sign"], position: new Vector2(gridCells(17), gridCells(29)), frameSize: new Vector2(16, 18), isSolid: true }
-    ); 
-    sign.textContent = [
-      {
-        string: [`Home.`],
-      } as Scenario,
-    ];
+    this.addChild(house);
+
+    const sign = new Sign(
+      { position: new Vector2(gridCells(17), gridCells(29)), text: "Home." }
+    );  
     this.addChild(sign); 
 
 
     const shop = new Shop(gridCells(25), gridCells(17));
     this.addChild(shop); 
-    const shopSign = new Sprite(
-      { resource: resources.images["sign2"], position: new Vector2(gridCells(32), gridCells(18)), frameSize: new Vector2(16, 18), isSolid: true }
-    ); 
-    shopSign.textContent = [
-      {
-        string: [`Local Meta-Shop.`],
-      } as Scenario,
-    ];
-    this.addChild(shopSign);
+  
+    const shopsign = new Sign(
+      { position: new Vector2(gridCells(32), gridCells(18)), text: "Local Meta-Shop." }
+    );
+    this.addChild(shopsign); 
 
     const rivalHouse = new House(gridCells(8), gridCells(10));
     this.addChild(rivalHouse);
@@ -291,7 +280,7 @@ export class BrushLevel1 extends Level {
 
     //Npcs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
     if (storyFlags.contains(GOT_FIRST_METABOT)) {
-      const gangster1 = new Gangster(gridCells(15), gridCells(15));
+      const gangster1 = new Gangster({ position: new Vector2(gridCells(15), gridCells(15)) });
       gangster1.textContent = [
         {
           string: ["Our orders are to get your parents and bring them back to headquarters. You can't stop us."],
@@ -303,7 +292,7 @@ export class BrushLevel1 extends Level {
       gangster1.metabots.push(gangster1Metabot);
       this.addChild(gangster1);
 
-      const gangster2 = new Gangster(gridCells(26), gridCells(18));
+      const gangster2 = new Gangster({ position: new Vector2(gridCells(26), gridCells(18)) });
       gangster2.textContent = [
         {
           string: ["We're not here to chat, buzz off."],
@@ -315,11 +304,10 @@ export class BrushLevel1 extends Level {
       gangster2.metabots.push(gangster2Metabot);
       this.addChild(gangster2); 
 
-      const gangster3 = new Gangster(gridCells(13), gridCells(29));
+      const gangster3 = new Gangster({ position: new Vector2(gridCells(12), gridCells(29)), moveLeftRight: 2 }); 
       gangster3.textContent = [
         {
-          string: ["We're under strict orders not to let anyone in!!"],
-          //addsFlag: START_FIGHT,
+          string: ["We're under strict orders not to let anyone in!!"], 
         } as Scenario
       ];
       for (let x = 0; x < 3; x++) {
@@ -375,7 +363,7 @@ export class BrushLevel1 extends Level {
       }
       if (targetMap === "BrushShop1") {
         events.emit("CHANGE_LEVEL", new BrushShop1({
-          heroPosition: new Vector2(gridCells(3), gridCells(8)), itemsFound: this.itemsFound
+          itemsFound: this.itemsFound
         }));
       }
       if (targetMap === "RivalHomeLevel1") {

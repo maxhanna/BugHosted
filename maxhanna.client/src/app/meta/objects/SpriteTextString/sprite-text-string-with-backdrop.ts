@@ -6,9 +6,6 @@ import { events } from "../../helpers/events";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Input } from "../../helpers/input";
 import { Hero } from "../Hero/hero";
-import { Deer } from "../Environment/Deer/deer";
-import { Gangster } from "../Npc/Gangster/gangster";
-import { Chicken } from "../Environment/Chicken/chicken";
 
 export class SpriteTextStringWithBackdrop extends GameObject {
   backdrop = new Sprite({
@@ -55,7 +52,14 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     } else {
       this.getPortraitOfNonPortraitObject(config);
     }
+    events.emit("BLOCK_START_MENU");
   } 
+
+  override destroy() {
+    super.destroy();
+    events.emit("UNBLOCK_START_MENU");
+  }
+
 
   override step(delta: number, root: GameObject) {
     //listen for user input
@@ -66,22 +70,8 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         parent = parent.parent;
       }
     }
-    const input = parent?.input as Input; 
+    const input = parent?.input as Input;  
 
-
-    if (input?.getActionJustPressed("Space")) {
-      if (this.showingIndex < this.finalIndex) {
-        //skip text
-        this.showingIndex = this.finalIndex;
-        return;
-      }
-      if (this.canSelectItems) {
-        //console.log(this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
-        events.emit("SELECTED_ITEM", this.content[this.selectionIndex - (this.objectSubject?.name ? 1 : 0)]);
-        this.canSelectItems = false;
-      }
-      events.emit("END_TEXT_BOX");
-    }
     if (Object.values(input.keys).some(value => value === true)) {
       this.handleKeyboardInput(input);
     }
@@ -172,6 +162,9 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         frame = 0;
       } else if (objType == "Chicken") {
         frame = 0;
+      } else if (objType == "Sign") {
+        frame = 0;
+        console.log("frame 0 for sign", config.objectSubject);
       }
     }
     
@@ -184,7 +177,20 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     });
   }
 
-  private handleKeyboardInput(input: Input) {
+  private handleKeyboardInput(input: Input) { 
+    if (input?.getActionJustPressed("Space")) {
+      if (this.showingIndex < this.finalIndex) {
+        //skip text
+        this.showingIndex = this.finalIndex;
+        return;
+      }
+      if (this.canSelectItems) {
+        //console.log(this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
+        events.emit("SELECTED_ITEM", this.content[this.selectionIndex - (this.objectSubject?.name ? 1 : 0)]);
+        this.canSelectItems = false;
+      }
+      events.emit("END_TEXT_BOX");
+    }
     if (input?.verifyCanPressKey()) {
       if (input?.getActionJustPressed("ArrowUp")
         || input?.heldDirections.includes("UP")

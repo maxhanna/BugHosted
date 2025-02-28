@@ -153,7 +153,7 @@ export class CharacterCreate extends Level {
     })
   }
 
-  private displayContent(content: { portraitFrame: number | undefined; string: string[]; addsFlag: string | null; }) {
+  private displayContent(content: Scenario) {
     this.children.forEach((child: any) => {
       if (child.textSpeed) {
         child.destroy();

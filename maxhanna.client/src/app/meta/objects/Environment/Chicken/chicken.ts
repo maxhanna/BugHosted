@@ -6,6 +6,7 @@ import { resources } from "../../../helpers/resources";
 import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./chicken-animations";
 import { Npc } from "../../Npc/npc";
+import { Scenario } from "../../../helpers/story-flags";
 
 export class Chicken extends Npc {  
   directionIndex = Math.floor(Math.random() * 4);
@@ -91,7 +92,7 @@ export class Chicken extends Npc {
       portraitFrame: 0,
       string: ["Bkaaaaaw"],
       canSelectItems: false,
-      addsFlag: null
-    }
+      addsFlag: undefined,
+    } as Scenario;
   }
  }

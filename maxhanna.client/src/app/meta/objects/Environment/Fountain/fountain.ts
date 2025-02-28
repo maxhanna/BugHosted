@@ -18,6 +18,7 @@ export class Fountain extends GameObject {
     const body = new Sprite({
       objectId: 0,
       resource: resources.images["fountain"],
+      name: "Fountain",
       position: new Vector2(-25, -25),
       frameSize: new Vector2(64, 55),
       hFrames: 6,
@@ -36,7 +37,7 @@ export class Fountain extends GameObject {
       portraitFrame: 0,
       string: ["What a splendid fountain!"],
       canSelectItems: false,
-      addsFlag: null
+      addsFlag: undefined,
     }
   }
  }

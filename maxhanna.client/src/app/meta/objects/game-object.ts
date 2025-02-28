@@ -19,26 +19,29 @@ export class GameObject {
   textPortraitFrame?: number;
   colorSwap?: ColorSwap = undefined;
   preventDraw: boolean = false;
-  name?: string;
+  preventDrawName: boolean = false;
+  name?: string; 
 
   constructor(params: {
     position: Vector2,
     colorSwap?: ColorSwap,
     drawLayer?: typeof BASE | typeof GROUND | typeof FLOOR | typeof HUD,
     preventDraw?: boolean,
+    preventDrawName?: boolean,
     isSolid?: boolean,
     textContent?: Scenario[],
     textPortraitFrame?: number,
-    name?: string,
+    name?: string, 
   }) {
     this.position = params.position ?? new Vector2(0, 0);
     this.colorSwap = params.colorSwap;
     this.preventDraw = params.preventDraw ?? false;
+    this.preventDrawName = params.preventDrawName ?? false;
     this.drawLayer = params.drawLayer;
     this.isSolid = params.isSolid ?? false;
     this.textContent = params.textContent;
     this.textPortraitFrame = params.textPortraitFrame;
-    this.name = params.name;
+    this.name = params.name; 
   }
 
   stepEntry(delta: number, root: any) {
@@ -134,7 +137,7 @@ export class GameObject {
     const match = storyFlags.getRelevantScenario(this.textContent);
     if (!match) {
       console.log("No matches found in this list!", this.textContent);
-      return null;
+      return undefined;
     }
     if (match.addsFlag && match.addsFlag == "START_FIGHT") {
       console.log("emitting start fight because match adds flag start fight");
@@ -143,8 +146,8 @@ export class GameObject {
     return {
       portraitFrame: this.textPortraitFrame,
       string: match.string,
-      addsFlag: match.addsFlag ?? null,
+      addsFlag: match.addsFlag ?? undefined,
       canSelectItems: match.canSelectItems
-    }
+    } as Scenario;
   }
 }
