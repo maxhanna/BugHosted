@@ -123,7 +123,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   closeOverlayOnClick(user?: User) {
     this.userClickEvent.emit(user);
     this.openChat(user);
-    if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
+    if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
       this.inputtedParentRef.closeOverlay();
     }
   }
@@ -200,7 +200,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     this.isSearchPanelOpen = true;
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
-      parent.showOverlay = true;
+      parent.showOverlay();
     }
     setTimeout(() => {
       this.searchInput.nativeElement.focus();

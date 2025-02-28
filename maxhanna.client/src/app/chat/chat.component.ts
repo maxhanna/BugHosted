@@ -311,14 +311,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isDisplayingChatMembersPanel = true;
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.showOverlay = true;
+      parent.showOverlay();
     }
   }
   closeChatMembersPanel() {
     this.isDisplayingChatMembersPanel = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.showOverlay = false;
+      parent.isShowingOverlay = false;
     }
   }
   addChatMember(users?: User[]) {

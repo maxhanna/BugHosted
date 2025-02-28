@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
@@ -10,7 +10,7 @@ import { FileUploadComponent } from '../file-upload/file-upload.component';
   templateUrl: './media-selector.component.html',
   styleUrl: './media-selector.component.css'
 })
-export class MediaSelectorComponent {
+export class MediaSelectorComponent implements OnDestroy {
   displaySearchButton = false;
   displaySearch = false;
   viewMediaChoicesOpen = false;
@@ -29,12 +29,22 @@ export class MediaSelectorComponent {
   @ViewChild(FileUploadComponent) fileUploadComponent!: FileUploadComponent;
 
 
-  constructor() { }
+  constructor() { 
+  }
+
+  ngOnDestroy() {
+    document.body.style.overflow = 'auto';
+    document.documentElement.style.overflow = 'auto';
+  }
 
   toggleMediaChoices() {
     this.viewMediaChoicesOpen = !this.viewMediaChoicesOpen;
     if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay = this.viewMediaChoicesOpen;
+      if (this.viewMediaChoicesOpen) {
+        this.inputtedParentRef.showOverlay();
+      } else {
+        this.inputtedParentRef.closeOverlay();
+      } 
     }
     if (this.selectMediaDiv) {
       this.selectMediaDiv.nativeElement.classList.toggle("open");
@@ -119,7 +129,7 @@ export class MediaSelectorComponent {
     this.viewMediaChoicesOpen = false;
     this.displaySearch = false;
     if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay = false;
+      this.inputtedParentRef.isShowingOverlay = false;
     } 
   }
 }

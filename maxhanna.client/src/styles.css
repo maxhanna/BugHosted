@@ -41,8 +41,7 @@ html {
 }
 
 body {
-  margin: 0px;
-  max-height: 100%;
+  margin: 0px; 
   -webkit-overflow-scrolling: auto !important;
   overscroll-behavior-y: none;
   font-family: var(--main-font-family), Arial;
@@ -90,8 +89,7 @@ fieldset {
   border: var(--main-border);
 }
 
-.componentMain {
-  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
+.componentMain { 
   background-color: var(--main-bg-color-quarter-opacity);
   position: relative;
   padding-top: 55px;

@@ -30,7 +30,7 @@
     <div class="nintendo"><span class="nintendoLogo">Hackboy</span></div>
 
     <div class="controls">
-      <div class="dpad" [style.visibility]="!selectedRomName ? 'hidden' : !parentRef?.showOverlay ? 'visible' : 'hidden'">
+      <div class="dpad" [style.visibility]="!selectedRomName ? 'hidden' : !parentRef?.isShowingOverlay ? 'visible' : 'hidden'">
         <div class="up-left">
           <div class="up-left-triangle"></div>
         </div>
@@ -58,7 +58,7 @@
         <div class="middle">
         </div>
       </div>
-      <div class="a-b" *ngIf="!parentRef?.showOverlay">
+      <div class="a-b" *ngIf="!parentRef?.isShowingOverlay">
         <div class="b" [style.visibility]="!selectedRomName ? 'hidden' : displayAB ? 'visible' : 'hidden'">B</div>
         <div class="a" [style.visibility]="!selectedRomName ? 'hidden' : displayAB ? 'visible' : 'hidden'">A</div>
         <div class="c" [style.visibility]="!selectedRomName ? 'hidden' : displayC ? 'visible' : 'hidden'">C</div>

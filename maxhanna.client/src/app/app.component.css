@@ -19,8 +19,8 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 99vw;
-  height: CALC(var(--vh, 1vh) * 99);
+  width: 100vw;
+  height: CALC(var(--vh, 1vh) * 100);
   background-color: var(--main-highlight-color-quarter-opacity);
   z-index: 2;
   transform: translate(-50%, -50%);

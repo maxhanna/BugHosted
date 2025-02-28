@@ -106,17 +106,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
 
   async goToCommentId(notification?: UserNotification) {
     if (!notification || !notification.commentId) return;
-    if (!notification.isRead) { this.read(notification); }
-    //const res = await this.commentService.getCommentById(notification.commentId) as FileComment;
-    //if (!res) return;
-
-    //if (res.storyId) {
-    //  return this.goToStoryId(res.storyId);
-    //}
-    //if (res.fileId) {
-    //  return this.goToFileId(res.fileId);
-    //}
-
+    if (!notification.isRead) { this.read(notification); }  
     if (notification.storyId) {
       return this.goToStoryId(notification);
     }
@@ -185,7 +175,17 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }
   }
 
+  toggleNotifications() {
+    this.showNotifications = !this.showNotifications;
 
+    if (this.inputtedParentRef) {
+      if (this.showNotifications) {
+        this.inputtedParentRef.showOverlay();
+      } else {
+        this.inputtedParentRef.closeOverlay();
+      }
+    }
+  }
   async requestNotificationPermission() {
     try {
       const firebaseConfig = {

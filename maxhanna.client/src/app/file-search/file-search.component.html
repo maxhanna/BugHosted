@@ -37,7 +37,7 @@
   </div>
 
   <!-- Main Data -->
-  <div>
+  <div [class]="fileSearchMode ? 'inPopupComponent' : ''">
     <div id="fileTable">
       <div *ngIf="showUpFolderRow && canChangeDirectory && !search?.nativeElement?.value">
         <div (click)="previousDirectory()"

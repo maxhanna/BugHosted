@@ -66,6 +66,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   storyOverflowMap: { [key: string]: boolean } = {};
 
   userProfileId?: number = undefined;
+  wasFromSearchId = false;
 
   fileType: string | undefined;
   abortAttachmentRequestController: AbortController | null = null;
@@ -89,12 +90,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('pageSelect') pageSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild('pageSelect2') pageSelect2!: ElementRef<HTMLSelectElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
+  @ViewChild('searchIdInput') searchIdInput!: ElementRef<HTMLInputElement>;
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
   @ViewChild(MediaSelectorComponent) postMediaSelector!: MediaSelectorComponent;
   @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
 
-  @Input() storyId: number | null = null;
+  @Input() storyId: number | undefined = undefined;
   @Input() showTopicSelector: boolean = true;
   @Input() user?: User;
   @Input() parent?: AppComponent;
@@ -116,16 +118,17 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       if (this.storyId) {
         if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
           const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
-          if (tgtStory) { 
+          if (tgtStory) {
+            console.log("scrolling to story", tgtStory);
             this.scrollToStory(tgtStory.id);
             const storyText = tgtStory.storyText;
             if (storyText) {
-              const cleanedTitle = this.parentRef?.cleanStoryText(storyText.trim().split("\n")[0]) ?? "";
-              this.parentRef?.replacePageTitleAndDescription(cleanedTitle, storyText);
+              const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
               const script = document.createElement('script');
               script.setAttribute('type', 'application/ld+json');
-              script.textContent = cleanedTitle;
+              script.textContent = titleAndDescrip?.title ?? "";
               document.head.appendChild(script);
+              console.log("storyText", titleAndDescrip?.title);
             }
           }
         }
@@ -173,7 +176,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.componentMain.nativeElement.classList.add("mobileMaxHeight");
       (document.getElementsByClassName('storyInputDiv')[0] as HTMLDivElement).style.marginTop = "0px";
       (document.getElementsByClassName('componentMain')[0] as HTMLDivElement).style.border = "unset";
-    } 
+    }
   }
   async delete(story: Story) {
     if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
@@ -233,12 +236,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
+    let storyId = this.getSearchStoryId();
 
+    console.log(storyId);
     const res = await this.socialService.getStories(
       this.parentRef?.user,
       search,
       topics,
       userId,
+      storyId,
       page,
       pageSize
     );
@@ -262,6 +268,19 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
     }
     this.stopLoading();
+  }
+
+  private getSearchStoryId() {
+    let storyId = undefined;
+    this.wasFromSearchId = false;
+    if (this.searchIdInput?.nativeElement.value) {
+      storyId = parseInt(this.searchIdInput.nativeElement.value);
+    } else if (this.storyId) {
+      storyId = this.storyId;
+      this.wasFromSearchId = true;
+    }
+    this.storyId = undefined;
+    return storyId;
   }
 
   async post() {
@@ -406,17 +425,17 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.currentPage = parseInt(pageSelect.value);
     await this.getStories(this.currentPage).then(res => {
-      this.scrollToStory(); 
+      this.scrollToStory();
     });
   }
-  scrollToStory(storyId?: number): void { 
+  scrollToStory(storyId?: number): void {
     setTimeout(() => {
       if (storyId) {
-          const storyContainer = document.getElementById(`storyDiv${storyId}`) as HTMLElement; 
-          if (storyContainer) {
-            storyContainer.scrollIntoView();
-          } 
-      } else { 
+        const storyContainer = document.getElementById(`storyDiv${storyId}`) as HTMLElement;
+        if (storyContainer) {
+          storyContainer.scrollIntoView();
+        }
+      } else {
         const element = document.getElementsByClassName('componentMain')[0];
         if (element) {
           element.scrollTop = 0;
@@ -514,7 +533,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.storyResponse.stories.forEach(story => {
         story.timeSince = this.daysSinceDate(story.date);
       });
-    } 
+    }
   }
   formatDate(dateString?: Date): string {
     if (!dateString) return '';
@@ -555,27 +574,27 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   showSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = true;
     if (this.parentRef) {
-      this.parentRef.showOverlay = true;
+      this.parentRef.showOverlay();
     }
 
     setTimeout(() => { this.search.nativeElement.focus(); }, 50);
   }
   closeSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = false;
-    if (this.parentRef && this.parentRef.showOverlay) {
-      this.parentRef.showOverlay = false;
+    if (this.parentRef && this.parentRef.isShowingOverlay) {
+      this.parentRef.isShowingOverlay = false;
     }
   }
   showMobileTopicsPanel() {
     this.isMobileTopicsPanelOpen = true;
     if (this.parentRef) {
-      this.parentRef.showOverlay = true;
+      this.parentRef.showOverlay();
     }
   }
   closeMobileTopicsPanel() {
     this.isMobileTopicsPanelOpen = false;
-    if (this.parentRef && this.parentRef.showOverlay) {
-      this.parentRef.showOverlay = false;
+    if (this.parentRef && this.parentRef.isShowingOverlay) {
+      this.parentRef.isShowingOverlay = false;
     }
   }
   showMenuPanel() {
@@ -585,13 +604,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.isMenuPanelOpen = true;
     if (this.parentRef) {
-      this.parentRef.showOverlay = true;
+      this.parentRef.showOverlay();
     }
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
-    if (this.parentRef && this.parentRef.showOverlay) {
-      this.parentRef.showOverlay = false;
+    if (this.parentRef && this.parentRef.isShowingOverlay) {
+      this.parentRef.isShowingOverlay = false;
     }
   }
   showStoryOptionsPanel(story: Story) {
@@ -602,15 +621,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.optionStory = story;
     this.isStoryOptionsPanelOpen = true;
     if (this.parentRef) {
-      this.parentRef.showOverlay = true;
+      this.parentRef.showOverlay();
     }
   }
   closeStoryOptionsPanel() {
     this.isStoryOptionsPanelOpen = false;
     this.optionStory = undefined;
 
-    if (this.parentRef && this.parentRef.showOverlay) {
-      this.parentRef.showOverlay = false;
+    if (this.parentRef && this.parentRef.isShowingOverlay) {
+      this.parentRef.isShowingOverlay = false;
     }
   }
   showPostOptionsPanel() {
@@ -620,14 +639,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.isPostOptionsPanelOpen = true;
     if (this.parentRef) {
-      this.parentRef.showOverlay = true;
+      this.parentRef.showOverlay();
     }
   }
   closePostOptionsPanel() {
     this.isPostOptionsPanelOpen = false;
 
-    if (this.parentRef && this.parentRef.showOverlay) {
-      this.parentRef.showOverlay = false;
+    if (this.parentRef && this.parentRef.isShowingOverlay) {
+      this.parentRef.isShowingOverlay = false;
     }
   }
   openInsertEmojiPanel() {
@@ -637,14 +656,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.isEmojiPanelOpen = true;
     if (this.parentRef) {
-      this.parentRef.showOverlay = true;
+      this.parentRef.showOverlay();
     }
   }
   closeInsertEmojiPanel() {
     this.isEmojiPanelOpen = false;
 
-    if (this.parentRef && this.parentRef.showOverlay) {
-      this.parentRef.showOverlay = false;
+    if (this.parentRef && this.parentRef.isShowingOverlay) {
+      this.parentRef.isShowingOverlay = false;
     }
   }
   isEditButtonVisible(storyId?: number) {

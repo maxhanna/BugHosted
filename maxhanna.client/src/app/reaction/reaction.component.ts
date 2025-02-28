@@ -87,7 +87,7 @@ export class ReactionComponent implements OnInit {
     this.sendNotification();
     this.showReactionChoices = false;
     if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay = this.showReactionChoices;
+      this.inputtedParentRef.isShowingOverlay = this.showReactionChoices;
     }
     this.userReaction = reaction;
   }
@@ -132,7 +132,7 @@ export class ReactionComponent implements OnInit {
       if (!this.showReactionChoices) {
         this.inputtedParentRef.closeOverlay();
       } else {
-        this.inputtedParentRef.showOverlay = true;
+        this.inputtedParentRef.showOverlay();
       }
     }
   }
@@ -141,7 +141,7 @@ export class ReactionComponent implements OnInit {
   closeReactionDisplay() {
     this.showReactionChoices = false;
     console.log("closed");
-    if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
+    if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
       this.inputtedParentRef.closeOverlay();
     }
   }
@@ -158,14 +158,14 @@ export class ReactionComponent implements OnInit {
   showReactionsOnClick() {
     this.showReactions = true;
     if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay = true;
+      this.inputtedParentRef.showOverlay();
     }
   }
   closeReactionsPanel() {
     this.showReactions = false;
 
-    if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
-      this.inputtedParentRef.showOverlay = false;
+    if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
+      this.inputtedParentRef.isShowingOverlay = false;
     }
   }
   replaceReactionType(type?: string) {

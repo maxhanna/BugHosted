@@ -164,14 +164,14 @@ export class FileComponent extends ChildComponent {
     }
     this.isMenuPanelOpen = true;
     if (this.parentRef) {
-      this.parentRef.showOverlay = true;
+      this.parentRef.showOverlay();
     }
     console.log(this.isMenuPanelOpen);
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
-    if (this.parentRef && this.parentRef.showOverlay) {
-      this.parentRef.showOverlay = false;
+    if (this.parentRef && this.parentRef.isShowingOverlay) {
+      this.parentRef.isShowingOverlay = false;
     }
   }
   topTopicClicked(topic: TopicRank) {

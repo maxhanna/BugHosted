@@ -534,19 +534,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     this.isOptionsPanelOpen = true;
     this.optionsFile = file;
     if (this.parentRef) {
-      this.parentRef.showOverlay = true;
+      this.parentRef.showOverlay();
     }
     else if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay = true;
+      this.inputtedParentRef.showOverlay();
     }
   }
   closeOptionsPanel() {
     this.isOptionsPanelOpen = false;
     this.optionsFile = undefined;
-    if (this.parentRef && this.parentRef.showOverlay) {
-      this.parentRef.showOverlay = false;
-    } else if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
-      this.inputtedParentRef.showOverlay = false;
+    if (this.parentRef && this.parentRef.isShowingOverlay) {
+      this.parentRef.isShowingOverlay = false;
+    } else if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
+      this.inputtedParentRef.isShowingOverlay = false;
     }
   }
   shouldShowEditButton(optionsFile: any): boolean {
@@ -599,7 +599,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   openSearchPanel() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.showOverlay = true;
+      parent.showOverlay();
     }
     this.isSearchPanelOpen = true;
     setTimeout(() => {
@@ -611,13 +611,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.showOverlay = false;
+      parent.isShowingOverlay = false;
     }
   }
   openSearchOptionsPanel() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.showOverlay = true;
+      parent.showOverlay();
     }
     this.isSearchOptionsPanelOpen = true;
   }
@@ -626,7 +626,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.showOverlay = false;
+      parent.isShowingOverlay = false;
     }
   }
   isDisplayingPreviousPageButton() {

@@ -6,5 +6,6 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 	{
 		public User? User { get; set; }
 		public int? ProfileUserId { get; set; }
+		public int? StoryId { get; set; }
 	}
 }

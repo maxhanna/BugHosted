@@ -491,7 +491,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isFriendsPanelOpen = true;
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
-      parent.showOverlay = true;
+      parent.showOverlay();
     }
   }
   closeFriendsPanel() {
@@ -505,7 +505,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isAboutPanelOpen = true;
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
-      parent.showOverlay = true;
+      parent.showOverlay();
     }
   }
   closeAboutPanel() {

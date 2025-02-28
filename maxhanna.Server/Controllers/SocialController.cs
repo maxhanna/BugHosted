@@ -40,7 +40,7 @@ namespace maxhanna.Server.Controllers
 			[FromQuery] int pageSize = 10)
 		{
 			_logger.LogInformation($@"POST /Social for user: {request.User?.Id} 
-                with search: {search} with topics: {topics} for profile: {request.ProfileUserId}. 
+                with search: {search} with topics: {topics} for profile: {request.ProfileUserId} for storyId: {request.StoryId}. 
                 Pagination: Page {page}, PageSize {pageSize}.");
 
 			try
@@ -63,7 +63,7 @@ namespace maxhanna.Server.Controllers
 			if (!string.IsNullOrEmpty(search))
 			{
 				whereClause.Append(
-						@" AND (
+						$@" AND (
                 MATCH(s.story_text) AGAINST(@searchTerm IN NATURAL LANGUAGE MODE)  
 								OR s.story_text LIKE CONCAT('%', @searchTerm, '%')
                 OR s.city LIKE CONCAT('%', @searchTerm, '%')
@@ -72,6 +72,11 @@ namespace maxhanna.Server.Controllers
             ) "
 				);
 				parameters.Add("@searchTerm", search);
+			}
+			if (request.StoryId != null)
+			{
+				whereClause.Append(" AND s.id = @storyId ");
+				parameters.Add("@storyId", request.StoryId.Value);
 			}
 			if (!string.IsNullOrEmpty(topics))
 			{
@@ -134,6 +139,7 @@ namespace maxhanna.Server.Controllers
 					{
 						countCmd.Parameters.AddWithValue(param.Key, param.Value);
 					}
+					//Console.WriteLine(countCmd.CommandText);
 					storyResponse.TotalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 				}
 				using (var cmd = new MySqlCommand(sql, conn))

@@ -49,7 +49,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   isModalOpen = false;
   isModal = false;
   isModalCloseVisible = true;
-  showOverlay = false;
+  isShowingOverlay = false;
   pictureSrcs: { key: string, value: string, type: string, extension: string }[] = []; 
   isNavigationInitialized: boolean = false;
   debounceTimer: any;
@@ -340,10 +340,15 @@ export class AppComponent implements OnInit, AfterViewInit {
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }
+  showOverlay() { 
+    this.isShowingOverlay = true; 
+    document.body.style.overflow = "hidden";  
+  }
   closeOverlay() { 
     const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay"); 
     closeButtons.forEach((button) => button.click()); 
-    this.showOverlay = false;
+    this.isShowingOverlay = false;
+    document.body.style.overflow = ""; // Restore scrolling
   }
   openUserSettings() {
     this.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this });
@@ -373,7 +378,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     tmpDescription = this.cleanStoryText(tmpDescription);
 
     this.title.setTitle(tmpTitle);
-    this.meta.updateTag({ name: 'description', content: tmpDescription ?? tmpTitle }); 
+    this.meta.updateTag({ name: 'description', content: tmpDescription ?? tmpTitle });
+    return {
+      title: tmpTitle, description: tmpDescription
+    };
   }
 
   getTextForDOM(text?: string, component_id?: number) {

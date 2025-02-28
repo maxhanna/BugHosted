@@ -48,7 +48,7 @@ export class FileUploadComponent {
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
       this.displayListContainer = true;
       if (this.inputtedParentRef) { 
-        this.inputtedParentRef.showOverlay = true;
+        this.inputtedParentRef.showOverlay();
       }
 
       this.uploadFileList = Array.from(this.fileInput.nativeElement.files as FileList);
@@ -63,7 +63,7 @@ export class FileUploadComponent {
     this.fileInput.nativeElement.value = '';
     this.userCancelEvent.emit(true);
     this.displayListContainer = false;
-    if (this.inputtedParentRef && this.inputtedParentRef.showOverlay) {
+    if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
       this.inputtedParentRef.closeOverlay();
     }
   }
@@ -171,7 +171,7 @@ export class FileUploadComponent {
     this.preventDisplayClose = true;
     setTimeout(() => {
       if (this.inputtedParentRef) {
-        this.inputtedParentRef.showOverlay = true;
+        this.inputtedParentRef.showOverlay();
       }
       setTimeout(() => { this.preventDisplayClose = false }, 1000);
     }, 50);

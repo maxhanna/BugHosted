@@ -19,6 +19,9 @@
   }
 }
 
+.inPopupComponent {
+  max-height: CALC(var(--vh, 1vh) * 100 - 100px);
+}
 .tableDiv {
   max-height: 100px;
   overflow: auto;

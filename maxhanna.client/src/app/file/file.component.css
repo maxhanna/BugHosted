@@ -1,7 +1,7 @@
 .componentMain {
   width: 99vw;
-  max-height: CALC(var(--vh, 1vh) * 100 - 40px);
 }
+
 
 @media only screen and (max-device-width:800px) {
   .componentMain {

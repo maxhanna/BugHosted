@@ -340,11 +340,37 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 
-				string notificationSql = "";
+				if (request.CommentId != null)
+				{
+					// Fetch parent comment to get the associated file_id or story_id
+					string parentQuery = @"
+						SELECT file_id, story_id 
+						FROM maxhanna.comments 
+						WHERE id = @comment_id 
+						LIMIT 1;";
+
+					using (var parentCmd = new MySqlCommand(parentQuery, conn))
+					{
+						parentCmd.Parameters.AddWithValue("@comment_id", request.CommentId);
+
+						using (var reader = await parentCmd.ExecuteReaderAsync())
+						{
+							if (await reader.ReadAsync())
+							{
+								request.FileId = reader["file_id"] as int?;
+								request.StoryId = reader["story_id"] as int?;
+							}
+						}
+					}
+
+					Console.WriteLine($"Resolved comment parent: FileID={request.FileId}, StoryID={request.StoryId}");
+				}
+
+				string notificationSql = ""; 
 				string? targetColumn = request.FileId != null ? "file_id" :
-															request.StoryId != null ? "story_id" :
-															request.CommentId != null ? "comment_id" :
-															null;
+															 request.StoryId != null ? "story_id" :
+															 request.CommentId != null ? "comment_id" :
+															 null;
 
 				if (targetColumn != null) //Insert notification for Files, Stories or Comments here
 				{
@@ -500,47 +526,43 @@ namespace maxhanna.Server.Controllers
 			//Notify with firebase
 			if (sendFirebaseNotification)
 			{
-				var tmpMessage = request.Message;
-				var usersWithoutAnon = request.ToUser.Where(x => x.Id != 0).ToList();
-				foreach (User tmpUser in usersWithoutAnon)
-				{
-					Console.WriteLine("Sending notification to UserId: " + tmpUser.Id);
-					if (tmpUser.Id == request.FromUser?.Id)
-					{
-						continue;
-					}
-
-					if (string.IsNullOrEmpty(request.Message))
-					{
-						tmpMessage = $"New notification on Bughosted.com";
-					}
-
-					try
-					{
-						// See documentation on defining a message payload.
-						var message = new Message()
-						{
-							Notification = new FirebaseAdmin.Messaging.Notification()
-							{
-								Title = $"{tmpUser.Username}, Notification from {(request.FromUser?.Username ?? "Anonymous")}",
-								Body = tmpMessage,
-							},
-							Topic = "notification" + tmpUser.Id
-						};
-
-						string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
-						Console.WriteLine($"Successfully sent message with Topic ({"notification" + tmpUser.Id}): " + response);
-					}
-					catch (Exception ex)
-					{
-						_logger.LogError(ex, "An error occurred while subscribing to notifications.");
-						return BadRequest("Notification(s) could not be created.");
-					}
-				}
+				SendFirebaseNotifications(request);
 			}
 
 			return Ok("Notification(s) Created");
 		}
+
+		private async Task SendFirebaseNotifications(NotificationRequest request)
+		{
+			var tmpMessage = request.Message ?? "New notification on Bughosted.com";
+			var usersWithoutAnon = request.ToUser.Where(x => x.Id != 0).ToList();
+
+			foreach (User tmpUser in usersWithoutAnon)
+			{
+				if (tmpUser.Id == request.FromUser?.Id) continue;
+
+				try
+				{
+					var message = new Message()
+					{
+						Notification = new FirebaseAdmin.Messaging.Notification()
+						{
+							Title = $"{tmpUser.Username}, Notification from {(request.FromUser?.Username ?? "Anonymous")}",
+							Body = tmpMessage,
+						},
+						Topic = "notification" + tmpUser.Id
+					};
+
+					string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
+					Console.WriteLine($"Successfully sent message to {tmpUser.Id}: {response}");
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "An error occurred while sending Firebase notifications.");
+				}
+			}
+		}
+
 
 		private IActionResult? CanSendNotification(NotificationRequest request)
 		{

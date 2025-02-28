@@ -96,7 +96,7 @@ export class TopicsComponent extends ChildComponent {
           (document.getElementById('dropdownMenu') as HTMLDivElement).style.top = (document.getElementById('chooseTopicInput') as HTMLInputElement).offsetTop + (document.getElementById('chooseTopicInput') as HTMLInputElement).offsetHeight + "px";
 
           if (this.parent) {
-            this.parent.showOverlay = true;
+            this.parent.showOverlay();
             this.isDropdownShowing = true;
           }
           
@@ -124,7 +124,7 @@ export class TopicsComponent extends ChildComponent {
     if (this.addTopicButton) {
       this.addTopicButton.nativeElement.style.visibility = "hidden"; 
     }
-    if (this.parent?.showOverlay && !this.preventClosingOverlay) {
+    if (this.parent?.isShowingOverlay && !this.preventClosingOverlay) {
       this.parent.closeOverlay();
       this.isDropdownShowing = false;
     }

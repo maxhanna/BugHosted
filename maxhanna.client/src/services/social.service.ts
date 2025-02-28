@@ -8,7 +8,7 @@ import { Topic } from './datacontracts/topics/topic';
   providedIn: 'root'
 })
 export class SocialService {
-  async getStories(user?: User, search?: string, topics?: string, profileUserId?: number, page: number = 1, pageSize: number = 10) {
+  async getStories(user?: User, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10) {
     let params = new URLSearchParams();
     if (search)
       params.append("search", search);
@@ -25,7 +25,7 @@ export class SocialService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, profileUserId }),
+        body: JSON.stringify({ User: user, ProfileUserId: profileUserId, StoryId: storyId }),
       });
 
       if (!res.ok) {
