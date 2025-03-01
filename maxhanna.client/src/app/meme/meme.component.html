@@ -36,7 +36,7 @@
  
 <!-- Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
-  <div class="popupPanelTitle" style="margin-bottom:15px;">
+  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
     Meme Menu
   </div>
   <div class="fileUploadInputs">
@@ -53,7 +53,7 @@
                      id="fileUploader">
     </app-file-upload>
   </div>
-  <div>
+  <div class="popupPanelContents">
     <div class="popupPanelTitle">
       Search Popular Topics:
     </div>

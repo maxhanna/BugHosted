@@ -18,10 +18,10 @@
 
 <!-- Menu Popup -->
 <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
-  <div class="popupPanelTitle" style="margin-bottom:15px;">
+  <div class="popupPanelTitle popupPanelContent" style="margin-bottom:15px;">
     Filesystem Menu
   </div>
-  <div>
+  <div class="popupPanelContent">
     <div *ngIf="!user" class="uploadAndNewFolderButtonDiv">
 
       <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="canUploadToFolder()">📂New Folder</button>
@@ -53,7 +53,7 @@
 
   </div>
 
-  <div>
+  <div class="popupPanelContent">
     <div class="popupPanelTitle">
       Search Popular Topics:
     </div>

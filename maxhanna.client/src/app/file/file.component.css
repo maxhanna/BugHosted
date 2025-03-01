@@ -162,13 +162,21 @@ tr[draggable] {
 
 .popupPanel {
   width: 99vw;
-  height: CALC(var(--vh, 1vh) * 100 - 30px);
-  padding: 30px;
+  height: CALC(var(--vh, 1vh) * 100);
+  max-height: CALC(var(--vh, 1vh) * 100) !important;
+  padding: 0px !important;
+  overflow-x: hidden !important;
 }
+
 .uploadAndNewFolderButtonDiv {
   display: flex;
   gap: 30px;
 }
+
 .topTopicsDiv {
   white-space: nowrap;
+}
+
+.popupPanelContent {
+  padding: 20px;
 }

@@ -10,7 +10,7 @@
         <span>
           Select Media Files <span class="smallFont" *ngIf="selectedFiles && selectedFiles.length > 0">({{selectedFiles.length}} selected)</span>
         </span>
-        <button id="closeOverlay" class="doneButton cursorPointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Done' : 'Cancel'}}</button>
+        <button id="closeOverlay" class="doneButton cursorPointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Finished' : 'Cancel'}}</button>
       </div>
 
       <!-- SELECTED MEDIA FILES-->

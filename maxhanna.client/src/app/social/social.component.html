@@ -17,12 +17,19 @@
     <!-- Search Popup -->
     <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen">
       <div class="popupPanelTitle">Search the Socials</div>
+   
       <div class="searchSocialsPanelContentDiv">
+        <div class="smallFont">
+          Search in : Text, City, Country, and Username.
+        </div>
         <input type="text" #search placeholder="Search the socials" (input)="debouncedSearch()" *ngIf="!user" [value]="userSearch" />
         <input type="submit" (click)="debouncedSearch()" value="🔍" *ngIf="!user" />
         <div *ngIf="search && search.nativeElement.value != ''" style="text-align:center;">Results : {{storyResponse?.stories?.length ?? 0}}</div>
       </div>
       <div class="searchSocialsPanelContentDiv">
+        <div class="smallFont">
+          Search by Post ID:
+        </div>
         <input type="number" #searchIdInput [placeholder]="storyId ?? 'Post ID'" [value]="storyId" />
         <input type="submit" (click)="debouncedSearch()" value="🔍" *ngIf="!user" />
         <div *ngIf="searchIdInput && searchIdInput.value != ''" style="text-align:center;">Results : {{storyResponse?.stories?.length ?? 0}}</div>
