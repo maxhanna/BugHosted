@@ -40,7 +40,7 @@ export class RandomEncounter extends Npc {
       }
     );
     enemyMetabot.hp = enemy.hp;
-    enemyMetabot.level = enemy.botLevel;
+    enemyMetabot.level = enemy.level;
 
     this.metabots.push(enemyMetabot);
     this.isSolid = false;

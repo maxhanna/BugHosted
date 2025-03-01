@@ -33,6 +33,9 @@ export class Character extends GameObject {
 	itemPickupShell: any;
   isLocked = false;
   hp = 0;
+  level = 1;
+  exp = 0;
+  expForNextLevel = 0;
 
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = ""; 
@@ -45,13 +48,24 @@ export class Character extends GameObject {
 		colorSwap?: ColorSwap,
     isUserControlled?: boolean,
     speed?: number,
+    hp?: number,
+    exp?: number,
+    expForNextLevel?: number,
+    level?: number,
 		mask?: Mask,
 	}) {
-		super({ position: params.position ?? new Vector2(0, 0), colorSwap: params.colorSwap });
+    super({
+      position: params.position ?? new Vector2(0, 0),
+      colorSwap: params.colorSwap, 
+    });
 		this.id = params.id;
 		this.name = params.name;
     this.body = params.body;
     this.speed = params.speed ?? 1;
+    this.level = params.level ?? 1;
+    this.exp = params.exp ?? 0;
+    this.expForNextLevel = params.expForNextLevel ?? 0;
+    this.hp = params.hp ?? 0;
 		this.isUserControlled = params.isUserControlled ?? false;
 		this.mask = params.mask;
 		if (this.body) {
@@ -128,6 +142,7 @@ export class Character extends GameObject {
     this.drawLatestMessage(ctx, drawPosX, drawPosY);
     if ((this as any).isEnemy) { 
       this.drawHP(ctx, drawPosX, drawPosY);
+      this.drawExp(ctx, drawPosX, drawPosY);
     }
 	}
 
@@ -348,6 +363,33 @@ export class Character extends GameObject {
     ctx.fillText(hpText, textX, textY);
   }
 
+  drawExp(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+    if (this.expForNextLevel === 0) {
+      this.calculateExpForNextLevel(this);
+    } 
+
+    // Define EXP bar dimensions
+    const barWidth = 40;
+    const barHeight = 4;
+    const barX = drawPosX - barWidth / 2 + 10;
+    const barY = drawPosY - 7; // Positioned below HP bar
+
+    // Calculate EXP percentage
+    const expPercentage = Math.max(0, this.exp / this.expForNextLevel);
+
+    // Colors
+    const backgroundColor = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black
+    const expColor = "yellow"; // EXP bar fill
+
+    // Draw background box
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+
+    // Draw yellow EXP bar (filled portion)
+    ctx.fillStyle = expColor;
+    ctx.fillRect(barX, barY, barWidth * expPercentage, barHeight);
+  }
+
 
   drawLatestMessage(ctx: CanvasRenderingContext2D, characterCenterX: number, characterTopY: number) {
     if (!this.latestMessage.trim()) return;
@@ -418,6 +460,10 @@ export class Character extends GameObject {
       ctx.drawImage(this.messageCache, bubbleTopX, bubbleTopY);
     }
   }
+
+  private calculateExpForNextLevel(player: Character) {
+    player.expForNextLevel = (player.level + 1) * 15;
+  } 
 
   private splitMessageIntoLines(message: string, ctx: CanvasRenderingContext2D): string[] {
     const words = message.split(" ");

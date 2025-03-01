@@ -24,7 +24,7 @@ export class Armobot extends Bot {
     this.isSolid = true;
     this.isEnemy = true;
     this.isDeployed = true;
-    this.botLevel = 1;
+    this.level = 1;
 
     const shadow = new Sprite({
       resource: resources.images["shadow"],

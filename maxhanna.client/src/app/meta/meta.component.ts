@@ -262,6 +262,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       isDeployed: true,
       isEnemy: true,
       hp: bot.hp,
+      level: bot.level,
+      exp: bot.exp,
 			leftArm: bot.leftArm,
 			rightArm: bot.rightArm,
 			head: bot.head,

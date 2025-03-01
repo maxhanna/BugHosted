@@ -1439,7 +1439,7 @@ namespace maxhanna.Server.Controllers
                             FIND_IN_SET(@userId, f.shared_with) > 0
                         ) 
                     GROUP BY 
-                        f.id, u.username, f.file_name, f.is_public, f.is_folder, f.user_id, fc.id, uc.username, fc.comment, f.given_file_name, f.description, f.last_updated, udp.file_id
+                        f.id, u.username, f.file_name, f.is_public, f.is_folder, f.user_id, fc.id, uc.username, fc.comment, f.given_file_name, f.description, f.last_updated, udp.file_id 
                     LIMIT 1;",
 						connection);
 

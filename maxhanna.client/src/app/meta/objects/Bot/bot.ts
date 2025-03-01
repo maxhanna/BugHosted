@@ -17,7 +17,6 @@ import { Scenario } from "../../helpers/story-flags";
 export class Bot extends Character {
   heroId?: number;
   botType: number;
-  botLevel: number;
 
   previousHeroPosition?: Vector2;
   leftArm?: MetaBotPart;
@@ -33,13 +32,26 @@ export class Bot extends Character {
 
 
   constructor(params: {
-    position: Vector2, id?: number, heroId?: number,
-    botType?: number, name?: string, spriteName?: string,
-    scale?: Vector2, level?: number, hp?: number,
-    leftArm?: MetaBotPart, rightArm?: MetaBotPart,
-    legs?: MetaBotPart, head?: MetaBotPart,
-    offsetX?: number, offsetY?: number, colorSwap?: ColorSwap,
-    isDeployed?: boolean, isEnemy?: boolean,
+    position: Vector2,
+    id?: number,
+    heroId?: number,
+    botType?: number,
+    name?: string,
+    spriteName?: string,
+    scale?: Vector2,
+    level?: number,
+    exp?: number,
+    expForNextLevel?: number,
+    hp?: number,
+    leftArm?: MetaBotPart,
+    rightArm?: MetaBotPart,
+    legs?: MetaBotPart,
+    head?: MetaBotPart,
+    offsetX?: number,
+    offsetY?: number,
+    colorSwap?: ColorSwap,
+    isDeployed?: boolean,
+    isEnemy?: boolean,
     preventDraw?: boolean,
   }) {
     super({
@@ -48,6 +60,9 @@ export class Bot extends Character {
       colorSwap: params.colorSwap,
       speed: 1,
       name: "Bot",
+      exp: params.exp ?? 0,
+      expForNextLevel: params.expForNextLevel ?? 0,
+      level: params.level ?? 1,
       body: new Sprite({
         resource: resources.images[params.spriteName ?? "botFrame"],
         frameSize: params.spriteName == "white" ? new Vector2(0, 0) : new Vector2(32, 32),
@@ -76,7 +91,7 @@ export class Bot extends Character {
     this.heroId = params.heroId;
     this.facingDirection = DOWN;
     this.botType = params.botType ?? this.getBotType();
-    this.botLevel = params.level ?? 1;
+    this.level = params.level ?? 1;
     this.hp = params.hp ?? 1;
     this.leftArm = params.leftArm;
     this.rightArm = params.rightArm;
@@ -135,6 +150,7 @@ export class Bot extends Character {
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     if (this.isDeployed && this.isEnemy) {
       this.drawHP(ctx, drawPosX, drawPosY);
+      this.drawExp(ctx, drawPosX, drawPosY);
     }
   }
 
@@ -181,7 +197,7 @@ export class Bot extends Character {
     // Define available attack parts
     const attackParts: string[] = ["leftArm", "rightArm", "legs", "head"];
     const attackPart = this[attackParts[Math.floor(Math.random() * attackParts.length)] as keyof Bot];
-    const damage = this.botLevel * (attackPart?.damageMod ?? 1);
+    const damage = this.level * (attackPart?.damageMod ?? 1);
 
     // Apply damage
     target.hp -= damage;
