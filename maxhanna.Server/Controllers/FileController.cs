@@ -1417,7 +1417,8 @@ namespace maxhanna.Server.Controllers
                         f.given_file_name,
                         f.description,
                         f.last_updated as file_data_updated,
-                        f.last_access as last_access
+                        f.last_access as last_access,
+												udp.file_id AS commentUserDisplayPicId
                     FROM 
                         maxhanna.file_uploads f    
                     LEFT JOIN 
@@ -1426,6 +1427,9 @@ namespace maxhanna.Server.Controllers
                         maxhanna.users u ON u.id = f.user_id 
                     LEFT JOIN 
                         maxhanna.users uc ON fc.user_id = uc.id   
+										LEFT JOIN 
+												maxhanna.user_display_pictures udp ON udp.user_id = uc.id
+
                     WHERE 
                         (f.file_name = @fileName OR f.file_name = @originalFileName)
                         AND f.folder_path = @folderPath 
@@ -1435,7 +1439,7 @@ namespace maxhanna.Server.Controllers
                             FIND_IN_SET(@userId, f.shared_with) > 0
                         ) 
                     GROUP BY 
-                        f.id, u.username, f.file_name, f.is_public, f.is_folder, f.user_id, fc.id, uc.username, fc.comment, f.given_file_name, f.description, f.last_updated 
+                        f.id, u.username, f.file_name, f.is_public, f.is_folder, f.user_id, fc.id, uc.username, fc.comment, f.given_file_name, f.description, f.last_updated, udp.file_id
                     LIMIT 1;",
 						connection);
 
@@ -1492,9 +1496,7 @@ namespace maxhanna.Server.Controllers
 
 
 								int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
-								string? displayPicFolderPath = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFolderPath")) ? null : reader.GetString("commentUserDisplayPicFolderPath");
-								string? displayPicFileFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
-								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId), Directory = displayPicFolderPath, FileName = displayPicFileFileName } : null;
+							 	FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
 
 								var fileComment = new FileComment
 								{

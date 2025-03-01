@@ -550,6 +550,10 @@ namespace maxhanna.Server.Controllers
 							Title = $"{tmpUser.Username}, Notification from {(request.FromUser?.Username ?? "Anonymous")}",
 							Body = tmpMessage,
 						},
+						Data = new Dictionary<string, string>
+						{ 
+                { "url", "https://bughosted.com" }
+						},
 						Topic = "notification" + tmpUser.Id
 					};
 
