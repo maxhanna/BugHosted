@@ -141,7 +141,7 @@ export class ReactionComponent implements OnInit {
   closeReactionDisplay() {
     this.showReactionChoices = false;
     console.log("closed");
-    if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
+    if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
     }
   }
@@ -164,8 +164,8 @@ export class ReactionComponent implements OnInit {
   closeReactionsPanel() {
     this.showReactions = false;
 
-    if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
-      this.inputtedParentRef.isShowingOverlay = false;
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.closeOverlay();
     }
   }
   replaceReactionType(type?: string) {

@@ -581,8 +581,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   closeSearchSocialsPanel() {
     this.isSearchSocialsPanelOpen = false;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
   showMobileTopicsPanel() {
@@ -593,8 +593,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   closeMobileTopicsPanel() {
     this.isMobileTopicsPanelOpen = false;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
   showMenuPanel() {
@@ -609,8 +609,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
   showStoryOptionsPanel(story: Story) {
@@ -628,13 +628,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.isStoryOptionsPanelOpen = false;
     this.optionStory = undefined;
 
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
-  showPostOptionsPanel() {
+  showPostOptionsPanel() { 
     if (this.isPostOptionsPanelOpen) {
       this.closePostOptionsPanel();
+      if (this.parentRef) {
+        this.parentRef.closeOverlay();
+      }
       return;
     }
     this.isPostOptionsPanelOpen = true;
@@ -645,8 +648,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   closePostOptionsPanel() {
     this.isPostOptionsPanelOpen = false;
 
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
   openInsertEmojiPanel() {
@@ -662,8 +665,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   closeInsertEmojiPanel() {
     this.isEmojiPanelOpen = false;
 
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
   isEditButtonVisible(storyId?: number) {

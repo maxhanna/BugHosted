@@ -179,6 +179,15 @@ singleAttachment {
   gap: 20px;
 }
 
+.metadataOptionsStats {
+  margin-top:10px; 
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border: var(--main-border);
+  border-width: 4px;
+}
+
 .createdByStoryOptionsDiv {
   width: 100%;
   margin-bottom: 10px;

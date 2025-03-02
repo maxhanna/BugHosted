@@ -58,8 +58,8 @@ export class MemeComponent extends ChildComponent  {
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   } 
   topTopicClicked(topic: TopicRank) {

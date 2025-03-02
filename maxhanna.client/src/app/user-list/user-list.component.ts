@@ -123,7 +123,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   closeOverlayOnClick(user?: User) {
     this.userClickEvent.emit(user);
     this.openChat(user);
-    if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
+    if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
     }
   }

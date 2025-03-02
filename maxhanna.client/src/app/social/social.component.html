@@ -17,7 +17,7 @@
     <!-- Search Popup -->
     <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen">
       <div class="popupPanelTitle">Search the Socials</div>
-   
+
       <div class="searchSocialsPanelContentDiv">
         <div class="smallFont">
           Search in : Text, City, Country, and Username.
@@ -230,20 +230,24 @@
             {{formatDate(optionStory.date)}}
           </div>
         </div>
-        <ng-container *ngFor="let metadata of optionStory.metadata">
+        <div class="metadataOptionsStats" *ngFor="let metadata of optionStory.metadata">
           <div class="optionsStatsDiv">
             <div class="optionsStatsHeader">
               Metadata URL:
             </div>
             <div class="optionsStatsDescription">
               <a [href]="metadata.url" target="_blank" [title]="metadata.url">{{metadata.url}}</a>
-            </div> 
+            </div>
+          </div>
+          <div class="optionsStatsDiv">
             <div class="optionsStatsHeader">
               Metadata Title:
             </div>
             <div class="optionsStatsDescription" [title]="metadata.title">
               {{ metadata.title.replace(' - YouTube', '') }}
-            </div> 
+            </div>
+          </div>
+          <div class="optionsStatsDiv">
             <div class="optionsStatsHeader">
               Save to Music Playlist:
             </div>
@@ -251,7 +255,7 @@
               <button (click)="addToMusicPlaylist(optionStory, metadata, $event);" title="Save this Youtube URL to your Music Playlist">💾Save</button>
             </div>
           </div>
-        </ng-container>
+        </div>
       </div>
 
       <button id="closeOverlay" (click)="closeStoryOptionsPanel()">Close</button>
@@ -289,21 +293,21 @@
             )
           </span>
         </button>
-        <button class="storyControlFlairButton" 
+        <button class="storyControlFlairButton"
                 (click)="insertBold();"
                 title="Bold">
           <span style="font-weight:900">B</span>
         </button>
-        <button class="storyControlFlairButton" 
+        <button class="storyControlFlairButton"
                 (click)="insertItalics();"
                 title="Italic">
           <span style="font-style:italic">I</span>
         </button>
-        <button class="storyControlFlairButton" 
+        <button class="storyControlFlairButton"
                 (click)="insertBullet();" title="Bullet-point">
           <span>&bull;</span>
         </button>
-        <button class="storyControlFlairButton" 
+        <button class="storyControlFlairButton"
                 (click)="openInsertEmojiPanel();" title="Emoji">
           <span>😊</span>
         </button>
@@ -418,7 +422,7 @@
                 <button class="playButtonInMetadataImage playButton" *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
               </div>
             </div>
-          </div> 
+          </div>
         </div>
         <div>
           <app-comments *ngIf="story"

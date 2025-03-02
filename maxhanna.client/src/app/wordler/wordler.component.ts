@@ -450,8 +450,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
   setTopScores() {

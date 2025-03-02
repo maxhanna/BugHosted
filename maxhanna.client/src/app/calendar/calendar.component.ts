@@ -291,8 +291,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
   }
   async onMonthChange() {

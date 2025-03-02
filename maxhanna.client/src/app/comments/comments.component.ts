@@ -215,11 +215,10 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   closeOptionsPanel() {
     this.isOptionsPanelOpen = false;
     this.optionsComment = undefined;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
-    } else if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
-      this.inputtedParentRef.isShowingOverlay = false;
-    }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.closeOverlay();
+    } 
   } 
   changedCommentCount(event: any) { 
     if (document.getElementById("commentIdCount" + event.comment_id)) {

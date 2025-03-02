@@ -16,14 +16,13 @@
 }
 
 .overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
+  position: fixed; 
+  top: 0;  
+  left: 0;
   width: 100vw;
-  height: CALC(var(--vh, 1vh) * 100);
+  height: 100vh;
   background-color: var(--main-highlight-color-quarter-opacity);
-  z-index: 2;
-  transform: translate(-50%, -50%);
+  z-index: 2;  
   overflow: hidden;
 }
 

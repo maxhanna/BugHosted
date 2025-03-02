@@ -1,6 +1,6 @@
 import { Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 import { FileService } from '../../services/file.service';
-import { HttpEventType } from '@angular/common/http'; 
+import { HttpEvent, HttpEventType } from '@angular/common/http';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
@@ -47,7 +47,7 @@ export class FileUploadComponent {
   uploadInitiate() {
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
       this.displayListContainer = true;
-      if (this.inputtedParentRef) { 
+      if (this.inputtedParentRef) {
         this.inputtedParentRef.showOverlay();
       }
 
@@ -63,7 +63,8 @@ export class FileUploadComponent {
     this.fileInput.nativeElement.value = '';
     this.userCancelEvent.emit(true);
     this.displayListContainer = false;
-    if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
+     
+    if (this.inputtedParentRef) {
       this.inputtedParentRef.closeOverlay();
     }
   }
@@ -79,19 +80,19 @@ export class FileUploadComponent {
   }
   removeFile(file: File) {
     if (this.uploadProgress[file.name]) { return; }
-    this.uploadFileList = this.uploadFileList.filter(f => f !== file); 
+    this.uploadFileList = this.uploadFileList.filter(f => f !== file);
     if (this.uploadFileList.length == 0) {
       this.cancelFileUpload();
     }
   }
-  async upload() {
+  private async upload() {
     if (!this.uploadFileList) { return alert("weird bug, cant find fileInput"); }
 
     const files = this.uploadFileList;
     if (!files || !files.length || this.uploadFileList.length == 0) {
       return alert("No file to upload!");
     }
-    this.isUploading = true; 
+    this.isUploading = true;
     this.displayFileUploadOptions = false;
     this.displayFileUploadTopics = false;
 
@@ -101,7 +102,7 @@ export class FileUploadComponent {
 
     const directoryInput = (this.currentDirectory || '').replace(/\/+$/, '');
     const fileNames = Array.from(files).map(file => file.name);
-     
+
     try {
       filesArray.forEach((file, index) => {
         const formData = new FormData();
@@ -115,42 +116,49 @@ export class FileUploadComponent {
                 this.uploadProgress[file.name] = Math.round(100 * (event.loaded / event.total!));
               }
               else if (event.type === HttpEventType.Response) {
-                const parsedFile = (JSON.parse(event.body) as FileEntry[])[0];
-                this.uploadedFileList.push(parsedFile);
-                console.log(parsedFile);
-                const tmpFileEntry = new FileEntry(parsedFile.id);
-                await this.fileService.editTopics(this.inputtedParentRef?.user ?? new User(0, "Anonymous"), tmpFileEntry, this.fileUploadTopics);
-                this.checkIfLastFileUploaded(filesArray, this.uploadedFileList.length);
+                this.handleUploadedFile(event, filesArray);
               }
             },
             error: (error) => {
               console.error(`Error uploading ${file.name}:`, error);
-              this.checkIfLastFileUploaded(filesArray, this.uploadedFileList.length);
+              this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
             }
           });
-        } 
-      }); 
+        }
+      });
     } catch (ex) {
       console.log(ex);
       this.userNotificationEvent.emit((ex as Error).message);
     }
   }
 
-  private checkIfLastFileUploaded(filesArray: File[], index: number) { 
+  private handleUploadedFile(event: any, filesArray: File[]) {
+    const parsedFile = (JSON.parse(event.body) as FileEntry[])[0];
+    this.uploadedFileList.push(parsedFile);
+    if (this.fileUploadTopics.length > 0) {
+      const tmpFileEntry = new FileEntry(parsedFile.id);
+      this.fileService.editTopics(this.inputtedParentRef?.user ?? new User(0, "Anonymous"), tmpFileEntry, this.fileUploadTopics);
+    }
+    this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
+  }
+
+  private lastFileUploadedCheck(filesArray: File[], index: number) {
     if (filesArray.length == index) {
-      this.uploadedFileList.forEach(x => {
-        x.topics = this.fileUploadTopics;
-      })
+      if (this.fileUploadTopics.length > 0) { 
+        this.uploadedFileList.forEach(x => {
+          x.topics = this.fileUploadTopics;
+        });
+      }
 
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
-      this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`); 
+      this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`);
 
       this.uploadProgress = {};
       this.isUploading = false;
       this.uploadFileList = [];
       this.uploadedFileList = [];
-      this.fileInput.nativeElement.value = ''; 
-      this.displayListContainer = false; 
+      this.fileInput.nativeElement.value = '';
+      this.displayListContainer = false;
 
       this.fileUploadTopics = [];
       if (this.inputtedParentRef) {

@@ -478,8 +478,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
     }
     console.log("closed");
     setTimeout(() => {

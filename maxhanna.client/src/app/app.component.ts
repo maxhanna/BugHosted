@@ -344,7 +344,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.isShowingOverlay = true; 
     document.body.style.overflow = "hidden";  
   }
-  closeOverlay() { 
+  closeOverlay() {
+    console.log("closing overlay");
     const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay"); 
     closeButtons.forEach((button) => button.click()); 
     this.isShowingOverlay = false;

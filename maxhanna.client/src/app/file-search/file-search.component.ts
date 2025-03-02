@@ -533,21 +533,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     }
     this.isOptionsPanelOpen = true;
     this.optionsFile = file;
-    if (this.parentRef) {
-      this.parentRef.showOverlay();
-    }
-    else if (this.inputtedParentRef) {
-      this.inputtedParentRef.showOverlay();
-    }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+
+    if (parent) {
+      parent.showOverlay();
+    } 
   }
   closeOptionsPanel() {
     this.isOptionsPanelOpen = false;
     this.optionsFile = undefined;
-    if (this.parentRef && this.parentRef.isShowingOverlay) {
-      this.parentRef.isShowingOverlay = false;
-    } else if (this.inputtedParentRef && this.inputtedParentRef.isShowingOverlay) {
-      this.inputtedParentRef.isShowingOverlay = false;
-    }
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.closeOverlay();
+    } 
   }
   shouldShowEditButton(optionsFile: any): boolean {
     if (!optionsFile?.user?.id || !this.user?.id || this.currentDirectory === 'Users/') {
