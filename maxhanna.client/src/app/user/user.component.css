@@ -166,17 +166,22 @@
 
 .popupPanel { 
   width: 320px; 
-} 
+}
 .aboutPopupPanel {
-  height: 500px;
+  height: CALC(var(--vh, 1vh) * 100);
+  width: 100vw;
   justify-content: space-between;
 }
- 
-.popupPanelTitle {
-  display: flex;
-  width: 100%;
-  justify-content: space-evenly;
-}
+  .aboutPopupPanel #closeOverlay {
+    margin-top: 20px;
+    margin-bottom: 15px;
+  }
+
+  .popupPanelTitle {
+    display: flex;
+    width: 100%;
+    justify-content: space-evenly;
+  }
 
 .friendsListWrapperDiv {
   display: flex;
@@ -222,11 +227,7 @@
   margin-left: 25px;
   padding: 10px;
 } 
-
-.topProfileContainer {
-  max-height: 350px;
-  overflow: auto;
-}
+ 
 
 .seperatedUserHeader {
   display: flex;
@@ -251,7 +252,7 @@
 }
 
 .aboutPopupPanelContentContainer {
-  width: 100%;
+  width: CALC(100% - 40px);
 }
 .aboutPictureContainer {
   display: flex;
@@ -260,4 +261,32 @@
   justify-content: space-between;
   align-content: space-between;
   gap: 30px;
+}
+.trophyContainerWrapper {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-content: center;
+  justify-content: center;
+  gap: 20px;
+}
+.trophyContainer {
+  display: flex;
+  flex-direction: column;
+  padding: 5px 10px;
+  max-width: 70px;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  text-align: center;
+}
+.trophy {
+  max-width:50px;
+  max-height:50px;
+  border: 1px solid var(--main-link-color);
+  border-radius: 12px;
+}
+.aboutPopupPanelContentContainer .optionsStatsWrapperDiv {
+  height: unset !important;
 } 

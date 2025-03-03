@@ -222,19 +222,30 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async selectMenuIcon(title: string) {
-    if (this.parentRef?.isModalOpen) {
-      return event?.preventDefault();
-    }
-    if (this.parentRef && this.parentRef.userSelectedNavigationItems.some(x => x.title == title)) {
-      this.parentRef!.userSelectedNavigationItems = this.parentRef!.userSelectedNavigationItems.filter(x => x.title != title);
-      this.userService.deleteMenuItem(this.parentRef?.user!, title);
-      this.parentRef?.showNotification(`Deleted menu item : ${title}`);
-    } else {
-      this.parentRef!.userSelectedNavigationItems!.push(new MenuItem(this.parentRef?.user?.id ?? 0, title));
-      if (this.parentRef && this.parentRef.user) {
-        this.userService.addMenuItem(this.parentRef.user, [title]);
+    const parent = this.inputtedParentRef ?? this.parentRef;
+
+    if (parent && parent.userSelectedNavigationItems.some(x => x.title == title)) {
+      parent.userSelectedNavigationItems = parent.userSelectedNavigationItems.filter(x => x.title != title);
+      if (!parent.user) {
+        parent.showNotification("You must be logged in to persist menu selections.");
+      } else { 
+        this.userService.deleteMenuItem(parent.user, title).then(res => {
+          if (res) {
+            parent.showNotification(res);
+          }
+        });
       }
-      this.parentRef?.showNotification(`Added menu item : ${title}`);
+    } else if (parent) {
+      parent.userSelectedNavigationItems!.push(new MenuItem(parent.user?.id ?? 0, title));
+      if (!parent.user) {
+        parent.showNotification("You must be logged in to persist menu selections."); 
+      } else if (parent && parent.user) {
+        this.userService.addMenuItem(parent.user, [title]).then(res => {
+          if (res) {
+            parent.showNotification(res);
+          }
+        });
+      } 
     }
   }
 

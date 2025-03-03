@@ -1,4 +1,4 @@
- import { FileEntry } from "../file/file-entry";
+import { FileEntry } from "../file/file-entry";
 import { UserAbout } from "./user-about";
 
 export class User {

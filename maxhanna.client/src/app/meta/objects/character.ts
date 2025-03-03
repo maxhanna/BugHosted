@@ -487,8 +487,3 @@ export class Character extends GameObject {
   }
 
 }
-
-export interface Resource {
-	image: HTMLImageElement;
-	isLoaded: boolean;
-}

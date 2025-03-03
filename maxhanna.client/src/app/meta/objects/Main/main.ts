@@ -9,6 +9,8 @@ import { Level } from "../Level/level";
 import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
 import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
 import { Character } from "../character";
+import { Resources } from "../../helpers/resources";
+import { Sprite } from "../sprite";
 
 export class Main extends GameObject {
   level?: Level = undefined;
@@ -29,8 +31,7 @@ export class Main extends GameObject {
   }
 
   override ready() { 
-    this.addChild(this.inventory);
-
+    this.addChild(this.inventory); 
     //CHANGE LEVEL HANDLER
     events.on("CHANGE_LEVEL", this, (level: Level) => {
       this.setLevel(level);

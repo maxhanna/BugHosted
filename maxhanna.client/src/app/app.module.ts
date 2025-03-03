@@ -48,6 +48,7 @@ import { ModalComponent } from './modal/modal.component';
 import { NexusSupportScreenComponent } from './nexus-support-screen/nexus-support-screen.component';
 import { NotificationsComponent } from './notifications/notifications.component';
 import { InViewDirective } from './in-view.directive';
+import { CurrencyFlagPipe } from './currency-flag.pipe';
 import { MetaComponent } from './meta/meta.component';
 import { HostAiComponent } from './host-ai/host-ai.component';  
 
@@ -95,6 +96,7 @@ import { HostAiComponent } from './host-ai/host-ai.component';
     InViewDirective,
     MetaComponent,
     ClickableUrlsPipe,
+    CurrencyFlagPipe,
     HostAiComponent,
   ],
   bootstrap: [AppComponent],
@@ -103,7 +105,8 @@ import { HostAiComponent } from './host-ai/host-ai.component';
     AppRoutingModule],
   exports: [
     InViewDirective,
-    ClickableUrlsPipe
+    ClickableUrlsPipe,
+    CurrencyFlagPipe
   ],
   providers: [
     provideHttpClient(withInterceptorsFromDi()),

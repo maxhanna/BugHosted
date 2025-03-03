@@ -13,8 +13,9 @@ import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
 import { FriendRequest } from '../../services/datacontracts/friends/friendship-request';
 import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
-import { WeatherLocation } from '../../services/datacontracts/weather/weather-location';
-
+import { Trophy } from '../../services/datacontracts/user/trophy';
+import { WeatherLocation } from '../../services/datacontracts/weather/weather-location'; 
+import { CurrencyFlagPipe } from '../currency-flag.pipe'; 
 
 @Component({
   selector: 'app-user',
@@ -44,7 +45,6 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isWeatherLocationToggled = false;
   isMenuIconsToggled = true;
   isFriendRequestsExpanded = false;
-  isAboutExpanded = true;
   isAboutOpen = false;
   isFriendsPanelOpen = false;
   isAboutPanelOpen = false;
@@ -57,11 +57,14 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   friendRequestsSent: FriendRequest[] = [];
   friendRequestsReceived: FriendRequest[] = [];
   contacts: Contact[] = [];
-  isMusicContainerExpanded = false;
+  isMusicContainerExpanded = true;
+  isAboutExpanded = true;
+  isTrophyExpanded = true;
   playListCount = 0;
   playListFirstFetch = true;
   justLoggedIn = false;
   songPlaylist: Todo[] = [];
+  trophies?: Trophy[] = undefined;
   wordlerStreak: number = 0;
   weatherLocation = "";
 
@@ -125,7 +128,20 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.closeUserComponentEvent.emit();
     super.remove_me(title);
   }
-
+  async getTrophies() {
+    const user = this.user ?? this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user) {
+      this.userService.getTrophies(user).then(res => {
+        if (res) {
+          this.trophies = res as Trophy[];
+        } else {
+          this.trophies = [];
+        }
+      })
+    } else {
+      this.trophies = [];
+    }
+  }
   async gotPlaylistEvent(event: Array<Todo>) {
     this.playListCount = event.length;
   }
@@ -181,16 +197,18 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   expandDiv(event: string) {
     console.log(event);
-    const isOpen = event === "aboutContainer" ? this.isAboutExpanded : this.isMusicContainerExpanded;
+    const isOpen = event === "aboutContainer" ? this.isAboutExpanded
+      : event === "musicProfileContainer" ? this.isMusicContainerExpanded
+        : this.isTrophyExpanded;
     console.log(isOpen);
-
-    this.isAboutExpanded = false;
-    this.isMusicContainerExpanded = false;
+     
 
     if (event === "aboutContainer") {
       this.isAboutExpanded = !!!isOpen;
     } else if (event === "musicProfileContainer") {
       this.isMusicContainerExpanded = !!!isOpen;
+    } else if (event === "trophyContainer") {
+      this.isTrophyExpanded = !!!isOpen;
     }
   }
 
@@ -506,6 +524,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const parent = this.parentRef ?? this.inputtedParentRef;
     if (parent) {
       parent.showOverlay();
+    }
+    if (!this.trophies) {
+      this.getTrophies();
     }
   }
   closeAboutPanel() {

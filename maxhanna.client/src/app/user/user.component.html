@@ -27,7 +27,7 @@
         </div>
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Location: </div>
-          <div>{{weatherLocation || 'Unknown'}}</div>
+          <div>{{weatherLocation || 'Unknown'}} {{ user?.about?.currency || '' | currencyFlag }}</div>
         </div>
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Joined: </div>
@@ -294,12 +294,12 @@
     <div class="topProfileContainer" id="aboutContainer">
       <div *ngIf="user || parentRef?.user" class="aboutContainer">
         <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer');">
-          {{isAboutExpanded ? '-' : '+'}}
+          [{{isAboutExpanded ? '-' : '+'}}]
           About
         </span>
 
         <div *ngIf="isAboutExpanded">
-          <div class="optionsStatsWrapperDiv"> 
+          <div class="optionsStatsWrapperDiv">
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
                 Last Seen :
@@ -350,7 +350,7 @@
                 Currency :
               </div>
               <div class="optionsStatsDescription">
-                {{user?.about?.currency}}
+                {{ user?.about?.currency }} {{ user?.about?.currency || '' | currencyFlag }}
               </div>
             </div>
 
@@ -362,14 +362,44 @@
                 {{wordlerStreak}} consecutive days.
               </div>
             </div>
-          </div> 
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- TROPHIES -->
+    <div class="topProfileContainer" id="trophyContainer">
+      <div *ngIf="user || parentRef?.user" class="aboutContainer">
+        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('trophyContainer');">
+          [{{isTrophyExpanded ? '-' : '+'}}]
+          Trophies
+        </span>
+
+        <div *ngIf="isTrophyExpanded" class="trophyContainerWrapper">
+          <div *ngFor="let trophy of trophies">
+            <div class="trophyContainer">
+              <div class="trophy" [style.backgroundColor]="
+                   trophy.name == 'Bug Hunter' ? 'mediumblue'
+                   : trophy.name == 'Owner' ? 'crimson'
+                   : 'default'">
+                <app-media-viewer [displayExpander]="false"
+                                  [displayExtraInfo]="false"
+                                  [showCommentSection]="false"
+                                  [file]="trophy.file"
+                                  [inputtedParentRef]="inputtedParentRef ?? parentRef">
+                </app-media-viewer>
+              </div>
+              <div>
+                {{trophy.name}}
+              </div>
+            </div> 
+          </div>
         </div>
       </div>
     </div>
     <!-- MUSIC -->
     <div class="topProfileContainer" id="musicProfileContainer">
       <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('musicProfileContainer');">
-        {{isMusicContainerExpanded ? '-' : '+'}} 
+        [{{isMusicContainerExpanded ? '-' : '+'}}]
         Music Playlist
         <span class="xxSmallFont">{{'('+(playListCount || songPlaylist.length)+')'}}</span>
       </span>

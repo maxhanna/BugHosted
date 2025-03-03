@@ -204,6 +204,7 @@ export class Fight extends Level {
       this.performEnemyAttacks();
     }
   }
+
   private calculateAndApplyDamage(attackingBot: MetaBot | undefined, attackingHeroSkill: Skill) {
     if (attackingBot && attackingBot.hp > 0) {
       console.log(attackingHeroSkill);

@@ -1,10 +1,9 @@
-import { Bugcatcher } from "../objects/Npc/Bugcatcher/bugcatcher";
-
-
 export class Resources {
+
   toLoad: { [key: string]: string };
   images: { [key: string]: any } = {};
   dir = "assets/metabots/";
+  initialized = false;
   constructor() {
     this.toLoad = {
       advertisementpanelside: `${this.dir}advertisementpanelside.png`,
@@ -104,17 +103,37 @@ export class Resources {
       xbox: `${this.dir}xbox.png`,
     };
     this.images = {};
+    this.waitForCanvas(); 
+  }
 
+  waitForCanvas() {  
+    const observer = new MutationObserver((mutations, obs) => {
+      if (document.getElementById("gameCanvas")) {
+        obs.disconnect();
+        this.loadResources();
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
+  loadResources() {
+    if (this.initialized) return;
+    this.initialized = true;
+    console.log("Loading Metabot resources...");
     Object.keys(this.toLoad).forEach((key: string) => {
-      const img = new Image();
-      img.src = this.toLoad[key];
-      this.images[key] = {
-        image: img,
-        isLoaded: false
-      };
-      img.onload = () => {
-        this.images[key].isLoaded = true;
-      };
+      if (!this.images[key]) {
+        const img = new Image();
+        img.src = this.toLoad[key];
+        this.images[key] = {
+          image: img,
+          isLoaded: false,
+        };
+         
+        img.onload = () => {
+          this.images[key].isLoaded = true;
+        };
+      }
     });
   }
 }
@@ -129,4 +148,8 @@ export function hexToRgb(hex: string) {
   let b = parseInt(hex.substring(4, 6), 16);
 
   return [r, g, b]; // Return the RGB values as an array
+}
+export interface Resource {
+  image: HTMLImageElement;
+  isLoaded: boolean; 
 }

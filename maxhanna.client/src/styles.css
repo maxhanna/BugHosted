@@ -223,12 +223,6 @@ fieldset {
   }
 }
 
-.miningStatusTable tr > :last-child {
-  position: sticky;
-  right: 0;
-  z-index: 1;
-}
-
 .mainTable {
   width: 100%;
   background-color: var(--main-bg-color);

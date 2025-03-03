@@ -1,6 +1,8 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { GameObject } from "../game-object";
 import { gridCells } from "../../helpers/grid-cells";
+import { Sprite } from "../sprite";
+import { resources } from "../../helpers/resources";
 
  
 export class Level extends GameObject {
@@ -10,7 +12,7 @@ export class Level extends GameObject {
   walls: Set<string> = new Set(); 
 
   constructor() {
-    super({ position: new Vector2(0, 0) });
+    super({ position: new Vector2(0, 0) }); 
   }
 
   getDefaultHeroPosition() {

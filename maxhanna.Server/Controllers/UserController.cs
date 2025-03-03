@@ -795,7 +795,7 @@ namespace maxhanna.Server.Controllers
 		[HttpDelete("/User/Menu", Name = "DeleteMenuItem")]
 		public async Task<IActionResult> DeleteMenuItem([FromBody] MenuItemRequest request)
 		{
-			_logger.LogInformation($"DELETE /User/Menu for user with ID: {request.User?.Id} and title: {request.Titles}");
+			_logger.LogInformation($"DELETE /User/Menu for user with UserId: {request.User.Id}, Titles: {(string.Join(", ", request.Titles))}");
 			if (request.User == null)
 			{
 				return BadRequest("User missing from DeleteMenuItem request");
@@ -809,7 +809,7 @@ namespace maxhanna.Server.Controllers
 				{
 					foreach (string item in request.Titles)
 					{
-						string sql = "DELETE FROM maxhanna.menu WHERE ownership = @UserId AND title = @Title";
+						string sql = "DELETE FROM maxhanna.menu WHERE ownership = @UserId AND LOWER(title) = LOWER(@Title) LIMIT 1;";
 
 						MySqlCommand cmd = new MySqlCommand(sql, conn);
 						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
@@ -884,6 +884,64 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 		}
+ 
+		[HttpPost("/User/Trophies", Name = "GetTrophies")]
+		public async Task<IActionResult> GetTrophies([FromBody] User user)
+		{
+			_logger.LogInformation($"POST /User/Trophies for user with ID: {user.Id}");
+			if (user == null)
+			{
+				return BadRequest("User missing from request");
+			}
+
+			List<Trophy> trophies = new List<Trophy>();
+
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string sql = @"
+                    SELECT 
+                        ut.id AS user_trophy_id,
+                        ut.user_id,
+                        ut.trophy_id,
+                        utt.name AS trophy_name,
+                        utt.file_id
+                    FROM user_trophy ut
+                    JOIN user_trophy_type utt ON ut.trophy_id = utt.id
+                    WHERE ut.user_id = @UserId;";
+
+					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", user.Id);
+
+						using (MySqlDataReader reader = await cmd.ExecuteReaderAsync())
+						{
+							while (await reader.ReadAsync())
+							{
+								trophies.Add(new Trophy
+								{
+									Id = reader.GetInt32("user_trophy_id"),
+									Name = reader["trophy_name"] as string,
+									File = reader["file_id"] != DBNull.Value
+												? new FileEntry { Id = reader.GetInt32("file_id") }
+												: null
+								});
+							}
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError($"Error fetching trophies: {ex.Message}");
+					return StatusCode(500, "An error occurred while retrieving trophies.");
+				}
+			}
+
+			return Ok(trophies);
+		} 
 
 		[HttpPost("/User/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
 		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request)

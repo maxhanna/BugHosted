@@ -1,7 +1,13 @@
  
 .miningStatusTable { 
   overflow: auto; 
-} 
+}
+
+  .miningStatusTable tr > :last-child {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+  }
 
 
 .deviceTable {
@@ -169,3 +175,4 @@
   font-size: smaller;
   padding: 10px;
 }
+

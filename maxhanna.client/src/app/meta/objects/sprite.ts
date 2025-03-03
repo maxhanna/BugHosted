@@ -2,6 +2,7 @@ import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { Animations } from "../helpers/animations";
 import { BASE, FLOOR, GROUND, GameObject, HUD } from "./game-object";
+import { Resource } from "../helpers/resources";
 
 export class Sprite extends GameObject {
   objectId: number;
@@ -63,8 +64,8 @@ export class Sprite extends GameObject {
     this.offsetX = params.offsetX ?? 0;
     this.offsetY = params.offsetY ?? 0;
     this.preventDraw = params.preventDraw ?? false;
-    this.buildFrameMap();
-
+    this.buildFrameMap(); 
+     
 
     if (this.colorSwap) {
       new Promise(resolve => {
@@ -256,9 +257,4 @@ export class Sprite extends GameObject {
       }
     }
   }
-}
-
-export interface Resource {
-  image: HTMLImageElement;
-  isLoaded: boolean;
 }

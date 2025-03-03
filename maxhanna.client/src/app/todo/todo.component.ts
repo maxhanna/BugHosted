@@ -14,6 +14,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
   todos: Array<Todo> = [];
   todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe', "Wife"];
   todoCount = 0;
+  isEditListPanelOpen = false;
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -75,5 +76,13 @@ export class TodoComponent extends ChildComponent implements OnInit {
   }
   async search() {
     this.getTodoInfo();
+  }
+  openEditListPanel() {
+    this.isEditListPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+  closeEditListPanel() {
+    this.isEditListPanelOpen = false;
+    this.parentRef?.closeOverlay();
   }
 }

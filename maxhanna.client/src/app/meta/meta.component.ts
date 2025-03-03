@@ -7,7 +7,7 @@ import { MetaService } from '../../services/meta.service';
 import { MetaChat } from '../../services/datacontracts/meta/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
-import { hexToRgb } from './helpers/resources';
+import { Resources, hexToRgb } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
 import { Hero } from './objects/Hero/hero';
@@ -51,21 +51,21 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 	@ViewChild('colorInput') colorInput!: ElementRef<HTMLInputElement>;
 
 	constructor(private metaService: MetaService) {
-		super();
+    super(); 
 		this.hero = {} as Hero;
 		this.metaHero = {} as MetaHero;
 		this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id, metaHero: this.metaHero, hero: this.hero });
 		this.subscribeToMainGameEvents();
-		this.parentRef?.setViewportScalability(false);
+    this.parentRef?.setViewportScalability(false); 
 	}
 	canvas!: HTMLCanvasElement;
 	ctx!: CanvasRenderingContext2D;
 	pollSeconds = 1;
 	isUserComponentOpen = false;
 
-	mainScene: Main;
+	mainScene?: any;
 	metaHero: MetaHero;
-	hero: Hero;
+	hero?: Hero;
 	otherHeroes: MetaHero[] = [];
 	partyMembers: MetaHero[] = [];
 	chat: MetaChat[] = [];
@@ -89,7 +89,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		this.parentRef?.setViewportScalability(true);
 	}
 
-	async ngOnInit() {
+  async ngOnInit() { 
 		this.canvas = this.gameCanvas.nativeElement;
 		this.ctx = this.canvas.getContext("2d")!;
 		if (!this.parentRef?.user) {
@@ -123,7 +123,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 	gameLoop = new GameLoop(this.update, this.render);
 
 	async pollForChanges() {
-		if (!this.hero.id && this.parentRef?.user) {
+		if (!this.hero?.id && this.parentRef?.user) {
 			const rz = await this.metaService.getHero(this.parentRef.user);
 			if (rz) {
 				await this.reinitializeHero(rz);
@@ -436,7 +436,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 	private getLevelFromLevelName(key: string): Level {
 		const upperKey = key.toUpperCase();
-		const itemsFoundNames = this.mainScene.inventory.getItemsFound();
+		const itemsFoundNames = this.mainScene?.inventory.getItemsFound();
 
 		if (upperKey == "HEROROOM") return new HeroRoomLevel({ itemsFound: itemsFoundNames });
 		else if (upperKey == "CAVELEVEL1") return new CaveLevel1({ itemsFound: itemsFoundNames });
@@ -451,7 +451,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		else if (upperKey == "FIGHT") return new Fight(
 			{
 				metaHero: this.metaHero,
-				parts: this.mainScene.inventory.parts.filter(x => x.metabotId),
+				parts: this.mainScene?.inventory.parts.filter((x: any) => x.metabotId),
 				entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFoundNames }) : this.getLevelFromLevelName(this.metaHero.map)),
 				enemies: undefined,
 				party: [this.metaHero],
@@ -465,7 +465,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 	private subscribeToMainGameEvents() {
 		events.on("CHANGE_LEVEL", this.mainScene, (level: Level) => {
 			this.otherHeroes = [];
-			if (!this.hero.id) {
+			if (!this.hero?.id) {
 				this.pollForChanges();
 			}
 			if (this.mainScene && this.mainScene.level) {
@@ -516,7 +516,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       if (!this.actionBlocker) {
         console.log("shop opened");
         this.blockOpenStartMenu = true;
-				this.mainScene.setLevel(new ShopMenu(params));
+				this.mainScene?.setLevel(new ShopMenu(params));
 				this.stopPollingForUpdates = true;
 				this.setActionBlocker(50);
 			}
@@ -524,8 +524,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 		events.on("SHOP_OPENED_TO_SELL", this, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
 			let shopParts: InventoryItem[] = [];
-			let x = 0;
-			const parts = this.mainScene.inventory.parts.sort((x, y) => {
+      let x = 0;
+      const parts = this.mainScene.inventory.parts.sort((x: MetaBotPart, y: MetaBotPart) => {
 				const xId = x.metabotId ?? 0;
 				const yId = y.metabotId ?? 0;
 				return xId - yId;
@@ -740,10 +740,10 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 				console.log(partName, skillName, damageMod);
 
-				const part = this.mainScene.inventory.parts.find(x => x.partName === partName && x.skill.name === skillName && x.damageMod === parseInt(damageMod) && !partIdNumbers.includes(x.id)) as MetaBotPart;
+				const part = this.mainScene.inventory.parts.find((x: any) => x.partName === partName && x.skill.name === skillName && x.damageMod === parseInt(damageMod) && !partIdNumbers.includes(x.id)) as MetaBotPart;
 				if (part) {
 					partIdNumbers.push(part.id);
-					this.mainScene.inventory.parts = this.mainScene.inventory.parts.filter(x => x.id !== part.id);
+					this.mainScene.inventory.parts = this.mainScene.inventory.parts.filter((x: any) => x.id !== part.id);
 				}
 			}
 
@@ -775,7 +775,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 			events.emit("CHANGE_LEVEL",
 				new Fight({
 					metaHero: this.metaHero,
-					parts: this.mainScene.inventory.parts.filter(x => x.metabotId),
+					parts: this.mainScene.inventory.parts.filter((x: any) => x.metabotId),
 					entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFound }) : this.getLevelFromLevelName(this.metaHero.map)),
 					enemies: [source],
 					party: this.partyMembers.length > 1 ? this.partyMembers : [this.metaHero],

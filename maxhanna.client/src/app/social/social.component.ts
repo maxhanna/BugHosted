@@ -427,6 +427,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     await this.getStories(this.currentPage).then(res => {
       this.scrollToStory();
     });
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
+    }
   }
   scrollToStory(storyId?: number): void {
     setTimeout(() => {
@@ -478,7 +481,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   onTopicAdded(topics?: Array<Topic>) {
-    if (topics) {
+    if (topics) {  
+      this.currentPage = 1;
       this.attachedTopics = topics;
       this.searchStories(topics);
       this.scrollToStory();

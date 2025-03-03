@@ -1,7 +1,9 @@
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { events } from "../helpers/events";
+import { resources } from "../helpers/resources";
 import { Scenario, storyFlags } from "../helpers/story-flags";
+import { Sprite } from "./sprite";
 
 export const BASE = "BASE";
 export const GROUND = "GROUND";
@@ -84,24 +86,24 @@ export class GameObject {
   getOrderedChildrenForDraw() {
     return [...this.children].sort((a, b) => {
       // Step 1: Prioritize by drawLayer order: BASE < GROUND < FLOOR < all others
-      if (a.drawLayer === "BASE" && b.drawLayer !== "BASE") {
+      if (a.drawLayer === BASE && b.drawLayer !== BASE) {
         return -1;
       }
-      if (b.drawLayer === "BASE" && a.drawLayer !== "BASE") {
+      if (b.drawLayer === BASE && a.drawLayer !== BASE) {
         return 1;
       }
 
-      if (a.drawLayer === "GROUND" && b.drawLayer !== "GROUND") {
+      if (a.drawLayer === GROUND && b.drawLayer !== GROUND) {
         return -1;
       }
-      if (b.drawLayer === "GROUND" && a.drawLayer !== "GROUND") {
+      if (b.drawLayer === GROUND && a.drawLayer !== GROUND) {
         return 1;
       }
 
-      if (a.drawLayer === "FLOOR" && b.drawLayer !== "FLOOR") {
+      if (a.drawLayer === FLOOR && b.drawLayer !== FLOOR) {
         return -1;
       }
-      if (b.drawLayer === "FLOOR" && a.drawLayer !== "FLOOR") {
+      if (b.drawLayer === FLOOR && a.drawLayer !== FLOOR) {
         return 1;
       }
 

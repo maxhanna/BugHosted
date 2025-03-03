@@ -37,6 +37,7 @@ namespace maxhanna.Server.Services
 				if ((DateTime.Now - _lastCoinFetchRun).TotalHours >= 1)
 				{
 					await FetchAndStoreCoinValues();
+					await AssignTrophies();
 					_lastCoinFetchRun = DateTime.Now;
 				}
 
@@ -323,6 +324,66 @@ namespace maxhanna.Server.Services
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "Error occurred while deleting old guest accounts.");
+			}
+		}
+
+		private async Task AssignTrophies()
+		{
+			int trophiesAssigned = 0;  // Counter for tracking the number of assigned trophies
+
+			try
+			{
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+
+					var trophyCriteria = new Dictionary<string, (string sql, int threshold)>
+						{
+								{ "Chat Master 50", ("SELECT sender AS user_id, COUNT(*) FROM messages GROUP BY sender HAVING COUNT(*) >= 50", 50) },
+								{ "Chat Master 100", ("SELECT sender AS user_id, COUNT(*) FROM messages GROUP BY sender HAVING COUNT(*) >= 100", 100) },
+								{ "Chat Master 150", ("SELECT sender AS user_id, COUNT(*) FROM messages GROUP BY sender HAVING COUNT(*) >= 150", 150) },
+								{ "Uploader 50", ("SELECT user_id, COUNT(*) FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 50", 50) },
+								{ "Uploader 100", ("SELECT user_id, COUNT(*) FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 100", 100) },
+								{ "Uploader 150", ("SELECT user_id, COUNT(*) FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 150", 150) },
+								{ "Topic Creator 1", ("SELECT created_by_user_id AS user_id, COUNT(*) FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 1", 1) },
+								{ "Topic Creator 3", ("SELECT created_by_user_id AS user_id, COUNT(*) FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 3", 3) },
+								{ "Topic Creator 10", ("SELECT created_by_user_id AS user_id, COUNT(*) FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10", 10) },
+								{ "Social Poster 10", ("SELECT user_id AS user_id, COUNT(*) FROM stories GROUP BY user_id HAVING COUNT(*) >= 10", 10) },
+								{ "Social Poster 50", ("SELECT user_id AS user_id, COUNT(*) FROM stories GROUP BY user_id HAVING COUNT(*) >= 50", 50) },
+								{ "Social Poster 100", ("SELECT user_id AS user_id, COUNT(*) FROM stories GROUP BY user_id HAVING COUNT(*) >= 100", 100) },
+						};
+
+					foreach (var trophy in trophyCriteria)
+					{
+						var awardTrophySql = @"
+                    INSERT INTO user_trophy (user_id, trophy_id)
+                    SELECT u.user_id, tt.id
+                    FROM (
+                        {0}
+                    ) u
+                    JOIN user_trophy_type tt ON tt.name = @TrophyName
+                    LEFT JOIN user_trophy ut ON ut.user_id = u.user_id AND ut.trophy_id = tt.id
+                    WHERE ut.user_id IS NULL;";
+
+						var queryCriteria = trophy.Value.sql;
+
+						// Format the SQL with the specific criteria
+						var finalSql = string.Format(awardTrophySql, queryCriteria);
+
+						using (var cmd = new MySqlCommand(finalSql, conn))
+						{
+							cmd.Parameters.AddWithValue("@TrophyName", trophy.Key);
+							int rowsAffected = await cmd.ExecuteNonQueryAsync();
+							trophiesAssigned += rowsAffected;  // Increment the counter by the number of rows inserted
+						}
+					}
+
+					_logger.LogInformation($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}");
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error occurred while assigning trophies.");
 			}
 		}
 

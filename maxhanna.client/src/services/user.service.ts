@@ -200,12 +200,9 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, title }),
+        body: JSON.stringify({ User: user, Titles: [title] }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete menu item.');
-      }
+       
 
       return await response.text();
     } catch (error) {
@@ -221,14 +218,27 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, titles }),
+        body: JSON.stringify({ User: user, Titles: titles }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to add menu item.');
-      }
-
       return await response.text();
+    } catch (error) {
+      console.error('An error occurred:', error);
+      return null;
+    }
+  }
+
+  async getTrophies(user: User) {
+    try {
+      const response = await fetch('/user/trophies', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user),
+      });
+
+      return await response.json();
     } catch (error) {
       console.error('An error occurred:', error);
       return null;

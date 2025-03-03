@@ -7,6 +7,7 @@ import { getBotsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
+import { calculateAndApplyDamage } from "../../helpers/fight";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./bot-animations";
 import { MetaBotPart } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
@@ -16,7 +17,7 @@ import { Scenario } from "../../helpers/story-flags";
 
 export class Bot extends Character {
   heroId?: number;
-  botType: number;
+  botType: SkillType.NORMAL | SkillType.SPEED | SkillType.STRENGTH | SkillType.ARMOR | SkillType.RANGED | SkillType.STEALTH | SkillType.INTELLIGENCE;
 
   previousHeroPosition?: Vector2;
   leftArm?: MetaBotPart;
@@ -28,6 +29,7 @@ export class Bot extends Character {
   targetedBy: Set<Bot> = new Set();
   targeting: Set<Bot> = new Set();
   lastAttack = new Date();
+  lastAttackPart?: MetaBotPart;
   lastTargetDate = new Date();
 
 
@@ -90,7 +92,7 @@ export class Bot extends Character {
     });
     this.heroId = params.heroId;
     this.facingDirection = DOWN;
-    this.botType = params.botType ?? this.getBotType();
+    this.botType = params.botType ?? SkillType.NORMAL;
     this.level = params.level ?? 1;
     this.hp = params.hp ?? 1;
     this.leftArm = params.leftArm;
@@ -195,14 +197,7 @@ export class Bot extends Character {
     }
     this.faceTarget(target);
     // Define available attack parts
-    const attackParts: string[] = ["leftArm", "rightArm", "legs", "head"];
-    const attackPart = this[attackParts[Math.floor(Math.random() * attackParts.length)] as keyof Bot];
-    const damage = this.level * (attackPart?.damageMod ?? 1);
-
-    // Apply damage
-    target.hp -= damage;
-
-    console.log(`${this.name} attacking ${target.name} with ${attackPart?.partName}. Damage : ${damage}, target remaining hp: ${target.hp}`);
+    calculateAndApplyDamage(this, target); 
   }
 
 
@@ -295,16 +290,5 @@ export class Bot extends Character {
       this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
       // console.log(this.destinationPosition);
     }
-  }
-
-  private getBotType() {
-    //let bType = SkillType.SPEED;
-    //if (this.botType == "armobot") {
-    //  bType = SkillType.STRENGTH;
-    //} else if (this.botType == "spiderBot") {
-    //  bType == ;
-    //}
-    return SkillType.SPEED;
-  }
-}
-
+  } 
+}  

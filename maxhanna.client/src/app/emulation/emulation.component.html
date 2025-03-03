@@ -76,7 +76,7 @@
 
 
 <!-- Menu Popup -->
-<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen"> 
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     Emulation Menu
     <span class="helperSpanTitle"
@@ -86,7 +86,7 @@
      🔊/🔇 : Click on this to mute/unmute the audio.
      ⌨️ Keyboard Controls: Arrows keys for movement; a = x, b = z, c = a, q for left trigger (gba), w for right trigger (gba) enter = start, shift = select.
      "></span>
-  </div>  
+  </div>
   <div class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
@@ -156,9 +156,65 @@
         <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)" title="Adjust volume levels">
       </div>
     </div>
+  </div>
 
-
-
+  <div class="optionsStatsWrapperDiv" *ngIf="!onMobile()">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Controller: A
+      </div>
+      <div class="optionsStatsDescription">
+        Keyboard: X
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Controller: B
+      </div>
+      <div class="optionsStatsDescription">
+        Keyboard: Z
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Controller: C
+      </div>
+      <div class="optionsStatsDescription">
+        Keyboard: A
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Controller: Left Trigger <span class="xxSmallFont">(GBA)</span>
+      </div>
+      <div class="optionsStatsDescription">
+        Keyboard: Q
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Controller: Right Trigger <span class="xxSmallFont">(GBA)</span>
+      </div>
+      <div class="optionsStatsDescription">
+        Keyboard: W
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Controller: START
+      </div>
+      <div class="optionsStatsDescription">
+        Keyboard: Enter
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Controller: SELECT
+      </div>
+      <div class="optionsStatsDescription">
+        Keyboard: Shift
+      </div>
+    </div>
   </div>
   <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
 </div>

@@ -369,7 +369,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     }
   }
   cleanStoryText(text: string) {
-    return text.replace(/\[\/?[^]\]/g, '').replace(/https?:\/\/[^\s]+/g, '');
+    return text?.replace(/\[\/?[^]\]/g, '')?.replace(/https?:\/\/[^\s]+/g, '');
   }
   replacePageTitleAndDescription(title: string, description: string) {
     let tmpTitle = title;

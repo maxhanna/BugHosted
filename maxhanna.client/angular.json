@@ -33,9 +33,7 @@
             "assets": [
               "src/favicon.ico",
               "src/sitemap.xml",
-              "src/assets/",
-              "src/assets/Uploads",
-              "src/assets/metabots",
+              "src/assets/", 
               "src/firebase-messaging-sw.js"
             ],
             "styles": [
@@ -57,12 +55,14 @@
                   "maximumError": "17kb"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "sourceMap": false,
+              "extractLicenses": true
             },
-            "development": { 
-              "optimization": false, 
-              "extractLicenses": false,
-              "sourceMap": true
+            "development": {
+              "optimization": false,
+              "extractLicenses": true,
+              "sourceMap": false
             }
           },
           "defaultConfiguration": "development"
@@ -134,9 +134,7 @@
             "assets": [
               "src/favicon.ico",
               "src/sitemap.xml",
-              "src/assets",
-              "src/assets/Uploads",
-              "src/assets/metabots",
+              "src/assets", 
               "src/firebase-messaging-sw.js"
             ],
             "styles": [

@@ -3,23 +3,26 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Checklist</div>
 
+  <div style="display: flex; justify-content: center; align-items: center; gap: 20px"> 
+    <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">
+      <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{ todoCount }})</span></option>
+    </select>
+    <span class="smallFont cursorPointerUnderlined" (click)="openEditListPanel()">[Edit]</span>
+  </div>
 
-  <fieldset class="addTodoInputFieldset">
-    <legend>Add</legend>
-    <input type="text" id="todoInput" placeholder="todo" #todoInput required (keydown.enter)="addTodo()" />
+  <fieldset class="addTodoInputFieldset"> 
+    <input type="text" id="todoInput" placeholder="Add to the {{selectedType.value}} list" #todoInput required (keydown.enter)="addTodo()" />
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
-    <input type="submit" value="💾" (click)="addTodo()" />
+    <input type="submit" value="💾Save" (click)="addTodo()" />
   </fieldset>
+
   <div class="mainTableContainer">
     <table class="mainTable" id="todoTable">
       <thead>
         <tr>
-          <th> 
-            <select #selectedType class=selectType (change)="typeOnChange()">
-              <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{ todoCount }})</span></option>
-            </select> 
+          <th>
             <input placeholder="Search" #searchInput (keyup)="search()" [style.visibility]="todos && todos.length > 1 ? 'visible' : 'hidden'" />
-            <button (click)="search()" [style.visibility]="todos && todos.length > 1 ? 'visible' : 'hidden'">🔍</button> 
+            <button (click)="search()" [style.visibility]="todos && todos.length > 1 ? 'visible' : 'hidden'">🔍</button>
           </th>
           <th (click)="sortTable(1, 'todoTable')">🔗</th>
           <th (click)="sortTable(2, 'todoTable')">📅</th>
@@ -36,5 +39,19 @@
       </tbody>
     </table>
     <div *ngIf="todos.length <= 0">Nothing in this list yet!</div>
+  </div>
+</div>
+
+<div class="popupPanel" *ngIf="isEditListPanelOpen">
+  <div class="popupPanelTitle">Edit list</div>
+  <div>
+    <div *ngFor="let type of todoTypes">{{type}} <span class="cursorPointer">[❌]</span></div>
+  </div>
+  <div>
+    <input #addNewTodo />
+    <button>Add</button>
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeEditListPanel()">Close</button>
   </div>
 </div>

@@ -47,11 +47,6 @@ export class MetaBot {
     this.isDeployed = params.isDeployed;
   }
 
-  calculateExpForNextLevel() {
-    this.expForNextLevel = (this.level + 1) * 5;
-    return this.expForNextLevel;
-  }
-
   generateReward(): MetaBotPart {
     const parts = [this.head, this.legs, this.leftArm, this.rightArm].filter(part => part !== undefined) as MetaBotPart[];
     const randomPart = parts[Math.floor(Math.random() * parts.length)];
