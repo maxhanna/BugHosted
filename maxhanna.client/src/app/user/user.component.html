@@ -27,7 +27,7 @@
         </div>
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Location: </div>
-          <div>{{weatherLocation || 'Unknown'}} {{ user?.about?.currency || '' | currencyFlag }}</div>
+          <div>{{weatherLocation?.city || 'Unknown'}} {{ (weatherLocation?.country ?? user?.about?.currency ?? '') | currencyFlag }}</div>
         </div>
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Joined: </div>

@@ -1,5 +1,42 @@
+.componentMain {
+  min-width: 300px;
+}
 .topLinks
 {
     align-content: center;
     text-align: center;
+}
+.favouriteDiv {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  flex-direction: column;
+  max-width: 70px; 
+}
+.favImage {
+  border: 1px solid var(--main-font-color);
+  border-radius: 12px;
+  background-color:white;
+}
+.favouriteDiv img, .favImage {
+  max-width: 50px;
+  max-height: 50px;
+}
+.favouriteDiv a {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+}
+.favouriteListWrapper {
+  margin: 20px;
+  min-height: 200px;
+  display: flex;
+  gap: 20px;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
 }

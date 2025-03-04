@@ -267,6 +267,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     }
 
     overlay.style.display = 'block';
+
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.hideBodyOverflow();
+    }
   }
 
   shrink() {
@@ -281,6 +286,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
     overlay.style.display = 'none';
     this.isFullscreenMode = false;
+
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.restoreBodyOverflow();
+    }
   }
   
    

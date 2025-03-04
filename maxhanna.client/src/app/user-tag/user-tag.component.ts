@@ -25,11 +25,11 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnChange
   @ViewChild('profileImageViewer') profileImageViewer!: MediaViewerComponent;
 
   constructor(private userService: UserService) { super(); }
-  ngOnInit() {
+  async ngOnInit() {
     this.parentRef = this.inputtedParentRef;
     if (this.user && this.user.id && !this.user.username) {
       console.log("no username passed in, but got a userId, fetching user: ", this.user);
-      this.userService.getUserById(this.user.id).then(res => {
+      await this.userService.getUserById(this.user.id).then(res => {
         if (res) {
           this.user = res;
         }

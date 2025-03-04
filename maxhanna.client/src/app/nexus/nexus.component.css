@@ -402,7 +402,7 @@
 
 .supplyDepotScreen, .starportScreen, .minesScreen, .factoryScreen, .warehouseScreen, .engineeringBayScreen, .commandCenterScreen {
   position: absolute;
-  top: 30px;
+  top: 50px;
   left: 0px;
   z-index: 1;
   width: 100%;
@@ -415,7 +415,7 @@
 
 .screenBackground {
   position: absolute;
-  top: 33px;
+  top: 53px;
   left: 0px;
   z-index: -1;
   width: 100%;

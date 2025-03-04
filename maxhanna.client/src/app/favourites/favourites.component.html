@@ -1,31 +1,92 @@
 <div class=componentMain>
   <div class="closeButton" (click)="remove_me('FavouritesComponent');"></div>
   <div class="componentTitle">Favourites</div>
-
+  <div class="popupPanelTitle">
+    Add/Share your Favorites!
+  </div>
   <div class=topLinks>
-    <a href='https://bughosted.com'><img src="https://bughosted.com/assets/logo.jpg" style="width:150px;"></a>
-    <form method="get" action="https://duckduckgo.com/">
-      <input placeholder="Search DuckDuckGo" type="text" name="q" size="25" style="color:#808080;" maxlength="255" value="" autofocus="autofocus" onfocus="if(this.value==this.defaultValue)this.value=''; this.style.color='black';" onblur="if(this.value=='')this.value=this.defaultValue; " autocomplete="off">
-      <button>Search</button>
-      <input type="hidden" name="sitesearch" value="" />
-    </form> 
-    <a href="https://piratebayproxy.info/"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/The_Pirate_Bay_logo.svg/212px-The_Pirate_Bay_logo.svg.png" width=30 height=30 title=PirateBay  target="_blank"></a>
-    <a href="https://remotedesktop.google.com/access" target="_blank">
-      <svg viewBox="0 0 110 97" fill="none" xmlns="http://www.w3.org/2000/svg" id="jJBIne" style="width:30px;height:30px;color:#fbbc04;">
-        <path id="shape" d="m9.863 29.454c-7.117 6.4467-11.788 16.664-9.0876 25.969 1.4572 5.0188 4.8342 9.2019 8.3337 13.032 10.826 11.85 24.08 22.009 39.468 26.027 15.392 4.0211 33.115 1.0265 44.446-10.323 4.8356-4.844 8.3182-10.932 11.031-17.266 10.224-23.878 6.753-61.704-24.756-65.98-17.238-2.341-57.035 17.309-69.436 28.54z"></path>
-        <clipPath id="695590688">
-          <use href="#shape"></use>
-        </clipPath>
-        <use href="#shape" clip-path="url(#695590688)" fill="currentColor" stroke="none"></use>
-        <g fill="white" stroke="none">
-          <path d="m83.707 36.096h-39.6c-2.4652 0-4.4 1.9351-4.4 4.3799v24.09c0 2.4447 1.9348 4.3799 4.4 4.3799h39.6c2.4653 0 4.4-1.9352 4.4-4.3799v-24.09c0-2.4448-1.9347-4.3799-4.4-4.3799zm-39.6 28.469v-24.09h39.6v24.09z"></path>
-          <path d="m50.707 78.07v-4.3799h26.4v4.3799z"></path>
-          <path d="m34.297 26.312c-2.4652 0-4.4004 1.9361-4.4004 4.3809v24.09c0 2.4447 1.9352 4.3789 4.4004 4.3789h3.1501v-4.3789h-3.1501v-24.09h39.6v3.0919h4.4004v-3.0919c0-2.4448-1.9351-4.3809-4.4004-4.3809z"></path>
-        </g>
-        <use href="#shape" class="uafRKc" clip-path="url(#695590688)" stroke-width="10" stroke-dasharray="107 214">
-          <animate attributeName="stroke-dashoffset" from="0" to="321" dur="3s" repeatCount="indefinite"></animate>
-        </use>
-      </svg>
-    </a>
+    <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
+    <div *ngIf="favouriteSearch.length > 0 && showNameImageInput">
+      <div class="favouriteListWrapper">
+        <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv">
+          <a [href]="sFav.url" target="_blank">
+            <div class="favImage">
+              <img [src]="sFav.imageUrl" />
+            </div>
+            <div class="favName">
+              {{sFav.name}}
+            </div>
+          </a>
+          <button (click)="addLink(sFav)">Add</button>
+        </div>
+      </div> 
+    </div>
+    <button (click)="addLink()" *ngIf="showNameImageInput">Create</button>
+
+    <div *ngIf="linkInput.value">
+      <input #linkNameInput placeholder="Website Name" />
+      <input #linkImageInput placeholder="Website Logo URL" />
+    </div>
+    <div>
+      <div class="favouriteListWrapper">
+        <div *ngFor="let fav of userFavourites" class="favouriteDiv">
+          <a [href]="fav.url" target="_blank">
+            <div class="favImage">
+              <img [src]="fav.imageUrl" />
+            </div>
+            <div class="favName">
+              {{fav.name}}
+            </div>
+          </a>
+          <span *ngIf="showEditLinks" (click)="openEditPanel(fav)" class="cursorPointerUnderlined smallFont">[Edit]</span>
+          <span *ngIf="showEditLinks" (click)="deleteFav(fav)" class="cursorPointerUnderlined smallFont">[Delete]</span>
+        </div>
+      </div>
+    </div>
+    <span (click)="showEditLinks = !showEditLinks" class="cursorPointerUnderlined" *ngIf="userFavourites.length > 0">[Edit Links]</span>
+  </div>
+</div>
+
+
+
+<!-- Friends Popup -->
+<div class="popupPanel" *ngIf="isEditPanelOpen">
+  <div class="popupPanelTitle">
+    Edit Link
+  </div>
+  <div>
+    <input [value]="editingFavourite?.url" #editingUrlInput placeholder="URL" /> 
+    <input [value]="editingFavourite?.imageUrl" #editingImageUrlInput placeholder="Website Logo URL" /> 
+    <input [value]="editingFavourite?.name" #editingNameInput placeholder="Website Name" />
+    <button (click)="editFavourite()" title="Update favourite">Update</button>
+  </div>
+  <div class="optionsStatsWrapperDiv">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Created By:</div>
+      <div class="optionsStatsDescription">
+        <app-user-tag [user]="getTmpUserById(editingFavourite?.createdBy)" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Creation Date:</div>
+      <div class="optionsStatsDescription">{{editingFavourite?.creationDate}}</div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Modified By:</div>
+      <div class="optionsStatsDescription">
+        <app-user-tag [user]="getTmpUserById(editingFavourite?.modifiedBy)" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Modification Date:</div>
+      <div class="optionsStatsDescription">{{editingFavourite?.modificationDate}}</div>
+    </div>
+    
+    
+    
+    
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeEditPanel()">Close</button>
   </div>
 </div>

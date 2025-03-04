@@ -391,7 +391,7 @@
               [Expand Text]
             </span>
           </div>
-          <div *ngIf="story.storyFiles && story.storyFiles.length > 0" class="attachmentsDiv">
+          <div *ngIf="story.storyFiles && story.storyFiles.length > 0" class="attachmentsDiv" >
             <div *ngFor="let file of story.storyFiles" [class]="'attachment ' + (story.storyFiles.length > 1 ? 'multipleAttachments' : 'singleAttachment')">
               <app-media-viewer [user]="file.user"
                                 [inputtedParentRef]="parentRef"
@@ -413,7 +413,7 @@
               </span>
             </span>
           </div>
-          <div style="display:flex; flex-wrap:wrap; gap: 15px;">
+          <div style="display:flex; flex-wrap:wrap; gap: 15px;" *ngIf="!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id))">
             <div *ngFor="let metadata of story?.metadata" class="metadataContent">
               <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
               <div *ngIf="metadata.description" class="metadataDescription" [innerHtml]="metadata.description | clickableUrls"></div>

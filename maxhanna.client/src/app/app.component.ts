@@ -340,16 +340,41 @@ export class AppComponent implements OnInit, AfterViewInit {
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }
+  hideBodyOverflow() {
+    console.log("hide body overflow");
+    document.body.style.overflow = "hidden";
+    const elems = document.getElementsByClassName("popupPanel");
+    for (let x = 0; x < elems.length; x++) {
+      (elems[x] as HTMLDivElement).style.overflow = "hidden";
+    }
+
+    const elems2 = document.getElementsByClassName("componentMain");
+    for (let x = 0; x < elems2.length; x++) {
+      (elems2[x] as HTMLDivElement).style.overflow = "hidden";
+    }
+  }
+  restoreBodyOverflow() { 
+    document.body.style.overflow = "";
+    const elems = document.getElementsByClassName("popupPanel");
+    for (let x = 0; x < elems.length; x++) {
+      (elems[x] as HTMLDivElement).style.overflow = "";
+    }
+
+    const elems2 = document.getElementsByClassName("componentMain");
+    for (let x = 0; x < elems2.length; x++) {
+      (elems2[x] as HTMLDivElement).style.overflow = "";
+    }
+  }
   showOverlay() { 
-    this.isShowingOverlay = true; 
-    document.body.style.overflow = "hidden";  
+    this.isShowingOverlay = true;
+    this.hideBodyOverflow();
   }
   closeOverlay() {
     console.log("closing overlay");
     const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay"); 
     closeButtons.forEach((button) => button.click()); 
     this.isShowingOverlay = false;
-    document.body.style.overflow = ""; // Restore scrolling
+    this.restoreBodyOverflow();
   }
   openUserSettings() {
     this.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this });

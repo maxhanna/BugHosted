@@ -66,7 +66,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   songPlaylist: Todo[] = [];
   trophies?: Trophy[] = undefined;
   wordlerStreak: number = 0;
-  weatherLocation = "";
+  weatherLocation?: { city: string; country: string } = undefined;
 
   constructor(private userService: UserService,
     private contactService: ContactService,
@@ -105,7 +105,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         await this.loadContactsData();
         this.weatherService.getWeatherLocation(this.user).then(res => {
           if (res.city) {
-            this.weatherLocation = res.city;
+            this.weatherLocation = res;
           }
         });
         await this.getIsBeingFollowedByUser();
