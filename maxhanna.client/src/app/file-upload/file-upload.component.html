@@ -46,7 +46,7 @@
 
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index">
-      <div [class]="uploadProgress[file.name] != 100 ? 'removeFileButton' : ''" (click)="removeFile(file)" title="Remove file">
+      <div [class]="(!uploadProgress[file.name] || uploadProgress[file.name] == 0)  ? 'removeFileButton' : ''" (click)="removeFile(file)" title="Remove file">
         <span>{{file.name}}</span>
         <span *ngIf="uploadProgress[file.name]">
           - {{ uploadProgress[file.name] === 100 ? '✅' : uploadProgress[file.name] + '%' }}

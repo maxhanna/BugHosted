@@ -32,7 +32,7 @@ export class FavouriteService {
         body: JSON.stringify({ User: user, FavouriteId: favoriteId }),
       });
 
-      return await response.json();
+      return await response.text();
     } catch (error) {
       return null;
     }
@@ -48,20 +48,20 @@ export class FavouriteService {
         body: JSON.stringify({ User: user, FavouriteId: favoriteId }),
       });
 
-      return await response.json();
+      return await response.text();
     } catch (error) {
       return null;
     }
   } 
 
-  async updateFavourites(user: User, url: string, imageUrl?: string, name?: string) {
+  async updateFavourites(user: User, url: string, id: number, imageUrl?: string, name?: string) {
     try {
       const response = await fetch(`/favourite/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Url: url, ImageUrl: imageUrl, CreatedBy: user.id, Name: name }), 
+        body: JSON.stringify({ Url: url, ImageUrl: imageUrl, id: id, CreatedBy: user.id, Name: name }), 
       });
 
       return await response.json();

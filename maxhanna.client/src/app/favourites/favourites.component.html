@@ -1,15 +1,15 @@
 <div class=componentMain>
   <div class="closeButton" (click)="remove_me('FavouritesComponent');"></div>
   <div class="componentTitle">Favourites</div>
-  <div class="popupPanelTitle">
-    Add/Share your Favorites!
+  <div class="popupPanelTitle favouritesTitle">
+    Add/Share your Favorites
   </div>
   <div class=topLinks>
     <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
     <div *ngIf="favouriteSearch.length > 0 && showNameImageInput">
       <div class="favouriteListWrapper">
         <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv">
-          <a [href]="sFav.url" target="_blank">
+          <a [href]="getSafeUrl(sFav.url)" target="_blank">
             <div class="favImage">
               <img [src]="sFav.imageUrl" />
             </div>
@@ -17,7 +17,7 @@
               {{sFav.name}}
             </div>
           </a>
-          <button (click)="addLink(sFav)">Add</button>
+          <button (click)="addLink(sFav)" [disabled]="isIncludedInFavourites(sFav)">Add</button>
         </div>
       </div> 
     </div>
@@ -27,10 +27,10 @@
       <input #linkNameInput placeholder="Website Name" />
       <input #linkImageInput placeholder="Website Logo URL" />
     </div>
-    <div>
+    <div *ngIf="!showNameImageInput">
       <div class="favouriteListWrapper">
-        <div *ngFor="let fav of userFavourites" class="favouriteDiv">
-          <a [href]="fav.url" target="_blank">
+        <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''">
+          <a [href]="getSafeUrl(fav.url)" target="_blank">
             <div class="favImage">
               <img [src]="fav.imageUrl" />
             </div>
@@ -38,23 +38,25 @@
               {{fav.name}}
             </div>
           </a>
-          <span *ngIf="showEditLinks" (click)="openEditPanel(fav)" class="cursorPointerUnderlined smallFont">[Edit]</span>
-          <span *ngIf="showEditLinks" (click)="deleteFav(fav)" class="cursorPointerUnderlined smallFont">[Delete]</span>
+          <div class="editOrDeleteSpanWrapper" *ngIf="showEditLinks" > 
+            <span (click)="openEditPanel(fav)" class="cursorPointerUnderlined smallFont">[Edit]</span>
+            <span (click)="deleteFav(fav)" class="cursorPointerUnderlined smallFont">[Delete]</span>
+          </div>
         </div>
       </div>
     </div>
-    <span (click)="showEditLinks = !showEditLinks" class="cursorPointerUnderlined" *ngIf="userFavourites.length > 0">[Edit Links]</span>
+    <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="userFavourites.length > 0">{{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}</button>
   </div>
 </div>
 
 
 
 <!-- Friends Popup -->
-<div class="popupPanel" *ngIf="isEditPanelOpen">
+<div class="popupPanel editingPopupPanel" *ngIf="isEditPanelOpen">
   <div class="popupPanelTitle">
     Edit Link
   </div>
-  <div>
+  <div class="editingPopupPanelInputs">
     <input [value]="editingFavourite?.url" #editingUrlInput placeholder="URL" /> 
     <input [value]="editingFavourite?.imageUrl" #editingImageUrlInput placeholder="Website Logo URL" /> 
     <input [value]="editingFavourite?.name" #editingNameInput placeholder="Website Name" />
@@ -69,7 +71,7 @@
     </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Creation Date:</div>
-      <div class="optionsStatsDescription">{{editingFavourite?.creationDate}}</div>
+      <div class="optionsStatsDescription">{{ editingFavourite?.creationDate | date: 'y/MM/dd HH:mm' }}</div>
     </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Modified By:</div>
@@ -79,12 +81,8 @@
     </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Modification Date:</div>
-      <div class="optionsStatsDescription">{{editingFavourite?.modificationDate}}</div>
-    </div>
-    
-    
-    
-    
+      <div class="optionsStatsDescription">{{ editingFavourite?.modificationDate  | date: 'y/MM/dd HH:mm' }}</div>
+    </div> 
   </div>
   <div>
     <button id="closeOverlay" (click)="closeEditPanel()">Close</button>

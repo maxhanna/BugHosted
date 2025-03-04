@@ -97,18 +97,20 @@ namespace maxhanna.Server.Controllers
 		{
 			_logger.LogInformation($"PUT /Favourite (url: {request.Url})");
 
-			// First, check if the favourite exists based on url
-			string checkSql = "SELECT id FROM favourites WHERE url = @Url LIMIT 1;";
+			string checkSql = request.Id != null ? "SELECT id FROM favourites WHERE id = @Id LIMIT 1;" : "SELECT id FROM favourites WHERE url = @Url LIMIT 1;";
 			string insertSql = @"
         INSERT INTO favourites (url, image_url, created_by, creation_date, modified_by, modification_date, name)
-        VALUES (@Url, @ImageUrl, @CreatedBy, NOW(), @ModifiedBy, NOW(), @Name);";
-			string updateSql = @"
+        VALUES (@Url, @ImageUrl, @CreatedBy, NOW(), @ModifiedBy, NOW(), @Name);
+        SELECT LAST_INSERT_ID();";
+			string updateSql = $@"
         UPDATE favourites
-        SET image_url = @ImageUrl, 
+        SET url = @Url, 
+						image_url = @ImageUrl, 
             name = @Name, 
             modified_by = @ModifiedBy, 
             modification_date = NOW()
-        WHERE url = @Url;";
+        WHERE {(request.Id != null ? "id = @Id" : "url = @Url")};
+        SELECT id FROM favourites WHERE {(request.Id != null ? "id = @Id" : "url = @Url")};";
 
 			try
 			{
@@ -119,37 +121,44 @@ namespace maxhanna.Server.Controllers
 					using (var checkCmd = new MySqlCommand(checkSql, conn))
 					{
 						checkCmd.Parameters.AddWithValue("@Url", request.Url);
-
+						if (request.Id != null)
+						{
+							checkCmd.Parameters.AddWithValue("@Id", request.Id);
+						}
 						var result = await checkCmd.ExecuteScalarAsync();
 
 						if (result != null)
 						{
-							// If the URL already exists, update the record
+							// Update existing record and return its ID
 							using (var updateCmd = new MySqlCommand(updateSql, conn))
 							{
 								updateCmd.Parameters.AddWithValue("@Url", request.Url);
+								if (request.Id != null)
+								{ 
+									updateCmd.Parameters.AddWithValue("@Id", request.Id);
+								}
 								updateCmd.Parameters.AddWithValue("@ImageUrl", (object?)request.ImageUrl ?? DBNull.Value);
 								updateCmd.Parameters.AddWithValue("@Name", (object?)request.Name ?? DBNull.Value);
 								updateCmd.Parameters.AddWithValue("@ModifiedBy", request.CreatedBy);
-								await updateCmd.ExecuteNonQueryAsync();
-							}
 
-							return Ok("Favourite updated successfully.");
+								var updatedId = await updateCmd.ExecuteScalarAsync();
+								return Ok(new { Id = updatedId, Message = "Favourite updated successfully." });
+							}
 						}
 						else
 						{
-							// If the URL doesn't exist, insert a new record
+							// Insert new record and return its ID
 							using (var insertCmd = new MySqlCommand(insertSql, conn))
 							{
 								insertCmd.Parameters.AddWithValue("@Url", request.Url);
 								insertCmd.Parameters.AddWithValue("@ImageUrl", (object?)request.ImageUrl ?? DBNull.Value);
 								insertCmd.Parameters.AddWithValue("@CreatedBy", request.CreatedBy);
-								insertCmd.Parameters.AddWithValue("@ModifiedBy", request.CreatedBy); // Assuming 'modified_by' is the same as 'created_by'
+								insertCmd.Parameters.AddWithValue("@ModifiedBy", request.CreatedBy);
 								insertCmd.Parameters.AddWithValue("@Name", (object?)request.Name ?? DBNull.Value);
-								await insertCmd.ExecuteNonQueryAsync();
-							}
 
-							return Ok("Favourite inserted successfully.");
+								var insertedId = await insertCmd.ExecuteScalarAsync();
+								return Ok(new { Id = insertedId, Message = "Favourite inserted successfully." });
+							}
 						}
 					}
 				}
@@ -160,6 +169,7 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while upserting favourite.");
 			}
 		}
+
 
 
 		[HttpPost("/Favourite/Add", Name = "AddFavourite")]

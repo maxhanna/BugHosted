@@ -6,13 +6,17 @@
     align-content: center;
     text-align: center;
 }
+.favouritesTitle {
+  text-align: center;
+}
 .favouriteDiv {
   display: flex;
   justify-content: center;
   align-content: center;
   align-items: center;
   flex-direction: column;
-  max-width: 70px; 
+  max-width: 100px;
+  word-break: break-word;
 }
 .favImage {
   border: 1px solid var(--main-font-color);
@@ -38,5 +42,24 @@
   gap: 20px;
   flex-direction: row;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.editOrDeleteSpanWrapper {
+  display: flex;
+  gap: 10px;
+}
+.editingPopupPanelInputs {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+.editingPopupPanel .optionsStatsWrapperDiv {
+  height: unset !important;
+  overflow: unset !important;
+}
+.editingPopupPanel #closeOverlay {
+  margin-top: 30px;
+  margin-bottom: 10px;
 }
