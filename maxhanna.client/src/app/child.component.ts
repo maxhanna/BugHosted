@@ -1,6 +1,7 @@
 import { Component, OnDestroy } from '@angular/core';
 import { AppComponent } from './app.component';
 import { User } from '../services/datacontracts/user/user';
+import { FileEntry } from '../services/datacontracts/file/file-entry';
 
 @Component({
   selector: 'app-child-component',
@@ -26,7 +27,7 @@ export class ChildComponent {
     return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   }
 
-  daysSinceDate(dateString?: Date): string {
+  daysSinceDate(dateString?: Date, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
     if (!dateString) return '';
 
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
@@ -63,17 +64,29 @@ export class ChildComponent {
       months += 12;
     }
 
-    // Build the result string dynamically
+    // Build the result string dynamically based on granularity
     const parts: string[] = [];
+
     if (years > 0) parts.push(`${years}y`);
+    if (granularity === 'year') return parts.join(' ') || '0y';
+
     if (months > 0) parts.push(`${months}m`);
+    if (granularity === 'month') return parts.join(' ') || '0m';
+
     if (days > 0) parts.push(`${days}d`);
+    if (granularity === 'day') return parts.join(' ') || '0d';
+
     if (hours > 0) parts.push(`${hours}h`);
+    if (granularity === 'hour') return parts.join(' ') || '0h';
+
     if (minutes > 0) parts.push(`${minutes}m`);
+    if (granularity === 'minute') return parts.join(' ') || '0m';
+
     if (seconds > 0) parts.push(`${seconds}s`);
 
     return parts.join(' ');
   }
+
 
   debounce(func: Function, wait: number) {
     let isFirstCall = true;

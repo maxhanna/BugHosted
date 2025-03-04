@@ -967,6 +967,133 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/File/GetFileEntryById", Name = "GetFileEntryById")]
+		public async Task<IActionResult> GetFileEntryById([FromBody] int fileId)
+		{
+			using (var connection = new MySqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+
+				var command = new MySqlCommand(
+						@"SELECT 
+                f.id AS fileId, 
+                f.file_name, 
+                f.is_public, 
+                f.is_folder, 
+                f.folder_path, 
+                f.width, 
+                f.height, 
+                f.user_id, 
+                u.username AS username, 
+                f.shared_with,  
+                f.upload_date AS date, 
+                fc.id AS commentId, 
+                fc.user_id AS commentUserId, 
+                uc.username AS commentUsername,  
+                fc.comment AS commentText,  
+                f.given_file_name,
+                f.description,
+                f.last_updated as file_data_updated,
+                f.last_access as last_access,
+                udp.file_id AS commentUserDisplayPicId
+            FROM 
+                maxhanna.file_uploads f    
+            LEFT JOIN 
+                maxhanna.comments fc ON fc.file_id = f.id 
+            LEFT JOIN 
+                maxhanna.users u ON u.id = f.user_id 
+            LEFT JOIN 
+                maxhanna.users uc ON fc.user_id = uc.id   
+            LEFT JOIN 
+                maxhanna.user_display_pictures udp ON udp.user_id = uc.id
+            WHERE 
+                f.id = @fileId 
+            GROUP BY 
+                f.id, u.username, f.file_name, f.is_public, f.is_folder, f.folder_path, f.user_id, 
+                fc.id, uc.username, fc.comment, f.given_file_name, f.description, 
+                f.last_updated, udp.file_id 
+            LIMIT 1;",
+						connection);
+
+				command.Parameters.AddWithValue("@fileId", fileId);
+
+				using (var reader = await command.ExecuteReaderAsync())
+				{
+					if (await reader.ReadAsync())
+					{
+						var id = reader.GetInt32("fileId");
+						var user_id = reader.GetInt32("user_id");
+						var userName = reader.GetString("username");
+						var shared_with = reader.IsDBNull(reader.GetOrdinal("shared_with")) ? string.Empty : reader.GetString("shared_with");
+						int? width = reader.IsDBNull(reader.GetOrdinal("width")) ? null : reader.GetInt32("width");
+						int? height = reader.IsDBNull(reader.GetOrdinal("height")) ? null : reader.GetInt32("height");
+						var isFolder = reader.GetBoolean("is_folder");
+						var folderPath = reader.GetString("folder_path");
+						var lastAccess = reader.GetDateTime("last_access");
+						var date = reader.GetDateTime("date");
+
+						var fileData = new FileData
+						{
+							FileId = reader.IsDBNull(reader.GetOrdinal("fileId")) ? 0 : reader.GetInt32("fileId"),
+							GivenFileName = reader.IsDBNull(reader.GetOrdinal("given_file_name")) ? null : reader.GetString("given_file_name"),
+							Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
+							LastUpdated = reader.IsDBNull(reader.GetOrdinal("file_data_updated")) ? null : reader.GetDateTime("file_data_updated")
+						};
+
+						var fileEntry = new FileEntry
+						{
+							Id = id,
+							FileName = reader.GetString("file_name"),
+							Visibility = reader.GetBoolean("is_public") ? "Public" : "Private",
+							SharedWith = shared_with,
+							User = new User(user_id, userName),
+							IsFolder = isFolder,
+							Directory = folderPath,
+							FileComments = new List<FileComment>(),
+							Date = date,
+							FileData = fileData,
+							Width = width,
+							Height = height,
+							LastAccess = lastAccess
+						};
+
+						if (!reader.IsDBNull(reader.GetOrdinal("commentId")))
+						{
+							do
+							{
+								var commentId = reader.GetInt32("commentId");
+								var commentUserId = reader.GetInt32("commentUserId");
+								var commentUsername = reader.GetString("commentUsername");
+								var commentText = reader.GetString("commentText");
+								int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
+
+								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (int)displayPicId } : null;
+
+								var fileComment = new FileComment
+								{
+									Id = commentId,
+									FileId = id,
+									User = new User(
+												commentUserId,
+												commentUsername ?? "Anonymous",
+												null,
+												dpFileEntry,
+												null, null, null),
+									CommentText = commentText,
+								};
+
+								fileEntry.FileComments!.Add(fileComment);
+							} while (await reader.ReadAsync());
+						}
+
+						return Ok(fileEntry);
+					}
+				}
+			}
+			return Ok();
+		}
+
+
 		[HttpPost("/File/Edit-Topics", Name = "EditFileTopics")]
 		public async Task<IActionResult> EditFileTopics([FromBody] EditTopicRequest request)
 		{

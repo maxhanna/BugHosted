@@ -281,6 +281,11 @@
                               You may now restart from anywhere with any device! (Supports joysticks and fullscreen mode!)
                             </div>
                           </div>
+                          <div *ngIf="icon.title == 'Theme'" [id]="icon.title+'tddiv'">
+                            <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                              Change the site's theme!
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </td>

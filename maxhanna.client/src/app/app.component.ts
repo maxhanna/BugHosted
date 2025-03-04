@@ -30,6 +30,8 @@ import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
 import { DomSanitizer, Meta, Title } from '@angular/platform-browser';
 import { MediaViewerComponent } from './media-viewer/media-viewer.component';
+import { ThemesComponent } from './themes/themes.component';
+import { FileEntry } from '../services/datacontracts/file/file-entry';
 
 
 
@@ -75,6 +77,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "📰", title: "News", content: undefined }, 
     { ownership: 0, icon: "₿", title: "Crypto-Hub", content: undefined },
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined }, 
+    { ownership: 0, icon: "🎨", title: "Theme", content: undefined }, 
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined }, 
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
@@ -103,6 +106,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "Chat": ChatComponent,
     "Social": SocialComponent,
     "HostAi": HostAiComponent,
+    "Theme": ThemesComponent,
     "MediaViewer": MediaViewerComponent,
     "Meme": MemeComponent,
     "Notifications": NotificationsComponent,
@@ -441,5 +445,14 @@ export class AppComponent implements OnInit, AfterViewInit {
       .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>"); // Italics
 
     return this.sanitizer.bypassSecurityTrustHtml(text);
+  }
+
+  getDirectoryName(file: FileEntry): string {
+    let base = file.directory?.replace('E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/', '').trim();
+    if (base === "") {
+      return ".";
+    }
+    console.log("get directoryname: ", base);
+    return base ?? "";
   }
 }

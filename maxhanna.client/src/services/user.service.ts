@@ -292,4 +292,50 @@ export class UserService {
       return [];
     }
   }
+
+  async updateTheme(user: User, theme: JSON) {
+    try {
+      const response = await fetch('/user/updateusertheme/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: user.id, Theme: theme }),
+      });
+      return await response.text();
+    } catch (error) {
+      return 'error';
+    }
+  }
+
+  async deleteTheme(user: User) {
+    try {
+      const response = await fetch('/user/deleteusertheme/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify( user.id ),
+      });
+      return await response.json();
+    } catch (error) {
+      return 'error';
+    }
+  }
+
+
+  async getTheme(user: User) {
+    try {
+      const response = await fetch('/user/getusertheme/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify( user.id ),
+      });
+      return await response.json();
+    } catch (error) {
+      return 'error';
+    }
+  }
 }

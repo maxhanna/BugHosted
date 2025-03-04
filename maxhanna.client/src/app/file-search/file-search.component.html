@@ -113,6 +113,7 @@
                                 [showCommentSection]="true"
                                 [showCommentSectionOnLoad]="showCommentsInOpenedFiles.includes(file.id)"
                                 [showCommentSectionHeader]="fileSearchMode ? false : displayComments"
+                                [showTopics]="showTopics"
                                 [inputtedParentRef]="inputtedParentRef"
                                 [canScroll]="fileId ? true : false"
                                 [displayExpander]="false"
@@ -290,7 +291,7 @@
         Created:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.date | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(optionsFile.date)}})
+        {{optionsFile.date | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(optionsFile.date, 'minute')}})
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.user">
@@ -308,7 +309,7 @@
         Updated:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(optionsFile.lastUpdated)}})
+        {{optionsFile.lastUpdated | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(optionsFile.lastUpdated, 'minute')}})
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsFile.lastUpdatedBy">

@@ -344,7 +344,7 @@ export class FileService {
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ FileId: fileId }),
+				body: JSON.stringify( fileId ),
 			});
 
 			return await response.json();

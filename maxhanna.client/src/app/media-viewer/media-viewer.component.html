@@ -70,7 +70,8 @@
     </div>
   </div>
 </div> 
-<app-topics [isDropdown]="false"
+<app-topics *ngIf="showTopics"
+            [isDropdown]="false"
             [user]="inputtedParentRef?.user ?? parentRef?.user"
             [parent]="inputtedParentRef ?? parentRef"
             [attachedTopics]="selectedFile?.topics"

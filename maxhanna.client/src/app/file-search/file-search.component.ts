@@ -41,6 +41,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Input() showFileSearchOptions = true;
   @Input() showSpaceForNotifications = false;
   @Input() showHiddenFiles: boolean = true;
+  @Input() showTopics: boolean = true;
   @Input() currentPage = this.defaultCurrentPage;
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -666,12 +667,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       //this.getDirectory();
     }
   }
-  getDirectoryName(file: FileEntry) : string {
-    let base = file.directory?.replace('E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/', '').trim(); 
-    if (base === "") { 
-      return ".";
-    }
-    return base ?? "";
+  getDirectoryName(file: FileEntry): string {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      return parent?.getDirectoryName(file);
+    } else return '.';
   }
   updateFileVisibility(file: FileEntry) {
     file.visibility = file.visibility == "Private" ? "Public" : "Private";

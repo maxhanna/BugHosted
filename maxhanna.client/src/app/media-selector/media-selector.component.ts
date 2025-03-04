@@ -13,6 +13,7 @@ import { FileUploadComponent } from '../file-upload/file-upload.component';
 export class MediaSelectorComponent implements OnDestroy {
   displaySearchButton = false;
   displaySearch = false;
+  maxFilesReached = false;
   viewMediaChoicesOpen = false;
   imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp"];
   videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
@@ -65,14 +66,16 @@ export class MediaSelectorComponent implements OnDestroy {
     }
     this.selectedFiles.push(file);
     this.displaySearch = false;
-    this.viewMediaChoicesOpen = true;
+    this.viewMediaChoicesOpen = true; 
+    this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles); 
   }
   expandClickedEvent(file: FileEntry) {
     return this.selectFile(file);
   }
   removeFile(file: FileEntry) {
     this.selectedFiles = this.selectedFiles.filter(x => x != file);
-    this.selectFileEvent.emit(this.selectedFiles);
+    this.selectFileEvent.emit(this.selectedFiles); 
+    this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles); 
   }
   removeAllFiles() {
     this.selectedFiles = [];
@@ -104,6 +107,8 @@ export class MediaSelectorComponent implements OnDestroy {
       else {
         this.selectedFiles = files;
       }
+
+      this.maxFilesReached = (this.selectedFiles.length >= this.maxSelectedFiles); 
     }
 
     if (this.displaySearchButton) {

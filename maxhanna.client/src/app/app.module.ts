@@ -50,7 +50,8 @@ import { NotificationsComponent } from './notifications/notifications.component'
 import { InViewDirective } from './in-view.directive';
 import { CurrencyFlagPipe } from './currency-flag.pipe';
 import { MetaComponent } from './meta/meta.component';
-import { HostAiComponent } from './host-ai/host-ai.component';  
+import { HostAiComponent } from './host-ai/host-ai.component';
+import { ThemesComponent } from './themes/themes.component';  
 
 @NgModule({
   declarations: [
@@ -98,6 +99,7 @@ import { HostAiComponent } from './host-ai/host-ai.component';
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     HostAiComponent,
+    ThemesComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

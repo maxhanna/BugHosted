@@ -134,7 +134,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
   async stopEmulator() {
     if (this.selectedRomName && this.selectedRomName != '' && this.parentRef && this.parentRef.user) {
-      if (confirm("Save game?")) { this.saveState(); }
+      if (confirm("Save game 💾?")) { this.saveState(); }
     }
     await this.clearAutosave();
     await this.nostalgist?.getEmulator().exit();

@@ -941,7 +941,170 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return Ok(trophies);
-		} 
+		}
+
+		[HttpPost("/User/UpdateUserTheme", Name = "UpdateUserTheme")]
+		public async Task<IActionResult> UpdateUserTheme([FromBody] UserThemeRequest request)
+		{
+			_logger.LogInformation($"POST /User/Theme for user {request.UserId}");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+
+				// First, check if the user already has a theme record in the user_theme table
+				string checkUserThemeSql = "SELECT COUNT(*) FROM maxhanna.user_theme WHERE user_id = @UserId";
+				MySqlCommand checkCmd = new MySqlCommand(checkUserThemeSql, conn);
+				checkCmd.Parameters.AddWithValue("@UserId", request.UserId);
+
+				int userThemeExists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+
+				string sql;
+
+				if (userThemeExists > 0)
+				{
+					// If the theme exists, update the record
+					sql = @"
+                UPDATE maxhanna.user_theme
+                SET background_image = @BackgroundImage,
+                    background_color = @BackgroundColor,
+                    font_color = @FontColor,
+                    font_size = @FontSize,
+                    font_family = @FontFamily
+                WHERE user_id = @UserId";
+				}
+				else
+				{
+					// If no theme exists, insert a new record
+					sql = @"
+                INSERT INTO maxhanna.user_theme (user_id, background_image, background_color, font_color, font_size, font_family)
+                VALUES (@UserId, @BackgroundImage, @BackgroundColor, @FontColor, @FontSize, @FontFamily)";
+				}
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+
+				// Add parameters to prevent SQL injection
+				cmd.Parameters.AddWithValue("@UserId", request.UserId);
+				cmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage);
+				cmd.Parameters.AddWithValue("@BackgroundColor", request.Theme.BackgroundColor);
+				cmd.Parameters.AddWithValue("@FontColor", request.Theme.FontColor);
+				cmd.Parameters.AddWithValue("@FontSize", request.Theme.FontSize);
+				cmd.Parameters.AddWithValue("@FontFamily", request.Theme.FontFamily);
+
+				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+				if (rowsAffected > 0)
+				{
+					return Ok("User theme updated successfully.");
+				}
+				else
+				{
+					return NotFound("User theme could not be updated.");
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+
+		[HttpPost("/User/GetUserTheme", Name = "GetUserTheme")]
+		public async Task<IActionResult> GetUserTheme([FromBody] int UserId)
+		{
+			_logger.LogInformation($"POST /user/GetUserTheme/{UserId}");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+
+			try
+			{
+				conn.Open();
+
+				string sql = "SELECT background_image, background_color, font_color, font_size, font_family " +
+										 "FROM maxhanna.user_theme WHERE user_id = @UserId";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", UserId);
+
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					if (reader.Read())
+					{
+						var theme = new UserTheme()
+						{
+							BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
+							BackgroundColor = reader["background_color"].ToString(),
+							FontColor = reader["font_color"].ToString(),
+							FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
+							FontFamily = reader["font_family"].ToString()
+						};
+
+						return Ok(theme);
+					}
+					else
+					{
+						// If no theme data exists for the user, return NotFound.
+						return NotFound("User theme not found.");
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while processing the GET request.");
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
+
+
+		[HttpPost("/User/DeleteUserTheme", Name = "DeleteUserTheme")]
+		public async Task<IActionResult> DeleteUserTheme([FromBody] int UserId)
+		{
+			_logger.LogInformation($"POST /user/DeleteUserTheme/{UserId}");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+
+			try
+			{
+				conn.Open();
+
+				// SQL statement to delete user theme
+				string sql = "DELETE FROM maxhanna.user_theme WHERE user_id = @UserId LIMIT 1;";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", UserId);
+
+				int affectedRows = await cmd.ExecuteNonQueryAsync();
+
+				if (affectedRows > 0)
+				{
+					// If a row is deleted, return a success message
+					return Ok(new { message = "User theme successfully deleted." });
+				}
+				else
+				{
+					// If no rows are affected, the theme doesn't exist for this user
+					return NotFound(new { message = "User theme not found for the given UserId." });
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				return StatusCode(500, new { message = "An error occurred while processing the request." });
+			}
+			finally
+			{
+				conn.Close();
+			}
+		}
 
 		[HttpPost("/User/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
 		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request)

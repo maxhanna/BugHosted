@@ -10,20 +10,20 @@
       <div class="favouriteListWrapper">
         <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv">
           <a [href]="getSafeUrl(sFav.url)" target="_blank">
-            <div class="favImage">
+            <div class="favImage" *ngIf="sFav.imageUrl">
               <img [src]="sFav.imageUrl" />
             </div>
             <div class="favName">
-              {{sFav.name}}
+              {{ sFav.name && sFav.name.trim() ? sFav.name : sFav.url }}
             </div>
           </a>
-          <button (click)="addLink(sFav)" [disabled]="isIncludedInFavourites(sFav)">Add</button>
+          <button (click)="addLink(sFav)" [disabled]="isIncludedInFavourites(sFav)">➕</button>
         </div>
       </div> 
     </div>
-    <button (click)="addLink()" *ngIf="showNameImageInput">Create</button>
+    <button (click)="addLink()" *ngIf="showNameImageInput">💾Create</button>
 
-    <div *ngIf="linkInput.value">
+    <div *ngIf="showNameImageInput">
       <input #linkNameInput placeholder="Website Name" />
       <input #linkImageInput placeholder="Website Logo URL" />
     </div>
@@ -31,11 +31,11 @@
       <div class="favouriteListWrapper">
         <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''">
           <a [href]="getSafeUrl(fav.url)" target="_blank">
-            <div class="favImage">
+            <div class="favImage" *ngIf="fav.imageUrl">
               <img [src]="fav.imageUrl" />
             </div>
             <div class="favName">
-              {{fav.name}}
+              {{fav.name && fav.name.trim() ? fav.name : fav.url}}
             </div>
           </a>
           <div class="editOrDeleteSpanWrapper" *ngIf="showEditLinks" > 
@@ -60,7 +60,7 @@
     <input [value]="editingFavourite?.url" #editingUrlInput placeholder="URL" /> 
     <input [value]="editingFavourite?.imageUrl" #editingImageUrlInput placeholder="Website Logo URL" /> 
     <input [value]="editingFavourite?.name" #editingNameInput placeholder="Website Name" />
-    <button (click)="editFavourite()" title="Update favourite">Update</button>
+    <button (click)="editFavourite()" title="Update favourite">💾Update</button>
   </div>
   <div class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">

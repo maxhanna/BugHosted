@@ -465,15 +465,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   getNewFriendRequestCount() {
     const count = this.friendRequests.filter(x => x.status == 3).length;
     return count > 0 ? `(${count})` : '';
-  }
-  daysSince(date?: Date) {
-    if (!date) return;
-    const today = new Date();
-    const givenDate = new Date(date);
-    const diffInMs = today.getTime() - givenDate.getTime();
-    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-    return diffInDays;
-  }
+  } 
   copyLink() {
     const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;
     const link = `https://bughosted.com/${userId ? `User/${userId}` : ''}`;

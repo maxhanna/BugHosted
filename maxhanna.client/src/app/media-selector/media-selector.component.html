@@ -10,9 +10,12 @@
         <span>
           Select Media Files <span class="smallFont" *ngIf="selectedFiles && selectedFiles.length > 0">({{selectedFiles.length}} selected)</span>
         </span>
+
         <button id="closeOverlay" class="doneButton cursorPointer" #doneButton (click)="done()" *ngIf="(displaySearch && selectedFiles.length > 0) ? true  : true">{{selectedFiles && selectedFiles.length > 0 ? 'Finished' : 'Cancel'}}</button>
       </div>
-
+      <div class="smallFont" *ngIf="maxSelectedFiles">
+        Maximum: {{maxSelectedFiles}} files.
+      </div>
       <!-- SELECTED MEDIA FILES-->
       <div [class]="selectedFiles && selectedFiles.length > 0 ? 'mediaChoices' : ''" [style.display]="selectedFiles && selectedFiles.length > 0 ? 'block' : 'none'">
         <div *ngIf="viewMediaChoicesOpen">
@@ -27,6 +30,7 @@
                                   [currentDirectory]="file.directory"
                                   [file]="file"
                                   [showCommentSection]="false"
+                                  [showTopics]="false"
                                   [displayExtraInfo]="false"
                                   [displayExpander]="false"
                                   (expandClickedEvent)="removeFile(file)"
@@ -41,7 +45,7 @@
 
       <!-- file searching display -->
 
-      <div *ngIf="displaySearch" class="fileSearchDiv">
+      <div *ngIf="displaySearch && !maxFilesReached" class="fileSearchDiv">
         <app-file-search [user]="user"
                          [inputtedParentRef]="inputtedParentRef"
                          [currentDirectory]="currentDirectory"
@@ -65,7 +69,7 @@
 
        
       <!-- SEARCH/UPLOAD buttons -->
-      <div class="searchUploadButtonChoiceDiv">
+      <div class="searchUploadButtonChoiceDiv" *ngIf="!maxFilesReached">
         <button (click)="displaySearch ? closeSearchDiv($event) : displaySearchDiv()" title="Search for files" class="cursorPointer">
           {{displaySearch ? 'Close Search' : ('🔍Search' )}}
         </button>

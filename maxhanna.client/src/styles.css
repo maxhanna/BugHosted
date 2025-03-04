@@ -18,11 +18,9 @@
   --third-font-color: cornflowerblue;
   --main-border: 2px ridge var(--main-highlight-color);
   --gameboyBgColor: darkgrey;
-  --main-font-weight: 400;
-  --component-max-width: 90vw;
-  --component-max-height: CALC(100% - 67px);
   --nexus-gamescreen-height: 275px;
   --nexus-gamescreen-width: 350px;
+  --main-background-image-url: '';
 }
 
 
@@ -41,7 +39,7 @@ html {
 }
 
 body {
-  margin: 0px; 
+  margin: 0px;
   -webkit-overflow-scrolling: auto !important;
   overscroll-behavior-y: none;
   font-family: var(--main-font-family), Arial;
@@ -50,7 +48,10 @@ body {
   color: var(--main-font-color);
   margin: 0;
   padding: 0;
-  font-weight: var(--main-font-weight);
+  background-image: var(--main-background-image-url);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 html, body {

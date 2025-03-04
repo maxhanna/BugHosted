@@ -97,7 +97,7 @@ export class NexusMapComponent extends ChildComponent {
     const mapElement = document.getElementsByClassName('map')[0] as HTMLDivElement;
     mapElement.style.transform = `scale(${0.5}) translateX(-50%) translateY(-50%)`;
     mapElement.style.width = "200%";
-    mapElement.style.height = "CALC(200vh - 175px)";
+    mapElement.style.height = "CALC(200vh - 200px)";
     mapElement.style.overflow = "auto";
 
     let styleElement = document.getElementById('dynamic-scrollbar-style') as HTMLStyleElement;
