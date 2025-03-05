@@ -42,6 +42,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() displayExtraInfo: boolean = true;
   @Input() blockExpand: boolean = false;
   @Input() autoplay: boolean = true;
+  @Input() autoplayAudio: boolean = false;
   @Input() autoload: boolean = true;
   @Input() forceInviewLoad: boolean = false;
   @Input() showTopics: boolean = true; 
@@ -331,7 +332,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) {
     // Mute and pause all other media elements
     this.muteOtherVideos(currentVideo);  
-    currentVideo.muted = false;
+    currentVideo.muted = !this.autoplayAudio; 
     currentVideo.play(); 
   }
 

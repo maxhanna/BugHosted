@@ -22,6 +22,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   showNameImageInput = false;
   isEditPanelOpen = false;
   showEditLinks = false;
+  showingLatestLinks = false;
+  isSearchingUrls = false;
 
   constructor(private favoriteService: FavouriteService) {
     super();
@@ -101,11 +103,21 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     const user = this.parentRef?.user ?? new User(0, "Anonymous");
     this.showNameImageInput = (this.linkInput.nativeElement.value ? true : false);
     const search = this.linkInput.nativeElement.value;
-    this.favoriteService.getFavourites(user, search).then(res => {
-      if (res) {
-        this.favouriteSearch = res;
-      }
-    });
+
+    if (search) {
+      this.isSearchingUrls = true;
+      this.favoriteService.getFavourites(user, search).then(res => {
+        if (res) {
+          this.favouriteSearch = res;
+        } else {
+          this.favouriteSearch = [];
+        }
+      });
+    } else {
+      this.isSearchingUrls = false;
+      this.favouriteSearch = []
+    }
+    this.showingLatestLinks = false;
   }
   openEditPanel(fav: Favourite) {
     this.isEditPanelOpen = true;
@@ -128,5 +140,16 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   }
   isIncludedInFavourites(fav: Favourite) {
     return this.userFavourites.some(x => x.id === fav.id);
+  }
+  showLatestLinks() {
+    this.showingLatestLinks = !this.showingLatestLinks;
+    if (this.showingLatestLinks) {
+      this.favoriteService.getFavourites(this.parentRef?.user ?? new User(0), '').then(res => {
+        console.log(res);
+        this.favouriteSearch = res;
+      });
+    } else {
+      this.favouriteSearch = [];
+    }
   }
 }

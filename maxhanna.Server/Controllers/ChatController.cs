@@ -563,10 +563,12 @@ namespace maxhanna.Server.Controllers
 													AND (seen IS NULL OR seen NOT LIKE CONCAT('%,', @SenderId, ',%') 
 													AND seen NOT LIKE CONCAT(@SenderId, ',%')
 													AND seen NOT LIKE CONCAT('%,', @SenderId)
-													AND seen != @SenderId);";
+													AND seen != @SenderId);
+
+												UPDATE maxhanna.notifications SET is_read = 1 WHERE user_id = @SenderId AND chat_id = @ChatId;";
 
 						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-						updateCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+						updateCmd.Parameters.AddWithValue("@ChatId", (int)chatId);
 						updateCmd.Parameters.AddWithValue("@SenderId", request.User?.Id ?? 0);
 
 						await updateCmd.ExecuteNonQueryAsync();

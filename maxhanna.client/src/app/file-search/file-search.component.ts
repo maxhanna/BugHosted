@@ -1,5 +1,5 @@
 
-import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, OnInit, Output, QueryList, ViewChild, ViewChildren } from '@angular/core';
 import { FileService } from '../../services/file.service';
 import { DirectoryResults } from '../../services/datacontracts/file/directory-results';
 import { ChildComponent } from '../child.component';
@@ -47,6 +47,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
   @Output() userNotificationEvent = new EventEmitter<string>();
   @Output() expandClickedEvent = new EventEmitter<FileEntry>();
+ 
 
   showData = true;
   showShareUserList = false;
@@ -80,6 +81,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   @ViewChild('popupSearch') popupSearch!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
   @ViewChild('shareUserListDiv') shareUserListDiv!: ElementRef<HTMLDivElement>;
+  @ViewChildren('fileNameDiv') fileHeaders!: QueryList<ElementRef>;
+
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
   constructor(private fileService: FileService, private route: ActivatedRoute) {
@@ -697,6 +700,57 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
           } 
         }
       }
+    }
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  handleKeyboardEvent(event: KeyboardEvent): void {
+    if (event.key === 'k' || event.key === 'K') {
+      this.scrollToNext();
+    } else if (event.key === 'j' || event.key === 'J') {
+      this.scrollToPrevious();
+    }
+  }
+ 
+  scrollToNext(): void {
+    let allComps = document.getElementsByClassName("fileNameDiv");
+    let tgtComp = undefined;
+    let tgtCompIndex = 0;
+    for (let x = 0; x < allComps.length; x++) {
+      if (this.isElementInViewport(allComps[x] as HTMLElement)) {
+        tgtComp = allComps[x];
+        tgtCompIndex = x;
+      }
+    } 
+    const nextIndex = tgtCompIndex + 1;
+
+    if (nextIndex < allComps.length) {
+      allComps[nextIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      const lmrDivs = document.getElementsByClassName("loadMoreResultsDiv");
+      if (lmrDivs) {
+        const lmrDivElement = lmrDivs[0];
+        if (lmrDivElement) { 
+          lmrDivElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } 
+    }
+  }
+
+  scrollToPrevious(): void {
+    let allComps = document.getElementsByClassName("fileNameDiv");
+    let tgtCompIndex = 0;
+    let tgtComp = undefined;
+    for (let x = 0; x < allComps.length; x++) {
+      if (this.isElementInViewport(allComps[x] as HTMLElement)) {
+        tgtComp = allComps[x];
+        tgtCompIndex = x;
+      }  
+    }  
+    const prevIndex = tgtCompIndex - 2;
+
+    if (prevIndex >= 0) {
+      allComps[prevIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
 }

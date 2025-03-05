@@ -41,7 +41,7 @@
   display: flex;
   gap: 20px;
   flex-direction: row;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -62,4 +62,18 @@
 .editingPopupPanel #closeOverlay {
   margin-top: 30px;
   margin-bottom: 10px;
+}
+.miniTitle {
+  margin: 5px;
+  font-size: smaller;
+  font-weight: bold;
+}
+.linkOptionButtons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+  margin-top: 10px;
+  margin-bottom: 15px;
 }

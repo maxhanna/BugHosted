@@ -36,7 +36,7 @@
   flex-wrap: nowrap;
   align-content: flex-start;
   justify-content: flex-start;
-  gap: 5px;
+  gap: 10px;
 }
 .miniTag {
   display: flex;
@@ -50,17 +50,13 @@
   width: unset !important;
 }
 .miniAvatarBust {
-  transform: scale(0.5) translateX(-25px) translateY(-25px);
+  transform: scale(0.5) translateX(-15px) translateY(-25px);
   width: 25px;
 }
 .miniAvatarBug {
   left: -30px !important;
   top: -25px !important;
-}
-.miniAvatarPic {
-  left: -5px;
-  position: relative; 
-}
+} 
 .avatar { 
   line-height: 50px !important;
 }

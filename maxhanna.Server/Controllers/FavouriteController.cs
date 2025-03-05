@@ -18,6 +18,7 @@ namespace maxhanna.Server.Controllers
 			_logger = logger;
 			_config = config;
 		}
+
 		[HttpPost("/Favourite", Name = "GetFavourites")]
 		public async Task<IActionResult> Get([FromBody] GetFavouritesRequest request)
 		{
@@ -37,7 +38,7 @@ namespace maxhanna.Server.Controllers
             favourites
         WHERE 1=1  
             {(string.IsNullOrEmpty(request.Search) ? "" : " AND (url LIKE CONCAT('%', @Search, '%') OR name LIKE CONCAT('%', @Search, '%')) ")}
-        ORDER BY url, creation_date DESC
+        ORDER BY {(string.IsNullOrEmpty(request.Search) ? "url, creation_date" : "creation_date")} DESC
 				LIMIT 20;";
 
 			try

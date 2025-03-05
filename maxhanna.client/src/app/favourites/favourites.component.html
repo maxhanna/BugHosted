@@ -6,7 +6,8 @@
   </div>
   <div class=topLinks>
     <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
-    <div *ngIf="favouriteSearch.length > 0 && showNameImageInput">
+    <div *ngIf="favouriteSearch.length > 0">
+      <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Existing' }} Links:</div>
       <div class="favouriteListWrapper">
         <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv">
           <a [href]="getSafeUrl(sFav.url)" target="_blank">
@@ -17,7 +18,10 @@
               {{ sFav.name && sFav.name.trim() ? sFav.name : sFav.url }}
             </div>
           </a>
-          <button (click)="addLink(sFav)" [disabled]="isIncludedInFavourites(sFav)">➕</button>
+          <button (click)="addLink(sFav)"
+                  class="cursorPointer"
+                  [disabled]="isIncludedInFavourites(sFav)"
+                  [title]="isIncludedInFavourites(sFav) ? 'Already added' : 'Add To Favourites'">➕</button>
         </div>
       </div> 
     </div>
@@ -27,7 +31,8 @@
       <input #linkNameInput placeholder="Website Name" />
       <input #linkImageInput placeholder="Website Logo URL" />
     </div>
-    <div *ngIf="!showNameImageInput">
+    <div *ngIf="!showNameImageInput && !showingLatestLinks && !isSearchingUrls">
+      <div class="miniTitle">Your Favs:</div> 
       <div class="favouriteListWrapper">
         <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''">
           <a [href]="getSafeUrl(fav.url)" target="_blank">
@@ -38,20 +43,23 @@
               {{fav.name && fav.name.trim() ? fav.name : fav.url}}
             </div>
           </a>
-          <div class="editOrDeleteSpanWrapper" *ngIf="showEditLinks" > 
+          <div class="editOrDeleteSpanWrapper" *ngIf="showEditLinks">
             <span (click)="openEditPanel(fav)" class="cursorPointerUnderlined smallFont">[Edit]</span>
             <span (click)="deleteFav(fav)" class="cursorPointerUnderlined smallFont">[Delete]</span>
           </div>
         </div>
       </div>
     </div>
-    <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="userFavourites.length > 0">{{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}</button>
-  </div>
+    <div *ngIf="(!showNameImageInput && !showingLatestLinks && !isSearchingUrls) || showingLatestLinks" class="linkOptionButtons">
+      <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="userFavourites.length > 0 && (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}</button>
+      <button (click)="showLatestLinks()" class="cursorPointer" *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{ !showingLatestLinks ? 'Show' : 'Hide' }} Latest Links</button>
+    </div>
+   </div>
 </div>
 
 
 
-<!-- Friends Popup -->
+<!-- Edit Favourite Popup -->
 <div class="popupPanel editingPopupPanel" *ngIf="isEditPanelOpen">
   <div class="popupPanelTitle">
     Edit Link

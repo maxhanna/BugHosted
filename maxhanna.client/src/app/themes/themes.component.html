@@ -13,11 +13,23 @@
     </div>
     <div class="themeSelectorDiv">
       <label for="backgroundColor">Background Color:</label>
-      <input type="color" id="backgroundColor" #backgroundColor (input)="updateCSS('--main-bg-color', $event)" [value]="getComputedStyleValue('--main-bg-color')">
+      <input type="color" id="backgroundColor" #backgroundColor (input)="updateCSS('--main-bg-color', $event)" [value]="getComputedStyleValueForColor('--main-bg-color')">
+    </div>
+    <div class="themeSelectorDiv">
+      <label for="componentBackgroundColor">Component Background Color:</label>
+      <input type="color"
+             id="componentBackgroundColor"
+             #componentBackgroundColor
+             (input)="updateCSS('--main-bg-color-quarter-opacity', $event)"
+             [value]="getComputedStyleValueForColor('--main-bg-color-quarter-opacity')">
     </div>
     <div class="themeSelectorDiv">
       <label for="fontColor">Font Color:</label>
-      <input type="color" id="fontColor" #fontColor (input)="updateCSS('--main-font-color', $event)" [value]="getComputedStyleValue('--main-font-color')">
+      <input type="color" id="fontColor" #fontColor (input)="updateCSS('--main-font-color', $event)" [value]="getComputedStyleValueForColor('--main-font-color')">
+    </div>
+    <div class="themeSelectorDiv">
+      <label for="linkColor">Link Color:</label>
+      <input type="color" id="linkColor" #linkColor (input)="updateCSS('--main-link-color', $event)" [value]="getComputedStyleValueForColor('--main-link-color')">
     </div>
     <div class="themeSelectorDiv">
       <label for="fontSize">Font Size:</label>

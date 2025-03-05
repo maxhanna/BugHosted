@@ -7,6 +7,7 @@
   width: clamp(250px, 3VW, 300px);
   justify-content: space-between;
   align-items: center;
+  margin: 10px;
 }
 
 .themeSelectorDivWrapper {

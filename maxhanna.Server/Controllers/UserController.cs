@@ -969,7 +969,9 @@ namespace maxhanna.Server.Controllers
                 UPDATE maxhanna.user_theme
                 SET background_image = @BackgroundImage,
                     background_color = @BackgroundColor,
+                    component_background_color = @ComponentBackgroundColor,
                     font_color = @FontColor,
+                    link_color = @LinkColor,
                     font_size = @FontSize,
                     font_family = @FontFamily
                 WHERE user_id = @UserId";
@@ -978,8 +980,8 @@ namespace maxhanna.Server.Controllers
 				{
 					// If no theme exists, insert a new record
 					sql = @"
-                INSERT INTO maxhanna.user_theme (user_id, background_image, background_color, font_color, font_size, font_family)
-                VALUES (@UserId, @BackgroundImage, @BackgroundColor, @FontColor, @FontSize, @FontFamily)";
+                INSERT INTO maxhanna.user_theme (user_id, background_image, background_color, component_background_color, font_color, link_color, font_size, font_family)
+                VALUES (@UserId, @BackgroundImage, @BackgroundColor, @ComponentBackgroundColor, @FontColor, @LinkColor, @FontSize, @FontFamily)";
 				}
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -988,7 +990,9 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@UserId", request.UserId);
 				cmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage);
 				cmd.Parameters.AddWithValue("@BackgroundColor", request.Theme.BackgroundColor);
+				cmd.Parameters.AddWithValue("@ComponentBackgroundColor", request.Theme.ComponentBackgroundColor);
 				cmd.Parameters.AddWithValue("@FontColor", request.Theme.FontColor);
+				cmd.Parameters.AddWithValue("@LinkColor", request.Theme.LinkColor);
 				cmd.Parameters.AddWithValue("@FontSize", request.Theme.FontSize);
 				cmd.Parameters.AddWithValue("@FontFamily", request.Theme.FontFamily);
 
@@ -1025,7 +1029,7 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Open();
 
-				string sql = "SELECT background_image, background_color, font_color, font_size, font_family " +
+				string sql = "SELECT background_image, background_color, component_background_color, font_color, link_color, font_size, font_family " +
 										 "FROM maxhanna.user_theme WHERE user_id = @UserId";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -1039,7 +1043,9 @@ namespace maxhanna.Server.Controllers
 						{
 							BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
 							BackgroundColor = reader["background_color"].ToString(),
+							ComponentBackgroundColor = reader["component_background_color"].ToString(),
 							FontColor = reader["font_color"].ToString(),
+							LinkColor = reader["link_color"].ToString(),
 							FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
 							FontFamily = reader["font_family"].ToString()
 						};

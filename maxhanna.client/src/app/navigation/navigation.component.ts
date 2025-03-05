@@ -106,6 +106,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
         const numberOfChatNotifs = res.filter(x => x.chatId && x.isRead == false).length;
         if (numberOfChatNotifs) {
           this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = numberOfChatNotifs + '';
+        } else {
+          this._parent.navigationItems.filter(x => x.title == "Chat")[0].content = ''; 
         }
       }
     } else {
@@ -119,8 +121,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const theme = await this.userService.getTheme(this._parent.user);
 
       // Handle the theme data as required, for example, store it in a component variable
-      if (theme) {
-        console.log('User theme:', theme);
+      if (theme) { 
         this.applyThemeToCSS(theme);
       } else {
         console.error('No theme data found for this user');
@@ -137,8 +138,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         if (res) {
           const directLink = `https://bughosted.com/assets/Uploads/${(this._parent.getDirectoryName(res) != '.' ? this._parent.getDirectoryName(res) : '')}${res.fileName}`;
           document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`);
-          console.log("link: ", directLink);
-          // Apply background directly to body to force the update
+
           document.body.style.backgroundImage = `url(${directLink})`;
         }
       });
@@ -149,13 +149,18 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (theme.fontColor) {
       document.documentElement.style.setProperty('--main-font-color', theme.fontColor);
     }
+    if (theme.componentBackgroundColor) {
+      document.documentElement.style.setProperty('--main-bg-color-quarter-opacity', theme.componentBackgroundColor);
+    }
+    if (theme.linkColor) {
+      document.documentElement.style.setProperty('--main-link-color', theme.linkColor);
+    }
     if (theme.fontSize) {
       document.documentElement.style.setProperty('--main-font-size', `${theme.fontSize}px`);
-    }
+    } 
     if (theme.fontFamily) {
       document.documentElement.style.setProperty('--main-font-family', theme.fontFamily);
-    }
-    /*document.documentElement.style.setProperty('--main-bg-image', `url(${theme.backgroundImage})`);*/
+    } 
   }
 
   async getCalendarInfo() {

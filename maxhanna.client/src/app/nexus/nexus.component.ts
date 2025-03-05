@@ -1622,7 +1622,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
             if (this.mapData && isOpen && !this.mapComponent.isMapRendered) {
               this.mapComponent.setMapData();
               setTimeout(() => {
-                if (this.nexusBase && !this.preventMapScrolling) {
+                if (this.nexusBase && !this.preventMapScrolling && this.mapComponent) {
                   this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY);
                   this.stopLoading();
                 }
@@ -1820,7 +1820,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.toggleScreen("map", true);
 
     setTimeout(() => {
-      this.mapComponent.scrollToCoordinates(x, y);
+      this.mapComponent?.scrollToCoordinates(x, y);
       this.preventMapScrolling = false;
     }, 200);
   }
@@ -1830,8 +1830,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.preventMapScrolling = true;
     this.toggleScreen("map", true);
     setTimeout(() => {
-      this.mapComponent.scrollToCoordinates(x, y);
-      this.mapComponent.selectCoordinates(x, y);
+      this.mapComponent?.scrollToCoordinates(x, y);
+      this.mapComponent?.selectCoordinates(x, y);
     }, 200);
   }
   async emittedGoToBaseEvent(nexusBase?: NexusBase) {
