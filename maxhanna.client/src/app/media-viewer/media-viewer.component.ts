@@ -94,7 +94,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     return false;
   }
 
-  async fetchFileSrc() { 
+  async fetchFileSrc() {
+    console.log("fetchfilesrc");
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       return;
@@ -130,6 +131,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } 
   }
   private setFileSrcByParentRefValue(id: number) {
+    console.log("setFileSrcByParentRefValue", id);
     this.muteOtherVideos();
     this.selectedFileSrc = this.parentRef?.pictureSrcs[id].value ?? this.inputtedParentRef!.pictureSrcs[id].value;
   }
@@ -170,6 +172,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
    
   async setFileSrcById(fileId: number) {
+    console.log("setFileSrcById", fileId);
     if (this.selectedFileSrc) return; 
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true; 

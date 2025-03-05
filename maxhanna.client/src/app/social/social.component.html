@@ -148,13 +148,18 @@
     <!-- Emoji picker Popup -->
     <div class="popupPanel" *ngIf="isEmojiPanelOpen">
       <div>
-        <span *ngFor="let emoji of emojiMap | keyvalue"
-              (click)="insertEmoji(emoji.value)"
-              style="cursor: pointer; font-size: 24px; margin: 5px;">
-          {{ emoji.value }}
-        </span>
+        <div class="emojiFilterInputDiv">
+          <input id="emojiFilter" #emojiFilter placeholder="🔍Search" (input)="searchForEmoji($event)" /> 
+        </div>
+        <div class="emojiFilterContainer"> 
+          <span *ngFor="let emoji of filteredEmojis | keyvalue"
+                (click)="insertEmoji(emoji.value)"
+                style="cursor: pointer; font-size: 24px; margin: 5px;" [title]="emoji.key">
+            {{ emoji.value }}
+          </span>
+        </div>
       </div>
-      <button id="closeOverlay" (click)="closeInsertEmojiPanel()">Close</button>
+      <button id="closeOverlay" class="emojiFilterCloseOverlayButton" (click)="closeInsertEmojiPanel()">Close</button>
     </div>
 
 
@@ -192,12 +197,9 @@
           </div>
           <div class="optionsStatsDescription">
             <div class="reactionTopicsAndExpanderDiv reactionTopics">
-              <span *ngIf="optionStory.storyTopics && optionStory.storyTopics.length > 0 && optionStory.id">
+              <span *ngIf="optionStory.storyTopics && optionStory.storyTopics.length > 0 && optionStory.id && !editingTopics.includes(optionStory.id)">
                 <span *ngFor="let topic of optionStory.storyTopics" class="matchingTopic" (click)="editingTopics.includes(optionStory.id) ? removeTopicFromStory(topic, optionStory) : topicClicked(topic);">
-                  {{topic.topicText}}
-                  <span title="Remove Topic From Story"
-                        *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)"
-                        (click)="removeTopicFromStory(topic, optionStory); $event.stopPropagation()">❌</span>
+                  {{topic.topicText}} 
                 </span>
               </span>
               <div *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)">

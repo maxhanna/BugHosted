@@ -22,7 +22,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   chatHistory: Message[] = [];
   attachedFiles: FileEntry[] = [];
   selectedUsers: User[] = []
-  @ViewChild('newMessage') newMessage!: ElementRef<HTMLInputElement>;
+  isPlayingYoutubeVideo = false;
+  @ViewChild('newMessage') newMessage!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('chatWindow') chatWindow!: ElementRef;
   @ViewChild(MediaSelectorComponent) attachmentSelector!: MediaSelectorComponent;
   hasManuallyScrolled = false;
@@ -106,7 +107,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             chatWindow.scrollTop = chatWindow.scrollHeight;
           }
         }, 0);
-      });
+      }); 
     }
   }
 
@@ -240,6 +241,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.showUserList = true;
     this.isPanelExpanded = true; 
   }
+
   async sendMessage() {
     if (!this.currentChatUsers || this.currentChatUsers.length == 0) return;
     let msg = this.newMessage.nativeElement.value.trim();
@@ -254,7 +256,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       chatUsers.push(this.parentRef.user);
     }
     try {
-      this.newMessage.nativeElement.value = '';
+      setTimeout(() => { 
+        this.newMessage.nativeElement.value = '';
+        this.newMessage.nativeElement.innerHTML = '';
+        this.newMessage.nativeElement.textContent = '';
+      }, 10);
       const user = this.parentRef?.user ?? new User(0, "Anonymous");
       await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles);
       this.removeAllAttachments();
@@ -378,6 +384,28 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
+  getTextForDOM(text?: string, componentId?: any) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      return parent.getTextForDOM(text, componentId);
+    } else return "Error fetching parent component.";
+  }
+
+  playYoutubeVideo() {
+    this.isPlayingYoutubeVideo = true;
+    const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value; 
+    setTimeout(() => {
+      let target = document.getElementById(`youtubeIframe`) as HTMLIFrameElement;
+      if (!target || !videoId) return;
+      target.style.visibility = 'visible';
+      target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
+      setTimeout(() => { 
+        if (target && !this.isElementInViewport(target)) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 200);
+    }, 50);
+  }
 
   private async subscribeToNotificationTopic(token: string) {
     const parent = this.inputtedParentRef ?? this.parentRef;

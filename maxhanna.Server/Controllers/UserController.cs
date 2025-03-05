@@ -6,6 +6,7 @@ using MySqlConnector;
 using Newtonsoft.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Transactions;
 using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
@@ -948,128 +949,336 @@ namespace maxhanna.Server.Controllers
 		{
 			_logger.LogInformation($"POST /User/Theme for user {request.UserId}");
 
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			try
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
-				conn.Open();
-
-				// First, check if the user already has a theme record in the user_theme table
-				string checkUserThemeSql = "SELECT COUNT(*) FROM maxhanna.user_theme WHERE user_id = @UserId";
-				MySqlCommand checkCmd = new MySqlCommand(checkUserThemeSql, conn);
-				checkCmd.Parameters.AddWithValue("@UserId", request.UserId);
-
-				int userThemeExists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
-
-				string sql;
-
-				if (userThemeExists > 0)
+				await conn.OpenAsync();
+				using (var transaction = await conn.BeginTransactionAsync())
 				{
-					// If the theme exists, update the record
-					sql = @"
-                UPDATE maxhanna.user_theme
-                SET background_image = @BackgroundImage,
-                    background_color = @BackgroundColor,
-                    component_background_color = @ComponentBackgroundColor,
-                    font_color = @FontColor,
-                    link_color = @LinkColor,
-                    font_size = @FontSize,
-                    font_family = @FontFamily
-                WHERE user_id = @UserId";
-				}
-				else
-				{
-					// If no theme exists, insert a new record
-					sql = @"
-                INSERT INTO maxhanna.user_theme (user_id, background_image, background_color, component_background_color, font_color, link_color, font_size, font_family)
-                VALUES (@UserId, @BackgroundImage, @BackgroundColor, @ComponentBackgroundColor, @FontColor, @LinkColor, @FontSize, @FontFamily)";
-				}
+					try
+					{
+						// Step 1: Check if a theme with the same name exists
+						string checkThemeSql = @"
+                    SELECT id, user_id, background_image, background_color, component_background_color, 
+                           secondary_component_background_color, font_color, secondary_font_color, 
+                           third_font_color, main_highlight_color, main_highlight_color_quarter_opacity, 
+                           link_color, font_size, font_family
+                    FROM maxhanna.user_theme 
+                    WHERE name = @Name 
+                    LIMIT 1;";
 
-				MySqlCommand cmd = new MySqlCommand(sql, conn);
+						MySqlCommand checkCmd = new MySqlCommand(checkThemeSql, conn, transaction);
+						checkCmd.Parameters.AddWithValue("@Name", request.Theme.Name);
 
-				// Add parameters to prevent SQL injection
-				cmd.Parameters.AddWithValue("@UserId", request.UserId);
-				cmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage);
-				cmd.Parameters.AddWithValue("@BackgroundColor", request.Theme.BackgroundColor);
-				cmd.Parameters.AddWithValue("@ComponentBackgroundColor", request.Theme.ComponentBackgroundColor);
-				cmd.Parameters.AddWithValue("@FontColor", request.Theme.FontColor);
-				cmd.Parameters.AddWithValue("@LinkColor", request.Theme.LinkColor);
-				cmd.Parameters.AddWithValue("@FontSize", request.Theme.FontSize);
-				cmd.Parameters.AddWithValue("@FontFamily", request.Theme.FontFamily);
+						int? existingThemeId = null;
+						int? existingUserId = null;
+						bool isSameTheme = false;
 
-				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+						using (var reader = await checkCmd.ExecuteReaderAsync())
+						{
+							if (await reader.ReadAsync())
+							{
+								existingThemeId = Convert.ToInt32(reader["id"]);
+								existingUserId = Convert.ToInt32(reader["user_id"]);
 
-				if (rowsAffected > 0)
-				{
-					return Ok("User theme updated successfully.");
+								// Check if theme values are identical
+								int? dbBackgroundImage = reader["background_image"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["background_image"]);
+								string dbBackgroundColor = reader["background_color"] == DBNull.Value ? "" : reader["background_color"].ToString().Trim();
+								string dbComponentBackgroundColor = reader["component_background_color"] == DBNull.Value ? "" : reader["component_background_color"].ToString().Trim();
+								string dbSecondaryComponentBackgroundColor = reader["secondary_component_background_color"] == DBNull.Value ? "" : reader["secondary_component_background_color"].ToString().Trim();
+								string dbFontColor = reader["font_color"] == DBNull.Value ? "" : reader["font_color"].ToString().Trim();
+								string dbSecondaryFontColor = reader["secondary_font_color"] == DBNull.Value ? "" : reader["secondary_font_color"].ToString().Trim();
+								string dbThirdFontColor = reader["third_font_color"] == DBNull.Value ? "" : reader["third_font_color"].ToString().Trim();
+								string dbMainHighlightColor = reader["main_highlight_color"] == DBNull.Value ? "" : reader["main_highlight_color"].ToString().Trim();
+								string dbMainHighlightColorQuarterOpacity = reader["main_highlight_color_quarter_opacity"] == DBNull.Value ? "" : reader["main_highlight_color_quarter_opacity"].ToString().Trim();
+								string dbLinkColor = reader["link_color"] == DBNull.Value ? "" : reader["link_color"].ToString().Trim();
+								int? dbFontSize = reader["font_size"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["font_size"]);
+								string dbFontFamily = reader["font_family"] == DBNull.Value ? "" : reader["font_family"].ToString().Trim();
+
+								isSameTheme =
+										dbBackgroundImage == request.Theme.BackgroundImage &&
+										dbBackgroundColor.Equals(request.Theme.BackgroundColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbComponentBackgroundColor.Equals(request.Theme.ComponentBackgroundColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbSecondaryComponentBackgroundColor.Equals(request.Theme.SecondaryComponentBackgroundColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbFontColor.Equals(request.Theme.FontColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbSecondaryFontColor.Equals(request.Theme.SecondaryFontColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbThirdFontColor.Equals(request.Theme.ThirdFontColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbMainHighlightColor.Equals(request.Theme.MainHighlightColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbMainHighlightColorQuarterOpacity.Equals(request.Theme.MainHighlightColorQuarterOpacity?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbLinkColor.Equals(request.Theme.LinkColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+										dbFontSize == request.Theme.FontSize &&
+										dbFontFamily.Equals(request.Theme.FontFamily?.Trim(), StringComparison.OrdinalIgnoreCase); 
+							}
+						}
+
+						if (existingThemeId.HasValue)
+						{
+							// If theme exists for another user, reject request
+							if (existingUserId != request.UserId && !isSameTheme)
+							{
+								return BadRequest("Theme name is already in use by another user.");
+							}
+
+							// If theme exists for the same user but with different values, allow update
+							if (!isSameTheme)
+							{
+								string updateSql = @"
+                            UPDATE maxhanna.user_theme
+                            SET background_image = @BackgroundImage,
+                                background_color = @BackgroundColor, 
+                                component_background_color = @ComponentBackgroundColor,
+                                secondary_component_background_color = @SecondaryComponentBackgroundColor,
+                                font_color = @FontColor,
+                                secondary_font_color = @SecondaryFontColor,
+                                third_font_color = @ThirdFontColor,
+                                main_highlight_color = @MainHighlightColor,
+                                main_highlight_color_quarter_opacity = @MainHighlightColorQuarterOpacity,
+                                link_color = @LinkColor,
+                                font_size = @FontSize,
+                                font_family = @FontFamily
+                            WHERE id = @Id AND user_id = @UserId LIMIT 1;";
+
+								MySqlCommand updateCmd = new MySqlCommand(updateSql, conn, transaction);
+								updateCmd.Parameters.AddWithValue("@Id", existingThemeId);
+								updateCmd.Parameters.AddWithValue("@UserId", request.UserId);
+								updateCmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage);
+								updateCmd.Parameters.AddWithValue("@BackgroundColor", request.Theme.BackgroundColor);
+								updateCmd.Parameters.AddWithValue("@ComponentBackgroundColor", request.Theme.ComponentBackgroundColor);
+								updateCmd.Parameters.AddWithValue("@SecondaryComponentBackgroundColor", request.Theme.SecondaryComponentBackgroundColor);
+								updateCmd.Parameters.AddWithValue("@FontColor", request.Theme.FontColor);
+								updateCmd.Parameters.AddWithValue("@SecondaryFontColor", request.Theme.SecondaryFontColor);
+								updateCmd.Parameters.AddWithValue("@ThirdFontColor", request.Theme.ThirdFontColor);
+								updateCmd.Parameters.AddWithValue("@MainHighlightColor", request.Theme.MainHighlightColor);
+								updateCmd.Parameters.AddWithValue("@MainHighlightColorQuarterOpacity", request.Theme.MainHighlightColorQuarterOpacity);
+								updateCmd.Parameters.AddWithValue("@LinkColor", request.Theme.LinkColor);
+								updateCmd.Parameters.AddWithValue("@FontSize", request.Theme.FontSize);
+								updateCmd.Parameters.AddWithValue("@FontFamily", request.Theme.FontFamily);
+
+								await updateCmd.ExecuteNonQueryAsync();
+							}
+						}
+						else
+						{
+							if (existingThemeId == null)
+							{
+								string insertSql = @"
+                        INSERT INTO maxhanna.user_theme 
+                        (user_id, background_image, background_color, component_background_color, 
+                         secondary_component_background_color, font_color, secondary_font_color, 
+                         third_font_color, main_highlight_color, main_highlight_color_quarter_opacity, 
+                         link_color, font_size, font_family, name)
+                        VALUES (@UserId, @BackgroundImage, @BackgroundColor, @ComponentBackgroundColor, 
+                                @SecondaryComponentBackgroundColor, @FontColor, @SecondaryFontColor, 
+                                @ThirdFontColor, @MainHighlightColor, @MainHighlightColorQuarterOpacity, 
+                                @LinkColor, @FontSize, @FontFamily, @Name);";
+
+								MySqlCommand insertCmd = new MySqlCommand(insertSql, conn, transaction);
+								insertCmd.Parameters.AddWithValue("@UserId", request.UserId);
+								insertCmd.Parameters.AddWithValue("@BackgroundImage", request.Theme.BackgroundImage);
+								insertCmd.Parameters.AddWithValue("@BackgroundColor", request.Theme.BackgroundColor);
+								insertCmd.Parameters.AddWithValue("@ComponentBackgroundColor", request.Theme.ComponentBackgroundColor);
+								insertCmd.Parameters.AddWithValue("@SecondaryComponentBackgroundColor", request.Theme.SecondaryComponentBackgroundColor);
+								insertCmd.Parameters.AddWithValue("@FontColor", request.Theme.FontColor);
+								insertCmd.Parameters.AddWithValue("@SecondaryFontColor", request.Theme.SecondaryFontColor);
+								insertCmd.Parameters.AddWithValue("@ThirdFontColor", request.Theme.ThirdFontColor);
+								insertCmd.Parameters.AddWithValue("@MainHighlightColor", request.Theme.MainHighlightColor);
+								insertCmd.Parameters.AddWithValue("@MainHighlightColorQuarterOpacity", request.Theme.MainHighlightColorQuarterOpacity);
+								insertCmd.Parameters.AddWithValue("@LinkColor", request.Theme.LinkColor);
+								insertCmd.Parameters.AddWithValue("@FontSize", request.Theme.FontSize);
+								insertCmd.Parameters.AddWithValue("@FontFamily", request.Theme.FontFamily);
+								insertCmd.Parameters.AddWithValue("@Name", request.Theme.Name);
+
+								await insertCmd.ExecuteNonQueryAsync();
+								existingThemeId = (int)insertCmd.LastInsertedId;
+							}
+						}
+
+						// Update selected theme
+						string updateSelectionSql = @"
+                    INSERT INTO maxhanna.user_theme_selected (user_id, theme_id)
+                    VALUES (@UserId, @ThemeId)
+                    ON DUPLICATE KEY UPDATE theme_id = VALUES(theme_id);";
+
+						MySqlCommand selectionCmd = new MySqlCommand(updateSelectionSql, conn, transaction);
+						selectionCmd.Parameters.AddWithValue("@UserId", request.UserId);
+						selectionCmd.Parameters.AddWithValue("@ThemeId", existingThemeId);
+
+						await selectionCmd.ExecuteNonQueryAsync();
+
+						await transaction.CommitAsync();
+						return Ok("User theme updated successfully.");
+					}
+					catch (Exception ex)
+					{
+						_logger.LogError(ex, "Error updating user theme.");
+						await transaction.RollbackAsync();
+						return StatusCode(500, "An error occurred while updating the theme.");
+					}
 				}
-				else
-				{
-					return NotFound("User theme could not be updated.");
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
-				return StatusCode(500, "An error occurred while processing the request.");
-			}
-			finally
-			{
-				conn.Close();
 			}
 		}
+
 
 		[HttpPost("/User/GetUserTheme", Name = "GetUserTheme")]
 		public async Task<IActionResult> GetUserTheme([FromBody] int UserId)
 		{
 			_logger.LogInformation($"POST /user/GetUserTheme/{UserId}");
 
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-
-			try
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
-				conn.Open();
-
-				string sql = "SELECT background_image, background_color, component_background_color, font_color, link_color, font_size, font_family " +
-										 "FROM maxhanna.user_theme WHERE user_id = @UserId";
-
-				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", UserId);
-
-				using (var reader = await cmd.ExecuteReaderAsync())
+				try
 				{
-					if (reader.Read())
-					{
-						var theme = new UserTheme()
-						{
-							BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
-							BackgroundColor = reader["background_color"].ToString(),
-							ComponentBackgroundColor = reader["component_background_color"].ToString(),
-							FontColor = reader["font_color"].ToString(),
-							LinkColor = reader["link_color"].ToString(),
-							FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
-							FontFamily = reader["font_family"].ToString()
-						};
+					await conn.OpenAsync();
 
-						return Ok(theme);
-					}
-					else
+					string sql = @"
+                SELECT ut.id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
+                       ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
+                       ut.link_color, ut.font_size, ut.font_family, ut.name
+                FROM maxhanna.user_theme_selected uts
+                INNER JOIN maxhanna.user_theme ut ON uts.theme_id = ut.id
+                WHERE uts.user_id = @UserId
+                LIMIT 1;";
+
+					MySqlCommand cmd = new MySqlCommand(sql, conn);
+					cmd.Parameters.AddWithValue("@UserId", UserId);
+
+					using (var reader = await cmd.ExecuteReaderAsync())
 					{
-						// If no theme data exists for the user, return NotFound.
-						return NotFound("User theme not found.");
+						if (reader.Read())
+						{
+							var theme = new UserTheme()
+							{
+								Id = Convert.ToInt32(reader["id"]),
+								BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
+								BackgroundColor = reader["background_color"].ToString(),
+								ComponentBackgroundColor = reader["component_background_color"].ToString(),
+								SecondaryComponentBackgroundColor = reader["secondary_component_background_color"].ToString(),
+								FontColor = reader["font_color"].ToString(),
+								SecondaryFontColor = reader["secondary_font_color"].ToString(),
+								ThirdFontColor = reader["third_font_color"].ToString(),
+								MainHighlightColor = reader["main_highlight_color"].ToString(),
+								MainHighlightColorQuarterOpacity = reader["main_highlight_color_quarter_opacity"].ToString(),
+								LinkColor = reader["link_color"].ToString(),
+								FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
+								FontFamily = reader["font_family"].ToString(),
+								Name = reader["name"].ToString()
+							};
+
+							return Ok(theme);
+						}
+						else
+						{
+							return NotFound(new { message = "No theme found for the user." });
+						}
 					}
 				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "Error processing GetUserTheme.");
+					return StatusCode(500, "An error occurred while processing the request.");
+				}
 			}
-			catch (Exception ex)
+		}
+		[HttpPost("/User/GetAllThemes", Name = "GetAllThemes")]
+		public async Task<IActionResult> GetAllThemes([FromBody] string search)
+		{
+			_logger.LogInformation($"POST /user/GetAllThemes with search: {search}");
+
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
-				_logger.LogError(ex, "An error occurred while processing the GET request.");
-				return StatusCode(500, "An error occurred while processing the request.");
-			}
-			finally
-			{
-				conn.Close();
+				try
+				{
+					await conn.OpenAsync();
+
+					// SQL query to get the top 20 themes, searching by name (using LIKE)
+					string sql = @"
+                SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
+                       ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
+                       ut.link_color, ut.font_size, ut.font_family, ut.name
+                FROM maxhanna.user_theme ut
+                WHERE ut.name LIKE @Search
+                LIMIT 20;";
+
+					MySqlCommand cmd = new MySqlCommand(sql, conn);
+
+					// Using '%' around the search term for partial matches
+					cmd.Parameters.AddWithValue("@Search", "%" + (search ?? "") + "%");
+
+					using (var reader = await cmd.ExecuteReaderAsync())
+					{
+						var themes = new List<UserTheme>();
+
+						while (reader.Read())
+						{
+							var theme = new UserTheme()
+							{
+								Id = Convert.ToInt32(reader["id"]),
+								UserId = reader["user_id"] != DBNull.Value ? Convert.ToInt32(reader["user_id"]) : null,
+								BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
+								BackgroundColor = reader["background_color"].ToString(),
+								ComponentBackgroundColor = reader["component_background_color"].ToString(),
+								SecondaryComponentBackgroundColor = reader["secondary_component_background_color"].ToString(),
+								FontColor = reader["font_color"].ToString(),
+								SecondaryFontColor = reader["secondary_font_color"].ToString(),
+								ThirdFontColor = reader["third_font_color"].ToString(),
+								MainHighlightColor = reader["main_highlight_color"].ToString(),
+								MainHighlightColorQuarterOpacity = reader["main_highlight_color_quarter_opacity"].ToString(),
+								LinkColor = reader["link_color"].ToString(),
+								FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
+								FontFamily = reader["font_family"].ToString(),
+								Name = reader["name"].ToString()
+							};
+
+							themes.Add(theme);
+						}
+
+						if (themes.Count > 0)
+						{
+							return Ok(themes);
+						}
+						else
+						{
+							return NotFound(new { message = "No themes found matching the search criteria." });
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "Error processing GetAllThemes.");
+					return StatusCode(500, "An error occurred while processing the request.");
+				}
 			}
 		}
 
+		[HttpPost("/User/DeleteUserSelectedTheme", Name = "DeleteUserSelectedTheme")]
+		public async Task<IActionResult> DeleteUserSelectedTheme([FromBody] int UserId)
+		{
+			_logger.LogInformation($"POST /user/DeleteUserSelectedTheme/{UserId}");
+
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					// Delete user’s selected theme from user_theme_selected
+					string sql = "DELETE FROM maxhanna.user_theme_selected WHERE user_id = @UserId;";
+
+					MySqlCommand cmd = new MySqlCommand(sql, conn);
+					cmd.Parameters.AddWithValue("@UserId", UserId);
+
+					int affectedRows = await cmd.ExecuteNonQueryAsync();
+
+					return affectedRows > 0
+							? Ok(new { message = "User theme selection removed." })
+							: NotFound(new { message = "No theme selection found for the user." });
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "Error processing DeleteUserTheme.");
+					return StatusCode(500, "An error occurred while processing the request.");
+				}
+			}
+		}
 
 		[HttpPost("/User/DeleteUserTheme", Name = "DeleteUserTheme")]
 		public async Task<IActionResult> DeleteUserTheme([FromBody] int UserId)

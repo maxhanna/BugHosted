@@ -133,8 +133,11 @@ a {
 
 .weatherPic {
   height: 52px;
-} 
+}
 
 .redTitle {
   color: red;
+}
+.greenTitle {
+  color: chartreuse;
 }

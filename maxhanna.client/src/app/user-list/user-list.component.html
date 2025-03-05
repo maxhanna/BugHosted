@@ -9,7 +9,11 @@
       </div>
       <div *ngFor="let user of usersSearched" class="userList" (click)="closeOverlayOnClick(user);">
         <span class="user">
-          <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag> 
+          <app-user-tag [user]="user"
+                        [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                        [displayMiniTag]="true"
+                        [preventOpenProfile]="true"
+                        [preventExpandPicture]="true"></app-user-tag> 
         </span>
         <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
           💬
@@ -44,7 +48,11 @@
   </div>
   <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
     <span class="user"> 
-      <app-user-tag [user]="user" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true" [preventOpenProfile]="true"></app-user-tag>  
+      <app-user-tag [user]="user"
+                    [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                    [displayMiniTag]="true"
+                    [preventOpenProfile]="true"
+                    [preventExpandPicture]="true"></app-user-tag>  
     </span>
     <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
       💬
@@ -53,7 +61,7 @@
       </span>
     </span>
   </div>
-  <div *ngIf="(!searchOnly && (!users || users.length == 0)) || (searchOnly && searchInput.nativeElement.value != '' && (!users || users.length == 0))">
+  <div *ngIf="(!searchOnly && (!users || users.length == 0)) || (searchOnly && searchInput && searchInput.nativeElement?.value != '' && (!users || users.length == 0))">
     No {{ isFriendsChecked ? 'Friends' : 'Users' }} to Display.
   </div>
   <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly && !sharingSearch">
@@ -68,6 +76,7 @@
                           [inputtedParentRef]="inputtedParentRef ?? parentRef"
                           [displayMiniTag]="true"
                           [preventOpenProfile]="true"
+                          [preventExpandPicture]="true"
                           [displayOnlyAvatar]="true"></app-user-tag>
           </span>
         </div>

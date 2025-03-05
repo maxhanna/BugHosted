@@ -20,12 +20,36 @@
       <input type="color"
              id="componentBackgroundColor"
              #componentBackgroundColor
-             (input)="updateCSS('--main-bg-color-quarter-opacity', $event)"
-             [value]="getComputedStyleValueForColor('--main-bg-color-quarter-opacity')">
+             (input)="updateCSS('--component-background-color', $event)"
+             [value]="getComputedStyleValueForColor('--component-background-color')">
+    </div>
+    <div class="themeSelectorDiv">
+      <label for="secondaryComponentBackgroundColor">Secondary Component Background Color:</label>
+      <input type="color"
+             id="secondaryComponentBackgroundColor"
+             #secondaryComponentBackgroundColor
+             (input)="updateCSS('--secondary-component-background-color', $event)"
+             [value]="getComputedStyleValueForColor('--secondary-component-background-color')">
     </div>
     <div class="themeSelectorDiv">
       <label for="fontColor">Font Color:</label>
       <input type="color" id="fontColor" #fontColor (input)="updateCSS('--main-font-color', $event)" [value]="getComputedStyleValueForColor('--main-font-color')">
+    </div>
+    <div class="themeSelectorDiv">
+      <label for="secondaryFontColor">Secondary Font Color:</label>
+      <input type="color" id="secondaryFontColor" #secondaryFontColor (input)="updateCSS('--secondary-font-color', $event)" [value]="getComputedStyleValueForColor('--secondary-font-color')">
+    </div>
+    <div class="themeSelectorDiv">
+      <label for="thirdFontColor">Third Font Color:</label>
+      <input type="color" id="thirdFontColor" #thirdFontColor (input)="updateCSS('--third-font-color', $event)" [value]="getComputedStyleValueForColor('--third-font-color')">
+    </div>
+    <div class="themeSelectorDiv">
+      <label for="mainHighlightColor">Main Highlight Color:</label>
+      <input type="color" id="mainHighlightColor" #mainHighlightColor (input)="updateCSS('--main-highlight-color', $event)" [value]="getComputedStyleValueForColor('--main-highlight-color')">
+    </div>
+    <div class="themeSelectorDiv">
+      <label for="mainHighlightColorQuarterOpacity">Main Highlight Color (Quarter Opacity):</label>
+      <input type="color" id="mainHighlightColorQuarterOpacity" #mainHighlightColorQuarterOpacity (input)="updateCSS('--main-highlight-color-quarter-opacity', $event)" [value]="getComputedStyleValueForColor('--main-highlight-color-quarter-opacity')">
     </div>
     <div class="themeSelectorDiv">
       <label for="linkColor">Link Color:</label>
@@ -68,11 +92,20 @@
   <div class="loremDiv">
     <a href="#">Lorem Ipsum</a>
     <h3>What is Lorem Ipsum?</h3>
-    Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+    Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,
+    when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into
+    electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages.
   </div>
 
-  <div class="themeButtons"> 
-    <button (click)="saveTheme()">💾Save</button>
+  <div class="themeButtons">
+    <select (change)="onThemeChange($event)">
+      <option selected>Latest Themes</option>
+      <option *ngFor="let theme of allThemes" [value]="theme.id">{{ theme.name }}</option>
+    </select>
+    <div style="display: flex; flex-direction:column;">
+      <input #themeNameInput placeholder="Theme Name" />
+      <button (click)="saveTheme()">💾Save</button>
+    </div>
     <button (click)="restoreDefaultSettings()">🔄Reset</button>
   </div>
 </div>

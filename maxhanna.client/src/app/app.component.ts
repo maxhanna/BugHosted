@@ -435,8 +435,18 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     // Step 3: Replace the placeholders with embedded YouTube iframes
     text = text.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
-      return `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${(component_id ?? '0')}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
-    });
+      const storyIdInput = document.getElementById('youtubeVideoStoryIdInput');
+
+      // Base link structure
+      let linkHTML = `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
+
+      // Add storyId to the onClick if the input exists
+      if (storyIdInput) {
+        linkHTML = `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${component_id ?? '0'}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
+      }
+
+      return linkHTML;
+    }); 
 
     // Step 4: Convert Bold, Bullet-point and italic tags
     text = text

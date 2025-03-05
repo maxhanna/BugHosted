@@ -59,10 +59,10 @@
     <button (click)="showMapLocation()" *ngIf="mapInputX.value && mapInputY.value" [disabled]="!mapInputX.value || !mapInputY.value">📍:{{'{' + mapInputX.value + ',' + mapInputY.value  + '}'}}</button>
     <button (click)="clearMapInputs()" *ngIf="mapInputX.value || mapInputY.value">Clear</button>
   </span>
-  <button (click)="scrollToCoordinates(nexusBase.coordsX, nexusBase.coordsY, false)" *ngIf="nexusBase" class="invertedHighlights">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
+  <button (click)="scrollToCoordinates(nexusBase.coordsX, nexusBase.coordsY, false)" *ngIf="nexusBase">📍:{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '}'}}</button>
 </div>
 
-<div *ngIf="shouldShowMapInputs() && selectedNexusBase && !zoomedOut" class="centeredDiv">
+<div *ngIf="shouldShowMapInputs() && selectedNexusBase && !zoomedOut" class="centeredDiv mapReportsCenterDiv">
   <!-- COMMAND BUTTONS -->
   <div>
     <button (click)="showAttackScreen(false)" *ngIf="showAttackButton" title="Send Attack">⚔️Attack</button>
@@ -73,14 +73,14 @@
   <!-- LOCATION INFO -->
   <div class="infoContainer" *ngIf="isReportsHidden">
     <div class="tileInfoDiv">
-      <div *ngIf="selectedNexusBase.user">
+      <div *ngIf="selectedNexusBase?.user">
         <span style="display:inline-block;">
           <app-user-tag [user]="selectedNexusBase.user"
                         [inputtedParentRef]="inputtedParentRef"></app-user-tag>
         </span>
       </div>
       <div>
-        <button (click)="scrollToCoordinates(selectedNexusBase.coordsX, selectedNexusBase.coordsY, false)" class="invertedHighlights">{{isAttackScreenOpen ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}</button>
+        <button (click)="scrollToCoordinates(selectedNexusBase.coordsX, selectedNexusBase.coordsY, false)">{{isAttackScreenOpen ? 'Attacking 📍:' : '📍:'}} {{'{' + selectedNexusBase.coordsX + ',' + selectedNexusBase.coordsY + '}'}}</button>
         <div *ngIf="selectedNexusBase.baseName">Name: <span class="usernameProfileLink">{{selectedNexusBase.baseName}}</span></div>
       </div>
     </div>
@@ -112,7 +112,23 @@
   </div>
   <!-- REPORTS -->
   <div class="reportsDisplayDiv" *ngIf="!isReportsHidden && !isAttackScreenOpen">
-    <app-nexus-reports [user]="user" [targetBase]="selectedNexusBase" #nexusReports></app-nexus-reports>
+    <app-nexus-reports [user]="user"
+                      [targetBase]="selectedNexusBase"
+                      [marinePictureSrc]="marinePictureSrc"
+                      [goliathPictureSrc]="goliathPictureSrc"
+                      [siegeTankPictureSrc]="siegeTankPictureSrc"
+                      [scoutPictureSrc]="scoutPictureSrc"
+                      [wraithPictureSrc]="wraithPictureSrc"
+                      [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                      [glitcherPictureSrc]="glitcherPictureSrc"
+                      [cclvl1Src]="cclvl1Src"
+                      [splvl1Src]="splvl1Src"
+                      [sdlvl1Src]="sdlvl1Src"
+                      [whlvl1Src]="whlvl1Src"
+                      [eblvl1Src]="eblvl1Src"
+                      [mineslvl1Src]="mineslvl1Src"
+                      [flvl1Src]="flvl1Src"
+                      #nexusReports></app-nexus-reports>
   </div>
 </div>
 <div class="bottomActionDiv">

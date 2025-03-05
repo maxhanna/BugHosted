@@ -131,38 +131,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
 
-  applyThemeToCSS(theme: any) {
-    // Apply theme to the root element or body   
-    if (theme.backgroundImage) {
-      this.fileService.getFileEntryById(theme.backgroundImage).then(res => {
-        if (res) {
-          const directLink = `https://bughosted.com/assets/Uploads/${(this._parent.getDirectoryName(res) != '.' ? this._parent.getDirectoryName(res) : '')}${res.fileName}`;
-          document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`);
-
-          document.body.style.backgroundImage = `url(${directLink})`;
-        }
-      });
-    }
-    if (theme.backgroundColor) {
-      document.documentElement.style.setProperty('--main-bg-color', theme.backgroundColor);
-    }
-    if (theme.fontColor) {
-      document.documentElement.style.setProperty('--main-font-color', theme.fontColor);
-    }
-    if (theme.componentBackgroundColor) {
-      document.documentElement.style.setProperty('--main-bg-color-quarter-opacity', theme.componentBackgroundColor);
-    }
-    if (theme.linkColor) {
-      document.documentElement.style.setProperty('--main-link-color', theme.linkColor);
-    }
-    if (theme.fontSize) {
-      document.documentElement.style.setProperty('--main-font-size', `${theme.fontSize}px`);
-    } 
-    if (theme.fontFamily) {
-      document.documentElement.style.setProperty('--main-font-family', theme.fontFamily);
-    } 
-  }
-
   async getCalendarInfo() {
     if (!this.user) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title == "Calendar")) { return; }
@@ -289,4 +257,51 @@ export class NavigationComponent implements OnInit, OnDestroy {
       }
     }
   }
+
+  applyThemeToCSS(theme: any) { 
+    if (theme.backgroundImage) {
+      this.fileService.getFileEntryById(theme.backgroundImage).then(res => {
+        if (res) {
+          const directLink = `https://bughosted.com/assets/Uploads/${(this._parent.getDirectoryName(res) != '.' ? this._parent.getDirectoryName(res) : '')}${res.fileName}`;
+          document.documentElement.style.setProperty('--main-background-image-url', `url(${directLink})`);
+
+          document.body.style.backgroundImage = `url(${directLink})`;
+        }
+      });
+    }
+    if (theme.backgroundColor) {
+      document.documentElement.style.setProperty('--main-bg-color', theme.backgroundColor);
+    }
+    if (theme.fontColor) {
+      document.documentElement.style.setProperty('--main-font-color', theme.fontColor);
+    }
+    if (theme.secondaryFontColor) {
+      document.documentElement.style.setProperty('--secondary-font-color', theme.secondaryFontColor);
+    }
+    if (theme.thirdFontColor) {
+      document.documentElement.style.setProperty('--third-font-color', theme.thirdFontColor);
+    }
+    if (theme.mainHighlightColor) {
+      document.documentElement.style.setProperty('--main-highlight-color', theme.mainHighlightColor);
+    }
+    if (theme.mainHighlightColorQuarterOpacity) {
+      document.documentElement.style.setProperty('--main-highlight-color-quarter-opacity', theme.mainHighlightColorQuarterOpacity);
+    }
+    if (theme.componentBackgroundColor) {
+      document.documentElement.style.setProperty('--component-background-color', theme.componentBackgroundColor);
+    }
+    if (theme.secondaryComponentBackgroundColor) {
+      document.documentElement.style.setProperty('--secondary-component-background-color', theme.secondaryComponentBackgroundColor);
+    }
+    if (theme.linkColor) {
+      document.documentElement.style.setProperty('--main-link-color', theme.linkColor);
+    }
+    if (theme.fontSize) {
+      document.documentElement.style.setProperty('--main-font-size', `${theme.fontSize}px`);
+    }
+    if (theme.fontFamily) {
+      document.documentElement.style.setProperty('--main-font-family', theme.fontFamily);
+    }
+  }
+
 }

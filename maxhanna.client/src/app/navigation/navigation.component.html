@@ -46,7 +46,7 @@
 
       <ng-template #otherItems> 
         <!-- for notifications, u need glowing if notifications -->
-        <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar' || item.title === 'Chat') && item.content && parseNumber(item.content) > 0 ? 'glowing' : (item.title === 'Crypto-Hub' && !isBTCRising) ? 'redTitle' : '')" (click)="goTo($event)" [title]="item.title">
+        <a [class]="'navLink htmlIcon ' + (item && (item.title === 'Notifications' || item.title === 'Calendar' || item.title === 'Chat') && item.content && parseNumber(item.content) > 0 ? 'glowing' : (item.title === 'Crypto-Hub' && !isBTCRising) ? 'redTitle' : 'greenTitle')" (click)="goTo($event)" [title]="item.title">
           {{ item.icon!.substring(0, 3) }}
         </a>
 

@@ -41,7 +41,7 @@
     margin-right: 10px;
 }
 .username {
-  color: white;
+  color: var(--secondary-font-color);
 }
 .searchDiv {
   flex-direction: row;

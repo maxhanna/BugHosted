@@ -331,7 +331,21 @@ export class UserService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify( user.id ),
+        body: JSON.stringify(user.id),
+      });
+      return await response.json();
+    } catch (error) {
+      return 'error';
+    }
+  }
+  async getAllThemes(search?: string) {
+    try {
+      const response = await fetch('/user/getallthemes/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(search ?? ''),
       });
       return await response.json();
     } catch (error) {

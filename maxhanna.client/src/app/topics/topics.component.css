@@ -59,7 +59,7 @@ input {
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: var(--main-bg-color-full-opacity);
+  background-color: var(--secondary-component-background-color);
   cursor: pointer;
 }
 

@@ -36,7 +36,10 @@
     <div *ngIf="shouldShowResources() && nexusBase" class="resourceDiv">
       <span title="Gold" class="resourceSpan goldText">📀:{{ (nexusBase.gold || 0) | number:'1.0-2' }}</span>
       <span title="Supply Capacity" class="resourceSpan" *ngIf="supplyCapacity">🥩:{{supplyCapacity - (nexusBase.supply || 0)}}</span>
-      <span title="Nexus location" class="resourceSpan">📍:<span class="invertedHighlights">{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '} '}}</span><span *ngIf="nexusBase && nexusBase.baseName" class="invertedHighlights">{{nexusBase.baseName}}</span></span>
+      <span title="Nexus location" class="resourceSpan">
+        📍:<span>{{'{' + nexusBase.coordsX + ',' + nexusBase.coordsY + '} '}}</span>
+        <span *ngIf="nexusBase && nexusBase.baseName">{{nexusBase.baseName}}</span>
+      </span>
     </div>
     <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen " class="battleReportComponentDiv">
@@ -72,6 +75,20 @@
                      [nexusAvailableUnits]="nexusAvailableUnits"
                      [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase"
                      [unitStats]="units"
+                    [marinePictureSrc]="marinePictureSrc"
+                    [goliathPictureSrc]="goliathPictureSrc"
+                    [siegeTankPictureSrc]="siegeTankPictureSrc"
+                    [scoutPictureSrc]="scoutPictureSrc"
+                    [wraithPictureSrc]="wraithPictureSrc"
+                    [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                    [glitcherPictureSrc]="glitcherPictureSrc"
+                    [cclvl1Src]="cclvl1Src"
+                    [splvl1Src]="splvl1Src"
+                    [sdlvl1Src]="sdlvl1Src"
+                    [whlvl1Src]="whlvl1Src"
+                    [eblvl1Src]="eblvl1Src"
+                    [mineslvl1Src]="mineslvl1Src"
+                    [flvl1Src]="flvl1Src"
                      [lvl1Src]="nexusLevel1Src"
                      [lvl2Src]="nexusLevel2Src"
                      [lvl3Src]="nexusLevel3Src"

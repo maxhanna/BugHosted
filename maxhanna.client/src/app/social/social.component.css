@@ -2,7 +2,7 @@
   width: 98vw;
   display: flex;
   flex-direction: column;
-} 
+}
 
 .inputDiv {
   margin-left: auto;
@@ -72,7 +72,7 @@
   font-size: small;
   display: inline-block
 }
- 
+
 .topTopicTitle {
   display: inline-block;
   padding: 5px;
@@ -180,7 +180,7 @@ singleAttachment {
 }
 
 .metadataOptionsStats {
-  margin-top:10px; 
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
   padding: 10px;
@@ -336,6 +336,7 @@ singleAttachment {
   top: CALC(50px - 36px);
   left: CALC(100% - 200px);
 }
+
   .topPagination select {
     width: 35px;
     height: 30px;
@@ -352,26 +353,19 @@ singleAttachment {
 
 .storyHeader {
   display: flex;
-  justify-content: center;
-  /*	background-color: var(--main-highlight-color);
-	border: var(--main-border);*/
-  height: 25px;
-  /*	margin-bottom: 10px;*/
+  justify-content: center; 
+  height: 25px; 
   align-content: center;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  font-weight: bolder;
-  /*	border-style: double;*/
-  text-shadow: 1.2px 2.2px black;
+  font-weight: bolder;  
   padding-left: 15px;
   padding-right: 10px;
   padding-top: 2px;
   background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
   border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-  /*	box-shadow: 1px 1px 5px black;
-*/
+  border-top-right-radius: 8px; 
 }
 
 .storyDate {
@@ -380,6 +374,7 @@ singleAttachment {
   display: inline-block;
   width: 100%;
 }
+
 .topicDiv {
   text-align: center;
 }
@@ -434,7 +429,7 @@ singleAttachment {
   margin-bottom: 10px;
   opacity: 75%;
 }
- 
+
 .popupPanelTitle {
   display: flex;
   width: 100%;
@@ -444,10 +439,12 @@ singleAttachment {
 .largePopupPanel {
   height: 50%;
 }
+
 .editingTextAreaButtonWrapperDiv {
   display: flex;
-  flex-wrap:nowrap;
+  flex-wrap: nowrap;
 }
+
 .storyEditSpans {
   position: relative;
   transform: scale(0.75);
@@ -481,6 +478,7 @@ singleAttachment {
   min-width: unset !important;
   max-width: unset !important;
 }
+
 .matchingTopicsInsideButtonWrapper {
   white-space: nowrap;
   overflow: hidden;
@@ -572,6 +570,22 @@ singleAttachment {
   margin-left: auto;
   margin-right: auto;
 }
+
 .menuPopupSection {
   margin: 20px;
+}
+
+.emojiFilterInputDiv, .emojiFilterCloseOverlayButton {
+  text-align: center;
+  margin: 15px;
+}
+
+.emojiFilterContainer {
+  max-height: CALC(var(--vh, 1vh)* 70);
+  overflow: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: space-evenly;
+  align-items: flex-start;
 }

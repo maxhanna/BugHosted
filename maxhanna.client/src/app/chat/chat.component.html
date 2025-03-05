@@ -52,7 +52,7 @@
               </div>
             </div>
             <div class="messageContent">
-              {{ message.content }}
+              <div [innerHTML]="getTextForDOM(message.content)"></div>
               <div class="reactionDiv">
                 <app-reaction [messageId]="message.id"
                               [user]="parentRef?.user"
@@ -78,7 +78,7 @@
           <ng-container *ngIf="message.sender.id !== (parentRef?.user?.id ?? 0)">
             <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
             <div class="messageContent ">
-              {{ message.content }}
+              <div [innerHTML]="getTextForDOM(message.content)"></div>
               <div class="otherPersonsReactionDiv">
                 <app-reaction [messageId]="message.id"
                               [user]="parentRef?.user"
@@ -108,6 +108,15 @@
             </div>
           </ng-container>
         </div>
+        <div [style.visibility]="isPlayingYoutubeVideo ? 'visible' : 'hidden'"
+             [style.textAlign]="'center'"
+             [style.height]="isPlayingYoutubeVideo ? '500px' : '0px'">
+          <iframe [style.height]="isPlayingYoutubeVideo ? '500px' : '0px'"
+                  [style.width]="isPlayingYoutubeVideo ? '100%' : '0px'"
+                  [style.visibility]="isPlayingYoutubeVideo ? 'visible' : 'hidden'"
+                  id="youtubeIframe"></iframe>
+          <button (click)="isPlayingYoutubeVideo = false">Hide Youtube Video</button>
+        </div> 
         <div *ngIf="(!chatHistory  || chatHistory.length == 0 ) && !isLoading">
           ZZzzz. Empty chat!
         </div>
@@ -116,7 +125,7 @@
         </div>
       </div>
       <div class="messageInput">
-        <input placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()" />
+        <textarea placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()"></textarea>
         <button (click)="sendMessage()">🗨️Send</button>
         <div>
           <app-media-selector #attachmentSelector
@@ -151,4 +160,6 @@
     </div>
   </div>
 </div>
- 
+
+<button id="youtubeVideoButton" [style.visibility]="'hidden'" (click)="playYoutubeVideo()" class="hiddenInput"></button>
+<input type="text" id="youtubeVideoIdInput" [style.visibility]="'hidden'" class="hiddenInput" /> 

@@ -46,7 +46,7 @@ namespace maxhanna.Server.Controllers
 
 				var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-				var response = await _httpClient.PostAsync($"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={apiKey}", jsonContent);
+				var response = await _httpClient.PostAsync($"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-001:generateContent?key={apiKey}", jsonContent);
 				var responseBody = await response.Content.ReadAsStringAsync();
 
 				_logger.LogInformation($"Google Gemini response: {responseBody}");
@@ -105,8 +105,8 @@ namespace maxhanna.Server.Controllers
 				// Attach OAuth token to request headers
 				_httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-				var response = await _httpClient.PostAsync(
-						"https://us-central1-aiplatform.googleapis.com/v1/projects/my-project/locations/us-central1/publishers/google/models/imagen-3.0-generate-002:predict",
+				var response = await _httpClient.PostAsync( 
+						"https://us-central1-aiplatform.googleapis.com/v1/projects/bughosted/locations/us-central1/publishers/google/models/imagen-3.0-generate-002:predict",
 						jsonContent
 				);
 

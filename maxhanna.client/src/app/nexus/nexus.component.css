@@ -39,6 +39,7 @@
   max-width: 300px;
   text-align: center;
   background-color: var(--main-highlight-color-quarter-opacity);
+  color: var(--third-font-color);
   border: var(--main-border);
   text-overflow: ellipsis;
   white-space: nowrap;

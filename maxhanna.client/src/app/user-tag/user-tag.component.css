@@ -26,7 +26,7 @@
   cursor: pointer;
 }
 .username {
-  color: white;
+  color: var(--secondary-font-color);
 }
 .userTag {
   width: 50px;
@@ -64,4 +64,4 @@
   left: 6px;
   top: -77px;
   position: relative !important;
-}
+} 

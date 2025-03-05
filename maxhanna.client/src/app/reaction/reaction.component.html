@@ -15,11 +15,18 @@
 </div>
 
 <div *ngIf="showReactionChoices" class="popupPanel" id="reactionChoicesDiv">
+  <div class="popupPanelTitle">
+    Reaction Choices
+  </div>
+  <div class="searchInputDiv"> 
+    <input #reactionFilter placeholder="Filter/Search" (input)="searchForReaction()" /><button (click)="searchForReaction()">🔍Search</button>
+  </div>
+   
   <div class="reactionChoices">
-    <div class="reactionChoice" *ngFor="let reaction of reactions" (click)="selectReaction(reaction.type)" [title]="reaction.label">
-      {{reaction.emoji}}
+    <div class="reactionChoice" *ngFor="let reaction of filteredReactions" (click)="selectReaction(reaction.type)" [title]="reaction.label">
+      {{reaction.emoji}} {{ reaction.label }}
     </div>
-  </div> 
+  </div>
   <div>
     <button id="closeOverlay" (click)="closeReactionDisplay()">Close</button>
   </div>
@@ -30,14 +37,14 @@
     <span class="popupPanelTitle">Reactions ({{currentReactions?.length ?? 0}}) </span>
     <button id="closeOverlay" (click)="closeReactionsPanel()">Close</button>
   </div>
-  <div class="reactionsOverlayWrapper">
-    <div *ngFor="let reaction of currentReactions">
-      <div>
-        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef"></app-user-tag>
+  <div class="reactionsOverlayWrapper optionsStatsWrapperDiv">
+    <div *ngFor="let reaction of currentReactions" class="reactedReactionDiv optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        <app-user-tag [user]="reaction.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
-      <div>
-        : <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
-        <span class="smallFont">{{reaction.timestamp?.toString()?.replace('T', ' ')}}</span>
+      <div class="optionsStatsDescription">
+        <span class="reactionTypeSpan" [title]="reaction.type">{{replaceReactionType(reaction.type)}}</span>
+        <span class="smallFont">{{daysSinceDate(reaction.timestamp)}}</span>
       </div>
     </div>
   </div> 

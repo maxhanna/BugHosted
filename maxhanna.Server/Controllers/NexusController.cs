@@ -367,7 +367,20 @@ namespace maxhanna.Server.Controllers
 				// Insert new base at the available location
 				string sql = @"
                     SELECT 
-                        n.user_id, n.base_name, u.username, n.coords_x, n.coords_y, n.gold, n.command_center_level, n.engineering_bay_level, n.mines_level, n.factory_level, n.starport_level, n.warehouse_level, n.supply_depot_level, udp.file_id
+                        n.user_id, 
+												n.base_name, 
+												u.username, 
+												n.coords_x, 
+												n.coords_y, 
+												n.gold, 
+												n.command_center_level, 
+												n.engineering_bay_level, 
+												n.mines_level, 
+												n.factory_level, 
+												n.starport_level, 
+												n.warehouse_level,
+												n.supply_depot_level,
+												udp.file_id
                     FROM 
                         maxhanna.nexus_bases n
                     LEFT JOIN 
@@ -401,9 +414,10 @@ namespace maxhanna.Server.Controllers
 						tmpBase.SupplyDepotLevel = reader.IsDBNull(reader.GetOrdinal("supply_depot_level")) ? 0 : reader.GetInt32(reader.GetOrdinal("supply_depot_level"));
 						tmpBase.Gold = reader.IsDBNull(reader.GetOrdinal("gold")) ? 0 : reader.GetDecimal(reader.GetOrdinal("gold"));
 						tmpBase.User =
-								new User(reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")),
-										reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString(reader.GetOrdinal("username")),
-										dp);
+								new User(
+									reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")), 
+									reader.IsDBNull(reader.GetOrdinal("username")) ? "Anonymous" : reader.GetString(reader.GetOrdinal("username")),
+									dp);
 						bases.Add(tmpBase);
 					}
 				}

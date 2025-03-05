@@ -26,6 +26,7 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnChange
 
   constructor(private userService: UserService) { super(); }
   async ngOnInit() {
+    console.log("user tag init");
     this.parentRef = this.inputtedParentRef;
     if (this.user && this.user.id && !this.user.username) {
       console.log("no username passed in, but got a userId, fetching user: ", this.user);
@@ -39,11 +40,14 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnChange
 
   ngOnChanges(changes: SimpleChanges) { 
     if (changes['user'] && !changes['user'].firstChange && this.profileImageViewer) {
-      this.profileImageViewer.user = changes["user"].currentValue;
-      this.profileImageViewer.selectedFile = undefined;
-      this.profileImageViewer.selectedFileSrc = "";
+      this.user = changes["user"].currentValue;
+      this.profileImageViewer.fileSrc = undefined;
+      this.profileImageViewer.selectedFileSrc = '';
+      this.profileImageViewer.file = undefined;
+      this.profileImageViewer.fileId = this.user?.displayPictureFile?.id; 
+
       setTimeout(() => {
-        this.profileImageViewer.ngOnInit();
+        this.profileImageViewer.fetchFileSrc();
       }, 10)
     }
   }

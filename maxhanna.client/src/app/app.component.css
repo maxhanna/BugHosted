@@ -16,30 +16,31 @@
 }
 
 .overlay {
-  position: fixed; 
-  top: 0;  
+  position: fixed;
+  top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: CALC(var(--vh, 1vh) * 100);
   background-color: var(--main-highlight-color-quarter-opacity);
-  z-index: 2;  
+  z-index: 2;
   overflow: hidden;
+  opacity: 0.75;
 }
 
 .notificationArea {
   margin-top: 10px;
   margin-bottom: 10px;
-  position: absolute;
+  position: fixed;
   top: 0px;
   right: 25px;
   background-color: var(--secondary-bg-color);
-  max-height: CALC(var(--vh, 1vh)* 80);
+  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
   overflow: hidden;
   z-index: 10;
 }
 
 .notificationBubble {
-  background-color: var(--main-bg-color-full-opacity);
+  background-color: var(--secondary-component-background-color);
   padding: 30px;
   width: 200px;
   z-index: 10;

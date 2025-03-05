@@ -874,7 +874,7 @@ namespace maxhanna.Server.Controllers
 				var user = JsonConvert.DeserializeObject<User>(Request.Form["user"]!);
 				var isPublic = JsonConvert.DeserializeObject<bool>(Request.Form["isPublic"]!);
 				var files = Request.Form.Files;
-
+				int conflicts = 0;
 				_logger.LogInformation($"POST /File/Upload (user: {user?.Id} folderPath = {folderPath})");
 
 				if (files == null || files.Count == 0)
@@ -897,6 +897,7 @@ namespace maxhanna.Server.Controllers
 					{
 						_logger.LogError("Cannot upload duplicate files.");
 						uploaded.Add(conflictingFile);
+						conflicts++;
 					}
 					else
 					{
@@ -956,8 +957,8 @@ namespace maxhanna.Server.Controllers
 						_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}, Type: {fileEntry.FileType}");
 					}
 				}
-
-				_logger.LogInformation($"Uploaded {uploaded.Count} files.");
+				string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}.";
+				_logger.LogInformation(message);
 				return Ok(uploaded);
 			}
 			catch (Exception ex)

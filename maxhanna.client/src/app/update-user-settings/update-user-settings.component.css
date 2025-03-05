@@ -55,7 +55,7 @@
   }
 
   .menuIconTable tr:nth-child(even) {
-    background-color: var(--main-bg-color-full-opacity);
+    background-color: var(--secondary-component-background-color);
   }
 
 .settingsDiv {

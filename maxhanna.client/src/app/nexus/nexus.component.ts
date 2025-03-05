@@ -1675,12 +1675,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       return this.units.find(x => x.unitType == "glitcher");
     else return undefined;
   }
-  addNotification(notif?: string) {
+  addNotification(notif?: string) { 
     if (notif) {
-      this.notifications.push(notif);
-      setTimeout(() => {
-        this.notifications.shift();
-      }, 9000);
+      this.parentRef?.showNotification(notif); 
     }
   }
   toggleUnitScreenFromBaseUnits(unit: string) {

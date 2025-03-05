@@ -24,7 +24,7 @@
   font-size: small;
 }
 .minimalInterfaceComponent {
-  background-color: var(--main-bg-color-full-opacity);
+  background-color: var(--secondary-component-background-color);
   position: fixed;
   width: 100%;
   max-width: 600px;

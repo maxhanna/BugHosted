@@ -52,7 +52,7 @@
   text-overflow: ellipsis;
   overflow: hidden;
   word-break: keep-all;
-  color: var(--secondary-font-color);
+  color: var(--third-font-color);
   text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
 }
 
@@ -77,9 +77,15 @@
 }
 
 .reportsDisplayDiv {
-  max-height: 200px;
+  overflow: auto;
+  max-height: CALC(100% - 300px);
+}
+
+.mapReportsCenterDiv {
+  max-height: CALC(100% - 300px);
   overflow: auto;
 }
+
 
 .baseAllianceSpan {
   width: 10px;
@@ -255,7 +261,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   display: inline-block;
-  background-color: var(--main-bg-color-full-opacity);
+  background-color: var(--secondary-component-background-color);
   line-height: 30px;
   padding-left: 5px;
   padding-right: 5px;

@@ -2,12 +2,11 @@
 :root {
   --main-font-size: 16px;
   --main-bg-color: #0e0e0e;
-  --main-bg-color-quarter-opacity: #202020;
+  --component-background-color: #202020;
   --main-highlight-color: #3a3a3a;
-  --main-highlight-color-quarter-opacity: #a9a9a987;
-  --secondary-bg-color: rgba(54, 25, 25, .2);
-  --main-bg-color-full-opacity: #011300;
-  --table-thead-color: var(--main-highlight-color-quarter-opacity);
+  --main-highlight-color-quarter-opacity: #a9a9a987; 
+  --secondary-component-background-color: #011300;
+  --table-thead-color: var(--main-highlight-color);
   --main-font-family: Helvetica, Arial;
   --title-font-family: 'Gill Sans', Verdana, sans-serif;
   --section-font-family: 'Courier New', Arial, sans-serif;
@@ -91,7 +90,7 @@ fieldset {
 }
 
 .componentMain { 
-  background-color: var(--main-bg-color-quarter-opacity);
+  background-color: var(--component-background-color);
   position: relative;
   padding-top: 55px;
   border: var(--main-border);
@@ -478,9 +477,8 @@ fieldset {
   border-top: var(--main-border);
   margin-bottom: 2px;
   display: block;
-  background-color: var(--main-highlight-color-quarter-opacity);
-  text-shadow: 0.1px 0.1px 2px var(--main-bg-color);
-  text-decoration-color: var(--primary-font-color);
+  background-color: var(--main-highlight-color);
+  color: var(--secondary-font-color);
   box-shadow: 0px 0px 5px black;
 }
 
@@ -504,7 +502,7 @@ fieldset {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: var(--main-bg-color-full-opacity);
+  background: var(--secondary-component-background-color);
   z-index: 4 !important;
   border-radius: 8px;
   overflow: auto;

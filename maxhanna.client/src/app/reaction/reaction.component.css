@@ -3,7 +3,7 @@
   bottom: 0;
   right: 0;
   font-size: small;
-  color: grey;
+  color: var(--main-font-color);
   display: inline-block;
   white-space: nowrap;
 }
@@ -40,12 +40,14 @@
   width: 100%;
   flex-direction: row;
   flex-wrap: wrap;
-  align-content: space-between;
-  justify-content: center;
-  align-items: center;
+  align-content: flex-start;
+  justify-content: flex-start;
+  align-items: flex-start;
   gap: 20px;
   font-size: xx-large;
   line-height: 50px;
+  height: CALC(var(--vh, 1vh) * 70);
+  overflow: auto;
 }
 .reactionsContainer {
   display: flex;
@@ -79,3 +81,21 @@
     justify-content: center;
     flex-wrap: nowrap;
   }
+
+.searchInputDiv {
+  display: flex;
+  gap: 15px;
+  align-items: flex-end;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  margin-bottom: 20px;
+}
+.reactedReactionDiv {
+  display: flex;
+  justify-content: space-between !important;
+  align-content: stretch !important;
+  align-items: center !important;
+  width: 100%;
+  flex-wrap: wrap !important;
+  flex-direction: row-reverse !important;
+}

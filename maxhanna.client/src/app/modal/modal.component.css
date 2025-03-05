@@ -17,7 +17,7 @@
 }
 
 .modal {
-  background-color: var(--main-bg-color-full-opacity);
+  background-color: var(--secondary-component-background-color);
   padding: 20px;
   border-radius: 8px;
   width: 300px;

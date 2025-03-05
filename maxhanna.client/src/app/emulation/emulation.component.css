@@ -5,14 +5,10 @@
 
 .mainComponent {
   margin-top: 50px;
-}
-.componentContainer {
-  background-color: black !important;
-}
+} 
 .componentMain {
   width: 100vw;
-  overflow: unset;
-  background-color: black !important;
+  overflow: unset; 
   border: unset !important;
 }
 

@@ -46,6 +46,7 @@ export class NexusMapComponent extends ChildComponent {
   @Input() nexusAvailableUnits?: NexusUnits;
   @Input() nexusUnitsOutsideOfBase?: NexusUnits;
   @Input() nexusBase?: NexusBase;
+  @Input() cclvl1Src?: string;
   @Input() lvl1Src?: string;
   @Input() lvl2Src?: string;
   @Input() lvl3Src?: string;
@@ -58,7 +59,16 @@ export class NexusMapComponent extends ChildComponent {
   @Input() scoutPictureSrc: string | undefined;
   @Input() wraithPictureSrc: string | undefined;
   @Input() battlecruiserPictureSrc: string | undefined;
-  @Input() glitcherPictureSrc: string | undefined;
+  @Input() glitcherPictureSrc: string | undefined; 
+  @Input() splvl1Src: string | undefined;
+  @Input() sdlvl1Src: string | undefined;
+  @Input() whlvl1Src: string | undefined;
+  @Input() eblvl1Src: string | undefined;
+  @Input() mineslvl1Src: string | undefined;
+  @Input() flvl1Src: string | undefined;
+
+
+
   @Input() numberOfPersonalBases: number | undefined;
   @Input() unitStats?: UnitStats[];
   @Input() inputtedParentRef?: AppComponent;

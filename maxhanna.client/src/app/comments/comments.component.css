@@ -100,7 +100,7 @@
 }
 
 .highlightedCommentCounter {
-  color: white;
+  color: var(--secondary-font-color);
 }
 
 .actionDiv {
