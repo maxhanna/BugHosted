@@ -11,10 +11,14 @@
   overflow: unset; 
   border: unset !important;
 }
-
+@media only screen and (max-width: 667px) {
+  .componentMain {
+    width: 100vw !important;
+  }
+}
 .gamesContainer {
   width: 100%;
-  height: CALC(var(--vh, 1vh) * 100 - 110px);
+  height: CALC(var(--vh, 1vh)* 100 - 65px);
   overflow: auto;
 }
  
@@ -27,7 +31,7 @@
   margin-left: -2px;
   overflow: hidden;
   width: 100%;
-  height: CALC(var(--vh, 1vh) * 100 - 110px);
+  height: CALC(var(--vh, 1vh) * 100 - 55px);
   border-radius: 20px;
   padding-top: 10px; 
   box-shadow: 0px -5px 0px var(--main-bg-color), 0px 5px 0px var(--main-bg-color);
@@ -300,7 +304,7 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   position: absolute;
   top: CALC(var(--vh, 1vh) * 95 - 60px);
   left: 10px;
-  z-index: 30;
+  z-index: 3;
 }
   
 @media only screen and (max-height : 600px) {
@@ -539,6 +543,8 @@ canvas:-ms-fullscreen, #fullscreenContainer:-ms-fullscreen {
   cursor: help;
 }
 .popupPanel {
+  width: 100vw;
+  height: CALC(var(--vh, 1vh) * 99); 
   z-index: 7;
 }
 .optionsStatsDiv {

@@ -332,7 +332,7 @@
                 Birthday :
               </div>
               <div class="optionsStatsDescription">
-                {{user?.about?.birthday}}
+                {{ user?.about?.birthday | date: 'y/MM/d' : 'UTC' }}
               </div>
             </div>
 

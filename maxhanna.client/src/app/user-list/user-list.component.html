@@ -31,16 +31,21 @@
 
 
 <div class="searchDiv" [style.display]="searchOnly ? 'inline-flex' : 'flex'">
-  <label *ngIf="displayRadioFilters">
-    <input type="radio" name="userFilter" value="friends" (change)="filterUsers()" #friendsRadio [checked]="displayOnlyFriends" />
-    Show Friends
-  </label>
-  <label *ngIf="displayRadioFilters">
-    <input type="radio" name="userFilter" value="all" (change)="filterUsers()" #allUsersRadio [checked]="!displayOnlyFriends" />
-    Show All Users
-  </label>
-  <button (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen">🔍Search</button>
-  <button (click)="userClickEvent.emit()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch && !isSearchPanelOpen">❌Cancel</button>
+  <div *ngIf="displayRadioFilters">
+    Show:
+    <label>
+      <input type="radio" name="userFilter" value="friends" (change)="filterUsers()" #friendsRadio [checked]="displayOnlyFriends" />
+      Friends
+    </label>
+    <label>
+      <input type="radio" name="userFilter" value="all" (change)="filterUsers()" #allUsersRadio [checked]="!displayOnlyFriends" />
+      All Users
+    </label>
+  </div> 
+  <div> 
+    <button (click)="openSearchPanel()" class="searchUsersSpan" title="Search All Users" *ngIf="!isSearchPanelOpen">🔍Search</button>
+    <button (click)="userClickEvent.emit()" class="searchUsersSpan" title="Cancel" *ngIf="sharingSearch && !isSearchPanelOpen">❌Cancel</button>
+  </div>
 </div>
 <div class="searchResults">
   <div class="prevChatMessages popupPanelTitle" *ngIf="!searchOnly">
@@ -61,8 +66,11 @@
       </span>
     </span>
   </div>
-  <div *ngIf="(!searchOnly && (!users || users.length == 0)) || (searchOnly && searchInput && searchInput.nativeElement?.value != '' && (!users || users.length == 0))">
+  <div *ngIf="!searchOnly && (!users || users.length == 0)">
     No {{ isFriendsChecked ? 'Friends' : 'Users' }} to Display.
+  </div>
+  <div *ngIf="(searchOnly && searchInput && searchInput.nativeElement?.value != '' && (!usersSearched || usersSearched.length == 0))">
+    No Users to Display.
   </div>
   <div *ngIf="messageRows && messageRows.length > 0 && isFriendsChecked && !friendsOnly && !sharingSearch">
     <div class="prevChatMessages popupPanelTitle" *ngIf="messageRows.length > 0">

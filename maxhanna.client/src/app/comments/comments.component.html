@@ -29,8 +29,8 @@
         <div style="display: inline-block; cursor: pointer; margin-left: 10px;" (click)="showOptionsPanel(comment)" *ngIf="comment.user?.id == inputtedParentRef?.user?.id">
           ⚙️
         </div>
-        <div class="cursorPointer smallFont" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
-          <span [id]="'commentIdCount' + comment.id">[Reply]</span>
+        <div class="cursorPointer smallFont commentCountWrapper" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
+          <button [id]="'commentIdCount' + comment.id">Reply</button>
         </div>
       </div>
       <div class="commentContent">
@@ -40,7 +40,7 @@
                   [id]="'commentTextTextarea'+comment.id">{{comment.commentText}}</textarea>
 
         <div *ngIf="replyingToCommentIds.includes(comment.id)">
-          <textarea [id]="'commentReplyInput'+comment.id"></textarea>
+          <textarea [id]="'commentReplyInput'+comment.id" [style.display]="!editingComments.includes(comment.id) ? 'block' : 'none'"></textarea>
           <button (click)="replyToComment(comment)">🗨️Reply</button>
         </div>
         <button [style.display]="editingComments.includes(comment.id) ? 'block' : 'none'" [id]="'commentTextEditConfirmButton' + comment.id" (click)="confirmEditComment(comment)">
@@ -82,11 +82,17 @@
   </div>
   <div *ngIf="!showCommentLoadingOverlay" class="addCommentInputDiv">
     <textarea [placeholder]='comment_id ? "Reply " + component.user.username : commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️Leave the FIRST comment!"'
+              [style.display]="editingComments.length ? 'none' : 'block'"
               #addCommentInput
               class="addCommentTextArea"
               (keyup.enter)="startLoadingComment();"></textarea>
-    <button (click)="startLoadingComment();" class="commentSubmit">🗨️{{comment_id ? 'Reply' : 'Post'}}</button>
-    <app-media-selector [currentDirectory]="'Users/' + (inputtedParentRef?.user && inputtedParentRef?.user?.id != 0 ? inputtedParentRef?.user!.username : 'Anonymous')"
+    <button (click)="startLoadingComment();"
+            class="commentSubmit"
+            [style.display]="editingComments.length ? 'none' : 'block'">
+      🗨️{{comment_id ? 'Reply' : 'Post'}}
+    </button>
+    <app-media-selector [style.display]="editingComments.length ? 'none' : 'block'"
+                        [currentDirectory]="'Users/' + (inputtedParentRef?.user && inputtedParentRef?.user?.id != 0 ? inputtedParentRef?.user!.username : 'Anonymous')"
                         [user]="inputtedParentRef?.user"
                         [inputtedParentRef]="inputtedParentRef"
                         (selectFileEvent)="selectFile($event)"></app-media-selector>
@@ -103,7 +109,7 @@
     <button (click)="deleteComment(optionsComment)" title="Delete Comment" *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">❌ Delete</button>
     <button (click)="editComment(optionsComment)" title="Edit Comment" *ngIf="inputtedParentRef?.user?.id == optionsComment.user.id && optionsComment.id">
       <span class="commentEditSpans commentCancelEdit" [style.display]="editingComments.includes(optionsComment.id) ? 'block' : 'none'" [id]="'commentEditButtonSpan' + optionsComment.id">❌</span>
-      ✏️ Edit
+      ✏️ {{editingComments.includes(optionsComment.id) ? 'Cancel ': ''}}Edit
     </button>
   </div>
   <div class="optionsStatsWrapperDiv">

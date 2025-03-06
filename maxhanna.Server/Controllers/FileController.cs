@@ -1765,7 +1765,7 @@ namespace maxhanna.Server.Controllers
 						var folderPath = ownershipReader.GetString("folder_path").Replace("\\", "/").TrimEnd('/') + "/";
 						var isFolder = ownershipReader.GetBoolean("is_folder");
 
-						filePath = Path.Combine(_baseTarget, folderPath, fileName).Replace("\\", "/");
+						filePath = Path.Combine(_baseTarget, folderPath.TrimStart('/'), fileName).Replace("\\", "/");
 						ownershipReader.Close();
 
 						if (!ValidatePath(filePath)) { return BadRequest($"Cannot delete: {filePath}"); }
@@ -2313,7 +2313,7 @@ namespace maxhanna.Server.Controllers
 		{
 			if (!directory.Contains(_baseTarget))
 			{
-				_logger.LogError($"Must be within {_baseTarget}");
+				_logger.LogError($"{directory} Must be within {_baseTarget}");
 				return false;
 			}
 			else if (directory.Equals(_baseTarget + "Users") || directory.Equals(_baseTarget + "Roms")

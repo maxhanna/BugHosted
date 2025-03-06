@@ -34,7 +34,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() chatId?: number;
   @Input() inputtedParentRef?: AppComponent;
   @Output() closeChatEvent = new EventEmitter<void>();
-   
+
   pageNumber = 1;
   pageSize = 10;
   totalPages = 1;
@@ -107,7 +107,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             chatWindow.scrollTop = chatWindow.scrollHeight;
           }
         }, 0);
-      }); 
+      });
     }
   }
 
@@ -130,7 +130,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       if (res) {
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
-        if (!this.isChangingPage) { 
+        if (!this.isChangingPage) {
           this.playSoundIfNewMessage(newMessages);
         }
         this.isChangingPage = false;
@@ -192,11 +192,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.showUserList = false;
     this.chatHistory = [];
     this.currentChatId = undefined;
-    const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
-    this.currentChatUsers = users;
-    if (!this.currentChatUsers.some(x => x.id == user.id)) {
-      this.currentChatUsers.push(user);
-    }
+    const user = this.getChatUsers(users);
+    if (!this.currentChatUsers) return;
+
     const res = await this.chatService.getMessageHistory(user, this.currentChatUsers, undefined, undefined, this.pageSize);
 
     if (res && res.status && res.status == "404") {
@@ -229,6 +227,16 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
 
+  private getChatUsers(users: User[]) {
+    const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
+    this.currentChatUsers = users;
+    if (!this.currentChatUsers.some(x => x.id == user.id)) {
+      this.currentChatUsers.push(user);
+    }
+    this.currentChatUsers = this.filterUniqueUsers(this.currentChatUsers);
+    return user;
+  }
+
   closeChat() {
     this.closeChatEvent.emit();
     this.hasManuallyScrolled = false;
@@ -239,7 +247,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.totalPagesArray = new Array<number>();
     clearInterval(this.pollingInterval);
     this.showUserList = true;
-    this.isPanelExpanded = true; 
+    this.isPanelExpanded = true;
   }
 
   async sendMessage() {
@@ -256,7 +264,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       chatUsers.push(this.parentRef.user);
     }
     try {
-      setTimeout(() => { 
+      setTimeout(() => {
         this.newMessage.nativeElement.value = '';
         this.newMessage.nativeElement.innerHTML = '';
         this.newMessage.nativeElement.textContent = '';
@@ -335,8 +343,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       alert("Duplicate users found. Aborting.");
       return;
     }
-
     this.selectedUsers = this.selectedUsers.concat(users);
+    this.selectedUsers = this.filterUniqueUsers(this.selectedUsers);
     this.openGroupChat();
   }
 
@@ -393,18 +401,24 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   playYoutubeVideo() {
     this.isPlayingYoutubeVideo = true;
-    const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value; 
+    const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
     setTimeout(() => {
       let target = document.getElementById(`youtubeIframe`) as HTMLIFrameElement;
       if (!target || !videoId) return;
       target.style.visibility = 'visible';
       target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
-      setTimeout(() => { 
+      setTimeout(() => {
         if (target && !this.isElementInViewport(target)) {
           target.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }, 200);
     }, 50);
+  }
+
+  filterUniqueUsers(users: User[]): User[] {
+    return users.filter((user, index, self) =>
+      index === self.findIndex(u => u.id === user.id)
+    );
   }
 
   private async subscribeToNotificationTopic(token: string) {

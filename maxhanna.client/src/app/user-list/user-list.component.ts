@@ -222,6 +222,10 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       return [users[0]];
     }
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
-    return users.filter(x => x.id != user.id);
+
+    const tmpUserList = users.filter(x => x.id != user.id); 
+    return tmpUserList.filter((user, index, self) =>
+      index === self.findIndex(u => u.id === user.id)
+    );  
   }
 }

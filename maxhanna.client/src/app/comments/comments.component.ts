@@ -220,7 +220,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   } 
   changedCommentCount(event: any) { 
     if (document.getElementById("commentIdCount" + event.comment_id)) {
-      document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = "[Repl" + (event.commentCount > 0 ? 'ies:<span style="color:white">' + event.commentCount + "</span>" : 'y') + "]";
+      document.getElementById("commentIdCount" + event.comment_id)!.innerHTML = "Repl" + (event.commentCount > 0 ? 'ies:<span class="commentCountSpan">' + event.commentCount + "</span>" : 'y') + "";
       if (this.automaticallyShowSubComments) {
         (document.getElementById('subCommentComponent' + event.comment_id) as HTMLDivElement).style.display = ((event.commentCount > 0) ? "block" : "none"); 
       }

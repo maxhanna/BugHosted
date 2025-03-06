@@ -113,9 +113,11 @@ export class Bot extends Character {
       scale: shadowScale,
       frameSize: new Vector2(32, 32),
     });
-    this.addChild(shadow);
-
-    this.setupEvents();
+    this.addChild(shadow); 
+    this.setupEvents(); 
+    setTimeout(() => {
+      this.findTargets();
+    }, 50);
   }
 
 

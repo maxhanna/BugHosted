@@ -31,7 +31,7 @@
 
 .noTMI {
   display: inline-block;
-  max-width: 100px;
+  max-width: 100px !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -44,9 +44,22 @@
   .mainTable td:nth-child(3) {
     text-align: center;
   }
-.mainTable thead th { 
-  top: -56px !important;
-}
+ 
   .newContactButton {
     font-size: 20px;
   }
+
+.mainTable tbody tr:hover {
+  box-shadow: inset 0 -1px 0 chartreuse;
+}
+.mainTable th, td {
+  padding: 5px;
+  white-space: nowrap;
+  max-width: unset !important;
+}
+
+.contactsDiv {
+  max-width: 99vw;
+  max-height: CALC(var(--vh, 1vh) * 70);
+  overflow: auto;
+}

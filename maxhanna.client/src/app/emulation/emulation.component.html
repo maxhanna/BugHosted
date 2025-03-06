@@ -21,7 +21,11 @@
   </div>
 
 
-  <div class="gameboy" id="GameBoy" #fullscreenContainer [style.visibility]="selectedRomName ? 'visible' : 'hidden'">
+  <div class="gameboy"
+       id="GameBoy"
+       #fullscreenContainer
+       [style.visibility]="selectedRomName ? 'visible' : 'hidden'"
+       [style.height]="selectedRomName ? '' : '0px'">
 
     <div class="screen-area">
       <canvas id="mainCanvas" class="mainCanvas" #canvas slot="lcd"></canvas>
@@ -154,6 +158,18 @@
       </div>
       <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
         <input type="range" min="0" [max]="maxVolume" [value]="currentVolume" (input)="onVolumeChange($event)" title="Adjust volume levels">
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Upload ROM file:
+      </div>
+      <div class="optionsStatsDescription uploadRomSpan upload-label controlVolume">
+        <app-file-upload [currentDirectory]="'/roms'"
+                         [user]="parentRef?.user!"
+                         [inputtedParentRef]="parentRef"
+                         [uploadButtonText]="'Upload Rom(s)'">
+        </app-file-upload>
       </div>
     </div>
   </div>

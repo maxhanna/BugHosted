@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { Theme } from '../../services/datacontracts/user/theme';
@@ -11,7 +11,7 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
   templateUrl: './themes.component.html',
   styleUrls: ['./themes.component.css']
 })
-export class ThemesComponent extends ChildComponent implements OnInit {
+export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('backgroundColor') backgroundColor!: ElementRef;
   @ViewChild('componentBackgroundColor') componentBackgroundColor!: ElementRef;
   @ViewChild('secondaryComponentBackgroundColor') secondaryComponentBackgroundColor!: ElementRef;
@@ -46,9 +46,13 @@ export class ThemesComponent extends ChildComponent implements OnInit {
     name: 'default'
   };
   isSearching = false
+  originalThemeId = 0;
+  warnUserToSave = false;
+  blockWarnThemeChange = true;
 
   constructor(private userService: UserService, private fileService: FileService) {
     super();
+    setTimeout(() => { this.blockWarnThemeChange = false; }, 150);
   }
 
   ngOnInit() {
@@ -56,7 +60,7 @@ export class ThemesComponent extends ChildComponent implements OnInit {
       this.userService.getTheme(this.parentRef.user).then(res => {
         if (res) {
           this.userSelectedTheme = res;
-           
+          this.originalThemeId = this.userSelectedTheme?.id ?? 0;
           this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
           
           this.replenishBackroundImageSelection(res);
@@ -81,7 +85,15 @@ export class ThemesComponent extends ChildComponent implements OnInit {
     }
   }
 
-
+  ngOnDestroy() {
+    if (this.warnUserToSave) {
+      if (confirm("Save theme before leaving?")) {
+        this.saveTheme();
+      } else {
+        this.changeThemeById(this.originalThemeId);
+      }
+    }
+  }
 
   // Update CSS variables dynamically
   updateCSS(variable: string, event?: Event, variableValue?: any) {
@@ -102,6 +114,9 @@ export class ThemesComponent extends ChildComponent implements OnInit {
       document.documentElement.style.setProperty(variable, value);
     } else {
       document.documentElement.style.removeProperty(variable);
+    }
+    if (!this.blockWarnThemeChange) { 
+      this.warnUserToSave = true;
     }
   }
 
@@ -160,7 +175,11 @@ export class ThemesComponent extends ChildComponent implements OnInit {
       fontSize: this.fontSize.nativeElement.value,
       fontFamily: this.fontFamily.nativeElement.value,
       name: name,
-    }; 
+    };
+
+    this.warnUserToSave = false;
+    //this.originalThemeId = 
+
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       try {
@@ -283,10 +302,14 @@ export class ThemesComponent extends ChildComponent implements OnInit {
   }
 
   onThemeChange(event: any): void {
-    const selectedId = event.target.value;
-    
-    let selectedTheme = this.myThemes?.find(theme => theme.id == selectedId); 
-    if (!selectedTheme) { 
+    const selectedId = event.target.value; 
+    this.changeThemeById(selectedId, event.target.id);
+
+  }
+
+  changeThemeById(selectedId: number, targetId?: string) { 
+    let selectedTheme = this.myThemes?.find(theme => theme.id == selectedId);
+    if (!selectedTheme) {
       selectedTheme = this.allThemes?.find(theme => theme.id == selectedId);
     }
     this.userSelectedTheme = selectedTheme;
@@ -295,9 +318,13 @@ export class ThemesComponent extends ChildComponent implements OnInit {
       return
     };
 
-    if (event.target.id == "myThemesDropdown" && document.getElementById("allThemesDropdown")) {
+    if (this.userSelectedTheme?.id !== this.originalThemeId) {
+      this.warnUserToSave = true;
+    }
+
+    if (targetId == "myThemesDropdown" && document.getElementById("allThemesDropdown")) {
       (document.getElementById("allThemesDropdown") as HTMLSelectElement).selectedIndex = 0;
-    } else if (event.target.id == "allThemesDropdown" && document.getElementById("myThemesDropdown")) { 
+    } else if (targetId == "allThemesDropdown" && document.getElementById("myThemesDropdown")) {
       (document.getElementById("myThemesDropdown") as HTMLSelectElement).selectedIndex = 0;
     }
 
@@ -349,9 +376,9 @@ export class ThemesComponent extends ChildComponent implements OnInit {
         document.body.style.backgroundImage = ``;
       }, 10);
     }
-
     console.log('Applied Theme:', selectedTheme);
   }
+
 
   themeSearch() {
     const search = this.themeSearchInput.nativeElement.value;

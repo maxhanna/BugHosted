@@ -292,7 +292,7 @@ export class Character extends GameObject {
 			stats: any;
 		}) => {
 			this.onPickupItem(data);
-		});
+    });
 	}
 
   drawName(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {

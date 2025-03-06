@@ -3,8 +3,7 @@ import { ActivatedRoute, NavigationEnd, NavigationStart, Router, RouterOutlet } 
 import { CalendarComponent } from './calendar/calendar.component'; 
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component'; 
-import { FileComponent } from './file/file.component';
-import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
+import { FileComponent } from './file/file.component'; 
 import { TodoComponent } from './todo/todo.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
@@ -250,7 +249,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   removeComponent(key: number) {
     if (!this.VCR || this.VCR.length < 1) return;
-    this.replacePageTitleAndDescription("Bug Hosted", "Bug Hosted");
+    this.replacePageTitleAndDescription("Bug Hosted", "Bug Hosted"); 
+    history.pushState({ page: "" }, "", "/");
 
     const componentRef = this.componentsReferences.find(
       x => x.instance.unique_key == key
@@ -468,8 +468,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     let base = file.directory?.replace('E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/', '').trim();
     if (base === "") {
       return ".";
-    }
-    console.log("get directoryname: ", base);
+    } 
     return base ?? "";
   }
 }

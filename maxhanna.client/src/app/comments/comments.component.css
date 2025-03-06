@@ -78,7 +78,7 @@
   justify-content: space-evenly;
 }
 .commentTextArea {
-  width: 100%;
+  width: CALC(100% - 10px);
 }
 
 .commentTable {
@@ -112,8 +112,7 @@
   vertical-align: top;
 }
 
-.commentContent {
-/*  width: CALC(100% - 70px);*/
+.commentContent { 
   word-break: break-word;
 }
 
@@ -181,4 +180,8 @@
 }
 .replyInputArea {
   padding-left: 20px; 
+}
+
+.commentCountWrapper .commentCountSpan {
+  color: var(--secondary-font-color);
 }

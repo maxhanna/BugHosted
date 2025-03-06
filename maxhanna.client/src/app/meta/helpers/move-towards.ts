@@ -338,7 +338,7 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 export function getBotsInRange(player: Character) { 
   const discrepancy = gridCells(5);
  
-  const posibilities = player.parent.children.filter((child: any) => {
+  const posibilities = player.parent?.children?.filter((child: any) => {
     return ( 
       (child.isDeployed) &&
       (child.isEnemy) &&
@@ -350,7 +350,7 @@ export function getBotsInRange(player: Character) {
     );
   });
 
-  return posibilities.length > 0 ? posibilities : [];
+  return posibilities?.length ? posibilities : [];
 }
 export function isObjectNearby(playerOrObject: any) {
 	const basePosition = playerOrObject.position;

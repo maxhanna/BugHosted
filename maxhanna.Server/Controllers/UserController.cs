@@ -1179,6 +1179,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
 		[HttpPost("/User/GetAllThemes", Name = "GetAllThemes")]
 		public async Task<IActionResult> GetAllThemes([FromBody] string search)
 		{
@@ -1190,13 +1191,17 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
-					// SQL query to get the top 20 themes, searching by name (using LIKE)
+					// SQL query to get the top 20 themes, ordered by popularity
 					string sql = @"
-                SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
-                       ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
-                       ut.link_color, ut.font_size, ut.font_family, ut.name
+                SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, 
+                       ut.secondary_component_background_color, ut.font_color, ut.secondary_font_color, ut.third_font_color, 
+                       ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, ut.link_color, ut.font_size, ut.font_family, 
+                       ut.name, COUNT(uts.theme_id) AS popularity
                 FROM maxhanna.user_theme ut
+                LEFT JOIN maxhanna.user_theme_selected uts ON ut.id = uts.theme_id
                 WHERE ut.name LIKE @Search
+                GROUP BY ut.id
+                ORDER BY popularity DESC
                 LIMIT 20;";
 
 					MySqlCommand cmd = new MySqlCommand(sql, conn);
@@ -1249,6 +1254,7 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
+
 
 
 		[HttpPost("/User/GetAllUserThemes", Name = "GetAllUserThemes")]

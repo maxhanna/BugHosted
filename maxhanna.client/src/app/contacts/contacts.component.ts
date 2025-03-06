@@ -92,6 +92,32 @@ export class ContactsComponent extends ChildComponent implements OnInit {
     const formattedDate = parsedDate.toISOString().split('T')[0];
     return formattedDate;
   }
+  selectContact(contact: Contact) {
+    if (this.selectedContact && this.selectedContact == contact) {
+      this.selectedContact = undefined;
+    } else {
+      this.selectedContact = contact;
+    }
+    console.log(this.selectedContact);
+    setTimeout(() => {
+      const el = document.getElementsByClassName("editContactForm")[0] as HTMLElement;
+      if (el && !this.isElementInViewport(el)) { 
+        document.getElementsByClassName("editContactForm")[0].scrollIntoView({ behavior: "smooth" });
+      }
+    }, 50);
+  }
+  getContactEmail(contact: Contact) {
+    return contact.user?.about?.email ? contact.user.about.email : contact.email;
+  }
+  getContactNotes(contact: Contact) {
+    return contact.user?.about?.description ? contact.user.about.description : contact.notes;
+  }
+  getContactBirthday(contact: Contact) {
+    return contact.user?.about?.birthday ? contact.user.about.birthday : contact.birthday ? contact.birthday : undefined;
+  }
+  getContactPhone(contact: Contact) {
+    return contact.user?.about?.phone ? contact.user.about.phone : contact.phone;
+  }
   private GetJsDate(value: string) {
     let dateParts = value.split("-");
     let jsDate = new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2].slice(0, 2)));

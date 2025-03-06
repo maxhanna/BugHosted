@@ -14,8 +14,8 @@ html, body {
 }
  
 .componentMain {
-  width: 99vw;
-  height: CALC(var(--vh, 1vh) * 100 - 60px);
+  width: 100vw !important;
+  height: CALC(var(--vh, 1vh) * 100 - 55px);
   overflow: hidden;
   user-select: none;
   display: flex;

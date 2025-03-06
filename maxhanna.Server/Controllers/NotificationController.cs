@@ -442,7 +442,7 @@ namespace maxhanna.Server.Controllers
                                     WHERE user_id = @Receiver
                                       AND chat_id = @ChatId
                                       AND chat_id IS NOT NULL
-                                      AND date >= NOW() - INTERVAL 2 MINUTE;";
+                                      AND date >= NOW() - INTERVAL 10 MINUTE;";
 						string updateNotificationSql = @"
                                     UPDATE maxhanna.notifications
 																		SET text = CASE
@@ -453,7 +453,7 @@ namespace maxhanna.Server.Controllers
 																		WHERE user_id = @Receiver
 																			AND chat_id = @ChatId
 																			AND chat_id IS NOT NULL
-																			AND date >= NOW() - INTERVAL 2 MINUTE;";
+																			AND date >= NOW() - INTERVAL 10 MINUTE;";
 
 						string insertNotificationSql = @"
                                     INSERT INTO maxhanna.notifications
@@ -534,7 +534,7 @@ namespace maxhanna.Server.Controllers
 
 		private async Task SendFirebaseNotifications(NotificationRequest request)
 		{
-			var tmpMessage = request.Message ?? "New notification on Bughosted.com";
+			var tmpMessage = request.Message ?? "Notification from Bughosted.com";
 			var usersWithoutAnon = request.ToUser.Where(x => x.Id != 0).ToList();
 
 			foreach (User tmpUser in usersWithoutAnon)
@@ -549,6 +549,7 @@ namespace maxhanna.Server.Controllers
 						{
 							Title = $"{tmpUser.Username}, Notification from {(request.FromUser?.Username ?? "Anonymous")}",
 							Body = tmpMessage,
+							ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
 						},
 						Data = new Dictionary<string, string>
 						{ 

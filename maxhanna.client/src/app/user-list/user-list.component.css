@@ -44,7 +44,7 @@
   color: var(--secondary-font-color);
 }
 .searchDiv {
-  flex-direction: row;
+  flex-direction: column;
   align-content: center;
   justify-content: center;
   align-items: center;
@@ -67,11 +67,7 @@
   width: 100%;
   justify-content: space-evenly;
 }
-
-.searchPopupUserListWrapper {
-  max-height: 350px;
-  overflow: auto;
-}
+ 
 
 .searchUsersSpan {
   cursor: pointer;
@@ -82,4 +78,7 @@
 }
 .popupPanel button {
   margin-top: 20px;
+}
+.searchPopup {
+  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
