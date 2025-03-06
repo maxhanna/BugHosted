@@ -4,7 +4,7 @@
 
 .themeSelectorDiv {
   display: flex;
-  width: clamp(250px, 3VW, 300px);
+  width: clamp(300px, 40VW, 450px);
   justify-content: space-between;
   align-items: center;
   margin: 10px;
@@ -27,4 +27,5 @@
   align-items: center;
   margin-top: 10px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }

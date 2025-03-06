@@ -308,9 +308,24 @@ export class UserService {
     }
   }
 
-  async deleteTheme(user: User) {
+  async deleteUserTheme(user: User, themeId: number) {
     try {
       const response = await fetch('/user/deleteusertheme/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: user.id, ThemeId: themeId }),
+      });
+      return await response.json();
+    } catch (error) {
+      return 'error';
+    }
+  }
+
+  async deleteUserSelectedTheme(user: User) {
+    try {
+      const response = await fetch('/user/deleteuserselectedtheme/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -346,6 +361,20 @@ export class UserService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(search ?? ''),
+      });
+      return await response.json();
+    } catch (error) {
+      return 'error';
+    }
+  }
+  async getAllUserThemes(user: User) {
+    try {
+      const response = await fetch('/user/getalluserthemes/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user.id),
       });
       return await response.json();
     } catch (error) {

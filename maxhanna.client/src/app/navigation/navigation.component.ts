@@ -121,10 +121,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const theme = await this.userService.getTheme(this._parent.user);
 
       // Handle the theme data as required, for example, store it in a component variable
-      if (theme) { 
+      if (theme && !theme.message) { 
         this.applyThemeToCSS(theme);
-      } else {
-        console.error('No theme data found for this user');
       }
     } catch (error) {
       console.error('Error fetching theme data:', error);

@@ -98,13 +98,24 @@
   </div>
 
   <div class="themeButtons">
-    <select (change)="onThemeChange($event)">
-      <option selected>Latest Themes</option>
-      <option *ngFor="let theme of allThemes" [value]="theme.id">{{ theme.name }}</option>
-    </select>
+    <div style="display: flex; flex-direction:column;">
+      <select (change)="onThemeChange($event)" [disabled]="allThemes?.length === 0" id="allThemesDropdown">
+        <option selected>
+          {{ (isSearching || themeSearchInput.value)? (allThemes?.length === 0 ? 'No search matches' : 'Searched Themes') : 'Top Themes' }}
+        </option>
+        <option *ngFor="let theme of allThemes" [value]="theme.id">{{ theme.name }}</option>
+      </select>
+      <select (change)="onThemeChange($event)" *ngIf="!isSearching && !themeSearchInput.value" id="myThemesDropdown">
+        <option selected>Your Themes</option>
+        <option *ngFor="let theme of myThemes" [value]="theme.id">{{ theme.name }}</option>
+      </select>
+      <input #themeSearchInput placeholder="Search for themes" (input)="themeSearch()" />
+    </div>
+   
     <div style="display: flex; flex-direction:column;">
       <input #themeNameInput placeholder="Theme Name" />
       <button (click)="saveTheme()">💾Save</button>
+      <button (click)="deleteTheme()" *ngIf="userSelectedTheme">❌Delete</button>
     </div>
     <button (click)="restoreDefaultSettings()">🔄Reset</button>
   </div>

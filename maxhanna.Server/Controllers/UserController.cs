@@ -1178,6 +1178,7 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
+
 		[HttpPost("/User/GetAllThemes", Name = "GetAllThemes")]
 		public async Task<IActionResult> GetAllThemes([FromBody] string search)
 		{
@@ -1249,6 +1250,77 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+		[HttpPost("/User/GetAllUserThemes", Name = "GetAllUserThemes")]
+		public async Task<IActionResult> GetAllUserThemes([FromBody] int userId)
+		{
+			_logger.LogInformation($"POST /user/GetAllUserThemes with userId: {userId}");
+
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					// SQL query to get the top 20 themes, searching by name (using LIKE)
+					string sql = @"
+                SELECT ut.id, ut.user_id, ut.background_image, ut.background_color, ut.component_background_color, ut.secondary_component_background_color, 
+                       ut.font_color, ut.secondary_font_color, ut.third_font_color, ut.main_highlight_color, ut.main_highlight_color_quarter_opacity, 
+                       ut.link_color, ut.font_size, ut.font_family, ut.name
+                FROM maxhanna.user_theme ut
+                WHERE ut.user_id = @UserId;";
+
+					MySqlCommand cmd = new MySqlCommand(sql, conn);
+
+					// Using '%' around the search term for partial matches
+					cmd.Parameters.AddWithValue("@UserId", userId);
+
+					using (var reader = await cmd.ExecuteReaderAsync())
+					{
+						var themes = new List<UserTheme>();
+
+						while (reader.Read())
+						{
+							var theme = new UserTheme()
+							{
+								Id = Convert.ToInt32(reader["id"]),
+								UserId = reader["user_id"] != DBNull.Value ? Convert.ToInt32(reader["user_id"]) : null,
+								BackgroundImage = reader["background_image"] != DBNull.Value ? Convert.ToInt32(reader["background_image"]) : null,
+								BackgroundColor = reader["background_color"].ToString(),
+								ComponentBackgroundColor = reader["component_background_color"].ToString(),
+								SecondaryComponentBackgroundColor = reader["secondary_component_background_color"].ToString(),
+								FontColor = reader["font_color"].ToString(),
+								SecondaryFontColor = reader["secondary_font_color"].ToString(),
+								ThirdFontColor = reader["third_font_color"].ToString(),
+								MainHighlightColor = reader["main_highlight_color"].ToString(),
+								MainHighlightColorQuarterOpacity = reader["main_highlight_color_quarter_opacity"].ToString(),
+								LinkColor = reader["link_color"].ToString(),
+								FontSize = reader["font_size"] != DBNull.Value ? Convert.ToInt32(reader["font_size"]) : 16,
+								FontFamily = reader["font_family"].ToString(),
+								Name = reader["name"].ToString()
+							};
+
+							themes.Add(theme);
+						}
+
+						if (themes.Count > 0)
+						{
+							return Ok(themes);
+						}
+						else
+						{
+							return NotFound(new { message = "No themes found matching for user." });
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "Error processing GetAllUserThemes.");
+					return StatusCode(500, "An error occurred while processing the request.");
+				}
+			}
+		}
+
 		[HttpPost("/User/DeleteUserSelectedTheme", Name = "DeleteUserSelectedTheme")]
 		public async Task<IActionResult> DeleteUserSelectedTheme([FromBody] int UserId)
 		{
@@ -1281,9 +1353,9 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/User/DeleteUserTheme", Name = "DeleteUserTheme")]
-		public async Task<IActionResult> DeleteUserTheme([FromBody] int UserId)
+		public async Task<IActionResult> DeleteUserTheme([FromBody] DeleteUserThemeRequest request)
 		{
-			_logger.LogInformation($"POST /user/DeleteUserTheme/{UserId}");
+			_logger.LogInformation($"POST /user/DeleteUserTheme/{request.UserId}");
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 
@@ -1292,10 +1364,11 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 
 				// SQL statement to delete user theme
-				string sql = "DELETE FROM maxhanna.user_theme WHERE user_id = @UserId LIMIT 1;";
+				string sql = "DELETE FROM maxhanna.user_theme WHERE user_id = @UserId AND id = @Id LIMIT 1;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", UserId);
+				cmd.Parameters.AddWithValue("@UserId", request.UserId);
+				cmd.Parameters.AddWithValue("@Id", request.ThemeId);
 
 				int affectedRows = await cmd.ExecuteNonQueryAsync();
 

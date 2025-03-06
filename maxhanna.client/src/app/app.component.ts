@@ -383,13 +383,20 @@ export class AppComponent implements OnInit, AfterViewInit {
   openUserSettings() {
     this.createComponent('UpdateUserSettings', { showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this });
   }
+
   setViewportScalability(scalable?: boolean) {
-    const viewportMetaTag = this.meta.getTag('name=viewport');
     if (scalable === undefined) {
       scalable = true;
     }
-    this.meta.updateTag({ name: 'viewport', content: `width=device-width, initial-scale=1.0, user-scalable=${scalable ? 'yes' : 'no'}` }); 
+    console.log("Updated viewport scalability:", scalable); 
+
+    if (scalable) {
+      window.location = window.location;
+    } else {  
+      this.meta.updateTag({ name: 'viewport', content: `width=device-width, initial-scale=1.0, user-scalable=no` });  
+    }
   }
+
   showNotification(text?: string) {
     if (!text) { return; }
     else {

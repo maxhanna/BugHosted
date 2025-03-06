@@ -178,4 +178,10 @@
 #coinWatchTable tr:hover {
   text-decoration: underline dotted var(--main-link-color);
   cursor: pointer;
+} 
+
+@media only screen and (max-width: 667px) {
+  .popupPanel {
+    max-height: CALC(var(--vh, 1vh) * 99);
+  }
 }

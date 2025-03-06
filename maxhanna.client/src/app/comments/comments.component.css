@@ -10,6 +10,9 @@
   flex-wrap: nowrap;
 }
 
+.commentHeaderSmallExpander {
+  color: var(--main-font-color); 
+}
 
 .commentsHeader {
   margin-left: auto;

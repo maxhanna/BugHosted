@@ -4,9 +4,9 @@
      class="commentsHeader {{showComments && !comment_id ? 'commentsHeaderGradientReverse' : ''}}"
      [style.cursor]="commentList && commentList.length <= 0 ? 'default' : 'pointer'"
      (click)="commentHeaderClicked()">
-  <span class="smallExpander">
+  <span class="smallExpander commentHeaderSmallExpander">
     🗨️Comments (
-      <span class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}">
+      <span class="{{commentList && commentList.length > 0 ? 'highlightedCommentCounter' : ''}}" [style.opacity]="commentList.length ? '1' : '0.3'">
         {{commentList ? commentList.length : '0'}}
       </span>
     ) {{showComments ? '-' : '+'}}

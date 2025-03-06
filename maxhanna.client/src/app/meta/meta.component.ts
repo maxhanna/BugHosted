@@ -56,7 +56,6 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		this.metaHero = {} as MetaHero;
 		this.mainScene = new Main({ position: new Vector2(0, 0), heroId: this.metaHero.id, metaHero: this.metaHero, hero: this.hero });
 		this.subscribeToMainGameEvents();
-    this.parentRef?.setViewportScalability(false); 
 	}
 	canvas!: HTMLCanvasElement;
 	ctx!: CanvasRenderingContext2D;
@@ -89,7 +88,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		this.parentRef?.setViewportScalability(true);
 	}
 
-  async ngOnInit() { 
+  async ngOnInit() {
+    this.parentRef?.setViewportScalability(false); 
 		this.canvas = this.gameCanvas.nativeElement;
 		this.ctx = this.canvas.getContext("2d")!;
 		if (!this.parentRef?.user) {

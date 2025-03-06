@@ -24,10 +24,12 @@ export class ThemesComponent extends ChildComponent implements OnInit {
   @ViewChild('fontSize') fontSize!: ElementRef;
   @ViewChild('fontFamily') fontFamily!: ElementRef;
   @ViewChild('themeNameInput') themeNameInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('themeSearchInput') themeSearchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
   attachedFiles?: FileEntry[];
   userSelectedTheme?: Theme;
   allThemes?: Theme[];
+  myThemes?: Theme[];
   defaultTheme = {
     backgroundColor: '#0e0e0e',
     componentBackgroundColor: '#202020',
@@ -43,6 +45,7 @@ export class ThemesComponent extends ChildComponent implements OnInit {
     backgroundImage: '',
     name: 'default'
   };
+  isSearching = false
 
   constructor(private userService: UserService, private fileService: FileService) {
     super();
@@ -53,7 +56,9 @@ export class ThemesComponent extends ChildComponent implements OnInit {
       this.userService.getTheme(this.parentRef.user).then(res => {
         if (res) {
           this.userSelectedTheme = res;
-          this.themeNameInput.nativeElement.value = this.userSelectedTheme?.name ?? '';
+           
+          this.themeNameInput.nativeElement.value = (this.userSelectedTheme?.name ? this.userSelectedTheme.name : "Default");
+          
           this.replenishBackroundImageSelection(res);
         }
       });
@@ -63,6 +68,14 @@ export class ThemesComponent extends ChildComponent implements OnInit {
           this.allThemes = res;
         } else {
           this.allThemes = [];
+        }
+      });
+
+      this.userService.getAllUserThemes(this.parentRef?.user).then(res => {
+        if (res && !res.message ) {
+          this.myThemes = res;
+        } else {
+          this.myThemes = [];
         }
       });
     }
@@ -121,13 +134,16 @@ export class ThemesComponent extends ChildComponent implements OnInit {
     const user = this.parentRef?.user;
     if (!user) return alert("You must be logged in to save your theme.");
 
+    const name = this.themeNameInput.nativeElement.value;
+    if (name.toLowerCase() == "default") {
+      this.themeNameInput.nativeElement.focus();
+      return alert("Please enter a valid theme name.");
+    }
     // Handle file attachment (background image)
     let tmpFileId = undefined;
     if (this.attachedFiles && this.attachedFiles[0] && this.attachedFiles[0].id) {
       tmpFileId = this.attachedFiles[0].id;
-    }
-
-
+    } 
 
     const theme: any = {
       id: this.userSelectedTheme?.id,
@@ -143,18 +159,41 @@ export class ThemesComponent extends ChildComponent implements OnInit {
       linkColor: this.linkColor.nativeElement.value,
       fontSize: this.fontSize.nativeElement.value,
       fontFamily: this.fontFamily.nativeElement.value,
-      name: this.themeNameInput.nativeElement.value,
-    };
-    console.log(theme);
-    try {
-      this.userService.updateTheme(user, theme).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res);
-        }
-      });
-    } catch (error) {
-      console.error('Error saving theme:', error);
-    }
+      name: name,
+    }; 
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      try {
+        this.userService.updateTheme(user, theme).then(res => {
+          if (res) {
+            if (!this.myThemes) {
+              this.myThemes = [];
+            }
+            this.myThemes.push(theme as Theme);
+            this.parentRef?.showNotification(res);
+          }
+        });
+      } catch (error) {
+        console.error('Error saving theme:', error);
+      }
+    }, 500);
+  }
+
+  deleteTheme() {
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      try {
+        if (!this.userSelectedTheme?.id) return alert("No theme selected.");
+        if (!this.parentRef?.user) return alert("You must be logged in to delete a theme.");
+        this.userService.deleteUserTheme(this.parentRef.user, this.userSelectedTheme.id).then((res: any) => {
+          if (res) { 
+            this.parentRef?.showNotification(res.message);
+          }
+        });
+      } catch (error) {
+        console.error('Error saving theme:', error);
+      }
+    }, 500);
   }
 
   selectFile(files?: FileEntry[]) {
@@ -196,24 +235,45 @@ export class ThemesComponent extends ChildComponent implements OnInit {
 
     this.attachedFiles = [];
     this.mediaSelector.selectedFiles = [];
+    this.themeNameInput.nativeElement.value = "Default";
     this.backgroundColor.nativeElement.value = this.defaultTheme.backgroundColor;
     this.componentBackgroundColor.nativeElement.value = this.defaultTheme.componentBackgroundColor;
     this.secondaryComponentBackgroundColor.nativeElement.value = this.defaultTheme.secondaryComponentBackgroundColor;
     this.fontColor.nativeElement.value = this.defaultTheme.fontColor;
-    this.secondaryFontColor.nativeElement.value = this.defaultTheme.secondaryFontColor;
-    this.thirdFontColor.nativeElement.value = this.defaultTheme.thirdFontColor;
+    this.secondaryFontColor.nativeElement.value = this.defaultTheme.secondaryFontColor; 
     this.mainHighlightColor.nativeElement.value = this.defaultTheme.mainHighlightColor;
     this.mainHighlightColorQuarterOpacity.nativeElement.value = this.defaultTheme.mainHighlightColorQuarterOpacity;
-    this.linkColor.nativeElement.value = this.defaultTheme.linkColor;
     this.fontSize.nativeElement.value = this.defaultTheme.fontSize;
     this.fontFamily.nativeElement.value = this.defaultTheme.fontFamily;
-    if (this.parentRef?.user && updateServer) {
-      this.userService.deleteTheme(this.parentRef?.user).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res.message);
-        }
-      });
+
+
+    const thirdFontColorHex = this.getHexFromColorName(this.defaultTheme.thirdFontColor);
+    this.thirdFontColor.nativeElement.value = thirdFontColorHex;
+
+    const linkHex = this.getHexFromColorName(this.defaultTheme.linkColor); 
+    this.linkColor.nativeElement.value = linkHex;
+
+
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => {
+      if (this.parentRef?.user && updateServer) {
+        this.userService.deleteUserSelectedTheme(this.parentRef?.user).then(res => {
+          if (res) {
+            this.parentRef?.showNotification(res.message);
+          }
+        });
+      }
+    }, 500);
+  }
+  getHexFromColorName(color: string) {
+    if (color && !color.startsWith("#")) {
+      const ctx = document.createElement("canvas").getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = color;
+        return ctx.fillStyle; // This will return the hex equivalent of a named color
+      }
     }
+    return '';
   }
   getDirectoryName(file: FileEntry): string {
     const parent = this.parentRef;
@@ -223,15 +283,38 @@ export class ThemesComponent extends ChildComponent implements OnInit {
   }
 
   onThemeChange(event: any): void {
-    const selectedId = event.target.value; // This is now the theme ID
-    const selectedTheme = this.allThemes?.find(theme => theme.id == selectedId);
+    const selectedId = event.target.value;
+    
+    let selectedTheme = this.myThemes?.find(theme => theme.id == selectedId); 
+    if (!selectedTheme) { 
+      selectedTheme = this.allThemes?.find(theme => theme.id == selectedId);
+    }
     this.userSelectedTheme = selectedTheme;
     if (!selectedTheme) {
       this.restoreDefaultSettings(false);
       return
     };
 
+    if (event.target.id == "myThemesDropdown" && document.getElementById("allThemesDropdown")) {
+      (document.getElementById("allThemesDropdown") as HTMLSelectElement).selectedIndex = 0;
+    } else if (event.target.id == "allThemesDropdown" && document.getElementById("myThemesDropdown")) { 
+      (document.getElementById("myThemesDropdown") as HTMLSelectElement).selectedIndex = 0;
+    }
+
+    const search = this.themeSearchInput.nativeElement.value;
+    if (search) {
+      this.userService.getAllThemes().then(res => {
+        if (res) {
+          this.allThemes = res;
+        } else {
+          this.allThemes = [];
+        }
+      });
+
+    }
+    this.themeSearchInput.nativeElement.value = '';
     this.themeNameInput.nativeElement.value = selectedTheme.name ?? '';
+    this.isSearching = false;
 
     // Apply all theme properties
     this.updateCSS('--main-bg-color', undefined, selectedTheme.backgroundColor);
@@ -269,6 +352,40 @@ export class ThemesComponent extends ChildComponent implements OnInit {
 
     console.log('Applied Theme:', selectedTheme);
   }
+
+  themeSearch() {
+    const search = this.themeSearchInput.nativeElement.value;
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(() => { 
+      if (search) {
+        this.userService.getAllThemes(search).then((res: any)=> {
+          if (res && !res.message) { 
+            this.allThemes = res;
+          } else {
+            if (res.message) {
+              this.parentRef?.showNotification(res.message);
+            }
+            this.allThemes = [];
+          }
+        });
+        this.isSearching = true;
+      }
+      else {
+        this.userService.getAllThemes('').then(res => {
+          if (res && !res.message) {
+            this.allThemes = res;
+          } else {
+            if (res.message) {
+              this.parentRef?.showNotification(res.message);
+            }
+            this.allThemes = [];
+          }
+        });
+        this.isSearching = false;
+      }
+    }, 500);  
+  }
+
   private replenishBackroundImageSelection(res: any) {
     if (res.backgroundImage) {
       this.fileService.getFileEntryById(res.backgroundImage).then(feRes => {
