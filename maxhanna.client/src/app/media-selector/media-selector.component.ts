@@ -23,6 +23,7 @@ export class MediaSelectorComponent implements OnDestroy {
   @Input() user?: User;
   @Input() maxSelectedFiles: number = 5;
   @Input() currentDirectory: string = "";
+  @Input() uploadButtonText: string = "Upload";
   @Output() selectFileEvent = new EventEmitter<FileEntry[]>();
   @ViewChild('selectMediaDiv', { static: false }) selectMediaDiv!: ElementRef;
   @ViewChild('mediaButton', { static: false }) mediaButton!: ElementRef;

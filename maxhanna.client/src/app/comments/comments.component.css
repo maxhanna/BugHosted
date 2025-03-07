@@ -1,4 +1,4 @@
- 
+
 .comments-section {
   cursor: default;
   margin-top: 5px;
@@ -11,7 +11,7 @@
 }
 
 .commentHeaderSmallExpander {
-  color: var(--main-font-color); 
+  color: var(--main-font-color);
 }
 
 .commentsHeader {
@@ -55,20 +55,21 @@
   display: inline-block;
 }
 
-.addCommentTextArea { 
+.addCommentTextArea {
   width: 80%;
+  height: 20px;
 }
 
 .commentsInputArea {
   display: flex;
-  justify-content: center;  
+  justify-content: center;
   background: linear-gradient(to bottom, transparent, var(--main-highlight-color));
   border-radius: 8px;
   padding: 5px;
 }
 
-.loadingCommentOverlay { 
-  text-align:center;
+.loadingCommentOverlay {
+  text-align: center;
 }
 
 .addCommentInputDiv {
@@ -76,7 +77,9 @@
   margin-bottom: 10px;
   width: 100%;
   justify-content: space-evenly;
+  line-height: 0px;
 }
+
 .commentTextArea {
   width: CALC(100% - 10px);
 }
@@ -112,26 +115,40 @@
   vertical-align: top;
 }
 
-.commentContent { 
+.commentContent {
   word-break: break-word;
 }
 
-.commentAvatar { 
-  overflow:hidden;
-  text-overflow:ellipsis;
+.commentContentAndAvatarContainerDiv {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: flex-start;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+}
+
+  .commentContentAndAvatarContainerDiv button {
+    height: 20px;
+    line-height: 0px;
+    cursor: pointer;
+  }
+
+.commentAvatar {
+  overflow: hidden;
+  text-overflow: ellipsis;
   height: 100%;
   display: flex;
   align-items: center;
   align-content: flex-start;
   justify-content: flex-start;
-  margin-right: 10px;
 }
 
 .commentDate, .commentReaction {
   font-size: xx-small;
   color: var(--secondary-font-color);
   display: inline-flex;
-  margin-left: 10px;
 }
 
 .commentSubmit {
@@ -141,25 +158,29 @@
   min-width: 70px;
   white-space: nowrap;
 }
+
 .commentListDiv {
-  margin-bottom: 10px;  
-} 
+  margin-bottom: 10px;
+}
+
 .commentEditSpans {
   position: relative;
   transform: scale(0.75);
   heighT: 0;
   width: 0;
 }
+
 .commentCancelEdit {
   left: -3px;
 }
-.commentAcceptEdit { 
+
+.commentAcceptEdit {
   left: -2px;
-  top: -3px; 
+  top: -3px;
 }
 
-.popupPanel { 
-  width: 300px; 
+.popupPanel {
+  width: 300px;
 }
 
 .commentActionSection {
@@ -170,6 +191,7 @@
   flex-wrap: nowrap;
   flex-direction: row;
 }
+
 .commentOptionsPanelButtons {
   width: 100%;
   display: flex;
@@ -178,8 +200,9 @@
   margin-top: 15px;
   margin-bottom: 20px;
 }
+
 .replyInputArea {
-  padding-left: 20px; 
+  padding-left: 20px;
 }
 
 .commentCountWrapper .commentCountSpan {

@@ -17,22 +17,24 @@
     <div class="commentContentAndAvatarContainerDiv">
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
-        <div class="commentDate">{{comment.date | date: 'y/MM/d HH:mm'}}</div>
-        <div class="commentReaction">
-          <app-reaction [commentId]="comment.id"
-                        [component]="comment"
-                        [user]="inputtedParentRef?.user"
-                        [inputtedParentRef]="inputtedParentRef"
-                        [currentReactions]="comment.reactions">
-          </app-reaction>
-        </div>
-        <div style="display: inline-block; cursor: pointer; margin-left: 10px;" (click)="showOptionsPanel(comment)" *ngIf="comment.user?.id == inputtedParentRef?.user?.id">
-          ⚙️
-        </div>
-        <div class="cursorPointer smallFont commentCountWrapper" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
-          <button [id]="'commentIdCount' + comment.id">Reply</button>
-        </div>
       </div>
+      <div class="commentDate">{{comment.date | date: 'y/MM/d HH:mm'}}</div>
+      <div class="commentReaction">
+        <app-reaction [commentId]="comment.id"
+                      [component]="comment"
+                      [user]="inputtedParentRef?.user"
+                      [inputtedParentRef]="inputtedParentRef"
+                      [currentReactions]="comment.reactions">
+        </app-reaction>
+      </div>
+      <button class="commentOptionButton" (click)="showOptionsPanel(comment)" *ngIf="comment.user?.id == inputtedParentRef?.user?.id">
+        ⚙️
+      </button>
+      <div class="cursorPointer smallFont commentCountWrapper" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
+        <button [id]="'commentIdCount' + comment.id">Reply</button>
+      </div>
+    </div>
+    <div>
       <div class="commentContent">
         <div [innerHTML]="createClickableUrls(comment.commentText)" [id]="'commentText'+comment.id" [style.display]="editingComments.includes(comment.id) ? 'none': 'block'"></div>
         <textarea class="commentTextArea"

@@ -77,6 +77,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   totalPages: number = 1;
   totalPagesArray: number[] = [];
   userSearch = "";
+  isDisplayingNSFW = false;
   searchTimeout: any;
   private storyUpdateInterval: any;
 
@@ -89,10 +90,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('pageSelect2') pageSelect2!: ElementRef<HTMLSelectElement>;
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('searchIdInput') searchIdInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
+  @ViewChild('nsfwCheckmark2') nsfwCheckmark2!: ElementRef<HTMLInputElement>;
   @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
   @ViewChild(MediaSelectorComponent) mediaSelectorComponent!: MediaSelectorComponent;
   @ViewChild(MediaSelectorComponent) postMediaSelector!: MediaSelectorComponent;
-  @ViewChild(TopicsComponent) topicComponent!: TopicsComponent;
+  @ViewChild(TopicsComponent) topicComponent!: TopicsComponent; 
 
   @Input() storyId: number | undefined = undefined;
   @Input() showTopicSelector: boolean = true;
@@ -154,11 +157,19 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         });
       }
     }
-    setTimeout(() => { this.updateStoryDates(); }, 1500);
-
+    setTimeout(() => { this.updateStoryDates(); }, 1500); 
     this.storyUpdateInterval = setInterval(() => {
       this.updateStoryDates();
     }, 15000);
+
+    const user = this.parent?.user ?? this.parentRef?.user;
+    if (user) {
+      this.userService.getUserSettings(user).then(res => {
+        if (res) {
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
+        }
+      });
+    }
   }
 
   ngOnDestroy() {
@@ -878,5 +889,18 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.search.nativeElement.value = '';
     this.userSearch = '';
     this.searchStories();
+  }
+  async updateNSFW(event: Event) {
+    const parent = this.parent ?? this.parentRef;
+    const user = parent?.user;
+    if (!user) return alert("You must be logged in to view NSFW content.");
+    const isChecked = (event.target as HTMLInputElement).checked;
+    this.isDisplayingNSFW = isChecked;
+    this.userService.updateNSFW(user, isChecked).then(res => {
+      if (res) {
+        parent.showNotification(res);
+        this.searchStories();
+      }
+    }); 
   }
 }

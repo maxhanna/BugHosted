@@ -41,6 +41,9 @@
   </div>
   <div>
     For your browsing convenience on Desktop, you may use the J and K buttons on your keyboard to scroll through memes.
+    <div>
+      Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
+    </div>
   </div>
   <div class="fileUploadInputs">
     <app-file-upload [currentDirectory]="'Meme'"

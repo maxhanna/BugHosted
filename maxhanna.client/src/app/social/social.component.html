@@ -34,6 +34,9 @@
         <input type="submit" (click)="debouncedSearch()" value="🔍" *ngIf="!user" />
         <div *ngIf="searchIdInput && searchIdInput.value != ''" style="text-align:center;">Results : {{storyResponse?.stories?.length ?? 0}}</div>
       </div>
+      <div class="searchSocialsPanelContentDiv">
+        Display NSFW? : <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" /> 
+      </div>
       <div>
         <button id="closeOverlay" (click)="closeSearchSocialsPanel()">Close</button>
       </div>
@@ -46,13 +49,6 @@
         Menu
       </div>
 
-      <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection">
-        Page Select:
-        <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
-          <option *ngFor="let page of totalPagesArray" [value]="page" [selected]="page === currentPage">{{ page }}</option>
-        </select>
-      </div>
-
       <div style="display:flex;" class="menuPopupSection">
         <div>
           <app-user-tag [user]="parentRef?.user" [inputtedParentRef]="parentRef ?? parent"></app-user-tag>
@@ -61,6 +57,17 @@
           <div>{{city}},</div>
           <div>{{country}}</div>
         </div>
+      </div>
+
+      <div *ngIf="totalPagesArray.length > 1" class="menuPopupSection">
+        Page Select:
+        <select [value]="currentPage" (change)="pageChanged()" #pageSelect>
+          <option *ngFor="let page of totalPagesArray" [value]="page" [selected]="page === currentPage">{{ page }}</option>
+        </select>
+      </div>
+
+      <div class="menuPopupSection">
+        Display NSFW? : <input type="checkbox" #nsfwCheckmark2 [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
       </div>
 
       <!-- search input area -->
@@ -190,10 +197,11 @@
         </div>
         <div class="optionsStatsDiv">
           <div class="optionsStatsHeader">
+            Topics
             <span (click)="editTopic(optionStory)"
-                  *ngIf="optionStory.user?.id == parentRef?.user?.id"
+                  *ngIf="optionStory.user?.id == parentRef?.user?.id || parentRef?.user?.id == 1"
                   title="Edit Post Topic"
-                  class="cursorPointer">Topics ✏️:</span>
+                  class="cursorPointer">✏️</span>:
           </div>
           <div class="optionsStatsDescription">
             <div class="reactionTopicsAndExpanderDiv reactionTopics">

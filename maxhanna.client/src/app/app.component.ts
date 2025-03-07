@@ -216,7 +216,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.replacePageTitleAndDescription(componentType, componentType);
 
     if (!componentType || componentType.trim() === "") {
-      console.log("Returning due to invalid componentType");
+      console.log("Returning due to invalid componentType: ", componentType);
+      window.location = window.location;
       return null;
     }
 
@@ -351,10 +352,17 @@ export class AppComponent implements OnInit, AfterViewInit {
     for (let x = 0; x < elems.length; x++) {
       (elems[x] as HTMLDivElement).style.overflow = "hidden";
     }
-
-    const elems2 = document.getElementsByClassName("componentMain");
+    const elems2 = document.getElementsByClassName("componentContainer");
     for (let x = 0; x < elems2.length; x++) {
       (elems2[x] as HTMLDivElement).style.overflow = "hidden";
+    }
+    const elems3 = document.getElementsByClassName("componentMain");
+    for (let x = 0; x < elems3.length; x++) {
+      (elems3[x] as HTMLDivElement).style.overflow = "hidden";
+    }
+    const elems4 = document.getElementsByTagName("html");
+    for (let x = 0; x < elems4.length; x++) {
+      (elems4[x] as HTMLElement).style.overflow = "hidden";
     }
   }
   restoreBodyOverflow() { 
@@ -362,11 +370,18 @@ export class AppComponent implements OnInit, AfterViewInit {
     const elems = document.getElementsByClassName("popupPanel");
     for (let x = 0; x < elems.length; x++) {
       (elems[x] as HTMLDivElement).style.overflow = "";
-    }
-
+    } 
     const elems2 = document.getElementsByClassName("componentMain");
     for (let x = 0; x < elems2.length; x++) {
       (elems2[x] as HTMLDivElement).style.overflow = "";
+    }
+    const elems3 = document.getElementsByClassName("componentContainer");
+    for (let x = 0; x < elems3.length; x++) {
+      (elems3[x] as HTMLDivElement).style.overflow = "";
+    }
+    const elems4 = document.getElementsByTagName("html");
+    for (let x = 0; x < elems4.length; x++) {
+      (elems4[x] as HTMLElement).style.overflow = "";
     }
   }
   showOverlay() { 

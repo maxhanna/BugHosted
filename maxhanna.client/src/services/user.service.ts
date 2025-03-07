@@ -172,6 +172,39 @@ export class UserService {
       return ''; // Return null in case of error
     }
   }
+
+
+  async getUserSettings(user: User) {
+    try {
+      const response = await fetch(`/user/getusersettings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user.id),
+      }); 
+      return await response.json();
+    } catch (error) {
+      return error;
+    }
+  }
+
+  async updateNSFW(user: User, isAllowed: boolean) {
+    try {
+      const response = await fetch('/user/updatensfw', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ User: user, IsAllowed: isAllowed }),
+      });
+
+
+      return await response.text();
+    } catch (error) {
+      return "Error";
+    }
+  }
   async getUserMenu(user: User): Promise<Array<MenuItem>> {
     if (!user || user.id == 0) return [];
     try {

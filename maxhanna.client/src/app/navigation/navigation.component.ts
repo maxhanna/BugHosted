@@ -225,9 +225,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return parseInt(notifNumbers);
   }
 
-  goTo(event: any) {
-    const title = event.target.getAttribute('title');
-    if (event.target.getAttribute("title")?.toLowerCase() == "close menu") {
+  goTo(title: string, event: any) {
+    console.log('here', title);  
+    if (title.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else if (title == "UpdateUserSettings") {
       this._parent.createComponent(title, { inputtedParentRef: this._parent });

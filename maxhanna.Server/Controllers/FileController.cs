@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Xml.Linq;
 using Xabe.FFmpeg;
+using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -123,7 +124,7 @@ namespace maxhanna.Server.Controllers
 					Console.WriteLine($"setting page:{page}&offset={offset}; file position is : {filePosition}, page size is : {pageSize}, folder path: {directory}");
 
 					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
-					(string searchCondition, List<MySqlParameter> extraParameters) = GetWhereCondition(search);
+					(string searchCondition, List<MySqlParameter> extraParameters) = GetWhereCondition(search, user);
 
 					var command = new MySqlCommand($@"
                         SELECT 
@@ -553,56 +554,83 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, ex.Message);
 			}
 		}
-		private static (string, List<MySqlParameter>) GetWhereCondition(string? search)
+		private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
 		{
-			List<string> keywords = search?.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList() ?? new List<string>();
-			List<MySqlParameter> parameters = new List<MySqlParameter>();
-
-			string searchCondition = "";
-			if (keywords.Any())
+			bool? nsfwEnabled = null;
+			if (user?.Id != null)
 			{
-				List<string> conditions = new List<string>();
-
-				for (int i = 0; i < keywords.Count; i++)
+				string nsfwSql = @"SELECT nsfw_enabled FROM user_settings WHERE user_id = @userId";
+				using (var conn = new MySqlConnection(_connectionString))
 				{
-					string keyword = keywords[i];
-					string paramName = $"@search_{i}";
-
-					conditions.Add(@$"
-                LOWER(f.file_name) LIKE CONCAT('%', LOWER({paramName}), '%') 
-                OR LOWER(f.given_file_name) LIKE CONCAT('%', LOWER({paramName}), '%')
-                OR LOWER(f.description) LIKE CONCAT('%', LOWER({paramName}), '%')
-                OR LOWER(u.username) LIKE CONCAT('%', LOWER({paramName}), '%')
-                OR f.id IN (
-                    SELECT ft.file_id 
-                    FROM maxhanna.file_topics ft
-                    JOIN maxhanna.topics t ON ft.topic_id = t.id
-                    WHERE t.topic LIKE {paramName}
-                )");
-
-					parameters.Add(new MySqlParameter(paramName, $"%{keyword}%"));
-
-					// Add special conditions based on keyword content
-					if (keyword.Contains("sega", StringComparison.OrdinalIgnoreCase))
+					await conn.OpenAsync();
+					using (var cmd = new MySqlCommand(nsfwSql, conn))
 					{
-						conditions.Add("f.file_name LIKE '%.md'");
-					}
-					else if (keyword.Contains("nintendo", StringComparison.OrdinalIgnoreCase))
-					{
-						conditions.Add("f.file_name LIKE '%.nes'");
-					}
-					else if (keyword.Contains("gameboy", StringComparison.OrdinalIgnoreCase))
-					{
-						conditions.Add("f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba'");
+						cmd.Parameters.AddWithValue("@userId", user.Id);
+						var result = await cmd.ExecuteScalarAsync();
+						 
+						if (result != null && result != DBNull.Value)
+						{
+							nsfwEnabled = Convert.ToBoolean(result);
+						}
 					}
 				}
-
-				searchCondition = " AND (" + string.Join(" OR ", conditions) + " )";
 			}
+
+
+
+			string searchCondition = "";
+
+			if (nsfwEnabled == null || nsfwEnabled == false)
+			{
+				searchCondition += @"
+            AND NOT EXISTS (
+                SELECT 1 FROM story_topics st 
+                JOIN topics t ON st.topic_id = t.id 
+                WHERE st.story_id = s.id AND t.topic = 'NSFW'
+            )
+        ";
+			} 
+
+
+			if (string.IsNullOrWhiteSpace(search))
+				return (searchCondition, new List<MySqlParameter>());
+
+			string paramName = "@WhereSearch";
+			searchCondition += $@"
+        AND (
+            LOWER(f.file_name) LIKE {paramName}
+            OR LOWER(f.given_file_name) LIKE {paramName}
+            OR LOWER(f.description) LIKE {paramName}
+            OR LOWER(u.username) LIKE {paramName}
+            OR f.id IN (
+                SELECT ft.file_id 
+                FROM maxhanna.file_topics ft
+                JOIN maxhanna.topics t ON ft.topic_id = t.id
+                WHERE LOWER(t.topic) LIKE {paramName}
+            )
+        )";
+
+			// Check for specific keywords and append conditions
+			if (search.Contains("sega", StringComparison.OrdinalIgnoreCase))
+			{
+				searchCondition += " AND f.file_name LIKE '%.md'";
+			}
+			else if (search.Contains("nintendo", StringComparison.OrdinalIgnoreCase))
+			{
+				searchCondition += " AND f.file_name LIKE '%.nes'";
+			}
+			else if (search.Contains("gameboy", StringComparison.OrdinalIgnoreCase))
+			{
+				searchCondition += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
+			}
+
+			// Add the parameter
+			List<MySqlParameter> parameters = new List<MySqlParameter> {
+				new MySqlParameter(paramName, $"%{search.Trim()}%")
+			};
 
 			return (searchCondition, parameters);
 		}
-
 
 		[HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
 		public async Task<IActionResult> UpdateFileData([FromBody] FileDataRequest request)
@@ -1103,7 +1131,8 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				string deleteSql = "DELETE FROM maxhanna.file_topics WHERE file_id = @FileId;";
-				string insertSql = "INSERT INTO maxhanna.file_topics (file_id, topic_id) VALUES (@FileId, @TopicId);";
+				string insertSql = @"INSERT INTO maxhanna.file_topics (file_id, topic_id) VALUES (@FileId, @TopicId);
+														 UPDATE maxhanna.file_uploads SET last_updated = NOW(), last_updated_by_user_id = @UserId WHERE id = @FileId LIMIT 1;";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
@@ -1129,6 +1158,7 @@ namespace maxhanna.Server.Controllers
 									{
 										insertCmd.Parameters.AddWithValue("@FileId", request.File.Id);
 										insertCmd.Parameters.AddWithValue("@TopicId", topic.Id);
+										insertCmd.Parameters.AddWithValue("@UserId", request.User?.Id ?? 0);
 										await insertCmd.ExecuteNonQueryAsync();
 									}
 								}
@@ -1624,7 +1654,7 @@ namespace maxhanna.Server.Controllers
 
 
 								int? displayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? null : reader.GetInt32("commentUserDisplayPicId");
-							 	FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
+								FileEntry? dpFileEntry = displayPicId != null ? new FileEntry() { Id = (Int32)(displayPicId) } : null;
 
 								var fileComment = new FileComment
 								{

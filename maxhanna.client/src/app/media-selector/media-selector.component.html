@@ -1,6 +1,6 @@
 <div class="mediaSelectorDiv">
   <button class="mediaSelectorButton cursorPointer" (click)="toggleMediaChoices()">
-    🧷Attach
+    🧷{{uploadButtonText}}
     <span style="font-size:xx-small" *ngIf="selectedFiles && selectedFiles.length > 0">({{ selectedFiles.length }})</span>
   </button>
   <ng-container *ngIf="viewMediaChoicesOpen || displaySearch">
@@ -75,7 +75,7 @@
         </button>
         <div *ngIf="!displaySearch">
           <app-file-upload #fileUploadComponent
-                           [uploadButtonText]="'Upload'"
+                           [uploadButtonText]="uploadButtonText"
                            [inputtedParentRef]="inputtedParentRef"
                            [showPrivatePublicOption]="false"
                            [currentDirectory]="currentDirectory"

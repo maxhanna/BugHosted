@@ -60,6 +60,34 @@ namespace maxhanna.Server.Controllers
 			var whereClause = new StringBuilder(" WHERE 1=1 ");
 			var parameters = new Dictionary<string, object>();
 
+			// Fetch the NSFW setting for the user
+			int? nsfwEnabled = null;
+			if (request.User?.Id != null)
+			{
+				string nsfwSql = @"SELECT nsfw_enabled FROM user_settings WHERE user_id = @userId";
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					using (var cmd = new MySqlCommand(nsfwSql, conn))
+					{
+						cmd.Parameters.AddWithValue("@userId", request.User.Id);
+						nsfwEnabled = (int?)await cmd.ExecuteScalarAsync();
+					}
+				}
+			}
+
+			if (nsfwEnabled == null || nsfwEnabled == 0)
+			{
+				whereClause.Append(@"
+            AND NOT EXISTS (
+                SELECT 1 FROM story_topics st 
+                JOIN topics t ON st.topic_id = t.id 
+                WHERE st.story_id = s.id AND t.topic = 'NSFW'
+            )
+        ");
+			}
+
+
 			if (!string.IsNullOrEmpty(search))
 			{
 				whereClause.Append(

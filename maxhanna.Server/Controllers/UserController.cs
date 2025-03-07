@@ -744,6 +744,95 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/User/UpdateNsfw", Name = "UpdateNsfw")]
+		public async Task<IActionResult> UpdateNsfw([FromBody] UpdateNsfwRequest request)
+		{
+			_logger.LogInformation($"POST /User/UpdateNsfw (for user: {request.User.Id})");
+
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string updateSql = @"
+                INSERT INTO maxhanna.user_settings (user_id, nsfw_enabled)
+                VALUES (@userId, @nsfwEnabled)
+                ON DUPLICATE KEY UPDATE 
+                    nsfw_enabled = VALUES(nsfw_enabled);";
+
+					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+					updateCmd.Parameters.AddWithValue("@userId", request.User.Id);
+					updateCmd.Parameters.AddWithValue("@nsfwEnabled", request.IsAllowed ? 1 : 0);
+
+					await updateCmd.ExecuteNonQueryAsync();
+
+					return Ok("Successfully updated NSFW setting.");
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "An error occurred while processing the update NSFW POST request.");
+					return StatusCode(500, "An error occurred while processing the update NSFW request.");
+				}
+				finally
+				{
+					conn.Close();
+				}
+			}
+		}
+
+		[HttpPost("/User/GetUserSettings", Name = "GetUserSettings")]
+		public async Task<IActionResult> GetUserSettings([FromBody] int userId)
+		{
+			_logger.LogInformation($"GET /User/GetSettings (for user: {userId})");
+
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string selectSql = @"
+                SELECT nsfw_enabled 
+                FROM maxhanna.user_settings 
+                WHERE user_id = @userId;";
+
+					MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
+					selectCmd.Parameters.AddWithValue("@userId", userId);
+
+					var userSettings = new UserSettings
+					{
+						UserId = userId
+					};
+
+					using (var reader = await selectCmd.ExecuteReaderAsync())
+					{
+						if (await reader.ReadAsync())
+						{
+							userSettings.NsfwEnabled = reader.GetInt32("nsfw_enabled") == 1;
+						}
+						else
+						{
+							// If user settings are not found, return a default value (NSFW disabled)
+							userSettings.NsfwEnabled = false;
+						}
+					}
+
+					return Ok(userSettings);
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "An error occurred while fetching user settings.");
+					return StatusCode(500, "An error occurred while fetching user settings.");
+				}
+				finally
+				{
+					conn.Close();
+				}
+			}
+		}
+
+
 
 		[HttpPost("/User/Menu", Name = "GetUserMenu")]
 		public async Task<IActionResult> GetUserMenu([FromBody] User user)

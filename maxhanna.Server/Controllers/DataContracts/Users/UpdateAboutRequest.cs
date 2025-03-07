@@ -1,14 +1,14 @@
 namespace maxhanna.Server.Controllers.DataContracts.Users
 {
-	public class UpdateAboutRequest
+	public class UpdateNsfwRequest
 	{
 		public User User { get; set; }
-		public UserAbout About { get; set; }
+		public Boolean IsAllowed { get; set; }
 
-		public UpdateAboutRequest(User user, UserAbout about)
+		public UpdateNsfwRequest(User user, Boolean isAllowed)
 		{
 			User = user;
-			About = about;
+			IsAllowed = isAllowed;
 		}
 	}
 }

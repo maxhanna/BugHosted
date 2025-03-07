@@ -10,6 +10,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { Topic } from '../../services/datacontracts/topics/topic';
 import { Meta, Title } from '@angular/platform-browser';
+import { UserService } from '../../services/user.service';
 
 
 @Component({
@@ -76,20 +77,32 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     hidden: this.showHiddenFiles ? 'all' : 'unhidden',
     ownership: 'all'
   };
+  isDisplayingNSFW = false;
 
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('popupSearch') popupSearch!: ElementRef<HTMLInputElement>;
   @ViewChild('folderVisibility') folderVisibility!: ElementRef<HTMLSelectElement>;
   @ViewChild('shareUserListDiv') shareUserListDiv!: ElementRef<HTMLDivElement>;
   @ViewChildren('fileNameDiv') fileHeaders!: QueryList<ElementRef>;
+  @ViewChildren('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
 
   @ViewChild(MediaViewerComponent) mediaViewerComponent!: MediaViewerComponent;
 
-  constructor(private fileService: FileService, private route: ActivatedRoute) {
+
+  constructor(private fileService: FileService, private userService: UserService, private route: ActivatedRoute) {
     super(); 
   }
 
-  async ngOnInit() {  
+  async ngOnInit() {
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user) {
+      this.userService.getUserSettings(user).then(res => {
+        if (res) {
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
+        }
+      });
+    }
+
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
     if (this.fileId) {
       await this.getDirectory(undefined, parseInt(this.fileId));
@@ -702,7 +715,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       }
     }
   }
-
+  async updateNSFW(event: Event) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user) return alert("You must be logged in to view NSFW content.");
+    const isChecked = (event.target as HTMLInputElement).checked;
+    this.isDisplayingNSFW = isChecked;
+    this.userService.updateNSFW(user, isChecked).then(res => {
+      if (res) {
+        parent.showNotification(res);
+        this.getDirectory();   
+      }
+    });
+  }
   @HostListener('window:keydown', ['$event'])
   handleKeyboardEvent(event: KeyboardEvent): void {
     if (event.key === 'k' || event.key === 'K') {

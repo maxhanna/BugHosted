@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild } from '@angular/core';
+import { OnInit, Component, ElementRef, Input, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component'; 
 import { ActivatedRoute } from '@angular/router'; 
 import { FileSearchComponent } from '../file-search/file-search.component';
@@ -6,31 +6,45 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { TopicRank } from '../../services/datacontracts/topics/topic-rank'; 
 import { TopicService } from '../../services/topic.service';
 import { Topic } from '../../services/datacontracts/topics/topic';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-meme',
   templateUrl: './meme.component.html',
   styleUrls: ['./meme.component.css']
 })
-export class MemeComponent extends ChildComponent  { 
+export class MemeComponent extends ChildComponent implements OnInit  { 
   notifications: string[] = [];
   topTopics: TopicRank[] = [];  
   isMenuPanelOpen = false;
   currentMemePage = 1;
   searchTerms = "";
+  isDisplayingNSFW = false;
   iPhone = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   @ViewChild(FileSearchComponent) fileSearchComponent!: FileSearchComponent;
+  @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
 
   @Input() memeId: string | null = null;
-  constructor(private route: ActivatedRoute, private topicService: TopicService) {
+  constructor(private route: ActivatedRoute, private topicService: TopicService, private userService: UserService) {
     super();
     this.route.paramMap.subscribe(params => {
       this.memeId = params.get('memeId');
     });
-    this.topicService.getTopFileTopics().then(res => { if (res) { this.topTopics = res; } });
-  } 
-   
+    this.topicService.getTopFileTopics().then(res => { if (res) { this.topTopics = res; } }); 
+  }
+
+  ngOnInit() {
+    const user = this.parentRef?.user;
+    if (user) {
+      this.userService.getUserSettings(user).then(res => {
+        if (res) {
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
+        }
+      });
+    }
+  }
+
   uploadFinished(files: FileEntry[]) { 
     this.fileSearchComponent.handleUploadedFiles(files); 
   }
@@ -64,5 +78,17 @@ export class MemeComponent extends ChildComponent  {
   } 
   topTopicClicked(topic: TopicRank) {
     this.fileSearchComponent.searchFiles(topic.topicName);
+  }
+  async updateNSFW(event: Event) { 
+    const user = this.parentRef?.user;
+    if (!user) return alert("You must be logged in to view NSFW content.");
+    const isChecked = (event.target as HTMLInputElement).checked;
+    this.isDisplayingNSFW = isChecked;
+    this.userService.updateNSFW(user, isChecked).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(res);
+        this.fileSearchComponent.getDirectory();
+      }
+    });
   }
 }

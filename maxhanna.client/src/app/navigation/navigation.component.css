@@ -65,6 +65,9 @@ a {
   font-size: 35px;
   overflow: hidden;
 }
+  .navLink ::ng-deep * {
+    overflow: hidden;
+  }
 
   .navLink:before {
     border-radius: 2% / 50%;

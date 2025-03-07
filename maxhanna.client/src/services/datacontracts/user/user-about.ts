@@ -1,4 +1,4 @@
-export class UserAbout { 
+export class UserAbout {
   userId!: number;
   description?: string;
   phone?: string;

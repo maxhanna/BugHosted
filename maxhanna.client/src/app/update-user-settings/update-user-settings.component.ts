@@ -22,23 +22,25 @@ import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate'
   styleUrl: './update-user-settings.component.css'
 })
 export class UpdateUserSettingsComponent extends ChildComponent implements OnInit {
-  updateUserDivVisible = false;
-  isGeneralToggled = false;
+  updateUserDivVisible = true;
+  isGeneralToggled = true;
   isMenuIconsToggled = false;
   isWeatherLocationToggled = false;
-  isDisplayPictureToggled = false;
+  isDisplayPictureToggled = true;
   isDeleteAccountToggled = false;
   isBTCWalletAddressesToggled = false;
-  isAboutToggled = false;
+  isAboutToggled = true;
   showAddBTCWalletAddressInput = false;
+  isNicehashApiKeysToggled = false;
   selectableIcons: MenuItem[] = [];
   btcWalletAddresses?: string[];
   notifications: string[] = [];
-  isNicehashApiKeysToggled: any;
   selectedCurrency = '';
   uniqueCurrencyNames: string[] = [];
   nhApiKeys?: NicehashApiKeys;
   displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
+
+  isDisplayingNSFW = false;
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() showOnlySelectableMenuItems? = true;
@@ -50,6 +52,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('apiKey') apiKey!: ElementRef<HTMLInputElement>;
   @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationInput') weatherLocationInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
 
   @ViewChild('updatedEmail') updatedEmail!: ElementRef<HTMLInputElement>;
   @ViewChild('isEmailPublicYes') isEmailPublicYes!: ElementRef<HTMLInputElement>;
@@ -69,14 +72,23 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async ngOnInit() {
     this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User' && x.title !== 'UpdateUserSettings');
 
-    this.updateUserDivVisible = false;
-    this.isGeneralToggled = false;
+    this.updateUserDivVisible = true;
+    this.isGeneralToggled = true;
     this.isMenuIconsToggled = false;
     this.isWeatherLocationToggled = false;
-    this.isDisplayPictureToggled = false;
+    this.isDisplayPictureToggled = true;
     this.isDeleteAccountToggled = false;
-    this.isAboutToggled = false;
+    this.isAboutToggled = true;
+    this.isNicehashApiKeysToggled = false;
 
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    if (user) { 
+      this.userService.getUserSettings(user).then(res => {
+        if (res) {
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
+        }
+      });
+    }
     this.getUniqueCurrencyNames();
   }
   async getNicehashApiKeys() {
@@ -298,6 +310,17 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         }
       });
     }
+  }
+  async updateNSFW() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user) return alert("You must be logged in to view NSFW content.");
+    const isChecked = this.nsfwCheckmark.nativeElement.checked;
+    this.userService.updateNSFW(user, isChecked).then(res => {
+      if (res) {
+        parent.showNotification(res);
+      }
+    });
   }
   async deleteBTCWalletAddress(address: string) {
     if (this.parentRef && this.parentRef.user) {
