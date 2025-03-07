@@ -19,7 +19,7 @@
       <button (click)="closeAttackScreen()">Close</button>
     </div>
   </div>
-  <table class="mainTable" *ngIf="!isLoading && !isLoadingData && getAvailableUnitStats().length > 0">
+  <table class="mainTable" >
     <tbody *ngFor="let unit of getAvailableUnitStats(); trackBy: trackByUnit">
       <tr>
         <td class="unitPictureTd">

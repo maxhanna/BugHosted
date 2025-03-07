@@ -301,4 +301,22 @@
   justify-content: space-between;
   flex-wrap: nowrap;
   overflow: auto;
-} 
+}
+.showMapInfoButton {
+  position: fixed;
+  bottom: 10px;
+  left: CALC(50% + 150px);
+}
+.mapInfoScreen {
+  position: absolute;
+  top: 50px;
+  left: 0px;
+  z-index: 1;
+  width: 100%;
+  height: CALC(var(--nexus-gamescreen-height) + 100px);
+  overflow: hidden;
+  display: flex;
+  flex-flow: column;
+  justify-content: space-between;
+  background-color: black;
+}

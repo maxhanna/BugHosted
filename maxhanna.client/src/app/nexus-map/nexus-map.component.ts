@@ -35,6 +35,7 @@ export class NexusMapComponent extends ChildComponent {
   zoomedOut = false;
   attackTimers: { [key: string]: NexusTimer } = {};
   defenceTimers: { [key: string]: NexusTimer } = {};
+  isMapInfoOpen = false;
 
   public attackSentStatus: Map<string, boolean> = new Map();
   public attackReturningStatus: Map<string, boolean> = new Map();
@@ -437,8 +438,7 @@ export class NexusMapComponent extends ChildComponent {
     return targetBase.user.id === this.user.id ? "myBase" : "enemyBase";
   }
 
-  computeStatuses() {
-    console.log("compute status");
+  computeStatuses() { 
     const attackSentStatus = this.attackSentStatus;
     const attackReturningStatus = this.attackReturningStatus;
     const defenseSentStatus = this.defenseSentStatus;
@@ -450,6 +450,14 @@ export class NexusMapComponent extends ChildComponent {
 
       attackSentStatus.set(destinationKey, isSent);
       attackReturningStatus.set(destinationKey, isReturning);
+    }
+
+    for (const attack of this.nexusAttacksIncoming ?? []) {
+      const destinationKey = `${attack.destinationCoordsX},${attack.destinationCoordsY}`;
+      const isSent = attack.originCoordsX !== attack.destinationCoordsX || attack.originCoordsY !== attack.destinationCoordsY;
+      const isReturning = attack.originCoordsX === attack.destinationCoordsX && attack.originCoordsY === attack.destinationCoordsY;
+
+      attackSentStatus.set(destinationKey, isSent); 
     }
 
     for (const defense of this.nexusDefencesSent ?? []) {
@@ -611,8 +619,7 @@ export class NexusMapComponent extends ChildComponent {
   }
 
   private updateDefenceTimers() {
-    if (this.isAttackScreenOpen || !this.selectedNexusBase) return;
-    console.log("updating defence tiemrs");
+    if (this.isAttackScreenOpen || !this.selectedNexusBase) return; 
     this.reinitializeDefenceTimers();
 
     const coordsKey = `${this.selectedNexusBase.coordsX},${this.selectedNexusBase.coordsY}`;
@@ -794,5 +801,19 @@ export class NexusMapComponent extends ChildComponent {
   }
   trackByTimerId(index: number, timer: NexusTimer): any {
     return timer.key;
+  }
+  showMapInfo(){
+    this.isMapInfoOpen = true;
+    const buttonsToHide = document.getElementsByClassName("switchBaseButtons");
+    for (let x = 0; x < buttonsToHide.length; x++) {
+      (buttonsToHide[x] as HTMLButtonElement).style.visibility = "hidden";
+    }
+  }
+  closeMapInfo(){
+    this.isMapInfoOpen = false;
+    const buttonsToShow = document.getElementsByClassName("switchBaseButtons");
+    for (let x = 0; x < buttonsToShow.length; x++) {
+      (buttonsToShow[x] as HTMLButtonElement).style.visibility = "";
+    }
   }
 }

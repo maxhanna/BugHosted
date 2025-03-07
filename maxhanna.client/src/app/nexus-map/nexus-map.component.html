@@ -113,22 +113,22 @@
   <!-- REPORTS -->
   <div class="reportsDisplayDiv" *ngIf="!isReportsHidden && !isAttackScreenOpen">
     <app-nexus-reports [user]="user"
-                      [targetBase]="selectedNexusBase"
-                      [marinePictureSrc]="marinePictureSrc"
-                      [goliathPictureSrc]="goliathPictureSrc"
-                      [siegeTankPictureSrc]="siegeTankPictureSrc"
-                      [scoutPictureSrc]="scoutPictureSrc"
-                      [wraithPictureSrc]="wraithPictureSrc"
-                      [battlecruiserPictureSrc]="battlecruiserPictureSrc"
-                      [glitcherPictureSrc]="glitcherPictureSrc"
-                      [cclvl1Src]="cclvl1Src"
-                      [splvl1Src]="splvl1Src"
-                      [sdlvl1Src]="sdlvl1Src"
-                      [whlvl1Src]="whlvl1Src"
-                      [eblvl1Src]="eblvl1Src"
-                      [mineslvl1Src]="mineslvl1Src"
-                      [flvl1Src]="flvl1Src"
-                      #nexusReports></app-nexus-reports>
+                       [targetBase]="selectedNexusBase"
+                       [marinePictureSrc]="marinePictureSrc"
+                       [goliathPictureSrc]="goliathPictureSrc"
+                       [siegeTankPictureSrc]="siegeTankPictureSrc"
+                       [scoutPictureSrc]="scoutPictureSrc"
+                       [wraithPictureSrc]="wraithPictureSrc"
+                       [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                       [glitcherPictureSrc]="glitcherPictureSrc"
+                       [cclvl1Src]="cclvl1Src"
+                       [splvl1Src]="splvl1Src"
+                       [sdlvl1Src]="sdlvl1Src"
+                       [whlvl1Src]="whlvl1Src"
+                       [eblvl1Src]="eblvl1Src"
+                       [mineslvl1Src]="mineslvl1Src"
+                       [flvl1Src]="flvl1Src"
+                       #nexusReports></app-nexus-reports>
   </div>
 </div>
 <div class="bottomActionDiv">
@@ -181,6 +181,14 @@
   <div class="zoomInButtonDiv" *ngIf="zoomedOut">
     <button (click)="zoomIn()">Zoom In</button>
   </div>
-</div> 
+</div>
 <div *ngIf="isLoading || isLoadingData" class="baseAutoSwitcherDiv">Loading Data</div>
 
+<button (click)="isMapInfoOpen ? closeMapInfo() : showMapInfo()" class="showMapInfoButton">Help</button>
+<div *ngIf="isMapInfoOpen" class="mapInfoScreen">
+  <div>
+    Upgrade the Command Center to gain more worker slots.
+    Worker slots allow you to upgrade more buildings simultaneously.
+  </div>
+  <div><button (click)="closeMapInfo()">Back</button></div>
+</div>

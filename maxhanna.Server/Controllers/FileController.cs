@@ -40,7 +40,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/File/GetDirectory/", Name = "GetDirectory")]
-		public IActionResult GetDirectory(
+		public async Task<IActionResult> GetDirectory(
 			[FromBody] User? user,
 			[FromQuery] string? directory,
 			[FromQuery] string? visibility,
@@ -124,7 +124,7 @@ namespace maxhanna.Server.Controllers
 					Console.WriteLine($"setting page:{page}&offset={offset}; file position is : {filePosition}, page size is : {pageSize}, folder path: {directory}");
 
 					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
-					(string searchCondition, List<MySqlParameter> extraParameters) = GetWhereCondition(search, user);
+					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
 
 					var command = new MySqlCommand($@"
                         SELECT 
@@ -584,9 +584,9 @@ namespace maxhanna.Server.Controllers
 			{
 				searchCondition += @"
             AND NOT EXISTS (
-                SELECT 1 FROM story_topics st 
-                JOIN topics t ON st.topic_id = t.id 
-                WHERE st.story_id = s.id AND t.topic = 'NSFW'
+                SELECT 1 FROM file_topics ft 
+                JOIN topics t ON ft.topic_id = t.id 
+                WHERE ft.file_id = f.id AND t.topic = 'NSFW'
             )
         ";
 			} 

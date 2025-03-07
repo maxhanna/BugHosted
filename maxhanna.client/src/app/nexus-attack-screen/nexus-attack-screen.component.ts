@@ -6,6 +6,7 @@ import { NexusService } from '../../services/nexus.service';
 import { User } from '../../services/datacontracts/user/user';
 import { ChildComponent } from '../child.component';
 import { NexusAttackSent } from '../../services/datacontracts/nexus/nexus-attack-sent';
+import { NotificationService } from '../../services/notification.service';
 
 
 @Component({
@@ -36,7 +37,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
   @Output() emittedReloadEvent = new EventEmitter<string>();
   @Output() emittedGoToCoords = new EventEmitter<[number, number]>();
 
-  constructor(private nexusService: NexusService) { super(); }
+  constructor(private nexusService: NexusService, private notificationService: NotificationService) { super(); }
 
   async engageAttackAllUnits() {
     if (!this.user || !this.originBase) {
@@ -72,6 +73,9 @@ export class NexusAttackScreenComponent extends ChildComponent {
           this.nexusService.defend(this.user, this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));
         } else {
           this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));
+          if (this.user.id != this.selectedNexus.user?.id && this.selectedNexus.user) {
+            this.notificationService.createNotifications({ fromUser: this.user, toUser: [this.selectedNexus.user], message: `BugWars attack incoming on {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}` });
+          }
         }
         const nexusAttack = this.createNexusAttack();
         this.emittedAttack.emit(nexusAttack);
@@ -81,7 +85,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
 
   }
 
-  getAvailableUnitStats() {
+  getAvailableUnitStats() { 
     if (!this.unitStats || !this.nexusAvailableUnits) return [];
 
     const availableUnitStats: UnitStats[] = [];
@@ -95,7 +99,7 @@ export class NexusAttackScreenComponent extends ChildComponent {
       if (totalUnits > 0) {
         availableUnitStats.push(unit);
       }
-    }
+    } 
 
     return availableUnitStats;
   }

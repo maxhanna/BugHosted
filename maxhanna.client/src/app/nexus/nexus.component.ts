@@ -406,7 +406,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.adjustUnitTotals(this.nexusAvailableUnits!, attack);
       } else if (attack.originCoordsX !== attack.destinationCoordsX || attack.originCoordsY !== attack.destinationCoordsY) {
         if (!this.isMapOpen) {
-          //console.log("nexusAttacksSent !isMapOpen adjust");
+          console.log("nexusAttacksSent !isMapOpen adjust");
 
           if ((attack.destinationCoordsX === this.nexusBase?.coordsX && attack.destinationCoordsY === this.nexusBase?.coordsY)) {
             const startTime = new Date(attack.timestamp).getTime();
@@ -422,6 +422,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
               delete previousAttackTimers[salt];
             } else if (!uniqueAttacks.has(attack.id)) {
               uniqueAttacks.add(attack.id);
+              console.log("starting a defence timer for attack", salt, remainingTimeInSeconds, attack);
               this.startDefenceTimer(salt, remainingTimeInSeconds, attack);
             }
           }
@@ -503,19 +504,23 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     // Clear any outdated timers that weren't updated
     Object.keys(previousAttackTimers).forEach(salt => {
-      this.clearTimer(previousAttackTimers[salt]);
-      delete this.attackTimers[salt];
+      if (previousAttackTimers[salt].endTime <= 0) {
+        this.clearTimer(previousAttackTimers[salt]);
+        delete this.attackTimers[salt];
+      }
     });
 
     Object.keys(previousDefenceTimers).forEach(salt => {
-      this.clearTimer(previousDefenceTimers[salt]);
-      delete this.defenceTimers[salt];
+      if (previousDefenceTimers[salt].endTime <= 0) {
+        this.clearTimer(previousDefenceTimers[salt]);
+        delete this.defenceTimers[salt];
+      }
     });
 
     this.cleanupUnits();
   }
 
-  clearTimer(timer: NexusTimer) {
+  clearTimer(timer: NexusTimer) { 
     clearTimeout(timer.timeout);
     clearInterval(timer.interval);
   }
@@ -885,8 +890,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     // Return if the timer already exists or time is invalid
     if (timerMap[key] || time <= 0 || isNaN(time)) {
       return;
-    }
-
+    } 
     const endTime = Math.max(1, Math.floor(time));
 
     // Define the timer object
@@ -1307,9 +1311,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   activeAttackTimers(): { unit: string; endTime: number; object: object }[] {
     const activeTimers: { unit: string; endTime: number; object: object }[] = [];
-
+     
     const at = Object.entries(this.attackTimers).filter(([key, value]) => {
-      const attack = value.object as NexusAttackSent;
+      const attack = value.object as NexusAttackSent; 
       return attack.originCoordsX === this.nexusBase?.coordsX && attack.originCoordsY === this.nexusBase?.coordsY;
     });
 
@@ -1324,10 +1328,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   activeDefenceTimers(): { unit: string; endTime: number; object: object }[] {
     const activeTimers: { unit: string; endTime: number; object: object }[] = [];
     this.defenceTimers = Object.fromEntries(Object.entries(this.defenceTimers).sort(([, a], [, b]) => a.endTime - b.endTime));
-
-
+     
     const at = Object.entries(this.defenceTimers).filter(([key, value]) => {
-      const attack = value.object as NexusAttackSent;
+      const attack = value.object as NexusAttackSent; 
       return (attack.originCoordsX == this.nexusBase?.coordsX && attack.originCoordsY === this.nexusBase?.coordsY) || (attack.destinationCoordsX === this.nexusBase?.coordsX && attack.destinationCoordsY === this.nexusBase?.coordsY);
     });
 
@@ -1612,7 +1615,6 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       if (screen == "reports") {
         setTimeout(() => {
           this.isReportsOpen = isOpen != undefined ? isOpen : !this.isReportsOpen;
-          this.stopLoading();
         }, 50);
       }
       else if (screen == "map") {
@@ -1623,8 +1625,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
               this.mapComponent.setMapData();
               setTimeout(() => {
                 if (this.nexusBase && !this.preventMapScrolling && this.mapComponent) {
-                  this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY);
-                  this.stopLoading();
+                  this.mapComponent.scrollToCoordinates(this.nexusBase.coordsX, this.nexusBase.coordsY); 
                 }
               }, 10);
             }
@@ -1638,8 +1639,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.fetchMapData();
         }
         setTimeout(() => {
-          this.isBasesOpen = isOpen != undefined ? isOpen : !this.isBasesOpen;
-          this.stopLoading();
+          this.isBasesOpen = isOpen != undefined ? isOpen : !this.isBasesOpen; 
         }, 50);
       }
       else if (screen == "support") {
@@ -1647,17 +1647,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.isSupportOpen = isOpen != undefined ? isOpen : !this.isSupportOpen;
           if (!this.isSupportOpen) {
             this.isBasesOpen = true;
-          }
-          this.stopLoading();
+          } 
         });
-      }
-      else {
-        this.stopLoading();
-      }
+      } 
     } catch (ex) {
-      this.addNotification((ex as Error).message);
-      this.stopLoading();
+      this.addNotification((ex as Error).message); 
     }
+
+    this.stopLoading();
   }
   toggleUnitScreen(unit?: UnitStats, type?: string, isOpen?: boolean) {
     if (isOpen == false || (isOpen && this.toggledUnitStat)) {

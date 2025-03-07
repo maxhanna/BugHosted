@@ -4,7 +4,7 @@
   justify-content: flex-start;
   overflow: hidden;
   width: 400px;
-  height: CALC(var(--vh, 1vh) * 100 - 50px);
+  height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
 
 
@@ -49,7 +49,7 @@
 
 .incomingCount {
   position: absolute;
-  top: 34px;
+  top: 54px;
   right: 0px; 
   cursor: pointer;
   z-index: 1;
