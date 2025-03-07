@@ -187,8 +187,37 @@
 <button (click)="isMapInfoOpen ? closeMapInfo() : showMapInfo()" class="showMapInfoButton">Help</button>
 <div *ngIf="isMapInfoOpen" class="mapInfoScreen">
   <div>
-    Upgrade the Command Center to gain more worker slots.
-    Worker slots allow you to upgrade more buildings simultaneously.
+    <h2>Attacking on the Map</h2>
+    <p>When attacking on the map, you can select different options to control how your units are deployed:</p>
+    <ul>
+      <li><strong>Engage All:</strong> Sends all your available units into battle without needing to use the sliders.</li>
+      <li><strong>Lock On:</strong> Keeps the attack mode active after sending an attack, allowing for quick consecutive attacks.</li>
+      <li><strong>Auto Switch:</strong> Automatically switches to your next base after sending an attack.</li>
+      <li><strong>Lock On + Auto Switch:</strong> Enables rapid attack deployment from multiple bases.</li>
+    </ul>
+
+    <h2>Scout Attacks</h2>
+    <p>Scouts allow you to gather intelligence on enemy villages. To spy, attack using scouts as you would with other units.</p>
+
+    <h3>Defending Against Scouts</h3>
+    <p>The only way to defend against enemy scouts is by recruiting your own scouts. Your scouts engage the enemy but do not suffer losses.</p>
+
+    <h3>Scout Attack Outcomes</h3>
+    <ul>
+      <li>Less than 50% survive, but at least one remains: View stationed units.</li>
+      <li>More than 50% survive (Level 1 scouts): View resources in the village.</li>
+      <li>More than 70% survive (Level 2 scouts): View building levels.</li>
+      <li>More than 90% survive (Level 3 scouts): View units stationed outside the village.</li>
+    </ul>
+
+    <h2>Gold Plundering</h2>
+    <p>Gold plundering is based on the ratio of attacking to defending units. If no defenders are present, attackers take all available gold up to carrying capacity.</p>
+    <ul>
+      <li>If there are no defending units, the attackers take as much gold as they can carry.</li>
+      <li>If there are no attacking units, no gold is taken.</li>
+      <li>If both sides have units, the amount of gold taken depends on how many attackers there are compared to defenders. More attackers relative to defenders means more gold is plundered, but attackers can never take more than they can carry.</li>
+    </ul> 
+    <p>The more attacking units you have relative to defenders, the more gold you can plunder, up to your units' carrying capacity.</p>
   </div>
   <div><button (click)="closeMapInfo()">Back</button></div>
 </div>

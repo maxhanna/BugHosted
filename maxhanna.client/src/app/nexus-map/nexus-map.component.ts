@@ -808,6 +808,8 @@ export class NexusMapComponent extends ChildComponent {
     for (let x = 0; x < buttonsToHide.length; x++) {
       (buttonsToHide[x] as HTMLButtonElement).style.visibility = "hidden";
     }
+    this.selectedNexusBase = undefined;
+    this.emittedClosedAttackScreen();
   }
   closeMapInfo(){
     this.isMapInfoOpen = false;

@@ -313,8 +313,8 @@
   left: 0px;
   z-index: 1;
   width: 100%;
-  height: CALC(var(--nexus-gamescreen-height) + 100px);
-  overflow: hidden;
+  height: CALC(var(--vh, 1vh) * 100 - 85px);
+  overflow: auto;
   display: flex;
   flex-flow: column;
   justify-content: space-between;

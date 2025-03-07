@@ -59,7 +59,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     if ((this.inputtedParentRef && this.inputtedParentRef.user) || (this.parentRef && this.parentRef.user)) {
       const user = this.inputtedParentRef && this.inputtedParentRef.user ? this.inputtedParentRef.user : this.parentRef!.user!;
       this.notifications = await this.notificationService.getNotifications(user);
-      this.unreadNotifications = this.notifications.filter(x => x.isRead == false).length;
+      this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length;
     }
   }
   private startPolling() {

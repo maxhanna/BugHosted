@@ -417,7 +417,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   filterUniqueUsers(users: User[]): User[] {
     return users.filter((user, index, self) =>
-      index === self.findIndex(u => u.id === user.id)
+      index === self.findIndex(u => (u.id === user.id || u.username === user.username))
     );
   }
 
