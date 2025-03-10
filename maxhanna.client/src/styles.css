@@ -589,3 +589,9 @@ fieldset {
   top: 99vh;
   right: 99vw;
 }
+.quote-text {
+  font-size: small;
+}
+.quote-time {
+  font-size: smaller;
+}

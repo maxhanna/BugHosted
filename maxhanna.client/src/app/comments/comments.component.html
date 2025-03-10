@@ -30,6 +30,9 @@
       <button class="commentOptionButton" (click)="showOptionsPanel(comment)" *ngIf="comment.user?.id == inputtedParentRef?.user?.id">
         ⚙️
       </button>
+      <button class="commentOptionButton" (click)="quote(comment)">
+        Quote
+      </button>
       <div class="cursorPointer smallFont commentCountWrapper" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
         <button [id]="'commentIdCount' + comment.id">Reply</button>
       </div>

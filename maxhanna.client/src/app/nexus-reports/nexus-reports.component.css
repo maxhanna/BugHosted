@@ -138,13 +138,3 @@ th {
     width:30px;
     height:30px;
 }
-.userSearchOverlay {
-  position: absolute;
-  left: CALC(50% - 112.5px);
-  top: CALC(50% - 200px);
-  width: 225px;
-  height: 400px;
-  background-color: var(--main-bg-color);
-  overflow: auto;
-  z-index: 3;
-}

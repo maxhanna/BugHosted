@@ -170,17 +170,23 @@ input[type="text"] {
 .reactionDiv {
   display: flex;
   margin-top: 10px;
+  gap: 20px;
 }
 
 .otherPersonsReactionDiv {
   display: flex;
   justify-content: flex-end;
   margin-top: 10px;
+  gap: 20px;
 }
 
-.chatUserConnected {
-  cursor: pointer;
-}
+  .reactionDiv button, .otherPersonsReactionDiv button {
+    cursor: pointer;
+  }
+
+  .chatUserConnected {
+    cursor: pointer;
+  }
 
   .chatUserConnected span {
     text-decoration: underline;

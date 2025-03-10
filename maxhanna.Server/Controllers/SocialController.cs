@@ -678,7 +678,7 @@ namespace maxhanna.Server.Controllers
 
 			try
 			{
-				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country) VALUES (@userId, @storyText, @profileUserId, @city, @country);";
+				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP());";
 				string topicSql = @"INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, @topicId);";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))

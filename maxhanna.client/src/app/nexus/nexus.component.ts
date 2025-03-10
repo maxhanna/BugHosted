@@ -2048,6 +2048,10 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   emittedOpenUserSearch() {
     this.isUserSearchOpen = true; 
     this.parentRef?.showOverlay();
+
+    setTimeout(() => {
+      (document.getElementsByClassName("searchUsersSpan")[0] as HTMLButtonElement).click();
+    }, 50);
   }
   closeUserSearchOverlay() {
     this.isUserSearchOpen = false; 

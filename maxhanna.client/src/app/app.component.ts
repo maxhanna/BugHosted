@@ -435,45 +435,47 @@ export class AppComponent implements OnInit, AfterViewInit {
       title: tmpTitle, description: tmpDescription
     };
   }
-
   getTextForDOM(text?: string, component_id?: number) {
     if (!text) return "";
-     
+
     const youtubeRegex = /(https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)([\w-]{11})|youtu\.be\/([\w-]{11}))(?:\S+)?)/g;
 
     // Step 1: Temporarily replace YouTube links with placeholders
     text = text.replace(youtubeRegex, (match, url, videoId, shortVideoId) => {
       const id = videoId || shortVideoId;
-      return `__YOUTUBE__${id}__YOUTUBE__`; // Placeholder for YouTube videos
+      return `__YOUTUBE__${id}__YOUTUBE__`;
     });
 
     // Step 2: Convert regular URLs into clickable links
     text = text.replace(/(<a[^>]*>.*?<\/a>)|(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, (match, existingLink, url) => {
-      if (existingLink) {
-        return existingLink; // Preserve existing <a> tags without modifying them
-      }
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`; // Convert only plain URLs to links
-    }).replace(/\n/g, '<br>'); // Convert line breaks to <br> for proper formatting
+      if (existingLink) return existingLink;
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+    }).replace(/\n/g, '<br>');
 
-    // Step 3: Replace the placeholders with embedded YouTube iframes
+    // Step 3: Replace YouTube placeholders with clickable links
     text = text.replace(/__YOUTUBE__([\w-]{11})__YOUTUBE__/g, (match, videoId) => {
-      const storyIdInput = document.getElementById('youtubeVideoStoryIdInput');
+      return `<a onClick="document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoButton').click()" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
+    });
 
-      // Base link structure
-      let linkHTML = `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
+    // Step 4: Convert quotes and style the quote text
+    while (/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/s.test(text)) {
+      text = text.replace(/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/gs, (match, username, userId, timestamp, quotedMessage) => {
+        const formattedTimestamp = new Date(timestamp).toLocaleString();
 
-      // Add storyId to the onClick if the input exists
-      if (storyIdInput) {
-        linkHTML = `<a onClick="javascript:document.getElementById('youtubeVideoIdInput').value='${videoId}';document.getElementById('youtubeVideoStoryIdInput').value='${component_id ?? '0'}';document.getElementById('youtubeVideoButton').click()" id="youtubeLink${videoId}" class="cursorPointer youtube-link">https://www.youtube.com/watch?v=${videoId}</a>`;
-      }
+        return `
+      <span class="quote-text">
+        <span class="quote-user">${username}</span> 
+        <span class="quote-time">(${formattedTimestamp})</span>:  
+        "<span class="quote-message">${quotedMessage}</span>"
+      </span>
+    `;
+      });
+    }  
 
-      return linkHTML;
-    }); 
-
-    // Step 4: Convert Bold, Bullet-point and italic tags
+    // Step 5: Convert Bold, Bullet-point, and Italics
     text = text
       .replace(/\[b\](.*?)\[\/b\]/gi, "<b>$1</b>") // Bold
-      .replace(/\[\*\](.*?)\[\/\*\]/gi, "\n&bull; $1") // Bullet-point
+      .replace(/\[\*\](.*?)\[\/\*\]/gi, "<br>&bull; $1") // Bullet-point
       .replace(/\[i\](.*?)\[\/i\]/gi, "<i>$1</i>"); // Italics
 
     return this.sanitizer.bypassSecurityTrustHtml(text);

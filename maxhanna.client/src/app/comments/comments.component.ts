@@ -40,7 +40,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
   commentCount = 0;
 
-  @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
+  @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent; 
+
   constructor(private commentService: CommentService, private notificationService: NotificationService, private sanitizer: DomSanitizer) {
     super(); 
   }
@@ -243,6 +244,13 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   commentHeaderClicked() {
     this.showComments = !this.showComments;
     this.commentHeaderClickedEvent.emit(this.showComments); 
+  }
+  quote(comment: FileComment) {
+    const input = this.addCommentInput.nativeElement;
+    if (input) {
+      input.value += `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${comment.commentText}] \n`;
+    }
+    input.focus();
   }
   async replyToComment(comment: FileComment) {
     const element = document.getElementById('commentReplyInput' + comment.id) as HTMLTextAreaElement;

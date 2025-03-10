@@ -421,6 +421,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     );
   }
 
+  quote(message: Message) {
+    this.newMessage.nativeElement.value += `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${message.content}] \n`;
+  }
+
   private async subscribeToNotificationTopic(token: string) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent?.user?.id) {

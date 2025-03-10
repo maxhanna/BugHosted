@@ -12,6 +12,7 @@ import { UserService } from '../../services/user.service';
 })
 export class UserTagComponent extends ChildComponent implements OnInit, OnChanges {
   @Input() user?: User;
+  @Input() userId?: number;
   @Input() inputtedParentRef?: AppComponent;
   @Input() displayEmptyAvatar = false;
   @Input() displayOnlyName = false;
@@ -35,6 +36,13 @@ export class UserTagComponent extends ChildComponent implements OnInit, OnChange
           this.user = res;
         }
       });
+    } else if (this.userId) { 
+      console.log("no username passed in, but got a userId, fetching user: ", this.user);
+      await this.userService.getUserById(this.userId).then(res => {
+        if (res) {
+          this.user = res;
+        }
+      }); 
     }
   }
 

@@ -59,6 +59,7 @@
                               [component]="message"
                               [inputtedParentRef]="parentRef"
                               [currentReactions]="message.reactions"></app-reaction>
+                <button (click)="quote(message)">Quote</button>
               </div>
               <div *ngFor="let file of message.files" style="{{ message.files && message.files.length > 0 ? 'margin-top: 10px' : '' }}">
                 <app-media-viewer [file]="file"
@@ -85,6 +86,7 @@
                               [component]="message"
                               [inputtedParentRef]="parentRef"
                               [currentReactions]="message.reactions"></app-reaction>
+                <button (click)="quote(message)">Quote</button>
               </div>
               <div *ngFor="let file of message.files">
                 <div class="attachmentMedia">
