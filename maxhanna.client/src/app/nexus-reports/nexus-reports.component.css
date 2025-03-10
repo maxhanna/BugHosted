@@ -146,5 +146,5 @@ th {
   height: 400px;
   background-color: var(--main-bg-color);
   overflow: auto;
-  z-index: 2;
+  z-index: 3;
 }

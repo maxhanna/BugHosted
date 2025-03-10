@@ -19,7 +19,7 @@
   <div class="deleteAllReportsDiv" *ngIf="!targetBase && battleReports.totalReports > 0">
     <button (click)="deleteAllReports()" *ngIf="!selectedReportIds.size && battleReports.battleOutcomes.length > 0 && !targetUser">Delete All Reports</button>
     <button (click)="deleteSelectedReports()" *ngIf="selectedReportIds.size">Delete {{selectedReportIds.size}} Reports</button>
-    <button (click)="showUserSearchOverlay()" *ngIf="!targetUser">🔍Search Reports</button> 
+    <button (click)="openUserSearchEmitter.emit()" *ngIf="!targetUser">🔍Search Reports</button> 
   </div>
 
   <div class="deleteAllReportsDiv"> 
@@ -176,10 +176,3 @@
   This is where battle reports will show up after you attack or get attacked.
 </div>
 
-<div class="userSearchOverlay" *ngIf="userSearchOpen">
-  <button id="closeOverlay" (click)="showUserSearchOverlay()">Close</button>
-  <app-user-list (userClickEvent)="searchReports($event);"
-                 [user]="user"
-                 [inputtedParentRef]="inputtedParentRef"> 
-  </app-user-list>
-</div>

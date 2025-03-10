@@ -33,6 +33,7 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   @Input() mineslvl1Src: string | undefined;
   @Input() flvl1Src: string | undefined;
   @Output() openMapEmitter = new EventEmitter<string>;
+  @Output() openUserSearchEmitter = new EventEmitter<void>;
 
   userSearchOpen = false; 
   targetUser?: User = undefined;
@@ -217,15 +218,7 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     }
     this.loadBattleReports(this.targetBase);
   }
-  showUserSearchOverlay() {
-    this.userSearchOpen = !this.userSearchOpen;
-    if (this.inputtedParentRef && this.userSearchOpen) {
-      this.inputtedParentRef.showOverlay();
-    }
-    else if (this.inputtedParentRef) {
-      this.inputtedParentRef.closeOverlay();
-    }
-  }
+  
   clearTargetUser() { 
     this.targetUser = undefined;
     this.userSearchOpen = false;

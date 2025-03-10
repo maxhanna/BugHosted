@@ -18,7 +18,7 @@
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
-      <div class="commentDate">{{comment.date | date: 'y/MM/d HH:mm'}}</div>
+      <div class="commentDate">{{daysSinceDate(comment.date)}}</div>
       <div class="commentReaction">
         <app-reaction [commentId]="comment.id"
                       [component]="comment"

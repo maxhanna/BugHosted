@@ -304,8 +304,8 @@
 }
 .showMapInfoButton {
   position: fixed;
-  bottom: 10px;
-  left: CALC(50% + 150px);
+  bottom: 5px;
+  left: CALC(50% + 140px);
 }
 .mapInfoScreen {
   position: absolute;
@@ -320,3 +320,37 @@
   justify-content: space-between;
   background-color: black;
 }
+
+
+
+  .mapInfoScreen h1, .mapInfoScreen h2 {
+    color: var(--secondary-font-color);
+  }
+
+  .mapInfoScreen h1 {
+    text-align: center;
+    border-bottom: 3px solid var(--main-highlight-color);
+    padding-bottom: 10px;
+  }
+
+  .mapInfoScreen h2 {
+    margin-top: 20px;
+    border-left: 5px solid var(--main-highlight-color);
+    padding-left: 10px;
+  }
+
+  .mapInfoScreen ul {
+    list-style-type: none;
+    padding: 0;
+  }
+
+    .mapInfoScreen ul .mapInfoScreen li { 
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+  .mapInfoScreen .highlight {
+    font-weight: bold;
+    color: var(--secondary-font-color);
+  }

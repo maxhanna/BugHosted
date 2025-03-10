@@ -184,7 +184,7 @@
 </div>
 <div *ngIf="isLoading || isLoadingData" class="baseAutoSwitcherDiv">Loading Data</div>
 
-<button (click)="isMapInfoOpen ? closeMapInfo() : showMapInfo()" class="showMapInfoButton">Help</button>
+<button (click)="isMapInfoOpen ? closeMapInfo() : showMapInfo()" class="showMapInfoButton">{{isMapInfoOpen ? 'Close ' : 'Help'}}</button>
 <div *ngIf="isMapInfoOpen" class="mapInfoScreen">
   <div>
     <h2>Attacking on the Map</h2>
@@ -196,28 +196,32 @@
       <li><strong>Lock On + Auto Switch:</strong> Enables rapid attack deployment from multiple bases.</li>
     </ul>
 
-    <h2>Scout Attacks</h2>
-    <p>Scouts allow you to gather intelligence on enemy villages. To spy, attack using scouts as you would with other units.</p>
+    <h1>Scouting and Intelligence Gathering</h1>
 
-    <h3>Defending Against Scouts</h3>
-    <p>The only way to defend against enemy scouts is by recruiting your own scouts. Your scouts engage the enemy but do not suffer losses.</p>
+    <h2>Using Scouts</h2>
+    <p>Scouts are specialized units used for gathering intelligence on enemy villages. To launch a scouting mission, send scouts as you would with any other unit in an attack.</p>
 
-    <h3>Scout Attack Outcomes</h3>
+    <h2>Defending Against Scouts</h2>
+    <p>The only way to defend against enemy scouts is by having your own scouts stationed in your village. If enemy scouts attempt to gather information, your scouts will engage them in combat. However, unlike regular battles, defending scouts do not suffer losses.</p>
+
+    <h2>Scout Attack Outcomes</h2>
+    <p>The success of a scouting mission depends on how many scouts survive the attack. The more scouts that survive, the more information they bring back:</p>
     <ul>
-      <li>Less than 50% survive, but at least one remains: View stationed units.</li>
-      <li>More than 50% survive (Level 1 scouts): View resources in the village.</li>
-      <li>More than 70% survive (Level 2 scouts): View building levels.</li>
-      <li>More than 90% survive (Level 3 scouts): View units stationed outside the village.</li>
+      <li><span class="highlight">Less than 50% survive:</span> Your scouts fail to gather intelligence. No information is revealed unless you are the owner of the attacking or defending village.</li>
+      <li><span class="highlight">At least 50% survive:</span> Your scouts successfully identify the units currently stationed in the village.</li>
+      <li><span class="highlight">At least 50% survive, and your scout base has Level 1 scouts:</span> Your scouts also gather information on the village’s available resources.</li>
+      <li><span class="highlight">At least 70% survive, and your scout base has Level 2 scouts:</span> In addition to resources, your scouts report the levels of buildings in the village.</li>
+      <li><span class="highlight">At least 90% survive, and your scout base has Level 3 scouts:</span> Your scouts uncover information about units stationed outside the village.</li>
     </ul>
 
     <h2>Gold Plundering</h2>
-    <p>Gold plundering is based on the ratio of attacking to defending units. If no defenders are present, attackers take all available gold up to carrying capacity.</p>
+    <p>Gold can be stolen during an attack, but how much is taken depends on the number of attacking and defending units.</p>
     <ul>
-      <li>If there are no defending units, the attackers take as much gold as they can carry.</li>
-      <li>If there are no attacking units, no gold is taken.</li>
-      <li>If both sides have units, the amount of gold taken depends on how many attackers there are compared to defenders. More attackers relative to defenders means more gold is plundered, but attackers can never take more than they can carry.</li>
-    </ul> 
-    <p>The more attacking units you have relative to defenders, the more gold you can plunder, up to your units' carrying capacity.</p>
+      <li><span class="highlight">If there are no defenders:</span> Attackers take all the available gold, up to their carrying capacity.</li>
+      <li><span class="highlight">If there are no attackers left:</span> No gold is taken.</li>
+      <li><span class="highlight">If both attackers and defenders are present:</span> The amount of gold stolen depends on the ratio of attacking to defending units. More attackers relative to defenders means more gold is plundered, but attackers can never take more than they can carry.</li>
+    </ul>
+    <p><span class="highlight">Note:</span> Scouts do not participate in gold plundering. Their sole purpose is to gather intelligence.</p>
   </div>
-  <div><button (click)="closeMapInfo()">Back</button></div>
+  <div style="text-align:center; width:100%; margin-top: 10px; margin-bottom: 10px;"><button (click)="closeMapInfo()">Back</button></div>
 </div>

@@ -146,7 +146,7 @@
 }
 
 .commentDate, .commentReaction {
-  font-size: xx-small;
+  font-size: x-small;
   color: var(--secondary-font-color);
   display: inline-flex;
 }

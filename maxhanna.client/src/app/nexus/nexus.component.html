@@ -1,8 +1,8 @@
 <div class=componentMain>
-  <div class="closeButton" (click)="remove_me('NexusComponent');"></div> 
+  <div class="closeButton" (click)="remove_me('NexusComponent');"></div>
   <div class="componentTitle">Bug Wars</div>
 
-  <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading" class="centeredText"> 
+  <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading" class="centeredText">
     <button (click)="start()">Enter the fight</button>
   </div>
   <div *ngIf="isUserComponentOpen || (!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading)">
@@ -17,8 +17,8 @@
       <div class="notification">A time of unprecedented conflict, where the most cunning and ruthless will survive.</div>
       <div class="gameNotification">In this epoch of Bug Wars, you, the chosen one, shall orchestrate the rise of your colony to unparalleled heights.</div>
       <div class="gameNotification">Form strategic alliances, perform tactical maneuvers, gain influence. </div>
-      <div class="gameNotification">Are you ready to embrace your destiny and become the ultimate ruler of the world? The fate of your colony rests in your hands.</div> 
-    </div> 
+      <div class="gameNotification">Are you ready to embrace your destiny and become the ultimate ruler of the world? The fate of your colony rests in your hands.</div>
+    </div>
   </div>
 
   <div class="gamescreen" *ngIf="!isUserNew">
@@ -26,7 +26,7 @@
     <div *ngIf="shouldShowIncomingAttacks() || shouldShowIncomingDefences()" class="incomingCount" (click)="toggleScreen('bases', !isBasesOpen)">
       <div *ngIf="shouldShowIncomingAttacks()" class="attacksIncomingCount">{{attacksIncomingCount}}⚔️</div>
       <div *ngIf="shouldShowIncomingDefences()" class="defenceIncomingCount">{{defencesIncomingCount}}🛡️</div>
-    </div> 
+    </div>
     <!-- Navigation -->
     <div *ngIf="shouldShowBaseNav()">
       <button class="switchBaseButtons previousBaseButton" [disabled]="isLoading" (click)="previousBase()">⩤</button>
@@ -43,9 +43,10 @@
     </div>
     <!-- Reports -->
     <div *ngIf="parentRef && parentRef.user && isReportsOpen " class="battleReportComponentDiv">
-      <app-nexus-reports [user]="parentRef.user"
+      <app-nexus-reports #reportsComponent
+                         [user]="parentRef.user"
                          [inputtedParentRef]="parentRef"
-                         [mapData]="mapData" 
+                         [mapData]="mapData"
                          [marinePictureSrc]="marinePictureSrc"
                          [goliathPictureSrc]="goliathPictureSrc"
                          [siegeTankPictureSrc]="siegeTankPictureSrc"
@@ -61,6 +62,7 @@
                          [mineslvl1Src]="mineslvl1Src"
                          [flvl1Src]="flvl1Src"
                          (openMapEmitter)="emittedOpenMapAndScrollTo($event)"
+                         (openUserSearchEmitter)="emittedOpenUserSearch()"
                          *ngIf="isReportsOpen">
       </app-nexus-reports>
     </div>
@@ -68,27 +70,27 @@
     <div class="mapComponentDiv" #mapComponentDiv *ngIf="parentRef && parentRef.user && isMapOpen && mapData">
       <app-nexus-map #mapComponent
                      [user]="parentRef.user"
-                     [inputtedParentRef]="parentRef" 
+                     [inputtedParentRef]="parentRef"
                      [mapData]="mapData"
                      [nexusBase]="nexusBase"
                      [currentPersonalBases]="currentPersonalBases"
                      [nexusAvailableUnits]="nexusAvailableUnits"
                      [nexusUnitsOutsideOfBase]="nexusUnitsOutsideOfBase"
                      [unitStats]="units"
-                    [marinePictureSrc]="marinePictureSrc"
-                    [goliathPictureSrc]="goliathPictureSrc"
-                    [siegeTankPictureSrc]="siegeTankPictureSrc"
-                    [scoutPictureSrc]="scoutPictureSrc"
-                    [wraithPictureSrc]="wraithPictureSrc"
-                    [battlecruiserPictureSrc]="battlecruiserPictureSrc"
-                    [glitcherPictureSrc]="glitcherPictureSrc"
-                    [cclvl1Src]="cclvl1Src"
-                    [splvl1Src]="splvl1Src"
-                    [sdlvl1Src]="sdlvl1Src"
-                    [whlvl1Src]="whlvl1Src"
-                    [eblvl1Src]="eblvl1Src"
-                    [mineslvl1Src]="mineslvl1Src"
-                    [flvl1Src]="flvl1Src"
+                     [marinePictureSrc]="marinePictureSrc"
+                     [goliathPictureSrc]="goliathPictureSrc"
+                     [siegeTankPictureSrc]="siegeTankPictureSrc"
+                     [scoutPictureSrc]="scoutPictureSrc"
+                     [wraithPictureSrc]="wraithPictureSrc"
+                     [battlecruiserPictureSrc]="battlecruiserPictureSrc"
+                     [glitcherPictureSrc]="glitcherPictureSrc"
+                     [cclvl1Src]="cclvl1Src"
+                     [splvl1Src]="splvl1Src"
+                     [sdlvl1Src]="sdlvl1Src"
+                     [whlvl1Src]="whlvl1Src"
+                     [eblvl1Src]="eblvl1Src"
+                     [mineslvl1Src]="mineslvl1Src"
+                     [flvl1Src]="flvl1Src"
                      [lvl1Src]="nexusLevel1Src"
                      [lvl2Src]="nexusLevel2Src"
                      [lvl3Src]="nexusLevel3Src"
@@ -109,7 +111,7 @@
                      [nexusDefencesIncoming]="nexusDefencesIncoming"
                      [isLoadingData]="isLoading"
                      (emittedNotifications)="emittedNotifications($event)"
-                     (emittedReloadEvent)="emittedReloadEvent($event)" 
+                     (emittedReloadEvent)="emittedReloadEvent($event)"
                      (emittedAttackEvent)="emittedAttackEvent($event)"
                      (emittedGoToBaseEvent)="emittedGoToBaseEvent($event)"
                      (emittedSendBackAttackEvent)="emittedSendBackAttackEvent($event)"
@@ -119,7 +121,7 @@
     <!-- Bases screen -->
     <app-nexus-bases #nexusBasesComponent
                      *ngIf="parentRef && parentRef.user && currentPersonalBases && nexusBase && isBasesOpen"
-                     class="baseListComponentDiv"  
+                     class="baseListComponentDiv"
                      [mapData]="currentPersonalBases"
                      [nexusBase]="nexusBase"
                      [allNexusUnits]="allNexusUnits"
@@ -139,12 +141,12 @@
     </app-nexus-bases>
     <!-- Support screen -->
     <app-nexus-support-screen *ngIf="parentRef && parentRef.user && nexusBase && isSupportOpen"
-                              class="baseListComponentDiv" 
+                              class="baseListComponentDiv"
                               [user]="parentRef.user"
                               [inputtedParentRef]="parentRef"
                               [mapData]="mapData"
                               [nexusDefencesIncoming]="nexusDefencesIncoming"
-                              [nexusDefencesSent]="nexusDefencesSent" 
+                              [nexusDefencesSent]="nexusDefencesSent"
                               [marinePictureSrc]="marinePictureSrc"
                               [goliathPictureSrc]="goliathPictureSrc"
                               [siegeTankPictureSrc]="siegeTankPictureSrc"
@@ -420,7 +422,7 @@
             <div>
               <img [src]="siegeTankPictureSrc" class="unitPicture" *ngIf="siegeTankPictureSrc" loading="lazy" decoding="asynchronous" />
             </div>
-          </div> 
+          </div>
         </div>
       </div>
       <div><button (click)="showMoreFactoryInfo ? showMoreFactoryInfo = !showMoreFactoryInfo : closeFactory()">Back</button></div>
@@ -432,7 +434,7 @@
          *ngIf="splvl1Src && splvl2Src && splvl3Src && nexusBase && isStarportOpen"
          loading="lazy" decoding="asynchronous" />
     <div *ngIf="isStarportOpen" class="starportScreen">
-      <div class="moreInfoTitle xxSmallFont cursorPointerUnderlined" (click)="showMoreStarportInfo = !showMoreStarportInfo">[More Info]</div> 
+      <div class="moreInfoTitle xxSmallFont cursorPointerUnderlined" (click)="showMoreStarportInfo = !showMoreStarportInfo">[More Info]</div>
       <div *ngIf="calculateCurrentSupply() > 0 && !showMoreStarportInfo">
         Upgrade the Starport to train more units simultaneously. Current training limit: <span class="redText">{{nexusBase?.starportLevel ?? 0}}</span>
       </div>
@@ -766,14 +768,14 @@
                                   [parentRef]="parentRef"
                                   [glitcherPictureSrc]="glitcherPictureSrc"
                                   (toggleUnitScreen)="toggleUnitScreenFromBaseUnits($event)"></app-nexus-base-units>
-          </div> 
+          </div>
         </div>
       </div>
       <div *ngIf="activeResearchTimers().length > 0">
         <span class="mainInfoSection">Research:</span>
         <div class="upgradeTimersTableDiv">
           <div *ngIf="activeResearchTimers().length > 0">
-            <div *ngFor="let timer of activeResearchTimers()" class="researchDisplayP capitalize"> 
+            <div *ngFor="let timer of activeResearchTimers()" class="researchDisplayP capitalize">
               {{formatBuildingTimer(timer.unit) }} {{ formatTimer(timer.endTime) }}
             </div>
           </div>
@@ -843,7 +845,7 @@
         <div class="notification">It is recommended you take a look at the map (click on the button below) to get acquainted with your surroundings.</div>
       </div>
     </div>
-  </div> 
+  </div>
 
   <div class="gameNotificationDiv">
     <div *ngFor="let notif of notifications" class="gameNotification capitalize" (click)="notifications = []">➫ <span>{{notif.replaceAll('_', ' ')}}</span></div>
@@ -858,4 +860,13 @@
   <div *ngIf="!isLoading && !nexusBase && !isUserNew">
     Server is down.
   </div>
+</div>
+
+
+<div class="popupPanel" *ngIf="isUserSearchOpen">
+  <button id="closeOverlay" (click)="closeUserSearchOverlay()">Close</button>
+  <app-user-list (userClickEvent)="searchReports($event);" 
+                 [searchOnly]="true"
+                 [inputtedParentRef]="parentRef">
+  </app-user-list>
 </div>

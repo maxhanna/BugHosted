@@ -17,6 +17,7 @@ import { NexusService } from '../../services/nexus.service';
 import { ChildComponent } from '../child.component';
 import { NexusMapComponent } from '../nexus-map/nexus-map.component';
 import { NexusBasesComponent } from '../nexus-bases/nexus-bases.component';
+import { NexusReportsComponent } from '../nexus-reports/nexus-reports.component';
 
 @Component({
   selector: 'app-nexus',
@@ -163,6 +164,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   mineSmokeContainers = [1, 2, 3];
   mineSmokeContainersLis = new Array(9);
   randomMineSmokeContainersBooleans: boolean[] = [];
+  isUserSearchOpen = false;
 
   private unitTypeMap = new Map<string, number>([
     ["marine", 6],
@@ -181,6 +183,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   @ViewChild('mapComponentDiv') mapComponentDiv!: ElementRef<HTMLDivElement>;
   @ViewChild(NexusMapComponent) mapComponent!: NexusMapComponent;
   @ViewChild(NexusBasesComponent) nexusBasesComponent!: NexusBasesComponent;
+  @ViewChild(NexusReportsComponent) nexusReportsComponent!: NexusReportsComponent;
 
   constructor(private fileService: FileService, private nexusService: NexusService) {
     super();
@@ -534,7 +537,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     this.getBuildingUpgradesInfo();
   }
-  async navigateBase(forward: boolean) {
+  async navigateBase(forward: boolean, withUnits = false) {
     const userId = this.parentRef?.user?.id;
     if (!this.currentPersonalBases || !userId || !this.nexusBase) return;
 
@@ -562,8 +565,17 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       const base = this.currentPersonalBases[index];
 
       if (base.user?.id === userId) {
-        nextBase = base;
-        break;
+        if (withUnits) {
+          console.log("switching to next base with units");
+          const baseUnits = this.allNexusUnits?.find(x => x.coordsX == base.coordsX && x.coordsY == base.coordsY);
+          if (baseUnits && this.hasAnyUnits(baseUnits)) {
+            nextBase = base;
+            break;
+          }
+        } else { 
+          nextBase = base;
+          break;
+        }
       }
     }
 
@@ -580,6 +592,14 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async previousBase() {
     await this.navigateBase(false);
+  }
+
+  async nextBaseWithUnits() {
+    await this.navigateBase(true, true);
+  }
+
+  async previousBaseWithUnits() {
+    await this.navigateBase(false, true);
   }
 
   reinitializeByType(type: string) {
@@ -1855,8 +1875,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     try {
       if (attackPayload.switchBase && this.numberOfPersonalBases > 1 && this.nexusAvailableUnits) {
-        this.adjustUnitsFromAttackSent(attackPayload.attack);
-        await this.nextBase();
+        this.adjustUnitsFromAttackSent(attackPayload.attack); 
+        await this.nextBaseWithUnits();
       } else {
         await this.loadNexusData();
       }
@@ -2012,7 +2032,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.nexusBase.baseName = baseName;
       }
     }
-  }
+  } 
   fetchMapData() {
     if (this.parentRef?.user && (!this.mapData || this.numberOfPersonalBases == 0 || this.shouldLoadMap)) {
       this.shouldLoadMap = false;
@@ -2024,6 +2044,20 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         }
       });
     }
+  }
+  emittedOpenUserSearch() {
+    this.isUserSearchOpen = true; 
+    this.parentRef?.showOverlay();
+  }
+  closeUserSearchOverlay() {
+    this.isUserSearchOpen = false; 
+    this.parentRef?.closeOverlay(); 
+  }
+  searchReports($event?: User) {
+    if ($event) { 
+      this.nexusReportsComponent.searchReports($event);
+    }
+    this.closeUserSearchOverlay();
   }
   debounceLoadNexusData = this.debounce(async () => {
     this.loadNexusData();
