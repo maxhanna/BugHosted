@@ -208,6 +208,30 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
               return (a.date ?? new Date()) > (b.date ?? new Date()) ? 1 : (a.date ?? new Date()) < (b.date ?? new Date()) ? -1 : 0;
             });
           }
+
+          this.directory?.data?.forEach(data => {
+            if (data) {
+              if (!data.date) { data.date = new Date(); }
+              if (typeof data.date === 'string') {
+                data.date = new Date(data.date);
+              }
+              data.date = new Date(data.date.getTime() - data.date.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
+
+              if (!data.lastAccess) { data.lastAccess = new Date(); }
+              if (typeof data.lastAccess === 'string') {
+                data.lastAccess = new Date(data.lastAccess);
+              }
+              data.lastAccess = new Date(data.lastAccess.getTime() - data.lastAccess.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
+
+
+              if (!data.lastUpdated) { data.lastUpdated = new Date(); }
+              if (typeof data.lastUpdated === 'string') {
+                data.lastUpdated = new Date(data.lastUpdated);
+              }
+              data.lastUpdated = new Date(data.lastUpdated.getTime() - data.lastUpdated.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
+
+            }
+          });
         }
 
       });

@@ -757,7 +757,7 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 					string sql = @"
 						UPDATE maxhanna.file_uploads
-						SET last_access = NOW()
+						SET last_access = UTC_TIMESTAMP()
 						WHERE id = @fileId LIMIT 1;
 
 						SELECT user_id, file_name, folder_path, is_public

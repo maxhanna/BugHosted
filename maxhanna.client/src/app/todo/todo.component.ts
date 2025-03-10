@@ -45,6 +45,14 @@ export class TodoComponent extends ChildComponent implements OnInit {
       const res = await this.todoService.getTodo(this.parentRef?.user!, type, search);
       this.todos = res;
       this.todoCount = this.todos.length;
+      this.todos.forEach(todo => {
+        if (todo.date) {
+          if (typeof todo.date === 'string') {
+            todo.date = new Date(todo.date);
+          }
+          todo.date = new Date(todo.date.getTime() - todo.date.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
+        }
+      });
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }

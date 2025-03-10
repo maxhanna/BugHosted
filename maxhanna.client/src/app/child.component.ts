@@ -29,9 +29,9 @@ export class ChildComponent {
     return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   }
 
-  daysSinceDate(dateString?: Date, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
+  daysSinceDate(dateString?: Date | string, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
     if (!dateString) return '';
-
+ 
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     const now = new Date();
 

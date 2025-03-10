@@ -335,8 +335,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) {
     // Mute and pause all other media elements
     this.muteOtherVideos(currentVideo);  
-    currentVideo.muted = !this.autoplayAudio; 
-    currentVideo.play(); 
+    //currentVideo.muted = !this.autoplayAudio; 
+  //  currentVideo.play(); 
   }
 
   muteOtherVideos(excludeMedia?: HTMLMediaElement) {
@@ -346,7 +346,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       // Mute and pause all media elements except the current video
       if (media !== excludeMedia) {
         media.muted = true;
-        media.pause();
+        /*media.pause();*/
       }
     });
   }

@@ -91,9 +91,9 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 				string sql = @"
                     INSERT INTO 
-                        maxhanna.todo (todo, type, url, ownership) 
+                        maxhanna.todo (todo, type, url, ownership, date) 
                     VALUES 
-                        (@Todo, @Type, @Url, @Owner);
+                        (@Todo, @Type, @Url, @Owner, UTC_TIMESTAMP());
                     SELECT LAST_INSERT_ID();";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Todo", model.todo.todo);

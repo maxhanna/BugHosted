@@ -119,8 +119,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       if (this.storyId) {
         if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
           const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
-          if (tgtStory) {
-            console.log("scrolling to story", tgtStory);
+          if (tgtStory) { 
             this.scrollToStory(tgtStory.id);
             const storyText = tgtStory.storyText;
             if (storyText) {
@@ -128,8 +127,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
               const script = document.createElement('script');
               script.setAttribute('type', 'application/ld+json');
               script.textContent = titleAndDescrip?.title ?? "";
-              document.head.appendChild(script);
-              console.log("storyText", titleAndDescrip?.title);
+              document.head.appendChild(script); 
             }
           }
         }
@@ -157,10 +155,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         });
       }
     }
-    setTimeout(() => { this.updateStoryDates(); }, 1500); 
-    this.storyUpdateInterval = setInterval(() => {
-      this.updateStoryDates();
-    }, 15000);
+ 
 
     const user = this.parent?.user ?? this.parentRef?.user;
     if (user) {
@@ -246,8 +241,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
     let storyId = this.getSearchStoryId();
-
-    console.log(storyId);
+     
     const res = await this.socialService.getStories(
       this.parentRef?.user,
       search,
@@ -269,9 +263,24 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           )
         );
       } else {
-        this.storyResponse = res;
-        console.log(this.storyResponse);
+        this.storyResponse = res; 
       }
+
+      if (this.storyResponse?.stories) {
+        this.storyResponse.stories.forEach(story => { 
+          if (story.date) { 
+            if (typeof story.date === 'string') { 
+              story.date = new Date(story.date);
+            }
+            story.date = new Date(story.date.getTime() - story.date.getTimezoneOffset() * 60000);  //Convert UTC dates to local time.
+          }
+        });
+      }
+
+      setTimeout(() => { this.updateStoryDates(); }, 1500);
+      this.storyUpdateInterval = setInterval(() => {
+        this.updateStoryDates();
+      }, 15000);
 
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
@@ -402,13 +411,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const matches = text.match(urlPattern);
     return matches ? matches[0] : undefined;
   }
-  goToLink(story?: Story, metadataUrl?: string) {
-    console.log(metadataUrl);
+  goToLink(story?: Story, metadataUrl?: string) { 
     if (story && story.storyText) {
       const goodUrl = metadataUrl ?? this.extractUrl(story.storyText);
       if (goodUrl) {
-        const videoId = this.extractYouTubeVideoId(metadataUrl ?? story.storyText);
-        console.log(videoId);
+        const videoId = this.extractYouTubeVideoId(metadataUrl ?? story.storyText); 
         if (videoId) {
           (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId;
           (document.getElementById('youtubeVideoStoryIdInput') as HTMLInputElement).value = story.id + "";
@@ -451,8 +458,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       } else {
         const element = document.getElementsByClassName('componentMain')[0];
         if (element) {
-          element.scrollTop = 0;
-          console.log('scroll top ');
+          element.scrollTop = 0; 
         }
       }
     }, 20);
@@ -541,8 +547,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef?.showNotification('Failed to copy link!');
     });
   }
-  updateStoryDates() {
-    console.log("updating story dates");
+  updateStoryDates() { 
     if (this.storyResponse?.stories) {
       this.storyResponse.stories.forEach(story => {
         story.timeSince = this.daysSinceDate(story.date);
@@ -551,8 +556,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   formatDate(dateString?: Date): string {
     if (!dateString) return '';
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString; 
     const day = date.getDate();
 
     const monthNames = [
