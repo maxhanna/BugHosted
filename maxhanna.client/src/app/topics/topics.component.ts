@@ -43,7 +43,9 @@ export class TopicsComponent extends ChildComponent {
       }
       this.attachedTopics.push(tmpTopic);
       this.topicAdded.emit(this.attachedTopics);
-      this.addTopicButton.nativeElement.style.visibility = "hidden"; 
+      if (this.addTopicButton && this.addTopicButton.nativeElement) { 
+        this.addTopicButton.nativeElement.style.visibility = "hidden"; 
+      }
     }
   }
   removeTopic(topic: Topic) {

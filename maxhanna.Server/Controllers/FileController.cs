@@ -1132,7 +1132,7 @@ namespace maxhanna.Server.Controllers
 			{
 				string deleteSql = "DELETE FROM maxhanna.file_topics WHERE file_id = @FileId;";
 				string insertSql = @"INSERT INTO maxhanna.file_topics (file_id, topic_id) VALUES (@FileId, @TopicId);
-														 UPDATE maxhanna.file_uploads SET last_updated = NOW(), last_updated_by_user_id = @UserId WHERE id = @FileId LIMIT 1;";
+														 UPDATE maxhanna.file_uploads SET last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @UserId WHERE id = @FileId LIMIT 1;";
 
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{

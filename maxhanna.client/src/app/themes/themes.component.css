@@ -1,5 +1,10 @@
 .loremDiv {
   padding: 30px;
+  border: var(--main-border);
+  border-radius: 12px;
+  width: 70%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .themeSelectorDiv {
@@ -28,4 +33,19 @@
   margin-top: 10px;
   margin-bottom: 20px;
   flex-wrap: wrap;
+}
+
+.textExpanderDiv {
+  width: 100%;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 10px;
+  opacity: 75%;
+  background: linear-gradient(to bottom, transparent, var(--main-highlight-color));
+}
+
+
+.smallExpander {
+  width: 110px;
+  text-align: center;
 }

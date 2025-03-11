@@ -145,7 +145,9 @@ export class NexusService {
   async setBaseName(user: User, nexus: NexusBase, baseName: string): Promise<any> {
     return await this.fetchData('/nexus/setbasename', { User: user, Nexus: nexus, BaseName: baseName });
   }
-
+  async getNumberOfBases(user: User): Promise<any> {
+    return await this.fetchData('/nexus/getnumberofbases', user);
+  }
 
 
   formatTimer(allSeconds?: number): string {

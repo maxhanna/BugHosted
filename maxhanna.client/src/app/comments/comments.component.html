@@ -89,6 +89,7 @@
     <textarea [placeholder]='comment_id ? "Reply " + component.user.username : commentList && commentList.length > 0 ? "💭Add a comment..." : "🗨️Leave the FIRST comment!"'
               [style.display]="editingComments.length ? 'none' : 'block'"
               #addCommentInput
+              [id]="'addCommentTextArea'+comment_id"
               class="addCommentTextArea"
               (keyup.enter)="startLoadingComment();"></textarea>
     <button (click)="startLoadingComment();"

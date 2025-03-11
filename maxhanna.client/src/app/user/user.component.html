@@ -1,6 +1,6 @@
 <div class="componentMain {{ user ? 'componentMainFullHeight' : ''}}">
   <div class="closeButton" (click)="remove_me('UserComponent');" *ngIf="canClose || (!loginOnly && (parentRef?.user || user))"></div>
-  <div class="refreshButton" (click)="ngOnInit();" *ngIf="!loginOnly"></div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle" *ngIf="!loginOnly">{{user ? user.username : 'Login'}}</div>
 
   <div *ngIf="parentRef?.user">
@@ -96,37 +96,37 @@
           <div *ngIf="isAboutOpen" class="aboutSiteDiv">
             <ul>
               <li>
-                Play games together 
+                Play games together
               </li>
               <li>
-                Interact with users 
+                Interact with users
               </li>
               <li>
-                Social Media platform 
+                Social Media platform
               </li>
               <li>
-                Memes 
+                Memes
               </li>
               <li>
-                Shared Filesystem 
+                Shared Filesystem
               </li>
               <li>
-                Cryptocurrency Tools 
+                Cryptocurrency Tools
               </li>
               <li>
-                Music and self organization tools 
+                Music and self organization tools
               </li>
               <li>
-                Calendar 
+                Calendar
               </li>
               <li>
-                Todo 
+                Todo
               </li>
             </ul>
             <div>
               <div>And more!</div>
               <div>We are comitted to an open and free internet.</div>
-              <div>Visit our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>.</div> 
+              <div>Visit our public <a href="https://github.com/maxhanna/BugHosted">GitHub repository</a>.</div>
             </div>
 
             <div class="aboutPictureContainer">
@@ -136,60 +136,60 @@
                                 [showCommentSection]="false"
                                 [displayExpander]="false">
               </app-media-viewer>
-               <app-media-viewer [fileId]="6374"
-                                 [inputtedParentRef]="parentRef"
-                                 [displayExtraInfo]="false"
-                                 [showCommentSection]="false"
-                                 [displayExpander]="false">
-               </app-media-viewer>
-               <app-media-viewer [fileId]="6375"
-                                 [inputtedParentRef]="parentRef"
-                                 [displayExtraInfo]="false"
-                                 [showCommentSection]="false"
-                                 [displayExpander]="false">
-               </app-media-viewer>
-                <app-media-viewer [fileId]="6376"
-                                  [inputtedParentRef]="parentRef"
-                                  [displayExtraInfo]="false"
-                                  [showCommentSection]="false"
-                                  [displayExpander]="false">
-                </app-media-viewer>
+              <app-media-viewer [fileId]="6374"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              <app-media-viewer [fileId]="6375"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              <app-media-viewer [fileId]="6376"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
               <app-media-viewer [fileId]="6380"
                                 [inputtedParentRef]="parentRef"
                                 [displayExtraInfo]="false"
                                 [showCommentSection]="false"
                                 [displayExpander]="false">
               </app-media-viewer>
-               <app-media-viewer [fileId]="6377"
-                                 [inputtedParentRef]="parentRef"
-                                 [displayExtraInfo]="false"
-                                 [showCommentSection]="false"
-                                 [displayExpander]="false">
-               </app-media-viewer>
-               <app-media-viewer [fileId]="6378"
-                                 [inputtedParentRef]="parentRef"
-                                 [displayExtraInfo]="false"
-                                 [showCommentSection]="false"
-                                 [displayExpander]="false">
-               </app-media-viewer>
-               <app-media-viewer [fileId]="6379"
-                                 [inputtedParentRef]="parentRef"
-                                 [displayExtraInfo]="false"
-                                 [showCommentSection]="false"
-                                 [displayExpander]="false">
-               </app-media-viewer>
-               <app-media-viewer [fileId]="6381"
-                                 [inputtedParentRef]="parentRef"
-                                 [displayExtraInfo]="false"
-                                 [showCommentSection]="false"
-                                 [displayExpander]="false">
-               </app-media-viewer>
-               <app-media-viewer [fileId]="6382"
-                                 [inputtedParentRef]="parentRef"
-                                 [displayExtraInfo]="false"
-                                 [showCommentSection]="false"
-                                 [displayExpander]="false">
-               </app-media-viewer>
+              <app-media-viewer [fileId]="6377"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              <app-media-viewer [fileId]="6378"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              <app-media-viewer [fileId]="6379"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              <app-media-viewer [fileId]="6381"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
+              <app-media-viewer [fileId]="6382"
+                                [inputtedParentRef]="parentRef"
+                                [displayExtraInfo]="false"
+                                [showCommentSection]="false"
+                                [displayExpander]="false">
+              </app-media-viewer>
             </div>
           </div>
         </div>
@@ -362,6 +362,15 @@
                 {{wordlerStreak}} consecutive days.
               </div>
             </div>
+
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                Number of BugWars Bases:
+              </div>
+              <div class="optionsStatsDescription">
+                {{numberOfNexusBases}} bases.
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -391,7 +400,7 @@
               <div>
                 {{trophy.name}}
               </div>
-            </div> 
+            </div>
           </div>
         </div>
       </div>
@@ -492,4 +501,20 @@
   <div>
     <button id="closeOverlay" (click)="closeFriendsPanel()">Close</button>
   </div>
+</div>
+
+
+
+
+<!-- Menu Popup -->
+<div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+  <div class="popupPanelTitle popupPanelContents" style="margin-bottom:15px;">
+    User Menu
+  </div>
+  <div>
+    <div>
+      Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
 </div>

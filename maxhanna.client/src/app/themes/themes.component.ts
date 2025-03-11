@@ -318,10 +318,6 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
       return
     };
 
-    if (this.userSelectedTheme?.id !== this.originalThemeId) {
-      this.warnUserToSave = true;
-    }
-
     if (targetId == "myThemesDropdown" && document.getElementById("allThemesDropdown")) {
       (document.getElementById("allThemesDropdown") as HTMLSelectElement).selectedIndex = 0;
     } else if (targetId == "allThemesDropdown" && document.getElementById("myThemesDropdown")) {
@@ -376,6 +372,9 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
         document.body.style.backgroundImage = ``;
       }, 10);
     }
+    setTimeout(() => {
+      this.warnUserToSave = (this.userSelectedTheme?.id !== this.originalThemeId);   
+    }, 50); // timeout to make sure this is done after updateCSS.
     console.log('Applied Theme:', selectedTheme);
   }
 

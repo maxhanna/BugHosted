@@ -14,8 +14,9 @@ import { User } from '../../services/datacontracts/user/user';
 import { FriendRequest } from '../../services/datacontracts/friends/friendship-request';
 import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
 import { Trophy } from '../../services/datacontracts/user/trophy';
-import { WeatherLocation } from '../../services/datacontracts/weather/weather-location'; 
-import { CurrencyFlagPipe } from '../currency-flag.pipe'; 
+import { WeatherLocation } from '../../services/datacontracts/weather/weather-location';
+import { CurrencyFlagPipe } from '../currency-flag.pipe';
+import { NexusService } from '../../services/nexus.service';
 
 @Component({
   selector: 'app-user',
@@ -52,12 +53,14 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   isEditingFriends = false;
   hasFriendRequests = false;
   isBeingFollowedByUser = false;
+  isDisplayingNSFW = false;
+  isMenuPanelOpen = false;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   friendRequestsSent: FriendRequest[] = [];
   friendRequestsReceived: FriendRequest[] = [];
   contacts: Contact[] = [];
-  isMusicContainerExpanded = true;
+  isMusicContainerExpanded = false;
   isAboutExpanded = true;
   isTrophyExpanded = true;
   playListCount = 0;
@@ -65,10 +68,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   justLoggedIn = false;
   songPlaylist: Todo[] = [];
   trophies?: Trophy[] = undefined;
+  numberOfNexusBases: number = 0;
   wordlerStreak: number = 0;
   weatherLocation?: { city: string; country: string } = undefined;
 
   constructor(private userService: UserService,
+    private nexusService: NexusService,
     private contactService: ContactService,
     private weatherService: WeatherService,
     private friendService: FriendService,
@@ -110,10 +115,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         });
         await this.getIsBeingFollowedByUser();
       }
+      this.getNSFWValue();
+      this.getNumberOfNexusBases();
     }
     catch (error) { console.log((error as Error).message); }
     this.stopLoading();
   }
+
 
   ngOnDestroy() {
     if (this.justLoggedIn) {
@@ -201,7 +209,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       : event === "musicProfileContainer" ? this.isMusicContainerExpanded
         : this.isTrophyExpanded;
     console.log(isOpen);
-     
+
 
     if (event === "aboutContainer") {
       this.isAboutExpanded = !!!isOpen;
@@ -219,7 +227,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   canAddFriend(user: User) {
     let found = false;
-    if (Array.isArray(this.friends)) { 
+    if (Array.isArray(this.friends)) {
       this.friends?.forEach(x => {
         if (x.username == this.parentRef?.user?.username) {
           found = true;
@@ -238,7 +246,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   friendsIncludeMe() {
-    if (!Array.isArray(this.friends)) { 
+    if (!Array.isArray(this.friends)) {
       return false;
     }
 
@@ -395,7 +403,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       try {
         const resCreateUser = await this.userService.createUser(tmpUser);
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
-          tmpUser.id = parseInt(resCreateUser!); 
+          tmpUser.id = parseInt(resCreateUser!);
           try {
             this.updateWeatherInBackground(tmpUser);
           } catch {
@@ -465,7 +473,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   getNewFriendRequestCount() {
     const count = this.friendRequests.filter(x => x.status == 3).length;
     return count > 0 ? `(${count})` : '';
-  } 
+  }
   copyLink() {
     const userId = this.user?.id ?? this.userId ?? this.parentRef?.user?.id;
     const link = `https://bughosted.com/${userId ? `User/${userId}` : ''}`;
@@ -553,5 +561,52 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     }
     this.isBeingFollowedByUser = false;
+  }
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    this.parentRef?.showOverlay();
+    this.inputtedParentRef?.showOverlay();
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    this.parentRef?.closeOverlay();
+    this.inputtedParentRef?.closeOverlay();
+  }
+  private getNumberOfNexusBases() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (user) {
+      this.nexusService.getNumberOfBases(user).then(res => {
+        if (res) { 
+          this.numberOfNexusBases = res ?? 0;
+        }
+      });
+    }
+  }
+  private getNSFWValue() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (user) {
+      this.userService.getUserSettings(user).then(res => {
+        if (res) {
+          this.isDisplayingNSFW = res.nsfwEnabled ?? false;
+        }
+      });
+    }
+  }
+  async updateNSFW(event: Event) {
+    const user = this.parentRef?.user;
+    if (!user) return alert("You must be logged in to view NSFW content.");
+    const isChecked = (event.target as HTMLInputElement).checked;
+    this.isDisplayingNSFW = isChecked;
+    this.userService.updateNSFW(user, isChecked).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(res);
+      }
+    });
   }
 }

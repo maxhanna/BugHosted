@@ -385,8 +385,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   async editStoryTopic(topics: Topic[], story: Story) {
     const user = this.parentRef?.user ?? this.parent?.user;
     if (user) {
-      this.socialService.editTopics(user, story, topics);
-      this.ngOnInit();
+      this.socialService.editTopics(user, story, topics); 
       this.closeStoryOptionsPanel();
       this.editingTopics = this.editingTopics.filter(x => x != story.id); 
       story.storyTopics = topics;

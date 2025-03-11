@@ -192,7 +192,7 @@ namespace maxhanna.Server.Controllers
 							// Check if comment already exists
 							var tmpComment = new FileComment
 							{
-								Id = commentId,
+								Id = rdr.GetInt32("comment_id"),
 								CommentText = commentText,
 								User = new User(userId, userName, null, dpFileEntry, null, null, null),
 								Date = date,
@@ -290,7 +290,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Comment/EditComment", Name = "EditComment")]
 		public async Task<IActionResult> EditComment([FromBody] EditCommentRequest request)
 		{
-			_logger.LogInformation($"POST /Comment/EditComment (for user {request.User?.Id})");
+			_logger.LogInformation($"POST /Comment/EditComment (for user {request.User?.Id}, commentId: {request.CommentId})");
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try

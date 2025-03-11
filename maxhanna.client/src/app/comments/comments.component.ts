@@ -180,11 +180,20 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.closeOptionsPanel();
   }
   async confirmEditComment(comment: FileComment) {
-    const message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value;
+    let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value;
+
+    console.log(message, this.comment_id);
     this.editingComments = this.editingComments.filter(x => x != comment.id);
     if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
-      this.commentService.editComment(this.inputtedParentRef.user, comment.id, message);
-      (document.getElementById('commentText' + comment.id) as HTMLDivElement).innerHTML = this.createClickableUrls(message).toString();
+      this.commentService.editComment(this.inputtedParentRef.user, comment.id, message).then(res => {
+        if (res) {
+          this.inputtedParentRef?.showNotification(res);
+        }
+      });
+      comment.commentText = message;
+      console.log("commentText" + comment.id + " exists");
+    } else {
+      console.log("commentText" + comment.id + " doesnt exist");
     }
   }
   getTextForDOM(text: string, component_id: number) {

@@ -130,6 +130,40 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 			}
+		} 
+
+
+		[HttpPost("/Nexus/GetNumberOfBases", Name = "GetNumberOfBases")]
+		public async Task<IActionResult> GetNumberOfBases([FromBody] User user)
+		{
+			Console.WriteLine($"POST /Nexus/GetNumberOfBases for player {user.Id}");
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				conn.Open();
+
+				string sql = "SELECT COUNT(*) as count FROM maxhanna.nexus_bases WHERE user_id = @UserId;";
+
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", user.Id);
+
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (reader.Read())
+					{
+						return Ok(Convert.ToInt32(reader["count"]));
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while processing the POST request for message history.");
+			}
+			finally
+			{
+				conn.Close();
+			}
+			return StatusCode(500, "An error occurred while processing the request.");
 		}
 
 		[HttpPost("/Nexus/GetAllBuildingUpgradesList", Name = "GetAllBuildingUpgradesList")]
