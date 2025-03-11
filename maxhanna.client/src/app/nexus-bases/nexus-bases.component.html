@@ -41,18 +41,59 @@
 <div class="overallDisplay">
   <table id="baseTable">
     <thead class="stickyHeader">
-      <tr> 
-        <th colspan="2"><span class="rotated-header">Base Name</span></th>
-        <th><span class="rotated-header">Command Center</span></th>
-        <th><span class="rotated-header">Mines</span></th>
-        <th><span class="rotated-header">Engineering Bay</span></th>
-        <th><span class="rotated-header">Factory</span></th>
-        <th><span class="rotated-header">Starport</span></th>
-        <th><span class="rotated-header">Warehouse</span></th>
-        <th><span class="rotated-header">Supply Depot</span></th>
-        <th><span class="rotated-header">📀</span></th>
-        <th><span class="rotated-header">Incoming</span></th>
+      <tr>
+        <th colspan="2">
+          <span class="rotated-header" (click)="sortColumnBy('baseName')">
+            Base Name {{ sortColumn === 'baseName' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('commandCenterLevel')">
+            Command Center {{ sortColumn === 'commandCenterLevel' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('minesLevel')">
+            Mines {{ sortColumn === 'minesLevel' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('engineeringBayLevel')">
+            Engineering Bay {{ sortColumn === 'engineeringBayLevel' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('factoryLevel')">
+            Factory {{ sortColumn === 'factoryLevel' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('starportLevel')">
+            Starport {{ sortColumn === 'starportLevel' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('warehouseLevel')">
+            Warehouse {{ sortColumn === 'warehouseLevel' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('supplyDepotLevel')">
+            Supply Depot {{ sortColumn === 'supplyDepotLevel' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('gold')">
+            📀 {{ sortColumn === 'gold' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
+        <th>
+          <span class="rotated-header" (click)="sortColumnBy('incomingAttacks')">
+            Incoming {{ sortColumn === 'incomingAttacks' ? (sortOrder === 'asc' ? '▲' : '▼') : '' }}
+          </span>
+        </th>
       </tr>
+
     </thead>
     <tbody *ngFor="let base of paginatedData; let i = index; trackBy: trackByCoords" (click)="selectBase(base)" class="cursorPointer">
       <tr [ngClass]="getBaseClass(base)"> 

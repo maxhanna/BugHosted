@@ -59,12 +59,14 @@
 }
 .attacksIncomingCount {
   color: red;
-  float:left;
+  float: left;
+  text-shadow: 1px 1px black;
 }
 
 .defenceIncomingCount {
-  color: blue;
-  float:left;
+  color: lightblue;
+  float: left;
+  text-shadow: 1px 1px black;
 }
 
 .switchBaseButtons {

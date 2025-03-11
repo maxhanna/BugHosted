@@ -329,7 +329,7 @@ namespace maxhanna.Server.Services
 
 		private async Task AssignTrophies()
 		{
-			int trophiesAssigned = 0;  // Counter for tracking the number of assigned trophies
+			int trophiesAssigned = 0;
 
 			try
 			{
@@ -337,44 +337,45 @@ namespace maxhanna.Server.Services
 				{
 					await conn.OpenAsync();
 
-					var trophyCriteria = new Dictionary<string, (string sql, int threshold)>
+					var trophyCriteria = new Dictionary<string, string>
 						{
-								{ "Chat Master 50", ("SELECT sender AS user_id, COUNT(*) FROM messages GROUP BY sender HAVING COUNT(*) >= 50", 50) },
-								{ "Chat Master 100", ("SELECT sender AS user_id, COUNT(*) FROM messages GROUP BY sender HAVING COUNT(*) >= 100", 100) },
-								{ "Chat Master 150", ("SELECT sender AS user_id, COUNT(*) FROM messages GROUP BY sender HAVING COUNT(*) >= 150", 150) },
-								{ "Uploader 50", ("SELECT user_id, COUNT(*) FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 50", 50) },
-								{ "Uploader 100", ("SELECT user_id, COUNT(*) FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 100", 100) },
-								{ "Uploader 150", ("SELECT user_id, COUNT(*) FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 150", 150) },
-								{ "Topic Creator 1", ("SELECT created_by_user_id AS user_id, COUNT(*) FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 1", 1) },
-								{ "Topic Creator 3", ("SELECT created_by_user_id AS user_id, COUNT(*) FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 3", 3) },
-								{ "Topic Creator 10", ("SELECT created_by_user_id AS user_id, COUNT(*) FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10", 10) },
-								{ "Social Poster 10", ("SELECT user_id AS user_id, COUNT(*) FROM stories GROUP BY user_id HAVING COUNT(*) >= 10", 10) },
-								{ "Social Poster 50", ("SELECT user_id AS user_id, COUNT(*) FROM stories GROUP BY user_id HAVING COUNT(*) >= 50", 50) },
-								{ "Social Poster 100", ("SELECT user_id AS user_id, COUNT(*) FROM stories GROUP BY user_id HAVING COUNT(*) >= 100", 100) },
+								{ "Chat Master 50", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 50" },
+								{ "Chat Master 100", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 100" },
+								{ "Chat Master 150", "SELECT sender AS user_id FROM messages GROUP BY sender HAVING COUNT(*) >= 150" },
+								{ "Uploader 50", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 50" },
+								{ "Uploader 100", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 100" },
+								{ "Uploader 150", "SELECT user_id FROM file_uploads GROUP BY user_id HAVING COUNT(*) >= 150" },
+								{ "Topic Creator 1", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 1" },
+								{ "Topic Creator 3", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 3" },
+								{ "Topic Creator 10", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10" },
+								{ "Social Poster 10", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 10" },
+								{ "Social Poster 50", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 50" },
+								{ "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" },
 						};
 
 					foreach (var trophy in trophyCriteria)
 					{
-						var awardTrophySql = @"
+						var sql = $@"
                     INSERT INTO user_trophy (user_id, trophy_id)
                     SELECT u.user_id, tt.id
-                    FROM (
-                        {0}
-                    ) u
+                    FROM ({trophy.Value}) u
                     JOIN user_trophy_type tt ON tt.name = @TrophyName
                     LEFT JOIN user_trophy ut ON ut.user_id = u.user_id AND ut.trophy_id = tt.id
-                    WHERE ut.user_id IS NULL;";
+                    WHERE ut.user_id IS NULL;
 
-						var queryCriteria = trophy.Value.sql;
+                    INSERT INTO notifications (user_id, user_profile_id, text)
+                    SELECT u.user_id, u.user_id, CONCAT('You have been awarded the trophy: ', @TrophyName)
+                    FROM ({trophy.Value}) u
+                    JOIN user_trophy_type tt ON tt.name = @TrophyName
+                    LEFT JOIN user_trophy ut ON ut.user_id = u.user_id AND ut.trophy_id = tt.id
+                    WHERE ut.user_id IS NULL;
+                ";
 
-						// Format the SQL with the specific criteria
-						var finalSql = string.Format(awardTrophySql, queryCriteria);
-
-						using (var cmd = new MySqlCommand(finalSql, conn))
+						using (var cmd = new MySqlCommand(sql, conn))
 						{
 							cmd.Parameters.AddWithValue("@TrophyName", trophy.Key);
 							int rowsAffected = await cmd.ExecuteNonQueryAsync();
-							trophiesAssigned += rowsAffected;  // Increment the counter by the number of rows inserted
+							trophiesAssigned += rowsAffected / 2; // Since we insert both a trophy and a notification
 						}
 					}
 

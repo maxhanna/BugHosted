@@ -192,6 +192,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.showUserList = false;
     this.chatHistory = [];
     this.currentChatId = undefined;
+    users = this.filterUniqueUsers(users);
     const user = this.getChatUsers(users);
     if (!this.currentChatUsers) return;
 
@@ -423,6 +424,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   quote(message: Message) {
     this.newMessage.nativeElement.value += `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${message.content}] \n`;
+    this.newMessage.nativeElement.focus();
   }
 
   private async subscribeToNotificationTopic(token: string) {

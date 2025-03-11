@@ -21,6 +21,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 		public int? ProfileUserId { get; set; }
 		public string? City { get; set; }
 		public string? Country { get; set; }
+		public bool? Hidden { get; set; }
 		public List<Reaction>? Reactions { get; set; }
 
 		public Story() { }
@@ -28,7 +29,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 		public Story(int id, User user, string storyText, int? fileId,
 				DateTime date, int upvotes, int downvotes, int commentsCount, List<Metadata.Metadata>? metaData,
 				List<FileEntry> storyFiles, List<FileComment> storyComments, List<Topic> storyTopics,
-				int? profileUserId, string? city, string? country, List<Reaction>? reactions)
+				int? profileUserId, string? city, string? country, bool? hidden, List<Reaction>? reactions)
 		{
 			Id = id;
 			User = user;
@@ -45,6 +46,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 			ProfileUserId = profileUserId;
 			City = city;
 			Country = country;
+			Hidden = hidden;
 			Reactions = reactions;
 		}
 	}

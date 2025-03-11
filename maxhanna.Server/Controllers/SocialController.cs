@@ -37,15 +37,16 @@ namespace maxhanna.Server.Controllers
 			[FromQuery] string? search,
 			[FromQuery] string? topics,
 			[FromQuery] int page = 1,
-			[FromQuery] int pageSize = 10)
+			[FromQuery] int pageSize = 10,
+			[FromQuery] bool showHiddenStories = false)
 		{
 			_logger.LogInformation($@"POST /Social for user: {request.User?.Id} 
                 with search: {search} with topics: {topics} for profile: {request.ProfileUserId} for storyId: {request.StoryId}. 
-                Pagination: Page {page}, PageSize {pageSize}.");
+                Pagination: Page {page}, PageSize {pageSize}, ShowHiddenStories: {showHiddenStories}.");
 
 			try
 			{
-				var stories = await GetStoriesAsync(request, search, topics, page, pageSize);
+				var stories = await GetStoriesAsync(request, search, topics, page, pageSize, showHiddenStories);
 				return Ok(stories);
 			}
 			catch (Exception ex)
@@ -55,7 +56,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10)
+		private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false)
 		{
 			var whereClause = new StringBuilder(" WHERE 1=1 ");
 			var parameters = new Dictionary<string, object>();
@@ -128,6 +129,21 @@ namespace maxhanna.Server.Controllers
 			{
 				whereClause.Append("AND s.profile_user_id IS NULL ");
 			}
+			string joinHiddenStories = string.Empty;
+
+			if (request.User?.Id != null && !showHiddenStories)
+			{
+				whereClause.Append(@"
+            AND NOT EXISTS (
+                SELECT 1 FROM hidden_stories hs
+                WHERE hs.user_id = @userId AND hs.story_id = s.id
+            )
+        ");
+				 
+				joinHiddenStories = " LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId ";
+				 
+				parameters.Add("@userId", request.User.Id);
+			}
 
 			int offset = (page - 1) * pageSize;
 			string countSql = @$"SELECT COUNT(*) AS total_count 
@@ -142,6 +158,10 @@ namespace maxhanna.Server.Controllers
         udpfu.folder_path AS displayPictureFileFolderPath,
         udpfu.file_name AS displayPictureFileFileName,
         s.story_text, s.date, s.city, s.country, 
+				CASE 
+						WHEN hs.story_id IS NOT NULL THEN TRUE 
+						ELSE FALSE 
+				END AS hidden,
         COALESCE(c.comments_count, 0) AS comments_count,
         sm.title, sm.description, sm.image_url, sm.metadata_url
     FROM stories AS s 
@@ -151,6 +171,8 @@ namespace maxhanna.Server.Controllers
     LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
         ON s.id = c.story_id
     LEFT JOIN story_metadata AS sm ON s.id = sm.story_id
+		LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId 
+		 {joinHiddenStories}
      {whereClause} 
     ORDER BY s.id DESC 
     LIMIT @pageSize OFFSET @offset;";
@@ -905,6 +927,43 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+		[HttpPost("/Social/Hide/", Name = "HideStory")]
+		public async Task<IActionResult> HideStory([FromBody] HideStoryRequest request)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					_logger.LogInformation($"Opened connection to database for hiding story with id {request.StoryId} for user {request.UserId}");
+
+					using (var transaction = await connection.BeginTransactionAsync())
+					{
+						// Insert into hidden_files table (no permission check)
+						var hideCommand = new MySqlCommand(
+								"INSERT INTO maxhanna.hidden_stories (user_id, story_id) VALUES (@userId, @storyId) ON DUPLICATE KEY UPDATE updated = CURRENT_TIMESTAMP",
+								connection, transaction);
+						hideCommand.Parameters.AddWithValue("@userId", request.UserId);
+						hideCommand.Parameters.AddWithValue("@storyId", request.StoryId);
+
+						await hideCommand.ExecuteNonQueryAsync();
+						_logger.LogInformation($"File {request.StoryId} hidden for user {request.UserId}");
+
+						// Commit transaction
+						await transaction.CommitAsync();
+					}
+				}
+
+				_logger.LogInformation($"Post {request.StoryId} hidden successfully for user {request.UserId}");
+				return Ok("Post hidden successfully.");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while hiding the post.");
+				return StatusCode(500, "An error occurred while hiding the post.");
+			}
+		}
 
 		[HttpPost("/Social/SetMetadata")]
 		public async Task<IActionResult> SetMetadata([FromBody] MetadataRequest request, int? storyId)

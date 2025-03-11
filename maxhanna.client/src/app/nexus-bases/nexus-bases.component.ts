@@ -43,7 +43,8 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
   pageNumbers: number[] = [];
   paginatedData: NexusBase[] = [];
   sortBy = 'baseName'; // Default sort option
-  sortOrder = 'asc'; // Default sort order (ascending)
+  sortOrder = 'asc';
+  sortColumn = '';
 
   attacksMap: { [key: string]: NexusAttackSent[] } = {};
   defenceMap: { [key: string]: NexusAttackSent[] } = {};
@@ -294,6 +295,24 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
       return result;
     };
   }
+
+  sortColumnBy(column: string): void {
+    if (this.sortColumn === column) {
+      // Toggle sorting order if the same column is clicked
+      this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+      // Default to ascending when switching columns
+      this.sortOrder = 'asc';
+      this.sortColumn = column; 
+    }
+
+    this.sortingSelect.nativeElement.value = column;
+    this.sortOrderSelect.nativeElement.value = this.sortOrder;
+
+    this.sortByCriterion();
+  }
+
+
 
   sortByCriterion(): void {
     this.sortBy = this.sortingSelect.nativeElement.value;

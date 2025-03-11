@@ -216,20 +216,6 @@ singleAttachment {
   font-size: 16px;
 }
 
-.commentVoteButtons {
-  height: 25px;
-  display: flex;
-  flex-direction: row-reverse;
-  flex-wrap: nowrap;
-  align-items: center;
-}
-
-  .commentVoteButtons button {
-    width: 33%;
-    max-width: 25px;
-    font-size: 8px;
-    background-color: unset !important;
-  }
 
 .commentUsername {
 }
@@ -588,4 +574,20 @@ singleAttachment {
   align-content: flex-start;
   justify-content: space-evenly;
   align-items: flex-start;
+}
+.postOptionButtonWrapper .postOptionButtons, .postOptionButtonWrapper .postOptionButtons ::ng-deep * button {
+  display: flex;
+  flex-wrap: nowrap;
+  text-align: center;
+  background-color: unset;
+  color: var(--secondary-font-color);
+  text-shadow: 1px 1px var(--secondary-font-color); 
+  min-width: 35px;
+  align-content: center;
+  justify-content: center;
+}
+.postOptionButtonWrapper {
+  display: flex;
+  gap: 10px;
+  flex-wrap: nowrap;
 }

@@ -235,7 +235,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string, append?: boolean) {
+  async getStories(page: number = 1, pageSize: number = 25, keywords?: string, topics?: string, append?: boolean, showHiddenStories = false) {
     this.startLoading();
 
     const search = keywords ?? this.search?.nativeElement.value;
@@ -249,7 +249,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       userId,
       storyId,
       page,
-      pageSize
+      pageSize,
+      showHiddenStories
     );
 
     if (res) {
@@ -893,6 +894,15 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.userSearch = '';
     this.searchStories();
   }
+
+  async hide(story: Story) {
+    const parent = this.parent ?? this.parentRef;
+    const user = parent?.user;
+    if (user && user.id && story.id) { 
+      this.socialService.hideStory(user.id, story.id);
+    }
+  }
+
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;
     const user = parent?.user;

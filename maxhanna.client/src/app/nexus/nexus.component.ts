@@ -155,6 +155,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   factoryUnitsBeingBuilt = 0;
   starportUnitsBeingBuilt = 0;
   glitchersBeingBuilt = 0;
+  baseSwitchCount = 0;
   factoryUnitIds = [6, 7, 10];
   starportUnitIds = [8, 9, 11];
   warehouseUpgradeLevels: number[] = [];
@@ -222,7 +223,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.startLoading();
     this.unitsWithoutGlitcher = undefined;
     try {
-      this.nexusService.getNexus(this.parentRef.user, this.nexusBase).then(data => {
+      await this.nexusService.getNexus(this.parentRef.user, this.nexusBase).then(async data => {
         if (data && data.nexusBase) {
           // Set basic data
           this.nexusBase = data.nexusBase;
@@ -235,7 +236,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
           this.nexusDefencesIncoming = data.nexusDefencesIncoming;
           this.nexusUnits = data.nexusUnits;
 
-          this.getNexusUnits();
+          await this.getNexusUnits();
           this.fetchMapData();
 
           if (!this.isMapOpen) {
@@ -267,6 +268,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       console.log(ex);
       this.stopLoading();
     }
+    return this.nexusAvailableUnits;
   }
 
   private startLoadCounter(flag: boolean, durationInMinutes: number, counterType: 'Map' | 'BaseUnits'): void { 
@@ -537,7 +539,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     this.getBuildingUpgradesInfo();
   }
-  async navigateBase(forward: boolean, withUnits = false) {
+  async navigateBase(forward: boolean, withUnits = false, singleThread = false) {
     const userId = this.parentRef?.user?.id;
     if (!this.currentPersonalBases || !userId || !this.nexusBase) return;
 
@@ -581,8 +583,20 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
     if (nextBase) {
       this.nexusBase = nextBase;
-      await this.loadNexusData();
-    }
+      this.nexusUnits = undefined;
+      let units = await this.loadNexusData();
+      console.log("does this base have units? ", units ? this.hasAnyUnits(units) : 'no units', units, withUnits);
+      let maxAttempts = this.currentPersonalBases.length;
+      while (withUnits && (!units || !this.hasAnyUnits(units)) && !singleThread) { 
+        await this.navigateBase(forward, withUnits, true);
+        units = await this.loadNexusData();
+        maxAttempts--;
+        if (maxAttempts == 0) {
+          this.parentRef?.showNotification("No bases found with units.");
+          break;
+        }
+      } 
+    } 
   }
 
 

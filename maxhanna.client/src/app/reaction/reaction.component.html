@@ -7,10 +7,10 @@
   </div>
 
   <div class="addReactionDiv myReactionDiv" (click)="reactionDisplayOnClick()">
-    <span class="addReactionSpan" [id]="'addReactionSpan_' + reactionId">
+    <button class="addReactionSpan" [id]="'addReactionSpan_' + reactionId" [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'">
       {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
       <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
-    </span>
+    </button>
   </div>
 </div>
 

@@ -40,10 +40,12 @@ export class NexusAttackScreenComponent extends ChildComponent {
   constructor(private nexusService: NexusService, private notificationService: NotificationService) { super(); }
 
   async engageAttackAllUnits() {
-    if (!this.user || !this.originBase) {
-      return alert("Something went wrong with the request.");
+    if (!this.user || !this.originBase) { 
+      this.parentRef?.showNotification("Something went wrong with the request.");
+      return;
     } else if (!this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats) {
-      return alert("No units to send.");
+      this.parentRef?.showNotification("No units to send.");
+      return;
     }
 
     this.engageAttack(true);
@@ -52,9 +54,11 @@ export class NexusAttackScreenComponent extends ChildComponent {
 
   async engageAttack(allUnits: boolean = false) {
     if (!this.user || !this.originBase) {
-      return alert("Something went wrong with the request.");
+      this.parentRef?.showNotification("Something went wrong with the request.");
+      return;
     } else if (!this.selectedNexus || !this.nexusAvailableUnits || !this.unitStats) {
-      return alert("No units to send.");
+      this.parentRef?.showNotification("No units to send.");
+      return;
     }
 
     this.startLoading();
@@ -67,7 +71,10 @@ export class NexusAttackScreenComponent extends ChildComponent {
             if (!hasUnits && unit.sentValue) hasUnits = true;
           }
         }
-        if (!hasUnits && !this.unitStats.some(x => x.sentValue && x.sentValue > 0)) return alert("No units have been selected! Please select some units and try again.");
+        if (!hasUnits && !this.unitStats.some(x => x.sentValue && x.sentValue > 0)) {
+          this.parentRef?.showNotification("No units have been selected! Please select some units and try again.");
+          return;
+        } 
 
         if (this.isSendingDefence) {
           this.nexusService.defend(this.user, this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));

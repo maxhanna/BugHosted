@@ -8,7 +8,7 @@ import { Topic } from './datacontracts/topics/topic';
   providedIn: 'root'
 })
 export class SocialService {
-  async getStories(user?: User, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10) {
+  async getStories(user?: User, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false) {
     let params = new URLSearchParams();
     if (search)
       params.append("search", search);
@@ -18,6 +18,8 @@ export class SocialService {
       params.append("page", page + '');
     if (pageSize)
       params.append("pageSize", pageSize + '');
+    if (showHiddenStories)
+      params.append("showHiddenStories", showHiddenStories + '');
 
     try {
       const res = await fetch('/social' + (params.size > 0 ? ('?' + params) : ''), {
@@ -113,6 +115,25 @@ export class SocialService {
     } catch (error) {
       console.error('Error editing story:', error);
       return 'Error editing story';
+    }
+  }
+  async hideStory(userId: number, storyId: number) {
+    try {
+      const res = await fetch('/social/hide', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, StoryId: storyId }),
+      });
+
+      if (!res.ok) {
+        return 'Error hiding post';
+      }
+      return 'Post hidden successfully';
+    } catch (error) {
+      console.error('Error editing story:', error);
+      return 'Error hiding post';
     }
   } 
   async getMetadata(user: User, url: string) {

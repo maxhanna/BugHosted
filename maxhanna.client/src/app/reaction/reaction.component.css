@@ -7,15 +7,24 @@
   display: inline-block;
   white-space: nowrap;
 }
-.addReactionSpan {
-  white-space: nowrap;
-  font-size: small;
-  border: 1px solid;
-  border-radius: 15px;
-  padding-right: 2px;
-  padding-left: 2px;
-  cursor: pointer;
-}
+/*.addReactionSpan {
+  white-space: nowrap;*/
+  /* font-size: small; */
+  /*border: 1px solid;
+  border-radius: 50%;*/
+  /* padding-right: 2px; */
+  /* padding: 2px; */
+  /*cursor: pointer;
+  text-shadow: 1px 1px black;*/
+  /* display: flex
+; */
+  /* justify-content: center; */
+  /* align-items: center; */
+  /* align-content: center; */
+  /* flex-wrap: nowrap; */
+  /* flex-direction: row; */
+  /*text-align: center;
+}*/
 .reactionWrapper {
   display: flex;
   align-items: center;

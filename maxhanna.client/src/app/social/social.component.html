@@ -183,6 +183,10 @@
           ✏️ Edit Text
         </button>
 
+        <button (click)="hide(optionStory)" title="Hide Post" style="display:inline-block"> 
+          🙈Hide
+        </button>
+
         <button (click)="delete(optionStory)" *ngIf="optionStory.user?.id == parentRef?.user?.id || (userProfileId && userProfileId == parentRef?.user?.id)" title="Delete Post" style="display:inline-block">❌Delete</button>
       </div>
 
@@ -334,20 +338,20 @@
           <div class="storyDate">
             {{ story.timeSince }}
           </div>
-          <div class="commentVoteButtons">
-            <button (click)="showStoryOptionsPanel(story);" style="border:0px;">
-              <span style="text-shadow:1px 1px 2px black; font-size:16px; cursor: pointer">⚙️</span>
-            </button>
+          <div class="postOptionButtonWrapper">
             <span class="showCommentSpan" (click)="showComments(story.id)">
               🗨️{{story.storyComments?.length}}
             </span>
-            <span class="reactionsSpan">
+            <span class="postOptionButtons">
               <app-reaction [storyId]="story.id"
                             [user]="parentRef?.user"
                             [inputtedParentRef]="parentRef"
                             [component]="story"
                             [currentReactions]="story.reactions"></app-reaction>
             </span>
+            <button (click)="showStoryOptionsPanel(story);" class="postOptionButtons" title="Show post options">
+              ⚙️
+            </button>
           </div>
         </div>
 

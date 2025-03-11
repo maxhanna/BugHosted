@@ -37,9 +37,9 @@ a {
 .navbarNotificationSpan {
   position: relative;
   top: 37px;
-  left: 1px; 
-  background-color: black;
-  text-shadow: 1.2px 1.1px 1.1px black;
+  left: 1px;
+  color: black;
+  text-shadow: -2px -2px 3px white, 2px -2px 3px white, -2px 2px 3px white, 2px 2px 3px white;
   font-weight: bolder;
   width: 50px;
   height: 0px !important;
