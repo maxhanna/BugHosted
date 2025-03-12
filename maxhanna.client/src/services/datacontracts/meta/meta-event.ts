@@ -2,7 +2,7 @@ export class MetaEvent {
   id: number;
   heroId: number;
   timestamp: Date;
-  event: string;
+  eventType: string;
   map: string;
   data?: Record<string, string>;
 
@@ -10,14 +10,14 @@ export class MetaEvent {
     id: number,
     heroId: number,
     timestamp: Date,
-    event: string,
+    eventType: string,
     map: string,
     data?: Record<string, string>
   ) {
     this.id = id;
     this.heroId = heroId;
     this.timestamp = timestamp;
-    this.event = event;
+    this.eventType = eventType;
     this.map = map;
     this.data = data;
   }

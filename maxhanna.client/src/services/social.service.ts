@@ -132,8 +132,28 @@ export class SocialService {
       }
       return 'Post hidden successfully';
     } catch (error) {
-      console.error('Error editing story:', error);
+      console.error('Error hiding post:', error);
       return 'Error hiding post';
+    }
+  }
+
+  async unhideStory(userId: number, storyId: number) {
+    try {
+      const res = await fetch('/social/unhide', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, StoryId: storyId }),
+      });
+
+      if (!res.ok) {
+        return 'Error unhidden post';
+      }
+      return 'Post unhidden successfully';
+    } catch (error) {
+      console.error('Error unhidden post:', error);
+      return 'Error unhidden post';
     }
   } 
   async getMetadata(user: User, url: string) {

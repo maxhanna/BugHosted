@@ -28,9 +28,9 @@
   position: fixed;
   width: 100%;
   max-width: 600px;
-  overflow: auto; 
-  transform: translateY(10%);
+  overflow: auto;  
   left: 50%;
+  top:0;
   z-index: 3;
   border: var(--main-border);
   display: flex;
@@ -72,15 +72,14 @@
 .notificationsListContainer {
   overflow-y: auto;
   overflow-x: hidden;
-/*  height: CALC(var(--vh, 1vh) * 100 - 105px);*/
+  height: CALC(var(--vh, 1vh) * 100 - 220px);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 .notificationsList {
   overflow-y: auto;
-  overflow-x: hidden;
-  height: 100%;
+  overflow-x: hidden; 
   width: 100%;
 }
 .notificationListItem {

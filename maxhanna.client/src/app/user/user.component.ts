@@ -72,6 +72,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   wordlerStreak: number = 0;
   weatherLocation?: { city: string; country: string } = undefined;
 
+  showHiddenFiles: boolean = false;
+  filter = {
+    hidden: this.showHiddenFiles ? 'yes' : 'no',
+  };
   constructor(private userService: UserService,
     private nexusService: NexusService,
     private contactService: ContactService,
@@ -587,6 +591,14 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       });
     }
   }
+  setFilterHidden(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.filter.hidden = target.value;
+    const showHidden = this.filter.hidden == "yes";
+
+    this.socialComponent.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
+  }
+   
   private getNSFWValue() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;

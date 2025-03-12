@@ -7,24 +7,31 @@
   display: inline-block;
   white-space: nowrap;
 }
-/*.addReactionSpan {
-  white-space: nowrap;*/
-  /* font-size: small; */
-  /*border: 1px solid;
-  border-radius: 50%;*/
-  /* padding-right: 2px; */
-  /* padding: 2px; */
-  /*cursor: pointer;
-  text-shadow: 1px 1px black;*/
-  /* display: flex
-; */
-  /* justify-content: center; */
-  /* align-items: center; */
-  /* align-content: center; */
-  /* flex-wrap: nowrap; */
-  /* flex-direction: row; */
-  /*text-align: center;
-}*/
+
+.addReactionButton {
+  cursor: pointer;
+  background-color: unset;
+  color: var(--secondary-font-color);
+}
+
+.addReactionSpan {
+  white-space: nowrap;
+  font-size: small;
+  border: 1px solid;
+  border-radius: 50%;
+  padding-right: 2px;
+  padding: 2px;
+  cursor: pointer;
+  text-shadow: 1px 1px black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  flex-wrap: nowrap;
+  flex-direction: row;
+  text-align: center;
+}
+
 .reactionWrapper {
   display: flex;
   align-items: center;
@@ -35,15 +42,19 @@
   flex-wrap: nowrap;
   margin: 10px;
 }
-.myReactionDiv{
-    display: inline-block;
+
+.myReactionDiv {
+  display: inline-block;
 }
+
 .addReactionTitleSpan {
   font-size: small;
 }
+
 .reactionChoice {
   cursor: pointer;
 }
+
 .reactionChoices {
   display: flex;
   width: 100%;
@@ -58,26 +69,47 @@
   height: CALC(var(--vh, 1vh) * 70);
   overflow: auto;
 }
+
 .reactionsContainer {
   display: flex;
   align-items: center;
-  align-content: center;
-  flex-wrap: nowrap;
-  flex-direction: row;
   justify-content: center;
+  max-width: 120px;  
+  overflow: hidden;
 }
+
+.reactionsDisplaySpan {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 80px;
+  width: 100%;
+  direction: rtl;  
+  text-align: left;
+  margin-right:5px;
+}
+
+@media (max-width: 350px) {
+  .reactionsDisplaySpan {
+    max-width: 50px; 
+  }
+}
+
+
 .reactionTypeSpan {
   font-size: 30px;
 }
- 
+
 .popupPanel button {
   margin-top: 20px;
   cursor: pointer;
 }
+
 .reactionsOverlayWrapper {
   height: 300px;
   width: 320px;
-  overflow: auto; 
+  overflow: auto;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -99,6 +131,7 @@
   flex-wrap: nowrap;
   margin-bottom: 20px;
 }
+
 .reactedReactionDiv {
   display: flex;
   justify-content: space-between !important;

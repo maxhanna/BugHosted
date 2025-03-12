@@ -7,7 +7,7 @@ import { getBotsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
-import { calculateAndApplyDamage } from "../../helpers/fight";
+import { attack, calculateAndApplyDamage, findTargets, untarget } from "../../helpers/fight";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./bot-animations";
 import { MetaBotPart } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
@@ -116,7 +116,7 @@ export class Bot extends Character {
     this.addChild(shadow); 
     this.setupEvents(); 
     setTimeout(() => {
-      this.findTargets();
+      findTargets(this);
     }, 50);
   }
 
@@ -129,7 +129,7 @@ export class Bot extends Character {
 
       if (this.lastTargetDate.getTime() + 100 < new Date().getTime()) {
         this.lastTargetDate = new Date();
-        this.findTargets();
+        findTargets(this);
       }
     });
   }
@@ -172,7 +172,9 @@ export class Bot extends Character {
 
             const botsInRange = getBotsInRange(this);
             if (botsInRange.some((x: Bot) => x.id == target.id) && target.targetedBy.has(this)) {
-              this.attack(target);
+              attack(this, target);
+            } else {
+              untarget(this, target);
             }
           }
         }
@@ -180,75 +182,13 @@ export class Bot extends Character {
     }
   }
 
-  private setTargetToDestroyed(target: Bot) {
-    if (!target.isDeployed) return;
+  private setTargetToDestroyed(target: Bot) { 
     target.isDeployed = false;
-    this.untarget(target);
-    target.untarget(this);
+    untarget(this, target);
+    untarget(target, this);
     target.destroy();
     console.log(target.name + " has been destroyed!");
     events.emit("BOT_DESTROYED", target);
-  }
-
-  attack(target: Bot) {
-    if (!target.targeting.has(this)) {
-      if (this.heroId != 102)
-        console.log("Cannot attack: Target is not actively targeted by this bot.");
-      this.untarget(target);
-      return;
-    }
-    this.faceTarget(target);
-    // Define available attack parts
-    calculateAndApplyDamage(this, target); 
-  }
-
-
-  findTargets() {
-    let nearest = undefined;
-    const nearby = getBotsInRange(this);
-    if (nearby && nearby.length > 1) {
-      nearest = nearby[0];
-    }
-
-    if (nearest) {
-      this.target(nearest);
-    }
-  }
-
-  target(player: Bot) {
-    if (player.id === this.id || this.targetedBy.has(player)) return;
-    this.targeting.add(player);
-    this.targetedBy.add(player);
-    player.target(this);
-    this.faceTarget(player);
-
-    console.log(this.name + " targeting : " + player.name);
-  }
-
-  untarget(player: Bot) {
-    if (this.lastTargetDate.getTime() + 100 < new Date().getTime()) {
-      this.lastTargetDate = new Date();
-
-      if (this.targeting.has(player)) {
-        this.targeting.delete(player);
-        this.targetedBy.delete(player);
-      }
-      player.untarget(this);
-
-      console.log(this.name + " lost target: " + player.name);
-    }
-  }
-
-  faceTarget(target: Bot) {
-    console.log(target);
-    const dx = target.position.x - this.position.x;
-    const dy = target.position.y - this.position.y;
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-      this.facingDirection = dx > 0 ? RIGHT : LEFT;
-    } else {
-      this.facingDirection = dy > 0 ? DOWN : UP;
-    }
   }
 
   private followHero(hero: Character) {

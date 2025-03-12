@@ -1,16 +1,20 @@
 <div class="reactionsContainer" id="reactionsContainer">
   <div class="addReactionDiv cursorPointer" (click)="showReactionsOnClick()" *ngIf="!(userHasReacted() && reactionCount == 1)">
-    {{reactionsDisplay}}
+    <span class="reactionsDisplaySpan">{{reactionsDisplay}}</span>
     <button *ngIf="showReactionChoices" (click)="cancelClick($event)">
       Cancel
     </button>
   </div>
 
   <div class="addReactionDiv myReactionDiv" (click)="reactionDisplayOnClick()">
-    <button class="addReactionSpan" [id]="'addReactionSpan_' + reactionId" [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'">
+    <button class="addReactionButton" [id]="'addReactionSpan_' + reactionId" [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="!showSpan">
       {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
       <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
     </button>
+    <span class="addReactionSpan" [id]="'addReactionSpan_' + reactionId" [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'" *ngIf="showSpan">
+      {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
+      <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
+    </span>
   </div>
 </div>
 
@@ -24,7 +28,7 @@
    
   <div class="reactionChoices">
     <div class="reactionChoice" *ngFor="let reaction of filteredReactions" (click)="selectReaction(reaction.type)" [title]="reaction.label">
-      {{reaction.emoji}} {{ reaction.label }}
+      {{reaction.emoji}}
     </div>
   </div>
   <div>

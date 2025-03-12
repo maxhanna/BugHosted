@@ -515,6 +515,15 @@
     <div>
       Display NSFW?: <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW($event)" />
     </div>
+    <div>
+      <label>
+        Show Hidden Posts?:
+        <select (change)="setFilterHidden($event)">
+          <option value="yes" [selected]="filter.hidden === 'yes'">Yes</option>
+          <option value="no" [selected]="filter.hidden === 'no'">No</option>
+        </select>
+      </label>
+    </div>
   </div>
   <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
 </div>

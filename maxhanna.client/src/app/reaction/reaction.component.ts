@@ -120,6 +120,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   @Input() fileId?: number;
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() showSpan: boolean = false;
   @Input() currentReactions?: Reaction[] = [];
   constructor(private reactionService: ReactionService, private notificationService: NotificationService) { super(); }
 

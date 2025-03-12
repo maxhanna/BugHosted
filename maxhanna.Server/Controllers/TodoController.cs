@@ -18,36 +18,60 @@ namespace maxhanna.Server.Controllers
 			_config = config;
 		}
 
-		[HttpPost("/Todo", Name = "GetTodo")]
 		public async Task<IActionResult> Get([FromBody] User user, [FromQuery] string type, [FromQuery] string? search)
 		{
 			_logger.LogInformation($"POST /Todo/ (type: {type}, search: {search})");
 
-			string sql = $@"
-				SELECT 
-						id, 
-						todo, 
-						type, 
-						url, 
-						date, 
-						ownership 
-				FROM 
-						maxhanna.todo 
-				WHERE 
-						type = @Todo 
-						AND ownership = @Owner 
-						{(string.IsNullOrEmpty(search) ? "" : " AND todo LIKE CONCAT('%', @Search, '%') ")} 
-				ORDER BY id DESC";
+			// Step 1: Get the columns the user has selected
+			string sqlColumns = @"
+				SELECT column_name 
+				FROM todo_columns 
+				WHERE user_id = @Owner AND is_added = TRUE";
+
+			List<string> selectedColumns = new List<string>();
+
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
 
+					// Fetch selected columns
+					using (var cmdColumns = new MySqlCommand(sqlColumns, conn))
+					{
+						cmdColumns.Parameters.AddWithValue("@Owner", user.Id);
+
+						using (var rdrColumns = await cmdColumns.ExecuteReaderAsync())
+						{
+							while (await rdrColumns.ReadAsync())
+							{
+								selectedColumns.Add(rdrColumns.GetString(0));
+							}
+						}
+					}
+					 
+					string columnFilter = "AND type IN (" + type + ")"; 
+
+					string sql = $@"
+            SELECT 
+                id, 
+                todo, 
+                type, 
+                url, 
+                date, 
+                ownership 
+            FROM 
+                maxhanna.todo 
+            WHERE 
+                ownership = @Owner 
+                AND type = @Type 
+                {(string.IsNullOrEmpty(search) ? "" : " AND todo LIKE CONCAT('%', @Search, '%') ")} 
+            ORDER BY id DESC";
+
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Todo", type);
 						cmd.Parameters.AddWithValue("@Owner", user.Id);
+						cmd.Parameters.AddWithValue("@Type", type);
 						if (!string.IsNullOrEmpty(search))
 						{
 							cmd.Parameters.AddWithValue("@Search", search);
@@ -60,12 +84,12 @@ namespace maxhanna.Server.Controllers
 							while (await rdr.ReadAsync())
 							{
 								entries.Add(new Todo(
-										id: rdr.GetInt32(0),
-										todo: rdr.GetString(1),
-										type: rdr.GetString(2),
-										url: rdr.IsDBNull(3) ? null : rdr.GetString(3),
-										date: rdr.GetDateTime(4),
-										ownership: rdr.GetInt32(5)
+												id: rdr.GetInt32(0),
+												todo: rdr.GetString(1),
+												type: rdr.GetString(2),
+												url: rdr.IsDBNull(3) ? null : rdr.GetString(3),
+												date: rdr.GetDateTime(4),
+												ownership: rdr.GetInt32(5)
 								));
 							}
 
@@ -80,6 +104,8 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An error occurred while fetching todos.");
 			}
 		}
+
+
 
 		[HttpPost("/Todo/Create", Name = "CreateTodo")]
 		public async Task<IActionResult> Post([FromBody] CreateTodo model)
@@ -151,5 +177,141 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 		}
+
+		[HttpPost("/Todo/Columns/Add")]
+		public async Task<IActionResult> AddColumn([FromBody] AddTodoColumnRequest req)
+		{
+			if (string.IsNullOrEmpty(req.Column))
+			{
+				return BadRequest("Invalid column name.");
+			}
+
+			_logger.LogInformation($"AddColumn for user {req.User.Id}");
+
+			string sql = @"
+				INSERT INTO todo_columns (user_id, column_name, is_added)
+        VALUES (@Owner, @Column, TRUE)
+        ON DUPLICATE KEY UPDATE is_added = TRUE;";
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Owner", req.User.Id);
+						cmd.Parameters.AddWithValue("@Column", req.Column);
+						await cmd.ExecuteNonQueryAsync();
+					}
+				}
+				return Ok("Column added.");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error adding column.");
+				return StatusCode(500, "Error adding column.");
+			}
+		}
+
+		[HttpPost("/Todo/Columns/Remove")]
+		public async Task<IActionResult> RemoveColumn([FromBody] AddTodoColumnRequest req)
+		{
+			if (string.IsNullOrEmpty(req.Column))
+			{
+				return BadRequest("Invalid column name.");
+			}
+
+			_logger.LogInformation($"RemoveColumn for user {req.User.Id}");
+			 
+			string sql = @"
+				INSERT INTO todo_columns (user_id, column_name, is_added)
+        VALUES (@Owner, @Column, FALSE)
+        ON DUPLICATE KEY UPDATE is_added = FALSE;";
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Owner", req.User.Id);
+						cmd.Parameters.AddWithValue("@Column", req.Column);
+						await cmd.ExecuteNonQueryAsync();
+					}
+				}
+				return Ok("Column removed.");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error removing column.");
+				return StatusCode(500, "Error removing column.");
+			}
+		}
+
+
+		[HttpPost("/Todo/Columns/GetColumnsForUser")]
+		public async Task<IActionResult> GetColumnsForUser(User user)
+		{
+			_logger.LogInformation($"Fetching columns for user {user.Id}");
+
+			// Define the SQL query to get all columns for the user
+			string sqlColumns = @"
+        SELECT column_name, 
+               IFNULL(is_added, TRUE) as is_added 
+        FROM todo_columns 
+        WHERE user_id = @Owner
+        UNION 
+        SELECT column_name, 
+               TRUE as is_added
+        FROM (SELECT 'Todo' AS column_name UNION ALL 
+              SELECT 'Work' UNION ALL 
+              SELECT 'Shopping' UNION ALL 
+              SELECT 'Study' UNION ALL 
+              SELECT 'Movie' UNION ALL 
+              SELECT 'Bucket' UNION ALL 
+              SELECT 'Recipe' UNION ALL 
+              SELECT 'Wife') default_columns
+        WHERE NOT EXISTS (SELECT 1 
+                          FROM todo_columns 
+                          WHERE user_id = @Owner 
+                          AND column_name = default_columns.column_name)
+    ";
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					// Fetch all columns for the user
+					using (var cmdColumns = new MySqlCommand(sqlColumns, conn))
+					{
+						cmdColumns.Parameters.AddWithValue("@Owner", user.Id);
+
+						using (var rdrColumns = await cmdColumns.ExecuteReaderAsync())
+						{
+							var columns = new List<object>();
+
+							while (await rdrColumns.ReadAsync())
+							{
+								columns.Add(new
+								{
+									column_name = rdrColumns.GetString(0),
+									is_added = rdrColumns.GetBoolean(1)
+								});
+							}
+
+							return Ok(columns);
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while fetching columns.");
+				return StatusCode(500, "An error occurred while fetching columns.");
+			}
+		} 
 	}
 }

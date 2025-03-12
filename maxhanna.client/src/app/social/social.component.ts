@@ -16,7 +16,6 @@ import { Pipe, PipeTransform } from '@angular/core';
 import { UserService } from '../../services/user.service';
 import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo';
-import { Meta, Title } from '@angular/platform-browser';
 import { NotificationService } from '../../services/notification.service';
 
 @Pipe({ name: 'clickableUrls' })
@@ -50,17 +49,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isPostOptionsPanelOpen = false;
   isEmojiPanelOpen = false;
   isEditing: number[] = [];
-  editingTopics: number[] = [];
-  selectedAttachmentFileExtension: string | null = null;
-  eachAttachmentSeperatePost = false;
-  isUploadInitiate = true;
+  editingTopics: number[] = []; 
+  eachAttachmentSeperatePost = false; 
   attachedFiles: FileEntry[] = [];
-  attachedTopics: Array<Topic> = [];
-  selectedAttachment: string | undefined;
-  selectedStoryId: number | undefined;
-  selectedAttachmentUrl: string | undefined;
-  imageFileExtensions = ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp"];
-  videoFileExtensions = ["mp4", "mov", "avi", "wmv", "webm", "flv"];
+  attachedTopics: Array<Topic> = []; 
   storyOverflowMap: { [key: string]: boolean } = {};
 
   userProfileId?: number = undefined;
@@ -79,6 +71,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   userSearch = "";
   isDisplayingNSFW = false;
   searchTimeout: any;
+  showHiddenFiles: boolean = false;
+  filter = { 
+    hidden: this.showHiddenFiles ? 'yes' : 'no',
+  };
   private storyUpdateInterval: any;
 
 
@@ -894,12 +890,37 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.userSearch = '';
     this.searchStories();
   }
+  setFilterHidden(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.filter.hidden = target.value;
+    const showHidden = this.filter.hidden == "yes";
 
+    this.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
+  }
   async hide(story: Story) {
     const parent = this.parent ?? this.parentRef;
     const user = parent?.user;
-    if (user && user.id && story.id) { 
-      this.socialService.hideStory(user.id, story.id);
+    if (user && user.id && story.id) {
+      if (story.hidden) {
+        story.hidden = false;
+        this.socialService.unhideStory(user.id, story.id).then(res => {
+          if (res) {
+            parent.showNotification(res);
+          }
+        })
+      } else {
+        story.hidden = true;
+        this.socialService.hideStory(user.id, story.id).then(res => {
+          if (res) {
+            parent.showNotification(res);
+          }
+          if (this.filter.hidden != "yes") {
+            this.getStories(undefined, undefined, undefined, undefined, undefined, false);
+          } 
+        });
+      }
+
+      console.log(this.filter.hidden);
     }
   }
 

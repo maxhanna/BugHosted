@@ -58,4 +58,50 @@ export class TodoService {
       return null;
     }
   }
+
+  async addColumn(user: User, column: string) {
+    try {
+      const response = await fetch(`/todo/columns/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ User: user, Column: column }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+  async removeColumn(user: User, column: string) {
+    try {
+      const response = await fetch(`/todo/columns/remove`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ User: user, Column: column }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+  async getColumnsForUser(user: User) {
+    try {
+      const response = await fetch(`/todo/columns/getcolumnsforuser`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify( user ),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
 }

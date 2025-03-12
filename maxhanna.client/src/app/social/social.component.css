@@ -214,6 +214,7 @@ singleAttachment {
   cursor: pointer;
   white-space: nowrap;
   font-size: 16px;
+  min-width: 35px;
 }
 
 
@@ -581,13 +582,16 @@ singleAttachment {
   text-align: center;
   background-color: unset;
   color: var(--secondary-font-color);
-  text-shadow: 1px 1px var(--secondary-font-color); 
+/*  text-shadow: 1px 1px var(--secondary-font-color); */
   min-width: 35px;
   align-content: center;
   justify-content: center;
 }
 .postOptionButtonWrapper {
-  display: flex;
-  gap: 10px;
+  display: flex; 
   flex-wrap: nowrap;
+}
+.showPostOptionButton {
+  font-size: medium;
+  cursor: pointer;
 }

@@ -129,26 +129,19 @@ namespace maxhanna.Server.Controllers
 			{
 				whereClause.Append("AND s.profile_user_id IS NULL ");
 			}
-			string joinHiddenStories = string.Empty;
-
-			if (request.User?.Id != null && !showHiddenStories)
+			if (!showHiddenStories && request.User?.Id != null)
 			{
-				whereClause.Append(@"
-            AND NOT EXISTS (
-                SELECT 1 FROM hidden_stories hs
-                WHERE hs.user_id = @userId AND hs.story_id = s.id
-            )
-        ");
-				 
-				joinHiddenStories = " LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId ";
-				 
-				parameters.Add("@userId", request.User.Id);
+				whereClause.Append(@" AND hs.story_id IS NULL ");
 			}
+			parameters.Add("@userId", request?.User?.Id ?? 0);
+
 
 			int offset = (page - 1) * pageSize;
 			string countSql = @$"SELECT COUNT(*) AS total_count 
 												FROM stories AS s 
-												JOIN users AS u ON s.user_id = u.id {whereClause};";
+												JOIN users AS u ON s.user_id = u.id 
+												LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
+												{whereClause};";
 			string sql = @$"
     SELECT 
         s.id AS story_id, 
@@ -170,10 +163,9 @@ namespace maxhanna.Server.Controllers
     LEFT JOIN file_uploads AS udpfu ON udp.file_id = udpfu.id 
     LEFT JOIN (SELECT story_id, COUNT(id) AS comments_count FROM comments GROUP BY story_id) AS c 
         ON s.id = c.story_id
-    LEFT JOIN story_metadata AS sm ON s.id = sm.story_id
-		LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId 
-		 {joinHiddenStories}
-     {whereClause} 
+    LEFT JOIN story_metadata AS sm ON s.id = sm.story_id  
+		LEFT JOIN hidden_stories hs ON hs.story_id = s.id AND hs.user_id = @userId  
+     {whereClause}  
     ORDER BY s.id DESC 
     LIMIT @pageSize OFFSET @offset;";
 
@@ -189,7 +181,7 @@ namespace maxhanna.Server.Controllers
 					{
 						countCmd.Parameters.AddWithValue(param.Key, param.Value);
 					}
-					//Console.WriteLine(countCmd.CommandText);
+					Console.WriteLine(countCmd.CommandText);
 					storyResponse.TotalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 				}
 				using (var cmd = new MySqlCommand(sql, conn))
@@ -226,7 +218,8 @@ namespace maxhanna.Server.Controllers
 									StoryFiles = new List<FileEntry>(),
 									StoryComments = new List<FileComment>(),
 									StoryTopics = new List<Topic>(),
-									Reactions = new List<Reaction>()
+									Reactions = new List<Reaction>(),
+									Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
 								};
 								storyDictionary[storyId] = story;
 							}
@@ -948,7 +941,7 @@ namespace maxhanna.Server.Controllers
 						hideCommand.Parameters.AddWithValue("@storyId", request.StoryId);
 
 						await hideCommand.ExecuteNonQueryAsync();
-						_logger.LogInformation($"File {request.StoryId} hidden for user {request.UserId}");
+						_logger.LogInformation($"Post {request.StoryId} hidden for user {request.UserId}");
 
 						// Commit transaction
 						await transaction.CommitAsync();
@@ -962,6 +955,44 @@ namespace maxhanna.Server.Controllers
 			{
 				_logger.LogError(ex, "An error occurred while hiding the post.");
 				return StatusCode(500, "An error occurred while hiding the post.");
+			}
+		}
+
+
+		[HttpPost("/Social/Unhide/", Name = "UnhideStory")]
+		public async Task<IActionResult> UnhideStory([FromBody] HideStoryRequest request)
+		{
+			try
+			{
+				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
+					_logger.LogInformation($"Opened connection to database for unhiding story with id {request.StoryId} for user {request.UserId}");
+
+					using (var transaction = await connection.BeginTransactionAsync())
+					{
+						// Insert into hidden_files table (no permission check)
+						var hideCommand = new MySqlCommand(
+								"DELETE FROM maxhanna.hidden_stories WHERE user_id = @userId AND story_id = @storyId LIMIT 1;",
+								connection, transaction);
+						hideCommand.Parameters.AddWithValue("@userId", request.UserId);
+						hideCommand.Parameters.AddWithValue("@storyId", request.StoryId);
+
+						await hideCommand.ExecuteNonQueryAsync();
+						_logger.LogInformation($"Post {request.StoryId} unhidden for user {request.UserId}");
+
+						// Commit transaction
+						await transaction.CommitAsync();
+					}
+				}
+
+				_logger.LogInformation($"Post {request.StoryId} unhidden successfully for user {request.UserId}");
+				return Ok("Post unhidden successfully.");
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while unhidden the post.");
+				return StatusCode(500, "An error occurred while unhidden the post.");
 			}
 		}
 

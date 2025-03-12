@@ -350,7 +350,13 @@ namespace maxhanna.Server.Services
 								{ "Topic Creator 10", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10" },
 								{ "Social Poster 10", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 10" },
 								{ "Social Poster 50", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 50" },
-								{ "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" },
+								{ "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" }, 
+								{ "2024 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2024" },
+								{ "2025 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2025" },
+								{ "2026 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2026" },
+								{ "2027 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2027" },
+								{ "2028 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2028" },
+								{ "2029 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2029" },
 						};
 
 					foreach (var trophy in trophyCriteria)

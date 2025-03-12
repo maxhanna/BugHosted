@@ -268,8 +268,8 @@
   border-bottom: 1px dotted;
 }
 
-.searchPopup, .fileOptionsPopup {
-  height: 150px !important;
+.fileOptionsPopup .filters div{
+  margin-top: 15px;
 }
 
 .fileOptionsAction {

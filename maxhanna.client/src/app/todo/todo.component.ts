@@ -15,17 +15,38 @@ export class TodoComponent extends ChildComponent implements OnInit {
   todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe', "Wife"];
   todoCount = 0;
   isEditListPanelOpen = false;
+  userColumns: string[] = [];
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedType') selectedType!: ElementRef<HTMLSelectElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('addNewColumnInput') addNewColumnInput!: ElementRef<HTMLInputElement>;
 
   constructor(private todoService: TodoService) {
     super();
   }
   async ngOnInit() {
     await this.getTodoInfo();
+    if (this.parentRef?.user) {
+      await this.todoService.getColumnsForUser(this.parentRef.user).then(res => {
+        if (res) {
+          this.userColumns = res;
+          console.log(this.userColumns);
+
+          // Filter userColumns to get only columns where is_added is true
+          const userColumnNames = this.userColumns
+            .filter((col: any) => col.is_added === true) // Only include columns where is_added is true
+            .map((col: any) => col.column_name); // Extract column names
+
+          // Update todoTypes based on user columns
+          this.todoTypes = this.todoTypes.filter(type => userColumnNames.includes(type));
+
+          console.log('Updated todoTypes:', this.todoTypes);
+        }
+      });
+    }
+
     this.clearInputs();
   }
   clearInputs() {
@@ -44,8 +65,8 @@ export class TodoComponent extends ChildComponent implements OnInit {
       const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
       const res = await this.todoService.getTodo(this.parentRef?.user!, type, search);
       this.todos = res;
-      this.todoCount = this.todos.length;
-      this.todos.forEach(todo => {
+      this.todoCount = this.todos?.length;
+      this.todos?.forEach(todo => {
         if (todo.date) {
           if (typeof todo.date === 'string') {
             todo.date = new Date(todo.date);
@@ -65,10 +86,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
     tmpTodo.date = new Date();
     tmpTodo.type = this.selectedType.nativeElement.value;
     tmpTodo.url = this.urlInput.nativeElement.value;
-    tmpTodo.todo = this.todoInput.nativeElement.value;
-     
-    //const utcDate = new Date(tmpTodo.date.getTime() - (tmpTodo.date.getTimezoneOffset() * 60000));
-    //const body = JSON.stringify({ ...tmpTodo, date: utcDate });
+    tmpTodo.todo = this.todoInput.nativeElement.value; 
 
     await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
     this.ngOnInit();
@@ -92,5 +110,41 @@ export class TodoComponent extends ChildComponent implements OnInit {
   closeEditListPanel() {
     this.isEditListPanelOpen = false;
     this.parentRef?.closeOverlay();
+  }
+  hideColumn(type: string) {
+    if (!this.parentRef?.user) return alert("You must be logged in to edit your todo list.");
+    this.todoService.removeColumn(this.parentRef.user, type).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(res);
+        this.todoTypes = this.todoTypes.filter(x => x != type);
+        setTimeout(() => {
+          if (this.selectedType?.nativeElement) {
+            this.selectedType.nativeElement.selectedIndex = 0;
+            this.getTodoInfo();
+          }
+        }, 50);
+      }
+    });
+  }
+  addColumn() {
+    if (!this.parentRef?.user) return alert("You must be logged in to edit your todo list.");
+    const type = this.addNewColumnInput.nativeElement.value;
+    console.log(type);
+    if (type) {
+      this.todoService.addColumn(this.parentRef.user, type).then(res => {
+        if (res) {
+          this.parentRef?.showNotification(res);
+          this.todoTypes.push(type);
+        }
+      });
+    } 
+  }
+  showColumn(type: string) {
+    if (!this.parentRef?.user) return alert("You must be logged in to edit your todo list.");
+    this.todoService.addColumn(this.parentRef.user, type).then(res => {
+      if (res) {
+        this.parentRef?.showNotification(res);
+      }
+    });
   }
 }
