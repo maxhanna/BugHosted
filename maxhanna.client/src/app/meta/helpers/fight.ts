@@ -118,7 +118,7 @@ export function untarget(source: Bot, targetBot: Bot) {
       source.targetedBy.delete(targetBot);
     }
     untarget(targetBot, source); 
-    //events.emit("TARGET_UNLOCKED", { source: source, target: targetBot })
+    events.emit("TARGET_UNLOCKED", { source: source, target: targetBot })
     console.log(source.name + " lost target: " + targetBot.name);
   }
 }

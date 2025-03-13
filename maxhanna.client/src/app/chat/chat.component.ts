@@ -261,7 +261,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return alert("Message content cannot be empty.");
     }
     let chatUsers = this.currentChatUsers;
-    if (this.parentRef && this.parentRef.user && !chatUsers.includes(this.parentRef.user)) {
+    if (this.parentRef && this.parentRef.user && !chatUsers.find(x => x.id == this.parentRef?.user?.id)) {
       chatUsers.push(this.parentRef.user);
     }
     try {

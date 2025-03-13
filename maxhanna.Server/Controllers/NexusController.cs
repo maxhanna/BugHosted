@@ -221,6 +221,94 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Nexus/UpdatePlayerColor", Name = "UpdatePlayerColor")]
+		public async Task<IActionResult> UpdatePlayerColor([FromBody] NexusColorRequest req)
+		{
+			try
+			{
+				string sql = @"
+        INSERT INTO nexus_colors (user_id, color)
+        VALUES (@userId, @color)
+        ON DUPLICATE KEY UPDATE color = @color;";
+
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+
+					using (var command = new MySqlCommand(sql, connection))
+					{
+						command.Parameters.AddWithValue("@userId", req.User.Id);
+						command.Parameters.AddWithValue("@color", req.Color);
+
+						await command.ExecuteNonQueryAsync();
+					}
+				}
+
+				return Ok(new { message = "Color updated successfully." });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("Exception in UpdatePlayerColor: " + ex.Message);
+				return StatusCode(500, new { error = "Internal server error." });
+			}
+		}
+
+		[HttpPost("/Nexus/GetPlayerColor", Name = "GetPlayerColor")]
+		public async Task<IActionResult> GetPlayerColor([FromBody] int? userId)
+		{
+			try
+			{
+				string sql;
+				bool getAll = !userId.HasValue;
+
+				if (getAll)
+				{
+					sql = "SELECT user_id, color FROM nexus_colors;";
+				}
+				else
+				{
+					sql = "SELECT user_id, color FROM nexus_colors WHERE user_id = @userId LIMIT 1;";
+				}
+
+				using (var connection = new MySqlConnection(_connectionString))
+				{
+					await connection.OpenAsync();
+
+					using (var command = new MySqlCommand(sql, connection))
+					{
+						if (!getAll)
+						{
+							command.Parameters.AddWithValue("@userId", userId);
+						}
+
+						using (var reader = await command.ExecuteReaderAsync())
+						{
+							var colorData = new Dictionary<int, string>();
+
+							while (await reader.ReadAsync())
+							{
+								int id = reader.GetInt32(0);
+								string color = reader.GetString(1);
+								colorData[id] = color;
+							}
+
+							if (colorData.Count == 0)
+							{
+								return NotFound(new { error = getAll ? "No colors found." : "Color not found for this user." });
+							}
+
+							return Ok(colorData);
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("Exception in GetPlayerColor: " + ex.Message);
+				return StatusCode(500, new { error = "Internal server error." });
+			}
+		}
+
 
 		[HttpPost("/Nexus/GetAllMiningSpeeds", Name = "GetAllMiningSpeeds")]
 		public async Task<IActionResult> GetAllMiningSpeeds()
@@ -352,9 +440,15 @@ namespace maxhanna.Server.Controllers
 
 				// Insert the new base at the selected coordinates
 				string insertSql = @"
-        INSERT INTO maxhanna.nexus_bases (user_id, gold, base_name, coords_x, coords_y)
-        VALUES (@UserId, 200, @BaseName, @CoordsX, @CoordsY);
-        SELECT @CoordsX AS coords_x, @CoordsY AS coords_y;";
+				INSERT INTO maxhanna.nexus_bases (user_id, gold, base_name, coords_x, coords_y)
+				VALUES (@UserId, 200, @BaseName, @CoordsX, @CoordsY);
+
+				INSERT INTO nexus_colors (user_id, color)
+				VALUES (@UserId, LPAD(HEX(FLOOR(RAND() * 16777215)), 6, '0'))
+				ON DUPLICATE KEY UPDATE color = color;
+
+
+				SELECT @CoordsX AS coords_x, @CoordsY AS coords_y;";
 
 				using var insertCmd = new MySqlCommand(insertSql, conn);
 				insertCmd.Parameters.AddWithValue("@UserId", user.Id);
@@ -476,7 +570,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/GetBattleReports", Name = "GetBattleReports")]
 		public async Task<IActionResult> GetBattleReports([FromBody] BattleReportRequest request)
 		{
-			//Console.WriteLine($"POST /Nexus/GetBattleReports for player {request.User.Id} targetUser: {request.TargetUser?.Id}, targetBase: {request.TargetBase?.CoordsX},{request.TargetBase?.CoordsY}, page: {request.PageNumber}, pageSize: {request.PageSize}");
+			Console.WriteLine($"POST /Nexus/GetBattleReports for player {request.User.Id} targetUser: {request.TargetUser?.Id}, targetBase: {request.TargetBase?.CoordsX},{request.TargetBase?.CoordsY}, page: {request.PageNumber}, pageSize: {request.PageSize}");
 			var paginatedReports = await GetAllBattleReports(request.User.Id, request.TargetBase, request.TargetUser, request.PageNumber, request.PageSize, null, null);
 			return Ok(paginatedReports);
 		}
@@ -4463,7 +4557,7 @@ namespace maxhanna.Server.Controllers
 				else
 				{
 					query += @"
-                        AND (b.destination_user_id = @DestinationUserId)";
+                        AND (b.destination_user_id = @DestinationUserId OR b.origin_user_id = @DestinationUserId)";
 				}
 			}
 			query += @"
@@ -4499,7 +4593,7 @@ namespace maxhanna.Server.Controllers
 			MySqlTransaction transaction = externalTransaction;
 			bool needToCloseConnection = externalConnection == null;
 			bool needToCommitTransaction = externalTransaction == null;
-			//Console.WriteLine(query);
+			Console.WriteLine(query);
 			//Console.WriteLine(offset);
 			//Console.WriteLine(pageSize);
 			try

@@ -63,6 +63,11 @@ export function subscribeToMainGameEvents(object: any) {
       object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
     }
   });
+
+  events.on("ALERT", object, async (message: string) => {
+    object.parentRef?.showNotification(message);
+  });
+
   events.on("WARDROBE_OPENED", object, () => {
     if (actionBlocker) return;
     object.blockOpenStartMenu = true;
@@ -232,6 +237,10 @@ export function subscribeToMainGameEvents(object: any) {
       if (tgt) {
         tgt.isDeployed = false;
         tgt.hp = 0;
+        const botTargeted = tgt.targeting;
+        for (let bot of botTargeted) {
+          tgt.untarget(bot);
+        }
         tgt.destroy();
       }
     }
@@ -274,8 +283,9 @@ export function subscribeToMainGameEvents(object: any) {
         bot.hp = 100;
       }
     }
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_ALL_METABOTS", object.metaHero.map, { "heroId": object.metaHero.id + "" ?? 0 });
-    object.metaService.updateEvents(metaEvent); 
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_ALL_METABOTS", object.metaHero.map, { "heroId": object.metaHero.id + "" });
+    object.metaService.updateEvents(metaEvent);
+    object.reinitializeInventoryData();
     setActionBlocker(50);
   });
 
@@ -487,16 +497,28 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           actionPartyInviteAcceptedEvent(object, event);
         }
         if (event.eventType === "DEPLOY" && event.data && event.data["metaHero"] && event.data["metaBot"]) {
-          const hero = JSON.parse(event.data["metaHero"]) as MetaHero;
-          if (hero.id != object.metaHero.id) {
-            object.addBotToScene(hero, JSON.parse(event.data["metaBot"]) as MetaBot);
+          const tmpHero = JSON.parse(event.data["metaHero"]) as MetaHero;
+          const tmpMetabot = JSON.parse(event.data["metaBot"]) as MetaBot;
+          const targetHero = object.mainScene.level?.children.find((x: any) => x.id == event.heroId) as Hero;
+          const targetBot = targetHero?.metabots?.find(x => x.id === tmpMetabot.id);
+          if (targetBot) {
+            targetBot.isDeployed = true;
+          }
+          if (tmpHero.id != object.metaHero.id) { 
+            object.addBotToScene(tmpHero, targetBot);
           }
         }
         if (event.eventType === "BOT_DESTROYED") {
-          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
+          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
           if (bot) {
-            bot.destroy();
+            bot.hp = 0;
+            bot.isDeployed = false;
           }
+
+          if (event.heroId == object.metaHero.id) {
+            object.reinitializeInventoryData();
+          }
+          bot?.destroy();
         }
         if (event.eventType === "CALL_BOT_BACK") {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);

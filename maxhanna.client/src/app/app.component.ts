@@ -122,8 +122,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   ngOnInit() {
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user")); 
-    }
-    window.addEventListener('resize', this.updateHeight);
+    } 
     this.updateHeight();
     this.getSelectedMenuItems()
     if ('serviceWorker' in navigator) {
@@ -488,4 +487,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     } 
     return base ?? "";
   }
+  addResizeListener() {
+    window.addEventListener('resize', this.updateHeight);
+  }
+  removeResizeListener() {
+    window.removeEventListener('resize', this.updateHeight);
+}
 }

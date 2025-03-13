@@ -17,7 +17,15 @@
                loading="lazy"
                decoding="asynchronous" />
           <span *ngIf="grid[x][y] as base">
-            <span class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)"></span>
+
+            <span class="baseAllianceSpan"
+                  [class]="getBaseAllianceSpanClass(x, y)"
+                  [style.background]="getHalfAndHalfStyle(x, y)">
+            </span>
+            <!--<span class="baseAllianceSpan" [class]="getBaseAllianceSpanClass(x, y)" [style.backgroundColor]="getPlayerColor(x, y)">-->
+              <!--<span class="playerColorSpan baseAllianceSpan" [style]="getPlayerColorStyle(x, y)">
+    </span>-->
+            <!--</span>-->
           </span>
           <div *ngIf="selectedNexusBase && selectedNexusBase.coordsX == x && selectedNexusBase.coordsY == y">
             <div [class]="'selectedBaseContainer' + (grid[x][y] ? ' attackIconSpan-adjustedForNoBase' : '')">

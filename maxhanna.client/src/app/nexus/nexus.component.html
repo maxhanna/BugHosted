@@ -109,6 +109,7 @@
                      [nexusDefencesSent]="nexusDefencesSent"
                      [nexusAttacksIncoming]="nexusAttacksIncoming"
                      [nexusDefencesIncoming]="nexusDefencesIncoming"
+                     [playerColors]="playerColors"
                      [isLoadingData]="isLoading"
                      (emittedNotifications)="emittedNotifications($event)"
                      (emittedReloadEvent)="emittedReloadEvent($event)"
@@ -323,6 +324,9 @@
       </div>
       <div class="upgradeProgressDisplayP">
         Current upgrade limit : {{nexusBase.commandCenterLevel + 1}}
+      </div>
+      <div>
+        Player Color : <input type="color" #playerColorInput [value]="'#'+playerColor" (change)="setPlayerColor()" /> 
       </div>
       <div>
         Base Name : <input type="text" #baseNameInput [placeholder]="nexusBase.baseName ?? ''" (keyup.enter)="setBaseName()" />

@@ -274,8 +274,7 @@
 
 .fileOptionsAction {
   cursor: pointer;
-  font-size: 16px;
-  line-height: 10px;
+  font-size: 16px; 
   display: flex;
   align-items: center;
   justify-content: center;
@@ -283,7 +282,12 @@
   flex-wrap: nowrap;
   padding-left: 5px;
 }
-
+.fileOptionsChatBubble {
+  line-height: 10px;
+}
+.fileOptionsCogIcon {
+  line-height: 0px;
+}
 .noNotificationsSearchDiv {
   right: 53px !important;
 }

@@ -88,8 +88,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
       }
       this.isFullScreen = !this.isFullScreen;
     });
-
+    
     this.parentRef?.setViewportScalability(false);
+    this.parentRef?.addResizeListener();
   }
   override async remove_me(componentTitle: string) {
     this.stopEmulator();
@@ -105,6 +106,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.nostalgist?.exit();
     this.nostalgist = undefined;
     this.parentRef?.setViewportScalability(true);
+    this.parentRef?.removeResizeListener();
   }
   setupEventListeners() {
     document.addEventListener('keydown', (event) => {

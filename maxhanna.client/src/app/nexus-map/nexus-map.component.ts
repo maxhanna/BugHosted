@@ -67,6 +67,7 @@ export class NexusMapComponent extends ChildComponent {
   @Input() eblvl1Src: string | undefined;
   @Input() mineslvl1Src: string | undefined;
   @Input() flvl1Src: string | undefined;
+  @Input() playerColors?: { [key: number]: string } = [];
 
 
 
@@ -437,7 +438,20 @@ export class NexusMapComponent extends ChildComponent {
 
     return targetBase.user.id === this.user.id ? "myBase" : "enemyBase";
   }
+  getHalfAndHalfStyle(x: number, y: number): string {
+    const baseColor = this.getBaseAllianceSpanClass(x, y) === 'myBase' ? 'chartreuse' : 'orangered';  // Example base colors
+    const playerColor = this.getPlayerColor(x, y);  // Get the player's color
 
+    // Return the linear-gradient background style as a string
+    return `linear-gradient(to right, ${baseColor} 50%, ${playerColor} 50%)`;
+  }
+  getPlayerColor(x: number, y: number) {
+    const targetBase = this.mapData?.find(base => base.coordsX === x && base.coordsY === y);
+    if (targetBase) {
+      return this.playerColors ? "#"+ this.playerColors[targetBase.user?.id ?? 0] : '#FFFFFF';
+    }
+    return '#FFFFFF';
+  }
   computeStatuses() { 
     const attackSentStatus = this.attackSentStatus;
     const attackReturningStatus = this.attackReturningStatus;

@@ -344,8 +344,12 @@ export class StartMenu extends GameObject {
         }
         else if (this.items[this.currentlySelectedId] === "Deploy" && this.selectedMetabot) {
           if (this.selectedMetabot != undefined) {
-            events.emit("DEPLOY", { metaHero: (root as Main).metaHero, bot: this.selectedMetabot });
-            this.selectedMetabot.isDeployed = true; 
+            if (this.selectedMetabot.hp <= 0) {
+              events.emit("ALERT", "Deploy failed. Repair the bot to deploy it first."); 
+            } else { 
+              events.emit("DEPLOY", { metaHero: (root as Main).metaHero, bot: this.selectedMetabot });
+              this.selectedMetabot.isDeployed = true; 
+            }
             events.emit("START_PRESSED");
           }
         }

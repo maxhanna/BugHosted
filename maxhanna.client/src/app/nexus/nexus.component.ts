@@ -177,10 +177,13 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     ["glitcher", 12],
   ]);
 
+  playerColor = "chartreuse";
+  playerColors: { [key: number]: string } = [];
 
   @ViewChild('upgradeMineButton') upgradeMineButton!: ElementRef<HTMLButtonElement>;
   @ViewChild('upgradeFactoryButton') upgradeFactoryButton!: ElementRef<HTMLButtonElement>;
   @ViewChild('baseNameInput') baseNameInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('playerColorInput') playerColorInput!: ElementRef<HTMLInputElement>;
   @ViewChild('mapComponentDiv') mapComponentDiv!: ElementRef<HTMLDivElement>;
   @ViewChild(NexusMapComponent) mapComponent!: NexusMapComponent;
   @ViewChild(NexusBasesComponent) nexusBasesComponent!: NexusBasesComponent;
@@ -196,6 +199,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
     this.loadPictureSrcs();
+    this.nexusService.getPlayerColor().then(res => {
+      this.playerColors = res;
+      if (res[this.parentRef?.user?.id ?? 0]) {
+        this.playerColor = res[this.parentRef?.user?.id ?? 0];
+      } 
+    });
     this.loadNexusData();
   }
 
@@ -1388,16 +1397,17 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       } else {
         this.isUserNew = false
       }
-    });
-
+    }); 
   }
   openCommandCenter() {
+    this.toggleScreen('', false);
     this.isCommandCenterOpen = true;
   }
   closeCommandCenter() {
     this.isCommandCenterOpen = false;
   }
   openMines() {
+    this.toggleScreen('', false);
     this.isMinesOpen = true;
   }
   closeMines() {
@@ -1405,6 +1415,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   openFactory() {
+    this.toggleScreen('', false);
     this.isFactoryOpen = true;
   }
   closeFactory() {
@@ -1416,6 +1427,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   openStarport() {
+    this.toggleScreen('', false);
     this.isStarportOpen = true;
   }
   closeStarport() {
@@ -1426,18 +1438,21 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     });
   }
   openSupplyDepot() {
+    this.toggleScreen('', false);
     this.isSupplyDepotOpen = true;
   }
   closeSupplyDepot() {
     this.isSupplyDepotOpen = false;
   }
   openEngineeringBay() {
+    this.toggleScreen('', false);
     this.isEngineeringBayOpen = true;
   }
   closeEngineeringBay() {
     this.isEngineeringBayOpen = false;
   }
   openWarehouse() {
+    this.toggleScreen('', false);
     this.isWarehouseOpen = true;
   }
   closeWarehouse() {
@@ -1644,6 +1659,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.isMapOpen = false;
       this.isBasesOpen = false;
       this.isSupportOpen = false;
+      this.toggledUnitStat = undefined;
       this.toggleUnitScreen();
 
       if (screen == "reports") {
@@ -2046,7 +2062,15 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
         this.nexusBase.baseName = baseName;
       }
     }
-  } 
+  }
+  async setPlayerColor() {
+    const playerColor = this.playerColorInput.nativeElement.value.trim();
+    if (playerColor && this.parentRef?.user) {
+      this.nexusService.updatePlayerColor(this.parentRef.user, playerColor);
+    }
+    this.playerColor = playerColor.replace("#", "");
+    this.playerColors[this.parentRef?.user?.id ?? 0] = playerColor.replace("#", "");
+  }
   fetchMapData() {
     if (this.parentRef?.user && (!this.mapData || this.numberOfPersonalBases == 0 || this.shouldLoadMap)) {
       this.shouldLoadMap = false;

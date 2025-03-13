@@ -145,6 +145,12 @@ export class NexusService {
   async setBaseName(user: User, nexus: NexusBase, baseName: string): Promise<any> {
     return await this.fetchData('/nexus/setbasename', { User: user, Nexus: nexus, BaseName: baseName });
   }
+  async updatePlayerColor(user: User, color: string): Promise<any> {
+    return await this.fetchData('/nexus/updateplayercolor', { User: user, Color: color });
+  }
+  async getPlayerColor(user?: User): Promise<any> {
+    return await this.fetchData('/nexus/getplayercolor', user?.id);
+  }
   async getNumberOfBases(user: User): Promise<any> {
     return await this.fetchData('/nexus/getnumberofbases', user);
   }

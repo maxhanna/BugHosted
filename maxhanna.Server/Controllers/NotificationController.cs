@@ -336,8 +336,8 @@ namespace maxhanna.Server.Controllers
 
 					Console.WriteLine($"Sending notif on target column : {targetColumn}");
 					notificationSql = $@"
-						INSERT INTO maxhanna.notifications (user_id, from_user_id, {targetColumn}, text)
-						VALUES ((SELECT user_id FROM maxhanna.{targetTable} WHERE id = @{targetColumn}), @user_id, @{targetColumn}, @comment);";
+						INSERT INTO maxhanna.notifications (user_id, from_user_id, {targetColumn}, text, date)
+						VALUES ((SELECT user_id FROM maxhanna.{targetTable} WHERE id = @{targetColumn}), @user_id, @{targetColumn}, @comment, UTC_TIMESTAMP());";
 
 					if (targetColumn == "file_id")
 					{
@@ -374,8 +374,8 @@ namespace maxhanna.Server.Controllers
 				{
 					Console.WriteLine($"Sending notif on UserProfileId : {request.UserProfileId}");
 					notificationSql = $@"
-						INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text)
-						VALUES (@to_user, @from_user, @user_profile_id, @comment);";
+						INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
+						VALUES (@to_user, @from_user, @user_profile_id, @comment, UTC_TIMESTAMP());";
 					using (var cmd = new MySqlCommand(notificationSql, conn))
 					{
 						cmd.Parameters.AddWithValue("@to_user", request.ToUser.FirstOrDefault()?.Id ?? 0);
@@ -394,29 +394,32 @@ namespace maxhanna.Server.Controllers
 						{
 							continue;
 						}
-						string checkSql = @"	SELECT COUNT(*) 
-                                    FROM maxhanna.notifications
-                                    WHERE user_id = @Receiver
-                                      AND chat_id = @ChatId
-                                      AND chat_id IS NOT NULL
-                                      AND date >= NOW() - INTERVAL 10 MINUTE;";
+						string checkSql = @"
+							SELECT COUNT(*) 
+							FROM maxhanna.notifications
+							WHERE user_id = @Receiver
+								AND chat_id = @ChatId
+								AND chat_id IS NOT NULL
+								AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
+
 						string updateNotificationSql = @"
-                                    UPDATE maxhanna.notifications
-																		SET text = CASE
-																								WHEN LENGTH(text) <= 250 THEN CONCAT(text, ', ', @Content)
-																								ELSE text
-																							 END,
-																				date = NOW()
-																		WHERE user_id = @Receiver
-																			AND chat_id = @ChatId
-																			AND chat_id IS NOT NULL
-																			AND date >= NOW() - INTERVAL 10 MINUTE;";
+							UPDATE maxhanna.notifications
+							SET text = CASE
+															WHEN LENGTH(text) <= 250 THEN CONCAT(text, ', ', @Content)
+															ELSE text
+													END,
+									date = UTC_TIMESTAMP()
+							WHERE user_id = @Receiver
+								AND chat_id = @ChatId
+								AND chat_id IS NOT NULL
+								AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
+
 
 						string insertNotificationSql = @"
-                                    INSERT INTO maxhanna.notifications
-                                        (user_id, from_user_id, chat_id, text)
-                                    VALUES
-                                        (@Receiver, @Sender, @ChatId, @Content);";
+							INSERT INTO maxhanna.notifications
+									(user_id, from_user_id, chat_id, text, date)
+							VALUES
+									(@Receiver, @Sender, @ChatId, @Content, UTC_TIMESTAMP());";
 
 						using (var checkCommand = new MySqlCommand(checkSql, conn))
 						{

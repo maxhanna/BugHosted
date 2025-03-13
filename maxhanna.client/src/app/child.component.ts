@@ -28,7 +28,13 @@ export class ChildComponent {
   onMobile() {
     return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   }
-
+  getUtcTimeSince(dateString?: Date | string, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
+    if (!dateString) return '';
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+    let tmpDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);  
+     
+    return this.daysSinceDate(tmpDate, granularity);
+  }
   daysSinceDate(dateString?: Date | string, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
     if (!dateString) return '';
  

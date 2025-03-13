@@ -18,7 +18,7 @@
           <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled" *ngIf="isGeneralToggled">💾Save Username/Password</button>
         </div>
       </div>
-      <div *ngIf="isGeneralToggled" class="sectionDescriptionDiv">
+      <div *ngIf="!showOnlySelectableMenuItems && isGeneralToggled" class="sectionDescriptionDiv">
         <div class="sectionDescriptionSection">
           <div>Name:</div>
           <div><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></div>
@@ -84,7 +84,7 @@
           <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled" *ngIf="isAboutToggled">💾Save About You</button>
         </div>
       </div>
-      <div *ngIf="isAboutToggled" class="sectionDescriptionDiv">
+      <div *ngIf="!showOnlySelectableMenuItems && isAboutToggled" class="sectionDescriptionDiv">
         <div class="sectionDescriptionSection">
           <div>Description:</div>
           <div><input type="text" placeholder="Profile description" #updatedDescription [value]="parentRef?.user?.about?.description ?? ''" /></div>

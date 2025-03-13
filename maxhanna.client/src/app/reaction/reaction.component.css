@@ -85,9 +85,10 @@
   text-overflow: ellipsis;
   max-width: 80px;
   width: 100%;
-  direction: rtl;  
+  direction: rtl;
   text-align: left;
-  margin-right:5px;
+  margin-right: 5px;
+  line-height: unset;
 }
 
 @media (max-width: 350px) {

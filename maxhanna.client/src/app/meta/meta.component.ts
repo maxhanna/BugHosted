@@ -7,7 +7,7 @@ import { MetaService } from '../../services/meta.service';
 import { MetaChat } from '../../services/datacontracts/meta/meta-chat';
 import { gridCells, snapToGrid } from './helpers/grid-cells';
 import { GameLoop } from './helpers/game-loop';
-import { Resources, hexToRgb } from './helpers/resources';
+import { hexToRgb } from './helpers/resources';
 import { events } from './helpers/events';
 import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
@@ -25,17 +25,12 @@ import { BrushRoad2 } from './levels/brush-road2';
 import { RainbowAlleys1 } from './levels/rainbow-alleys1';
 import { UndergroundLevel1 } from './levels/underground-level1';
 import { MetaEvent } from '../../services/datacontracts/meta/meta-event';
-import { Npc } from './objects/Npc/npc';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
 import { RivalHomeLevel1 } from './levels/rival-home-level1';
 import { BrushShop1 } from './levels/brush-shop1';
-import { ShopMenu } from './objects/Menu/shop-menu';
-import { WardrobeMenu } from './objects/Menu/wardrobe-menu';
 import { ColorSwap } from '../../services/datacontracts/meta/color-swap';
 import { MetaBot } from '../../services/datacontracts/meta/meta-bot';
-import { GameObject } from './objects/game-object';
-import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../services/datacontracts/meta/meta-bot-part';
-import { Skill, HEADBUTT } from './helpers/skill-types';
+import { MetaBotPart } from '../../services/datacontracts/meta/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
@@ -80,17 +75,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
 	private pollingInterval: any;
 
-
-	ngOnDestroy() {
-		clearInterval(this.pollingInterval);
-		this.mainScene.destroy();
-		this.gameLoop.stop();
-		this.remove_me('MetaComponent');
-		this.parentRef?.setViewportScalability(true);
-	}
-
   async ngOnInit() {
-    this.parentRef?.setViewportScalability(false); 
+    this.parentRef?.setViewportScalability(false);
+    this.parentRef?.addResizeListener();
 		this.canvas = this.gameCanvas.nativeElement;
 		this.ctx = this.canvas.getContext("2d")!;
 		if (!this.parentRef?.user) {
@@ -105,6 +92,16 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		window.addEventListener("resize", this.adjustCanvasSize);
 		this.adjustCanvasSize();
 	}
+
+
+  ngOnDestroy() {
+    clearInterval(this.pollingInterval);
+    this.mainScene.destroy();
+    this.gameLoop.stop();
+    this.remove_me('MetaComponent');
+    this.parentRef?.setViewportScalability(true);
+    this.parentRef?.removeResizeListener();
+  }
 
 	update = async (delta: number) => {
 		this.mainScene.stepEntry(delta, this.mainScene);
@@ -163,7 +160,19 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 			this.otherHeroes = [];
 			return;
 		}
-		this.otherHeroes = res.heroes;
+    this.otherHeroes = res.heroes;
+    for (let x = 0; x < this.otherHeroes.length; x++) {
+      const bots = this.otherHeroes[x].metabots;
+      for (let y = 0; y < bots.length; y++) {
+        const tgt = this.mainScene.level.children.find((x: Character) => x.id == bots[y].id);
+        if (tgt) {
+          tgt.hp = bots[y].hp;
+          tgt.level = bots[y].level;
+          tgt.exp = bots[y].exp;
+          tgt.isDeployed = bots[y].isDeployed;
+        }
+      }
+    }
 	}
 	private updateMissingOrNewHeroSprites() {
 		let ids: number[] = [];
