@@ -7,15 +7,15 @@ import { events } from "../../../helpers/events";
 import { Hero } from "../../Hero/hero";
 import { Bot } from "../../Bot/bot";
 import { Npc } from "../../Npc/npc";
+import { Character } from "../../character";
 
 export class RandomEncounter extends Npc {
-
-  constructor(params: { position: Vector2, possibleEnemies: Bot[] }) {
-    const enemy = params.possibleEnemies[Math.floor(Math.random() * params.possibleEnemies.length)]; 
+  enemy?: Bot;
+  constructor(params: { position: Vector2, possibleEnemies: string[] }) {
     super({
       id: 12313213,
       position: params.position, 
-    });
+    }); 
     this.body = new Sprite({
       objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       resource: resources.images["white"],
@@ -23,41 +23,27 @@ export class RandomEncounter extends Npc {
       frameSize: new Vector2(0, 0),
       hFrames: 1,
       vFrames: 1,
-    });
+    }); 
     this.addChild(this.body);
-    const enemyMetabot = new MetaBot(
-      {
-        id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-        heroId: this.id,
-        type: enemy.botType,
-        name: "botFrame",
-        position: new Vector2(0, 0),
-        spriteName: "botFrame",
-        leftArm: enemy.leftArm,
-        rightArm: enemy.rightArm,
-        legs: enemy.legs,
-        head: enemy.head
-      }
-    );
-    enemyMetabot.hp = enemy.hp;
-    enemyMetabot.level = enemy.level;
+    const randomSprite = params.possibleEnemies[Math.floor(Math.random() * params.possibleEnemies.length)];
+    const tmpEnemy = new Bot({
+      position: this.position,
+      name: randomSprite,
+      hp: 100,
+      level: 1,
+      exp: 5,
+      id: 10000000,
+      isDeployed: true,
+      isEnemy: true,
+      spriteName: randomSprite,
+    });
+    this.addChild(tmpEnemy); 
 
-    this.metabots.push(enemyMetabot);
-    this.isSolid = false;
-    this.textContent = [
-      {
-        string: ["A random encounter!"],
-        addsFlag: START_FIGHT,
-      } as Scenario
-    ];
+    this.isSolid = false; 
 
   }
 
-  override ready() {
-    events.on("CHARACTER_POSITION", this, (hero: Hero) => {
-      if (hero.position.matches(this.position)) {
-        events.emit("HERO_REQUESTS_ACTION", this);
-      }
-    });
+  override ready() { 
+    events.emit("CREATE_ENEMY", this.enemy)
   }
 }

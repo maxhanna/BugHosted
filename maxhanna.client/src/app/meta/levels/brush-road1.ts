@@ -16,6 +16,7 @@ import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { BrushLevel1 } from "./brush-level1";
 import { BrushRoad2 } from "./brush-road2";
 import { GROUND, FLOOR, HUD } from "../objects/game-object";
+import { Sign } from "../objects/Environment/Sign/sign";
  
 
 export class BrushRoad1 extends Level { 
@@ -218,17 +219,20 @@ export class BrushRoad1 extends Level {
  
     for (let x = 0; x < 4; x++) {
       const brushRoad2Exit = new Exit(
-        { position: new Vector2(gridCells(-1), gridCells(x) + gridCells(3)), showSprite: true, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+        { position: new Vector2(gridCells(-1), gridCells(x) + gridCells(3)), showSprite: this.showDebugSprites, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
       this.addChild(brushRoad2Exit); 
     }
     for (let x = 0; x < 4; x++) { 
       const brushLevel1Exit = new Exit(
-        { position: new Vector2(gridCells(37), gridCells(30) + gridCells(x)), showSprite: true, targetMap: "BrushLevel1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+        { position: new Vector2(gridCells(37), gridCells(30) + gridCells(x)), showSprite: this.showDebugSprites, targetMap: "BrushLevel1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
       this.addChild(brushLevel1Exit); 
-    }
-     
+    } 
+    const brsign = new Sign(
+      { position: new Vector2(gridCells(36), gridCells(33)), text: "Brush Town." }
+    );
+    this.addChild(brsign); 
 
     //Walls:  
     //map perimeter fences/bushes

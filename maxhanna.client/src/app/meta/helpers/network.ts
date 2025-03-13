@@ -263,6 +263,15 @@ export function subscribeToMainGameEvents(object: any) {
           object.chatInput.nativeElement.blur();
           object.gameCanvas.nativeElement.focus();
         }, 0);
+         
+        const name = object.metaHero.name;
+        object.chat.unshift(
+          {
+            hero: name,
+            content: msg ?? "",
+            timestamp: new Date()
+          } as MetaChat);
+        object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name))
       }
     }
   });
@@ -464,6 +473,11 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
+  events.on("CREATE_ENEMY", object, (bot: Bot, owner?: Character) => { 
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CREATE_ENEMY", object.metaHero.map, { "bot": `${JSON.stringify(bot)}`, "owner": `${JSON.stringify(owner)}` })
+    object.metaService.updateEvents(metaEvent);
+  });
+
   events.on("CHANGE_COLOR", object, () => {
     if (object.parentRef) {
       setTimeout(() => {
@@ -542,7 +556,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             object.metaService.deleteEvent(event.id);
           }
         }
-        if (event.eventType === "CHAT" && event.data) {
+        if (event.eventType === "CHAT" && event.data && event.heroId !== object.metaHero.id) {
           const name = event.data["sender"] ?? "Anon";
           object.chat.unshift(
             {

@@ -254,10 +254,15 @@ export class Character extends GameObject {
 		}
 	}
 
-	setupEvents() {
+  setupEvents() {
+    //setInterval(() => {
+    //  if (this.name === "Max") { 
+    //    events.emit("SEND_CHAT_MESSAGE", `${this.position.x},${this.position.y}`);
+    //  }
+    //}, 5000);
 		events.emit("CHARACTER_CREATED", this);
 		//console.log("is object neerby?", isObjectNearby(this)); 
-
+    console.log("CHARACTER_CREATED", this);
 		events.on("CHARACTER_SLOPE", this, (params: {
 			character: Character;
 			slopeType: typeof UP | typeof DOWN;

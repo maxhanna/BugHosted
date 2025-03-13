@@ -25,6 +25,9 @@ import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
 import { Sign } from "../objects/Environment/Sign/sign";
 import { BrushRoad1 } from "./brush-road1";
 import { GROUND, FLOOR, HUD } from "../objects/game-object";
+import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
+import { Spiderbot } from "../objects/Npc/Spiderbot/spiderbot";
+import { Armobot } from "../objects/Npc/Armobot/armobot";
  
 
 export class BrushLevel1 extends Level { 
@@ -226,6 +229,10 @@ export class BrushLevel1 extends Level {
         this.addChild(brushRoad1Exit); 
       }
     }
+    const brsign = new Sign(
+      { position: new Vector2(gridCells(1), gridCells(11)), text: "Brush Road." }
+    );
+    this.addChild(brsign); 
      
 
     //Walls:  
@@ -280,6 +287,12 @@ export class BrushLevel1 extends Level {
 
     //Npcs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
     if (storyFlags.contains(GOT_FIRST_METABOT)) {
+ 
+      const encounter = new RandomEncounter({ position: new Vector2(gridCells(17), gridCells(2)), possibleEnemies: ["spiderBot", "armobot"] });
+      this.addChild(encounter);
+
+
+
       const gangster1 = new Gangster({ position: new Vector2(gridCells(15), gridCells(15)) });
       gangster1.textContent = [
         {
