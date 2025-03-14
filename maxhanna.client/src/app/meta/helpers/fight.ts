@@ -74,57 +74,43 @@ export function calculateExpForNextLevel(player: Character) {
 } 
 
 
-export function attack(source: Bot, target: Bot) {
-  if (!target.targeting.has(source)) {
-    if (source.heroId != 102)
-      console.log("Cannot attack: Target is not actively targeted by this bot.");
-    untarget(source, target);
-    return;
-  }
+export function attack(source: Bot, target: Bot) { 
   faceTarget(source, target);
   // Define available attack parts
   calculateAndApplyDamage(source, target);
+  if (target.hp <= 0 && target.isDeployed) {
+    setTargetToDestroyed(target);
+    findTargets(source);
+  }
 }
 
 
 export function findTargets(source: Bot) {
-  let nearest = undefined;
-  const nearby = getBotsInRange(source);
-  if (nearby && nearby.length > 1) {
-    nearest = nearby[0];
-  }
-
-  if (nearest) {
+  let nearest = getBotsInRange(source)[0]; 
+ 
+  if (nearest && nearest.name) {
     target(source, nearest);
   }
 }
 
-export function target(source: Bot, targetBot: Bot) {
-  if (targetBot.id === source.id || source.targetedBy.has(targetBot)) return;
-  source.targeting.add(targetBot);
-  source.targetedBy.add(targetBot);
-  target(targetBot, source);
+export function target(source: Bot, targetBot: Bot) { 
+  if (targetBot.id === source.id || source.targeting) return;
+  source.targeting = targetBot;  
   faceTarget(source, targetBot);
   events.emit("TARGET_LOCKED", { source: source, target: targetBot })
   console.log(source.name + " targeting : " + targetBot.name);
 }
 
 export function untarget(source: Bot, targetBot: Bot) {
-  if (source.lastTargetDate.getTime() + 100 < new Date().getTime()) {
-    source.lastTargetDate = new Date();
-
-    if (source.targeting.has(targetBot)) {
-      source.targeting.delete(targetBot);
-      source.targetedBy.delete(targetBot);
-    }
-    untarget(targetBot, source); 
+  if (source.targeting) { 
+    source.targeting = undefined;  
     events.emit("TARGET_UNLOCKED", { source: source, target: targetBot })
     console.log(source.name + " lost target: " + targetBot.name);
   }
 }
 
 export function faceTarget(source: Bot, target: Bot) {
-  //console.log(target);
+  //console.log("face targaet: ", target);
   const dx = target.position.x - source.position.x;
   const dy = target.position.y - source.position.y;
 
@@ -133,4 +119,11 @@ export function faceTarget(source: Bot, target: Bot) {
   } else {
     source.facingDirection = dy > 0 ? DOWN : UP;
   }
+}
+
+export function setTargetToDestroyed(target: Bot) {
+  target.isDeployed = false;
+  target.destroy();
+  console.log(target.name + " has been destroyed!");
+  events.emit("BOT_DESTROYED", target);
 }

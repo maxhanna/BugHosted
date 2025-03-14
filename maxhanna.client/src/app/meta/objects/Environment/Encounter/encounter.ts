@@ -1,24 +1,30 @@
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
-import { Sprite } from "../../sprite";
-import { resources } from "../../../helpers/resources";
 import { events } from "../../../helpers/events";
 import { Bot } from "../../Bot/bot";
 import { Npc } from "../../Npc/npc";
-import { gridCells } from "../../../helpers/grid-cells";
 
 export class RandomEncounter extends Npc {
   enemy: Bot;
   lastSpawned: Date = new Date();
   possibleEnemies: string[] = [];
-  directionIndex = 1;
-  constructor(params: { id: number, position: Vector2, possibleEnemies: string[], moveLeftRight?: number, moveUpDown?: number }) {
+  directionIndex = 1; 
+  constructor(params: {
+    id: number,
+    position: Vector2,
+    possibleEnemies: string[],
+    moveLeftRight?: number,
+    moveUpDown?: number,
+    level?: number,
+    hp?: number,
+  }) {
     super({
       id: params.id,
       position: params.position,
       moveLeftRight: params.moveLeftRight,
-      moveUpDown: params.moveUpDown,
+      moveUpDown: params.moveUpDown,  
     });
-    
+    this.hp = params.hp ?? 100;
+    this.level = params.level ?? 1;
     this.possibleEnemies = params.possibleEnemies;
     this.enemy = this.spawnEnemy(); 
     //setInterval(() => { 
@@ -51,14 +57,14 @@ export class RandomEncounter extends Npc {
       position: this.position,
       heroId: this.id,
       name: randomSprite,
-      hp: 100,
-      level: 1,
-      exp: 5,
-      id: 10010010,
+      hp: this.hp,
+      level: this.level,
+      id: Math.floor(Math.random() * (9999 + 1000)),
       isDeployed: true,
       isEnemy: true,
       spriteName: randomSprite,
-    });  
+    });
+    this.enemy.destinationPosition = this.enemy.position;
     events.emit("CREATE_ENEMY", { bot: this.enemy });
     return this.enemy;
   }

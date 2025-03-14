@@ -1,4 +1,5 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+import { Bot } from "../objects/Bot/bot";
 import { Character } from "../objects/character";
 import { GameObject } from "../objects/game-object";
 import { Sprite } from "../objects/sprite";
@@ -335,12 +336,14 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 	}, (player.isUserControlled ? 1000 : 1500));
 }
 
-export function getBotsInRange(player: Character) { 
+export function getBotsInRange(player: Bot): Bot[] { 
   const discrepancy = gridCells(5);
- 
-  const posibilities = player.parent?.children?.filter((child: any) => {
-    return ( 
+
+  const posibilities = player.parent?.children?.filter((child: Bot) => {
+    return (
+      ((player.heroId ?? 0) < 0 ? (child.heroId ?? 0) > 0 : true) &&
       (child.isDeployed) &&
+      (child.id != player.id) &&
       (child.isEnemy) &&
       !(child instanceof Sprite) &&
       child.position.x >= player.position.x - discrepancy &&
@@ -348,9 +351,8 @@ export function getBotsInRange(player: Character) {
       child.position.y >= player.position.y - discrepancy &&
       child.position.y <= player.position.y + discrepancy
     );
-  });
-
-  return posibilities?.length ? posibilities : [];
+  }); 
+  return posibilities ?? [];
 }
 export function isObjectNearby(playerOrObject: any) {
 	const basePosition = playerOrObject.position;

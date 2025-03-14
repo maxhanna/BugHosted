@@ -1,11 +1,9 @@
-import { GameObject, HUD } from "./../game-object";
+import { FLOOR, GameObject, HUD } from "./../game-object";
 import { Sprite } from "./../sprite";
 import { resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
 import { getAbbrTypeLabel } from "../../helpers/skill-types";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
-import { Level } from "./../Level/level";
 import { SpriteTextString } from "./../SpriteTextString/sprite-text-string";
 import { Input } from "../../helpers/input";
 import { Main } from "./../Main/main";
@@ -14,6 +12,7 @@ import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { Watch } from "./../InventoryItem/Watch/watch";
 import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../../helpers/story-flags";
+import { Exit } from "../Environment/Exit/exit";
 
 export class StartMenu extends GameObject {
   menuLocationX = 190;
@@ -24,13 +23,14 @@ export class StartMenu extends GameObject {
   currentlySelectedId: number = 0;
   inventoryItems: InventoryItem[] = [];
   metabotParts: MetaBotPart[] = [];
+  exits: Exit[] = [];
   selectedMetabot?: MetaBot;
   selectedMetabotForParts?: MetaBot;
   selectedMetabotId?: number;
   selectedPart?: string;
   isDisplayingMetabots = false;
   metabotPartItems = [HEAD, LEGS, LEFT_ARM, RIGHT_ARM];
-  regularMenuChoices = ["Meta-Bots", "Journal", "Watch", "Exit"];
+  regularMenuChoices = ["Meta-Bots", "Journal", "Warping", "Exit"];
 
   blockClearWarpInput = false;
   coordXSelected = false;
@@ -42,18 +42,26 @@ export class StartMenu extends GameObject {
   menuWidth = 125;
   menuHeight = 200;
 
-  constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[] }) {
+  constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[], exits?: Exit[] }) {
     super({ position: new Vector2(0, 0) });
     this.drawLayer = HUD;
     this.inventoryItems = params.inventoryItems ?? [];
     this.metabotParts = params.metabotParts ?? [];
-
-    const background = new Sprite({ objectId: 0, resource: resources.images["white"], frameSize: new Vector2(2, 2), scale: new Vector2(8, 10), position: new Vector2(this.menuLocationX, this.menuLocationY) });
+    this.exits = params.exits ?? [];
+    const background = new Sprite({ objectId: 0, resource: resources.images["white"], frameSize: new Vector2(2, 2), scale: new Vector2(8, 10), position: new Vector2(this.menuLocationX, this.menuLocationY), drawLayer: FLOOR });
     this.addChild(background);
     this.addChild(this.selectorSprite);
 
+    const watchSprite = new Sprite({ objectId: 0, resource: resources.images["watch"], frameSize: new Vector2(32, 32), scale: new Vector2(1, 1), position: new Vector2(this.menuLocationX + (this.menuWidth / 2), this.menuLocationY - 5), drawLayer: HUD });
+
+    //const watch = new Watch({ position: new Vector2(this.menuLocationX + (this.menuWidth / 2) - 7, this.menuLocationY + 10), scale: new Vector2(0.95, 1) });
+    this.addChild(watchSprite);
+    //const watch = new Watch({ position: new Vector2(111, 11), scale: new Vector2(0.95, 1) });
+    //this.addChild(watch);
+
+
     if (!storyFlags.contains(GOT_WATCH)) {
-      this.regularMenuChoices = this.regularMenuChoices.filter(x => x != "Watch");
+      this.regularMenuChoices = this.regularMenuChoices.filter(x => x != "Warping");
     }
 
     // Create horizontal borders
@@ -76,7 +84,7 @@ export class StartMenu extends GameObject {
   }
   override step(delta: number, root: GameObject) {
     const input = (root as Main).input as Input;
-    if (Object.values(input.keys).some(value => value === true)) {
+    if (input.heldDirections.length > 0 || Object.values(input.keys).some(value => value === true)) {
       this.handleKeyboardInput(root, input);
     }
   }
@@ -137,15 +145,24 @@ export class StartMenu extends GameObject {
 
   private displayWatchMenu() {
     this.clearMenu();
-    const watch = new Watch({ position: new Vector2(this.menuLocationX + (this.menuWidth / 2) - 7, this.menuLocationY + (10)), scale: new Vector2(0.95, 1) });
-    this.addChild(watch);
+    let xOffset = this.menuLocationX;
+    let yOffset = 0;
 
+    yOffset = yOffset + 10;
     this.items.push("Warp Coords Input");
-    const coordLabel = new SpriteTextString("Warp Coords Input", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * 1)), "Black");
+    const coordLabel = new SpriteTextString("Warp Coords Input", new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
     this.addChild(coordLabel);
 
+    for (let exit of this.exits) {
+      yOffset = yOffset + 10; 
+      this.items.push(`Warp to exit: ${exit.position.x}, ${exit.position.y}`);
+      const warpLabel = new SpriteTextString(`Warp to exit: ${exit.position.x}, ${exit.position.y}`, new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
+      this.addChild(warpLabel);
+    }
+
+    yOffset = yOffset + 10; 
     this.items.push("Back");
-    const backLabel = new SpriteTextString("Back", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * 2)), "Black");
+    const backLabel = new SpriteTextString("Back", new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
     this.addChild(backLabel);
 
     this.blockSelectionTimeout();
@@ -272,6 +289,7 @@ export class StartMenu extends GameObject {
       resource: resources.images["menuBorder"],
       frameSize: new Vector2(5, 5),
       position: new Vector2(x, y),
+      drawLayer: FLOOR
     });
     this.addChild(menuBorder);
   };
@@ -316,13 +334,13 @@ export class StartMenu extends GameObject {
     }
   }
 
-  private handleKeyboardInput(root: GameObject, input: Input) { 
-    if (input?.keys["Space"] && !this.blockSelection) {
-      if (input?.verifyCanPressKey()) {
+  private handleKeyboardInput(root: GameObject, input: Input) {  
+    if (input?.verifyCanPressKey()) {
+      if (input?.keys["Space"] && !this.blockSelection) {
         if (this.items[this.currentlySelectedId] === "Exit") {
           events.emit("START_PRESSED");
         }
-        else if (this.items[this.currentlySelectedId] === "Watch") {
+        else if (this.items[this.currentlySelectedId] === "Warping") {
           this.displayWatchMenu();
         }
         else if (this.items[this.currentlySelectedId] === "Journal") {
@@ -335,20 +353,28 @@ export class StartMenu extends GameObject {
         else if (this.items[this.currentlySelectedId] === "Warp Coords Input") {
           this.displayWarpCoordsInput("00", "00");
         }
+        else if (this.items[this.currentlySelectedId].includes("Warp to exit:")) {
+          const coords = this.items[this.currentlySelectedId].replace("Warp to exit:", "").trim();
+          const x = parseInt(coords.split(',')[0].trim()) / 16;
+          const y = parseInt(coords.split(',')[1].trim()) / 16;
+          console.log("Warping to ", x, y);
+          events.emit("START_PRESSED");
+          events.emit("WARP", { x: x, y: y });
+        }
         else if (this.items[this.currentlySelectedId] === "Call Back" && this.selectedMetabot) {
           if (this.selectedMetabot != undefined) {
             events.emit("CALL_BOT_BACK", { bot: this.selectedMetabot });
-            this.selectedMetabot.isDeployed = false; 
+            this.selectedMetabot.isDeployed = false;
             events.emit("START_PRESSED");
           }
         }
         else if (this.items[this.currentlySelectedId] === "Deploy" && this.selectedMetabot) {
           if (this.selectedMetabot != undefined) {
             if (this.selectedMetabot.hp <= 0) {
-              events.emit("ALERT", "Deploy failed. Repair the bot to deploy it first."); 
-            } else { 
+              events.emit("ALERT", "Deploy failed. Repair the bot to deploy it first.");
+            } else {
               events.emit("DEPLOY", { metaHero: (root as Main).metaHero, bot: this.selectedMetabot });
-              this.selectedMetabot.isDeployed = true; 
+              this.selectedMetabot.isDeployed = true;
             }
             events.emit("START_PRESSED");
           }
@@ -412,30 +438,30 @@ export class StartMenu extends GameObject {
           }
         }
       }
-    }
-
-    if (input?.verifyCanPressKey()) {
-      if (input?.getActionJustPressed("ArrowUp")
-        || input?.heldDirections.includes("UP")
-        || input?.getActionJustPressed("KeyW")) {
-        this.decrementCurrentlySelectedId();
+      else {
+        console.log("handling arrows");
+        if (input?.getActionJustPressed("ArrowUp")
+          || input?.heldDirections.includes("UP")
+          || input?.getActionJustPressed("KeyW")) {
+          this.decrementCurrentlySelectedId();
+        }
+        else if (input?.getActionJustPressed("ArrowDown")
+          || input?.heldDirections.includes("DOWN")
+          || input?.getActionJustPressed("KeyS")) {
+          this.incrementCurrentlySelectedId();
+        }
+        else if (input?.getActionJustPressed("ArrowLeft")
+          || input?.heldDirections.includes("LEFT")
+          || input?.getActionJustPressed("KeyA")) {
+          this.decrementCurrentlySelectedId();
+        }
+        else if (input?.getActionJustPressed("ArrowRight")
+          || input?.heldDirections.includes("RIGHT")
+          || input?.getActionJustPressed("KeyD")) {
+          this.incrementCurrentlySelectedId();
+        }
       }
-      else if (input?.getActionJustPressed("ArrowDown")
-        || input?.heldDirections.includes("DOWN")
-        || input?.getActionJustPressed("KeyS")) {
-        this.incrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowLeft")
-        || input?.heldDirections.includes("LEFT")
-        || input?.getActionJustPressed("KeyA")) {
-        this.decrementCurrentlySelectedId();
-      }
-      else if (input?.getActionJustPressed("ArrowRight")
-        || input?.heldDirections.includes("RIGHT")
-        || input?.getActionJustPressed("KeyD")) {
-        this.incrementCurrentlySelectedId();
-      }
-    }
+    } 
   }
 
   private blockSelectionTimeout() {

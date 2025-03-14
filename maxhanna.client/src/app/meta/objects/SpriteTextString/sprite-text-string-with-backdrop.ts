@@ -72,7 +72,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     }
     const input = parent?.input as Input;  
 
-    if (Object.values(input.keys).some(value => value === true)) {
+    if (input.heldDirections.length > 0 || Object.values(input.keys).some(value => value === true)) {
       this.handleKeyboardInput(input);
     }
    

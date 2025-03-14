@@ -1,4 +1,3 @@
-import { Vector2 } from '../../../services/datacontracts/meta/vector2';
 import { events } from './events';
 import { UP, DOWN, LEFT, RIGHT } from './grid-cells';
 
@@ -43,6 +42,7 @@ export class Input {
   }
 
   onArrowPressed(direction: string) {
+    //console.log("on arrow pressed " + direction);
     if (document.activeElement != this.chatInput && this.heldDirections.indexOf(direction) === -1) {
       this.heldDirections.unshift(direction);
     }
@@ -235,9 +235,7 @@ export class Input {
       event.preventDefault();
     }
 
-    if (action === 'press') {
-      (event?.target as HTMLElement)?.classList?.add("active");
-      console.log(event?.target);
+    if (action === 'press') {  
       switch (direction) {
         case 'UP':
           this.onArrowPressed('UP');
@@ -270,9 +268,7 @@ export class Input {
         default:
           break;
       }
-    } else if (action === 'release') {
-      (event?.target as HTMLElement)?.classList?.remove("active");
-      console.log(event?.target);
+    } else if (action === 'release') {  
       switch (direction) {
         case 'UP':
           this.onArrowReleased('UP');

@@ -184,11 +184,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         if (tgtEnemy) {
           tgtEnemy.hp = enemy.hp;
         } else {
-          console.log("looking for enocounter for " + enemy.heroId);
-          const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
+           const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
           if (tgtEncounter) {
-            console.log("found matching enocunter for enemy!", tgtEncounter, enemy);
-            let tmp = new Bot({ 
+             let tmp = new Bot({ 
               botType: enemy.type,
               name: enemy.name ?? "botFrame",
               spriteName: enemy.name ?? "botFrame",

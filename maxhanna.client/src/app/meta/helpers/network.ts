@@ -219,29 +219,28 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("BOT_DESTROYED", object, (params: { bot: Bot }) => {
-    console.log("bot destroyed, ", params);
-    if (params.bot?.id) {
-      if (params.bot.heroId === object.metaHero.id) {
-        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "BOT_DESTROYED", object.metaHero.map);
-        object.metaService.updateEvents(metaEvent);
+  events.on("BOT_DESTROYED", object, ( bot: Bot ) => {
+    if (bot?.id) {
+      if (bot.heroId == object.metaHero.id) {
+        object.reinitializeInventoryData();
       }
-      const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.id);
-      const hero = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.heroId);
-      if (hero) {
-        const tgtBot = hero.metabots.find((x: any) => x.id === params.bot.id);
-        if (tgtBot) {
-          tgtBot.isDeployed = false;
-          tgtBot.hp = 0;
-        }
-      }
+      console.log("bot destroyed, ", bot);
+      //const metaEvent = new MetaEvent(0, params.bot.heroId ?? 0, new Date(), "BOT_DESTROYED", object.metaHero.map);
+      //object.metaService.updateEvents(metaEvent);
+     
+      const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === bot.id);
+      //const hero = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.heroId);
+      //if (hero) {
+      //  const tgtBot = hero.metabots.find((x: any) => x.id === params.bot.id);
+      //  if (tgtBot) {
+      //    tgtBot.isDeployed = false;
+      //    tgtBot.hp = 0;
+      //    tgtBot.destroy();
+      //  }
+      //}
       if (tgt) {
         tgt.isDeployed = false;
-        tgt.hp = 0;
-        const botTargeted = tgt.targeting;
-        for (let bot of botTargeted) {
-          tgt.untarget(bot);
-        }
+        tgt.hp = 0;  
         tgt.destroy();
       }
     }
@@ -365,19 +364,19 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("TARGET_LOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (actionBlocker || params.source.heroId != object.metaHero.id) return;
-    console.log("target locked", params);
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "TARGET_LOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-    object.metaService.updateEvents(metaEvent);
-    setActionBlocker(50);
+    if (params.source.heroId) {
+      console.log("target locked", params);
+      const metaEvent = new MetaEvent(0, params.source.heroId, new Date(), "TARGET_LOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
+      object.metaService.updateEvents(metaEvent);
+    }
   });
 
-  events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (actionBlocker || params.source.heroId != object.metaHero.id) return;
-    console.log("target unlocked", params);
-    const metaEvent = new MetaEvent(1, object.metaHero.id, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-    object.metaService.updateEvents(metaEvent);
-    setActionBlocker(100);
+  events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => { 
+    if (params.source.heroId) {
+      console.log("target unlocked", params);
+      const metaEvent = new MetaEvent(1, params.source.heroId, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
+      object.metaService.updateEvents(metaEvent); 
+    }
   });
 
   events.on("START_FIGHT", object, (source: Npc) => {
@@ -398,18 +397,24 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("START_PRESSED", object, (data: any) => {
-    if (object.blockOpenStartMenu) {
-      console.log("bloccked");
+    if (object.blockOpenStartMenu) { 
       return;
-    }
-    console.log("start pressed", object.blockOpenStartMenu);
+    } 
     if (object.isStartMenuOpened) {
-      events.emit("CLOSE_INVENTORY_MENU", data);
-      object.isStartMenuOpened = false;
+      events.emit("CLOSE_INVENTORY_MENU", data); 
     } else {
-      events.emit("OPEN_START_MENU", data);
-      object.isStartMenuOpened = true;
+      const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject");
+      console.log(exits);
+      events.emit("OPEN_START_MENU", exits); 
     }
+  });
+
+  events.on("CLOSE_INVENTORY_MENU", object, () => {
+    object.isStartMenuOpened = false;
+  });
+
+  events.on("OPEN_START_MENU", object, () => {
+    object.isStartMenuOpened = true;
   });
 
   events.on("BLOCK_START_MENU", object, () => { console.log("blocking"); object.blockOpenStartMenu = true; });
@@ -542,16 +547,18 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           }
         }
         if (event.eventType === "BOT_DESTROYED") {
-          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
-          if (bot) {
-            bot.hp = 0;
-            bot.isDeployed = false;
-          }
+          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot; 
+          events.emit("BOT_DESTROYED", bot);
+          //if (bot) {
+          //  bot.hp = 0;
+          //  bot.isDeployed = false;
+          //}
 
-          if (event.heroId == object.metaHero.id) {
-            object.reinitializeInventoryData();
-          }
-          bot?.destroy();
+          //if (event.heroId == object.metaHero.id) {
+          //  object.reinitializeInventoryData();
+          //}
+
+          //bot?.destroy();
         }
         if (event.eventType === "CALL_BOT_BACK") {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);

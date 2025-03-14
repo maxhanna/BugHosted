@@ -7,9 +7,9 @@ import { MetaHero } from "../../../services/datacontracts/meta/meta-hero";
 import { InventoryItem } from "./InventoryItem/inventory-item";
 import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../helpers/story-flags";
 import { StartMenu } from "./Menu/start-menu";
-import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { MetaBotPart } from "../../../services/datacontracts/meta/meta-bot-part";
 import { Character } from "./character";
+import { Exit } from "./Environment/Exit/exit";
 export class Inventory extends GameObject {
   nextId: number = parseInt((Math.random() * 19999).toFixed(0));
   items: InventoryItem[] = []; 
@@ -70,10 +70,10 @@ export class Inventory extends GameObject {
       this.closeStartMenu()
     });
 
-    events.on("OPEN_START_MENU", this, (data: any) => {
+    events.on("OPEN_START_MENU", this, (data: Exit[]) => {
       if (this.closeStartMenu()) return;
       
-      this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts });
+      this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts, exits: data });
       this.addChild(this.startMenu);  
       events.emit("HERO_MOVEMENT_LOCK"); 
     });

@@ -15,7 +15,7 @@ export class Exit extends GameObject {
     });
     const sprite = params.sprite ?? "exit2";
     this.targetMap = params.targetMap ?? "HeroRoom";
-
+    this.name = "exitObject";
     if (params.showSprite) {
       const exitSprite = new Sprite({
         resource: resources.images[sprite],

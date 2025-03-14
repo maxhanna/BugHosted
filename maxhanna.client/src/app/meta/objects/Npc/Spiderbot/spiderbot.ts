@@ -1,13 +1,7 @@
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
 import { Sprite } from "../../sprite";
-import { DOWN } from "../../../helpers/grid-cells";
-import { Animations } from "../../../helpers/animations";
 import { resources } from "../../../helpers/resources";
-import { FrameIndexPattern } from "../../../helpers/frame-index-pattern";
-import { events } from "../../../helpers/events";
-import { STING, KICK, HEADBUTT } from "../../../helpers/skill-types";
-import {  } from "./spiderbot-animations"; 
-import { Npc } from "../../Npc/npc";
+import { STING, KICK, HEADBUTT } from "../../../helpers/skill-types"; 
 import { Bot } from "../../Bot/bot";
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../../services/datacontracts/meta/meta-bot-part";
 

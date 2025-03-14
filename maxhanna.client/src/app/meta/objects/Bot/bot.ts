@@ -26,8 +26,7 @@ export class Bot extends Character {
   head?: MetaBotPart;
   isDeployed? = false;
   isEnemy = true;
-  targetedBy: Set<Bot> = new Set();
-  targeting: Set<Bot> = new Set();
+  targeting?: Bot = undefined;
   lastAttack = new Date();
   lastAttackPart?: MetaBotPart;
   lastTargetDate = new Date();
@@ -122,15 +121,15 @@ export class Bot extends Character {
 
 
   override ready() {
+    findTargets(this); 
     events.on("CHARACTER_POSITION", this, (hero: any) => {
       if (hero.id === this.heroId) {
         this.followHero(hero);
       }
-
-      if (this.lastTargetDate.getTime() + 100 < new Date().getTime()) {
+      if (!this.targeting && (this.lastTargetDate.getTime() + 500 < new Date().getTime())) { 
         this.lastTargetDate = new Date();
-        findTargets(this);
-      }
+        findTargets(this); 
+      } 
     });
   }
  
@@ -150,7 +149,7 @@ export class Bot extends Character {
       return  scenario;
     } 
   }
-
+   
   override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     if (this.isDeployed && this.isEnemy) {
       this.drawHP(ctx, drawPosX, drawPosY);
@@ -161,34 +160,19 @@ export class Bot extends Character {
   override step(delta: number, root: any) {
     super.step(delta, root);
 
-    if (this.targeting) {
-      this.targeting.forEach((target: Bot) => {
-        if (target.hp <= 0 && target.isDeployed) {
-          this.setTargetToDestroyed(target);
-        }
-        else {
-          if (this.lastAttack.getTime() + 1000 < new Date().getTime()) {
-            this.lastAttack = new Date();
+    if (this.targeting) {  
+      if (this.lastAttack.getTime() + 1000 < new Date().getTime()) {
+        this.lastAttack = new Date();
 
-            const botsInRange = getBotsInRange(this);
-            if (botsInRange.some((x: Bot) => x.id == target.id) && target.targetedBy.has(this)) {
-              attack(this, target);
-            } else {
-              untarget(this, target);
-            }
-          }
+        const botsInRange = getBotsInRange(this);
+        if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {
+          attack(this, this.targeting);
+        } else {
+          untarget(this, this.targeting);
         }
-      });
-    }
-  }
-
-  private setTargetToDestroyed(target: Bot) { 
-    target.isDeployed = false;
-    untarget(this, target); 
-    target.destroy();
-    console.log(target.name + " has been destroyed!");
-    events.emit("BOT_DESTROYED", target);
-  }
+      } 
+    } 
+  } 
 
   private followHero(hero: Character) {
     if ((hero.distanceLeftToTravel ?? 0) < 15 && this.heroId === hero.id && this.isDeployed) {

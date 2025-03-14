@@ -7,8 +7,6 @@ import { Level } from "../objects/Level/level";
 import { Sprite } from "../objects/sprite"; 
 import { Animations } from "../helpers/animations";
 import { STAND_DOWN } from "../objects/Hero/hero-animations";
-import { Spiderbot } from "../objects/Npc/Spiderbot/spiderbot";
-import { Armobot } from "../objects/Npc/Armobot/armobot";
 import { FrameIndexPattern } from "../helpers/frame-index-pattern";
 import { Deer } from "../objects/Environment/Deer/deer";
 import { GiantTree2 } from "../objects/Environment/GiantTree/giant-tree2";
@@ -17,6 +15,7 @@ import { BrushLevel1 } from "./brush-level1";
 import { BrushRoad2 } from "./brush-road2";
 import { GROUND, FLOOR, HUD } from "../objects/game-object";
 import { Sign } from "../objects/Environment/Sign/sign";
+import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
  
 
 export class BrushRoad1 extends Level { 
@@ -349,18 +348,28 @@ export class BrushRoad1 extends Level {
     const deer = new Deer(gridCells(7), gridCells(33));
     this.addChild(deer);
 
-    const spiderBot = new Spiderbot({ position: new Vector2(gridCells(24), gridCells(20)), hp: 5, level: 5 });
-    //this.addChild(spiderBot);
-
-
-    const armobot = new Armobot({ position: new Vector2(gridCells(28), gridCells(20)), hp: 5, level: 5 });
-    this.addChild(armobot);
-
-    //const encounter = new RandomEncounter({ position: new Vector2(gridCells(26), gridCells(22)), possibleEnemies: [spiderBot, armobot] });
-    //this.addChild(encounter);
-
-    //const encounter2 = new RandomEncounter({ position: new Vector2(gridCells(8), gridCells(10)), possibleEnemies: [spiderBot, armobot] });
-    //this.addChild(encounter2);
+    const tmpEncounterPositions = [
+      new Vector2(gridCells(26), gridCells(17)), 
+      new Vector2(gridCells(8), gridCells(10)),
+      new Vector2(gridCells(28), gridCells(10)),
+      new Vector2(gridCells(32), gridCells(24)),
+      new Vector2(gridCells(2), gridCells(21)),
+    ];
+    let ecId = -997712;
+    for (let x = 0; x < tmpEncounterPositions.length; x++) {
+      const currentId = ecId-x;
+      console.log("intialzieing id = " + currentId);
+      const encounter = new RandomEncounter({
+        id: currentId,
+        position: tmpEncounterPositions[x],
+        possibleEnemies: ["spiderBot", "armobot"],
+        moveLeftRight: 0,
+        moveUpDown: 0,
+        hp: (x == (tmpEncounterPositions.length - 1)) ? 30 : 5,
+        level: (x == (tmpEncounterPositions.length - 1)) ? 3 : 1
+      });
+      this.addChild(encounter);
+    } 
   }
 
   override ready() {
