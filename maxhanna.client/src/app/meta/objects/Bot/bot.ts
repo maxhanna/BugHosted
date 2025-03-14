@@ -163,7 +163,7 @@ export class Bot extends Character {
 
     if (this.targeting) {
       this.targeting.forEach((target: Bot) => {
-        if (target.hp <= 0) {
+        if (target.hp <= 0 && target.isDeployed) {
           this.setTargetToDestroyed(target);
         }
         else {
@@ -184,8 +184,7 @@ export class Bot extends Character {
 
   private setTargetToDestroyed(target: Bot) { 
     target.isDeployed = false;
-    untarget(this, target);
-    untarget(target, this);
+    untarget(this, target); 
     target.destroy();
     console.log(target.name + " has been destroyed!");
     events.emit("BOT_DESTROYED", target);

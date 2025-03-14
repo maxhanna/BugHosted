@@ -19,12 +19,12 @@ import { Npc } from "../objects/Npc/npc";
 import { BrushLevel1 } from "../levels/brush-level1";
 import { storyFlags } from "./story-flags";
 import { Character } from "../objects/character";
- 
 
-export class Network { 
-  constructor() { 
-  }  
-} 
+
+export class Network {
+  constructor() {
+  }
+}
 
 export let actionBlocker = false;
 
@@ -220,6 +220,7 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("BOT_DESTROYED", object, (params: { bot: Bot }) => {
+    console.log("bot destroyed, ", params);
     if (params.bot?.id) {
       if (params.bot.heroId === object.metaHero.id) {
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "BOT_DESTROYED", object.metaHero.map);
@@ -263,7 +264,7 @@ export function subscribeToMainGameEvents(object: any) {
           object.chatInput.nativeElement.blur();
           object.gameCanvas.nativeElement.focus();
         }, 0);
-         
+
         const name = object.metaHero.name;
         object.chat.unshift(
           {
@@ -362,9 +363,9 @@ export function subscribeToMainGameEvents(object: any) {
       }, 100);
     }
   });
-   
+
   events.on("TARGET_LOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (actionBlocker) return;
+    if (actionBlocker || params.source.heroId != object.metaHero.id) return;
     console.log("target locked", params);
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "TARGET_LOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
     object.metaService.updateEvents(metaEvent);
@@ -372,11 +373,11 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (actionBlocker) return;
+    if (actionBlocker || params.source.heroId != object.metaHero.id) return;
     console.log("target unlocked", params);
     const metaEvent = new MetaEvent(1, object.metaHero.id, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
     object.metaService.updateEvents(metaEvent);
-    setActionBlocker(50);
+    setActionBlocker(100);
   });
 
   events.on("START_FIGHT", object, (source: Npc) => {
@@ -473,8 +474,26 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("CREATE_ENEMY", object, (bot: Bot, owner?: Character) => { 
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CREATE_ENEMY", object.metaHero.map, { "bot": `${JSON.stringify(bot)}`, "owner": `${JSON.stringify(owner)}` })
+  events.on("CREATE_ENEMY", object, (params: { bot: Bot, owner?: Character }) => {
+    console.log("events got create_enemy", params.bot);
+
+    const botData = {
+      Id: params.bot.id,
+      Type: params.bot.botType,
+      Name: params.bot.name,
+      Level: params.bot.level,
+      Exp: params.bot.exp,
+      Hp: params.bot.hp,
+      IsDeployed: true,
+      IsEnemy: true,
+      HeroId: params.bot.heroId || 39758
+    };
+    const ownerData = params.owner ? { id: params.owner.id, name: params.owner.name } : null;
+
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CREATE_ENEMY", object.metaHero.map, {
+      "bot": JSON.stringify(botData),
+      "owner": JSON.stringify(ownerData)
+    });
     object.metaService.updateEvents(metaEvent);
   });
 
@@ -518,7 +537,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           if (targetBot) {
             targetBot.isDeployed = true;
           }
-          if (tmpHero.id != object.metaHero.id) { 
+          if (tmpHero.id != object.metaHero.id) {
             object.addBotToScene(tmpHero, targetBot);
           }
         }
@@ -576,7 +595,7 @@ export function actionStartFightEvent(object: any, event: MetaEvent) {
   if (event.data) {
     const partyMembersData = JSON.parse(event.data["party_members"]);
     if (partyMembersData) {
-      let isMyParty = false; 
+      let isMyParty = false;
       for (let member of partyMembersData) {
         const parsedMember = new MetaHero(
           member.id,

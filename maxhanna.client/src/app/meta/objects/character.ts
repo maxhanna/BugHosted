@@ -262,7 +262,7 @@ export class Character extends GameObject {
     //}, 5000);
 		events.emit("CHARACTER_CREATED", this);
 		//console.log("is object neerby?", isObjectNearby(this)); 
-    console.log("CHARACTER_CREATED", this);
+  //  console.log("CHARACTER_CREATED", this);
 		events.on("CHARACTER_SLOPE", this, (params: {
 			character: Character;
 			slopeType: typeof UP | typeof DOWN;

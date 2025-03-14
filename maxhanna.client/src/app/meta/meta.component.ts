@@ -143,6 +143,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 				if (res) {
 					this.updateOtherHeroesBasedOnFetchedData(res);
 					this.updateMissingOrNewHeroSprites();
+          this.updateEnemyEncounters(res);
 
 					if (this.chat) {
 						this.getLatestMessages();
@@ -155,7 +156,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 		}
 	}
 
-	private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; chat: MetaChat[]; }) {
+	private updateOtherHeroesBasedOnFetchedData(res: { map: number; position: Vector2; heroes: MetaHero[]; }) {
 		if (!res || !res.heroes) {
 			this.otherHeroes = [];
 			return;
@@ -173,7 +174,45 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         }
       }
     }
-	}
+  }
+  private updateEnemyEncounters(res: any) {
+    const enemies = res.enemyBots as MetaBot[];
+    if (enemies) { 
+      enemies.forEach(enemy => {
+        //look for enemy on the map, if he doesnt exist, create him.
+        const tgtEnemy = this.mainScene.level.children.find((x: Bot) => x.heroId == enemy.heroId && x.isDeployed);
+        if (tgtEnemy) {
+          tgtEnemy.hp = enemy.hp;
+        } else {
+          console.log("looking for enocounter for " + enemy.heroId);
+          const tgtEncounter = this.mainScene.level.children.find((x: Character) => x.id == enemy.heroId);
+          if (tgtEncounter) {
+            console.log("found matching enocunter for enemy!", tgtEncounter, enemy);
+            let tmp = new Bot({ 
+              botType: enemy.type,
+              name: enemy.name ?? "botFrame",
+              spriteName: enemy.name ?? "botFrame",
+              colorSwap: (tgtEncounter.color ? new ColorSwap([0, 160, 200], hexToRgb(tgtEncounter.color)) : undefined),
+              isDeployed: true,
+              isEnemy: true,
+              position: tgtEncounter.position.duplicate(),
+              level: enemy.level,
+              hp: enemy.hp,
+              id: enemy.id,
+              heroId: enemy.heroId,
+              leftArm: enemy.leftArm,
+              rightArm: enemy.rightArm,
+              head: enemy.head,
+              legs: enemy.legs
+            });
+            if (tmp.hp) { 
+              this.mainScene.level.addChild(tmp);
+            }
+          }
+        } 
+      }) 
+    }
+  }
 	private updateMissingOrNewHeroSprites() {
 		let ids: number[] = [];
 		for (const hero of this.otherHeroes) {
@@ -220,7 +259,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 	}
 
   private addHeroToScene(hero: MetaHero) {
-    console.log("adding hero to scene: " + hero.name);
+  //  console.log("adding hero to scene: " + hero.name);
 		const tmpHero = new Hero({
 			id: hero.id,
 			name: hero.name ?? "Anon",
@@ -253,7 +292,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 	private addBotToScene(metaHero: MetaHero, bot: MetaBot) {
     if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return; }
 
-    console.log("addBotToScene ! ", bot, metaHero);
+    //console.log("addBotToScene ! ", bot, metaHero);
     if (metaHero && metaHero.metabots && metaHero.metabots.length > 0) {
       let tgtBot = metaHero.metabots.find(x => x.id === bot.id);
       if (tgtBot) {

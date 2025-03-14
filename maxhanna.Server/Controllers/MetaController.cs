@@ -5,6 +5,7 @@ using MySqlConnector;
 using System;
 using System.Text;
 using System.Text.Json;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace maxhanna.Server.Controllers
 {
@@ -84,6 +85,8 @@ namespace maxhanna.Server.Controllers
 					{
 						hero = await UpdateHeroInDB(hero, connection, transaction);
 						MetaHero[]? heroes = await GetNearbyPlayers(hero, connection, transaction);
+						//to get enemy bots to watch, look at meta_encounters with heroes's current map, get the encounter hero_id's and do a select in meta_bots. 
+						MetaBot[]? enemyBots = await GetEncounterMetaBots(connection, transaction, hero.Map);
 						//List<MetaChat> chat = await GetChatFromDB(connection, transaction);
 						List<MetaEvent> events = await GetEventsFromDb(hero.Map, connection, transaction);
 						await transaction.CommitAsync();
@@ -92,7 +95,8 @@ namespace maxhanna.Server.Controllers
 							map = hero.Map,
 							hero.Position,
 							heroes,
-							events
+							events,
+							enemyBots
 						});
 					}
 					catch (Exception ex)
@@ -270,6 +274,7 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> CreateBot([FromBody] MetaBot bot)
 		{
 			Console.WriteLine($"POST /Meta/CreateBot (UserId: {bot.HeroId}, Bot Name: {bot.Name})");
+
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -277,26 +282,63 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						string sql = @"INSERT INTO maxhanna.meta_bot (hero_id, name, type, hp, exp, level) VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level);";
-						Dictionary<string, object?> parameters = new Dictionary<string, object?>
-												{
-														{ "@HeroId", bot.HeroId },
-														{ "@Name", bot.Name },
-														{ "@Type", bot.Type },
-														{ "@Hp", bot.Hp},
-														{ "@Exp", bot.Exp},
-														{ "@Level", bot.Level}
-												};
-						long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
+						if (bot.HeroId < 0)
+						{
+							// Check if a bot with the same HeroId exists
+							string checkSql = "SELECT COUNT(*) FROM maxhanna.meta_bot WHERE hero_id = @HeroId;";
+							int existingBotCount = 0;
+
+							using (var command = new MySqlCommand(checkSql, connection, transaction))
+							{
+								command.Parameters.AddWithValue("@HeroId", bot.HeroId);
+
+								existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync()); 
+							}  
+							if (Convert.ToInt32(existingBotCount) > 0)
+							{  
+								string deleteSql = $@"DELETE FROM maxhanna.meta_bot WHERE hero_id = @HeroId LIMIT {(existingBotCount - 1)};";
+
+								using (var deleteCommand = new MySqlCommand(deleteSql, connection, transaction))
+								{ 
+									deleteCommand.Parameters.AddWithValue("@HeroId", bot.HeroId);
+									await deleteCommand.ExecuteNonQueryAsync();
+									Console.WriteLine("Deleted extra bots with the same HeroId.");
+								}
+
+								await transaction.CommitAsync();
+								return BadRequest("A bot with the same hero_id already exists. Bot creation is not allowed.");
+							}
+						}
+
+						// Proceed with the bot creation if no existing bot is found, or after deleting extra bots
+						string sql = @"INSERT INTO maxhanna.meta_bot (hero_id, name, type, hp, exp, level, is_deployed) 
+                           VALUES (@HeroId, @Name, @Type, @Hp, @Exp, @Level, @IsDeployed);";
+
+						var parametersForInsert = new Dictionary<string, object?>()
+						{
+								{ "@HeroId", bot.HeroId },
+								{ "@Name", bot.Name },
+								{ "@Type", bot.Type },
+								{ "@Hp", bot.Hp },
+								{ "@Exp", bot.Exp },
+								{ "@Level", bot.Level },
+								{ "@IsDeployed", bot.IsDeployed }
+						};
+
+						long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parametersForInsert, connection, transaction);
 						await transaction.CommitAsync();
 
-						MetaBot heroBot = new MetaBot();
-						heroBot.Id = (int)botId;
-						heroBot.HeroId = bot.HeroId;
-						heroBot.Level = bot.Level;
-						heroBot.Name = bot.Name;
-						heroBot.Hp = bot.Hp;
-						heroBot.Type = bot.Type;
+						MetaBot heroBot = new MetaBot
+						{
+							Id = (int)botId,
+							HeroId = bot.HeroId,
+							Level = bot.Level,
+							Name = bot.Name,
+							Hp = bot.Hp,
+							Type = bot.Type,
+							IsDeployed = bot.IsDeployed
+						};
+
 						return Ok(heroBot);
 					}
 					catch (Exception ex)
@@ -306,6 +348,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 			}
+
 		}
 
 
@@ -732,6 +775,160 @@ namespace maxhanna.Server.Controllers
 
 			return hero;
 		}
+
+		private async Task<MetaHero[]> GetMetaHeroes(MySqlConnection conn, MySqlTransaction transaction, string heroMapId)
+		{
+			Dictionary<int, MetaHero> heroesDict = new Dictionary<int, MetaHero>();
+
+			string sql = @"
+        SELECT 
+            m.id as hero_id, 
+            m.name as hero_name,
+            m.map as hero_map,
+            m.coordsX, 
+            m.coordsY,
+            m.speed, 
+            m.color, 
+            m.mask
+        FROM 
+            maxhanna.meta_hero m
+        WHERE m.map = @HeroMapId
+        ORDER BY m.coordsY ASC;";
+
+			MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+			cmd.Parameters.AddWithValue("@HeroMapId", heroMapId);
+
+			using (var reader = await cmd.ExecuteReaderAsync())
+			{
+				while (await reader.ReadAsync())
+				{
+					int heroId = Convert.ToInt32(reader["hero_id"]);
+
+					// Create a new hero if not already in the dictionary
+					if (!heroesDict.TryGetValue(heroId, out MetaHero tmpHero))
+					{
+						tmpHero = new MetaHero
+						{
+							Id = heroId,
+							Name = Convert.ToString(reader["hero_name"]),
+							Map = Convert.ToString(reader["hero_map"]) ?? "",
+							Color = Convert.ToString(reader["color"]) ?? "",
+							Mask = reader.IsDBNull(reader.GetOrdinal("mask")) ? null : Convert.ToInt32(reader["mask"]),
+							Position = new Vector2(Convert.ToInt32(reader["coordsX"]), Convert.ToInt32(reader["coordsY"])),
+							Speed = Convert.ToInt32(reader["speed"]),
+							Metabots = new List<MetaBot>()
+						};
+						heroesDict[heroId] = tmpHero;
+					}
+				}
+			}
+
+			return heroesDict.Values.ToArray();
+		}
+
+		private async Task<MetaBot[]> GetEncounterMetaBots(MySqlConnection conn, MySqlTransaction transaction, string map)
+		{
+			var bots = new List<MetaBot>();
+
+			// Step 1: Retrieve hero_ids from meta_encounter table
+			string heroIdQuery = "SELECT hero_id FROM maxhanna.meta_encounter WHERE map = @Map;";
+			MySqlCommand heroIdCmd = new MySqlCommand(heroIdQuery, conn, transaction);
+			heroIdCmd.Parameters.AddWithValue("@Map", map);
+
+			var heroIds = new List<int>();
+			using (var heroReader = await heroIdCmd.ExecuteReaderAsync())
+			{
+				while (await heroReader.ReadAsync())
+				{
+					heroIds.Add(Convert.ToInt32(heroReader["hero_id"]));
+				}
+			}
+
+			// If no hero_ids found, return empty
+			if (!heroIds.Any())
+				return Array.Empty<MetaBot>();
+
+			// Step 2: Fetch MetaBots and their parts for the found hero_ids
+			string sql = @"
+    SELECT  
+        b.id as metabot_id, 
+        b.hero_id as metabot_hero_id, 
+        b.name as metabot_name, 
+        b.type as metabot_type, 
+        b.hp as metabot_hp, 
+        b.level as metabot_level, 
+        b.exp as metabot_exp,
+        b.is_deployed as metabot_is_deployed,
+        p.id as part_id, p.part_name, p.type as part_type, p.damage_mod, p.skill
+    FROM
+        maxhanna.meta_bot b
+    LEFT JOIN
+        maxhanna.meta_bot_part p ON b.id = p.metabot_id
+    WHERE b.hero_id IN (" + string.Join(",", heroIds) + ");"; // Inject IDs safely
+
+			MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
+			//Console.WriteLine(cmd.CommandText);
+			using (var reader = await cmd.ExecuteReaderAsync())
+			{
+				while (await reader.ReadAsync())
+				{
+					int heroId = Convert.ToInt32(reader["metabot_hero_id"]);
+
+					// Check if the bot already exists in our list
+					MetaBot? metabot = bots.FirstOrDefault(m => m.Id == Convert.ToInt32(reader["metabot_id"]));
+					if (metabot == null)
+					{
+						metabot = new MetaBot
+						{
+							Id = Convert.ToInt32(reader["metabot_id"]),
+							Name = Convert.ToString(reader["metabot_name"]),
+							HeroId = heroId,
+							Type = Convert.ToInt32(reader["metabot_type"]),
+							Hp = Convert.ToInt32(reader["metabot_hp"]),
+							Exp = Convert.ToInt32(reader["metabot_exp"]),
+							Level = Convert.ToInt32(reader["metabot_level"]),
+							IsDeployed = Convert.ToBoolean(reader["metabot_is_deployed"]),
+						};
+						bots.Add(metabot);
+					}
+
+					// If there's a MetaBotPart in this row, assign it
+					if (!reader.IsDBNull(reader.GetOrdinal("part_id")))
+					{
+						MetaBotPart part = new MetaBotPart
+						{
+							HeroId = heroId,
+							Id = Convert.ToInt32(reader["part_id"]),
+							PartName = Convert.ToString(reader["part_name"]),
+							Type = Convert.ToInt32(reader["part_type"]),
+							DamageMod = Convert.ToInt32(reader["damage_mod"]),
+							Skill = !reader.IsDBNull(reader.GetOrdinal("skill")) ? new Skill(reader["skill"].ToString() ?? "Headbutt", 0) : null,
+						};
+
+						switch (part.PartName.ToLower())
+						{
+							case "head":
+								metabot.Head = part;
+								break;
+							case "legs":
+								metabot.Legs = part;
+								break;
+							case "left_arm":
+								metabot.LeftArm = part;
+								break;
+							case "right_arm":
+								metabot.RightArm = part;
+								break;
+						}
+					}
+				}
+			}
+
+			return bots.ToArray();
+		}
+
+
+
 		private async Task<MetaHero[]?> GetNearbyPlayers(MetaHero hero, MySqlConnection conn, MySqlTransaction transaction)
 		{
 			// Ensure the connection is open
@@ -1005,24 +1202,41 @@ namespace maxhanna.Server.Controllers
 			Console.WriteLine($"Destroying bot {metabotId} from user {heroId}.");
 			try
 			{
-				string sql = @"
-					UPDATE maxhanna.meta_bot 
-					SET is_deployed = 0, hp = 0 
-					WHERE hero_id = @heroId"
-						+ (metabotId.HasValue ? " AND id = @botId" : "");
-
+				string sql;
 				Dictionary<string, object?> parameters = new Dictionary<string, object?>
 				{
 						{ "@heroId", heroId },
 				};
-				if (metabotId.HasValue) {
-					parameters.Add("@botId", metabotId.Value);
-				} 
+
+				// If heroId is negative, perform a DELETE instead of UPDATE
+				if (heroId < 0)
+				{
+					sql = "DELETE FROM maxhanna.meta_bot WHERE hero_id = @heroId" +
+								(metabotId.HasValue ? " AND id = @botId" : "");
+					if (metabotId.HasValue)
+					{
+						parameters.Add("@botId", metabotId.Value);
+					}
+				}
+				else
+				{
+					sql = @"
+                UPDATE maxhanna.meta_bot 
+                SET is_deployed = 0, hp = 0 
+                WHERE hero_id = @heroId"
+							+ (metabotId.HasValue ? " AND id = @botId" : "");
+
+					if (metabotId.HasValue)
+					{
+						parameters.Add("@botId", metabotId.Value);
+					}
+				}
+
 				await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, connection, transaction);
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Exception DeployMetabot: " + ex.Message);
+				Console.WriteLine("Exception DestroyMetabot: " + ex.Message);
 			}
 		}
 
@@ -1094,18 +1308,24 @@ namespace maxhanna.Server.Controllers
 				Console.WriteLine($"Called Back MetaBots with HeroID: {heroId}");
 			}
 			else if (metaEvent.EventType == "CREATE_ENEMY")
-			{
-				MetaBot? bot = null;
-				if (metaEvent.Data.TryGetValue("bot", out var metaBotJsonElement))
+			{ 
+				if (metaEvent.Data.ContainsKey("bot"))
 				{
-					// Parse the metaBot JSON string
-					var metaBotJson = JsonDocument.Parse(metaBotJsonElement.ToString()).RootElement; 
-					Console.WriteLine($"CREATED ENEMY with this json: " + metaBotJson);
-					if (metaBotJson.TryGetProperty("id", out var idElement))
+					var botJson = metaEvent.Data["bot"];
+					Console.WriteLine("Received Bot JSON: " + botJson);
+					MetaBot? bot = JsonSerializer.Deserialize<MetaBot>(botJson);
+
+					if (bot != null)
 					{
-						int metabotId = idElement.GetInt32(); 
+						Console.WriteLine($"Created bot: {bot.Name}, Level: {bot.Level}, HP: {bot.Hp}");
+						CreateBot(bot);
 					}
-				} 
+					else
+					{
+						Console.WriteLine("Bot data is null or invalid.");
+					}
+				}
+
 			}
 		}
 
@@ -1179,8 +1399,11 @@ namespace maxhanna.Server.Controllers
 											Hp = reader.GetInt32(4),
 											HeroId = reader.GetInt32(5),
 											IsDeployed = reader.GetBoolean(6),
-										};
-										map = reader.GetString(7);
+										}; 
+										if (string.IsNullOrEmpty(map))
+										{
+											map = reader.IsDBNull(7) ? null : reader.GetString(7); 
+										}
 										if (bot.Id.ToString() == sourceId) attackingBot = bot;
 										else defendingBot = bot;
 									}
@@ -1269,6 +1492,7 @@ namespace maxhanna.Server.Controllers
 				catch (Exception ex)
 				{
 					Console.WriteLine($"DPS Error: {ex.Message}");
+					attackerStopped = true;
 				}
 
 				// Exit the loop if both bots are stopped
