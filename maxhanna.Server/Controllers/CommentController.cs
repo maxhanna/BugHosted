@@ -70,7 +70,7 @@ namespace maxhanna.Server.Controllers
 					{
 						return BadRequest("Either file_id, story_id, or comment_id must be provided.");
 					}
-					string sql = $"INSERT INTO maxhanna.comments (user_id, {column}, comment) VALUES (@user_id, @id, @comment); SELECT LAST_INSERT_ID();";
+					string sql = $"INSERT INTO maxhanna.comments (user_id, {column}, comment, date) VALUES (@user_id, @id, @comment, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{

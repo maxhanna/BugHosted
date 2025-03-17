@@ -1,7 +1,7 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Sprite } from "../sprite";
 import { SkillType } from "../../helpers/skill-types";
-import { DOWN, LEFT, RIGHT, UP, gridCells } from "../../helpers/grid-cells";
+import { DOWN, LEFT, RIGHT, UP, gridCells, isOnGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { getBotsInRange } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
@@ -30,6 +30,11 @@ export class Bot extends Character {
   lastAttack = new Date();
   lastAttackPart?: MetaBotPart;
   lastTargetDate = new Date();
+  frameMap = {
+    "Jaguar": "botFrame1",
+    "Ram": "botFrame5",
+    "Bee": "botFrame7",
+  }
 
 
   constructor(params: {
@@ -54,6 +59,7 @@ export class Bot extends Character {
     isDeployed?: boolean,
     isEnemy?: boolean,
     preventDraw?: boolean,
+    isSolid?: boolean,
   }) {
     super({
       id: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
@@ -63,9 +69,13 @@ export class Bot extends Character {
       name: "Bot",
       exp: params.exp ?? 0,
       expForNextLevel: params.expForNextLevel ?? 0,
-      level: params.level ?? 1,
+      level: params.level ?? 1, 
       body: new Sprite({
-        resource: resources.images[params.spriteName ?? "botFrame"],
+        resource: resources.images[
+          params.name == "Jaguar" ? "botFrame"
+          : params.name == "Ram" ? "botFrame5"
+          : params.name == "Bee" ? "botFrame7"
+          : (params.spriteName ?? "botFrame")],
         frameSize: params.spriteName == "white" ? new Vector2(0, 0) : new Vector2(32, 32),
         scale: params.scale,
         name: "Bot",
@@ -101,7 +111,7 @@ export class Bot extends Character {
     this.name = params.name ?? "Anon";
     this.isDeployed = params.isDeployed;
     this.isEnemy = params.isEnemy ?? false;
-    this.isSolid = false;
+    this.isSolid = params.isSolid ?? false;
     this.preventDraw = params.preventDraw ?? false;
     const bodyScale = params.scale ?? new Vector2(1, 1);
     const shadowScale = new Vector2(bodyScale.x, bodyScale.y);
@@ -114,9 +124,6 @@ export class Bot extends Character {
     });
     this.addChild(shadow); 
     this.setupEvents(); 
-    setTimeout(() => {
-      findTargets(this);
-    }, 50);
   }
 
 
@@ -126,10 +133,21 @@ export class Bot extends Character {
       if (hero.id === this.heroId) {
         this.followHero(hero);
       }
-      if (!this.targeting && (this.lastTargetDate.getTime() + 500 < new Date().getTime())) { 
+      if (!this.targeting && (this.lastTargetDate.getTime() + 500 < new Date().getTime())) {
         this.lastTargetDate = new Date();
-        findTargets(this); 
-      } 
+        findTargets(this);
+      }
+    });
+    events.emit("BOT_CREATED");
+    events.on("BOT_CREATED", this, () => {
+      if (this.isDeployed && this.hp > 0) {
+        findTargets(this);
+      }
+    });
+    events.on("BOT_DESTROYED", this, () => {
+      if (this.isDeployed && this.hp > 0) {
+        findTargets(this);
+      }
     });
   }
  
@@ -182,7 +200,7 @@ export class Bot extends Character {
       let newX = hero.position.x;
       let newY = hero.position.y;
 
-      //console.log(this.body?.animations?.activeKey);
+      console.log(this.body?.animations?.activeKey);
       // Move bot to always be behind the hero based on their movement direction
       if (Math.abs(directionX) > Math.abs(directionY)) {
         // Hero is primarily moving horizontally
@@ -205,12 +223,11 @@ export class Bot extends Character {
           // Hero moved UP → Bot should be BELOW
           newX = hero.position.x;
           newY = hero.position.y + distanceFromHero;
-        }
+        } 
       }
-
+      this.facingDirection = hero.facingDirection;
       // Update the bot's destination position
-      this.destinationPosition = new Vector2(newX, newY);
-
+      this.destinationPosition = new Vector2(newX, newY); 
       // Store hero's last position to track movement direction
       this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
       // console.log(this.destinationPosition);

@@ -3,13 +3,11 @@ import { Sprite } from "./../sprite";
 import { resources } from "../../helpers/resources";
 import { events } from "../../helpers/events";
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
 import { Level } from "./../Level/level";
 import { SpriteTextString } from "./../SpriteTextString/sprite-text-string";
 import { Input } from "../../helpers/input";
 import { Main } from "./../Main/main";
 import { InventoryItem } from "./../InventoryItem/inventory-item";
-import { GOT_FIRST_METABOT, storyFlags } from "../../helpers/story-flags";
 
 
 export class ShopMenu extends Level {
@@ -45,7 +43,7 @@ export class ShopMenu extends Level {
 
     setTimeout(() => {
       this.blockSelection = false;
-      events.emit("BLOCK_START_MENU"); 
+      events.emit("BLOCK_START_MENU");
     }, 700);
   }
 
@@ -175,6 +173,9 @@ export class ShopMenu extends Level {
   }
   override ready() {
     events.emit("HERO_MOVEMENT_LOCK");
+    events.on("CLOSE_MENUS", this, () => {
+      this.leaveShop();
+    });
   }
   private leaveShop() {
     this.entranceLevel.defaultHeroPosition = this.defaultHeroPosition;

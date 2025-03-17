@@ -214,7 +214,7 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     this.targetUser = user;
     this.userSearchOpen = false;
     if (this.inputtedParentRef) {
-      this.inputtedParentRef.isShowingOverlay = false;
+      this.inputtedParentRef.closeOverlay();
     }
     this.loadBattleReports(this.targetBase);
   }

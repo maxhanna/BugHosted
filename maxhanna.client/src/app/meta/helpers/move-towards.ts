@@ -1,4 +1,4 @@
-import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+import { Vector2 } from "../../../services/datacontracts/meta/vector2"; 
 import { Bot } from "../objects/Bot/bot";
 import { Character } from "../objects/character";
 import { GameObject } from "../objects/game-object";
@@ -30,9 +30,7 @@ export function moveTowards(player: Character, destinationPosition: Vector2, spe
 		distanceToTravelX = destinationPosition.x - player.position.x;
 		distanceToTravelY = destinationPosition.y - player.position.y;
 		distance = Math.sqrt(distanceToTravelX ** 2 + distanceToTravelY ** 2);
-  }
-  if (player.name === "Steve")
-  console.log(player.destinationPosition);
+  } 
 	return distance; // Return the updated distance
 }
 
@@ -45,7 +43,7 @@ export function bodyAtSpace(parent: GameObject, position: Vector2, solid?: boole
 }
 
 
-export function tryMove(player: Character, root: any, isUserControlled: boolean, distanceToTravel: number) {
+export function tryMove(player: any, root: any, isUserControlled: boolean, distanceToTravel: number) {
 	if (!player.body) return;
 
 	const { input } = root;
@@ -79,37 +77,63 @@ export function tryMove(player: Character, root: any, isUserControlled: boolean,
 		}
 		player.facingDirection = input.direction ?? player.facingDirection;
 	}
-	else if (!isUserControlled) {
-		if (distanceToTravel > 0) {
-			const destPos = player.destinationPosition;
-			let tmpPosition = player.position;
-			const deltaX = destPos.x - tmpPosition.x;
-			const deltaY = destPos.y - tmpPosition.y;
-			if (deltaX != 0 || deltaY != 0) {
-				if (deltaX > 0) {
-					player.facingDirection = RIGHT;
-					player.body?.animations?.play("walkRight");
-				} else if (deltaX < 0) {
-					player.facingDirection = LEFT;
-					player.body?.animations?.play("walkLeft");
-				}
-			}
-			if (deltaY != 0) {
-				if (deltaY > 0) {
-					player.facingDirection = DOWN;
-					player.body?.animations?.play("walkDown");
-				} else if (deltaY < 0) {
-					player.facingDirection = UP;
-					player.body?.animations?.play("walkUp");
-				}
-			}
+  else if (!isUserControlled) { 
+    if (distanceToTravel > 0) {
+      if (player.heroId) {
+        player.body.animations?.play("walk" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
+      } else {
+        const destPos = player.destinationPosition;
+        let tmpPosition = player.position;
+        const deltaX = destPos.x - tmpPosition.x;
+        const deltaY = destPos.y - tmpPosition.y;
+        if (deltaX != 0 || deltaY != 0) {
+          if (deltaY <= 0) {
+            if (deltaX > 0 && deltaY >= 0) {
+              player.facingDirection = RIGHT;
+              player.body?.animations?.play("walkRight");
+            }
+            else if (deltaX < 0 && deltaY >= 0) {
+              player.facingDirection = LEFT;
+              player.body?.animations?.play("walkLeft");
+            }
+            else if (deltaX <= 0 && deltaY <= 0) {
+              player.facingDirection = UP;
+              player.body?.animations?.play("walkUp");
+            }
+            else if (deltaX == 0 && deltaY > 0) {
+              player.facingDirection = DOWN;
+              player.body?.animations?.play("walkDown");
+            }
+          }
+          else if (deltaY > 0) {
+            if (deltaX > 0 && deltaY > 0) {
+              player.facingDirection = RIGHT;
+              player.body?.animations?.play("walkRight");
+            }
+            else if (deltaX < 0 && deltaY >= 0) {
+              player.facingDirection = LEFT;
+              player.body?.animations?.play("walkLeft");
+            }
+            else if (deltaX >= 0 && deltaY <= 0) {
+              player.facingDirection = UP;
+              player.body?.animations?.play("walkUp");
+            }
+            else if (deltaX == 0 && deltaY > 0) {
+              player.facingDirection = DOWN;
+              player.body?.animations?.play("walkDown");
+            }
+          }
+        }
+        //console.log(player.facingDirection, deltaX, deltaY, player.body.animations?.activeKey);
+      } 
+
 			setAnimationToStandAfterTimeElapsed(player);
 		}
 		else {
 			player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
-		}
-	}
-  if (!bodyAtSpace(player.parent, position)) {
+    } 
+  }
+  if (!bodyAtSpace(player.parent, position) && isUserControlled) {
     const lastPos = player.position.duplicate();
     player.destinationPosition.x = snapToGrid(lastPos.x, gridSize);
     player.destinationPosition.y = snapToGrid(lastPos.y, gridSize); 
@@ -367,7 +391,8 @@ export function isObjectNearby(playerOrObject: any) {
 	// Get nearby objects
 	const possibilities = playerOrObject.parent?.children?.filter((child: GameObject) => {
 		return (
-			(!(child instanceof Sprite) || child.textContent) &&
+     (
+        !(child instanceof Sprite) || child.textContent) && 
 			child.position.x >= neighborPosition.x - discrepancy &&
 			child.position.x <= neighborPosition.x + discrepancy &&
 			child.position.y >= neighborPosition.y - discrepancy &&

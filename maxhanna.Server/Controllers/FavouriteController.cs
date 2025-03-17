@@ -1,6 +1,4 @@
 using maxhanna.Server.Controllers.DataContracts.Favourite;
-using maxhanna.Server.Controllers.DataContracts.Todos;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 

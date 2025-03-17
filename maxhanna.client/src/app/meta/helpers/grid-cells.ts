@@ -1,3 +1,5 @@
+import { Vector2 } from "../../../services/datacontracts/meta/vector2";
+
 export const gridCells = (n: number) => {
   return n * 16;
 }
@@ -17,4 +19,7 @@ export const snapToGrid = (value: number, gridSize: number): number => {
     return 0;
   }
   return Math.round(value / gridSize) * gridSize;
+}
+export const isOnGrid = (position: Vector2) => {
+  return (position.x % 16 == 0) && (position.y % 16 == 0);
 }

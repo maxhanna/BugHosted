@@ -86,11 +86,13 @@ export function attack(source: Bot, target: Bot) {
 
 
 export function findTargets(source: Bot) {
-  let nearest = getBotsInRange(source)[0]; 
- 
-  if (nearest && nearest.name) {
-    target(source, nearest);
-  }
+  if (source.hp > 0 && source.isDeployed) {
+    let nearest = getBotsInRange(source)[0];
+
+    if (nearest && nearest.name) {
+      target(source, nearest);
+    }
+  } 
 }
 
 export function target(source: Bot, targetBot: Bot) { 
@@ -122,8 +124,8 @@ export function faceTarget(source: Bot, target: Bot) {
 }
 
 export function setTargetToDestroyed(target: Bot) {
-  target.isDeployed = false;
-  target.destroy();
+ // target.isDeployed = false;
+  // target.destroy();
   console.log(target.name + " has been destroyed!");
   events.emit("BOT_DESTROYED", target);
 }

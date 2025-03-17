@@ -196,6 +196,7 @@ export class Input {
       console.log("pressed B");
       events.emit("CLOSE_INVENTORY_MENU");
       events.emit("CLOSE_HERO_DIALOGUE"); 
+      events.emit("CLOSE_MENUS");  
     }
   }
   pressSpace() {
@@ -227,6 +228,7 @@ export class Input {
     this.chatSelected = false;
     events.emit("HERO_MOVEMENT_UNLOCK"); 
     events.emit("START_PRESSED");
+    events.emit("CLOSE_MENUS"); 
   }
 
   handleControl(direction: string, action: 'press' | 'release', event?: TouchEvent) {

@@ -43,7 +43,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent; 
 
   constructor(private commentService: CommentService, private notificationService: NotificationService, private sanitizer: DomSanitizer) {
-    super(); 
+    super();
   }
 
   ngOnInit() { 
@@ -255,6 +255,10 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.commentHeaderClickedEvent.emit(this.showComments); 
   }
   quote(comment: FileComment) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.closeOverlay();
+    }
     const input = this.addCommentInput.nativeElement;
     if (input) {
       input.value += `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${comment.commentText}] \n`;

@@ -61,6 +61,7 @@ export class Character extends GameObject {
 		this.id = params.id;
 		this.name = params.name;
     this.body = params.body;
+    this.destinationPosition = this.position.duplicate();
     this.speed = params.speed ?? 1;
     this.level = params.level ?? 1;
     this.exp = params.exp ?? 0;
@@ -159,8 +160,8 @@ export class Character extends GameObject {
 			//look for an object at the next space (according to where the hero is facing)
 			const objectAtPosition = isObjectNearby(this);
 
+      console.log(objectAtPosition);
 			if (objectAtPosition) {
-				// console.log(objectAtPosition);
 				events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
 			}
     }

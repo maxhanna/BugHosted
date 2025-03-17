@@ -244,12 +244,12 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				return Ok(new { message = "Color updated successfully." });
+				return Ok("Color updated successfully.");
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine("Exception in UpdatePlayerColor: " + ex.Message);
-				return StatusCode(500, new { error = "Internal server error." });
+				return StatusCode(500, "Internal server error.");
 			}
 		}
 

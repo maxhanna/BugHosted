@@ -108,7 +108,7 @@ export class BrushLevel1 extends Level {
 
 
     const house = new House(gridCells(8), gridCells(28));
-    this.addChild(house);
+    this.addChild(house);  
 
     const sign = new Sign(
       { position: new Vector2(gridCells(17), gridCells(29)), text: "Home." }
@@ -125,7 +125,8 @@ export class BrushLevel1 extends Level {
     this.addChild(shopsign); 
 
     const rivalHouse = new House(gridCells(8), gridCells(10));
-    this.addChild(rivalHouse);
+    this.addChild(rivalHouse); 
+
     const rivalSign = new Sprite(
       { resource: resources.images["sign"], position: new Vector2(gridCells(17), gridCells(11)), frameSize: new Vector2(16, 18), isSolid: true }
     ); 
@@ -233,7 +234,25 @@ export class BrushLevel1 extends Level {
     this.addChild(brsign); 
      
 
-    //Walls:  
+    //Walls:
+    //hero house walls
+
+    //rival house walls  
+    
+    //shop walls
+    //for (let y = gridCells(11); y <= gridCells(13); y += gridCells(1)) {
+    //  this.walls.add(`${gridCells(25)},${y}`);
+    //  this.walls.add(`${gridCells(32)},${y}`);
+    //}
+    //for (let x = gridCells(25); x <= gridCells(32); x++) {
+    //  if (x == gridCells(30)) {
+    //    this.walls.add(`${x},${gridCells(11)}`);
+    //  } else {
+    //    this.walls.add(`${x},${gridCells(16)}`);
+    //    this.walls.add(`${x},${gridCells(11)}`);
+    //  }
+    //}
+
     //map perimeter fences/bushes
     for (let x = 0; x < 38; x++) {
       const bb = new Sprite(

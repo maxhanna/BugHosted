@@ -450,7 +450,18 @@ romFileExtensions = [
 			console.error('Error editing file:', error);
 			return 'Error editing file';
 		}
-	}
+  }
+  formatFileSize(bytes: number, decimalPoint: number = 2): string {
+    if (bytes === 0) return '0 Bytes';
+
+    const k = 1024;
+    const dm = decimalPoint <= 0 ? 0 : decimalPoint;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
 	customDecodeURIComponent(encodedString: string): string {
 		return encodedString.replace(/%([0-9a-fA-F]{2})/g, (match, hex) => {
 			// Convert hex to a character

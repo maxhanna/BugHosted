@@ -492,5 +492,5 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   removeResizeListener() {
     window.removeEventListener('resize', this.updateHeight);
-}
+  }
 }

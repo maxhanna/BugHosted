@@ -14,7 +14,7 @@ html, body {
 }
  
 .componentMain {
-  width: 100vw !important;
+  width: CALC(100vw - 4px) !important;
   height: CALC(var(--vh, 1vh) * 100 - 55px);
   overflow: hidden;
   user-select: none;

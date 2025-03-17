@@ -296,17 +296,18 @@ namespace maxhanna.Server.Controllers
 							}  
 							if (Convert.ToInt32(existingBotCount) > 0)
 							{  
-								string deleteSql = $@"DELETE FROM maxhanna.meta_bot WHERE hero_id = @HeroId LIMIT {(existingBotCount - 1)};";
+								//string deleteSql = $@"DELETE FROM maxhanna.meta_bot WHERE hero_id = @HeroId LIMIT {(existingBotCount - 1)};";
 
-								using (var deleteCommand = new MySqlCommand(deleteSql, connection, transaction))
-								{ 
-									deleteCommand.Parameters.AddWithValue("@HeroId", bot.HeroId);
-									await deleteCommand.ExecuteNonQueryAsync();
-									Console.WriteLine("Deleted extra bots with the same HeroId.");
-								}
+								//using (var deleteCommand = new MySqlCommand(deleteSql, connection, transaction))
+								//{ 
+								//	deleteCommand.Parameters.AddWithValue("@HeroId", bot.HeroId);
+								//	await deleteCommand.ExecuteNonQueryAsync();
+								//	Console.WriteLine("Deleted extra bots with the same HeroId.");
+								//}
 
 								await transaction.CommitAsync();
-								return BadRequest("A bot with the same hero_id already exists. Bot creation is not allowed.");
+								Console.WriteLine("A bot with the same hero_id already exists.");
+								return BadRequest("A bot with the same hero_id already exists.");
 							}
 						}
 
@@ -1305,12 +1306,12 @@ namespace maxhanna.Server.Controllers
 				if (metaEvent.Data.ContainsKey("bot"))
 				{
 					var botJson = metaEvent.Data["bot"];
-					Console.WriteLine("Received Bot JSON: " + botJson);
+					//Console.WriteLine("Received Bot JSON: " + botJson);
 					MetaBot? bot = JsonSerializer.Deserialize<MetaBot>(botJson);
 
 					if (bot != null)
 					{
-						Console.WriteLine($"Created bot: {bot.Name}, Level: {bot.Level}, HP: {bot.Hp}");
+						//Console.WriteLine($"Created bot: {bot.Name}, Level: {bot.Level}, HP: {bot.Hp}");
 						CreateBot(bot);
 					}
 					else

@@ -251,7 +251,7 @@ export class NexusMapComponent extends ChildComponent {
     this.updateStatusForAttack(attack);
 
     setTimeout(() => {
-      this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence, switchBase: this.switchNextBaseCheckbox.nativeElement.checked } as AttackEventPayload);
+      this.emittedAttackEvent.emit({ attack: attack, isSendingDefence: this.isSendingDefence, switchBase: (this.switchNextBaseCheckbox?.nativeElement?.checked ?? false)} as AttackEventPayload);
       this.stopLoading();
     }, 10);
   }

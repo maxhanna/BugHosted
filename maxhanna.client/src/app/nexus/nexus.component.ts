@@ -2064,12 +2064,17 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
   async setPlayerColor() {
-    const playerColor = this.playerColorInput.nativeElement.value.trim();
-    if (playerColor && this.parentRef?.user) {
-      this.nexusService.updatePlayerColor(this.parentRef.user, playerColor);
-    }
-    this.playerColor = playerColor.replace("#", "");
-    this.playerColors[this.parentRef?.user?.id ?? 0] = playerColor.replace("#", "");
+    let playerColor = this.playerColorInput.nativeElement.value;
+    if (playerColor) {
+      playerColor = playerColor.trim().replace("#", "");
+      if (this.parentRef?.user) {
+        this.nexusService.updatePlayerColor(this.parentRef.user, playerColor).then(res => {
+          this.parentRef?.showNotification(res);
+        });
+      }
+      this.playerColor = playerColor;
+      this.playerColors[this.parentRef?.user?.id ?? 0] = this.playerColor;
+    } 
   }
   fetchMapData() {
     if (this.parentRef?.user && (!this.mapData || this.numberOfPersonalBases == 0 || this.shouldLoadMap)) {

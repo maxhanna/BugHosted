@@ -539,15 +539,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     return this.fileService.getFileWithoutExtension(fileName);
   }
   formatFileSize(bytes: number, decimalPoint: number = 2): string {
-    if (bytes === 0) return '0 Bytes';
-
-    const k = 1024;
-    const dm = decimalPoint <= 0 ? 0 : decimalPoint;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    return this.fileService.formatFileSize(bytes, decimalPoint);
   }
   shareFile(user?: User) {
     if (!user) return;
@@ -650,7 +642,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.isShowingOverlay = false;
+      parent.closeOverlay();
     }
   }
   openSearchOptionsPanel() {
@@ -665,7 +657,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.isShowingOverlay = false;
+      parent.closeOverlay();
     }
   }
   isDisplayingPreviousPageButton() {
@@ -753,7 +745,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     });
   }
   @HostListener('window:keydown', ['$event'])
-  handleKeyboardEvent(event: KeyboardEvent): void {
+  handleKeyboardEvent(event: KeyboardEvent): void { 
+    if ((event?.target as HTMLDivElement).id.includes("editFileName")) return;
+
     if (event.key === 'k' || event.key === 'K') {
       this.scrollToNext();
     } else if (event.key === 'j' || event.key === 'J') {

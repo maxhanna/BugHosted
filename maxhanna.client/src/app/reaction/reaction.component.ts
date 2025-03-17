@@ -202,7 +202,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       }
     }
   }
-  reactionDisplayOnClick() {
+  reactionDisplayOnClick() { 
     this.showReactionChoices = !this.showReactionChoices;
     if (this.inputtedParentRef) {
       if (!this.showReactionChoices) {
@@ -230,8 +230,15 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     window.removeEventListener('scroll', this.hideReactionChoicesDiv);
   };
 
-
+  reactionButtonOnClick(event: Event) {
+    this.showReactionChoices = true;
+    if (this.inputtedParentRef) {
+      this.inputtedParentRef.showOverlay();
+    }
+    event.stopPropagation();
+  }
   showReactionsOnClick() {
+    if (!this.reactionCount) return;
     this.showReactions = true;
     if (this.inputtedParentRef) {
       this.inputtedParentRef.showOverlay();
@@ -265,12 +272,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       return this.replaceReactionType(react?.type ?? "");
     }
     return '';
-  }
-  cancelClick(event: Event) {
-    this.showReactionChoices = false;
-    this.showReactions = false;
-    event.stopPropagation();
-  }
+  } 
   searchForReaction() {
     const lowerSearch = this.reactionFilter.nativeElement.value.toLowerCase().trim();
     this.filteredReactions = this.reactions.filter(reaction =>

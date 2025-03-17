@@ -45,7 +45,11 @@ export class Inventory extends GameObject {
 
     events.on("INVENTORY_UPDATED", this, (data: InventoryItem) => {
       const itemData = {
-        id: data.id, image: data.category, name: data.name, category: data.category, stats: data.stats
+        id: data.id,
+        image: data.category,
+        name: data.name,
+        category: data.category,
+        stats: data.stats
       } as InventoryItem;
 
       this.updateStoryFlags(itemData);

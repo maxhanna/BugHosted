@@ -11,7 +11,6 @@ using System.Diagnostics;
 using System.Net;
 using System.Xml.Linq;
 using Xabe.FFmpeg;
-using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -192,7 +191,7 @@ namespace maxhanna.Server.Controllers
 					{
 						command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
 					}
-					// Console.WriteLine(command.CommandText);
+					//Console.WriteLine(command.CommandText);
 
 					using (var reader = command.ExecuteReader())
 					{
@@ -243,7 +242,7 @@ namespace maxhanna.Server.Controllers
 
 					var fileIds = fileEntries.Select(f => f.Id).ToList();
 					var commentIds = new List<int>();
-					//_logger.LogInformation("Getting comments for fileIds: " + string.Join(",", fileIds));
+					_logger.LogInformation("Getting comments for fileIds: " + string.Join(",", fileIds));
 
 					var fileIdsParameters = new List<string>();
 					for (int i = 0; i < fileIds.Count; i++)

@@ -4,35 +4,21 @@ import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";  
-import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite";
-import { CaveLevel1 } from "./cave-level1";
-import { HeroHome } from "./hero-home";
-import { GOT_FIRST_METABOT, GOT_WATCH, START_FIGHT, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH, storyFlags } from "../helpers/story-flags";
-import { Npc } from "../objects/Npc/npc";
-import { Referee } from "../objects/Npc/Referee/referee";
-import { Gangster } from "../objects/Npc/Gangster/gangster";
 import { Animations } from "../helpers/animations";
 import { STAND_DOWN } from "../objects/Hero/hero-animations";
-import { Spiderbot } from "../objects/Npc/Spiderbot/spiderbot";
-import { Armobot } from "../objects/Npc/Armobot/armobot";
 import { Bugcatcher } from "../objects/Npc/Bugcatcher/bugcatcher";
-import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
 import { FrameIndexPattern } from "../helpers/frame-index-pattern";
-import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { Chicken } from "../objects/Environment/Chicken/chicken";
-import { House } from "../objects/Environment/House/house";
 import { HouseSide } from "../objects/Environment/House/house-side";
-import { Shop } from "../objects/Environment/Shop/shop";
 import { Deer } from "../objects/Environment/Deer/deer";
-import { Water } from "../objects/Environment/Water/water";
 import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
-import { BrushLevel1 } from "./brush-level1";
 import { BrushRoad1 } from "./brush-road1";
 import { RainbowAlleys1 } from "./rainbow-alleys1";
 import { Bot } from "../objects/Bot/bot";
 import { BASE, GROUND, FLOOR, HUD } from "../objects/game-object";
+import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
 
 
 export class BrushRoad2 extends Level {
@@ -481,6 +467,47 @@ export class BrushRoad2 extends Level {
 
     //NPCs<<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
 
+    const tmpEncounterPositions = [ 
+      new Vector2(gridCells(46), gridCells(36)),
+      new Vector2(gridCells(43), gridCells(38)),
+      new Vector2(gridCells(47), gridCells(37)),
+      new Vector2(gridCells(37), gridCells(32)),
+      new Vector2(gridCells(27), gridCells(22)),
+      new Vector2(gridCells(36), gridCells(40)),
+      new Vector2(gridCells(15), gridCells(38)),
+      new Vector2(gridCells(28), gridCells(40)),
+      new Vector2(gridCells(27), gridCells(37)),
+      new Vector2(gridCells(25), gridCells(36)),
+      new Vector2(gridCells(12), gridCells(41)),
+      new Vector2(gridCells(23), gridCells(40)),
+      new Vector2(gridCells(22), gridCells(38)),
+      new Vector2(gridCells(8), gridCells(32)),
+
+      new Vector2(gridCells(44), gridCells(7)),
+      new Vector2(gridCells(41), gridCells(8)),
+      new Vector2(gridCells(38), gridCells(1)),
+      new Vector2(gridCells(35), gridCells(7)),
+      new Vector2(gridCells(31), gridCells(8)),
+      new Vector2(gridCells(28), gridCells(8)),
+      new Vector2(gridCells(23), gridCells(7)),
+      new Vector2(gridCells(13), gridCells(1)),
+      new Vector2(gridCells(8), gridCells(8)),
+    ];
+    let ecId = -997717;
+    for (let x = 0; x < tmpEncounterPositions.length; x++) {
+      const currentId = ecId - x; 
+      const encounter = new RandomEncounter({
+        id: currentId,
+        position: tmpEncounterPositions[x],
+        possibleEnemies: ["spiderBot", "armobot"],
+        moveLeftRight: tmpEncounterPositions[x].x == gridCells(27) && tmpEncounterPositions[x].y == gridCells(22) ? 0 : 1,
+        moveUpDown: 0,
+        hp: (x == (tmpEncounterPositions.length - 1)) ? 100 : 85,
+        level: (x == (tmpEncounterPositions.length - 1)) ? 8 : 5
+      });
+      this.addChild(encounter);
+    }  
+
     const yardGiantTree = new GiantTree(gridCells(housesStartX) + gridCells(30), gridCells(housesStartY) - gridCells(8));
     this.addChild(yardGiantTree);
 
@@ -516,13 +543,7 @@ export class BrushRoad2 extends Level {
     this.addChild(bugCatcher);
 
     const warden = new Bugcatcher({ position: new Vector2(gridCells(50), gridCells(1)) });
-    this.addChild(warden);
-
-    const armobot = new Bot({ position: new Vector2(gridCells(24), gridCells(20)), spriteName: "armobot" });
-    this.addChild(armobot);
-
-    //const encounter = new RandomEncounter({ position: new Vector2(gridCells(26), gridCells(22)), possibleEnemies: [armobot] });
-    //this.addChild(encounter);
+    this.addChild(warden);  
   }
   createFences = (startX: number, startY: number, count: number, offsetX: number, offsetY: number, resource: string) => {
     for (let i = 0; i < count; i++) {

@@ -365,7 +365,7 @@ export class BrushRoad1 extends Level {
         possibleEnemies: ["spiderBot", "armobot"],
         moveLeftRight: 0,
         moveUpDown: 0,
-        hp: (x == (tmpEncounterPositions.length - 1)) ? 30 : 5,
+        hp: (x == (tmpEncounterPositions.length - 1)) ? 30 : 5 + x,
         level: (x == (tmpEncounterPositions.length - 1)) ? 3 : 1
       });
       this.addChild(encounter);

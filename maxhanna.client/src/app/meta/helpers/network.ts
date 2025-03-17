@@ -42,24 +42,8 @@ export function subscribeToMainGameEvents(object: any) {
       object.pollForChanges();
     }
     if (object.mainScene && object.mainScene.level) {
-      if (level.name != "Fight") {
-        object.metaHero.map = level.name ?? "HERO_ROOM";
-        object.metaHero.position = level.getDefaultHeroPosition();
-      } else {
-        let i = 0;
-        for (let pM of object.partyMembers) { //what is object?
-          const hero = object.mainScene.level.children.filter((x: any) => x.objectId == pM.id) as Hero;
-          hero.position = level.getDefaultHeroPosition();
-          hero.position.y = hero.position.y + gridCells(i);
-          i++;
-          pM.position = hero.position.duplicate();
-          const otherHero = object.otherHeroes.find((x: Character) => x.id === pM.id);
-          if (otherHero) {
-            otherHero.position = pM.position.duplicate();
-          }
-        }//end of what is object
-      }
-
+      object.metaHero.map = level.name ?? "HERO_ROOM";
+      object.metaHero.position = level.getDefaultHeroPosition();
       object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
     }
   });
@@ -127,6 +111,7 @@ export function subscribeToMainGameEvents(object: any) {
     console.log(newLevel, params.entranceLevel);
     newLevel.defaultHeroPosition = params.heroPosition;
     events.emit("CHANGE_LEVEL", newLevel);
+    events.emit("SHOW_START_BUTTON");
   });
   events.on("SHOP_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
     object.stopPollingForUpdates = false;
@@ -134,6 +119,7 @@ export function subscribeToMainGameEvents(object: any) {
     const newLevel = object.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
     newLevel.defaultHeroPosition = params.heroPosition;
     events.emit("CHANGE_LEVEL", newLevel);
+    events.emit("SHOW_START_BUTTON");
   });
   events.on("SELECTED_PART", object, (params: { selectedPart: string, selection: string, selectedMetabotId: number }) => {
     const parts = object.mainScene.inventory.parts;
@@ -188,7 +174,7 @@ export function subscribeToMainGameEvents(object: any) {
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "DEPLOY", object.metaHero.map, { "metaHero": `${JSON.stringify(hero)}`, "metaBot": `${JSON.stringify(params.bot)}` });
         object.metaService.updateEvents(metaEvent);
       }
-      await object.reinitializeInventoryData();
+     // await object.reinitializeInventoryData();
     }
   });
 
@@ -196,7 +182,9 @@ export function subscribeToMainGameEvents(object: any) {
     if (params.bot?.id) {
       if (params.bot.heroId === object.metaHero.id) {
         const metaEvent = new MetaEvent(0, params.bot.heroId, new Date(), "CALL_BOT_BACK", object.metaHero.map);
-        object.metaService.updateEvents(metaEvent);
+        object.metaService.updateEvents(metaEvent).then(async (x: any) => {
+          //await object.reinitializeInventoryData();
+        });
       }
       const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.id);
       const hero = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.heroId);
@@ -214,34 +202,21 @@ export function subscribeToMainGameEvents(object: any) {
       if (tgtHeroBot) {
         tgtHeroBot.isDeployed = false;
       }
-
-      await object.reinitializeInventoryData();
     }
   });
 
-  events.on("BOT_DESTROYED", object, ( bot: Bot ) => {
+  events.on("BOT_DESTROYED", object, (bot: Bot) => {
     if (bot?.id) {
-      if (bot.heroId == object.metaHero.id) {
-        object.reinitializeInventoryData();
-      }
-      console.log("bot destroyed, ", bot);
-      //const metaEvent = new MetaEvent(0, params.bot.heroId ?? 0, new Date(), "BOT_DESTROYED", object.metaHero.map);
-      //object.metaService.updateEvents(metaEvent);
-     
-      const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === bot.id);
-      //const hero = object.mainScene?.level?.children?.find((x: any) => x.id === params.bot.heroId);
-      //if (hero) {
-      //  const tgtBot = hero.metabots.find((x: any) => x.id === params.bot.id);
-      //  if (tgtBot) {
-      //    tgtBot.isDeployed = false;
-      //    tgtBot.hp = 0;
-      //    tgtBot.destroy();
-      //  }
+      //if (bot.heroId == object.metaHero.id) {
+      //  object.reinitializeInventoryData();
       //}
+      console.log("bot destroyed, ", bot);
+      const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === bot.id);
+
       if (tgt) {
-        tgt.isDeployed = false;
-        tgt.hp = 0;  
-        tgt.destroy();
+        //tgt.isDeployed = false;
+        tgt.hp = 0;
+        //tgt.destroy();
       }
     }
   });
@@ -294,7 +269,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_ALL_METABOTS", object.metaHero.map, { "heroId": object.metaHero.id + "" });
     object.metaService.updateEvents(metaEvent);
-    object.reinitializeInventoryData();
+    //object.reinitializeInventoryData();
     setActionBlocker(50);
   });
 
@@ -371,11 +346,11 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => { 
+  events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => {
     if (params.source.heroId) {
       console.log("target unlocked", params);
       const metaEvent = new MetaEvent(1, params.source.heroId, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
-      object.metaService.updateEvents(metaEvent); 
+      object.metaService.updateEvents(metaEvent);
     }
   });
 
@@ -395,30 +370,46 @@ export function subscribeToMainGameEvents(object: any) {
       })
     );
   });
-
+  events.on("HIDE_START_BUTTON", object, () => {
+    object.hideStartButton = true;
+  })
+  events.on("SHOW_START_BUTTON", object, () => {
+    object.hideStartButton = false;
+  })
   events.on("START_PRESSED", object, (data: any) => {
-    if (object.blockOpenStartMenu) { 
+    if (object.blockOpenStartMenu) {
       return;
-    } 
+    }
     if (object.isStartMenuOpened) {
-      events.emit("CLOSE_INVENTORY_MENU", data); 
+      events.emit("CLOSE_INVENTORY_MENU", data);
     } else {
       const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject");
       console.log(exits);
-      events.emit("OPEN_START_MENU", exits); 
+      events.emit("OPEN_START_MENU", exits);
     }
   });
 
   events.on("CLOSE_INVENTORY_MENU", object, () => {
     object.isStartMenuOpened = false;
+    events.emit("SHOW_START_BUTTON");
   });
 
   events.on("OPEN_START_MENU", object, () => {
+    object.reinitializeInventoryData();
     object.isStartMenuOpened = true;
+    events.emit("HIDE_START_BUTTON");
   });
 
-  events.on("BLOCK_START_MENU", object, () => { console.log("blocking"); object.blockOpenStartMenu = true; });
-  events.on("UNBLOCK_START_MENU", object, () => { console.log("unblocking"); object.blockOpenStartMenu = false; });
+  events.on("BLOCK_START_MENU", object, () => {
+    console.log("blocking");
+    object.blockOpenStartMenu = true;
+    events.emit("HIDE_START_BUTTON");
+  });
+  events.on("UNBLOCK_START_MENU", object, () => {
+    console.log("unblocking");
+    object.blockOpenStartMenu = false;
+    events.emit("SHOW_START_BUTTON");
+  });
 
   //Reposition Safely handler
   events.on("REPOSITION_SAFELY", object, () => {
@@ -548,17 +539,20 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         }
         if (event.eventType === "BOT_DESTROYED") {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot; 
-          events.emit("BOT_DESTROYED", bot);
-          //if (bot) {
-          //  bot.hp = 0;
-          //  bot.isDeployed = false;
-          //}
-
-          //if (event.heroId == object.metaHero.id) {
-          //  object.reinitializeInventoryData();
-          //}
-
-          //bot?.destroy();
+          //events.emit("BOT_DESTROYED", bot);
+          if (bot) {
+            console.log("foiund bot destroyed", bot);
+            bot.hp = 0;
+            bot.isDeployed = false;
+            bot.destroy();
+            setTimeout(() => {
+              if (bot.heroId == object.metaHero.id) {
+                const metaBot = object.metaHero.metabots.find((bot: MetaBot) => bot.name === bot.name);
+                metaBot.hp = 0;
+                metaBot.isDeployed = false;
+              }
+            }, 50);
+          }
         }
         if (event.eventType === "CALL_BOT_BACK") {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);

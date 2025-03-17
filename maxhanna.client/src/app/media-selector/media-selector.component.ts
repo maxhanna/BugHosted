@@ -135,7 +135,7 @@ export class MediaSelectorComponent implements OnDestroy {
     this.viewMediaChoicesOpen = false;
     this.displaySearch = false;
     if (this.inputtedParentRef) {
-      this.inputtedParentRef.isShowingOverlay = false;
+      this.inputtedParentRef.closeOverlay();
     } 
   }
 }

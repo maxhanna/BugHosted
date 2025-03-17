@@ -63,7 +63,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() expandClickedEvent = new EventEmitter<FileEntry>(); 
   @Output() topicClickedEvent = new EventEmitter<Topic[]>(); 
     
-  async ngOnInit() { 
+  async ngOnInit() {
+    if (this.isLoadedFromURL) {
+      const componentContainers = document.getElementsByClassName("componentContainer");
+      for (let i = 0; i < componentContainers.length; i++) {
+        (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
+      }
+    }
   }
   onInView(isInView: boolean) { 
     if (!this.forceInviewLoad || (this.forceInviewLoad && isInView && this.isComponentHeightSufficient())) {
@@ -127,7 +133,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       } else {
         this.setFileSrcById(fileId);
         this.selectedFile = fileObject;
-      }
+      } 
     } 
   }
   private setFileSrcByParentRefValue(id: number) {
@@ -190,6 +196,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.muteOtherVideos();
       return;
     }
+
+    if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
+      console.log("Getting file stuff");
+      this.fileService.getFileEntryById(fileId).then(res => {
+        if (res) {
+          this.selectedFile = res;
+        }
+      });
+    }
+
     //this.startLoading();
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort();
@@ -383,5 +399,14 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.topicClickedEvent.emit(event);
       console.log(event);
     }
+  }
+  formatFileSize(bytes: number, decimalPoint: number = 2): string {
+    return this.fileService.formatFileSize(bytes, decimalPoint);
+  }
+  getDirectoryName(file: FileEntry): string {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      return parent?.getDirectoryName(file);
+    } else return '.'; 
   }
 }

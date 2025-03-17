@@ -51,6 +51,9 @@
   margin-bottom: 5px;
 }
 
+.commentOptionButton {
+  white-space: nowrap;
+}
 .commentVoteButtons {
   display: inline-block;
 }

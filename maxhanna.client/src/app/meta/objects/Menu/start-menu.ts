@@ -142,7 +142,6 @@ export class StartMenu extends GameObject {
     const backLabel = new SpriteTextString("Back", new Vector2(this.menuLocationX + 5, this.menuLocationY + (10 * 3)), "Black");
     this.addChild(backLabel);
   }
-
   private displayWatchMenu() {
     this.clearMenu();
     let xOffset = this.menuLocationX;
@@ -153,20 +152,41 @@ export class StartMenu extends GameObject {
     const coordLabel = new SpriteTextString("Warp Coords Input", new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
     this.addChild(coordLabel);
 
+    // Track the last displayed exit to compare with the next one
+    let lastExit: { x: number, y: number } | null = null;
+
     for (let exit of this.exits) {
-      yOffset = yOffset + 10; 
+      // If there's a previous exit, check if this one is too close
+      if (lastExit) {
+        const distanceX = Math.abs(exit.position.x - lastExit.x);
+        const distanceY = Math.abs(exit.position.y - lastExit.y);
+
+        // Skip this exit if it's within 16 units of the previous one
+        if (distanceX <= 16 || distanceY <= 16) {
+          continue; // Skip to the next exit
+        }
+      }
+
+      // Display this exit if it's not too close to the last one
+      yOffset = yOffset + 10;
       this.items.push(`Warp to exit: ${exit.position.x}, ${exit.position.y}`);
       const warpLabel = new SpriteTextString(`Warp to exit: ${exit.position.x}, ${exit.position.y}`, new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
       this.addChild(warpLabel);
+      console.log(`${exit.position.x}, ${exit.position.y}`);
+
+      // Update the last exit to the current one
+      lastExit = { x: exit.position.x, y: exit.position.y };
     }
 
-    yOffset = yOffset + 10; 
+    yOffset = yOffset + 10;
     this.items.push("Back");
     const backLabel = new SpriteTextString("Back", new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
     this.addChild(backLabel);
 
     this.blockSelectionTimeout();
   }
+
+
 
   private displayJournalMenu() {
     this.clearMenu();
@@ -226,19 +246,18 @@ export class StartMenu extends GameObject {
     this.selectedMetabot = selectedBot;
     // Initial menu items with parts
     const itemsWithStats: string[] = [];
-    const items: string[] = [(selectedBot.isDeployed ? "Call Back" : "Deploy"), ... this.metabotPartItems, "Back"];
+    const items: string[] = [selectedBot.hp == 0 ? "Dead" : (selectedBot.isDeployed ? "Call Back" : "Deploy"), ... this.metabotPartItems, "Back"];
 
     for (let x = 0; x < items.length; x++) {
-      const partName = items[x];
-      const partLabel = new SpriteTextString(partName, new Vector2(this.menuLocationX + 5, this.menuLocationY + 10 + (20 * x)), "Black");
-      this.addChild(partLabel);
-
+      const item = items[x];
+      const partLabel = new SpriteTextString(item, new Vector2(this.menuLocationX + 5, this.menuLocationY + 10 + (20 * x)), "Black");
+      this.addChild(partLabel); 
+      itemsWithStats.push(item);
       // Add part stats if it's not "Back" and part exists on selected Metabot
-      if (partName !== "Back" && selectedBot) {
+      if (selectedBot) {
         let parts = this.metabotParts.filter(x => x.metabotId === selectedBot.id);
-        let part = parts.find(x => x.partName === partName);
+        let part = parts.find(x => x.partName === item);
 
-        itemsWithStats.push(partName);
         if (part) {
           // Stats to insert directly after part name
           const partStats = `${part.skill.name} ${part.damageMod} ${getAbbrTypeLabel(part.skill.type)}`;
@@ -247,10 +266,7 @@ export class StartMenu extends GameObject {
           const statsLabel = new SpriteTextString(partStats, new Vector2(this.menuLocationX + 20, this.menuLocationY + 20 + (20 * x)), "Black");
           this.addChild(statsLabel);
         }
-      }
-      else if (partName === "Back") {
-        itemsWithStats.push(partName);
-      }
+      } 
     }
 
     // Update items with the modified list containing stats and set selector position
@@ -308,7 +324,7 @@ export class StartMenu extends GameObject {
       this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
     } else if (this.items.length > 0) {
       // Original increment logic
-      this.currentlySelectedId = (this.currentlySelectedId > (this.selectedMetabot ? this.metabotPartItems.length - 1 : this.items.length - 2) ? 0 : ++this.currentlySelectedId);
+      this.currentlySelectedId = (this.currentlySelectedId > this.items.length - 2 ? 0 : ++this.currentlySelectedId);
       this.selectorSprite.position.y = 30 + (this.currentlySelectedId * (this.selectedMetabot && !this.selectedPart ? 20 : 10));
     }
   }
@@ -329,7 +345,7 @@ export class StartMenu extends GameObject {
     } else if (this.items.length > 1) {
       // Original decrement logic
       this.blockClearWarpInput = false;
-      this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.selectedMetabot ? this.metabotPartItems.length : this.items.length - 1 : --this.currentlySelectedId);
+      this.currentlySelectedId = (this.currentlySelectedId == 0 ? this.items.length - 1 : --this.currentlySelectedId);
       this.selectorSprite.position.y = 30 + (this.currentlySelectedId * (this.selectedMetabot && !this.selectedPart ? 20 : 10));
     }
   }
@@ -337,6 +353,7 @@ export class StartMenu extends GameObject {
   private handleKeyboardInput(root: GameObject, input: Input) {  
     if (input?.verifyCanPressKey()) {
       if (input?.keys["Space"] && !this.blockSelection) {
+        console.log(this.items, this.items[this.currentlySelectedId]);
         if (this.items[this.currentlySelectedId] === "Exit") {
           events.emit("START_PRESSED");
         }
@@ -360,6 +377,10 @@ export class StartMenu extends GameObject {
           console.log("Warping to ", x, y);
           events.emit("START_PRESSED");
           events.emit("WARP", { x: x, y: y });
+        } 
+        else if (this.items[this.currentlySelectedId] === "Dead") {
+          events.emit("ALERT", "Repair the bot to deploy it first.");
+          this.blockSelectionTimeout();
         }
         else if (this.items[this.currentlySelectedId] === "Call Back" && this.selectedMetabot) {
           if (this.selectedMetabot != undefined) {
@@ -398,16 +419,18 @@ export class StartMenu extends GameObject {
           }
         }
         else if (this.items[this.currentlySelectedId] === "Back" || (this.selectedMetabot && this.currentlySelectedId == this.metabotPartItems.length)) {
-          if (this.selectedMetabot && !this.selectedMetabotId) {
+          console.log("here for some reason");
+          if (this.selectedMetabot && !this.selectedMetabotId && this.selectedMetabot.hp > 0) {
             this.displayMetabots();
           } else if (this.selectedMetabotId && this.selectedPart && this.selectedMetabotForParts) {
             this.displayMetabot(this.selectedMetabotForParts);
           }
           else {
             this.displayStartMenu();
-          }
+          } 
+          this.blockSelectionTimeout();
         } else if (this.items[this.currentlySelectedId] === "Meta-Bots") {
-          this.displayMetabots();
+          this.displayMetabots(); 
         }
         else if (this.selectedMetabot && (this.metabotPartItems[this.currentlySelectedId] === LEGS
           || this.metabotPartItems[this.currentlySelectedId] === LEFT_ARM
@@ -417,6 +440,7 @@ export class StartMenu extends GameObject {
         }
         else if (this.isDisplayingMetabots) {
           const selection = this.items[this.currentlySelectedId];
+          console.log(selection);
           const bot = this.inventoryItems.find(ii => ii.name === selection);
           if (bot) {
             console.log(bot);
@@ -427,7 +451,7 @@ export class StartMenu extends GameObject {
             this.selectedMetabot = stats;
             if (this.selectedMetabot) {
               this.displayMetabot(this.selectedMetabot);
-            }
+            } 
           }
         }
         else if (this.selectedPart) {
@@ -438,8 +462,7 @@ export class StartMenu extends GameObject {
           }
         }
       }
-      else {
-        console.log("handling arrows");
+      else { 
         if (input?.getActionJustPressed("ArrowUp")
           || input?.heldDirections.includes("UP")
           || input?.getActionJustPressed("KeyW")) {

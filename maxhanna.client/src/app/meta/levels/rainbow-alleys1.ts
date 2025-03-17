@@ -128,12 +128,12 @@ export class RainbowAlleys1 extends Level {
     const salesMan = new Salesman(
       {
         position: new Vector2(gridCells(8), gridCells(10) - 0.005),
-        heroPosition: new Vector2(gridCells(8), gridCells(11)),
+        heroPosition: new Vector2(gridCells(8), gridCells(12)),
         entranceLevel: tmpLvl,
         items: maskSelection
       });
     if (salesMan.body) { 
-      salesMan.body.offsetY += 10;
+      salesMan.body.offsetY -= 10; 
     }
     this.addChild(salesMan); 
     const stand = new Stand(gridCells(5), gridCells(10));
@@ -225,7 +225,7 @@ export class RainbowAlleys1 extends Level {
     const stoneCircle = new StoneCircle(gridCells(25), gridCells(13));
     this.addChild(stoneCircle);
 
-    const fountain = new Fountain(gridCells(25), gridCells(13));
+    const fountain = new Fountain(gridCells(23), gridCells(13)); 
     this.addChild(fountain);
 
     const undergroundentrance = new Sprite(
@@ -265,11 +265,7 @@ export class RainbowAlleys1 extends Level {
     this.addChild(sign2);
 
 
-    //NPCs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
-
-    const spiderBot = new Spiderbot({ position: new Vector2(gridCells(24), gridCells(20)), hp: 5, level: 5 });
-    const armobot = new Armobot({ position: new Vector2(gridCells(28), gridCells(20)), hp: 5, level: 5 });
-
+    //NPCs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO 
     const bystander = new Bugcatcher({ position: new Vector2(gridCells(19), gridCells(8)), moveUpDown: 4, moveLeftRight: 4 });
     this.addChild(bystander); 
 

@@ -25,7 +25,7 @@ export class BrushShop1 extends Level {
     new InventoryItem({ id: 1, name: "Bee", image: "botFrame7", category: "botFrame", stats: { hp: 100, type: SkillType.SPEED } }),
   ];
   salesman = new Salesman({
-    position: new Vector2(gridCells(5), gridCells(5)),
+    position: new Vector2(gridCells(6), gridCells(5)),
     heroPosition: new Vector2(gridCells(3), gridCells(5)),
     entranceLevel: this,
     items: storyFlags.contains(GOT_FIRST_METABOT) ? [] : this.firstBotSelection,
@@ -182,10 +182,7 @@ export class BrushShop1 extends Level {
         }
       }
     }
-
-    if (this.salesman.body) {
-      this.salesman.body.position.x += 16;
-    }
+     
     if (!storyFlags.contains(GOT_WATCH)) {
       this.salesman.textContent = [
         {
@@ -198,17 +195,7 @@ export class BrushShop1 extends Level {
           requires: [TALKED_TO_BRUSH_SHOP_OWNER0],
         } as Scenario,
       ];
-      this.invisibleSalesman.textContent = [
-        {
-          string: ["Top of the morning to you! Did you get a Meta-Bot yet?"],
-          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER0,
-          bypass: [TALKED_TO_BRUSH_SHOP_OWNER0]
-        } as Scenario,
-        {
-          string: ["Ah, I see. Soon, then, I know it!"],
-          requires: [TALKED_TO_BRUSH_SHOP_OWNER0],
-        } as Scenario,
-      ];
+      this.invisibleSalesman.textContent = this.salesman.textContent;
     } else {
       this.salesman.textContent = [
         {
@@ -224,20 +211,7 @@ export class BrushShop1 extends Level {
           bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
         } as Scenario,
       ];
-      this.invisibleSalesman.textContent = [
-        {
-          string: ["Ahh, what a beautiful morning! Hey kid, are you here to repair your dads meta-bots?"],
-          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER1,
-          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, TALKED_TO_BRUSH_SHOP_OWNER1, GOT_FIRST_METABOT],
-          requires: [GOT_WATCH]
-        } as Scenario,
-        {
-          string: ["Oh? Youre here to buy your FIRST Meta-Bot?!!"],
-          addsFlag: TALKED_TO_BRUSH_SHOP_OWNER2,
-          requires: [TALKED_TO_BRUSH_SHOP_OWNER1],
-          bypass: [TALKED_TO_BRUSH_SHOP_OWNER2, GOT_FIRST_METABOT]
-        } as Scenario,
-      ];
+      this.invisibleSalesman.textContent = this.salesman.textContent;
     }  
   
 

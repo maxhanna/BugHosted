@@ -26,7 +26,7 @@ export class Salesman extends Npc {
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images[params.skin ?? "salesPerson"],
-        position: new Vector2(-7, -20),
+        position: new Vector2(0, 0),
         frameSize: new Vector2(32, 32),
         hFrames: 4,
         vFrames: 4,
@@ -40,17 +40,18 @@ export class Salesman extends Npc {
           })
       })
     }) 
-    this.name = "Sales Person";  
+    this.name = "Sales Person"; 
     this.textPortraitFrame = 3;
     this.entranceLevel = params.entranceLevel;
     this.heroPosition = params.heroPosition; 
     this.items = params.items;
-    this.isSolid = true;
+    this.isSolid = !params.preventDraw;
 
     if (!this.preventDraw) { 
       const shadow = new Sprite({
         resource: resources.images["shadow"],
-        position: new Vector2((this.body?.position.x ?? 0) + 5, -16),
+        position: new Vector2(0, 0),
+        offsetX: -10, 
         scale: new Vector2(1.25, 1),
         frameSize: new Vector2(32, 32),
       });

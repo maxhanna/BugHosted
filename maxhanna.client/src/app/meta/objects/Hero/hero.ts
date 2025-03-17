@@ -3,7 +3,7 @@ import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
-import { DOWN, gridCells, snapToGrid } from "../../helpers/grid-cells";
+import { DOWN, gridCells } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { bodyAtSpace, isObjectNearby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
@@ -11,7 +11,6 @@ import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { events } from "../../helpers/events";
-import { Bot } from "../Bot/bot";
 
 export class Hero extends Character {
   metabots?: MetaBot[];
@@ -28,7 +27,7 @@ export class Hero extends Character {
         resource: resources.images["hero"],
         name: "hero",
         position: new Vector2(-8, -23),
-        frameSize: new Vector2(32, 32), 
+        frameSize: new Vector2(32, 32),
         offsetY: -10,
         hFrames: 4,
         vFrames: 5,
@@ -45,15 +44,15 @@ export class Hero extends Character {
             pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
           }),
         colorSwap: params.colorSwap,
-        scale: params.scale, 
+        scale: params.scale,
       })
-    }) 
-/*   console.log("New Hero : ", this);*/
+    })
+    /*   console.log("New Hero : ", this);*/
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
-    this.lastPosition = this.position.duplicate(); 
+    this.lastPosition = this.position.duplicate();
     this.speed = params.speed ?? 1;
-    this.mask = params.mask; 
+    this.mask = params.mask;
     this.itemPickupTime = 0;
     this.scale = params.scale ?? new Vector2(1, 1);
     this.metabots = params.metabots ?? [];
@@ -66,11 +65,11 @@ export class Hero extends Character {
       frameSize: new Vector2(32, 32),
     });
     shadow.drawLayer = "FLOOR";
-    this.addChild(shadow); 
+    this.addChild(shadow);
   }
-   
-   
-  override ready() { 
+
+
+  override ready() {
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
         this.isLocked = true;
@@ -90,14 +89,13 @@ export class Hero extends Character {
         }
         else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", isObjectNearby(this));
-        } 
+        }
       });
-      events.on("CLOSE_HERO_DIALOGUE", this, () => { 
+      events.on("CLOSE_HERO_DIALOGUE", this, () => {
         this.isLocked = false;
         events.emit("END_TEXT_BOX");
       });
-      events.on("WARP", this, (params: { x: string, y: string }) => {
-
+      events.on("WARP", this, (params: { x: string, y: string }) => { 
         const warpPosition = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
         const isBodyAtSpace = bodyAtSpace(this.parent, warpPosition);
         if (isBodyAtSpace) {
@@ -109,9 +107,9 @@ export class Hero extends Character {
       });
     }
   }
-   
-   
- 
+
+
+
   override getContent() {
     return {
       portraitFrame: 0,
@@ -119,5 +117,5 @@ export class Hero extends Character {
       canSelectItems: true,
       addsFlag: undefined
     }
-  } 
+  }
 }

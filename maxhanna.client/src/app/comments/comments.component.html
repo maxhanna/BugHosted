@@ -18,7 +18,7 @@
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
-      <div class="commentDate">{{daysSinceDate(comment.date)}}</div>
+      <div class="commentDate">{{getUtcTimeSince(comment.date)}}</div>
       <div class="commentReaction">
         <app-reaction [commentId]="comment.id"
                       [component]="comment"
@@ -27,12 +27,9 @@
                       [currentReactions]="comment.reactions">
         </app-reaction>
       </div>
-      <button class="commentOptionButton" (click)="showOptionsPanel(comment)" *ngIf="comment.user?.id == inputtedParentRef?.user?.id">
+      <button class="commentOptionButton" (click)="showOptionsPanel(comment)">
         ⚙️
-      </button>
-      <button class="commentOptionButton" (click)="quote(comment)">
-        🗨️Quote
-      </button>
+      </button> 
       <div class="cursorPointer smallFont commentCountWrapper" *ngIf="!comment_id" (click)="showSubComments(comment.id)" title="Reply to this comment">
         <button [id]="'commentIdCount' + comment.id">Reply</button>
       </div>
@@ -117,6 +114,9 @@
       <span class="commentEditSpans commentCancelEdit" [style.display]="editingComments.includes(optionsComment.id) ? 'block' : 'none'" [id]="'commentEditButtonSpan' + optionsComment.id">❌</span>
       ✏️ {{editingComments.includes(optionsComment.id) ? 'Cancel ': ''}}Edit
     </button>
+    <button class="commentOptionButton" (click)="quote(optionsComment)">
+      Quote
+    </button>
   </div>
   <div class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
@@ -125,6 +125,14 @@
       </div>
       <div class="optionsStatsDescription">
         {{optionsComment.id}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">
+        Date:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsComment.date}}
       </div>
     </div>
   </div>

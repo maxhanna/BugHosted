@@ -110,7 +110,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.parent) {
       this.parentRef = this.parent;
     }
-
+    this.parent?.addResizeListener();
     this.getStories().then(res => {
       if (this.storyId) {
         if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {

@@ -1,11 +1,11 @@
-<div style="width:100%;position: absolute;top:0px;left:0px;" *ngIf="isLoadedFromURL">
+<div *ngIf="isLoadedFromURL" class="fileDataDiv fileDataComponentBackground">
   <div class="componentTitle">
     <div class="closeButton" (click)="remove_me('MediaViewerComponent');"></div>
-    <div class="componentTitle"><span><a href="https://bughosted.com">BugHosted</a> Media Viewer</span></div>
+    <div class="componentTitle"><span><a href="https://bughosted.com">BugHosted</a> Media</span></div>
   </div>
 </div>
 <div [id]="'mediaContainer'+fileId"
-     class="mediaContainerWrapperDiv"
+     [class]="'mediaContainerWrapperDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
      [style.margin-top]="isLoadedFromURL ? '60px' : '0px'"
      appInView
      (inView)="onInView($event)">
@@ -17,9 +17,10 @@
     <audio #fullscreenAudio class="fullscreen-media" controls [autoplay]="false"></audio>
     <div class="shrinkMediaDiv cursorPointerUnderlined" (click)="shrink()">Shrink {{fileType}} ▢</div>
   </div>
-  <div class="mediaContainerDiv" [style.height]="selectedFileSrc == '' ? (file && file.height ? file.height : 250)+ 'px' : ''">
+  <div [class]="'mediaContainerDiv ' + (isLoadedFromURL ? 'fileDataDiv' : '')"
+       [style.height]="selectedFileSrc == '' ? (file && file.height ? file.height : 250)+ 'px' : ''">
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
-      <span class="clickToLoadText">Click here to load media</span> 
+      <span class="clickToLoadText">Click here to load media</span>
     </div>
     <div *ngIf="isLoading && autoload" class="loading-spinner">Loading...</div>
     <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
@@ -53,41 +54,190 @@
         Your browser does not support the audio element.
       </audio>
       <div *ngIf="otherFileExtensionsIncludes(this.selectedFileExtension)">
-      <div class="filetype" *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension) && !otherFileExtensionsIncludes(this.selectedFileExtension)">
-        <span class="cursorPointerUnderlined" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ◻️</span>
-      </div>
-      <div class="filetype" *ngIf="displayExtraInfo">
-        <span (click)="createUserProfileComponent(selectedFile?.user)"
-              class="usernameProfileLink cursorPointerUnderlined">
-          {{selectedFile?.user?.username}}
-        </span>
-        <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>
-      </div>
-      <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">
-        <button (click)="copyLink()" title="Share Link" *ngIf="displayExtraInfo">📋Share</button>
-        <button (click)="download(selectedFile!, true)" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">📥Download</button>
+        <div class="filetype" *ngIf="displayExpander && !audioFileExtensionsIncludes(this.selectedFileExtension) && !otherFileExtensionsIncludes(this.selectedFileExtension)">
+          <span class="cursorPointerUnderlined" (click)="expandFile({url: selectedFile, extension: selectedFileExtension})" title="Expand">Expand {{fileType}} ◻️</span>
+        </div>
+        <div class="filetype" *ngIf="displayExtraInfo">
+          <span (click)="createUserProfileComponent(selectedFile?.user)"
+                class="usernameProfileLink cursorPointerUnderlined">
+            {{selectedFile?.user?.username}}
+          </span>
+          <span class="notification">{{ selectedFile?.date | date: 'MMMM d, y h:mm a' }}</span>
+        </div>
+        <div class="filetype" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">
+          <button (click)="copyLink()" title="Share Link" *ngIf="displayExtraInfo">📋Share</button>
+          <button (click)="download(selectedFile!, true)" *ngIf="displayExtraInfo || otherFileExtensionsIncludes(this.selectedFileExtension)">📥Download</button>
+        </div>
       </div>
     </div>
   </div>
-</div> 
-<app-topics *ngIf="showTopics"
-            [isDropdown]="false"
-            [user]="inputtedParentRef?.user ?? parentRef?.user"
-            [parent]="inputtedParentRef ?? parentRef"
-            [attachedTopics]="selectedFile?.topics"
-            (topicClicked)="topicClicked($event)">
-</app-topics>
-<div style="width:100%">
-  <app-comments *ngIf="(selectedFile || file) && showCommentSection"
-                [inputtedParentRef]="inputtedParentRef"
-                [type]="'File'"
-                [showComments]="showCommentSectionOnLoad"
-                [showCommentsHeader]="showCommentSectionHeader"
-                [component_id]="selectedFile?.id || file?.id ?? 0"
-                [component]="selectedFile || file"
-                [commentList]="selectedFile?.fileComments || file?.fileComments ?? []"
-                (commentAddedEvent)="commentAddedEvent($event)"
-                (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
-  </app-comments>
+  <app-topics *ngIf="showTopics"
+              [isDropdown]="false"
+              [user]="inputtedParentRef?.user ?? parentRef?.user"
+              [parent]="inputtedParentRef ?? parentRef"
+              [attachedTopics]="selectedFile?.topics"
+              (topicClicked)="topicClicked($event)">
+  </app-topics>
+  <div style="width:100%">
+    <div *ngIf="isLoadedFromURL && selectedFile && (selectedFile.fileName || selectedFile.givenFileName)" class="fileDataDiv">
+      <div class="optionsStatsWrapperDiv">
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">Id:</div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.id}}
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">
+            {{selectedFile.isFolder ? 'Folder' : 'File'}} Name:
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.fileName}}
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.givenFileName">
+          <div class="optionsStatsHeader">
+            Given File Name:
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.givenFileName}}
+          </div>
+        </div>
+        <div class="optionsStatsDiv">
+          <div class="optionsStatsHeader">
+            Topics:
+          </div>
+          <div class="optionsStatsDescription">
+            <span *ngFor="let topic of selectedFile.topics" class="matchingTopic">
+              {{topic.topicText}} 
+            </span>
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.fileType || selectedFile.isFolder">
+          <div class="optionsStatsHeader">
+            Type:
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.fileType?.toUpperCase()}} {{selectedFile.isFolder ? 'Folder' : ''}}
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.fileSize">
+          <div class="optionsStatsHeader">
+            Filesize:
+          </div>
+          <div class="optionsStatsDescription">
+            {{formatFileSize(selectedFile.fileSize)}}
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.width">
+          <div class="optionsStatsHeader">
+            Size (width/height):
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.width}}x{{selectedFile.height}} px
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.directory">
+          <div class="optionsStatsHeader">
+            Directory:
+          </div>
+          <div class="optionsStatsDescription">
+            {{getDirectoryName(selectedFile)}}
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.directory && !selectedFile.isFolder">
+          <div class="optionsStatsHeader">
+            Direct Link:
+          </div>
+          <div class="optionsStatsDescription">
+            <a href="https://bughosted.com/assets/Uploads/{{getDirectoryName(selectedFile) != '.' ? getDirectoryName(selectedFile) : ''}}{{selectedFile.fileName}}" target="_blank">
+              https://bughosted.com/assets/Uploads/{{getDirectoryName(selectedFile) != '.' ? getDirectoryName(selectedFile) : ''}}{{selectedFile.fileName}}
+            </a>
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.visibility">
+          <div class="optionsStatsHeader">
+            Visibility:
+          </div>
+          <div class="optionsStatsDescription">
+            <span>
+              <select [value]="selectedFile.visibility"
+                      *ngIf="selectedFile.user?.id == parentRef?.user?.id || selectedFile.user?.id == inputtedParentRef?.user?.id" disabled>
+                <option value="Public" [selected]="selectedFile.visibility == 'Public'">Public</option>
+                <option value="Private" [selected]="selectedFile.visibility == 'Private'">Private</option>
+              </select>
+              <span *ngIf="selectedFile.user?.id != parentRef?.user?.id && selectedFile.user?.id != inputtedParentRef?.user?.id">{{selectedFile.visibility}}</span>
+              <span *ngIf="selectedFile.visibility == 'Private'"
+                    class="private"
+                    title="This is a private file.">🔒</span>
+            </span>
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.sharedWith">
+          <div class="optionsStatsHeader">
+            Shared With:
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.sharedWith}}
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.lastAccess">
+          <div class="optionsStatsHeader">
+            Last Access:
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.lastAccess | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(selectedFile.lastAccess)}})
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.date">
+          <div class="optionsStatsHeader">
+            Created:
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.date | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(selectedFile.date, 'minute')}})
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.user">
+          <div class="optionsStatsHeader">
+            Created By:
+          </div>
+          <div class="optionsStatsDescription">
+            <app-user-tag [user]="selectedFile.user"
+                          [inputtedParentRef]="parentRef ?? inputtedParentRef"
+                          [displayMiniTag]="true"></app-user-tag>
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.lastUpdatedBy && selectedFile.lastUpdated !== selectedFile.date">
+          <div class="optionsStatsHeader">
+            Updated:
+          </div>
+          <div class="optionsStatsDescription">
+            {{selectedFile.lastUpdated | date: 'y/MM/d HH:mm'}} ({{daysSinceDate(selectedFile.lastUpdated, 'minute')}})
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="selectedFile.lastUpdatedBy">
+          <div class="optionsStatsHeader">
+            Updated By:
+          </div>
+          <div class="optionsStatsDescription">
+            <app-user-tag [user]="selectedFile.lastUpdatedBy"
+                          [inputtedParentRef]="parentRef ?? inputtedParentRef"
+                          [displayMiniTag]="true"></app-user-tag>
+          </div>
+        </div>
+      </div>
+    </div>
+    <app-comments *ngIf="(selectedFile || file) && showCommentSection"
+                  [inputtedParentRef]="inputtedParentRef"
+                  [type]="'File'"
+                  [showComments]="showCommentSectionOnLoad"
+                  [showCommentsHeader]="showCommentSectionHeader"
+                  [component_id]="selectedFile?.id || file?.id ?? 0"
+                  [component]="selectedFile || file"
+                  [commentList]="file?.fileComments ?? selectedFile?.fileComments ?? []"
+                  (commentAddedEvent)="commentAddedEvent($event)"
+                  (commentHeaderClickedEvent)="commentHeaderClickedEvent.emit($event)">
+    </app-comments>
 
+  </div>
 </div>

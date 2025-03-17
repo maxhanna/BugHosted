@@ -181,7 +181,7 @@ namespace maxhanna.Server.Controllers
 					{
 						countCmd.Parameters.AddWithValue(param.Key, param.Value);
 					}
-					Console.WriteLine(countCmd.CommandText);
+					//Console.WriteLine(countCmd.CommandText);
 					storyResponse.TotalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 				}
 				using (var cmd = new MySqlCommand(sql, conn))

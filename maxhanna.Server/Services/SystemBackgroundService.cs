@@ -1,6 +1,7 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
 using MySqlConnector;
 using Newtonsoft.Json;
+using System.Data;
 using System.Text;
 
 namespace maxhanna.Server.Services
@@ -12,6 +13,7 @@ namespace maxhanna.Server.Services
 		private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
 		private readonly string _connectionString;
 		private readonly HttpClient _httpClient;
+		private readonly IConfiguration _config;
 		private DateTime _lastDailyTaskRun = DateTime.MinValue;
 		private DateTime _lastCoinFetchRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
 		private DateTime _lastExchangeRateFetchRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
@@ -19,6 +21,7 @@ namespace maxhanna.Server.Services
 		public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config)
 		{
 			_logger = logger;
+			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
 			_apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
 			_httpClient = new HttpClient();
@@ -38,6 +41,7 @@ namespace maxhanna.Server.Services
 				{
 					await FetchAndStoreCoinValues();
 					await AssignTrophies();
+				//	await PostRandomMemeToTwitter();
 					_lastCoinFetchRun = DateTime.Now;
 				}
 
@@ -60,6 +64,87 @@ namespace maxhanna.Server.Services
 				await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
 			}
 		}
+		private async Task PostRandomMemeToTwitter()
+		{
+			using var conn = new MySqlConnection(_connectionString);
+			await conn.OpenAsync();
+
+			string query = @"
+        SELECT file_name, folder_path, description 
+        FROM file_uploads 
+        WHERE is_folder = 0
+        AND LOWER(folder_path) LIKE '%meme%' 
+        AND file_size > 0 AND file_size < 300000 
+        ORDER BY RAND() LIMIT 1";
+
+			using var cmd = new MySqlCommand(query, conn);
+			using var reader = await cmd.ExecuteReaderAsync();
+
+			if (!reader.HasRows)
+			{
+				_logger.LogInformation("No memes found.");
+				return;
+			}
+
+			await reader.ReadAsync();
+			string fileName = reader.GetString("file_name");
+			string folderPath = reader.GetString("folder_path");
+			string description = reader.IsDBNull("description") ? "Check this meme!" : reader.GetString("description");
+
+			var twitterService = new TwitterService(
+					_config.GetValue<string>("X:ClientId"),
+					_config.GetValue<string>("X:ClientSecret"),
+					_config.GetValue<string>("X:AccessTokenSecret")
+			);
+
+			// Step 1: Get the authorization URL for user login to get the authorization code
+			string authorizationUrl = await twitterService.GetAuthorizationUrlAsync();
+			Console.WriteLine("Visit this URL and authorize the app: " + authorizationUrl);
+
+			// After the user visits the URL and gives authorization, they will be redirected to your redirect_uri with a code parameter.
+			// You need to capture this code.
+			string authorizationCode = "CAPTURED_AUTHORIZATION_CODE_FROM_REDIRECT";
+
+			// Step 2: Exchange the authorization code for an access token
+			string accessToken = await twitterService.GetAccessTokenAsync(authorizationCode, "bughosted.com");
+
+			if (string.IsNullOrEmpty(accessToken))
+			{
+				_logger.LogError("Failed to retrieve access token.");
+				return;
+			}
+
+			// Step 3: Post a tweet with an image URL (if media upload is not required)
+			string imageUrl = $"https://bughosted.com/assets/Uploads/Meme/{folderPath}/{fileName}";
+
+			bool tweetPosted = await twitterService.PostTweetWithImage(accessToken, description, imageUrl);
+			if (tweetPosted)
+			{
+				_logger.LogInformation("Tweet posted successfully!");
+			}
+			else
+			{
+				_logger.LogError("Failed to post tweet.");
+			}
+
+			// Step 4: If media upload is required (optional - this part is for uploading media directly to Twitter)
+			string mediaPath = Path.Combine("path_to_your_local_image_folder", fileName); // Ensure the image path is correct
+
+			string mediaId = await twitterService.UploadMedia(accessToken, mediaPath);
+			if (!string.IsNullOrEmpty(mediaId))
+			{
+				bool mediaTweetPosted = await twitterService.PostTweetWithMedia(accessToken, description, mediaId);
+				if (mediaTweetPosted)
+				{
+					_logger.LogInformation("Tweet with media posted successfully!");
+				}
+				else
+				{
+					_logger.LogError("Failed to post tweet with media.");
+				}
+			}
+		}
+
 		private async Task UpdateLastBTCWalletInfo()
 		{
 			try

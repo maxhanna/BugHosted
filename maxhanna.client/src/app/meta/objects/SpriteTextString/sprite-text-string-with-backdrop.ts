@@ -52,12 +52,12 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     } else {
       this.getPortraitOfNonPortraitObject(config);
     }
-    events.emit("BLOCK_START_MENU");
+    events.emit("BLOCK_START_MENU"); 
   } 
 
   override destroy() {
     super.destroy();
-    events.emit("UNBLOCK_START_MENU");
+    events.emit("UNBLOCK_START_MENU");  
   }
 
 

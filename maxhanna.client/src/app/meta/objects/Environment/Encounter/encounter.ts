@@ -26,28 +26,7 @@ export class RandomEncounter extends Npc {
     this.hp = params.hp ?? 100;
     this.level = params.level ?? 1;
     this.possibleEnemies = params.possibleEnemies;
-    this.enemy = this.spawnEnemy(); 
-    //setInterval(() => { 
-    //  const currentPosition = this.position;
-    //  this.directionIndex++;
-    //  if (this.directionIndex == 4) {
-    //    this.directionIndex = 0;
-    //  }
-    //  if (this.directionIndex == 0) {
-    //    this.position = new Vector2(currentPosition.x + gridCells(this.moveLeftRight ? 1 : 0), currentPosition.y);
-    //  }
-    //  if (this.directionIndex == 1) {
-    //    this.position = new Vector2(currentPosition.x, currentPosition.y + gridCells(this.moveUpDown ? 1 : 0));
-    //  }
-    //  if (this.directionIndex == 2) {
-    //    this.position = new Vector2(currentPosition.x - gridCells(this.moveLeftRight ? 1 : 0), currentPosition.y);
-    //  }
-    //  if (this.directionIndex == 3) {
-    //    this.position = new Vector2(currentPosition.x, currentPosition.y - gridCells(this.moveUpDown ? 1 : 0));
-    //  }
-
-    //  // Update the destination position, assuming gridCells takes an x,y coordinate and returns a new position
-    //}, 5000); // Repeat every 5 seconds
+    this.enemy = this.spawnEnemy();  
     this.isSolid = false; 
   }
 
@@ -61,9 +40,10 @@ export class RandomEncounter extends Npc {
       level: this.level,
       id: Math.floor(Math.random() * (9999 + 1000)),
       isDeployed: true,
+      isSolid: true,
       isEnemy: true,
       spriteName: randomSprite,
-    });
+    }); 
     this.enemy.destinationPosition = this.enemy.position;
     events.emit("CREATE_ENEMY", { bot: this.enemy });
     return this.enemy;
@@ -71,8 +51,8 @@ export class RandomEncounter extends Npc {
 
   override ready() {
     events.on("BOT_DESTROYED", this, (params: Bot ) => {
-      console.log("bot was destroyed, ", params);
       if (params?.heroId === this.id) {
+        console.log("bot was destroyed, ", params);
         setTimeout(() => {
           this.spawnEnemy()
         }, 15000);

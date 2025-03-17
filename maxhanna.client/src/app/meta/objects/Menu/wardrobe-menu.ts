@@ -69,7 +69,12 @@ export class WardrobeMenu extends Level {
     this.displayStartMenu();
     this.blockSelectionTimeout(500);
 
-    events.emit("BLOCK_START_MENU"); 
+    events.on("CLOSE_MENUS", this, () => {
+      this.closeWardrobe();
+    });
+    setTimeout(() => { 
+      events.emit("BLOCK_START_MENU"); 
+    }, 200);
     console.log(this.inventoryItems);
   }
 

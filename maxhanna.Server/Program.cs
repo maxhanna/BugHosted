@@ -31,7 +31,7 @@ builder.Services.AddHostedService<NexusAttackBackgroundService>();
 builder.Services.AddHostedService<NexusGoldUpdateBackgroundService>();
 builder.Services.AddHostedService<NexusUnitUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusBuildingUpgradeBackgroundService>();
-builder.Services.AddHostedService<NexusUnitBackgroundService>();
+builder.Services.AddHostedService<NexusUnitBackgroundService>(); 
 builder.Services.AddHostedService<NexusDefenceBackgroundService>();
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
@@ -40,8 +40,7 @@ var defaultApp = FirebaseApp.Create(new AppOptions
 {
 	Credential = GoogleCredential.FromFile("./Properties/bughosted-firebase-adminsdk-yz2go-c8f6d83bb6.json"),
 	ProjectId = "bughosted",
-});
-Console.WriteLine(defaultApp.Name); // "[DEFAULT]" 
+}); 
 var defaultAuth = FirebaseAuth.GetAuth(defaultApp);
 defaultAuth = FirebaseAuth.DefaultInstance;
 
