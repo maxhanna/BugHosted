@@ -5,7 +5,7 @@
   background: var(--secondary-component-background-color);
   border: var(--main-border);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  width: 99vw;
+  width: CALC(100vw - 4px);
   height: CALC(var(--vh, 1vh) * 100);
   top: 0;
   left: 0;
