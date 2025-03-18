@@ -8,7 +8,9 @@ export class House extends GameObject {
   walls: Set<string> = new Set<string>();
   constructor(x: number, y: number) {
     super({
-      position: new Vector2(x, y), isSolid: true
+      position: new Vector2(x, y),
+      isSolid: true,
+      name: "house"
     })
 
     this.body = new Sprite({

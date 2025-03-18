@@ -26,7 +26,7 @@ export class Hero extends Character {
         objectId: params.id ?? 0,
         resource: resources.images["hero"],
         name: "hero",
-        position: new Vector2(-8, -23),
+        position: new Vector2(-8, 0),
         frameSize: new Vector2(32, 32),
         offsetY: -10,
         hFrames: 4,
@@ -82,8 +82,7 @@ export class Hero extends Character {
       events.on("HERO_MOVEMENT_UNLOCK", this, () => {
         this.isLocked = false;
       });
-      events.on("SELECTED_ITEM", this, (selectedItem: string) => {
-        console.log("selected item", selectedItem);
+      events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
         if (selectedItem === "Party Up") {
           events.emit("PARTY_UP", isObjectNearby(this));
         }

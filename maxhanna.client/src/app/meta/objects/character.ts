@@ -155,11 +155,8 @@ export class Character extends GameObject {
 			this.workOnItemPickup(delta);
 			return;
 		}
-		if (input?.getActionJustPressed("Space") && this.isUserControlled) {
-			//look for an object at the next space (according to where the hero is facing)
-			const objectAtPosition = isObjectNearby(this);
-
-      console.log(objectAtPosition);
+		if (input?.getActionJustPressed("Space") && this.isUserControlled) { 
+			const objectAtPosition = isObjectNearby(this); 
 			if (objectAtPosition) {
 				events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
 			}

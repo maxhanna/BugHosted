@@ -119,8 +119,7 @@ export class Resources {
 
   loadResources() {
     if (this.initialized) return;
-    this.initialized = true;
-    console.log("Loading Metabot resources...");
+    this.initialized = true; 
     Object.keys(this.toLoad).forEach((key: string) => {
       if (!this.images[key]) {
         const img = new Image();

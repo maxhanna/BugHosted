@@ -34,6 +34,7 @@ import { MetaBotPart } from '../../services/datacontracts/meta/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
+import { GameObject } from './objects/game-object';
 
 @Component({
   selector: 'app-meta',
@@ -114,7 +115,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.ctx.save(); //Save the current state for camera offset;
     if (this.mainScene.camera) {
       this.ctx.translate(this.mainScene.camera.position?.x ?? 0, this.mainScene.camera.position?.y ?? 0); //Offset by camera position:
-    }
+    } 
     this.mainScene.drawObjects(this.ctx);
     this.ctx.restore(); //Restore to original state 
     this.mainScene.drawForeground(this.ctx); //Draw anything above the game world

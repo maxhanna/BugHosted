@@ -41811,4 +41811,16 @@
       <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
     </video:video>
   </url>
+  <url>
+    <loc>https://bughosted.com/Social/396</loc>
+    <lastmod>2025-03-18</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Social/397</loc>
+    <lastmod>2025-03-18</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>

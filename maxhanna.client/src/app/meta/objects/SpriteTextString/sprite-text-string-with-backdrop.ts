@@ -181,13 +181,11 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     if (document.activeElement?.id == input?.chatInput.id) { return; } 
 
     if (input?.getActionJustPressed("Space") && !input?.chatSelected) {
-      if (this.showingIndex < this.finalIndex) {
-        //skip text
+      if (this.showingIndex < this.finalIndex) { 
         this.showingIndex = this.finalIndex;
         return;
       }
-      if (this.canSelectItems) {
-        console.log("selected item ");
+      if (this.canSelectItems) { 
         events.emit("SELECTED_ITEM", this.content[this.selectionIndex - (this.objectSubject?.name ? 1 : 0)]);
         this.canSelectItems = false;
       }

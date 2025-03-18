@@ -1,9 +1,7 @@
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { events } from "../helpers/events";
-import { resources } from "../helpers/resources";
 import { Scenario, storyFlags } from "../helpers/story-flags";
-import { Sprite } from "./sprite";
 
 export const BASE = "BASE";
 export const GROUND = "GROUND";
@@ -12,6 +10,7 @@ export const HUD = "HUD";
 
 export class GameObject {
   parent?: any;
+  root?: any;
   children: any = [];
   position: Vector2; 
   hasReadyBeenCalled = false;
@@ -22,7 +21,9 @@ export class GameObject {
   colorSwap?: ColorSwap = undefined;
   preventDraw: boolean = false;
   preventDrawName: boolean = false;
-  name?: string; 
+  name?: string;
+
+  cameraPosition = new Vector2(0,0); 
 
   constructor(params: {
     position: Vector2,
@@ -43,7 +44,12 @@ export class GameObject {
     this.isSolid = params.isSolid ?? false;
     this.textContent = params.textContent;
     this.textPortraitFrame = params.textPortraitFrame;
-    this.name = params.name; 
+    this.name = params.name;
+
+    this.root = this;
+    while (this.root && this.root.parent) {
+      this.root = this.root.parent;
+    }
   }
 
   stepEntry(delta: number, root: any) {
@@ -74,17 +80,28 @@ export class GameObject {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, x: number, y: number) {
+  draw(ctx: CanvasRenderingContext2D, x: number, y: number, force = false) {
     if (this.preventDraw) return;
     const drawPosX = x + this.position.x;
     const drawPosY = y + this.position.y;
-
+      
     this.drawImage(ctx, drawPosX, drawPosY);
+    if (force) { 
+      this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, false)); 
+    }  
+    else {
+      const cameraPos = this.parent?.parent?.metaHero?.position; 
+      const distanceXX = Math.abs(this.position.x - cameraPos?.x);
+      const distanceYX = Math.abs(this.position.y - cameraPos?.y);
+      const discrepancyX = 150;
+      if (distanceXX <= discrepancyX && distanceYX <= discrepancyX) {
+        this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true)); 
+      } 
+    }
+  } 
 
-    this.getOrderedChildrenForDraw().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY));
-  }
-  getOrderedChildrenForDraw() {
-    return [...this.children].sort((a, b) => {
+  sortChildren() {
+    return [...this.children].sort((a, b) => { 
       // Step 1: Prioritize by drawLayer order: BASE < GROUND < FLOOR < all others
       if (a.drawLayer === BASE && b.drawLayer !== BASE) {
         return -1;
@@ -109,9 +126,8 @@ export class GameObject {
 
       // Step 2: If both objects are on the same drawLayer or none of the above, sort by y position
       return a.position.y - b.position.y;
-    });
+    }); 
   }
-
 
 
   drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
@@ -120,7 +136,7 @@ export class GameObject {
 
   addChild(gameObject: GameObject) {
     gameObject.parent = this;
-    this.children.push(gameObject);
+    this.children.push(gameObject); 
   }
 
   removeChild(gameObject: GameObject) {
@@ -128,7 +144,7 @@ export class GameObject {
 
     this.children = this.children.filter((x:any) => {
       return gameObject !== x;
-    });
+    }); 
   }
   getContent() { 
     if (!this.textContent) {

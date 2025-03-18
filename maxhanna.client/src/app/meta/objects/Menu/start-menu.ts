@@ -52,13 +52,6 @@ export class StartMenu extends GameObject {
     this.addChild(background);
     this.addChild(this.selectorSprite);
 
-    const watchSprite = new Sprite({ objectId: 0, resource: resources.images["watch"], frameSize: new Vector2(32, 32), scale: new Vector2(1, 1), position: new Vector2(this.menuLocationX + (this.menuWidth / 2), this.menuLocationY - 5), drawLayer: HUD });
-
-    //const watch = new Watch({ position: new Vector2(this.menuLocationX + (this.menuWidth / 2) - 7, this.menuLocationY + 10), scale: new Vector2(0.95, 1) });
-    this.addChild(watchSprite);
-    //const watch = new Watch({ position: new Vector2(111, 11), scale: new Vector2(0.95, 1) });
-    //this.addChild(watch);
-
 
     if (!storyFlags.contains(GOT_WATCH)) {
       this.regularMenuChoices = this.regularMenuChoices.filter(x => x != "Warping");
@@ -75,6 +68,17 @@ export class StartMenu extends GameObject {
       this.createMenuBorder(this.menuLocationX, 10 + y);
       this.createMenuBorder(this.menuLocationX + 125, 10 + y);
     }
+
+    const watchSprite = new Sprite({
+      objectId: 0,
+      resource: resources.images["watch"],
+      frameSize: new Vector2(32, 32),
+      scale: new Vector2(1, 1),
+      position: new Vector2(this.menuLocationX + (this.menuWidth / 2), this.menuLocationY - 5),
+      drawLayer: HUD
+    });
+    this.addChild(watchSprite);
+
     this.displayStartMenu();
 
     events.on("PRESSED_ESCAPE", this, () => {

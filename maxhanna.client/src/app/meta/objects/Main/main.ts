@@ -9,8 +9,6 @@ import { Level } from "../Level/level";
 import { SpriteTextStringWithBackdrop } from "../SpriteTextString/sprite-text-string-with-backdrop";
 import { MetaHero } from "../../../../services/datacontracts/meta/meta-hero";
 import { Character } from "../character";
-import { Resources } from "../../helpers/resources";
-import { Sprite } from "../sprite";
 
 export class Main extends GameObject {
   level?: Level = undefined;
@@ -19,7 +17,7 @@ export class Main extends GameObject {
   inventory: Inventory;
   heroId?: number;
   metaHero?: MetaHero;
-  hero: Character
+  hero: Character;
 
   constructor(config: { position: Vector2, heroId: number, metaHero: MetaHero, hero: Character }) {
     super({ position: config.position });
@@ -27,14 +25,14 @@ export class Main extends GameObject {
     this.metaHero = config.metaHero;
     this.hero = config.hero;
     this.inventory = new Inventory({ character: this.hero })
-    this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId })
+    this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId }) 
   }
 
   override ready() { 
     this.addChild(this.inventory); 
     //CHANGE LEVEL HANDLER
     events.on("CHANGE_LEVEL", this, (level: Level) => {
-      this.setLevel(level);
+      this.setLevel(level); 
     });
 
     //LAUNCH TEXT BOX HANDLER
@@ -66,7 +64,7 @@ export class Main extends GameObject {
     });
 
   }
-
+ 
   setHeroId(metaHeroId: number) {
     this.heroId = metaHeroId;
     this.camera.heroId = metaHeroId;
@@ -84,11 +82,14 @@ export class Main extends GameObject {
     this.level?.background?.drawImage(ctx, 0, 0);
   }
 
-  drawObjects(ctx: CanvasRenderingContext2D) {
+  drawObjects(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
-      if (child.drawLayer !== "HUD") {
-        child.draw(ctx, 0, 0);
-      }
+   
+     
+        if (child.drawLayer !== "HUD") {
+          child.draw(ctx, 0, 0, true);
+        }
+       
     })
   }
 
