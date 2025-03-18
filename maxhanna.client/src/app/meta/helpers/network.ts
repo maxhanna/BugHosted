@@ -244,9 +244,25 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("WAVE_AT", object, (objectAtPosition: GameObject) => {
+    console.log("waving at ", objectAtPosition, object);
     const msg = `👋 ${(objectAtPosition as Hero).name} 👋`;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": msg })
     object.metaService.updateEvents(metaEvent);
+  });
+
+  events.on("WHISPER_AT", object, ( objectAtPosition: GameObject ) => {
+    if (!objectAtPosition) return;
+    console.log("whispering to ", objectAtPosition, object);
+    const msgContent = object.getChatText();
+    const receiver = (objectAtPosition as Hero).name ?? "Anon";
+    const sender = (object.metaHero as Hero).name ?? "Anon";
+    const msg = `🤫 (${sender}:${receiver}) : ${msgContent} 🤫`;
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "WHISPER", object.metaHero.map, { "sender": sender, "receiver": receiver, "content": msg })
+    object.metaService.updateEvents(metaEvent);
+
+    if (sender === object.metaHero.name) {
+      object.chatInput.nativeElement.value = "";
+    }
   });
 
   events.on("REPAIR_ALL_METABOTS", object, () => {
@@ -554,15 +570,43 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             object.metaService.deleteEvent(event.id);
           }
         }
-        if (event.eventType === "CHAT" && event.data && event.heroId !== object.metaHero.id) {
+        if (event.eventType === "CHAT" && event.data) {
+          let breakOut = false;
+          const content = event.data["content"] ?? '';
           const name = event.data["sender"] ?? "Anon";
-          object.chat.unshift(
-            {
-              hero: event.data["sender"] ?? "Anon",
-              content: event.data["content"] ?? "",
+          if (!content.includes("👋") && event.heroId === object.metaHero.id) {
+            breakOut = true;
+          };
+          if (!breakOut) {
+            object.chat.unshift(
+              {
+                hero: name,
+                content: content,
+                timestamp: new Date()
+              } as MetaChat);
+            object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name));
+          }
+        }
+        if (event.eventType === "WHISPER" && event.data) {
+          let breakOut = false;
+          const content = event.data["content"] ?? '';
+          const senderName = event.data["sender"] ?? "Anon";
+          const receiverName = event.data["receiver"] ?? "Anon";
+          console.log(receiverName, object.metaHero.name)
+          if (receiverName != object.metaHero.name && senderName != object.metaHero.name) {
+            breakOut = true;
+          }
+          console.log(senderName, receiverName, object.metaHero.name, breakOut);
+          if (!breakOut) {
+            object.chat.unshift({
+              hero: senderName,
+              content: content,
               timestamp: new Date()
             } as MetaChat);
-          object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === name))
+            if (senderName === object.metaHero.name || receiverName == object.metaHero.name) {
+              object.setHeroLatestMessage(object.otherHeroes.find((x: Character) => x.name === senderName));
+            }
+          }
         }
       }
     }

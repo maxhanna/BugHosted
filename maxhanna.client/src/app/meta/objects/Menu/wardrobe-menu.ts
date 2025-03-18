@@ -80,7 +80,7 @@ export class WardrobeMenu extends Level {
 
   override step(delta: number, root: GameObject) {
     const input = (root as Main).input as Input;
-    if (Object.values(input.keys).some(value => value === true)) {
+    if (input.heldDirections.length > 0 || Object.values(input.keys).some(value => value === true)) {
       this.handleKeyboardInput(input);
     }
   }

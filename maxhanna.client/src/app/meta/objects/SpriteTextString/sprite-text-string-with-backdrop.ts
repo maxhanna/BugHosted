@@ -51,12 +51,16 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     } else {
       this.getPortraitOfNonPortraitObject(config);
     }
-    events.emit("BLOCK_START_MENU"); 
+    events.emit("BLOCK_START_MENU");
+    events.on("CLOSE_MENUS", this, () => {
+      events.emit("HERO_MOVEMENT_LOCK");
+    });
   } 
 
   override destroy() {
     super.destroy();
-    events.emit("UNBLOCK_START_MENU");  
+    events.emit("UNBLOCK_START_MENU");
+    events.emit("HERO_MOVEMENT_UNLOCK");
   }
 
 
@@ -173,21 +177,23 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     });
   }
 
-  private handleKeyboardInput(input: Input) { 
-    if (input?.getActionJustPressed("Space")) {
+  private handleKeyboardInput(input: Input) {
+    if (document.activeElement?.id == input?.chatInput.id) { return; } 
+
+    if (input?.getActionJustPressed("Space") && !input?.chatSelected) {
       if (this.showingIndex < this.finalIndex) {
         //skip text
         this.showingIndex = this.finalIndex;
         return;
       }
       if (this.canSelectItems) {
-        //console.log(this.content[this.selectionIndex - (subjectName ? 1 : 0)]);
+        console.log("selected item ");
         events.emit("SELECTED_ITEM", this.content[this.selectionIndex - (this.objectSubject?.name ? 1 : 0)]);
         this.canSelectItems = false;
       }
       events.emit("END_TEXT_BOX");
     }
-    if (input?.verifyCanPressKey()) {
+    if (input?.verifyCanPressKey() && !input.chatSelected) {
       if (input?.getActionJustPressed("ArrowUp")
         || input?.heldDirections.includes("UP")
         || input?.getActionJustPressed("KeyW")) {

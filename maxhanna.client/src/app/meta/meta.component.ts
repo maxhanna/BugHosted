@@ -467,13 +467,14 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     });
   }
 
+  getChatText() {
+    return this.chatInput.nativeElement.value;
+  }
 
   lockMovementForChat() {
-    if (document.activeElement != this.chatInput.nativeElement) {
-      events.emit("HERO_MOVEMENT_UNLOCK");
-    } else if (document.activeElement == this.chatInput.nativeElement) {
-      events.emit("HERO_MOVEMENT_LOCK");
-    }
+    console.log("lock movement for chat"); 
+    events.emit("HERO_MOVEMENT_LOCK");
+ 
   }
   async changeColor() {
     this.metaHero.color = this.colorInput.nativeElement.value;

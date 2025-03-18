@@ -83,11 +83,15 @@ export class Hero extends Character {
         this.isLocked = false;
       });
       events.on("SELECTED_ITEM", this, (selectedItem: string) => {
+        console.log("selected item", selectedItem);
         if (selectedItem === "Party Up") {
           events.emit("PARTY_UP", isObjectNearby(this));
         }
         else if (selectedItem === "Wave") {
           events.emit("WAVE_AT", isObjectNearby(this));
+        }
+        else if (selectedItem === "Whisper") {
+          events.emit("WHISPER_AT", isObjectNearby(this));  
         }
       });
       events.on("CLOSE_HERO_DIALOGUE", this, () => {

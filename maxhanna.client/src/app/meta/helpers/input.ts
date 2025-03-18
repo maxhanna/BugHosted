@@ -173,9 +173,10 @@ export class Input {
         this.pressSpace();
     }
   }
-  pressA(sendChat: boolean = true) { 
-    if (sendChat && this.chatInput && document.activeElement === this.chatInput) {
-      events.emit("SEND_CHAT_MESSAGE", this.chatInput.value); 
+  pressA(sendChat: boolean = true) {
+    if (sendChat && this.chatInput && document.activeElement?.id === this.chatInput.id) {
+      events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
+      console.log("pressed a, saending chat");
     }
     else {
       events.emit("SPACEBAR_PRESSED");
