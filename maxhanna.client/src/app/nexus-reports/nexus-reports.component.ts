@@ -209,8 +209,7 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     this.selectedReportIds = updatedSelectedIds;  
   }
   searchReports(user?: User) {
-    if (!user) return;
-    console.log(user);
+    if (!user) return; 
     this.targetUser = user;
     this.userSearchOpen = false;
     if (this.inputtedParentRef) {

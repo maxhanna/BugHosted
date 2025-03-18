@@ -225,8 +225,13 @@ export class RainbowAlleys1 extends Level {
     const stoneCircle = new StoneCircle(gridCells(25), gridCells(13));
     this.addChild(stoneCircle);
 
-    const fountain = new Fountain(gridCells(23), gridCells(13)); 
-    this.addChild(fountain);
+    for (let x = 0; x < 4; x++) {
+      for (let y = 0; y < 2; y++) {
+        const fountain = new Fountain({ position: new Vector2(gridCells(26 - x), gridCells(13 - y)), preventDraw: !(x == 3 && y == 0) });
+        this.addChild(fountain);
+      }
+    }
+   
 
     const undergroundentrance = new Sprite(
       {

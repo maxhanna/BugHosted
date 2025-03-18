@@ -75,8 +75,7 @@ export class Inventory extends GameObject {
     });
 
     events.on("OPEN_START_MENU", this, (data: Exit[]) => {
-      if (this.closeStartMenu()) return;
-      
+      if (this.closeStartMenu()) return; 
       this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts, exits: data });
       this.addChild(this.startMenu);  
       events.emit("HERO_MOVEMENT_LOCK"); 

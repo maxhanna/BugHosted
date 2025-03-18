@@ -1,5 +1,5 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
-import { GameObject } from "../game-object";
+import { GameObject, HUD } from "../game-object";
 import { Camera } from "../camera";
 import { Inventory } from "../inventory";
 import { events } from "../../helpers/events";
@@ -84,19 +84,16 @@ export class Main extends GameObject {
 
   drawObjects(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
-   
-     
-        if (child.drawLayer !== "HUD") {
-          child.draw(ctx, 0, 0, true);
-        }
-       
-    })
+      if (child.drawLayer !== HUD) {
+        child.draw(ctx, 0, 0, true);
+      } 
+    });
   }
 
   drawForeground(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
-      if (child.drawLayer === "HUD") {
-        child.draw(ctx, 0, 0);
+      if (child.drawLayer === HUD) {
+        child.draw(ctx, 0, 0, true, true);
       } 
     }) 
   }

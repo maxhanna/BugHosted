@@ -18,6 +18,15 @@ export class StartMenu extends GameObject {
   menuLocationX = 190;
   menuLocationY = 10;
   selectorSprite = new Sprite({ resource: resources.images["pointer"], frameSize: new Vector2(12, 10), position: new Vector2(this.menuLocationX + 10, this.menuLocationY + 20) });
+  background = new Sprite({
+    objectId: 0,
+    name: "StartMenu",
+    resource: resources.images["white"],
+    frameSize: new Vector2(2, 2),
+    scale: new Vector2(8, 10),
+    position: new Vector2(this.menuLocationX, this.menuLocationY),
+    drawLayer: FLOOR
+  });
   blockSelection = false;
   items: string[] = [];
   currentlySelectedId: number = 0;
@@ -45,13 +54,13 @@ export class StartMenu extends GameObject {
   constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[], exits?: Exit[] }) {
     super({ position: new Vector2(0, 0) });
     this.drawLayer = HUD;
+    this.name = "StartMenu";
     this.inventoryItems = params.inventoryItems ?? [];
     this.metabotParts = params.metabotParts ?? [];
-    this.exits = params.exits ?? [];
-    const background = new Sprite({ objectId: 0, resource: resources.images["white"], frameSize: new Vector2(2, 2), scale: new Vector2(8, 10), position: new Vector2(this.menuLocationX, this.menuLocationY), drawLayer: FLOOR });
-    this.addChild(background);
+    this.exits = params.exits ?? []; 
+    this.addChild(this.background);
     this.addChild(this.selectorSprite);
-
+    console.log("added background");
 
     if (!storyFlags.contains(GOT_WATCH)) {
       this.regularMenuChoices = this.regularMenuChoices.filter(x => x != "Warping");
@@ -91,10 +100,9 @@ export class StartMenu extends GameObject {
     if (input.heldDirections.length > 0 || Object.values(input.keys).some(value => value === true)) {
       this.handleKeyboardInput(root, input);
     }
+    //console.log("step", this.background.position); 
   }
-  override drawImage(ctx: CanvasRenderingContext2D) {
 
-  }
 
   private clearMenu() {
     this.children.forEach((child: GameObject) => {
@@ -118,7 +126,7 @@ export class StartMenu extends GameObject {
 
   }
 
-  private displayStartMenu() {
+  private displayStartMenu() {  
     this.clearMenu();
     this.items = this.regularMenuChoices;
 

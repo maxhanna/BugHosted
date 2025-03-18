@@ -23,7 +23,7 @@ export class GameObject {
   preventDrawName: boolean = false;
   name?: string;
 
-  cameraPosition = new Vector2(0,0); 
+  drawingForever = false;
 
   constructor(params: {
     position: Vector2,
@@ -80,24 +80,29 @@ export class GameObject {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, x: number, y: number, force = false) {
+  draw(ctx: CanvasRenderingContext2D, x: number, y: number, force = false, forever = false) {
     if (this.preventDraw) return;
     const drawPosX = x + this.position.x;
     const drawPosY = y + this.position.y;
       
     this.drawImage(ctx, drawPosX, drawPosY);
-    if (force) { 
-      this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, false)); 
-    }  
-    else {
-      const cameraPos = this.parent?.parent?.metaHero?.position; 
-      const distanceXX = Math.abs(this.position.x - cameraPos?.x);
-      const distanceYX = Math.abs(this.position.y - cameraPos?.y);
-      const discrepancyX = 150;
-      if (distanceXX <= discrepancyX && distanceYX <= discrepancyX) {
-        this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true)); 
-      } 
-    }
+
+    if (this.drawingForever = this.drawingForever || forever) {
+      this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true, true));
+    } else {
+      if (force) {
+        this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, false));
+      }
+      else {
+        const cameraPos = this.parent?.parent?.metaHero?.position;
+        const distanceX = Math.abs(this.position.x - cameraPos?.x);
+        const distanceY = Math.abs(this.position.y - cameraPos?.y);
+        const discrepancy = 350;
+        if (distanceX <= discrepancy && distanceY <= discrepancy) {
+          this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true));
+        } 
+      }
+    } 
   } 
 
   sortChildren() {
