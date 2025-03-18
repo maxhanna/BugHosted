@@ -46,8 +46,7 @@ export class Hero extends Character {
         colorSwap: params.colorSwap,
         scale: params.scale,
       })
-    })
-    /*   console.log("New Hero : ", this);*/
+    }) 
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();

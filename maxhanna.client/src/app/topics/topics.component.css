@@ -70,7 +70,7 @@ input {
   border: 0;
   padding: 0;
   vertical-align: middle;
-  background-color: unset;
+  background-color: var(--secondary-font-color);
 }
 #chooseTopicInput, .addTopicButton {
   z-index: 2;

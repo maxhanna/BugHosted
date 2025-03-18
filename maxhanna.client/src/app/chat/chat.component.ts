@@ -48,6 +48,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     super();
 
     const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.addResizeListener();
     if (parent?.user?.id) { //only allow notifications pushed if user is logged in.
       try {
         this.requestNotificationPermission();
@@ -78,6 +79,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.inputtedParentRef?.removeResizeListener();
+    this.parentRef?.removeResizeListener();
     this.currentChatUsers = undefined;
     clearInterval(this.pollingInterval);
   }
@@ -274,7 +277,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles);
       this.removeAllAttachments();
       this.attachedFiles = [];
-      await this.getMessageHistory();
+      await this.getMessageHistory().then(x => { 
+        this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
+      });
       this.notificationService.createNotifications(
         { fromUser: user, toUser: chatUsers.filter(x => x.id != user.id), message: msg, chatId: this.currentChatId }
       );
@@ -337,9 +342,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
   addChatMember(users?: User[]) {
-    if (!users) return;
-    console.log(users);
-    console.log(this.currentChatUsers);
+    if (!users) return; 
     if (users.some(user => this.currentChatUsers?.some(z => z.id === user.id))) {
       alert("Duplicate users found. Aborting.");
       return;

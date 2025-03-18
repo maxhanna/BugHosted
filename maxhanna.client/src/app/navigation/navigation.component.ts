@@ -148,8 +148,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
           entryDate.getUTCMonth() === startDate.getUTCMonth() &&
           entryDate.getUTCDate() === startDate.getUTCDate()
         ) {
-          notificationCount++;
-          console.log(notificationCount);
+          notificationCount++; 
         }
       });
     }
@@ -225,8 +224,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return parseInt(notifNumbers);
   }
 
-  goTo(title: string, event: any) {
-    console.log('here', title);  
+  goTo(title: string, event: any) { 
     if (title.toLowerCase() == "close menu") {
       this.toggleMenu();
     } else if (title == "UpdateUserSettings") {

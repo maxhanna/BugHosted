@@ -134,14 +134,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         this.topTopics = res;
       }
     });
-
-    this.userService.getUserIp().then(res => {
+    this.parentRef?.getLocation().then(res => {
       if (res) {
-        this.city = res.city;
         this.country = res.country;
+        this.city = res.city; 
       }
-    });
-
+    }) 
     if (this.user) {
       const elements = document.getElementsByClassName('componentMain');
 
@@ -452,10 +450,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           storyContainer.scrollIntoView();
         }
       } else {
-        const element = document.getElementsByClassName('componentMain')[0];
-        if (element) {
-          element.scrollTop = 0; 
-        }
+        window.scrollTo({ top: 0, behavior: 'smooth' }); 
       }
     }, 20);
   }
@@ -918,11 +913,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
             this.getStories(undefined, undefined, undefined, undefined, undefined, false);
           } 
         });
-      }
-
-      console.log(this.filter.hidden);
+      } 
     }
-  }
+  } 
 
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;

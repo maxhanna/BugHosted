@@ -60,8 +60,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     super.viewProfile(user);
   }
 
-  async addComment(comment: string) {
-    console.log("adding comment " + comment);
+  async addComment(comment: string) { 
     this.showCommentLoadingOverlay = true;
     clearTimeout(this.debounceTimer);
     const commentsWithEmoji = this.replaceEmojisInMessage(comment);
@@ -72,6 +71,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     const filesToSend = this.selectedFiles;
     this.selectedFiles = [];
     const currentDate = new Date();
+    const location = await this.inputtedParentRef?.getLocation();
     const tmpComment = new FileComment();
     tmpComment.user = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
     tmpComment.commentText = commentsWithEmoji;
@@ -80,6 +80,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     tmpComment.storyId = storyId;
     tmpComment.commentId = commentId;
     tmpComment.commentFiles = filesToSend;
+    tmpComment.country = location?.country;
+    tmpComment.city = location?.city;
+    tmpComment.ip = location?.ip;
     if (!this.commentList) { this.commentList = []; }
 
     this.debounceTimer = setTimeout(async () => {
@@ -90,15 +93,24 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   async addAsyncComment(comment: FileComment, currentDate: Date) {
-    const res = await this.commentService.addComment(comment.commentText ?? "", this.inputtedParentRef?.user, comment.fileId, comment.storyId, comment.commentId, comment.commentFiles);
+    const res = await this.commentService.addComment(
+      comment.commentText ?? "",
+      this.inputtedParentRef?.user,
+      comment.fileId,
+      comment.storyId,
+      comment.commentId,
+      comment.commentFiles,
+      comment.city,
+      comment.country,
+      comment.ip,
+    );
 
     if (res && res.toLowerCase().includes("success")) {
       if (!this.commentList) {
         this.commentList = [];
       }
       if (this.commentList.find(x => x.date == currentDate)) {
-        this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
-        console.log("op found the bugger"); 
+        this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]); 
       } else { 
         this.commentList.push(comment); 
       }
@@ -129,8 +141,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
         ...(isStory && { storyId: comment.storyId }),
         ...(isFile && { fileId: comment.fileId }),
         ...(isFileComment && { commentId: comment.commentId })
-      };
-      console.log(this);
+      }; 
       this.notificationService.createNotifications(notificationData);
     }
   }
@@ -180,9 +191,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.closeOptionsPanel();
   }
   async confirmEditComment(comment: FileComment) {
-    let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value;
-
-    console.log(message, this.comment_id);
+    let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value; 
     this.editingComments = this.editingComments.filter(x => x != comment.id);
     if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
       this.commentService.editComment(this.inputtedParentRef.user, comment.id, message).then(res => {
@@ -190,11 +199,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
           this.inputtedParentRef?.showNotification(res);
         }
       });
-      comment.commentText = message;
-      console.log("commentText" + comment.id + " exists");
-    } else {
-      console.log("commentText" + comment.id + " doesnt exist");
-    }
+      comment.commentText = message; 
+    } 
   }
   getTextForDOM(text: string, component_id: number) {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -269,16 +275,12 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     const element = document.getElementById('commentReplyInput' + comment.id) as HTMLTextAreaElement;
     const text = element.value;
     const currentDate = new Date();
-    if (text) {
-      console.log(text);
+    if (text) { 
       const user = this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
       const res = await this.commentService.addComment(text, user, undefined, undefined, comment.id, undefined);
-      if (res) {
-        console.log(res); 
-        console.log(this.commentList); 
+      if (res) { 
         if (this.commentList.find(x => x.date == currentDate)) {
-          this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]);
-          console.log("found a bugger");
+          this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]); 
         } 
       }
     }

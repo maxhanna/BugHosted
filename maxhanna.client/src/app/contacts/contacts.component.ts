@@ -97,8 +97,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
       this.selectedContact = undefined;
     } else {
       this.selectedContact = contact;
-    }
-    console.log(this.selectedContact);
+    } 
     setTimeout(() => {
       const el = document.getElementsByClassName("editContactForm")[0] as HTMLElement;
       if (el && !this.isElementInViewport(el)) { 

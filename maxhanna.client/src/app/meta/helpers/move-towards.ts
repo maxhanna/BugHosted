@@ -48,7 +48,6 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
 
 	const { input } = root;
 	if (isUserControlled && !input.direction) {
-		//console.log("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase()); 
 		player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
 		return;
 	}
@@ -123,8 +122,7 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
               player.body?.animations?.play("walkDown");
             }
           }
-        }
-        //console.log(player.facingDirection, deltaX, deltaY, player.body.animations?.activeKey);
+        } 
       } 
 
 			setAnimationToStandAfterTimeElapsed(player);
@@ -142,7 +140,6 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
 	if (isSpaceFree(root.level?.walls, position.x, position.y) && !bodyAtSpace(player.parent, position, true)) {
 		player.destinationPosition = position;
 		if (player.slopeType) {
-			//console.log(`slopeType: ${player.slopeType}, slopeDirection: ${player.slopeDirection}, slopeStepHeight: ${player.slopeStepHeight}, facingDirection: ${player.facingDirection}, scale: ${player.scale}`);
 			recalculateScaleBasedOnSlope(player);
 		}
   } 
@@ -193,10 +190,7 @@ export function recalculateScaleBasedOnSlope(player: any) {
 		console.log(`before: scale:${player.scale.x}${player.scale.y}, endScale:${player.endScale.x}${player.endScale.y}, ogScale:${player.ogScale.x}${player.ogScale.y}, slopeDir:${player.slopeDirection}, slopeType:${player.slopeType}`);
 	}
 
-	if (shouldResetSlope(player)) {
-		if (player.name == "Jaguar") {
-			console.log("autoreset");
-		}
+	if (shouldResetSlope(player)) { 
 		return resetSlope(player, false);
 	}
 
@@ -214,11 +208,7 @@ export function recalculateScaleBasedOnSlope(player: any) {
 		return resetSlope(player, true);
 	}
 	else {
-		if (player.scale.x > 0 && player.scale.y > 0 && !preScale.matches(player.scale)) {
-
-			if (player.name == "Jaguar") {
-				console.log("reinitialize body", player.scale);
-			}
+		if (player.scale.x > 0 && player.scale.y > 0 && !preScale.matches(player.scale)) { 
 			player.initializeBody();
 
 			return true;
@@ -258,8 +248,7 @@ export function adjustVerticalMovement(player: Character, se: number): void {
 				console.log('adjusting down');
 			}
 		} else if (shouldMoveUp) {
-			player.destinationPosition.y += gridCells(1);
-			// console.log("adjusting down");
+			player.destinationPosition.y += gridCells(1); 
 		}
 	}
 }
@@ -399,8 +388,7 @@ export function isObjectNearby(playerOrObject: any) {
 			child.position.y <= neighborPosition.y + discrepancy
 		);
 	}) ?? [];
-
-	//console.log(possibilities);
+   
 
 	// Prioritize objects with text content
 	const bestChoice = possibilities.find((x: any) => x.textContent?.string);

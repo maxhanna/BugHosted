@@ -135,6 +135,22 @@
         {{optionsComment.date}}
       </div>
     </div>
+    <div class="optionsStatsDiv" *ngIf="optionsComment.country">
+      <div class="optionsStatsHeader">
+        Country:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsComment.country}} {{optionsComment.country | currencyFlag}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="optionsComment.city">
+      <div class="optionsStatsHeader">
+        City:
+      </div>
+      <div class="optionsStatsDescription">
+        {{optionsComment.city}}
+      </div>
+    </div> 
   </div>
   <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()">Close</button>
 </div>

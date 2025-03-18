@@ -172,36 +172,28 @@ export class ArrayComponent extends ChildComponent implements OnInit {
       if (player?.user?.id != (this.parentRef?.user?.id ?? 0)) {
         const playerPosition = BigInt(player.position!);
 
-        if (playerPosition + 4n === heroPosition) {
-          //console.log("player in position 4 left");
+        if (playerPosition + 4n === heroPosition) { 
           this.radar[0].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition + 3n === heroPosition) {
-          //console.log("player in position 3 left ");
+        else if (playerPosition + 3n === heroPosition) { 
           this.radar[1].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition + 2n === heroPosition) {
-          //console.log("player in position 2 left");
+        else if (playerPosition + 2n === heroPosition) { 
           this.radar[2].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition + 1n === heroPosition) {
-          //console.log("player in position 1 left");
+        else if (playerPosition + 1n === heroPosition) { 
           this.radar[3].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition - 1n === heroPosition) {
-          //console.log("player in position 1 right");
+        else if (playerPosition - 1n === heroPosition) { 
           this.radar[5].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition - 2n === heroPosition) {
-          //console.log("player in position 2 right");
+        else if (playerPosition - 2n === heroPosition) { 
           this.radar[6].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition - 3n === heroPosition) {
-          //console.log("player in position 3 right");
+        else if (playerPosition - 3n === heroPosition) { 
           this.radar[7].push(player.user ?? new User(0, "Anonymous"));
         }
-        else if (playerPosition - 4n === heroPosition) {
-          //console.log("player in position 4 right");
+        else if (playerPosition - 4n === heroPosition) { 
           this.radar[8].push(player.user ?? new User(0, "Anonymous"));
         }
       }
@@ -274,10 +266,8 @@ export class ArrayComponent extends ChildComponent implements OnInit {
   async showInventory() {
     this.isInventoryOpen = true;
     const res = await this.arrayService.getInventory(this.parentRef?.user);
-    if (res) {
-      console.log("got inventory");
-      this.inventory = res as ArrayCharacterInventory;
-      console.log(this.inventory);
+    if (res) { 
+      this.inventory = res as ArrayCharacterInventory; 
     }
   }
   closeInventory() {

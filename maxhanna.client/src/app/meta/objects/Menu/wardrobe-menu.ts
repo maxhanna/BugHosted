@@ -74,8 +74,7 @@ export class WardrobeMenu extends Level {
     });
     setTimeout(() => { 
       events.emit("BLOCK_START_MENU"); 
-    }, 200);
-    console.log(this.inventoryItems);
+    }, 200); 
   }
 
 
@@ -177,8 +176,7 @@ export class WardrobeMenu extends Level {
       }, 100);
     }
     else if (input?.keys["Space"] && !this.blockSelection) {
-      if (input?.verifyCanPressKey()) {
-        console.log(this.items[this.currentlySelectedId]);
+      if (input?.verifyCanPressKey()) { 
         if (this.items[this.currentlySelectedId] === "Exit") {
           this.closeWardrobe();
         } else if (this.items[this.currentlySelectedId] === "Back") {
@@ -199,8 +197,7 @@ export class WardrobeMenu extends Level {
             this.hero.mask = maskStats.id === 0 ? undefined : maskStats.id;
             this.removeChild(this.heroSprite);
             this.heroSprite = new Hero({ name: this.hero.name, position: new Vector2(70, 80), colorSwap: this.heroSprite.colorSwap, mask: new Mask(maskStats.name) });
-            this.addChild(this.heroSprite);
-            console.log("replaced hero sprite");
+            this.addChild(this.heroSprite); 
           }
           this.maskEquipped = maskStats.id;
         }

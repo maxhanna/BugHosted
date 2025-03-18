@@ -85,6 +85,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     private todoService: TodoService,
   ) {
     super();
+    setTimeout(() => {
+      this.removeBorderOnSocial();
+    }, 50);
+    setTimeout(() => { 
+      this.removeBorderOnSocial();
+    }, 500);
   }
 
   async ngOnInit() {
@@ -112,8 +118,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         await this.loadWordlerData();
         await this.loadSongData();
         await this.loadContactsData();
-        this.weatherService.getWeatherLocation(this.user).then(res => {
-          if (res.city) {
+        this.parentRef?.getLocation().then(res => {
+          if (res?.city) {
             this.weatherLocation = res;
           }
         });
@@ -506,8 +512,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
   }
   async updateWeatherInBackground(tmpUser: User, withCity?: boolean) {
-    const ip = await this.userService.getUserIp();
-    const res = await this.weatherService.updateWeatherLocation(tmpUser, ip?.ip, ip?.city, ip?.country);
+    const ip = await this.parentRef?.getLocation();
+    if (ip) {
+      await this.weatherService.updateWeatherLocation(tmpUser, ip.ip, ip.city, ip.country);
+    }
   }
   openFriendsPanel() {
     this.isFriendsPanelOpen = true;
@@ -585,7 +593,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     const user = this.user ?? parent?.user;
     if (user) {
       this.nexusService.getNumberOfBases(user).then(res => {
-        if (res) { 
+        if (res) {
           this.numberOfNexusBases = res ?? 0;
         }
       });
@@ -598,7 +606,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
     this.socialComponent.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
   }
-   
+
   private getNSFWValue() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
@@ -621,4 +629,12 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     });
   }
+
+  private removeBorderOnSocial() { 
+    const tgtElement = document.getElementsByClassName("componentMain")[1]; 
+    if (tgtElement) { 
+      (tgtElement as HTMLDivElement).style.border = "unset";
+    }
+  }
+   
 }

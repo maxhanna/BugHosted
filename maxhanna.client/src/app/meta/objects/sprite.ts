@@ -115,9 +115,7 @@ export class Sprite extends GameObject {
     // Retrieve the current frame from the frame map
     const frame = this.frameMap.get(this.frame);
     const frameCoordX = frame?.x ?? 0;
-    const frameCoordY = frame?.y ?? 0;
-    //if (this.name == "hero")
-    //  console.log(this);
+    const frameCoordY = frame?.y ?? 0; 
     if (!this.drawCachedColorSwappedCanvas(ctx, x , y)) {
       ctx.save();
 

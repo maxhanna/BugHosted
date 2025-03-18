@@ -13,5 +13,8 @@ export class FileComment {
   fileId?: number;
   commentFiles?: FileEntry[];
   date?: Date;
+  city?: string;
+  country?: string;
+  ip?: string;
   reactions?: Array<Reaction> | undefined;
 }

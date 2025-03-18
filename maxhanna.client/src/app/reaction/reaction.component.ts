@@ -167,8 +167,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     }
     this.userReaction = reaction;
   }
-  private sendNotification() {
-    console.log("sendNotification");
+  private sendNotification() { 
     const fromUser = this.user ?? new User(0, "Anonymous");
     let targetNotificationUsers: User[] = [];
     let notificationData: any = { fromUser, message: `New reaction from ${fromUser.username}` };

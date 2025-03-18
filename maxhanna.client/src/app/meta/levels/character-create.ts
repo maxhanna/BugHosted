@@ -115,8 +115,7 @@ export class CharacterCreate extends Level {
   override ready() {
     events.on("SEND_CHAT_MESSAGE", this, (chat: string) => {
       this.characterName = chat;
-      if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; }
-      console.log(this.characterName);
+      if (!this.verifyCharacterName(this.characterName) || storyFlags.contains(CHARACTER_CREATE_STORY_TEXT_6)) { return; } 
       this.returnChatInputToNormal();
       storyFlags.add(CHARACTER_CREATE_STORY_TEXT_6);
       const content = this.referee.getContent();
@@ -125,8 +124,7 @@ export class CharacterCreate extends Level {
       }
       events.emit("CHARACTER_CREATED", this.characterName);
     });
-    events.on("SPACEBAR_PRESSED", this, () => {
-      console.log("space pressed");
+    events.on("SPACEBAR_PRESSED", this, () => { 
       const currentTime = new Date();
       if (currentTime.getTime() - this.inputKeyPressedDate.getTime() > 1000) {
         this.inputKeyPressedDate = new Date();

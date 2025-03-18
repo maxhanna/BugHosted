@@ -31,8 +31,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
     if (this.parentRef?.user) {
       await this.todoService.getColumnsForUser(this.parentRef.user).then(res => {
         if (res) {
-          this.userColumns = res;
-          console.log(this.userColumns);
+          this.userColumns = res; 
 
           // Filter userColumns to get only columns where is_added is true
           const userColumnNames = this.userColumns
@@ -40,9 +39,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
             .map((col: any) => col.column_name); // Extract column names
 
           // Update todoTypes based on user columns
-          this.todoTypes = this.todoTypes.filter(type => userColumnNames.includes(type));
-
-          console.log('Updated todoTypes:', this.todoTypes);
+          this.todoTypes = this.todoTypes.filter(type => userColumnNames.includes(type)); 
         }
       });
     }
@@ -120,8 +117,7 @@ export class TodoComponent extends ChildComponent implements OnInit {
   }
   addColumn() {
     if (!this.parentRef?.user) return alert("You must be logged in to edit your todo list.");
-    const type = this.addNewColumnInput.nativeElement.value;
-    console.log(type);
+    const type = this.addNewColumnInput.nativeElement.value; 
     if (type) {
       this.todoService.addColumn(this.parentRef.user, type).then(res => {
         if (res) {

@@ -124,7 +124,6 @@ export class GameObject {
   }
 
   removeChild(gameObject: GameObject) {
-    //console.log(`removing gameObject child : ${gameObject.position.x}, ${gameObject.position.y}`);
     events.unsubscribe(gameObject);
 
     this.children = this.children.filter((x:any) => {
@@ -137,12 +136,10 @@ export class GameObject {
     }
     //Maybe expand with story flag logic, etc.
     const match = storyFlags.getRelevantScenario(this.textContent);
-    if (!match) {
-      console.log("No matches found in this list!", this.textContent);
+    if (!match) { 
       return undefined;
     }
-    if (match.addsFlag && match.addsFlag == "START_FIGHT") {
-      console.log("emitting start fight because match adds flag start fight");
+    if (match.addsFlag && match.addsFlag == "START_FIGHT") { 
       events.emit("START_FIGHT", this);
     } 
     return {

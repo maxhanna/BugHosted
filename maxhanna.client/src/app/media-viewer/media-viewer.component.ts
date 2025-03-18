@@ -100,8 +100,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     return false;
   }
 
-  async fetchFileSrc() {
-    console.log("fetchfilesrc");
+  async fetchFileSrc() { 
     if (this.fileSrc) {
       this.selectedFileSrc = this.fileSrc;
       return;
@@ -127,8 +126,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const fileId = fileObject.id;
 
       const parentRef = this.parentRef || this.inputtedParentRef;
-      if (parentRef?.pictureSrcs[fileId]?.value) {
-        console.log(`setting file Src for file id ${fileId}`);
+      if (parentRef?.pictureSrcs[fileId]?.value) { 
         this.setFileSrcByParentRefValue(fileId);
       } else {
         this.setFileSrcById(fileId);
@@ -136,8 +134,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       } 
     } 
   }
-  private setFileSrcByParentRefValue(id: number) {
-    console.log("setFileSrcByParentRefValue", id);
+  private setFileSrcByParentRefValue(id: number) { 
     this.muteOtherVideos();
     this.selectedFileSrc = this.parentRef?.pictureSrcs[id].value ?? this.inputtedParentRef!.pictureSrcs[id].value;
   }
@@ -177,8 +174,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     setTimeout(() => { this.inputtedParentRef?.createComponent("User", { "user": user }); }, 1);
   }
    
-  async setFileSrcById(fileId: number) {
-    console.log("setFileSrcById", fileId);
+  async setFileSrcById(fileId: number) { 
     if (this.selectedFileSrc) return; 
     if (this.parentRef && this.parentRef.pictureSrcs && this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
       this.showThumbnail = true; 
@@ -197,16 +193,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       return;
     }
 
-    if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) {
-      console.log("Getting file stuff");
+    if (!this.selectedFile?.givenFileName && !this.selectedFile?.fileName) { 
       this.fileService.getFileEntryById(fileId).then(res => {
         if (res) {
           this.selectedFile = res;
         }
       });
-    }
-
-    //this.startLoading();
+    } 
     if (this.abortFileRequestController) {
       this.abortFileRequestController.abort();
     } 
@@ -232,12 +225,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         reader.onloadend = () => {
           this.showThumbnail = true;
           this.selectedFileSrc = (reader.result as string);
-          if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-            //console.log("adding file src to parentRef.pictureSrcs " + fileId);
+          if (this.parentRef && !this.parentRef.pictureSrcs.find(x => x.key == fileId + '')) { 
             this.parentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
           }
-          else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) {
-            //console.log("adding file src to inputtedParentRef.pictureSrcs " + fileId);  
+          else if (this.inputtedParentRef && !this.inputtedParentRef.pictureSrcs.find(x => x.key == fileId + '')) { 
             this.inputtedParentRef.pictureSrcs.push({ key: fileId + '', value: this.selectedFileSrc, type: type, extension: this.selectedFileExtension });
           }
           setTimeout(() => {
@@ -348,21 +339,16 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.emittedNotification.emit((ex as Error).message); 
     }
   }
-  togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) {
-    // Mute and pause all other media elements
-    this.muteOtherVideos(currentVideo);  
-    //currentVideo.muted = !this.autoplayAudio; 
-  //  currentVideo.play(); 
+  togglePlay(currentVideo: HTMLVideoElement | HTMLAudioElement) { 
+    this.muteOtherVideos(currentVideo);   
   }
 
   muteOtherVideos(excludeMedia?: HTMLMediaElement) {
     const mediaElements = document.querySelectorAll<HTMLMediaElement>('video, audio');
 
-    mediaElements.forEach((media) => {
-      // Mute and pause all media elements except the current video
+    mediaElements.forEach((media) => { 
       if (media !== excludeMedia) {
-        media.muted = true;
-        /*media.pause();*/
+        media.muted = true; 
       }
     });
   }

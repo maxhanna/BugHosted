@@ -173,8 +173,7 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
       }
 
     }
-    const key = `${coordsX},${coordsY}`;
-    //console.log(this.attacksMap[key]);
+    const key = `${coordsX},${coordsY}`; 
     return this.attacksMap[key] || [];
   });
 

@@ -225,8 +225,7 @@ export class ShopMenu extends Level {
     this.blockSelection = true;
     setTimeout(() => {
       this.blockSelection = false;
-    }, 100);
-    console.log(this.itemsSold);
+    }, 100); 
   }
   handleKeyboardInput(input: Input) { 
     if (input?.keys["Space"] && !this.blockSelection) {

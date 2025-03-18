@@ -55,8 +55,7 @@ export class FileUploadComponent {
       this.userUploadEvent.emit(this.uploadFileList);
     }
   }
-  cancelFileUpload() {
-    console.log("cancel file upload");
+  cancelFileUpload() { 
     this.uploadProgress = {};
     this.isUploading = false;
     this.uploadFileList = [];

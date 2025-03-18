@@ -374,8 +374,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     }
     setTimeout(() => {
       this.warnUserToSave = (this.userSelectedTheme?.id !== this.originalThemeId);   
-    }, 50); // timeout to make sure this is done after updateCSS.
-    console.log('Applied Theme:', selectedTheme);
+    }, 50); // timeout to make sure this is done after updateCSS. 
   }
 
 

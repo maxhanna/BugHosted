@@ -82,7 +82,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
   ];
- 
+  location?: { ip:string, city: string, country: string } = undefined;
 
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
@@ -214,21 +214,18 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.closeOverlay();
     this.replacePageTitleAndDescription(componentType, componentType);
 
-    if (!componentType || componentType.trim() === "") {
-      console.log("Returning due to invalid componentType: ", componentType);
+    if (!componentType || componentType.trim() === "") { 
       window.location = window.location;
       return null;
     }
 
     const componentClass = this.componentMap[componentType];
-    if (!componentClass) {
-      console.log(`Unknown component: ${componentType}`);
+    if (!componentClass) { 
       return null;
     }
     const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
 
-    if (componentType !== "User" && existingComponent) {
-      console.log("Component already exists, leaving as is");
+    if (componentType !== "User" && existingComponent) { 
       return;
     }
 
@@ -330,8 +327,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   closeModal() {
     this.isModalOpen = false;
   }
-  setModalBody(msg: any) {
-    console.log("set modal body in parent");
+  setModalBody(msg: any) { 
     if (!this.isModalOpen) {
       this.isModalOpen = true;
     }
@@ -344,8 +340,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const vh = window.innerHeight * 0.01;
     document.documentElement.style.setProperty('--vh', `${vh}px`);
   }
-  hideBodyOverflow() {
-    console.log("hide body overflow");
+  hideBodyOverflow() { 
     document.body.style.overflow = "hidden";
     const elems = document.getElementsByClassName("popupPanel");
     for (let x = 0; x < elems.length; x++) {
@@ -388,7 +383,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.hideBodyOverflow();
   }
   closeOverlay() {
-    console.log("closing overlay");
+    //console.log("closing overlay");
     const closeButtons = document.querySelectorAll<HTMLButtonElement>("#closeOverlay"); 
     closeButtons.forEach((button) => button.click()); 
     this.isShowingOverlay = false;
@@ -401,8 +396,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   setViewportScalability(scalable?: boolean) {
     if (scalable === undefined) {
       scalable = true;
-    }
-    console.log("Updated viewport scalability:", scalable); 
+    } 
 
     if (scalable) {
       window.location = window.location;
@@ -492,5 +486,23 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   removeResizeListener() {
     window.removeEventListener('resize', this.updateHeight);
+  }
+  async getLocation() {
+    if (this.location) { 
+      return this.location;
+    }
+    else {
+      if (this.getCookie("location")) {
+        this.location = JSON.parse(this.getCookie("location"));
+      } else {
+        await this.userService.getUserIp().then(res => {
+          if (res) {
+            this.location = { ip: res.ip, city: res.city, country: res.country };
+            this.setCookie("location", JSON.stringify(this.location), 1);
+          }
+        });
+      } 
+      return this.location;
+    }
   }
 }

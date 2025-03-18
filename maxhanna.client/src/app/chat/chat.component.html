@@ -128,7 +128,6 @@
       </div>
       <div class="messageInput">
         <textarea placeholder="Type a message" #newMessage (keydown.enter)="sendMessage()"></textarea>
-        <button (click)="sendMessage()">🗨️Send</button>
         <div>
           <app-media-selector #attachmentSelector
                               [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
@@ -137,6 +136,7 @@
                               (selectFileEvent)="selectFile($event)">
           </app-media-selector>
         </div>
+        <button (click)="sendMessage()">🗨️Send</button> 
       </div>
     </div>
   </div>

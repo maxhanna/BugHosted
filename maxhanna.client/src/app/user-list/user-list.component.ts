@@ -150,13 +150,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
   getChatNotificationsByUserId(userId?: number) {
     if (!userId || !this.chatNotifications) return;
-    if (userId == 1) {
-      console.log(this.chatNotifications);
+    if (userId == 1) { 
     }
-    const tgtMessage = this.messageRows.find(x => x.receiver.some(r => r.id === userId) && x.receiver.length == 2 && x.receiver[0]);
-    if (userId == 1) {
-      console.log(tgtMessage);
-    }
+    const tgtMessage = this.messageRows.find(x => x.receiver.some(r => r.id === userId) && x.receiver.length == 2 && x.receiver[0]); 
     const tmpChatNotif = this.chatNotifications.find(x => x.chatId == tgtMessage?.chatId);
     if (this.chatNotifications && tmpChatNotif) {
       return tmpChatNotif.count;

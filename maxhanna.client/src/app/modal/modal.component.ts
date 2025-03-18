@@ -12,9 +12,7 @@ export class ModalComponent {
   
   @ViewChild('modalBody') modalBody!: ElementRef<HTMLDivElement>;
 
-  setModalBody(msg: any) {
-    console.log("setting modal body");
-    console.log(msg);
+  setModalBody(msg: any) {  
     this.modalBody.nativeElement.innerHTML = msg;
   }
   closeModal() {

@@ -67,8 +67,7 @@ export class Npc extends Character {
       this.body = new Sprite({ resource: resources.images["white"] });
     }
 
-    if (this.moveUpDown || this.moveLeftRight) {
-      console.log("calling random move on " + this.name);
+    if (this.moveUpDown || this.moveLeftRight) { 
       this.randomMove();
     }
 

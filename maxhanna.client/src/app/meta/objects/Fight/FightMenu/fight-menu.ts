@@ -360,8 +360,7 @@ export class FightMenu extends GameObject {
     return cursorX;
   }
 
-  private cycleUpSelectedFighter() {
-    console.log("cycle up fighter");
+  private cycleUpSelectedFighter() { 
     if (this.selectedFighterIndex == this.metabotChoices?.length) {
       this.selectedFighterIndex = 0;
     }
@@ -474,8 +473,7 @@ export class FightMenu extends GameObject {
           this.selectedFightMenuIndex = (this.selectedFightMenuIndex + 1) % this.fightMenuOptions.length;
         }
         else if (this.showAttackMenuOptions) {
-          this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5;
-          console.log(this.selectedAttackIndex)
+          this.selectedAttackIndex = (this.selectedAttackIndex + 1) % 5; 
         }
       }
       else if (input?.getActionJustPressed("ArrowLeft")

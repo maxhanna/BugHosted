@@ -105,8 +105,7 @@ export class StartMenu extends GameObject {
     this.selectedMetabotId = undefined;
     this.selectedMetabotForParts = undefined;
 
-    if (!this.blockClearWarpInput) {
-      console.log("clearing warp input");
+    if (!this.blockClearWarpInput) { 
       this.currentWarpX = "00";
       this.currentWarpY = "00";
     }
@@ -171,8 +170,7 @@ export class StartMenu extends GameObject {
       yOffset = yOffset + 10;
       this.items.push(`Warp to exit: ${exit.position.x}, ${exit.position.y}`);
       const warpLabel = new SpriteTextString(`Warp to exit: ${exit.position.x}, ${exit.position.y}`, new Vector2(xOffset, this.menuLocationY + yOffset), "Black");
-      this.addChild(warpLabel);
-      console.log(`${exit.position.x}, ${exit.position.y}`);
+      this.addChild(warpLabel); 
 
       // Update the last exit to the current one
       lastExit = { x: exit.position.x, y: exit.position.y };
@@ -315,8 +313,7 @@ export class StartMenu extends GameObject {
       // Increment currentWarpX and ensure it stays within "00" to "99"
       let currentWarpX = (parseInt(this.currentWarpX, 10) + 1) % 100;
       this.currentWarpX = String(currentWarpX).padStart(2, '0');
-      this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
-      console.log(this.currentWarpX);
+      this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY); 
     } else if (this.coordYSelected) {
       // Increment currentWarpY and ensure it stays within "00" to "99"
       let currentWarpY = (parseInt(this.currentWarpY, 10) + 1) % 100;
@@ -352,8 +349,7 @@ export class StartMenu extends GameObject {
 
   private handleKeyboardInput(root: GameObject, input: Input) {  
     if (input?.verifyCanPressKey()) {
-      if (input?.keys["Space"] && !this.blockSelection) {
-        console.log(this.items, this.items[this.currentlySelectedId]);
+      if (input?.keys["Space"] && !this.blockSelection) { 
         if (this.items[this.currentlySelectedId] === "Exit") {
           events.emit("START_PRESSED");
         }
@@ -373,8 +369,7 @@ export class StartMenu extends GameObject {
         else if (this.items[this.currentlySelectedId].includes("Warp to exit:")) {
           const coords = this.items[this.currentlySelectedId].replace("Warp to exit:", "").trim();
           const x = parseInt(coords.split(',')[0].trim()) / 16;
-          const y = parseInt(coords.split(',')[1].trim()) / 16;
-          console.log("Warping to ", x, y);
+          const y = parseInt(coords.split(',')[1].trim()) / 16; 
           events.emit("START_PRESSED");
           events.emit("WARP", { x: x, y: y });
         } 

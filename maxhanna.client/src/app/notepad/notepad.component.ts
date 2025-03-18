@@ -57,8 +57,7 @@ export class NotepadComponent extends ChildComponent {
     this.isPanelExpanded = !this.isPanelExpanded;
     this.getUsers(); 
   }
-  async shareNote(withUser?: User) {
-    console.log(withUser);
+  async shareNote(withUser?: User) { 
     if (!withUser) {
       this.isPanelExpanded = false;
       return;

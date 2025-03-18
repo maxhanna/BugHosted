@@ -108,8 +108,7 @@ export class TopicsComponent extends ChildComponent {
     }, 100);
   } 
 
-  selectTopic(topic: Topic) {
-    console.log(topic);
+  selectTopic(topic: Topic) { 
     if (this.attachedTopics?.some(x => x.topicText.toLowerCase() == topic.topicText.toLowerCase())) return;
     if (!this.attachedTopics) {
       this.attachedTopics = [];
@@ -118,8 +117,7 @@ export class TopicsComponent extends ChildComponent {
     if (!this.attachedTopics.includes(topic)) { 
       this.attachedTopics.push(topic);
     }
-     
-    console.log("emitting ", this.attachedTopics);
+      
     this.topicAdded.emit(this.attachedTopics);
     this.newTopic.nativeElement.value = '';
     this.matchingTopics = [];

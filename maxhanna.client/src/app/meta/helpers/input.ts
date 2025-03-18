@@ -58,19 +58,16 @@ export class Input {
   private handleEnter() {
     let moveLock = false; 
     if (this.verifyCanPressKey()) {
-      const chatInputElement = this.chatInput;
-      console.log(chatInputElement);
+      const chatInputElement = this.chatInput; 
       if (chatInputElement && chatInputElement.value == '') {
         if (!this.chatSelected) {
           chatInputElement.focus();
           this.chatSelected = true;
-          moveLock = true;
-          console.log("chat selected");
+          moveLock = true; 
         } else {
           chatInputElement.blur();
           this.chatSelected = false;
-          moveLock = false;
-          console.log("chat blur");
+          moveLock = false; 
         }
       }
       else if (chatInputElement.value != '') {
@@ -132,8 +129,7 @@ export class Input {
   }
 
   handleKeyup(event: KeyboardEvent) {
-    const key = event.key;
-   // console.log(key);
+    const key = event.key; 
     switch (key) {
       case 'ArrowUp':
       case 'w':
@@ -177,11 +173,9 @@ export class Input {
         this.pressSpace();
     }
   }
-  pressA(sendChat: boolean = true) {
-    console.log("pressed A");
+  pressA(sendChat: boolean = true) { 
     if (sendChat && this.chatInput && document.activeElement === this.chatInput) {
-      events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
-      console.log("chat sent", this.keys);
+      events.emit("SEND_CHAT_MESSAGE", this.chatInput.value); 
     }
     else {
       events.emit("SPACEBAR_PRESSED");
@@ -309,8 +303,7 @@ export class Input {
     return document.getElementById("chatInput") as HTMLInputElement;
   }
 
-  verifyCanPressKey() {
-    console.log("can press?");
+  verifyCanPressKey() { 
     const currentTime = new Date();
     if ((currentTime.getTime() - inputKeyPressedDate.getTime()) > this.inputKeyPressedTimeout) {
       inputKeyPressedDate = new Date();

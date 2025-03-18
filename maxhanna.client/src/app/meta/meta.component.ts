@@ -235,7 +235,6 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
             //put on mask
             existingHero.destroy();
             this.addHeroToScene(hero);
-            //console.log(`destroying fresh mask ${getMaskNameById(hero.mask).toLowerCase()} - ${existingHero.mask } `);
           }
         }
         else {
@@ -258,8 +257,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  private addHeroToScene(hero: MetaHero) {
-    //  console.log("adding hero to scene: " + hero.name);
+  private addHeroToScene(hero: MetaHero) { 
     const tmpHero = new Hero({
       id: hero.id,
       name: hero.name ?? "Anon",
@@ -279,8 +277,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.mainScene.level?.addChild(tmpHero);
 
     for (let i = 0; i < hero.metabots.length; i++) {
-      if (hero.metabots[i].isDeployed == true) {
-        console.log("deploying " + hero.metabots[i].name);
+      if (hero.metabots[i].isDeployed == true) { 
         this.addBotToScene(hero, hero.metabots[i]);
         break;
       }
@@ -291,8 +288,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
   private addBotToScene(metaHero: MetaHero, bot: MetaBot) {
     if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return; }
-
-    //console.log("addBotToScene ! ", bot, metaHero);
+     
     if (metaHero && metaHero.metabots && metaHero.metabots.length > 0) {
       let tgtBot = metaHero.metabots.find(x => x.id === bot.id);
       if (tgtBot) {
@@ -392,8 +388,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
   }
 
-  private async reinitializeInventoryData() {
-    console.log("reinit inventory data");
+  private async reinitializeInventoryData() { 
     if (this.mainScene?.inventory?.items) {
       this.mainScene.inventory.items.forEach((item: any) => this.mainScene.inventory.removeFromInventory(item.id));
     }  

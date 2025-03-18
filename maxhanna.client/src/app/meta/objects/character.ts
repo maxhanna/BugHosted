@@ -147,8 +147,7 @@ export class Character extends GameObject {
     }
 	}
 
-	override step(delta: number, root: any) {
-		//console.log(this);
+	override step(delta: number, root: any) { 
 		const input = root.input as Input;
 		if (this.isLocked) return;
 
@@ -242,28 +241,18 @@ export class Character extends GameObject {
 			}
 		}
 	}
-	workOnItemPickup(delta: number) {
-		console.log("workOnItemPickup activated", delta);
+	workOnItemPickup(delta: number) { 
 		this.itemPickupTime -= delta;
 		if (this.body?.animations?.activeKey != "pickupDown") {
-			this.body?.animations?.play("pickupDown");
-			console.log("set pickup down animation");
+			this.body?.animations?.play("pickupDown"); 
 		}
-		if (this.itemPickupTime <= 0) {
-			console.log("destroyed itemShell");
+		if (this.itemPickupTime <= 0) { 
 			this.itemPickupShell.destroy();
 		}
 	}
 
-  setupEvents() {
-    //setInterval(() => {
-    //  if (this.name === "Max") { 
-    //    events.emit("SEND_CHAT_MESSAGE", `${this.position.x},${this.position.y}`);
-    //  }
-    //}, 5000);
-		events.emit("CHARACTER_CREATED", this);
-		//console.log("is object neerby?", isObjectNearby(this)); 
-  //  console.log("CHARACTER_CREATED", this);
+  setupEvents() { 
+		events.emit("CHARACTER_CREATED", this); 
 		events.on("CHARACTER_SLOPE", this, (params: {
 			character: Character;
 			slopeType: typeof UP | typeof DOWN;
@@ -272,8 +261,7 @@ export class Character extends GameObject {
 			endScale: Vector2;
 			slopeStepHeight: Vector2;
 		}) => { 
-			if (params.character.id === this.id) {
-				//console.log("got character slope, changing scale", params);
+			if (params.character.id === this.id) { 
 				this.ogScale = this.scale;
 				this.endScale = params.endScale;
 				this.slopeType = params.slopeType;
@@ -283,8 +271,7 @@ export class Character extends GameObject {
 				if (!this.scale.matches(params.startScale)) {
 					this.scale = params.startScale;
 					this.ogScale = params.startScale;
-					this.endScale = params.endScale;
-					//console.log("scale changed");
+					this.endScale = params.endScale; 
 					this.initializeBody();
 				}
 			}

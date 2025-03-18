@@ -36,8 +36,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     }
     if (config.objectSubject) {
       this.objectSubject = config.objectSubject;
-    }
-    /*console.log(config);*/
+    } 
     const isHero = config.objectSubject instanceof Hero; 
 
     if (isHero || config.portraitFrame) {
@@ -89,9 +88,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     this.backdrop.drawImage(ctx, drawPosX, drawPosY);
     this.portrait?.drawImage(ctx, drawPosX + 6, drawPosY + 6);
      
-    const subjectName = this.objectSubject?.name + ":";
-/*    console.log(this.objectSubject);*/
-
+    const subjectName = this.objectSubject?.name + ":"; 
     //configuration options
     const PADDING_LEFT = 27;
     const PADDING_TOP = 12;
@@ -163,8 +160,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
       } else if (objType == "Chicken") {
         frame = 0;
       } else if (objType == "Sign") {
-        frame = 0;
-        console.log("frame 0 for sign", config.objectSubject);
+        frame = 0; 
       }
     }
     

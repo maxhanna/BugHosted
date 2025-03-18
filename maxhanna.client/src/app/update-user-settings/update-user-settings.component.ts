@@ -108,8 +108,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     }
   }
   async updateUserAbout() {
-    let about = new UserAbout();
-    console.log(this.selectedCurrency);
+    let about = new UserAbout(); 
     about.userId = this.parentRef!.user!.id!;
     about.description = this.updatedDescription.nativeElement.value != '' ? this.updatedDescription.nativeElement.value : undefined;
     about.phone = this.updatedPhone.nativeElement.value != '' ? this.updatedPhone.nativeElement.value : undefined;
@@ -164,11 +163,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         }
         else {
           if (this.parentRef?.user) {
-            const ip = await this.userService.getUserIp();
-            const weatherLocation = await this.weatherService.getWeatherLocation(this.parentRef.user) as WeatherLocation;
-            if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location) || weatherLocation.location?.trim() === '')) {
-              await this.weatherService.updateWeatherLocation(this.parentRef.user, ip?.ip, ip?.city, ip?.country);
-            }
+            const locationData = await this.parentRef.getLocation();
+            if (locationData) {
+              const weatherLocation = await this.weatherService.getWeatherLocation(this.parentRef.user) as WeatherLocation;
+              if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location) || weatherLocation.location?.trim() === '')) {
+                await this.weatherService.updateWeatherLocation(this.parentRef.user, locationData.ip, locationData.city, locationData.country);
+              }
+            } 
           }
         }
 

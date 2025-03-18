@@ -1,6 +1,6 @@
 .componentMain {
   width: 99vw;
-  height: CALC(var(--vh, 1vh) * 100 - 40px);
+  height: CALC(var(--vh, 1vh) * 100 - 60px);
   overflow: auto;
   display: flex;
   flex-direction: column;

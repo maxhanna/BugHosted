@@ -257,6 +257,9 @@ namespace maxhanna.Server.Controllers
                         fc.file_id AS commentFileId,
                         fc.user_id AS commentUserId,
                         fc.date AS commentDate,
+                        fc.city AS commentCity,
+                        fc.country AS commentCountry,
+                        fc.ip AS commentIp,
                         uc.username AS commentUsername,
                         ucudpfu.id AS commentUserDisplayPicId,
                         ucudpfu.file_name AS commentUserDisplayPicFileName,
@@ -303,6 +306,9 @@ namespace maxhanna.Server.Controllers
 							var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
 							var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
 							//_logger.LogInformation("Found commentId " + commentId);
+							var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
+							var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
+							var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
 
 							var commentUserDisplayPicId = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicId")) ? (int?)null : reader.GetInt32("commentUserDisplayPicId");
 							var commentUserDisplayPicFileName = reader.IsDBNull(reader.GetOrdinal("commentUserDisplayPicFileName")) ? null : reader.GetString("commentUserDisplayPicFileName");
@@ -325,7 +331,10 @@ namespace maxhanna.Server.Controllers
 											null, null, null
 									),
 								CommentText = reader.GetString("commentText"),
-								Date = reader.GetDateTime("commentDate")
+								Date = reader.GetDateTime("commentDate"),
+								City = commentCity,
+								Country = commentCountry,
+								Ip = commentIp,
 							};
 							commentIds.Add(commentId);
 							//_logger.LogInformation("Comment constructed with id : " + commentId);

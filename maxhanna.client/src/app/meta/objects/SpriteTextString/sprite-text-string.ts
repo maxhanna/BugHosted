@@ -19,17 +19,14 @@ export class SpriteTextString extends GameObject {
     super({ position: position, drawLayer: HUD }); 
     if (color) { 
       this.color = color;
-    }
-    //console.log(`attempting to write ${wordToWrite}`);
+    } 
     const content = wordToWrite ?? "Default text!";
     this.words = calculateWords({ content: content, color: this.color });
  
     this.finalIndex = this.words.reduce((acc, word) => acc + word.chars.length, 0);
   }
 
-  override step(delta: number, root: GameObject) {
-    //listen for user input
-    //get parentmost object
+  override step(delta: number, root: GameObject) { 
     let parent = root?.parent ?? root;
     if (parent) { 
       while (parent.parent) {

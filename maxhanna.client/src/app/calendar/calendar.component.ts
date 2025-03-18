@@ -72,8 +72,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.currentDate = new Date();
     this.currentDate.setHours(0, 0, 0, 0);
     this.selectedYear = this.now.getFullYear();
-    this.selectedMonth = this.monthNames[this.now.getMonth()];
-    console.log(this.selectedMonth);
+    this.selectedMonth = this.monthNames[this.now.getMonth()]; 
 
     const tmpSelectedDate = this.calendarDays.find(x => {
       if (x.date)
@@ -297,8 +296,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
   async onMonthChange() {
     this.selectedMonth = this.selectedMonthDropdown.nativeElement.value; 
-    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), this.monthNames.indexOf(this.selectedMonth), 1);
-    console.log(" onMonthChange change", this.now, this.selectedMonth, this.selectedYear);
+    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), this.monthNames.indexOf(this.selectedMonth), 1); 
     setTimeout(() => { 
       const tmpNow = new Date(this.now);
       this.now = new Date(tmpNow.setMonth(tmpNow.getMonth()));
@@ -310,8 +308,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   async onYearChange() {
     this.selectedYear = parseInt(this.selectedYearDropdown.nativeElement.value);
     const selectMonth = (this.selectedMonth ? this.monthNames.indexOf(this.selectedMonth) + 1 : new Date().getMonth());
-    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), selectMonth, 1);
-    console.log(" year change", this.now, selectMonth, this.selectedYear);
+    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), selectMonth, 1); 
     const tmpNow = new Date(this.now);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
     this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));

@@ -20,8 +20,7 @@ export class HostAiComponent extends ChildComponent {
     this.userMessage = this.chatInput.nativeElement.value.trim();
     this.startLoading();
     if (this.userMessage.trim()) { 
-      this.pushMessage({ sender: 'You', message: this.userMessage });
-      console.log(this.userMessage);
+      this.pushMessage({ sender: 'You', message: this.userMessage }); 
       this.aiService.sendMessage(this.userMessage).then(
         (response) => { 
           this.pushMessage({ sender: 'Host', message: response.reply });

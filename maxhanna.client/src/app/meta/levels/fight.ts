@@ -64,10 +64,7 @@ export class Fight extends Level {
       this.loadEnemies(params.enemies);
     } else {
       this.leaveFightFlag = true;
-    }
-
-
-	console.log("fight!");
+    } 
   }
 
 
@@ -80,8 +77,7 @@ export class Fight extends Level {
       }
     });
     events.on("SKILL_USED", this, (data: { heroId: number, skill: Skill }) => {
-      this.partySelectedSkills[data.heroId] = data.skill;
-      console.log("skill selected, ", this.partySelectedSkills);
+      this.partySelectedSkills[data.heroId] = data.skill; 
     });
     events.on("FIGHT_ENDED", this, () => {
       this.fightMenu.showEndOfFightMenu = true
@@ -189,8 +185,7 @@ export class Fight extends Level {
   }
   private performAttackPhase() {
     this.fightMenu.showWaitingForOthers = false;
-    this.fightMenu.showFightMenuOptions = true;
-    console.log("performing attacks: ", this.partySelectedSkills);
+    this.fightMenu.showFightMenuOptions = true; 
 
     if (this.party) {
       for (let attackingHero of Object.keys(this.partySelectedSkills)) {
@@ -206,15 +201,13 @@ export class Fight extends Level {
   }
 
   private calculateAndApplyDamage(attackingBot: MetaBot | undefined, attackingHeroSkill: Skill) {
-    if (attackingBot && attackingBot.hp > 0) {
-      console.log(attackingHeroSkill);
+    if (attackingBot && attackingBot.hp > 0) { 
       const botParts = ["leftArm", "rightArm", "legs", "head"];
       let attackingPart = undefined;
       let appliedDamage = false;
       for (let part of botParts) {
         const attackingPart = (attackingBot[part as keyof MetaBot] as MetaBotPart);
-        if (attackingPart?.skill.name === attackingHeroSkill.name) {
-          console.log(attackingPart?.damageMod);
+        if (attackingPart?.skill.name === attackingHeroSkill.name) { 
           if (this.enemies) {
             for (let enemy of this.enemies) {
               enemy.metabots[0].hp -= attackingPart.damageMod;
@@ -291,8 +284,7 @@ export class Fight extends Level {
   }
 
   private awardExpToPlayers(enemyMetabot: MetaBot) {
-    if (!enemyMetabot.hasAwardedExp) {
-      console.log("awarding exp " + enemyMetabot.level)
+    if (!enemyMetabot.hasAwardedExp) { 
       if (this.party) {
         for (let player of this.party) {
           for (let bot of player.metabots) {

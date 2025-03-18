@@ -264,8 +264,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       }
       this.searchTerms += this.tmpSearchTerms.trim();
       this.tmpSearchTerms = "";
-    }
-    console.log(this.searchTerms);
+    } 
   }
 
   getFileExtension(filename: string) {

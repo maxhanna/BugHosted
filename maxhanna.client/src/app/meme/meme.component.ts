@@ -67,8 +67,7 @@ export class MemeComponent extends ChildComponent implements OnInit  {
     this.isMenuPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();
-    }
-    console.log(this.isMenuPanelOpen);
+    } 
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;

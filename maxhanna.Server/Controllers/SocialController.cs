@@ -509,6 +509,9 @@ namespace maxhanna.Server.Controllers
             c.id AS comment_id,
             c.story_id AS story_id,
             c.user_id AS comment_user_id,
+            c.city AS comment_city,
+            c.country AS comment_country,
+            c.ip AS comment_ip,
             u.username AS comment_username,
             udpfu.id as profileFileId,
             udpfu.file_name as profileFileName,
@@ -594,6 +597,9 @@ namespace maxhanna.Server.Controllers
 							var userId = rdr.GetInt32("comment_user_id");
 							var userName = rdr.GetString("comment_username");
 							var commentText = rdr.GetString("comment");
+							var commentCity = rdr.IsDBNull(rdr.GetOrdinal("comment_city")) ? null : rdr.GetString("comment_city");
+							var commentCountry = rdr.IsDBNull(rdr.GetOrdinal("comment_country")) ? null : rdr.GetString("comment_country");
+							var commentIp = rdr.IsDBNull(rdr.GetOrdinal("comment_ip")) ? null : rdr.GetString("comment_ip");
 							var date = rdr.GetDateTime("date");
 
 							var story = stories.FirstOrDefault(s => s.Id == storyId);
@@ -616,6 +622,9 @@ namespace maxhanna.Server.Controllers
 										StoryId = storyId,
 										User = new User(userId, userName, null, dpFileEntry, null, null, null),
 										Date = date,
+										City = commentCity,
+										Country = commentCountry,
+										Ip = commentIp,
 										CommentFiles = new List<FileEntry>(),
 										Reactions = new List<Reaction>() // Initialize reactions list
 									};

@@ -75,8 +75,7 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("SHOP_OPENED", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
-    if (!actionBlocker) {
-      console.log("shop opened");
+    if (!actionBlocker) { 
       object.blockOpenStartMenu = true;
       object.mainScene?.setLevel(new ShopMenu(params));
       object.stopPollingForUpdates = true;
@@ -148,8 +147,7 @@ export function subscribeToMainGameEvents(object: any) {
       } else if (targetPart.partName === HEAD) {
         oldPart = metabotSelected.head;
         metabotSelected.head = targetPart;
-      }
-      console.log(parts, skill, dmg, targetPart, oldPart);
+      } 
 
       if (oldPart && oldPart.id == targetPart.id) {
         return;
@@ -206,17 +204,11 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("BOT_DESTROYED", object, (bot: Bot) => {
-    if (bot?.id) {
-      //if (bot.heroId == object.metaHero.id) {
-      //  object.reinitializeInventoryData();
-      //}
-      console.log("bot destroyed, ", bot);
+    if (bot?.id) { 
       const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === bot.id);
 
-      if (tgt) {
-        //tgt.isDeployed = false;
-        tgt.hp = 0;
-        //tgt.destroy();
+      if (tgt) { 
+        tgt.hp = 0; 
       }
     }
   });
@@ -268,8 +260,7 @@ export function subscribeToMainGameEvents(object: any) {
       }
     }
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "REPAIR_ALL_METABOTS", object.metaHero.map, { "heroId": object.metaHero.id + "" });
-    object.metaService.updateEvents(metaEvent);
-    //object.reinitializeInventoryData();
+    object.metaService.updateEvents(metaEvent); 
     setActionBlocker(50);
   });
 
@@ -294,22 +285,18 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("ITEM_SOLD", object, (items: InventoryItem[]) => {
-    console.log(items);
+  events.on("ITEM_SOLD", object, (items: InventoryItem[]) => { 
     const botPartsSold = items.filter(x => x.category === "MetaBotPart");
-    let partIdNumbers = []
-    //`${part.partName} ${part.skill.name} ${part.damageMod}`
+    let partIdNumbers = [] 
     for (let item of botPartsSold) {
       let itmString = item.name ?? "";
       itmString = itmString.replace("Left Punch", "Left_Punch");
-      itmString = itmString.replace("Right Punch", "Right_Punch");
-      console.log(itmString);
+      itmString = itmString.replace("Right Punch", "Right_Punch"); 
 
       const partName = itmString.split(' ')[0].trim();
       let skillName = itmString.split(' ')[1].trim().replace("_", " ");
       const damageMod = itmString.split(' ')[2].trim();
-
-      console.log(partName, skillName, damageMod);
+       
 
       const part = object.mainScene.inventory.parts.find((x: any) => x.partName === partName && x.skill.name === skillName && x.damageMod === parseInt(damageMod) && !partIdNumbers.includes(x.id)) as MetaBotPart;
       if (part) {
@@ -339,23 +326,20 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("TARGET_LOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (params.source.heroId) {
-      console.log("target locked", params);
+    if (params.source.heroId) { 
       const metaEvent = new MetaEvent(0, params.source.heroId, new Date(), "TARGET_LOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
       object.metaService.updateEvents(metaEvent);
     }
   });
 
   events.on("TARGET_UNLOCKED", object, (params: { source: Bot, target: Bot }) => {
-    if (params.source.heroId) {
-      console.log("target unlocked", params);
+    if (params.source.heroId) { 
       const metaEvent = new MetaEvent(1, params.source.heroId, new Date(), "TARGET_UNLOCKED", object.metaHero.map, { "sourceId": params.source.id + "", "targetId": params.target.id + "" });
       object.metaService.updateEvents(metaEvent);
     }
   });
 
-  events.on("START_FIGHT", object, (source: Npc) => {
-    console.log("start fight event");
+  events.on("START_FIGHT", object, (source: Npc) => { 
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "START_FIGHT", object.metaHero.map, { "party_members": `${JSON.stringify(object.partyMembers)}`, "source": `${source.type}` })
     object.metaService.updateEvents(metaEvent);
     const itemsFound = object.mainScene.inventory.getItemsFound();
@@ -383,8 +367,7 @@ export function subscribeToMainGameEvents(object: any) {
     if (object.isStartMenuOpened) {
       events.emit("CLOSE_INVENTORY_MENU", data);
     } else {
-      const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject");
-      console.log(exits);
+      const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject"); 
       events.emit("OPEN_START_MENU", exits);
     }
   });
@@ -400,13 +383,11 @@ export function subscribeToMainGameEvents(object: any) {
     events.emit("HIDE_START_BUTTON");
   });
 
-  events.on("BLOCK_START_MENU", object, () => {
-    console.log("blocking");
+  events.on("BLOCK_START_MENU", object, () => { 
     object.blockOpenStartMenu = true;
     events.emit("HIDE_START_BUTTON");
   });
-  events.on("UNBLOCK_START_MENU", object, () => {
-    console.log("unblocking");
+  events.on("UNBLOCK_START_MENU", object, () => { 
     object.blockOpenStartMenu = false;
     events.emit("SHOW_START_BUTTON");
   });
@@ -470,8 +451,7 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("CREATE_ENEMY", object, (params: { bot: Bot, owner?: Character }) => {
-    console.log("events got create_enemy", params.bot);
+  events.on("CREATE_ENEMY", object, (params: { bot: Bot, owner?: Character }) => { 
 
     const botData = {
       Id: params.bot.id,
@@ -538,10 +518,8 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           }
         }
         if (event.eventType === "BOT_DESTROYED") {
-          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot; 
-          //events.emit("BOT_DESTROYED", bot);
-          if (bot) {
-            console.log("foiund bot destroyed", bot);
+          const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;  
+          if (bot) { 
             bot.hp = 0;
             bot.isDeployed = false;
             bot.destroy();
@@ -619,8 +597,7 @@ export function actionStartFightEvent(object: any, event: MetaEvent) {
           textConfig: { content: undefined, portraitFrame: 1 },
           type: source
         });
-        events.emit("START_FIGHT", tmpNpc);
-        console.log("adding start fight flag");
+        events.emit("START_FIGHT", tmpNpc); 
         storyFlags.add("START_FIGHT");
       }
     }

@@ -70,12 +70,15 @@ namespace maxhanna.Server.Controllers
 					{
 						return BadRequest("Either file_id, story_id, or comment_id must be provided.");
 					}
-					string sql = $"INSERT INTO maxhanna.comments (user_id, {column}, comment, date) VALUES (@user_id, @id, @comment, UTC_TIMESTAMP()); SELECT LAST_INSERT_ID();";
+					string sql = $"INSERT INTO maxhanna.comments (user_id, {column}, comment, date, city, country, ip) VALUES (@user_id, @id, @comment, UTC_TIMESTAMP(), @city, @country, @ip); SELECT LAST_INSERT_ID();";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
 						cmd.Parameters.AddWithValue("@comment", request.Comment);
+						cmd.Parameters.AddWithValue("@city", request.City);
+						cmd.Parameters.AddWithValue("@country", request.Country);
+						cmd.Parameters.AddWithValue("@ip", request.Ip);
 						cmd.Parameters.AddWithValue($"@id", idValue);
 
 
@@ -134,6 +137,9 @@ namespace maxhanna.Server.Controllers
             udpfu.folder_path AS profileFileFolder,
             c.comment,
             c.date,
+            c.city,
+            c.country,
+            c.ip,
             cf.file_id AS comment_file_id,
             f.file_name AS comment_file_name,
             f.folder_path AS comment_file_folder_path,
@@ -180,6 +186,9 @@ namespace maxhanna.Server.Controllers
 							string userName = rdr.GetString("comment_username");
 							string commentText = rdr.GetString("comment");
 							DateTime date = rdr.GetDateTime("date");
+							string? city = rdr.IsDBNull("city") ? null : rdr.GetString("city");
+							string? country = rdr.IsDBNull("country") ? null : rdr.GetString("country");
+							string? ip = rdr.IsDBNull("ip") ? null : rdr.GetString("ip");
 
 							int? displayPicId = rdr.IsDBNull("profileFileId") ? null : rdr.GetInt32("profileFileId");
 							string? displayPicFolderPath = rdr.IsDBNull("profileFileFolder") ? null : rdr.GetString("profileFileFolder");
@@ -196,6 +205,9 @@ namespace maxhanna.Server.Controllers
 								CommentText = commentText,
 								User = new User(userId, userName, null, dpFileEntry, null, null, null),
 								Date = date,
+								City = city,
+								Country = country,
+								Ip = ip,
 								CommentFiles = new List<FileEntry>(),
 								Reactions = new List<Reaction>()
 							};
@@ -317,48 +329,6 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 			return Ok("Comment successfully edited");
-		}
-
-		[HttpPost("/Comment/GetCommentById", Name = "GetCommentById")]
-		public async Task<IActionResult> GetCommentParentId([FromBody] int commentId)
-		{
-			_logger.LogInformation($"POST /Comment/GetCommentById (for commentId {commentId})");
-
-			FileComment? comment = null;
-			string sql = "SELECT id, file_id, story_id, comment_id FROM maxhanna.comments WHERE id = @comment_id LIMIT 1;";
-			try
-			{
-				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-				{
-					await conn.OpenAsync();
-
-					using (var cmd = new MySqlCommand(sql, conn))
-					{
-						// Add user ID as a parameter to the command
-						cmd.Parameters.AddWithValue("@comment_id", commentId);
-						using (var rdr = await cmd.ExecuteReaderAsync())
-						{
-							while (await rdr.ReadAsync())
-							{
-								comment = new FileComment
-								{
-									Id = rdr.GetInt32("id"),
-									StoryId = rdr.IsDBNull("story_id") ? 0 : rdr.GetInt32("story_id"),
-									FileId = rdr.IsDBNull("file_id") ? 0 : rdr.GetInt32("file_id"),
-									CommentId = rdr.IsDBNull("comment_id") ? 0 : rdr.GetInt32("comment_id"),
-								};
-							}
-
-							return Ok(comment);
-						}
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "An error occurred while fetching comment.");
-				return StatusCode(500, "An error occurred while fetching comment.");
-			}
-		}
+		} 
 	}
 }

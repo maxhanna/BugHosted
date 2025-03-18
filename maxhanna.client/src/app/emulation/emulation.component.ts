@@ -110,10 +110,8 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
   setupEventListeners() {
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' || event.key === 'Esc') {
-        console.log('Escape key pressed');
-        if (this.isFullScreen) {
-          console.log("toggling fs");
+      if (event.key === 'Escape' || event.key === 'Esc') { 
+        if (this.isFullScreen) { 
           this.toggleFullscreen();
         }
       }
@@ -482,8 +480,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.isMenuPanelOpen = false;
     if (this.parentRef) {
       this.parentRef.closeOverlay();
-    }
-    console.log("closed");
+    } 
     setTimeout(() => {
       if (this.selectedRomName) {
         this.controlsSet = false;

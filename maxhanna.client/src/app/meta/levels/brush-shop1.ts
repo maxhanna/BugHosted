@@ -232,8 +232,7 @@ export class BrushShop1 extends Level {
       }
     });
     events.on("CHARACTER_PICKS_UP_ITEM", this, (level: any) => { 
-      if (storyFlags.contains(GOT_FIRST_METABOT)) {
-        console.log("fixing items");
+      if (storyFlags.contains(GOT_FIRST_METABOT)) { 
         this.firstBotSelection = [];
         this.salesman.items = this.firstBotSelection;
         this.invisibleSalesman.items = this.firstBotSelection;

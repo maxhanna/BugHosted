@@ -85,8 +85,7 @@ export class FileComponent extends ChildComponent {
     this.fileBeingShared = fileId;
   }
   changeDirectoryEvent(event: string) {
-    this.currentDirectory = event;
-    console.log(this.currentDirectory);
+    this.currentDirectory = event; 
   } 
   uploadNotification(event: string) {
     if (event != '0' && this.parentRef) {
@@ -165,8 +164,7 @@ export class FileComponent extends ChildComponent {
     this.isMenuPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();
-    }
-    console.log(this.isMenuPanelOpen);
+    } 
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;

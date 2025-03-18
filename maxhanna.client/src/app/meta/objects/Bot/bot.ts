@@ -198,9 +198,7 @@ export class Bot extends Character {
       const directionY = hero.position.y - (this.previousHeroPosition?.y ?? this.position.y);
       const distanceFromHero = gridCells(2);
       let newX = hero.position.x;
-      let newY = hero.position.y;
-
-      console.log(this.body?.animations?.activeKey);
+      let newY = hero.position.y; 
       // Move bot to always be behind the hero based on their movement direction
       if (Math.abs(directionX) > Math.abs(directionY)) {
         // Hero is primarily moving horizontally
@@ -225,12 +223,9 @@ export class Bot extends Character {
           newY = hero.position.y + distanceFromHero;
         } 
       }
-      this.facingDirection = hero.facingDirection;
-      // Update the bot's destination position
-      this.destinationPosition = new Vector2(newX, newY); 
-      // Store hero's last position to track movement direction
-      this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y);
-      // console.log(this.destinationPosition);
+      this.facingDirection = hero.facingDirection; 
+      this.destinationPosition = new Vector2(newX, newY);  
+      this.previousHeroPosition = new Vector2(hero.position.x, hero.position.y); 
     }
   } 
 }  

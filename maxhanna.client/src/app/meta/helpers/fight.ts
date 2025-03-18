@@ -19,9 +19,7 @@ export const typeEffectiveness = new Map<SkillType, SkillType>([
 export function  calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
   if (!attackingBot || attackingBot.hp <= 0 || !defendingBot) return;
 
-  let attackingPart = attackingBot.lastAttackPart ?? attackingBot.leftArm;
-  //console.log("last attacking part : ", attackingPart, attackingBot);
-  // Ensure valid attacking part selection
+  let attackingPart = attackingBot.lastAttackPart ?? attackingBot.leftArm; 
   if (attackingPart?.partName === LEFT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
     attackingPart = attackingBot.rightArm ?? attackingBot.leftArm ?? attackingBot.legs ?? attackingBot.head!;
   } else if (attackingPart?.partName === RIGHT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
@@ -31,28 +29,19 @@ export function  calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
   } else if (attackingPart?.partName === HEAD && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
     attackingPart = attackingBot.head ?? attackingBot.legs ?? attackingBot.rightArm ?? attackingBot.leftArm!;
   }
-  attackingBot.lastAttackPart = attackingPart;
-
-  // Get Attacking & Defending Types
+  attackingBot.lastAttackPart = attackingPart; 
   const attackingType = attackingPart?.skill?.type ?? SkillType.NORMAL;
-  const defendingType = defendingBot.botType ?? SkillType.NORMAL;
-
-  // Determine Type Multiplier
+  const defendingType = defendingBot.botType ?? SkillType.NORMAL; 
   let typeMultiplier = 1.0;
   if (attackingPart && typeEffectiveness.get(attackingType) === defendingType) {
     typeMultiplier = 2.0; // Super Effective
   } else if (attackingPart && typeEffectiveness.get(defendingType) === attackingType) {
     typeMultiplier = 0.5; // Not Effective
   }
-
-  // Calculate Final Damage
+   
   const baseDamage = attackingBot.level * (attackingPart?.damageMod ?? 1);
-  const appliedDamage = baseDamage * typeMultiplier;
-
-  // Apply Damage to Defender
-  defendingBot.hp = Math.max(0, defendingBot.hp - appliedDamage);
-
-  console.log(`${attackingBot.name} attacked ${defendingBot.name} dealing ${appliedDamage} damage!`, attackingPart);
+  const appliedDamage = baseDamage * typeMultiplier; 
+  defendingBot.hp = Math.max(0, defendingBot.hp - appliedDamage); 
 }
 
 export function awardExpToPlayers(player: Character, enemy: Character) {

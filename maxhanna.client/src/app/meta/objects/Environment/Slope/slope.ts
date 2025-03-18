@@ -52,9 +52,7 @@ export class Slope extends GameObject {
     events.on("CHARACTER_POSITION", this, (character: Character) => {
       const roundedHeroX = Math.round(character.destinationPosition.x);
       const roundedHeroY = Math.round(character.destinationPosition.y);
-      if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {
-        console.log("CHARACTER_SLOPE", character);
-
+      if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) { 
         events.emit("CHARACTER_SLOPE",
           {
             character: character,
@@ -67,10 +65,8 @@ export class Slope extends GameObject {
       }  
     });
 
-    events.on("CHARACTER_CREATED", this, (character: Character) => { 
-      console.log("chracter created detected from slope");
+    events.on("CHARACTER_CREATED", this, (character: Character) => {  
       if (character.position.x === this.position.x && character.position.y === this.position.y) {
-        console.log(`CHARACTER_SLOPE FROM CHARACTER_CREATED, hero.position ${character.position}, this.startScale ${this.startScale}, this.endScale ${this.endScale}`);
         setTimeout(() => {
           events.emit("CHARACTER_SLOPE", { character: character, slopeType: this.slopeType, slopeDirection: this.slopeDirection, startScale: this.startScale, endScale: this.endScale, slopeStepHeight: this.slopeStepHeight });
         }, 1); //idk why but mandatory timeout here

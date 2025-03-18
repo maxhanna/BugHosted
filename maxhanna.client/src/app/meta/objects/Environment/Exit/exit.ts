@@ -34,8 +34,7 @@ export class Exit extends GameObject {
     events.on("CHARACTER_POSITION", this, (character: Character) => {
       const roundedHeroX = Math.round(character.position.x);
       const roundedHeroY = Math.round(character.position.y);
-      if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) {
-        console.log("CHARACTER ENTERS EXIT SPACE", this.targetMap);
+      if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) { 
         if (character.isUserControlled) { 
           events.emit("CHARACTER_EXITS", this.targetMap);
         }

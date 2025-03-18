@@ -72,8 +72,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     }, 30000); // Poll every 30 seconds
   }
 
-  removeMe(type: string) {
-    console.log(type);
+  removeMe(type: string) { 
     if (this.inputtedParentRef) {
       this.inputtedParentRef.removeAllComponents();
     } else {

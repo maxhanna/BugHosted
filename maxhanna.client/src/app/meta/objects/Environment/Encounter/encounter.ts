@@ -51,8 +51,7 @@ export class RandomEncounter extends Npc {
 
   override ready() {
     events.on("BOT_DESTROYED", this, (params: Bot ) => {
-      if (params?.heroId === this.id) {
-        console.log("bot was destroyed, ", params);
+      if (params?.heroId === this.id) { 
         setTimeout(() => {
           this.spawnEnemy()
         }, 15000);
