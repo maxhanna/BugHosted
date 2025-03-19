@@ -1,0 +1,35 @@
+<div class="componentMain">
+  <div class="closeButton" (click)="remove_me('Crawler');"></div>
+  <div class="componentTitle">Crawler</div>
+
+  <div class="crawler-container"> 
+    <div class="crawlerInputs">
+      <input #urlInput type="text" placeholder="Enter URL" (keydown.enter)="searchUrl()"/>
+      <button (click)="searchUrl()" [disabled]="loading">🔍Crawl</button>
+    </div>
+
+    <div *ngIf="loading">Loading...</div>
+
+    <div *ngIf="error" class="error-message">{{ error }}</div>
+    <div class="metadataSearchWrapper">
+      <div *ngFor="let metadata of searchMetadata" class="metadataSearchDiv">
+        <div>
+          <h3 class="cursorPointerUnderlined"><a [href]="metadata.url" target="_blank">{{ metadata.url }}</a></h3>
+          <p *ngIf="metadata.title"><strong>Title:</strong> {{ metadata.title }}</p>
+          <p *ngIf="metadata.description"><strong>Description:</strong> {{ metadata.description }}</p>
+          <p *ngIf="metadata.author"><strong>Author:</strong> {{ metadata.author }}</p>
+          <p *ngIf="metadata.keywords"><strong>Keywords:</strong> {{ metadata.keywords }}</p>
+        </div>
+        <div> 
+          <a *ngIf="metadata.imageUrl" [href]="metadata.imageUrl" target="_blank">
+            <img *ngIf="metadata.imageUrl" [src]="metadata.imageUrl" [attr.loading]="'lazy'" [title]="metadata.imageUrl" />
+          </a>
+        </div>
+      </div>
+    </div> 
+    <div *ngIf="searchMetadata.length == 0 && !error && !loading" class="smallFont nbDiv">
+      <div>Note: You can index your website by searching for it.</div>
+      <div>(make sure to include http or https in the request)</div>
+    </div>
+  </div>
+</div>

@@ -264,7 +264,7 @@
           </div>
         </div>
         <div class="metadataOptionsStats" *ngFor="let metadata of optionStory.metadata">
-          <div class="optionsStatsDiv">
+          <div class="optionsStatsDiv" *ngIf="metadata.url">
             <div class="optionsStatsHeader">
               Metadata URL:
             </div>
@@ -272,7 +272,7 @@
               <a [href]="metadata.url" target="_blank" [title]="metadata.url">{{metadata.url}}</a>
             </div>
           </div>
-          <div class="optionsStatsDiv">
+          <div class="optionsStatsDiv" *ngIf="metadata.title">
             <div class="optionsStatsHeader">
               Metadata Title:
             </div>

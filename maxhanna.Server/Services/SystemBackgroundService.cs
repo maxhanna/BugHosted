@@ -1,4 +1,6 @@
-﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
+﻿using HtmlAgilityPack;
+using maxhanna.Server.Controllers.DataContracts.Crypto;
+using maxhanna.Server.Controllers.DataContracts.Metadata;
 using MySqlConnector;
 using Newtonsoft.Json;
 using System.Data;
@@ -13,18 +15,22 @@ namespace maxhanna.Server.Services
 		private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
 		private readonly string _connectionString;
 		private readonly HttpClient _httpClient;
+		private readonly WebCrawler _webCrawler;
 		private readonly IConfiguration _config;
 		private DateTime _lastDailyTaskRun = DateTime.MinValue;
-		private DateTime _lastCoinFetchRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
-		private DateTime _lastExchangeRateFetchRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
+		private DateTime _lastMinuteTaskRun = DateTime.MinValue;
+		private DateTime _lastFiveMinuteTaskRun = DateTime.MinValue;
+		private DateTime _lastHourlyTaskRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
+		private DateTime _lastMidDayTaskRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
 
-		public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config)
+		public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config, WebCrawler webCrawler)
 		{
 			_logger = logger;
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
 			_apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
 			_httpClient = new HttpClient();
+			_webCrawler = webCrawler; 
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -33,23 +39,30 @@ namespace maxhanna.Server.Services
 			{
 				_logger.LogInformation("Refreshing system information: {time}", DateTimeOffset.Now);
 
+				// Run tasks that need to execute every 1 minute
+				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
+				{ 
+					await FetchWebsiteMetadata();
+				} 
 				// Run tasks that need to execute every 5 minutes
-				await UpdateLastBTCWalletInfo();
-
+				if ((DateTime.Now - _lastFiveMinuteTaskRun).TotalMinutes >= 5)
+				{
+					await UpdateLastBTCWalletInfo(); 
+				}
 				// Check if 1 hour has passed since the last coin fetch
-				if ((DateTime.Now - _lastCoinFetchRun).TotalHours >= 1)
+				if ((DateTime.Now - _lastHourlyTaskRun).TotalHours >= 1)
 				{
 					await FetchAndStoreCoinValues();
 					await AssignTrophies();
 				//	await PostRandomMemeToTwitter();
-					_lastCoinFetchRun = DateTime.Now;
+					_lastHourlyTaskRun = DateTime.Now;
 				}
 
 				// Check if 6 hour has passed since the last exchange rate fetch
-				if ((DateTime.Now - _lastExchangeRateFetchRun).TotalHours >= 6)
+				if ((DateTime.Now - _lastMidDayTaskRun).TotalHours >= 6)
 				{
 					await FetchExchangeRates();
-					_lastExchangeRateFetchRun = DateTime.Now;
+					_lastMidDayTaskRun = DateTime.Now;
 				}
 
 				// Check and run daily tasks only once every 24 hours
@@ -57,11 +70,12 @@ namespace maxhanna.Server.Services
 				{
 					await DeleteOldBattleReports();
 					await DeleteOldGuests();
+					await DeleteOldSearchResults();
 					_lastDailyTaskRun = DateTime.Now;
 				}
 
 				// Delay for 5 minutes before repeating
-				await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+				await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
 			}
 		}
 		private async Task PostRandomMemeToTwitter()
@@ -142,6 +156,20 @@ namespace maxhanna.Server.Services
 				{
 					_logger.LogError("Failed to post tweet with media.");
 				}
+			}
+		}
+
+
+		private async Task FetchWebsiteMetadata()
+		{
+			_logger.LogInformation("Crawling website...");
+			try
+			{
+				await _webCrawler.FetchWebsiteMetadata();
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("Exception while crawling : " + ex.Message);
 			}
 		}
 
@@ -403,6 +431,62 @@ namespace maxhanna.Server.Services
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
 						_logger.LogInformation($"Deleted {affectedRows} guest accounts older than 10 days.");
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error occurred while deleting old guest accounts.");
+			}
+		}
+
+
+		private async Task DeleteOldSearchResults()
+		{
+			try
+			{
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+
+					// SQL statement to delete from nexus_reports_deleted and nexus_battles in one go
+					var deleteSql = @"
+                        DELETE FROM search_results 
+												WHERE (title IS NULL OR title = '') 
+												AND (description IS NULL OR description = '') 
+												AND (author IS NULL OR author = '') 
+												AND (keywords IS NULL OR keywords = '') 
+												AND (image_url IS NULL OR image_url = '') 
+												AND last_crawled < NOW() - INTERVAL 10 DAY;
+
+												WITH RankedResults AS (
+														SELECT id, url, title, description, author, keywords, image_url, last_crawled,
+																	 ROW_NUMBER() OVER (PARTITION BY  
+																				CASE 
+																						WHEN url LIKE 'http://www.%' THEN SUBSTRING(url, 12) 
+																						WHEN url LIKE 'https://www.%' THEN SUBSTRING(url, 13) 
+																						WHEN url LIKE 'http://%' THEN SUBSTRING(url, 8) 
+																						WHEN url LIKE 'https://%' THEN SUBSTRING(url, 9) 
+																						ELSE url 
+																				END 
+																				ORDER BY  
+																						(url LIKE 'https://%') DESC,   
+																						(title IS NOT NULL AND title != '') DESC, 
+																						(description IS NOT NULL AND description != '') DESC, 
+																						(author IS NOT NULL AND author != '') DESC, 
+																						(keywords IS NOT NULL AND keywords != '') DESC, 
+																						(image_url IS NOT NULL AND image_url != '') DESC,  
+																						last_crawled DESC
+																	 ) AS RowNum
+														FROM search_results
+												)
+												DELETE FROM search_results WHERE id IN (SELECT id FROM RankedResults WHERE RowNum > 1)
+												AND last_crawled < NOW() - INTERVAL 10 DAY;";
+
+					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+					{
+						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+						_logger.LogInformation($"Deleted {affectedRows} search results older than 10 days.");
 					}
 				}
 			}

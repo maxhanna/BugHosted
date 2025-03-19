@@ -23,12 +23,12 @@ export class Story {
   reactions?: Array<Reaction> | undefined;
   timeSince?: string; 
   hidden?: boolean; 
-}
-
-
+} 
 export class MetaData {
-  url!: string;
-  title!: string;
-  description!: string;
-  imageUrl!: string;
+  url?: string;
+  title?: string;
+  description?: string;
+  author?: string;
+  keywords?: string;
+  imageUrl?: string;
 }

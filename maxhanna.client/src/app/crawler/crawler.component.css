@@ -1,0 +1,46 @@
+.componentMain {
+  max-height: CALC(var(--vh, 1vh)* 100 - 60px);
+  overflow: auto;
+}
+.crawler-container {
+  min-width: 300px;
+  margin: 10px 10px; 
+}
+ 
+button { 
+  margin-left: 10px;
+}
+
+.error-message {
+  color: red;
+  font-weight: bold;
+}
+
+img {
+  max-width: 250px;
+  max-height: 250px;
+}
+
+.crawlerInputs {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  align-items: center;
+}
+
+.nbDiv {
+  margin: 10px 10px;
+}
+
+.metadataSearchDiv {
+  border: var(--main-border);
+  border-radius: 12px;
+  margin: 12px;
+  padding: 12px;
+  max-height: 550px;
+  overflow: auto;
+  display: flex;
+
+}
+.metadataSearchWrapper {
+}

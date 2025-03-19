@@ -30,8 +30,8 @@ import { HostAiComponent } from './host-ai/host-ai.component';
 import { DomSanitizer, Meta, Title } from '@angular/platform-browser';
 import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 import { ThemesComponent } from './themes/themes.component';
-import { FileEntry } from '../services/datacontracts/file/file-entry';
-
+import { FileEntry } from '../services/datacontracts/file/file-entry'; 
+import { CrawlerComponent } from './crawler/crawler.component';
 
 
 @Component({
@@ -78,6 +78,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🔍", title: "Favourites", content: undefined }, 
     { ownership: 0, icon: "🎨", title: "Theme", content: undefined }, 
     { ownership: 0, icon: "🧐", title: "HostAi", content: undefined }, 
+    { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
@@ -107,6 +108,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "HostAi": HostAiComponent,
     "Theme": ThemesComponent,
     "MediaViewer": MediaViewerComponent,
+    "Crawler": CrawlerComponent,
     "Meme": MemeComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent

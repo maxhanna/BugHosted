@@ -293,6 +293,13 @@ but you can also set your own City for a more precise location."></span>
                             </div>
                           </div>
                         </div>
+                        <div *ngIf="icon.title == 'Crawler'" [id]="icon.title+'tddiv'">
+                          <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
+                            <div>
+                              Our search engine with uncensored results. Index your website or search our database of websites for any information.
+                            </div>
+                          </div>
+                        </div>
                         <div *ngIf="icon.title == 'Calendar'" [id]="icon.title+'tddiv'">
                           <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                             The Calendar helps you remember important things. Dont forget.

@@ -31,6 +31,7 @@ const PROXY_CONFIG = [
       "/meta",
       "/ai",
       "/favourite",
+      "/crawler",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 

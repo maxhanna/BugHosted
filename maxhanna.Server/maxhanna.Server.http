@@ -147,3 +147,6 @@ Accept: application/json
 PUT {{maxhanna.Server_HostAddress}}/Favourite/
 Accept: application/json
 ###
+POST {{maxhanna.Server_HostAddress}}/Crawler/
+Accept: application/json
+###

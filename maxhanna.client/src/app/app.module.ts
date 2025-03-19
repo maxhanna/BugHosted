@@ -51,7 +51,8 @@ import { InViewDirective } from './in-view.directive';
 import { CurrencyFlagPipe } from './currency-flag.pipe';
 import { MetaComponent } from './meta/meta.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
-import { ThemesComponent } from './themes/themes.component';  
+import { ThemesComponent } from './themes/themes.component';
+import { CrawlerComponent } from './crawler/crawler.component';  
 
 @NgModule({
   declarations: [
@@ -100,6 +101,7 @@ import { ThemesComponent } from './themes/themes.component';
     CurrencyFlagPipe,
     HostAiComponent,
     ThemesComponent,
+    CrawlerComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,
