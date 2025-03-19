@@ -492,7 +492,7 @@ namespace maxhanna.Server.Services
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while deleting old guest accounts.");
+				_logger.LogError(ex, "Error occurred while deleting old search results.");
 			}
 		}
 

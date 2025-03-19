@@ -31,10 +31,12 @@ export class MediaSelectorComponent implements OnDestroy {
   @ViewChild(FileUploadComponent) fileUploadComponent!: FileUploadComponent;
 
 
-  constructor() { 
+  constructor() {
+    this.inputtedParentRef?.addResizeListener();
   }
 
   ngOnDestroy() {
+    this.inputtedParentRef?.removeResizeListener();
     document.body.style.overflow = 'auto';
     document.documentElement.style.overflow = 'auto';
   }

@@ -484,9 +484,12 @@ export class AppComponent implements OnInit, AfterViewInit {
     return base ?? "";
   }
   addResizeListener() {
-    window.addEventListener('resize', this.updateHeight);
+    window.removeEventListener('resize', this.updateHeight); 
+    setTimeout(() => {
+      window.addEventListener('resize', this.updateHeight);
+    }, 10);
   }
-  removeResizeListener() {
+  removeResizeListener() { 
     window.removeEventListener('resize', this.updateHeight);
   }
   async getLocation() {

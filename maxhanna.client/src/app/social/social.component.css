@@ -4,6 +4,11 @@
   flex-direction: column;
 }
 
+.socialComponentContents {
+  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
+  overflow: auto;
+}
+
 .inputDiv {
   margin-left: auto;
   margin-right: auto;

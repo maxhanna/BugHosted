@@ -1,4 +1,4 @@
-import { OnInit, Component, ElementRef, Input, ViewChild } from '@angular/core';
+import { OnInit, Component, ElementRef, Input, ViewChild, OnDestroy } from '@angular/core';
 import { ChildComponent } from '../child.component'; 
 import { ActivatedRoute } from '@angular/router'; 
 import { FileSearchComponent } from '../file-search/file-search.component';
@@ -13,7 +13,7 @@ import { UserService } from '../../services/user.service';
   templateUrl: './meme.component.html',
   styleUrls: ['./meme.component.css']
 })
-export class MemeComponent extends ChildComponent implements OnInit  { 
+export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  { 
   notifications: string[] = [];
   topTopics: TopicRank[] = [];  
   isMenuPanelOpen = false;
@@ -43,6 +43,10 @@ export class MemeComponent extends ChildComponent implements OnInit  {
         }
       });
     }
+    this.parentRef?.addResizeListener();
+  }
+  ngOnDestroy() {
+    this.parentRef?.removeResizeListener();
   }
 
   uploadFinished(files: FileEntry[]) { 

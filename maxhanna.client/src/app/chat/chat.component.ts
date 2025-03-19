@@ -47,7 +47,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private chatService: ChatService, private notificationService: NotificationService) {
     super();
 
-    const parent = this.inputtedParentRef ?? this.parentRef;
+    const parent = this.parentRef ?? this.inputtedParentRef;
     parent?.addResizeListener();
     if (parent?.user?.id) { //only allow notifications pushed if user is logged in.
       try {
@@ -190,6 +190,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async openChat(users?: User[]) {
     if (!users) { return; }
+    setTimeout(() => { 
+      const parent = this.parentRef ?? this.inputtedParentRef;
+      parent?.addResizeListener();
+    }, 50);
+
     this.startLoading();
     this.isPanelExpanded = true;
     this.showUserList = false;
@@ -426,6 +431,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   quote(message: Message) {
+    if (this.newMessage.nativeElement.value.trim() != "") {
+      this.newMessage.nativeElement.value += "\n ";
+    }
     this.newMessage.nativeElement.value += `[Quoting {${message.sender.username}|${message.sender.id}|${message.timestamp}}: ${message.content}] \n`;
     this.newMessage.nativeElement.focus();
   }

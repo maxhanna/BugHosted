@@ -1,14 +1,13 @@
 button {
   cursor: pointer;
 }
- 
+
 .memeResultsDiv {
-  max-height: 100%;
+  max-height: CALC(var(--vh, 1vh) * 100 - 60px);
   overflow: auto;
-}
-
-
-@media only screen and (min-width:800px) { 
+} 
+  
+@media only screen and (min-width:800px) {
   .componentMain {
     width: 800px; 
   }

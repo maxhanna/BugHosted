@@ -8,9 +8,12 @@
   height:25px;
   white-space: nowrap;
 }
-
+.tinyAvatarPic {
+  width: 25px;
+  height: 25px;
+}
 .displayPicture {
-  overflow: hidden; 
+  overflow: hidden;
 }
 
 .noAvatar {
@@ -18,7 +21,7 @@
   height: 50px;
   width: 50px;
 }
-.usernameSpan {
+.usernameSpan {          
   word-break: break-all; 
   text-align: center; 
   display: block;

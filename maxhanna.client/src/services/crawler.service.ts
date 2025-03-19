@@ -8,14 +8,28 @@ export class CrawlerService {
       const response = await fetch(`/crawler/searchurl`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json', 
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Url: url }),  
+        body: JSON.stringify({ Url: url }),
       });
 
       return await response.json();
     } catch (error) {
-      return null; 
+      return null;
     }
-  } 
+  }
+  async indexCount() {
+    try {
+      const response = await fetch(`/crawler/indexcount`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
 }

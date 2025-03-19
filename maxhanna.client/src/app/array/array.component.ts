@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { ArrayService } from '../../services/array.service'; 
 import { GraveyardHero } from '../../services/datacontracts/array/graveyard-hero';
@@ -14,7 +14,7 @@ import { User } from '../../services/datacontracts/user/user';
   templateUrl: './array.component.html',
   styleUrl: './array.component.css'
 })
-export class ArrayComponent extends ChildComponent implements OnInit {
+export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy {
   hero = new ArrayCharacter();
   inventory?: ArrayCharacterInventory;
   allPlayerHeros: ArrayCharacter[] = [];
@@ -29,6 +29,7 @@ export class ArrayComponent extends ChildComponent implements OnInit {
   lastNexusPoint: bigint = 0n;
   itemsFound: bigint = 0n;
 
+  isHelpPanelOpen = false;
   isRanksExpanded = false;
   hideRanks = false;
   isDead = false;
@@ -46,7 +47,12 @@ export class ArrayComponent extends ChildComponent implements OnInit {
     if (this.parentRef && this.parentRef.user) {
       this.isUserComponentClosed = true;
     }
+    this.parentRef?.addResizeListener();
     await this.refreshHeroData();
+  }
+
+  ngOnDestroy() {
+    this.parentRef?.removeResizeListener();
   }
 
   private async refreshHeroData() { 
@@ -305,5 +311,13 @@ export class ArrayComponent extends ChildComponent implements OnInit {
     } else {
       this.rankingDiv.nativeElement.classList.add("expanded");
     }
+  } 
+  openHelpPanel() {
+    this.isHelpPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+  closeHelpPanel() {
+    this.isHelpPanelOpen = false;
+    this.parentRef?.closeOverlay();
   }
 }

@@ -1,6 +1,6 @@
 <div class="cursorPointer userTag {{displayMiniTag ? 'miniTag' : ''}}" (click)="preventOpenProfile ? '' : viewProfile(user)">
   <div class="{{displayMiniTag ? 'miniAvatar' : 'largeAvatar'}}" *ngIf="!displayOnlyName">
-    <div class="displayPicture {{displayLargeAvatar ? 'largeAvatar' : ''}} {{displayMiniTag ? 'miniAvatarPic' : ''}}" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
+    <div class="displayPicture {{displayLargeAvatar ? 'largeAvatar' : ''}} {{displayMiniTag ? 'miniAvatarPic' : ''}} {{displayTinyPicture ? 'tinyAvatarPic' : ''}}" *ngIf="user && user.id != 0 && user.displayPictureFile && user.displayPictureFile.id != 0 && !displayEmptyAvatar">
       <app-media-viewer #profileImageViewer
                         [inputtedParentRef]="parentRef"
                         [fileId]="user.displayPictureFile.id"
@@ -10,9 +10,9 @@
                         [displayExpander]="false">
       </app-media-viewer>
     </div>
-    <div class="avatar noAvatar {{displayMiniTag ? 'miniAvatarBust' : ''}}" *ngIf="(!user || !user.displayPictureFile || user.displayPictureFile.id == 0 || displayEmptyAvatar || (user && user.id == 0))">
+    <div class="avatar noAvatar {{ (displayMiniTag || displayTinyPicture) ? 'miniAvatarBust' : ''}}" *ngIf="(!user || !user.displayPictureFile || user.displayPictureFile.id == 0 || displayEmptyAvatar || (user && user.id == 0))">
       <span class="avatarBust noAvatar">👤</span>
-      <span class="avatarBug noAvatar {{displayMiniTag ? 'miniAvatarBug' : ''}}">🪲</span>
+      <span class="avatarBug noAvatar {{(displayMiniTag || displayTinyPicture) ? 'miniAvatarBug' : ''}}">🪲</span>
     </div>
   </div>
   <span [class]="(displayOnlyName ? '' : 'usernameSpan ') + ' username'"

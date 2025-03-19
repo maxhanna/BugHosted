@@ -60,12 +60,15 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
         const parent = this.inputtedParentRef ?? this.parentRef;
         if (parent) {
           this.user = parent.user;
+          parent.addResizeListener();
         }
       }
     }
   }
   async ngOnDestroy() {
     clearInterval(this.chatInfoInterval);
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.removeResizeListener();
   }
   async searchUsers() { 
     let search = undefined;

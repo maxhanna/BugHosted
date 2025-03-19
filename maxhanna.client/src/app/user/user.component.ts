@@ -101,8 +101,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.usersCount = await this.userService.getUserCount();
     try {
       if (this.userId) {
+        console.log("getting user by id : " + this.userId);
         const res = await this.userService.getUserById(this.userId);
         if (res) {
+          console.log("got user : ", res);
           this.user = res as User;
           if (this.socialComponent) {
             this.socialComponent.user = this.user;
@@ -118,11 +120,20 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         await this.loadWordlerData();
         await this.loadSongData();
         await this.loadContactsData();
-        this.parentRef?.getLocation().then(res => {
-          if (res?.city) {
-            this.weatherLocation = res;
-          }
-        });
+        if (!this.user) {
+          this.parentRef?.getLocation().then(res => {
+            if (res?.city) {
+              this.weatherLocation = res;
+            }
+          });
+        } else {
+          this.weatherService.getWeatherLocation(this.user).then(res => {
+            if (res.city) {
+              this.weatherLocation = res;
+            }
+          });
+        }
+        
         await this.getIsBeingFollowedByUser();
       }
       this.getNSFWValue();

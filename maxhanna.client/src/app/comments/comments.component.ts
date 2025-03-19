@@ -267,6 +267,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
     const input = this.addCommentInput.nativeElement;
     if (input) {
+      if (input.value.trim() != "") { 
+        input.value += "\n ";
+      }
       input.value += `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${comment.commentText}] \n`;
     }
     input.focus();

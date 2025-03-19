@@ -302,13 +302,20 @@
           <div class="optionsStatsWrapperDiv">
             <div class="optionsStatsDiv">
               <div class="optionsStatsHeader">
+                ID :
+              </div>
+              <div class="optionsStatsDescription">
+                {{user ? user.id : parentRef ? parentRef.user?.id : ''}}
+              </div>
+            </div>
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
                 Last Seen :
               </div>
               <div class="optionsStatsDescription">
                 {{daysSinceDate(user?.lastSeen)}} days ago.
               </div>
             </div>
-
             <div class="optionsStatsDiv" *ngIf="user?.about?.description">
               <div class="optionsStatsHeader">
                 Description :
@@ -369,6 +376,15 @@
               </div>
               <div class="optionsStatsDescription">
                 {{numberOfNexusBases}} bases.
+              </div>
+            </div>
+
+            <div class="optionsStatsDiv">
+              <div class="optionsStatsHeader">
+                Share Profile :
+              </div>
+              <div class="optionsStatsDescription">
+                <button (click)="copyLink()">📋Share</button>
               </div>
             </div>
           </div>

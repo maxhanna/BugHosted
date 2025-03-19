@@ -5,14 +5,15 @@ using Newtonsoft.Json;
 using System;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Xml;
 
 public class WebCrawler
 {
 	private readonly HttpClient _httpClient = new HttpClient();
 	private readonly IConfiguration _config;
-	private const string Chars = "abcdefghijklmnopqrstuvwxyz";
-	private bool _isHttpsDone = false;
+	private const string Chars = "abcdefghijklmnopqrstuvwxyz"; 
 	private static readonly List<string> DomainSuffixes = new List<string>
 	{
 			"com", "io", "net", "ca", "qc.ca", "org", "gov", "edu", "co", "biz", "info", "us", "tv", "me", "co.uk",
@@ -29,36 +30,51 @@ public class WebCrawler
 
 	public async Task FetchWebsiteMetadata()
 	{
-		string nextDomain = await GenerateNextUrl();
-		Console.WriteLine($"Fetching metadata for: {nextDomain}");
+		List<string> nextDomains = await GenerateNextUrl();
+		foreach (string domain in nextDomains)
+		{ 
+			await CrawlSitemap(domain);
 
-		Metadata metadata = await GetWebsiteMetadata(nextDomain);
-		if (metadata != null)
-		{
-			await SaveSearchResult(nextDomain, metadata); 
-		}
+			List<Metadata> metadata = await GetWebsiteMetadata(domain);
+			if (metadata != null)
+			{
+				foreach (var cMeta in metadata)
+				{
+					if (cMeta.Url != null)
+					{ 
+						await SaveSearchResult(cMeta.Url, cMeta);
+					}
+				}
+			}
+		} 
 	}
 
-	private async Task<string> GenerateNextUrl()
+	private async Task<List<string>> GenerateNextUrl()
 	{
-		string? lastDomain = await LoadLastGeneratedDomain();
-		Console.WriteLine($"Last generated domain: {lastDomain}");
+		string? lastDomain = await LoadLastGeneratedDomain(); 
+		string nextDomain = string.IsNullOrEmpty(lastDomain) ? "a.com" : GetNextDomain(lastDomain); 
+		// Generate both http:// and https:// versions
+		string httpVersion = "http://" + nextDomain;
+		string httpsVersion = "https://" + nextDomain;
 
-		string nextDomain = string.IsNullOrEmpty(lastDomain) ? "a.com" : GetNextDomain(lastDomain);
-		Console.WriteLine($"Next domain: {nextDomain}");
+		List<string> results = new List<string>();
+		results.Add(httpsVersion);
+		results.Add(httpVersion);
 
-		return nextDomain;
+ 		return results; // Or use httpsVersion depending on your preference
 	}
+
 	private string GetNextDomain(string lastDomain)
 	{
 		string namePart;
 		string suffix;
+		int maxAttempts = 100; // Limit recursive calls
+		int attemptCount = 0;
 
 		// Remove any existing protocol (http:// or https://) if present
-		lastDomain = lastDomain.ToLower().Replace("http://", "");
-		lastDomain = lastDomain.ToLower().Replace("https://", "");
+		lastDomain = lastDomain.ToLower().Replace("http://", "").Replace("https://", "");
 
-		// Now, split the domain into name and suffix
+		// Split the domain into name and suffix
 		if (lastDomain.Contains('.'))
 		{
 			namePart = lastDomain.Substring(0, lastDomain.LastIndexOf('.'));
@@ -76,46 +92,42 @@ public class WebCrawler
 			suffixIndex = 0; // If the suffix is not found, start from "com"
 		}
 
-		// Now cycle through all suffixes
-		StringBuilder newDomain = new StringBuilder(namePart);
-		int i = newDomain.Length - 1;
-
-		while (i >= 0)
+		// Loop to find a valid domain instead of infinite recursion
+		while (attemptCount < maxAttempts)
 		{
-			int index = Chars.IndexOf(newDomain[i]);
-			if (index < Chars.Length - 1)
-			{
-				newDomain[i] = Chars[index + 1];
-				string nextDomain = newDomain.ToString() + "." + DomainSuffixes[suffixIndex];
+			// Generate the next domain name
+			StringBuilder newDomain = new StringBuilder(namePart);
+			int i = newDomain.Length - 1;
 
-				// Apply the protocol only once at the start
-				if (!_isHttpsDone)
+			while (i >= 0)
+			{
+				int index = Chars.IndexOf(newDomain[i]);
+				if (index < Chars.Length - 1)
 				{
-					return "http://" + nextDomain; // Ensure only http:// is used here
+					newDomain[i] = Chars[index + 1];
+					string nextDomain = newDomain.ToString() + "." + DomainSuffixes[suffixIndex];
+
+					// Validate before returning
+					if (IsValidDomain(nextDomain))
+					{
+						return nextDomain; // Return domain without protocol for further processing
+					}
 				}
+				else
+				{
+					newDomain[i] = Chars[0];
+					i--;
+				}
+			}
 
-				return "https://" + nextDomain; // Ensure only https:// is used here
-			}
-			else
-			{
-				newDomain[i] = Chars[0];
-				i--;
-			}
+			// Cycle through suffixes if needed
+			suffixIndex = (suffixIndex + 1) % DomainSuffixes.Count;
+			attemptCount++;
 		}
 
-		// After all http:// domains are processed, start returning https:// versions
-		suffixIndex = (suffixIndex + 1) % DomainSuffixes.Count;
-		string finalDomain = newDomain.ToString() + "." + DomainSuffixes[suffixIndex];
-
-		// Only apply the protocol once at the start
-		if (!_isHttpsDone)
-		{
-			return "http://" + finalDomain; // Start with HTTP
-		}
-
-		return "https://" + finalDomain; // Switch to HTTPS once HTTP is done
+		// Fallback if nothing valid was found
+		return "fallback.com"; // Replace with a safe default
 	}
-
 
 	private async Task<string?> LoadLastGeneratedDomain()
 	{
@@ -133,7 +145,7 @@ public class WebCrawler
 	}
 	private async Task SaveSearchResult(string domain, Metadata metadata)
 	{
-		Console.WriteLine("saving results for " + domain);
+		Console.WriteLine("Successfully crawled: " + domain);
 		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 		using (var connection = new MySqlConnection(connectionString))
 		{
@@ -164,8 +176,7 @@ public class WebCrawler
 	private async Task MarkUrlAsFailed(string url)
 	{
 		Console.WriteLine("Marking as failed: " + url);
-		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
-
+		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna"); 
 		using (var connection = new MySqlConnection(connectionString))
 		{
 			await connection.OpenAsync();
@@ -183,17 +194,21 @@ public class WebCrawler
 		}
 	}
 
-	private async Task<Metadata?> ScrapeUrlData(string url, int depth = 1)
-	{
-		if (depth <= 0) return null; // Prevent infinite recursion
-
-		var httpClient = new HttpClient();
+	private async Task<List<Metadata>> ScrapeUrlData(string url, int depth = 1)
+	{ 
+		List<Metadata> metaList = new List<Metadata>();
+		var httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
+		httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+		httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
+		httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
+		httpClient.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
 		var response = await httpClient.GetAsync(url);
 
 		// Handle non-successful responses
 		if (!response.IsSuccessStatusCode)
-		{
-			return null;
+		{ 
+			MarkUrlAsFailed(url);
+			return metaList;
 		}
 
 		var html = await response.Content.ReadAsStringAsync();
@@ -263,8 +278,12 @@ public class WebCrawler
 		}
 
 		// Extract all links and recursively scrape them
-		var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]"); 
-
+		var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
+		metaList.Add(metadata); 
+		if (depth <= 0)
+		{ 
+			return metaList;
+		}
 		if (linkNodes != null)
 		{
 			foreach (var linkNode in linkNodes)
@@ -276,40 +295,307 @@ public class WebCrawler
 				}
 
 				// Convert relative links to absolute
-				var absoluteUrl = new Uri(new Uri(url), href).ToString();
+				var absoluteUrl = new Uri(new Uri(url), href).ToString(); 
 
 				// Recursively scrape found links (reduce depth by 1)
 				var childMetadata = await ScrapeUrlData(absoluteUrl, depth - 1);
 				if (childMetadata != null)
 				{
-					SaveSearchResult(childMetadata.Url, childMetadata);
+					foreach (var cMetadata in childMetadata)
+					{
+						if (cMetadata.Url != url)
+						{ 
+							SaveSearchResult(cMetadata.Url, cMetadata);
+						}
+					} 
+				} else
+				{
+					MarkUrlAsFailed(absoluteUrl); 
 				}
 			}
 		} 
 
-		return metadata;
+		return metaList;
 	}
 
-	private async Task<Metadata> GetWebsiteMetadata(string domain)
+
+	private async Task<List<Metadata>> GetWebsiteMetadata(string domain)
 	{
 		try
 		{
-			Metadata? scraped = await ScrapeUrlData(domain);
+			List<Metadata>? scraped = await ScrapeUrlData(domain);
 
 			if (scraped == null)
-			{
-				Console.WriteLine($"Failed to fetch {domain}");
+			{ 
 				await MarkUrlAsFailed(domain);
 				return null;
 			}
-			 
+
 			return scraped;
-		} 
-		catch(Exception ex)
+		}
+		catch (Exception ex)
 		{ 
-			Console.WriteLine($"Failed to fetch {domain}");
 			await MarkUrlAsFailed(domain);
 			return null;
 		}
+	}
+	private bool IsValidDomain(string domain)
+	{
+		// Ensure there are no multiple TLDs (e.g., "imprioc.com.com")
+		if (Regex.IsMatch(domain, @"\.[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)+$"))
+		{
+			return false;
+		}
+
+		// Ensure no double dots ".." exist in the domain
+		if (domain.Contains(".."))
+		{
+			return false;
+		}
+
+		// Ensure the domain only contains valid characters
+		if (!Regex.IsMatch(domain, @"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
+		{
+			return false;
+		}
+
+		return true;
+	}
+	private async Task<string?> FindSitemapUrl(string domain)
+	{
+		// Standard sitemap locations
+		string[] possibleSitemapUrls = {
+				$"{domain}/sitemap.xml",
+				$"{domain}/sitemap_index.xml",
+				$"{domain}/robots.txt"
+		};
+
+		// Check each possible URL for a sitemap
+		foreach (var url in possibleSitemapUrls)
+		{
+			if (await UrlExists(url))
+			{
+				return url;  // Return the first found sitemap URL
+			}
+		}
+		return null;  // Return null if no sitemap is found
+	}
+
+	private async Task<bool> UrlExists(string url)
+	{
+		try
+		{
+			var response = await _httpClient.GetAsync(url);
+			return response.IsSuccessStatusCode;  // Return true if the URL exists
+		}
+		catch
+		{
+			return false;  // Return false if there's an error
+		}
+	}
+
+	private async Task<List<string>> GetUrlsFromSitemap(string sitemapUrl)
+	{
+		var urls = new List<string>();
+
+		// Fetch the sitemap XML
+		var response = await _httpClient.GetAsync(sitemapUrl);
+		if (!response.IsSuccessStatusCode)
+		{
+			Console.WriteLine($"Failed to fetch sitemap from {sitemapUrl}");
+			return urls;
+		}
+
+		var xml = await response.Content.ReadAsStringAsync();
+
+		try
+		{
+			var xmlDoc = new XmlDocument();
+			xmlDoc.LoadXml(xml);
+
+			// Check for XML namespaces and handle different cases
+			var xmlns = xmlDoc.DocumentElement?.NamespaceURI;
+
+			// Case 1: Look for <url> tags in the sitemap (standard XML sitemap structure)
+			var urlNodes = xmlDoc.GetElementsByTagName("url");
+			foreach (XmlNode node in urlNodes)
+			{
+				var locNode = node.SelectSingleNode("loc");
+				if (locNode != null)
+				{
+					string url = locNode.InnerText.Trim();
+					if (IsValidDomain(url))  // Validate URL before adding
+					{
+						urls.Add(url);
+					}
+				}
+
+				// Case 2: Look for video or image specific tags (e.g., <video:loc>, <image:loc>)
+				AddMediaUrls(node, "video:loc", urls);
+				AddMediaUrls(node, "image:loc", urls);
+			}
+
+			// Case 3: Handle raw URL list (if the sitemap is a plain list of URLs)
+			if (string.IsNullOrEmpty(xmlns) && !xmlDoc.DocumentElement.Name.Equals("urlset", StringComparison.OrdinalIgnoreCase))
+			{
+				// Treat the XML as a raw list of URLs (no <url> tag structure)
+				var rawUrls = xml.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+				foreach (var rawUrl in rawUrls)
+				{
+					var trimmedUrl = rawUrl.Trim();
+					if (Uri.IsWellFormedUriString(trimmedUrl, UriKind.Absolute))
+					{
+						urls.Add(trimmedUrl);
+					}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error processing sitemap: {ex.Message}");
+		}
+
+		return urls;
+	}
+
+	private void AddMediaUrls(XmlNode node, string tagName, List<string> urls)
+	{
+		var mediaNodes = node.SelectNodes(tagName);
+		if (mediaNodes != null)
+		{
+			foreach (XmlNode mediaNode in mediaNodes)
+			{
+				var mediaUrl = mediaNode.InnerText.Trim();
+				if (IsValidDomain(mediaUrl))  // Validate media URL before adding
+				{
+					urls.Add(mediaUrl);
+				}
+			}
+		}
+	} 
+
+	private async Task CrawlSitemap(string domain)
+	{
+		string? sitemapUrl = await FindSitemapUrl(domain);
+
+		if (sitemapUrl == null)
+		{ 
+			return;
+		} 
+
+		try
+		{
+			// Fetch the sitemap index and parse it
+			string sitemapIndexXml = await GetSitemapXml(sitemapUrl);  
+			// Extract individual sitemap URLs from the sitemap index
+			var sitemapUrls = ExtractSitemapUrlsFromIndex(sitemapIndexXml);
+
+			if (sitemapUrls.Count == 0)
+			{ 
+				return;
+			}
+
+			Console.WriteLine($"Found {sitemapUrls.Count} sitemaps to process.");
+
+			// Process each individual sitemap
+			foreach (var sitemap in sitemapUrls)
+			{  
+				var urls = await GetUrlsFromSitemap(sitemap);
+				 
+				foreach (var url in urls)
+				{  
+					// Process each URL (fetch metadata or index it)
+					var metadata = await GetWebsiteMetadata(url);
+					if (metadata != null)
+					{
+						foreach (var cMeta in metadata)
+						{ 
+							if (cMeta.Url != null)
+							{
+								await SaveSearchResult(cMeta.Url, cMeta); 
+							}
+						}
+					}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error while crawling sitemap index {sitemapUrl}: {ex.Message}");
+		}
+	}
+	private async Task<string> GetSitemapXml(string sitemapUrl)
+	{
+		using (var httpClient = new HttpClient())
+		{
+			try
+			{
+				// Send a GET request to the sitemap URL
+				HttpResponseMessage response = await httpClient.GetAsync(sitemapUrl);
+
+				// Ensure successful response
+				response.EnsureSuccessStatusCode();
+
+				// Read the response content as a string
+				string xmlContent = await response.Content.ReadAsStringAsync();
+				return xmlContent;
+			}
+			catch (Exception ex)
+			{ 
+				return string.Empty; // Return empty if failed
+			}
+		}
+	}
+
+	private List<string> ExtractSitemapUrlsFromIndex(string sitemapIndexXml)
+	{
+		var sitemapUrls = new List<string>();
+
+		try
+		{
+			if (string.IsNullOrWhiteSpace(sitemapIndexXml))
+			{ 
+				return sitemapUrls;
+			}
+
+			// Check if the content is XML (i.e., if it has <sitemapindex> tag)
+			if (sitemapIndexXml.Contains("<sitemapindex"))
+			{
+				// Handle XML-based sitemap index
+				var xmlDoc = new XmlDocument();
+				xmlDoc.LoadXml(sitemapIndexXml);
+
+				// Search for all <loc> tags inside <sitemap> tags
+				XmlNodeList locNodes = xmlDoc.GetElementsByTagName("loc");
+
+				foreach (XmlNode locNode in locNodes)
+				{
+					// Add the URL, ensuring that it's not empty
+					var locUrl = locNode.InnerText.Trim();
+					if (!string.IsNullOrWhiteSpace(locUrl))
+					{
+						sitemapUrls.Add(locUrl);
+					}
+				}
+			}
+			else
+			{ 
+				var rawUrls = sitemapIndexXml.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+
+				foreach (var url in rawUrls)
+				{
+					var trimmedUrl = url.Trim();
+					if (Uri.IsWellFormedUriString(trimmedUrl, UriKind.Absolute))
+					{
+						sitemapUrls.Add(trimmedUrl);
+					}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error extracting URLs from sitemap index: {ex.Message}");
+		} 
+		return sitemapUrls;
 	} 
 }

@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
  import { FileService } from '../../services/file.service'; 
 import { FileSearchComponent } from '../file-search/file-search.component';
@@ -12,7 +12,7 @@ import { TopicService } from '../../services/topic.service';
   templateUrl: './file.component.html',
   styleUrls: ['./file.component.css']
 })
-export class FileComponent extends ChildComponent {
+export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private fileService: FileService, private topicService: TopicService) {
     super(); 
     this.topicService.getTopFileTopics().then(res => { if (res) { this.topTopics = res; } });
@@ -64,7 +64,11 @@ export class FileComponent extends ChildComponent {
     this.draggedFilename = undefined;
     this.destinationFilename = undefined;
     this.showMakeDirectoryPrompt = false;
-    this.isSharePanelExpanded = false; 
+    this.isSharePanelExpanded = false;
+    this.parentRef?.addResizeListener();
+  }
+  ngOnDestroy() {
+    this.parentRef?.removeResizeListener();
   }
   uploadFinished(newFiles: FileEntry[]) { 
     this.fileSearchComponent.handleUploadedFiles(newFiles.flatMap(fileArray => fileArray));  
