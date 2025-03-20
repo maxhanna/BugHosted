@@ -11,6 +11,10 @@ button {
   margin-left: 10px;
 }
 
+.loadingNotificationDiv {
+  margin: 20px;
+}
+
 .error-message {
   color: red;
   font-weight: bold;
@@ -47,16 +51,16 @@ img {
 .metadataTitleWrapper {
   display: flex;
   align-content: space-between;
-  align-items: baseline;
-  justify-content: space-between; 
+  align-items: flex-start;
+  justify-content: space-between;
   white-space: pre;
   text-overflow: ellipsis;
 }
 .metadataTitleDiv {
   display: flex;
-  word-break: break-all;
-  white-space: pre-wrap; 
-  max-width: 100%; 
+  word-break: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
   flex-direction: row;
   flex-wrap: nowrap;
   align-content: flex-start;
@@ -65,11 +69,23 @@ img {
 }
 
 .descriptionDiv {
-  max-height: 500px; 
-  overflow: hidden;  
+  max-height: 500px;
+  overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 4;  
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   text-overflow: ellipsis;
-  white-space: normal;  
+  white-space: normal;
+  word-break: break-word;
+  text-align: left;
+}
+.imageUrlPictureDiv {
+  margin: 2px; 
+}
+.keywordsClass , .authorClass{
+  font-size: xx-small;
+}
+.descriptClass {
+  margin: 10px;
+  font-size: smaller;
 }

@@ -1,24 +1,32 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { CrawlerService } from '../../services/crawler.service'; 
-import { MetaData } from '../../services/datacontracts/social/story';
+import { MetaData } from '../../services/datacontracts/social/story'; 
 @Component({
   selector: 'app-crawler',
   templateUrl: './crawler.component.html',
   styleUrl: './crawler.component.css'
 })
-export class CrawlerComponent extends ChildComponent implements OnInit, OnDestroy {
-  url: string = '';
+export class CrawlerComponent extends ChildComponent implements OnInit, OnDestroy { 
   searchMetadata: MetaData[] = [];
   loading: boolean = false;
   error: string = '';
   indexCount = 0;
 
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
+  @Input() url: string = '';
   constructor(private crawlerService: CrawlerService) { super(); }
   ngOnInit() {
     this.parentRef?.addResizeListener();
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
+
+    setTimeout(() => {
+      if (this.url) {
+        this.urlInput.nativeElement.value = this.url;
+        this.url = "";
+        this.searchUrl();
+      }
+    }, 1); 
   }
   ngOnDestroy() {
     this.parentRef?.removeResizeListener();

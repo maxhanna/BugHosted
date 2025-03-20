@@ -3,14 +3,12 @@ using maxhanna.Server.Controllers.DataContracts.Crawler;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System;
-using System.Linq.Expressions;
-using System.Net.Http;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -20,6 +18,11 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly ILogger<CrawlerController> _logger;
 		private readonly IConfiguration _config;
+
+		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+		private static readonly ConcurrentQueue<string> _urlQueue = new ConcurrentQueue<string>();
+		private static readonly HashSet<string> _visitedUrls = new HashSet<string>();
+		private static readonly TimeSpan _requestDelay = TimeSpan.FromSeconds(10);
 
 		public CrawlerController(ILogger<CrawlerController> logger, IConfiguration config)
 		{
@@ -46,13 +49,15 @@ namespace maxhanna.Server.Controllers
                 SELECT id, url, title, description, author, keywords, image_url, failed 
                 FROM search_results 
                 WHERE (@searchAll IS TRUE OR url_hash = @urlHash 
-											OR LOWER(url) LIKE @search
-											OR LOWER(title) LIKE @search
-											OR LOWER(author) LIKE @search
-											OR LOWER(keywords) LIKE @search 
-											OR LOWER(image_url) LIKE @search 
-											OR LOWER(description) LIKE @search);";
-					bool searchAll = request.Url == "*"; 
+                                            OR LOWER(url) LIKE @search
+                                            OR LOWER(title) LIKE @search
+                                            OR LOWER(author) LIKE @search
+                                            OR LOWER(keywords) LIKE @search 
+                                            OR LOWER(image_url) LIKE @search 
+                                            OR LOWER(description) LIKE @search)
+                ORDER BY CASE WHEN @searchAll IS TRUE THEN found_date ELSE id END DESC;";
+
+					bool searchAll = request.Url == "*";
 					using (var command = new MySqlCommand(checkUrlQuery, connection))
 					{
 						command.Parameters.AddWithValue("@searchAll", searchAll);
@@ -63,73 +68,79 @@ namespace maxhanna.Server.Controllers
 						{
 							while (reader.Read())
 							{
-								bool failed = reader.GetBoolean("failed");
-								if (!failed)
+								if (!reader.GetBoolean("failed"))
 								{
-									var result = new Metadata
+									results.Add(new Metadata
 									{
-										Id = reader.GetInt32("id"),  // Assuming Id is not nullable, so we keep it as is
+										Id = reader.GetInt32("id"),
 										Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
 										Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
 										Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
 										ImageUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString("image_url"),
 										Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
 										Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords")
-									};
-									results.Add(result);
+									});
 								}
 							}
 						}
 					}
 
 					Console.WriteLine($"Found {results.Count} results before searching manually");
-					
-					// Scrape both http:// and https:// versions if the URL is missing the protocol
-					var urlVariants = new List<string>();
-					if (request.Url.StartsWith("http://") || request.Url.StartsWith("https://"))
-					{
-						urlVariants.Add(request.Url); // If URL already has a protocol, scrape it
-					}
-					else
-					{
-						urlVariants.Add("http://" + request.Url); // Add HTTP version
-						urlVariants.Add("https://" + request.Url); // Add HTTPS version
-					}
-
-					// Scrape both versions and collect successful results
 					var scrapedResults = new List<Metadata>();
-					foreach (var urlVariant in urlVariants)
+
+					if (request.Url.Trim() != "*")
 					{
-						try
+						var urlVariants = new List<string>();
+
+						if (request.Url.StartsWith("http://") || request.Url.StartsWith("https://"))
 						{
-							CrawlSitemap(urlVariant);
-							var scrapedData = await ScrapeUrlData(urlVariant);
-							if (scrapedData != null && scrapedData.Count > 0)
+							urlVariants.Add(request.Url);
+						}
+						else
+						{
+							urlVariants.Add("http://" + request.Url);
+							urlVariants.Add("https://" + request.Url);
+						}
+
+						// Await these sequentially before launching async tasks
+						foreach (var urlVariant in urlVariants)
+						{
+							try
 							{
-								foreach (var data in scrapedData)
+								Console.WriteLine($"Manually scraping: " + urlVariant);
+								var mainMetadata = await ScrapeUrlData(urlVariant);
+								if (mainMetadata?.Count > 0)
 								{
-									Console.WriteLine("Found scraped data and now inserting in db : " + urlVariant);
-									scrapedResults.Add(data);
-									InsertScrapedData(data.Url, data);
+									foreach (var cMeta in mainMetadata)
+									{
+										results.Add(cMeta);
+										string fullUrl = new Uri(new Uri(urlVariant), cMeta.Url).ToString();
+										InsertScrapedData(fullUrl, cMeta);
+									}
 								}
 							}
-						}
-						catch (Exception innerEx)
-						{
-							Console.WriteLine("Error scraping data: " + urlVariant + ". Error: " + innerEx.Message);
-							InsertFailureRecord(urlVariant);
+							catch (Exception innerEx)
+							{
+								Console.WriteLine("Error scraping data: " + urlVariant + ". Error: " + innerEx.Message);
+								InsertFailureRecord(urlVariant, null);
+							}
 						} 
 					}
-					Console.WriteLine($"Found {scrapedResults.Count} scrapedResults");
-					var allResults = results.Concat(scrapedResults)
-							.GroupBy(r => r.Url)
-							.Select(g => g.First())
-							.OrderByDescending(r => CalculateRelevanceScore(r, request.Url))
-							.ToList(); 
+
+					var allResults = results.Concat(scrapedResults).ToList();
+
+					if (request.Url.Trim() != "*")
+					{
+						allResults = allResults
+								.GroupBy(r => r.Url)
+								.Select(g => g.First())
+								.OrderByDescending(r => CalculateRelevanceScore(r, request.Url))
+								.ToList();
+					}
 
 					if (allResults.Count == 0)
 					{
-						await InsertFailureRecord(request.Url);
+						await InsertFailureRecord(request.Url, null);
 					}
 
 					return Ok(allResults);
@@ -140,7 +151,8 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError(ex, "An error occurred while processing the URL.");
 				if (results.Count > 0)
 				{
-					results = results.GroupBy(r => r.Url)
+					results = results
+							.GroupBy(r => r.Url)
 							.Select(g => g.First())
 							.OrderByDescending(r => CalculateRelevanceScore(r, request.Url))
 							.ToList();
@@ -148,10 +160,34 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					InsertFailureRecord(request.Url);
+					InsertFailureRecord(request.Url, null);
 					return StatusCode(500, "An error occurred while processing the URL.");
 				}
 			}
+		}
+
+
+		[HttpPost("/Crawler/IndexLinks", Name = "IndexLinks")]
+		public async void IndexLinks([FromBody] string url)
+		{
+			_logger.LogInformation($"POST /Crawler/IndexLinks");
+			var urlVariants = new List<string>();
+
+			if (url.StartsWith("http://") || url.StartsWith("https://"))
+			{
+				urlVariants.Add(url);
+			}
+			else
+			{
+				urlVariants.Add("http://" + url);
+				urlVariants.Add("https://" + url);
+			}
+
+			// Await these sequentially before launching async tasks
+			foreach (var urlVariant in urlVariants)
+			{
+				 await StartScrapingAsync(urlVariant);
+			}  
 		}
 
 
@@ -192,36 +228,34 @@ namespace maxhanna.Server.Controllers
 				return Ok(0); 
 			}
 		}
-
-
-		private async Task InsertFailureRecord(string url)
+		private async Task InsertFailureRecord(string url, int? responseCode)
 		{
-			Console.WriteLine("Inserting failure record : " + url);
+			Console.WriteLine($"Inserting failure record: {url}, Response Code: {responseCode}");
+
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 			using (var connection = new MySqlConnection(connectionString))
 			{
 				await connection.OpenAsync();
 
 				string failureQuery = @"
-            INSERT INTO search_results (url, failed, found_date, last_crawled)
-            VALUES (@url, TRUE, UTC_TIMESTAMP(), UTC_TIMESTAMP())
-            ON DUPLICATE KEY UPDATE 
-                failed = TRUE, 
-								last_crawled = UTC_TIMESTAMP();";
+        INSERT INTO search_results (url, failed, response_code, found_date, last_crawled)
+        VALUES (@url, TRUE, @responseCode, UTC_TIMESTAMP(), UTC_TIMESTAMP())
+        ON DUPLICATE KEY UPDATE 
+            failed = TRUE, 
+            response_code = @responseCode,
+            last_crawled = UTC_TIMESTAMP();";
 
 				using (var command = new MySqlCommand(failureQuery, connection))
 				{
-					command.Parameters.AddWithValue("@url", url); 
+					command.Parameters.AddWithValue("@url", url);
+					command.Parameters.AddWithValue("@responseCode", (object?)responseCode ?? DBNull.Value);
 
 					await command.ExecuteNonQueryAsync();
 				}
 			}
 		}
-
-
 		private async Task InsertScrapedData(string url, Metadata scrapedData)
-		{
-			Console.WriteLine("Inserting scraped data for " +  scrapedData.Url);
+		{ 
 			try
 			{
 				string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
@@ -256,8 +290,7 @@ namespace maxhanna.Server.Controllers
 			} catch (Exception ex)
 			{
 				Console.WriteLine("Exception writing url to db: " + ex.Message);
-			}
-			
+			} 
 		}
 
 		// Helper method to generate a hash for the URL (used for unique identification)
@@ -270,23 +303,23 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private async Task<List<Metadata>> ScrapeUrlData(string url, int depth = 1)
+		public async Task<List<Metadata>> ScrapeUrlData(string url)
 		{
-			Console.WriteLine("scraping : " + url); 
-
 			List<Metadata> metaList = new List<Metadata>();
-			var httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
+			using var httpClient = new HttpClient(new HttpClientHandler
+			{
+				ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+				AllowAutoRedirect = true
+			});
+
 			httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-			httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
-			httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
-			httpClient.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
+
 			var response = await httpClient.GetAsync(url);
 
-			// Handle non-successful responses
 			if (!response.IsSuccessStatusCode)
 			{
 				Console.WriteLine($"Failed to fetch {url}. Status: {response.StatusCode}");
-				InsertFailureRecord(url);
+				InsertFailureRecord(url, (int)response.StatusCode);
 				return metaList;
 			}
 
@@ -294,114 +327,87 @@ namespace maxhanna.Server.Controllers
 			var htmlDocument = new HtmlDocument();
 			htmlDocument.LoadHtml(html);
 
-			var metadata = new Metadata();
-
-			// Extract title from <title> tag
-			var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
-			if (titleNode != null)
+			var metadata = new Metadata
 			{
-				metadata.Title = titleNode.InnerText.Trim();
-			}
+				Title = htmlDocument.DocumentNode.SelectSingleNode("//title")?.InnerText.Trim(),
+				Description = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']")?.GetAttributeValue("content", "").Trim(),
+				Keywords = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='keywords']")?.GetAttributeValue("content", "").Trim(),
+				ImageUrl = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:image']")?.GetAttributeValue("content", "").Trim(),
+				Url = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:url']")?.GetAttributeValue("content", url).Trim(),
+				Author = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='author']")?.GetAttributeValue("content", "").Trim()
+			};
 
-			// Extract description from <meta name="description">
-			var metaDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']");
-			if (metaDescriptionNode != null)
-			{
-				metadata.Description = metaDescriptionNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract Open Graph (OG) description
-			var ogDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:description']");
-			if (ogDescriptionNode != null && metadata.Description == null)
-			{
-				metadata.Description = ogDescriptionNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract Open Graph (OG) title
-			var ogTitleNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:title']");
-			if (ogTitleNode != null)
-			{
-				metadata.Title = ogTitleNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract keywords
-			var metaKeywordsNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='keywords']");
-			if (metaKeywordsNode != null)
-			{
-				metadata.Keywords = metaKeywordsNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract Open Graph (OG) image
-			var metaImageNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:image']");
-			if (metaImageNode != null)
-			{
-				metadata.ImageUrl = metaImageNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract OG URL
-			var ogUrlNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:url']");
-			if (ogUrlNode != null)
-			{
-				metadata.Url = ogUrlNode.GetAttributeValue("content", "").Trim();
-			}
-			else
-			{
-				metadata.Url = url; // Fallback to the input URL if OG URL is not available
-			}
-
-			// Extract Author
-			var metaAuthorNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='author']");
-			if (metaAuthorNode != null)
-			{
-				metadata.Author = metaAuthorNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract all links and recursively scrape them
-			var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
 			metaList.Add(metadata); 
-			Console.WriteLine("added " + metadata.Url + " to list of scraped data");
-			if (depth <= 0)
-			{
-				Console.WriteLine("preventing further recursion after " + url);
-				return metaList;
-			}
-			if (linkNodes != null)
-			{
-				foreach (var linkNode in linkNodes)
-				{
-					var href = linkNode.GetAttributeValue("href", "").Trim();
-					if (string.IsNullOrEmpty(href) || href.StartsWith("#") || href.StartsWith("mailto:"))
-					{
-						continue; // Skip empty, anchor, and mailto links
-					}
-
-					// Convert relative links to absolute
-					var absoluteUrl = new Uri(new Uri(url), href).ToString();
-
-					// Recursively scrape found links (reduce depth by 1)
-					Task.Run(async () =>
-					{
-						try
-						{
-							var childMetadata = await ScrapeUrlData(absoluteUrl, depth - 1);
-							if (childMetadata != null && childMetadata.Count > 0)
-							{
-								foreach (var cMeta in childMetadata)
-								{
-									string fullUrl = new Uri(new Uri(absoluteUrl), cMeta.Url).ToString(); 
-									InsertScrapedData(fullUrl, cMeta);
-								}
-							}
-						} catch (Exception innerEx) {
-							Console.WriteLine("Error scraping data: " + absoluteUrl + ". Error: " + innerEx.Message);
-							InsertFailureRecord(absoluteUrl);
-						} 
-					});
-				}
-			}
-			
+			EnqueueLinks(url, htmlDocument); 
 			return metaList;
 		}
+
+		private void EnqueueLinks(string baseUrl, HtmlDocument htmlDocument)
+		{
+			var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
+			if (linkNodes == null) return;
+
+			foreach (var linkNode in linkNodes)
+			{
+				var href = linkNode.GetAttributeValue("href", "").Trim();
+				if (string.IsNullOrEmpty(href) || href.StartsWith("#") || href.StartsWith("mailto:"))
+				{
+					continue;
+				}
+
+				var absoluteUrl = new Uri(new Uri(baseUrl), href).ToString();
+
+				StartScrapingAsync(absoluteUrl); 
+			}
+		}
+		public async Task StartScrapingAsync(string initialUrl)
+		{
+			if (_visitedUrls.Add(initialUrl))  // Prevent duplicate scraping
+			{
+				Console.WriteLine($"Enqueued ({_urlQueue.Count}) for later: {initialUrl.Substring(0, Math.Min(initialUrl.Length, 200 - 30))}{(initialUrl.Length > 200 - 30 ? "..." : "")}");
+				_urlQueue.Enqueue(initialUrl);
+			}
+
+			// Start the worker only if it's not already running
+			if (_semaphore.CurrentCount > 0)
+			{
+				_ = StartScrapingAsyncWorker(); // Fire-and-forget, runs in background
+			}
+		}
+
+		public async Task StartScrapingAsyncWorker()
+		{
+			while (_urlQueue.TryDequeue(out var url))
+			{
+				await _semaphore.WaitAsync();
+				try
+				{
+					Console.WriteLine($"(Ctrl:{_urlQueue.Count()})Scraping: {url}");
+					await CrawlSitemap(url);
+					var childMetadata = await ScrapeUrlData(url);
+					if (childMetadata != null && childMetadata.Count > 0)
+					{
+						foreach (var cMeta in childMetadata)
+						{ 
+							await InsertScrapedData(url, cMeta); 
+						}
+					}
+				}
+				catch(Exception ex)
+				{
+					Console.WriteLine("Exception scraping : " + url);
+					await InsertFailureRecord(url, null);
+				}
+				finally
+				{
+					_semaphore.Release();
+				}
+
+				// Ensure exactly 1 second between requests
+				await Task.Delay(_requestDelay);
+			}
+		}
+	  
 		private int CalculateRelevanceScore(Metadata result, string searchTerm)
 		{
 			int score = 0;
@@ -440,7 +446,11 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				var httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true }); 
+				var httpClient = new HttpClient(new HttpClientHandler
+				{
+					ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+					AllowAutoRedirect = true
+				}); 
 				var response = await httpClient.GetAsync(url);
 				return response.IsSuccessStatusCode;  // Return true if the URL exists
 			}
@@ -453,13 +463,16 @@ namespace maxhanna.Server.Controllers
 		private async Task<List<string>> GetUrlsFromSitemap(string sitemapUrl)
 		{
 			var urls = new List<string>();
-			var httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
+			var httpClient = new HttpClient(new HttpClientHandler
+			{
+				ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+				AllowAutoRedirect = true
+			});
 
 			// Fetch the sitemap XML
 			var response = await httpClient.GetAsync(sitemapUrl);
 			if (!response.IsSuccessStatusCode)
-			{
-				Console.WriteLine($"Failed to fetch sitemap from {sitemapUrl}");
+			{ 
 				return urls;
 			}
 
@@ -531,8 +544,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 		private bool IsValidDomain(string domain)
-		{
-			Console.WriteLine("checking if domain is valid : " + domain);
+		{ 
 			// Ensure there are no multiple TLDs (e.g., "imprioc.com.com")
 			if (Regex.IsMatch(domain, @"\.[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)+$"))
 			{
@@ -553,40 +565,16 @@ namespace maxhanna.Server.Controllers
 
 			return true;
 		}
-		private async Task<List<Metadata>> GetWebsiteMetadata(string domain)
-		{
-			try
-			{
-				List<Metadata>? scraped = await ScrapeUrlData(domain);
-
-				if (scraped == null)
-				{
-					Console.WriteLine($"Failed to fetch {domain}");
-					await InsertFailureRecord(domain);
-					return null;
-				}
-
-				return scraped;
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Failed to fetch {domain}");
-				await InsertFailureRecord(domain);
-				return null;
-			}
-		}
+	 
 		private async Task CrawlSitemap(string domain)
 		{
 			string? sitemapUrl = await FindSitemapUrl(domain);
 
 			if (sitemapUrl == null)
-			{
-				Console.WriteLine($"No sitemap found for {domain}");
+			{ 
 				return;
 			}
-
-			Console.WriteLine($"Found sitemap index at {sitemapUrl}");
-
+			  
 			try
 			{
 				// Fetch the sitemap index and parse it
@@ -596,42 +584,17 @@ namespace maxhanna.Server.Controllers
 				var sitemapUrls = ExtractSitemapUrlsFromIndex(sitemapIndexXml);
 
 				if (sitemapUrls.Count == 0)
-				{
-					Console.WriteLine("No sitemaps found in the sitemap index.");
+				{ 
 					return;
-				}
-
-				Console.WriteLine($"Found {sitemapUrls.Count} sitemaps to process.");
+				} 
 
 				// Process each individual sitemap
 				foreach (var sitemap in sitemapUrls)
-				{
-					Console.WriteLine($"Processing sitemap: {sitemap}");
-
-					var urls = await GetUrlsFromSitemap(sitemap);
-					if (urls.Count == 0)
-					{
-						Console.WriteLine($"No URLs found in sitemap {sitemap}");
-					}
-					else
-					{
-						Console.WriteLine($"Got {urls.Count} URLs from sitemap {sitemap}");
-					}
-
+				{ 
+					var urls = await GetUrlsFromSitemap(sitemap);  
 					foreach (var url in urls)
-					{
-						Console.WriteLine($"Checking URL {url} from {sitemap}");
-
-						// Process each URL (fetch metadata or index it)
-						var metadata = await GetWebsiteMetadata(url);
-						if (metadata != null)
-						{
-							foreach (var cMeta in metadata)
-							{
-								Console.WriteLine($"Saving url {cMeta.Url} from sitemap {sitemap}");
-								await InsertScrapedData(cMeta.Url, cMeta);
-							}
-						}
+					{ 
+						StartScrapingAsync(url);
 					}
 				}
 			}
@@ -671,8 +634,7 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				if (string.IsNullOrWhiteSpace(sitemapIndexXml))
-				{
-					Console.WriteLine("Sitemap index XML is empty or null.");
+				{ 
 					return sitemapUrls;
 				}
 

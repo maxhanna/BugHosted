@@ -2,62 +2,73 @@
   <div class="closeButton" (click)="remove_me('NewsComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">News</div>
-  <div class="topSearchDiv"> 
-    <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup.enter)="searchByKeyword()" />
-    <button (click)="searchByKeyword()">Search</button>
-  </div>
-  <div *ngIf="defaultSearch" class="defaultSearchTopDiv">
-    <div>
-      Load these as the first search keywords when opening the News app:
-    </div>
-    <div>
-      <input type="text" [value]="defaultSearch" placeholder="Default search terms (comma seperated)" #defaultSearchInput />
-    </div>
-    <div>
-      <button (click)="saveDefaultSearch()">💾Save</button>
-    </div>
+  <div class="topSearchDiv defaultSearchTopDiv">
+    <table>
+      <tr>
+        <td>
+          <input type="text" #searchKeywords placeholder="Search news by keyword" (keyup.enter)="searchByKeyword()" />
+        </td>
+        <td>
+          <button (click)="searchByKeyword()">🔍Keywords</button>
+        </td>
+      </tr> 
+      <tr>
+        <td>
+          <input type="text" [value]="defaultSearch" placeholder="Saved search (comma sep.)" #defaultSearchInput />
+        </td>
+        <td>
+          <button (click)="saveDefaultSearch()">💾Saved</button>
+        </td>
+      </tr>
+    </table> 
   </div>
   <!-- Display list of news articles -->
   <div class="newsList mainTableContainer" *ngIf="newsArticles != null">
-    Newest Articles: (status: {{newsArticles.status}}, # of Results: {{newsArticles.totalResults}})
+    <span class="smallFont">Results: {{newsArticles.totalResults}}</span>
     <div *ngFor="let newsArticle of newsArticles.articles">
       <div class="articleContainer" (click)="selectArticle(newsArticle)">
-        <div class="articleTitle">{{ newsArticle.title }}</div>
-        <div class="articleDescription" [innerHTML]="newsArticle.description"></div>
-        <!-- Additional details -->
-        <div>
-          <div class="articleAuthor cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
-            Author(s): {{ getAuthors(newsArticle) }}
+        <div class="articleTitle cursorPointer">{{ newsArticle.title }}</div>
+        <div class="articleDescription cursorPointer" [innerHTML]="newsArticle.description"></div> 
+        <div> 
+          <div class="articleDetailData">
+            <div class="articleAuthor cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+              Author(s): {{ getAuthors(newsArticle) }}
+            </div>
+            <div class="articleSource cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+              Source: {{ newsArticle.source.name }}
+            </div>
+            <div class="articleDate cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
+              Published Date: {{ newsArticle.publishedAt }}
+            </div>
           </div>
-          <div class="articleSource cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
-            Source: {{ newsArticle.source.name }}
+          <div class="mainArticleImage">
+            <img class="smallArticleImage" [attr.loading]="'lazy'" src="{{ newsArticle.urlToImage }}" />
           </div>
-          <div class="articleDate cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
-            Published Date: {{ newsArticle.publishedAt }}
-          </div>
-          <div><img class="smallArticleImage" [attr.loading]="'lazy'" src="{{ newsArticle.urlToImage }}" /></div> 
-        </div> 
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Display selected article details -->
-  <div *ngIf="selectedArticle" class="popupPanel">
+  <div *ngIf="selectedArticle" class="articlePopupPanel">
+    <div class="articleTitle selectedArticleTitle">{{ selectedArticle.title }}</div>
     <div class="selectedArticleContent">
       <div class="closeButton articleCloseButton" (click)="selectedArticle = undefined"></div>
-      <div class="articleTitle">{{ selectedArticle.title }}</div>
       <div class="articleContent" [innerHTML]="selectedArticle.content"></div>
       <div class="articleContent" [innerHTML]="selectedArticle.description"></div>
-      <div class="articleDetails cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">
-        <div class="articleAuthor">Author(s): {{ getAuthors(selectedArticle) }}</div>
-        <div class="articleSource">Source: {{ selectedArticle.source.name }}</div>
-        <div class="articleDate">Published Date: {{ selectedArticle.publishedAt }}</div>
-        <div><img class="articleImage" [attr.loading]="'lazy'" src="{{ selectedArticle.urlToImage }}" /></div>
+      <div class="articleDetails">
+        <div class="articleDetailData">
+          <div class="articleAuthor cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Author(s): {{ getAuthors(selectedArticle) }}</div>
+          <div class="articleSource cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Source: {{ selectedArticle.source.name }}</div>
+          <div class="articleDate cursorPointerUnderlined" (click)="openSource(selectedArticle.url)">Published Date: {{ selectedArticle.publishedAt }}</div>
+        </div>
+        <div class="mainArticleImage"><img class="articleImage" [attr.loading]="'lazy'" src="{{ selectedArticle.urlToImage }}" /></div>
       </div>
     </div>
-    <div class="newsArticleActionButtons"> 
+    <div class="newsArticleActionButtons">
       <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
       <button (click)="saveArticle(selectedArticle)">💾Save</button>
+      <button (click)="openSource(selectedArticle.url)">📰Read</button>
     </div>
   </div>
 

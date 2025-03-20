@@ -19,6 +19,7 @@ import { RainbowAlleys1 } from "./rainbow-alleys1";
 import { Bot } from "../objects/Bot/bot";
 import { BASE, GROUND, FLOOR, HUD } from "../objects/game-object";
 import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
+import { Sign } from "../objects/Environment/Sign/sign";
 
 
 export class BrushRoad2 extends Level {
@@ -451,6 +452,15 @@ export class BrushRoad2 extends Level {
       this.addChild(bb);
     }
     //exits  
+
+    const sign1 = new Sign(
+      { position: new Vector2(gridCells(7), gridCells(0)), text: ["Next: Rainbow Alleys.", "Current : Brush Road."] }
+    );
+    this.addChild(sign1);
+    const sign2 = new Sign(
+      { position: new Vector2(gridCells(housesStartX + 33), gridCells(housesStartY) + gridCells(2)), text: ["Next: Brush Road.", "Current : Brush Road."] }
+    );
+    this.addChild(sign2);
 
     for (let x = 0; x < 4; x++) {
       const brushRoad1Exit = new Exit(

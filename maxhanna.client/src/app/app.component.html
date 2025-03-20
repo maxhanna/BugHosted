@@ -19,3 +19,5 @@
   </div>
 </router-outlet>
 <div class="overlay" *ngIf="isShowingOverlay" (click)="closeOverlay()"></div>
+<input type="hidden" id="hiddenUrlToVisit" />
+<button style="width:0px;height:0px;visibility:hidden;" id="hiddenUrlToVisitButton" (click)="visitExternalLinkButtonClicked()"></button>

@@ -110,7 +110,7 @@
   </div>
 
   <div *ngIf="hideRanks" (click)="hideRanks = !hideRanks" class="usernameProfileLink rankingDiv">Show Ranks</div>
-  <div *ngIf="!hideRanks" class="rankingDiv" #rankingDiv>
+  <div *ngIf="!hideRanks" class="rankingDiv {{isNexusPosition(hero.position!) ? '' : 'rankingDivOffNexus'}}" #rankingDiv>
     <span class="usernameProfileLink" (click)="hideRanks = !hideRanks">Ranks</span> <span (click)="expandRanks()" class="ranksExpander">[{{isRanksExpanded ? 'shrink' : 'expand'}}]</span>
     <table>
       <thead>

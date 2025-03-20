@@ -438,8 +438,13 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("GOT_REWARDS", object, (rewards: MetaBotPart[]) => {
-    object.metaService.updateBotParts(object.metaHero, rewards);
-    object.mainScene.inventory.parts = object.mainScene.inventory.parts.concat(rewards);
+    if (!rewards || rewards.length == 0) return;
+    const targetBot = object.metaHero.metabots.any((x: MetaBot) => x.id == rewards[0].metabotId);
+    if (targetBot) { 
+      object.metaService.updateBotParts(object.metaHero, rewards);
+      object.mainScene.inventory.parts = object.mainScene.inventory.parts.concat(rewards);
+      object.parentRef?.showNotification("Found new " + rewards[0].partName);
+    } 
   });
 
   events.on("PARTY_UP", object, (person: Hero) => {

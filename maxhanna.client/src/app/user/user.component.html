@@ -286,18 +286,17 @@
 </div>
 
 <!-- About User Popup -->
-<div class="popupPanel aboutPopupPanel" *ngIf="isAboutPanelOpen">
+<div class="aboutPopupPanel aboutPopupPanel" *ngIf="isAboutPanelOpen">
   <div class="popupPanelTitle">
     About User
   </div>
   <div class="aboutPopupPanelContentContainer">
     <div class="topProfileContainer" id="aboutContainer">
       <div *ngIf="user || parentRef?.user" class="aboutContainer">
-        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('aboutContainer');">
-          [{{isAboutExpanded ? '-' : '+'}}]
-          About
-        </span>
-
+        <label>
+          <button (click)="expandDiv('aboutContainer');">{{isAboutExpanded ? '-' : '+'}}</button>
+          <span class="cursorPointerUnderlined">About</span>
+        </label>
         <div *ngIf="isAboutExpanded">
           <div class="optionsStatsWrapperDiv">
             <div class="optionsStatsDiv">
@@ -394,11 +393,10 @@
     <!-- TROPHIES -->
     <div class="topProfileContainer" id="trophyContainer">
       <div *ngIf="user || parentRef?.user" class="aboutContainer">
-        <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('trophyContainer');">
-          [{{isTrophyExpanded ? '-' : '+'}}]
-          Trophies
-        </span>
-
+        <label>
+          <button (click)="expandDiv('trophyContainer');">{{isTrophyExpanded ? '-' : '+'}}</button>
+          <span class="cursorPointerUnderlined">Trophies</span>
+        </label>  
         <div *ngIf="isTrophyExpanded" class="trophyContainerWrapper">
           <div *ngFor="let trophy of trophies">
             <div class="trophyContainer">
@@ -423,12 +421,10 @@
     </div>
     <!-- MUSIC -->
     <div class="topProfileContainer" id="musicProfileContainer">
-      <span class="cursorPointerUnderlined mainTable" (click)="expandDiv('musicProfileContainer');">
-        [{{isMusicContainerExpanded ? '-' : '+'}}]
-        Music Playlist
-        <span class="xxSmallFont">{{'('+(playListCount || songPlaylist.length)+')'}}</span>
-      </span>
-
+      <label>
+        <button (click)="expandDiv('musicProfileContainer');">{{isMusicContainerExpanded ? '-' : '+'}}</button>
+        <span class="cursorPointerUnderlined">Music</span>
+      </label>
       <div *ngIf="isMusicContainerExpanded">
         <app-music *ngIf="isMusicContainerExpanded"
                    [user]="user"

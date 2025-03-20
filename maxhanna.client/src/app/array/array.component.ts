@@ -36,6 +36,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
   isInventoryOpen = false;
   canMove = true;
   isUserComponentClosed = this.parentRef?.user ? true : false;
+  private ladderRefreshInterval: any;
 
   @ViewChild('rankingDiv') rankingDiv!: ElementRef<HTMLInputElement>; 
 
@@ -49,10 +50,17 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     }
     this.parentRef?.addResizeListener();
     await this.refreshHeroData();
+
+    this.ladderRefreshInterval = setInterval(async () => {
+      await this.refreshHeroLadder();
+    }, 60000); 
   }
 
   ngOnDestroy() {
     this.parentRef?.removeResizeListener();
+    if (this.ladderRefreshInterval) {
+      clearInterval(this.ladderRefreshInterval);
+    }
   }
 
   private async refreshHeroData() { 
@@ -233,6 +241,8 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
             this.allPlayerHeros.push(x);
           }
         });
+
+        this.allPlayerHeros.sort((a, b) => Number(b.level) - Number(a.level));
       }
     }
   }

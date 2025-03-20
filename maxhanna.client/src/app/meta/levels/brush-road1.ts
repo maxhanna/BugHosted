@@ -215,7 +215,11 @@ export class BrushRoad1 extends Level {
     this.addChild(flowerBush);
       
     //exits  
- 
+
+    const sign1 = new Sign(
+      { position: new Vector2(gridCells(1), gridCells(2)), text: ["Next: Brush Road.", "Current : Brush Road."] }
+    );
+    this.addChild(sign1);
     for (let x = 0; x < 4; x++) {
       const brushRoad2Exit = new Exit(
         { position: new Vector2(gridCells(-1), gridCells(x) + gridCells(3)), showSprite: this.showDebugSprites, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
@@ -229,7 +233,7 @@ export class BrushRoad1 extends Level {
       this.addChild(brushLevel1Exit); 
     } 
     const brsign = new Sign(
-      { position: new Vector2(gridCells(36), gridCells(33)), text: "Brush Town." }
+      { position: new Vector2(gridCells(36), gridCells(33)), text: ["Next: Brush Town.", "Current : Brush Road."] }
     );
     this.addChild(brsign); 
 

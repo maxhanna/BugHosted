@@ -111,7 +111,7 @@ export class BrushLevel1 extends Level {
     this.addChild(house);  
 
     const sign = new Sign(
-      { position: new Vector2(gridCells(17), gridCells(29)), text: "Home." }
+      { position: new Vector2(gridCells(17), gridCells(29)), text: ["Home."] }
     );  
     this.addChild(sign); 
 
@@ -120,22 +120,17 @@ export class BrushLevel1 extends Level {
     this.addChild(shop); 
   
     const shopsign = new Sign(
-      { position: new Vector2(gridCells(32), gridCells(18)), text: "Local Meta-Shop." }
+      { position: new Vector2(gridCells(32), gridCells(18)), text: ["Local Meta-Shop", "Buy, Sell, Repair here."] }
     );
     this.addChild(shopsign); 
 
     const rivalHouse = new House(gridCells(8), gridCells(10));
     this.addChild(rivalHouse); 
 
-    const rivalSign = new Sprite(
-      { resource: resources.images["sign"], position: new Vector2(gridCells(17), gridCells(11)), frameSize: new Vector2(16, 18), isSolid: true }
-    ); 
-    rivalSign.textContent = [
-      {
-        string: [`Rivals' House.`],
-      } as Scenario,
-    ];
-    this.addChild(rivalSign);
+    const rivalSign = new Sign(
+      { position: new Vector2(gridCells(17), gridCells(11)), text: [`Rivals' House.`] }
+    );
+    this.addChild(rivalSign); 
 
     const tree = new GiantTree(gridCells(32), gridCells(32)); 
     this.addChild(tree);
@@ -229,29 +224,11 @@ export class BrushLevel1 extends Level {
       }
     }
     const brsign = new Sign(
-      { position: new Vector2(gridCells(1), gridCells(11)), text: "Brush Road." }
+      { position: new Vector2(gridCells(1), gridCells(11)), text: ["Brush Road."] }
     );
     this.addChild(brsign); 
      
-
-    //Walls:
-    //hero house walls
-
-    //rival house walls  
-    
-    //shop walls
-    //for (let y = gridCells(11); y <= gridCells(13); y += gridCells(1)) {
-    //  this.walls.add(`${gridCells(25)},${y}`);
-    //  this.walls.add(`${gridCells(32)},${y}`);
-    //}
-    //for (let x = gridCells(25); x <= gridCells(32); x++) {
-    //  if (x == gridCells(30)) {
-    //    this.walls.add(`${x},${gridCells(11)}`);
-    //  } else {
-    //    this.walls.add(`${x},${gridCells(16)}`);
-    //    this.walls.add(`${x},${gridCells(11)}`);
-    //  }
-    //}
+ 
 
     //map perimeter fences/bushes
     for (let x = 0; x < 38; x++) {

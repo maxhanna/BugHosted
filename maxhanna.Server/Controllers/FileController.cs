@@ -976,19 +976,22 @@ namespace maxhanna.Server.Controllers
 							}
 							else
 							{
-								using (var stream = new FileStream(filePath, FileMode.Create))
-								{
-									await file.CopyToAsync(stream);
+								if (!System.IO.File.Exists(filePath))
+								{ 
+									using (var stream = new FileStream(filePath, FileMode.Create))
+									{
+										await file.CopyToAsync(stream);
+									}
 								}
 							}
 						}
-
-
+						  
 						var fileId = await InsertFileIntoDB(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
 						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
 						uploaded.Add(fileEntry);
 
 						await AppendToSitemapAsync(fileEntry);
+					 
 
 						_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}, Type: {fileEntry.FileType}");
 					}
@@ -1413,7 +1416,7 @@ namespace maxhanna.Server.Controllers
 
 				var beforeFileSize = new FileInfo(inputFilePath).Length;
 
-
+				Console.WriteLine("attempting to convert " + inputFilePath);
 				var ffmpegCommand = await FFmpeg.GetMediaInfo(inputFilePath);
 				duration = (int)ffmpegCommand.Duration.TotalSeconds;
 
@@ -1445,14 +1448,14 @@ namespace maxhanna.Server.Controllers
 			{
 				if (ex.Message.Contains(" already exists. Exiting."))
 				{
-					_logger.LogError(ex, "Converted file already exists, Returning converted file");
+					Console.WriteLine("Converted file already exists, Returning converted file");
 				}
 				else if (System.IO.File.Exists(inputFilePath))
 				{
 					convertedFilePath = inputFilePath;
-					_logger.LogError(ex, "Error occurred during video conversion. Returning Unconverted file");
+					Console.WriteLine("Error occurred during video conversion. Returning Unconverted file");
 				}
-				_logger.LogError(ex, "Error occurred during video conversion.");
+				Console.WriteLine("Error occurred during video conversion.");
 			}
 
 			if (System.IO.File.Exists(convertedFilePath) && width == 0 || height == 0)
@@ -1463,13 +1466,21 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<(int Width, int Height)> GetMediaDimensions(string filePath)
 		{
-			var probe = await FFmpeg.GetMediaInfo(filePath);
-			var videoStream = probe.VideoStreams.FirstOrDefault();
-			if (videoStream != null)
+			try
 			{
-				return (videoStream.Width, videoStream.Height);
+				var probe = await FFmpeg.GetMediaInfo(filePath);
+				var videoStream = probe.VideoStreams.FirstOrDefault();
+				if (videoStream != null)
+				{
+					return (videoStream.Width, videoStream.Height);
+				}
+				return (0, 0);
 			}
-			return (0, 0);
+			catch (Exception ex)
+			{
+				Console.WriteLine("Error getting media dimensions, " + ex.Message);
+				return (0, 0);
+			}
 		}
 
 		private async Task InsertDirectoryMetadata(User user, string directoryPath, bool isPublic)
@@ -1504,25 +1515,51 @@ namespace maxhanna.Server.Controllers
 			{
 				await connection.OpenAsync();
 
+				string fileName = Path.GetFileName(convertedFilePath);
+				long fileSize = new FileInfo(convertedFilePath).Length;
+				DateTime uploadDate = DateTime.UtcNow;
+				int userId = user?.Id ?? 0;
+
 				var command = new MySqlCommand(
-				@$"INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id, duration)  
-          VALUES (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size, @width, @height, @uploadDate, @user_id, @duration); 
+				@"INSERT IGNORE INTO maxhanna.file_uploads 
+            (user_id, file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id, duration)  
+          VALUES 
+            (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size, @width, @height, @uploadDate, @user_id, @duration); 
           SELECT LAST_INSERT_ID();", connection);
-				command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
-				command.Parameters.AddWithValue("@fileName", Path.GetFileName(convertedFilePath));
-				command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
+
+				command.Parameters.AddWithValue("@user_id", userId);
+				command.Parameters.AddWithValue("@fileName", fileName);
+				command.Parameters.AddWithValue("@uploadDate", uploadDate);
 				command.Parameters.AddWithValue("@folderPath", uploadDirectory ?? "");
 				command.Parameters.AddWithValue("@isPublic", isPublic);
 				command.Parameters.AddWithValue("@width", width);
 				command.Parameters.AddWithValue("@height", height);
 				command.Parameters.AddWithValue("@isFolder", false);
-				command.Parameters.AddWithValue("@file_size", new FileInfo(convertedFilePath).Length);
+				command.Parameters.AddWithValue("@file_size", fileSize);
 				command.Parameters.AddWithValue("@duration", duration);
 
 				var fileId = await command.ExecuteScalarAsync();
-				return Convert.ToInt32(fileId);
+				int newFileId = Convert.ToInt32(fileId);
+
+				if (newFileId == 0) // Means INSERT was ignored, so fetch the existing ID
+				{
+					Console.WriteLine("ignoring this insert of file entry, file entry exists already. " + fileName);
+					var fetchCommand = new MySqlCommand(
+							@"SELECT id FROM maxhanna.file_uploads 
+                  WHERE user_id = @user_id AND file_name = @fileName 
+                  LIMIT 1;", connection);
+
+					fetchCommand.Parameters.AddWithValue("@user_id", userId);
+					fetchCommand.Parameters.AddWithValue("@fileName", fileName);
+
+					var existingFileId = await fetchCommand.ExecuteScalarAsync();
+					return Convert.ToInt32(existingFileId ?? 0); // Return existing ID
+				}
+
+				return newFileId; // Return new ID if inserted
 			}
 		}
+
 
 		private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath, string uploadDirectory, int? height, int? width, int? duration)
 		{

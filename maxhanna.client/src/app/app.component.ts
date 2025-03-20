@@ -32,6 +32,7 @@ import { MediaViewerComponent } from './media-viewer/media-viewer.component';
 import { ThemesComponent } from './themes/themes.component';
 import { FileEntry } from '../services/datacontracts/file/file-entry'; 
 import { CrawlerComponent } from './crawler/crawler.component';
+import { CrawlerService } from '../services/crawler.service';
 
 
 @Component({
@@ -117,6 +118,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   constructor(private router: Router,
     private route: ActivatedRoute,
     private userService: UserService,
+    private crawlerService: CrawlerService,
     private meta: Meta,
     private title: Title, 
     private sanitizer: DomSanitizer) { }
@@ -164,6 +166,11 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.checkAndClearRouterOutlet();
           const fileId = this.router.url.toLowerCase().split('media/')[1]?.split('?')[0];
           this.createComponent("MediaViewer", { "fileId": fileId, "isLoadedFromURL": true });
+        }
+        if (this.router.url.includes('Crawler')) {
+          this.checkAndClearRouterOutlet();
+          const url = this.router.url.toLowerCase().split('crawler/')[1]?.split('?')[0];
+          this.createComponent("Crawler", { "url": url });
         }
         if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
@@ -444,7 +451,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     // Step 2: Convert regular URLs into clickable links
     text = text.replace(/(<a[^>]*>.*?<\/a>)|(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, (match, existingLink, url) => {
       if (existingLink) return existingLink;
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+      return `<a onClick="document.getElementById('hiddenUrlToVisit').value='${url}';document.getElementById('hiddenUrlToVisitButton').click()" class=cursorPointer>${url}</a>`;
     }).replace(/\n/g, '<br>');
 
     // Step 3: Replace YouTube placeholders with clickable links
@@ -486,11 +493,26 @@ export class AppComponent implements OnInit, AfterViewInit {
   addResizeListener() {
     window.removeEventListener('resize', this.updateHeight); 
     setTimeout(() => {
+      this.updateHeight();
       window.addEventListener('resize', this.updateHeight);
     }, 10);
   }
   removeResizeListener() { 
     window.removeEventListener('resize', this.updateHeight);
+  }
+  visitExternalLinkButtonClicked() {
+    const url = (document.getElementById("hiddenUrlToVisit") as HTMLInputElement).value;
+    (document.getElementById("hiddenUrlToVisit") as HTMLInputElement).value = "";
+    this.visitExternalLink(url);
+  }
+  visitExternalLink(url?: string) {
+    if (!url) return;
+    this.indexLink(url);
+    window.open(url, '_blank');
+    event?.stopPropagation(); 
+  }
+  async indexLink(url: string) {
+    this.crawlerService.indexLink(url);
   }
   async getLocation() {
     if (this.location) { 

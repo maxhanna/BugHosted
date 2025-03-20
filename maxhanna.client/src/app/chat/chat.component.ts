@@ -131,8 +131,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.chatHistory = [];
         return;
       }
-      if (res) {
+      if (res) { 
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
+
         if (!this.isChangingPage) {
           this.playSoundIfNewMessage(newMessages);
         }
@@ -153,6 +154,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     const receivedNewMessages = newMessages.length > 0 && newMessages.some(x => x.sender.id != user.id);
 
     if (receivedNewMessages) {
+      console.log("playing sound!", new Date());
       const notificationSound = new Audio("https://bughosted.com/assets/Uploads/Users/Max/arcade-ui-30-229499.mp4");
       notificationSound.play().catch(error => console.error("Error playing notification sound:", error));
     }

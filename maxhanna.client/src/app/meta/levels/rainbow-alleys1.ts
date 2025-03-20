@@ -23,6 +23,7 @@ import { InventoryItem } from "../objects/InventoryItem/inventory-item";
 import { ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, getMaskNameById } from "../objects/Wardrobe/mask";
 import { UndergroundLevel1 } from "./underground-level1";
 import { BASE, FLOOR, GROUND, HUD } from "../objects/game-object";
+import { Sign } from "../objects/Environment/Sign/sign";
  
 
 export class RainbowAlleys1 extends Level { 
@@ -76,7 +77,7 @@ export class RainbowAlleys1 extends Level {
         grass.drawLayer = BASE;
         this.addChild(grass);
       }
-    } 
+    }
     for (let y = -1; y < 10; y++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
@@ -85,21 +86,21 @@ export class RainbowAlleys1 extends Level {
 
     for (let x = 0; x < 2; x++) { //center road
       for (let y = -5; y < 13; y++) {
-        const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(21) + gridCells(4*x), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
+        const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(21) + gridCells(4 * x), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
         stoneRoad.drawLayer = GROUND;
         this.addChild(stoneRoad);
-      }  
+      }
     }
     for (let x = 0; x < 12; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(5) + gridCells(4 * x), gridCells(12)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
-    } 
+    }
     for (let y = -1; y < 10; y++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(52), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
-    } 
+    }
     for (let x = 0; x < 14; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(-4)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
@@ -118,8 +119,8 @@ export class RainbowAlleys1 extends Level {
     const maskSelection = [
       new InventoryItem({ id: 0, name: "BunnyMask", image: BUNNY_MASK.name, category: "mask" }),
       new InventoryItem({ id: 0, name: "AnbuMask", image: ANBU_MASK.name, category: "mask" }),
-      new InventoryItem({ id: 0, name: "BotMask", image: BOT_MASK.name, category: "mask" }), 
-      new InventoryItem({ id: 0, name: "BunnyEarsMask", image: BUNNYEARS_MASK.name, category: "mask" }), 
+      new InventoryItem({ id: 0, name: "BotMask", image: BOT_MASK.name, category: "mask" }),
+      new InventoryItem({ id: 0, name: "BunnyEarsMask", image: BUNNYEARS_MASK.name, category: "mask" }),
     ];
 
     const tmpLvl = new Level();
@@ -132,12 +133,12 @@ export class RainbowAlleys1 extends Level {
         entranceLevel: tmpLvl,
         items: maskSelection
       });
-    if (salesMan.body) { 
-      salesMan.body.offsetY -= 10; 
+    if (salesMan.body) {
+      salesMan.body.offsetY -= 10;
     }
-    this.addChild(salesMan); 
+    this.addChild(salesMan);
     const stand = new Stand(gridCells(5), gridCells(10));
-    this.addChild(stand); 
+    this.addChild(stand);
     const standbg = new Sprite({ position: new Vector2(gridCells(6), gridCells(9)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
     this.addChild(standbg);
     const anbuMask = new Mask(getMaskNameById(2));
@@ -161,8 +162,8 @@ export class RainbowAlleys1 extends Level {
     this.addChild(anbuMask);
     this.addChild(botMask);
 
-    const wardrobe = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(10)-0.005) });
-    if (wardrobe.body) { 
+    const wardrobe = new Wardrobe({ position: new Vector2(gridCells(15), gridCells(10) - 0.005) });
+    if (wardrobe.body) {
       wardrobe.body.frameSize.x = 24;
       wardrobe.body.flipX = true;
       wardrobe.body.offsetX = 5;
@@ -181,7 +182,7 @@ export class RainbowAlleys1 extends Level {
       wardrobe2.body.flipX = true;
       wardrobe2.body.offsetX = 5;
     }
-    this.addChild(wardrobe2); 
+    this.addChild(wardrobe2);
     for (let x = 1; x < 5; x++) {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(4)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
@@ -231,7 +232,7 @@ export class RainbowAlleys1 extends Level {
         this.addChild(fountain);
       }
     }
-   
+
 
     const undergroundentrance = new Sprite(
       {
@@ -240,7 +241,7 @@ export class RainbowAlleys1 extends Level {
         position: new Vector2(gridCells(21), gridCells(-15)),
         offsetX: -1
       });
-    this.addChild(undergroundentrance); 
+    this.addChild(undergroundentrance);
     for (let x = 0; x < 8; x++) {
 
       const slope = new Slope({ position: new Vector2(gridCells(21) + gridCells(x), gridCells(-7)), showSprite: false, slopeType: DOWN, endScale: new Vector2(0.69, 0.69) });
@@ -250,24 +251,15 @@ export class RainbowAlleys1 extends Level {
       const slopeUp = new Slope({ position: new Vector2(gridCells(21) + gridCells(x), gridCells(-12)), showSprite: false, slopeType: UP, slopeDirection: DOWN, startScale: new Vector2(0.69, 0.69) });
       this.addChild(slopeUp);
     }
-    const sign = new Sprite(
-      { objectId: -1, resource: resources.images["sign"], name:"Sign", position: new Vector2(gridCells(21), gridCells(-5)), frameSize: new Vector2(16, 18), isSolid: true }
-    );
-    sign.textContent = [
-      {
-        string: [`Underground.`],
-      } as Scenario,
-    ];
-    this.addChild(sign);
-    const sign2 = new Sprite(
-      { objectId: -1, resource: resources.images["sign"], name: "Sign", position: new Vector2(gridCells(28), gridCells(-5)), frameSize: new Vector2(16, 18), isSolid: true, flipX: true }
-    );
-    sign2.textContent = [
-      {
-        string: [`Underground.`],
-      } as Scenario,
-    ];
+     
+    const sign1 = new Sign({ position: new Vector2(gridCells(21), gridCells(-5)), text: ["Underground", "Metro Station"] });
+    const sign2 = new Sign({ position: new Vector2(gridCells(28), gridCells(-5)), text: ["Underground", "Metro Station"] });
+    const sign3 = new Sign({ position: new Vector2(gridCells(21), gridCells(42)), text: ["Next: Brush Road.", "Current: Rainbow Alleys." ]});
+    const sign4 = new Sign({ position: new Vector2(gridCells(28), gridCells(42)), flipX: true });
+    this.addChild(sign1);
     this.addChild(sign2);
+    this.addChild(sign3);
+    this.addChild(sign4); 
 
 
     //NPCs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO 
@@ -278,7 +270,7 @@ export class RainbowAlleys1 extends Level {
     for (let x = 0; x < 8; x++) {
     
         const brushRoad2Exit = new Exit(
-          { position: new Vector2(gridCells(21) + gridCells(x), gridCells(43)), showSprite: true, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+          { position: new Vector2(gridCells(21) + gridCells(x), gridCells(43)), showSprite: this.showDebugSprites, targetMap: "BrushRoad2", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
         );
         this.addChild(brushRoad2Exit);
     
@@ -286,7 +278,7 @@ export class RainbowAlleys1 extends Level {
     for (let x = 0; x < 8; x++) {
       for (let y = 0; y < 2; y++) { 
       const underground1Exit = new Exit(
-        { position: new Vector2(gridCells(21) + gridCells(x), gridCells(-14) + gridCells(y)), showSprite: false, targetMap: "UndergroundLevel1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
+        { position: new Vector2(gridCells(21) + gridCells(x), gridCells(-14) + gridCells(y)), showSprite: this.showDebugSprites, targetMap: "UndergroundLevel1", sprite: "white", colorSwap: new ColorSwap([255, 255, 255], [0, 0, 0]) }
       );
       this.addChild(underground1Exit);
     }

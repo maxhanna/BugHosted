@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { NewsService } from '../../services/news.service';
 import { Article, ArticlesResult } from '../../services/datacontracts/news/news-data';
@@ -9,7 +9,7 @@ import { NotepadService } from '../../services/notepad.service';
   templateUrl: './news.component.html',
   styleUrl: './news.component.css'
 })
-export class NewsComponent extends ChildComponent implements OnInit {
+export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
   newsArticles?: undefined | ArticlesResult;
   selectedArticle?: Article;
   notifications: string[] = [];
@@ -40,6 +40,12 @@ export class NewsComponent extends ChildComponent implements OnInit {
     if (!preventLoadNews) { 
       this.loadNews(); 
     }
+
+    this.parentRef?.addResizeListener();
+  }
+
+  ngOnDestroy() {
+    this.parentRef?.removeResizeListener();
   }
 
   async loadNews(data?: ArticlesResult) {
@@ -63,6 +69,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
   openSource(url: string) {
     this.selectedArticle = undefined;
     window.open(url, '_blank');
+    event?.stopPropagation();
   }
   selectArticle(article: Article): void {
     if (this.selectedArticle) {
@@ -70,6 +77,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
       return;
     }
     this.selectedArticle = article;
+    this.parentRef?.hideBodyOverflow();
   }
 
   async searchByKeyword() {
@@ -97,7 +105,7 @@ export class NewsComponent extends ChildComponent implements OnInit {
       const authors = article.author.split(',').map(author => author.trim());
       return authors.join(', ');
     }
-  }
+  } 
   saveDefaultSearch() {
     const text = this.defaultSearchInput.nativeElement.value;
     if (this.parentRef?.user) { 

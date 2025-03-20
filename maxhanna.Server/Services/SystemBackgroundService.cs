@@ -161,8 +161,7 @@ namespace maxhanna.Server.Services
 
 
 		private async Task FetchWebsiteMetadata()
-		{
-			_logger.LogInformation("Crawling website...");
+		{ 
 			try
 			{
 				await _webCrawler.FetchWebsiteMetadata();

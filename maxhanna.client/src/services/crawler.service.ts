@@ -18,6 +18,21 @@ export class CrawlerService {
       return null;
     }
   }
+  async indexLink(url: string) { 
+    try {
+      const response = await fetch(`/crawler/indexlinks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(url)
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
   async indexCount() {
     try {
       const response = await fetch(`/crawler/indexcount`, {

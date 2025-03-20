@@ -13,6 +13,9 @@
   .rankingDiv.expanded {
     max-height: CALC(var(--vh, 1vh) * 80);
   }
+.rankingDivOffNexus {
+  max-height: CALC(var(--vh, 1vh)* 100 - 550px);
+}
 
 .radar {
   z-index: 3;
