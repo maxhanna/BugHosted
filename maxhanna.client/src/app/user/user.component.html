@@ -33,14 +33,14 @@
           <div class="invertedHighlights xxSmallFont">Joined: </div>
           <div>
             {{(user && user.created ? (user.created | date: 'y/MM/d') : 'Unknown')}}
-            <span class="invertedHighlights xxSmallFont">({{user && user.created ? daysSinceDate(user.created, 'day') : '0 days'}})</span>
+            <span class="invertedHighlights xxSmallFont">({{user && user.created ? getUtcTimeSince(user.created, 'day') : '0 days'}})</span>
           </div>
         </div>
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Last Seen: </div>
           <div>
             {{(user && user.lastSeen ? (user.lastSeen | date: 'y/MM/d') : 'Unknown')}}
-            <span class="invertedHighlights xxSmallFont">({{user && user.lastSeen ? daysSinceDate(user.lastSeen, 'minute') : '0 days'}})</span>
+            <span class="invertedHighlights xxSmallFont">({{user && user.lastSeen ? getUtcTimeSince(user.lastSeen, 'minute') : '0 days'}})</span>
           </div>
         </div>
         <div class="profileControls" *ngIf="user || parentRef?.user">
@@ -201,6 +201,7 @@
     <div *ngIf="user || parentRef?.user">
       <app-social #socialComponent
                   [user]="user"
+                  [storyId]="storyId"
                   [parent]="parentRef"
                   [showTopicSelector]="false"
                   *ngIf="user && parentRef"></app-social>

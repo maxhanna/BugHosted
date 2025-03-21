@@ -6,6 +6,7 @@ export class Reaction {
   storyId?: number;
   messageId?: number;
   fileId?: number;
+  userProfileId?: number;
   user?: User;
   type?: string; 
   timestamp?: Date; 

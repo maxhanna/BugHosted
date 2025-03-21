@@ -382,8 +382,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   topicClicked(event?: Topic[]) {
     if (event) {
-      this.topicClickedEvent.emit(event);
-      console.log(event);
+      this.topicClickedEvent.emit(event); 
     }
   }
   formatFileSize(bytes: number, decimalPoint: number = 2): string {

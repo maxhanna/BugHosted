@@ -336,8 +336,8 @@ namespace maxhanna.Server.Controllers
 
 					Console.WriteLine($"Sending notif on target column : {targetColumn}");
 					notificationSql = $@"
-						INSERT INTO maxhanna.notifications (user_id, from_user_id, {targetColumn}, text, date)
-						VALUES ((SELECT user_id FROM maxhanna.{targetTable} WHERE id = @{targetColumn}), @user_id, @{targetColumn}, @comment, UTC_TIMESTAMP());";
+						INSERT INTO maxhanna.notifications (user_id, from_user_id, {targetColumn}, text, date, user_profile_id)
+						VALUES ((SELECT user_id FROM maxhanna.{targetTable} WHERE id = @{targetColumn}), @user_id, @{targetColumn}, @comment, UTC_TIMESTAMP(), @userProfileId);";
 
 					if (targetColumn == "file_id")
 					{
@@ -352,6 +352,7 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@user_id", request.FromUser?.Id ?? 0);
 						cmd.Parameters.AddWithValue("@comment", request.Message);
+						cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
 
 						if (request.FileId != null)
 						{
@@ -374,13 +375,14 @@ namespace maxhanna.Server.Controllers
 				{
 					Console.WriteLine($"Sending notif on UserProfileId : {request.UserProfileId}");
 					notificationSql = $@"
-						INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, text, date)
-						VALUES (@to_user, @from_user, @user_profile_id, @comment, UTC_TIMESTAMP());";
+						INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, story_id, text, date)
+						VALUES (@to_user, @from_user, @user_profile_id, @story_id, @comment, UTC_TIMESTAMP());";
 					using (var cmd = new MySqlCommand(notificationSql, conn))
 					{
 						cmd.Parameters.AddWithValue("@to_user", request.ToUser.FirstOrDefault()?.Id ?? 0);
 						cmd.Parameters.AddWithValue("@from_user", request.FromUser?.Id ?? 0);
-						cmd.Parameters.AddWithValue("@user_profile_id", request.ToUser.FirstOrDefault()?.Id ?? 0);
+						cmd.Parameters.AddWithValue("@user_profile_id", request.UserProfileId ?? (object)DBNull.Value);
+						cmd.Parameters.AddWithValue("@story_id", request.StoryId ?? (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@comment", request.Message);
 						await cmd.ExecuteNonQueryAsync();
 					}
@@ -500,14 +502,15 @@ namespace maxhanna.Server.Controllers
 								AND date >= NOW() - INTERVAL 10 MINUTE;";
 
 						string insertNotificationSql = @"
-							INSERT INTO maxhanna.notifications (user_id, from_user_id, text)
-							VALUES (@Receiver, @Sender, @Content);";
+							INSERT INTO maxhanna.notifications (user_id, from_user_id, text, user_profile_id)
+							VALUES (@Receiver, @Sender, @Content, @UserProfileId);";
 
 						using (var checkCommand = new MySqlCommand(checkSql, conn))
 						{
 							checkCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
 							checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
 							checkCommand.Parameters.AddWithValue("@Content", request.Message);
+							checkCommand.Parameters.AddWithValue("@UserProfileId", request.UserProfileId ?? (object)DBNull.Value);
 
 							int count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
 

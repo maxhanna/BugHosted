@@ -217,15 +217,15 @@ input[type="text"] {
 
 .addChatMembersList {
   margin-top: 15px;
-  min-height: 100px;
+  height: 80px;
   overflow: auto;
   display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: space-between;
+  justify-content: space-around;
+  align-items: flex-start;
+  gap: 10px;
 }
 
 .addChatMemberLi {
@@ -234,13 +234,9 @@ input[type="text"] {
   flex-wrap: nowrap;
   align-content: center;
   justify-content: center;
-  align-items: center;
-  gap: 30px;
-}
-
-  .addChatMemberLi::before {
-    content: "• ";
-  }
+  align-items: center; 
+  border-bottom: var(--main-border);
+} 
 .receiverSeen, .userSeen {
   font-size: xx-small;
   cursor: pointer;

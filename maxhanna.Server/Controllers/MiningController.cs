@@ -316,6 +316,7 @@ namespace maxhanna.Server.Controllers
 				return StatusCode(500, "An unexpected error occurred while fetching mining wallet info");
 			}
 		}
+
 		[HttpPost("/Mining/DailyEarnings", Name = "GetDailyMiningEarnings")]
 		public async Task<IActionResult> GetDailyMiningEarnings([FromBody] User user)
 		{

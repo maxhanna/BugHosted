@@ -110,23 +110,24 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.parent) {
       this.parentRef = this.parent;
     }
+    if (this.storyId) { 
+      this.openedStoryComments.push(this.storyId); 
+    }
     this.parent?.addResizeListener();
-    this.getStories().then(res => {
-      if (this.storyId) {
-        if (this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
-          const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
-          if (tgtStory) { 
-            this.scrollToStory(tgtStory.id);
-            const storyText = tgtStory.storyText;
-            if (storyText) {
-              const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
-              const script = document.createElement('script');
-              script.setAttribute('type', 'application/ld+json');
-              script.textContent = titleAndDescrip?.title ?? "";
-              document.head.appendChild(script); 
-            }
+    this.getStories().then(() => { 
+      if (this.storyId && this.storyResponse && this.storyResponse.stories && this.storyResponse.stories.length > 0) {
+        const tgtStory = this.storyResponse.stories.find((story) => story.id == this.storyId);
+        if (tgtStory) {
+          this.scrollToStory(tgtStory.id);
+          const storyText = tgtStory.storyText;
+          if (storyText) {
+            const titleAndDescrip = this.parentRef?.replacePageTitleAndDescription(storyText.trim(), storyText);
+            const script = document.createElement('script');
+            script.setAttribute('type', 'application/ld+json');
+            script.textContent = titleAndDescrip?.title ?? "";
+            document.head.appendChild(script); 
           }
-        }
+        } 
       }
     });
     this.topicService.getTopStoryTopics().then(res => {
@@ -338,10 +339,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private createStory(user: User, storyText: string, files: FileEntry[]): Story {
+    const parent = this.parent ?? this.parentRef;
     return {
       id: 0,
       user,
-      storyText: this.replaceEmojisInMessage(storyText),
+      storyText: parent?.replaceEmojisInMessage(storyText) ?? storyText,
       fileId: null,
       date: new Date(),
       upvotes: 0,
@@ -644,10 +646,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       return;
     }
     this.isEmojiPanelOpen = true;
-    if (this.parentRef) {
-      this.parentRef.showOverlay();
+    const parent = this.parent ?? this.parentRef;
+    if (parent) {
+      parent.showOverlay();
+      this.filteredEmojis = { ...parent.emojiMap }; 
     }
-    this.filteredEmojis = { ...this.emojiMap }; 
   }
   closeInsertEmojiPanel() {
     this.isEmojiPanelOpen = false;

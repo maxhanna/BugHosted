@@ -22,6 +22,7 @@
       <div class="commentReaction">
         <app-reaction [commentId]="comment.id"
                       [component]="comment"
+                      [userProfileId]="userProfileId"
                       [user]="inputtedParentRef?.user"
                       [inputtedParentRef]="inputtedParentRef"
                       [currentReactions]="comment.reactions">
@@ -68,6 +69,7 @@
                         style="margin:50px;"
                         [component]="comment"
                         [comment_id]="comment.id"
+                        [userProfileId]="userProfileId"
                         [inputtedParentRef]="inputtedParentRef"
                         [type]="'Comment'"
                         (subCommentCountUpdatedEvent)="changedCommentCount($event)"></app-comments>

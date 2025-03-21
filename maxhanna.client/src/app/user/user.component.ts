@@ -26,6 +26,7 @@ import { NexusService } from '../../services/nexus.service';
 export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User | undefined;
   @Input() userId: number | null = null;
+  @Input() storyId: number | undefined = undefined;
   @Input() loginOnly?: boolean | undefined;
   @Input() inputtedParentRef?: AppComponent | undefined;
   @Input() loginReasonMessage?: string | undefined;
@@ -94,6 +95,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
+    console.log("got this storyId", this.storyId);
+    console.log("got this usrId", this.userId);
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }

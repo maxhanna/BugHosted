@@ -71,12 +71,9 @@ export class HostAiComponent extends ChildComponent {
       }
     }
   }
-  parseGeminiMessage(message: any): string {
-    console.log(message);
+  parseGeminiMessage(message: any): string { 
     if (message?.message?.reply && message?.message?.mimeType) {
-      let safeUrl = `data:${message.message.mimeType};base64,${message.message.reply}`;
-
-      console.log(safeUrl.toString());
+      let safeUrl = `data:${message.message.mimeType};base64,${message.message.reply}`; 
       return safeUrl.toString(); // Bypass Angular's sanitization for trusted HTML
     } 
     if (message?.sender === 'You' || message?.sender === 'System') {

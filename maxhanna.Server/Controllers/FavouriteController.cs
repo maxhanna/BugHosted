@@ -95,6 +95,7 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> UpsertFavourite([FromBody] FavouriteUpdateRequest request)
 		{
 			_logger.LogInformation($"PUT /Favourite (url: {request.Url})");
+			if (request.Id == 0) request.Id = null;
 
 			string checkSql = request.Id != null ? "SELECT id FROM favourites WHERE id = @Id LIMIT 1;" : "SELECT id FROM favourites WHERE url = @Url LIMIT 1;";
 			string insertSql = @"
@@ -120,7 +121,7 @@ namespace maxhanna.Server.Controllers
 					using (var checkCmd = new MySqlCommand(checkSql, conn))
 					{
 						checkCmd.Parameters.AddWithValue("@Url", request.Url);
-						if (request.Id != null)
+						if (request.Id != null && request.Id != 0)
 						{
 							checkCmd.Parameters.AddWithValue("@Id", request.Id);
 						}
@@ -128,7 +129,7 @@ namespace maxhanna.Server.Controllers
 
 						if (result != null)
 						{
-							// Update existing record and return its ID
+							int? insertedId = null;
 							using (var updateCmd = new MySqlCommand(updateSql, conn))
 							{
 								updateCmd.Parameters.AddWithValue("@Url", request.Url);
@@ -140,13 +141,21 @@ namespace maxhanna.Server.Controllers
 								updateCmd.Parameters.AddWithValue("@Name", (object?)request.Name ?? DBNull.Value);
 								updateCmd.Parameters.AddWithValue("@ModifiedBy", request.CreatedBy);
 
-								var updatedId = await updateCmd.ExecuteScalarAsync();
-								return Ok(new { Id = updatedId, Message = "Favourite updated successfully." });
+								insertedId = (int?)await updateCmd.ExecuteScalarAsync();
 							}
+
+							string insertSql2 = @"INSERT IGNORE INTO favourites_selected (favourite_id, user_id) VALUES (@fav_id, @user_id);";
+							using (var cmd2 = new MySqlCommand(insertSql2, conn))
+							{
+								cmd2.Parameters.AddWithValue("@fav_id", insertedId);
+								cmd2.Parameters.AddWithValue("@user_id", request.CreatedBy);
+								cmd2.ExecuteNonQuery();
+							}
+							return Ok(new { Id = insertedId, Message = "Favourite updated successfully." });
 						}
 						else
 						{
-							// Insert new record and return its ID
+							int? insertedId;
 							using (var insertCmd = new MySqlCommand(insertSql, conn))
 							{
 								insertCmd.Parameters.AddWithValue("@Url", request.Url);
@@ -155,9 +164,18 @@ namespace maxhanna.Server.Controllers
 								insertCmd.Parameters.AddWithValue("@ModifiedBy", request.CreatedBy);
 								insertCmd.Parameters.AddWithValue("@Name", (object?)request.Name ?? DBNull.Value);
 
-								var insertedId = await insertCmd.ExecuteScalarAsync();
-								return Ok(new { Id = insertedId, Message = "Favourite inserted successfully." });
+								insertedId = Convert.ToInt32(await insertCmd.ExecuteScalarAsync());
 							}
+							string insertSql2 = @"INSERT IGNORE INTO favourites_selected (favourite_id, user_id) VALUES (@fav_id, @user_id);";
+							using (var cmd2 = new MySqlCommand(insertSql2, conn))
+							{
+								cmd2.Parameters.AddWithValue("@fav_id", insertedId);
+								cmd2.Parameters.AddWithValue("@user_id", request.CreatedBy);
+								cmd2.ExecuteNonQuery();
+							}
+
+							return Ok(new { Id = insertedId, Message = "Favourite inserted successfully." });
+
 						}
 					}
 				}

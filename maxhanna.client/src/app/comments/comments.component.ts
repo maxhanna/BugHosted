@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnInit, Output, SecurityContext, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { CommentService } from '../../services/comment.service';
 import { ChildComponent } from '../child.component';
@@ -32,6 +32,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() component_id: number = 0;
   @Input() component: any = undefined;
   @Input() comment_id?: number = undefined;
+  @Input() userProfileId?: number = undefined;
   @Input() automaticallyShowSubComments = true;
   @Output() commentAddedEvent = new EventEmitter<FileComment>();
   @Output() commentRemovedEvent = new EventEmitter<FileComment>();
@@ -61,20 +62,21 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     super.viewProfile(user);
   }
 
-  async addComment(comment: string) { 
+  async addComment(comment: string) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
     this.showCommentLoadingOverlay = true;
     clearTimeout(this.debounceTimer);
-    const commentsWithEmoji = this.replaceEmojisInMessage(comment);
-
+    const commentsWithEmoji = parent?.replaceEmojisInMessage(comment);
+    const userProfileId = this.userProfileId ?? this.component?.userProfileId ?? undefined;
     const fileId = this.type === 'File' ? this.component_id : undefined;
     const storyId = this.type === 'Social' ? this.component_id : undefined;
     const commentId = this.type === 'Comment' ? this.comment_id : undefined;
     const filesToSend = this.selectedFiles;
     this.selectedFiles = [];
     const currentDate = new Date();
-    const location = await this.inputtedParentRef?.getLocation();
+    const location = await parent?.getLocation();
     const tmpComment = new FileComment();
-    tmpComment.user = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
+    tmpComment.user = parent?.user ?? new User(0, "Anonymous");
     tmpComment.commentText = commentsWithEmoji;
     tmpComment.date = currentDate;
     tmpComment.fileId = fileId;
@@ -83,6 +85,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     tmpComment.commentFiles = filesToSend;
     tmpComment.country = location?.country;
     tmpComment.city = location?.city;
+    tmpComment.userProfileId = userProfileId;
     tmpComment.ip = location?.ip;
     if (!this.commentList) { this.commentList = []; }
 
@@ -101,6 +104,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       comment.fileId,
       comment.storyId,
       comment.commentId,
+      comment.userProfileId,
       comment.commentFiles,
       comment.city,
       comment.country,
@@ -127,6 +131,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.sendNotifications(comment); 
   }
   private sendNotifications(comment: FileComment) {
+    console.log("test", comment);
     const isStory = this.type == "Social";
     const isFile = this.type == "File";
     const isFileComment = this.type == "Comment";
@@ -136,13 +141,14 @@ export class CommentsComponent extends ChildComponent implements OnInit {
       : undefined; 
 
     if (this.inputtedParentRef && tmpComponent?.user) {
-      const notificationData: any = {
+      const notificationData = {
         fromUser: this.inputtedParentRef.user ?? new User(0, "Anonymous"),
         toUser: [tmpComponent.user],
-        message: isStory ? "Social Post Comment" : "File Comment",
-        ...(isStory && { storyId: comment.storyId }),
-        ...(isFile && { fileId: comment.fileId }),
-        ...(isFileComment && { commentId: comment.commentId })
+        message: (isStory || this.userProfileId) ? "Social Post Comment" : "File Comment",
+        storyId: comment.storyId,
+        fileId: comment.fileId,
+        commentId: comment.commentId,
+        userProfileId: comment.userProfileId,
       }; 
       this.notificationService.createNotifications(notificationData);
     }
@@ -247,9 +253,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
   }
   showSubComments(commentId: number) {
-    console.log(commentId);
     const currElement = (document.getElementById('subCommentComponent' + commentId) as HTMLDivElement);
-    console.log(currElement); 
     const shouldDisplay = !(currElement.style.display == "block")
     currElement.style.display = shouldDisplay ? "block" : "none";
     if (shouldDisplay) {

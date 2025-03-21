@@ -59,6 +59,60 @@ namespace maxhanna.Server.Controllers
 			return coinValues;
 		}
 
+		[HttpPost("/CoinValue/GetWalletBalanceData", Name = "GetWalletBalanceData")]
+		public async Task<List<CoinValue>> GetWalletBalanceData([FromBody] string walletAddress)
+		{
+			_logger.LogInformation("GET /CoinValue/GetWalletBalanceData");
+			var coinValues = new List<CoinValue>();
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"
+					SELECT 
+							wi.id AS wallet_id,
+							wi.btc_address,
+							wb.final_balance,
+							wb.total_received,
+							wb.total_sent,
+							wb.fetched_at
+					FROM user_btc_wallet_info wi
+					LEFT JOIN user_btc_wallet_balance wb 
+							ON wi.id = wb.wallet_id
+					WHERE wi.btc_address = @WalletAddress";
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@WalletAddress", walletAddress);
+
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						var coinValue = new CoinValue
+						{
+							Id = reader.GetInt32(reader.GetOrdinal("wallet_id")),
+							Symbol = "BTC",
+							Name = "Bitcoin",
+							ValueCAD = reader.IsDBNull(reader.GetOrdinal("final_balance")) ? 0 : reader.GetDecimal(reader.GetOrdinal("final_balance")),
+							Timestamp = reader.GetDateTime(reader.GetOrdinal("fetched_at"))
+						};
+						coinValues.Add(coinValue);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while trying to get all coin values.");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+
+			return coinValues;
+		}
+
 
 		[HttpPost("/CurrencyValue/", Name = "GetAllCurrencyValues")]
 		public async Task<List<ExchangeRate>> GetAllCurrencyValues()

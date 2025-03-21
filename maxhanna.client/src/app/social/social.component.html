@@ -129,23 +129,22 @@
     <div class="popupPanel" *ngIf="isPostOptionsPanelOpen">
       <div class="popupPanelTitle">
         <span>Post Options</span>
-        <div>
-          <button id="closeOverlay" (click)="closePostOptionsPanel()">Close</button>
-        </div>
       </div>
-      <div class="smallFont">
+      <div class="smallFont createdByStoryOptionsDiv">
         These options affect the post created.
       </div>
       <div>
         <label>
           <input type="checkbox" (change)="eachAttachmentSeperatePost = !eachAttachmentSeperatePost" [checked]="eachAttachmentSeperatePost" />
           Each Attachment In A Seperate Post.
+          <span class="smallFont">
+            Creates a post for every file attachment attached.
+          </span>
         </label>
-        <div class="smallFont">
-          Select 'Each Attachment in a Seperate Post' to create a post for every file attachment attached to this post.
-        </div>
+      </div> 
+      <div>
+        <button id="closeOverlay" (click)="closePostOptionsPanel()">Close</button>
       </div>
-
     </div>
 
     <!-- Post Topics Popup -->
@@ -192,7 +191,7 @@
     <!-- Story Options Popup -->
     <div class="popupPanel storyOptionsPopup" *ngIf="isStoryOptionsPanelOpen && optionStory">
       <div class="popupPanelTitle" style="margin-bottom: 15px;">
-        Story Options
+        Post Options
       </div>
       <div class="storyOptionsPopupButtons" style="margin-bottom: 15px;">
         <button (click)="copyLink(optionStory.id)" title="Share Link" style="display:inline-block">📋Share</button>
@@ -230,7 +229,7 @@
             <div class="reactionTopicsAndExpanderDiv reactionTopics">
               <span *ngIf="optionStory.storyTopics && optionStory.storyTopics.length > 0 && optionStory.id && !editingTopics.includes(optionStory.id)">
                 <span *ngFor="let topic of optionStory.storyTopics" class="matchingTopic" (click)="editingTopics.includes(optionStory.id) ? removeTopicFromStory(topic, optionStory) : topicClicked(topic);">
-                  {{topic.topicText}} 
+                  {{topic.topicText}}
                 </span>
               </span>
               <div *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)">
@@ -251,10 +250,16 @@
             <app-user-tag [user]="optionStory.user" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true"></app-user-tag>
           </div>
         </div>
-        <div class="optionsStatsDiv" *ngIf="optionStory.city || optionStory.country">
-          <div class="optionsStatsHeader">Created From:</div>
-          <div class="optionsStatsDescription" [title]="optionStory.city + ', ' + optionStory.country">
-            {{optionStory.city}}<span *ngIf="optionStory.country"><span *ngIf="optionStory.city">,</span> {{optionStory.country}}</span>
+        <div class="optionsStatsDiv" *ngIf="optionStory.country">
+          <div class="optionsStatsHeader">Country:</div>
+          <div class="optionsStatsDescription" [title]="optionStory.country">
+            {{optionStory.country}} {{optionStory.country | currencyFlag}}
+          </div>
+        </div>
+        <div class="optionsStatsDiv" *ngIf="optionStory.city ">
+          <div class="optionsStatsHeader">City:</div>
+          <div class="optionsStatsDescription" [title]="optionStory.city">
+            {{optionStory.city}}
           </div>
         </div>
         <div class="optionsStatsDiv">
@@ -365,6 +370,7 @@
               <app-reaction [storyId]="story.id"
                             [user]="parentRef?.user"
                             [inputtedParentRef]="parentRef"
+                            [userProfileId]="userProfileId"
                             [component]="story"  
                             [currentReactions]="story.reactions"></app-reaction>
             </span>
@@ -457,7 +463,8 @@
                         [showComments]="openedStoryComments.includes(story?.id ?? 0)"
                         [showCommentsHeader]="true"
                         [component_id]="story.id!"
-                        [component]="story"
+                        [component]="story" 
+                        [userProfileId]="userProfileId" 
                         [commentList]="story!.storyComments!"
                         (commentAddedEvent)="commentAddedEvent($event)"
                         (commentHeaderClickedEvent)="showComments(story.id)"

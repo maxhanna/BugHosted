@@ -1,6 +1,7 @@
 // user.service.ts
 import { Injectable } from '@angular/core'; 
 import { User } from './datacontracts/user/user';
+import { HttpErrorResponse } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root'
@@ -63,10 +64,15 @@ export class FavouriteService {
         },
         body: JSON.stringify({ Url: url, ImageUrl: imageUrl, id: id, CreatedBy: user.id, Name: name }), 
       });
-
+      if (!response.ok) {
+        return await response.text(); 
+      }
       return await response.json();
     } catch (error) {
-      return null;
+      if (error instanceof Error) {
+        return error.message;
+      }
+      return "Error.";
     }
   }
 

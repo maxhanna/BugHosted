@@ -36,6 +36,10 @@ namespace maxhanna.Server.Controllers
 
 			var results = new List<Metadata>();
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			int pageNumber = request.CurrentPage;
+			int pageSize = request.PageSize;
+			int offset = (pageNumber - 1) * pageSize;
+			int totalResults = 0;
 
 			try
 			{
@@ -44,32 +48,46 @@ namespace maxhanna.Server.Controllers
 				{
 					await connection.OpenAsync();
 
-					string checkUrlQuery = @"
+					// Define the common search condition
+					string whereCondition = @"
+                (@searchAll IS TRUE OR url_hash = @urlHash 
+                OR LOWER(url) LIKE @search
+                OR LOWER(title) LIKE @search
+                OR LOWER(author) LIKE @search
+                OR LOWER(keywords) LIKE @search 
+                OR LOWER(image_url) LIKE @search 
+                OR LOWER(description) LIKE @search)
+                AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))";
+
+					// Query to get the paginated results
+					string checkUrlQuery = $@"
                 SELECT id, url, title, description, author, keywords, image_url, failed, response_code 
                 FROM search_results 
-                WHERE (@searchAll IS TRUE OR url_hash = @urlHash 
-                                            OR LOWER(url) LIKE @search
-                                            OR LOWER(title) LIKE @search
-                                            OR LOWER(author) LIKE @search
-                                            OR LOWER(keywords) LIKE @search 
-                                            OR LOWER(image_url) LIKE @search 
-                                            OR LOWER(description) LIKE @search)
-								AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL)) 
-                ORDER BY CASE WHEN @searchAll IS TRUE THEN found_date ELSE id END DESC;";
+                WHERE {whereCondition} 
+                ORDER BY CASE WHEN @searchAll IS TRUE THEN found_date ELSE id END DESC
+                LIMIT @pageSize OFFSET @offset;";
 
-					bool searchAll = request.Url == "*";
+					// Query to get the total count of results
+					string totalCountQuery = $@"
+                SELECT COUNT(*) 
+                FROM search_results 
+                WHERE {whereCondition};";
+
+					bool searchAll = (request.Url == "*");
 					using (var command = new MySqlCommand(checkUrlQuery, connection))
 					{
 						command.Parameters.AddWithValue("@searchAll", searchAll);
 						command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash);
 						command.Parameters.AddWithValue("@search", searchAll ? DBNull.Value : "%" + request.Url.ToLower() + "%");
+						command.Parameters.AddWithValue("@pageSize", pageSize);
+						command.Parameters.AddWithValue("@offset", offset);
 
 						using (var reader = await command.ExecuteReaderAsync())
 						{
 							while (reader.Read())
-							{ 
+							{
 								results.Add(new Metadata
-								{ 
+								{
 									Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
 									Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
 									Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
@@ -77,9 +95,19 @@ namespace maxhanna.Server.Controllers
 									Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
 									Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords"),
 									HttpStatus = reader.IsDBNull(reader.GetOrdinal("response_code")) ? null : reader.GetInt32("response_code"),
-								}); 
+								});
 							}
 						}
+					}
+
+					// Get total count
+					using (var countCommand = new MySqlCommand(totalCountQuery, connection))
+					{
+						countCommand.Parameters.AddWithValue("@searchAll", searchAll);
+						countCommand.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash);
+						countCommand.Parameters.AddWithValue("@search", searchAll ? DBNull.Value : "%" + request.Url.ToLower() + "%");
+
+						totalResults = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
 					}
 
 					Console.WriteLine($"Found {results.Count} results before searching manually");
@@ -113,7 +141,7 @@ namespace maxhanna.Server.Controllers
 										cMeta.Url = new Uri(new Uri(urlVariant), cMeta.Url).ToString().TrimEnd('/');
 										results.Add(cMeta);
 										if (cMeta.HttpStatus == null)
-										{ 
+										{
 											InsertScrapedData(cMeta.Url, cMeta);
 										}
 									}
@@ -124,7 +152,7 @@ namespace maxhanna.Server.Controllers
 								Console.WriteLine("Error scraping data: " + urlVariant + ". Error: " + innerEx.Message);
 								InsertFailureRecord(urlVariant, null);
 							}
-						} 
+						}
 					}
 
 					var allResults = results.Concat(scrapedResults).ToList();
@@ -132,10 +160,10 @@ namespace maxhanna.Server.Controllers
 					if (request.Url.Trim() != "*")
 					{
 						allResults = allResults
-								.GroupBy(r => r.Url)
-								.Select(g => g.First())
-								.OrderByDescending(r => CalculateRelevanceScore(r, request.Url))
-								.ToList();
+										.GroupBy(r => r.Url)
+										.Select(g => g.First())
+										.OrderByDescending(r => CalculateRelevanceScore(r, request.Url))
+										.ToList();
 					}
 
 					if (allResults.Count == 0 && IsValidDomain(request.Url))
@@ -143,7 +171,8 @@ namespace maxhanna.Server.Controllers
 						await InsertFailureRecord(request.Url, null);
 					}
 
-					return Ok(allResults);
+					// Return the results along with the total count for pagination
+					return Ok(new { Results = allResults, TotalResults = totalResults });
 				}
 			}
 			catch (Exception ex)
@@ -152,11 +181,11 @@ namespace maxhanna.Server.Controllers
 				if (results.Count > 0)
 				{
 					results = results
-							.GroupBy(r => r.Url)
-							.Select(g => g.First())
-							.OrderByDescending(r => CalculateRelevanceScore(r, request.Url))
-							.ToList();
-					return Ok(results);
+									.GroupBy(r => r.Url)
+									.Select(g => g.First())
+									.OrderByDescending(r => CalculateRelevanceScore(r, request.Url))
+									.ToList();
+					return Ok(new { Results = results, TotalResults = totalResults });
 				}
 				else
 				{
@@ -165,7 +194,6 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
-
 
 		[HttpPost("/Crawler/IndexLinks", Name = "IndexLinks")]
 		public async void IndexLinks([FromBody] string url)
@@ -418,15 +446,24 @@ namespace maxhanna.Server.Controllers
 	  
 		private int CalculateRelevanceScore(Metadata result, string searchTerm)
 		{
-			int score = 0;
+			int score = 20;
 			string search = searchTerm.ToLower();
 			if (Uri.TryCreate(result.Url, UriKind.Absolute, out Uri url))
 			{
 				string domain = url.Host.ToLower();
+
+				// Check if it's an exact match for the domain (no path or query params)
+				bool isTopLevelDomain = url.AbsolutePath == "/" || string.IsNullOrEmpty(url.AbsolutePath.Trim('/'));
+
 				if (domain.Contains(search))
 				{
-					score += 150;
+					score += isTopLevelDomain ? 250 : 150; // Top-level gets 250, others 150
 				}
+				var pathSegments = url.AbsolutePath.Split('/').Where(segment => !string.IsNullOrEmpty(segment)).ToList();
+
+				// Subtract points based on the number of segments (fewer segments, higher score)
+				int segmentPenalty = pathSegments.Count > 1 ? (pathSegments.Count - 1) * 5 : 0; // 5 points per extra segment
+				score -= segmentPenalty;
 			}
 			if (result.Url?.ToLower().Contains(search) == true) score += 75;
 			if (result.Title?.ToLower().Contains(search) == true) score += 50;

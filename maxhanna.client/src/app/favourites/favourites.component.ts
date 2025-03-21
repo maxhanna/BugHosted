@@ -44,7 +44,6 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       return alert("You must be logged in to update the favourites");
     }
     await this.favoriteService.removeFavourite(this.parentRef.user, fav.id).then(res => {
-      console.log(res);
       if (res) {
         this.parentRef?.showNotification(res);
       }
@@ -56,7 +55,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     if (!this.parentRef?.user) { return alert("You must be logged in to update the favourites"); }
     if (fav) {
       await this.favoriteService.addFavourite(this.parentRef.user, fav.id).then(res => {
-        if (res) { 
+        if (res) {
           this.parentRef?.showNotification(res);
         }
       });
@@ -66,7 +65,6 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       const imageUrl = this.linkImageInput.nativeElement.value;
       const name = this.linkNameInput.nativeElement.value;
       const user = this.parentRef.user;
-      console.log(linkUrl);
       if (linkUrl) {
         await this.favoriteService.updateFavourites(user, linkUrl, 0, imageUrl, name).then(res => {
           var tmpFav = new Favourite();
@@ -74,16 +72,20 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
           tmpFav.url = linkUrl;
           tmpFav.imageUrl = imageUrl;
           tmpFav.id = res.id;
-          console.log(res);
           this.parentRef?.showNotification(res.message);
           this.addLink(tmpFav);
         });
       }
     }
-    this.linkInput.nativeElement.value = "";
-    this.linkImageInput.nativeElement.value = "";
-    this.linkNameInput.nativeElement.value = "";
+    this.resetInputs();
+
     this.showNameImageInput = false;
+  }
+
+  private resetInputs() {
+    if (this.linkInput && this.linkInput.nativeElement) this.linkInput.nativeElement.value = "";
+    if (this.linkImageInput && this.linkImageInput.nativeElement) this.linkImageInput.nativeElement.value = "";
+    if (this.linkNameInput && this.linkNameInput.nativeElement) this.linkNameInput.nativeElement.value = "";
   }
 
   async editFavourite() {
@@ -145,7 +147,6 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     this.showingLatestLinks = !this.showingLatestLinks;
     if (this.showingLatestLinks) {
       this.favoriteService.getFavourites(this.parentRef?.user ?? new User(0), '').then(res => {
-        console.log(res);
         this.favouriteSearch = res;
       });
     } else {

@@ -13,7 +13,16 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   error: string = '';
   indexCount = 0;
   indexUpdateTimer: any;
+  isMenuOpen = false;
 
+  pageSize: number = 10;  // Default page size
+  currentPage: number = 1;
+  totalResults: number = 0;  // To be populated by API
+  totalPages: number = 0;
+  paginatedResults: any[] = [];
+  pageSizes: number[] = [10, 20, 30, 50]; // Dropdown options
+
+  @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @Input() url: string = '';
   constructor(private crawlerService: CrawlerService) { super(); }
@@ -40,15 +49,21 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   async searchUrl() {
     this.error = '';
-    const url = this.urlInput.nativeElement.value;  
+    const url = this.urlInput.nativeElement.value;
+    const currentPage = this.currentPage;
+    const pageSize = this.pageSize;
     this.loading = true; 
 
     if (url) {
-      await this.crawlerService.searchUrl(url).then(res => { 
-        if (res && res.length != 0) {
-          this.searchMetadata = res;
+      await this.crawlerService.searchUrl(url, currentPage, pageSize).then(res => { 
+        if (res && res.totalResults != 0) {
+          this.totalResults = res.totalResults;  
+          this.totalPages = Math.ceil(this.totalResults / this.pageSize);
+          this.searchMetadata = res.results ?? [];
         } else {
           this.error = "No data from given URL.";
+          this.totalResults = 0;
+          this.totalPages = 0;
           this.searchMetadata = [];
         }
       });
@@ -56,6 +71,42 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.searchMetadata = [];
     }
     this.loading = false;
+    document.getElementsByClassName("crawler-container")[0].scrollTop = 0;
+  }
+
+  onPageSizeChange() {
+    console.log("apge size changed");
+    this.currentPage = 1;
+    this.pageSize = parseInt(this.pageSizeDropdown.nativeElement.value);
+    this.searchUrl();
+    this.closeMenuPanel();
+  }
+
+  onPageChange(page?: number) {
+    let tmpPage = page;
+    if (!tmpPage) {
+      tmpPage = (this.currentPage + 1) ?? 1;
+    }
+    if (tmpPage >= 1 && tmpPage <= this.totalPages) {
+      this.currentPage = tmpPage;
+      this.searchUrl();
+    }
+  }
+  showMenuPanel() {
+    if (this.isMenuOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay();
+    }
+  }
+  closeMenuPanel() {
+    this.isMenuOpen = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
+    }
   }
   getHttpStatusMeaning(status: number): string {
     switch (status) {

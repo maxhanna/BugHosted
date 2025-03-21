@@ -61,8 +61,7 @@ export class CharacterCreate extends Level {
     this.name = "CharacterCreate";
     if (params.heroPosition) {
       this.defaultHeroPosition = params.heroPosition;
-    }
-    console.log("inside ");
+    } 
     this.referee.textContent = [
       {
         string: ["Wake up... Your journey awaits!"],

@@ -10,6 +10,7 @@ namespace maxhanna.Server.Controllers.DataContracts
 		public int? StoryId { get; set; }
 		public int? FileId { get; set; }
 		public int? MessageId { get; set; }
+		public int? UserProfileId { get; set; }
 		public DateTime? Timestamp { get; set; }
 		public string? Type { get; set; }
 	}

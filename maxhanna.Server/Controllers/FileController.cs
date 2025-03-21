@@ -125,6 +125,13 @@ namespace maxhanna.Server.Controllers
 					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
 					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
 
+					bool nsfwEnabled = await GetNsfwForUser(user);
+					string nsfwEnabledJoins = nsfwEnabled ? @"
+						LEFT JOIN
+								maxhanna.file_topics ft ON ft.file_id = f.id
+						LEFT JOIN
+								maxhanna.topics t ON ft.topic_id = t.id AND t.topic = 'NSFW'" : "";
+
 					var command = new MySqlCommand($@"
                         SELECT 
                             f.id AS fileId,
@@ -162,6 +169,7 @@ namespace maxhanna.Server.Controllers
                             maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
                         LEFT JOIN
                             maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
+												{nsfwEnabledJoins}
                         WHERE
                             {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
                             (
@@ -191,7 +199,7 @@ namespace maxhanna.Server.Controllers
 					{
 						command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
 					}
-					//Console.WriteLine(command.CommandText);
+					Console.WriteLine(command.CommandText);
 
 					using (var reader = command.ExecuteReader())
 					{
@@ -389,9 +397,85 @@ namespace maxhanna.Server.Controllers
 						commentIdsParameters.Add($"@commentId{i}");
 					}
 
-					//_logger.LogInformation("Getting reactions");
-					// Fetch reactions separately
-					var reactionsCommand = new MySqlCommand($@"
+					GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
+					GetFileTopics(fileEntries, connection, fileIds, fileIdsParameters);
+					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters, nsfwEnabledJoins);
+
+					return Ok(result);
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError($"error:{ex}");
+				return StatusCode(500, ex.Message);
+			}
+		}
+
+		private Object GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters, string nsfwEnabledJoins)
+		{
+			// Get the total count of files for pagination
+			int totalCount = GetResultCount(user,
+				directory, search, fileTypeCondition, visibilityCondition,
+				ownershipCondition, hiddenCondition, connection, searchCondition,
+				extraParameters, nsfwEnabledJoins);
+			var result = new
+			{
+				TotalCount = totalCount,
+				CurrentDirectory = directory.Replace(_baseTarget, ""),
+				Page = page,
+				PageSize = pageSize,
+				Data = fileEntries
+			};
+			return result;
+		}
+
+		private static void GetFileTopics(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<string> fileIdsParameters)
+		{
+			// Fetch topics separately
+			var topicsCommand = new MySqlCommand($@"
+                        SELECT
+                            ft.file_id,
+                            ft.topic_id,
+														t.topic 
+                        FROM
+                            maxhanna.file_topics ft
+												LEFT JOIN topics t ON t.id = ft.topic_id 
+                        WHERE 1=1
+                        {(fileIds.Count > 0 ? "AND ft.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)};"
+			, connection);
+
+			for (int i = 0; i < fileIds.Count; i++)
+			{
+				topicsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
+			}
+			//_logger.LogInformation(topicsCommand.CommandText);
+			using (var reader = topicsCommand.ExecuteReader())
+			{
+				while (reader.Read())
+				{
+					var fileIdV = reader.GetInt32("file_id");
+					var topicIdV = reader.GetInt32("topic_id");
+					var topicTextV = reader.GetString("topic");
+
+
+					var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdV);
+					if (fileEntry != null)
+					{
+						if (fileEntry.Topics == null)
+						{
+							fileEntry.Topics = new List<Topic>();
+						}
+						fileEntry.Topics.Add(new Topic(topicIdV, topicTextV));
+					}
+				}
+			}
+		}
+
+		private static void GetFileReactions(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters, List<string> commentIdsParameters)
+		{
+			//_logger.LogInformation("Getting reactions");
+			// Fetch reactions separately
+			var reactionsCommand = new MySqlCommand($@"
                         SELECT
                             r.id AS reaction_id,
                             r.file_id AS reactionFileId,
@@ -406,119 +490,84 @@ namespace maxhanna.Server.Controllers
                         LEFT JOIN
                             maxhanna.users ru ON r.user_id = ru.id
                         LEFT JOIN
-                            maxhanna.user_display_pictures udp ON udp.user_id = ru.id
+                            maxhanna.user_display_pictures udp ON udp.user_id = ru.id 
                         WHERE 1=1
                         {(fileIds.Count > 0 ? "AND r.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)} 
                         {(commentIds.Count > 0 ? " OR r.comment_id IN (" + string.Join(", ", commentIdsParameters) + ')' : string.Empty)};"
-					, connection);
+			, connection);
 
-					for (int i = 0; i < commentIds.Count; i++)
+			for (int i = 0; i < commentIds.Count; i++)
+			{
+				reactionsCommand.Parameters.AddWithValue($"@commentId{i}", commentIds[i]);
+			}
+			for (int i = 0; i < fileIds.Count; i++)
+			{
+				reactionsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
+			}
+			//_logger.LogInformation(reactionsCommand.CommandText);
+			using (var reader = reactionsCommand.ExecuteReader())
+			{
+				while (reader.Read())
+				{
+					var reactionId = reader.GetInt32("reaction_id");
+					var fileIdValue = reader.IsDBNull(reader.GetOrdinal("reactionFileId")) ? 0 : reader.GetInt32("reactionFileId");
+					var commentIdValue = reader.IsDBNull(reader.GetOrdinal("reactionCommentId")) ? 0 : reader.GetInt32("reactionCommentId");
+					var udpFileEntry = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_id")) ? null : new FileEntry(reader.GetInt32("reaction_user_display_picture_id"));
+					var reaction = new Reaction
 					{
-						reactionsCommand.Parameters.AddWithValue($"@commentId{i}", commentIds[i]);
-					}
-					for (int i = 0; i < fileIds.Count; i++)
+						Id = reactionId,
+						FileId = fileIdValue != 0 ? fileIdValue : null,
+						CommentId = commentIdValue != 0 ? commentIdValue : null,
+						Type = reader.GetString("reaction_type"),
+						Timestamp = reader.GetDateTime("reaction_date"),
+						User = new User(reader.GetInt32("reaction_user_id"), reader.GetString("reaction_username"), udpFileEntry)
+					};
+
+					var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
+					if (fileEntry != null)
 					{
-						reactionsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
-					}
-					//_logger.LogInformation(reactionsCommand.CommandText);
-					using (var reader = reactionsCommand.ExecuteReader())
-					{
-						while (reader.Read())
+						if (fileEntry.Reactions == null)
 						{
-							var reactionId = reader.GetInt32("reaction_id");
-							var fileIdValue = reader.IsDBNull(reader.GetOrdinal("reactionFileId")) ? 0 : reader.GetInt32("reactionFileId");
-							var commentIdValue = reader.IsDBNull(reader.GetOrdinal("reactionCommentId")) ? 0 : reader.GetInt32("reactionCommentId");
-							var udpFileEntry = reader.IsDBNull(reader.GetOrdinal("reaction_user_display_picture_id")) ? null : new FileEntry(reader.GetInt32("reaction_user_display_picture_id"));
-							var reaction = new Reaction
-							{
-								Id = reactionId,
-								FileId = fileIdValue != 0 ? fileIdValue : null,
-								CommentId = commentIdValue != 0 ? commentIdValue : null,
-								Type = reader.GetString("reaction_type"),
-								Timestamp = reader.GetDateTime("reaction_date"),
-								User = new User(reader.GetInt32("reaction_user_id"), reader.GetString("reaction_username"), udpFileEntry)
-							};
+							fileEntry.Reactions = new List<Reaction>();
+						}
+						fileEntry.Reactions.Add(reaction);
+					}
 
-							var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
-							if (fileEntry != null)
+					var commentEntry = new FileComment();
+					commentEntry.Id = 0;
+					for (var x = 0; x < fileEntries.Count; x++)
+					{
+						if (fileEntries[x].FileComments != null)
+						{
+							if (fileEntries[x].FileComments!.Find(x => x.Id == commentIdValue) != null)
 							{
-								if (fileEntry.Reactions == null)
-								{
-									fileEntry.Reactions = new List<Reaction>();
-								}
-								fileEntry.Reactions.Add(reaction);
-							}
-
-							var commentEntry = new FileComment();
-							commentEntry.Id = 0;
-							for (var x = 0; x < fileEntries.Count; x++)
-							{
-								if (fileEntries[x].FileComments != null)
-								{
-									if (fileEntries[x].FileComments!.Find(x => x.Id == commentIdValue) != null)
-									{
-										commentEntry = fileEntries[x].FileComments!.Find(x => x.Id == commentIdValue)!;
-										break;
-									}
-								}
-							}
-
-							if (commentEntry.Id != 0)
-							{
-								if (commentEntry.Reactions == null)
-								{
-									commentEntry.Reactions = new List<Reaction>();
-								}
-								commentEntry.Reactions.Add(reaction);
+								commentEntry = fileEntries[x].FileComments!.Find(x => x.Id == commentIdValue)!;
+								break;
 							}
 						}
 					}
 
-					// Fetch topics separately
-					var topicsCommand = new MySqlCommand($@"
-                        SELECT
-                            ft.file_id,
-                            ft.topic_id,
-														t.topic 
-                        FROM
-                            maxhanna.file_topics ft
-												LEFT JOIN topics t ON t.id = ft.topic_id 
-                        WHERE 1=1
-                        {(fileIds.Count > 0 ? "AND ft.file_id IN (" + string.Join(", ", fileIdsParameters) + ')' : string.Empty)};"
-					, connection);
-
-					for (int i = 0; i < fileIds.Count; i++)
+					if (commentEntry.Id != 0)
 					{
-						topicsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
-					}
-					//_logger.LogInformation(topicsCommand.CommandText);
-					using (var reader = topicsCommand.ExecuteReader())
-					{
-						while (reader.Read())
+						if (commentEntry.Reactions == null)
 						{
-							var fileIdV = reader.GetInt32("file_id");
-							var topicIdV = reader.GetInt32("topic_id");
-							var topicTextV = reader.GetString("topic");
-
-
-							var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdV);
-							if (fileEntry != null)
-							{
-								if (fileEntry.Topics == null)
-								{
-									fileEntry.Topics = new List<Topic>();
-								}
-								fileEntry.Topics.Add(new Topic(topicIdV, topicTextV));
-							}
+							commentEntry.Reactions = new List<Reaction>();
 						}
+						commentEntry.Reactions.Add(reaction);
 					}
-					// Get the total count of files for pagination
-					var totalCountCommand = new MySqlCommand(
-							$@"SELECT COUNT(*) 
+				}
+			}
+		}
+
+		private static int GetResultCount(User? user, string directory, string? search, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters, string nsfwEnabledJoins)
+		{
+			var totalCountCommand = new MySqlCommand(
+					$@"SELECT COUNT(*) 
                         FROM 
                             maxhanna.file_uploads f  
                         LEFT JOIN
                             maxhanna.users u ON f.user_id = u.id
+												{nsfwEnabledJoins}
                         WHERE 
                             {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
                             ( 
@@ -531,40 +580,25 @@ namespace maxhanna.Server.Controllers
                         {visibilityCondition}
                         {ownershipCondition}
                         {hiddenCondition};"
-					 , connection);
-					foreach (var param in extraParameters)
-					{
-						totalCountCommand.Parameters.Add(param);
-					}
-					totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
-					totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
-					if (!string.IsNullOrEmpty(search))
-					{
-						totalCountCommand.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
-					}
-					//_logger.LogInformation("total count sql : " + totalCountCommand.CommandText);
-					int totalCount = Convert.ToInt32(totalCountCommand.ExecuteScalar());
-					var result = new
-					{
-						TotalCount = totalCount,
-						CurrentDirectory = directory.Replace(_baseTarget, ""),
-						Page = page,
-						PageSize = pageSize,
-						Data = fileEntries
-					};
-
-					return Ok(result);
-				}
-			}
-			catch (Exception ex)
+			 , connection);
+			foreach (var param in extraParameters)
 			{
-				_logger.LogError($"error:{ex}");
-				return StatusCode(500, ex.Message);
+				totalCountCommand.Parameters.Add(param);
 			}
+			totalCountCommand.Parameters.AddWithValue("@folderPath", directory);
+			totalCountCommand.Parameters.AddWithValue("@userId", user?.Id ?? 0);
+			if (!string.IsNullOrEmpty(search))
+			{
+				totalCountCommand.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
+			}
+			//_logger.LogInformation("total count sql : " + totalCountCommand.CommandText);
+			int totalCount = Convert.ToInt32(totalCountCommand.ExecuteScalar());
+			return totalCount;
 		}
-		private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
+
+		private async Task<bool> GetNsfwForUser(User? user)
 		{
-			bool? nsfwEnabled = null;
+			bool nsfwEnabled = false;
 			if (user?.Id != null)
 			{
 				string nsfwSql = @"SELECT nsfw_enabled FROM user_settings WHERE user_id = @userId";
@@ -575,7 +609,7 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@userId", user.Id);
 						var result = await cmd.ExecuteScalarAsync();
-						 
+
 						if (result != null && result != DBNull.Value)
 						{
 							nsfwEnabled = Convert.ToBoolean(result);
@@ -583,22 +617,11 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 			}
-
-
-
+			return nsfwEnabled;
+		}
+		private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
+		{
 			string searchCondition = "";
-
-			if (nsfwEnabled == null || nsfwEnabled == false)
-			{
-				searchCondition += @"
-            AND NOT EXISTS (
-                SELECT 1 FROM file_topics ft 
-                JOIN topics t ON ft.topic_id = t.id 
-                WHERE ft.file_id = f.id AND t.topic = 'NSFW'
-            )
-        ";
-			} 
-
 
 			if (string.IsNullOrWhiteSpace(search))
 				return (searchCondition, new List<MySqlParameter>());
@@ -977,7 +1000,7 @@ namespace maxhanna.Server.Controllers
 							else
 							{
 								if (!System.IO.File.Exists(filePath))
-								{ 
+								{
 									using (var stream = new FileStream(filePath, FileMode.Create))
 									{
 										await file.CopyToAsync(stream);
@@ -985,13 +1008,13 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 						}
-						  
+
 						var fileId = await InsertFileIntoDB(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
 						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
 						uploaded.Add(fileEntry);
 
 						await AppendToSitemapAsync(fileEntry);
-					 
+
 
 						_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}, Type: {fileEntry.FileType}");
 					}

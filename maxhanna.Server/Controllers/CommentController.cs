@@ -70,12 +70,18 @@ namespace maxhanna.Server.Controllers
 					{
 						return BadRequest("Either file_id, story_id, or comment_id must be provided.");
 					}
-					string sql = $"INSERT INTO maxhanna.comments (user_id, {column}, comment, date, city, country, ip) VALUES (@user_id, @id, @comment, UTC_TIMESTAMP(), @city, @country, @ip); SELECT LAST_INSERT_ID();";
+					string sql = $@"
+						INSERT INTO maxhanna.comments 
+						(user_id, {column}, comment, user_profile_id, date, city, country, ip) 
+						VALUES 
+						(@user_id, @id, @comment, @userProfileId, UTC_TIMESTAMP(), @city, @country, @ip); 
+						SELECT LAST_INSERT_ID();";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
 						cmd.Parameters.AddWithValue("@comment", request.Comment);
+						cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@city", request.City);
 						cmd.Parameters.AddWithValue("@country", request.Country);
 						cmd.Parameters.AddWithValue("@ip", request.Ip);
@@ -136,6 +142,7 @@ namespace maxhanna.Server.Controllers
             udpfu.file_name AS profileFileName,
             udpfu.folder_path AS profileFileFolder,
             c.comment,
+            c.user_profile_id,
             c.date,
             c.city,
             c.country,
@@ -185,6 +192,7 @@ namespace maxhanna.Server.Controllers
 							int userId = rdr.GetInt32("comment_user_id");
 							string userName = rdr.GetString("comment_username");
 							string commentText = rdr.GetString("comment");
+							int? userProfileId = rdr.IsDBNull("user_profile_id") ? null : rdr.GetInt32("user_profile_id");
 							DateTime date = rdr.GetDateTime("date");
 							string? city = rdr.IsDBNull("city") ? null : rdr.GetString("city");
 							string? country = rdr.IsDBNull("country") ? null : rdr.GetString("country");
@@ -203,6 +211,7 @@ namespace maxhanna.Server.Controllers
 							{
 								Id = rdr.GetInt32("comment_id"),
 								CommentText = commentText,
+								UserProfileId = userProfileId,
 								User = new User(userId, userName, null, dpFileEntry, null, null, null),
 								Date = date,
 								City = city,

@@ -120,6 +120,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   @Input() fileId?: number;
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
+  @Input() userProfileId?: number;
   @Input() showSpan: boolean = false;
   @Input() currentReactions?: Reaction[] = [];
   constructor(private reactionService: ReactionService, private notificationService: NotificationService) { super(); }
@@ -170,7 +171,11 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   private sendNotification() { 
     const fromUser = this.user ?? new User(0, "Anonymous");
     let targetNotificationUsers: User[] = [];
-    let notificationData: any = { fromUser, message: `New reaction from ${fromUser.username}` };
+    let notificationData: any = {
+      fromUser,
+      message: `New reaction from ${fromUser.username}`,
+      userProfileId: this.userProfileId,
+    };
 
     if (this.fileId && (this.component as FileEntry).user?.id !== 0) {
       targetNotificationUsers = [(this.component as FileEntry).user!];

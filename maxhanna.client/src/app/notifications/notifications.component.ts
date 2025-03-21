@@ -93,16 +93,30 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     this.createComponent("Files", { "fileId": notification.fileId });
   }
   goToStoryId(notification: UserNotification) {
-    this.location.replaceState("/Social/" + notification.storyId);
+    if (notification.userProfileId) {
+      this.location.replaceState("/User/" + notification.userProfileId);
+      this.createComponent("User", { "userId": notification.userProfileId });
+    } else { 
+      this.location.replaceState("/Social/" + notification.storyId);
+      this.createComponent("Social", { "storyId": notification.storyId });
+    }
     if (!notification.isRead) { this.read(notification); }
-    this.createComponent("Social", { "storyId": notification.storyId });
   }
   goToChat(notification?: UserNotification) {
     if (!notification?.chatId) return alert("Error: Must select a user to chat!");
     if (!notification.isRead) { this.read(notification); }
     this.createComponent("Chat", { chatId: notification.chatId });
   }
-
+  viewProfileByNotification(notification?: UserNotification) {
+    if (!notification) return;
+    const userProfileId = notification.userProfileId;
+    if (userProfileId && userProfileId != 0) {
+      const storyId = notification.storyId;
+      console.log(storyId, userProfileId);
+      this.parentRef?.closeOverlay();
+      this.parentRef?.createComponent("User", { "userId": userProfileId, "storyId": storyId });
+    }
+  }
   async goToCommentId(notification?: UserNotification) {
     if (!notification || !notification.commentId) return;
     if (!notification.isRead) { this.read(notification); }  

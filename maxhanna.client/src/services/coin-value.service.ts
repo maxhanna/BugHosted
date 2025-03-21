@@ -27,6 +27,22 @@ export class CoinValueService {
     }
   }
 
+  async getWalletBalanceData(walletAddress: string) {
+    try {
+      const response = await fetch(`/coinvalue/getwalletbalancedata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(walletAddress),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
   async getAllExchangeRateValues() {
     try {
       const response = await fetch(`/currencyvalue`, {

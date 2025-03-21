@@ -40,6 +40,9 @@
             <div class="articleDate cursorPointerUnderlined" (click)="openSource(newsArticle.url)">
               Published Date: {{ newsArticle.publishedAt }}
             </div>
+            <div class="articleDate cursorPointerUnderlined">
+              <button (click)="parentRef?.addFavourite(newsArticle.url, newsArticle.urlToImage, newsArticle.source.name)">❤️Favourite</button>
+            </div>
           </div>
           <div class="mainArticleImage">
             <img class="smallArticleImage" [attr.loading]="'lazy'" src="{{ newsArticle.urlToImage }}" />
@@ -69,6 +72,7 @@
       <button id="closeOverlay" (click)="selectedArticle = undefined">Close</button>
       <button (click)="saveArticle(selectedArticle)">💾Save</button>
       <button (click)="openSource(selectedArticle.url)">📰Read</button>
+      <button (click)="parentRef?.addFavourite(selectedArticle.url, selectedArticle.urlToImage, selectedArticle.source.name)">❤️Favourite</button>
     </div>
   </div>
 

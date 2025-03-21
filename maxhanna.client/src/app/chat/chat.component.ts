@@ -120,7 +120,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (!this.currentChatUsers.some(x => x.id == user.id)) {
         this.currentChatUsers.push(user);
       }
-      this.parentRef?.updateLastSeen();
       const res = await this.chatService.getMessageHistory(
         user,
         this.currentChatUsers,
@@ -204,6 +203,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     setTimeout(() => { 
       const parent = this.parentRef ?? this.inputtedParentRef;
       parent?.addResizeListener();
+      parent?.updateLastSeen();
     }, 50);
 
     this.startLoading();
@@ -273,8 +273,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   async sendMessage() {
     if (!this.currentChatUsers || this.currentChatUsers.length == 0) return;
     let msg = this.newMessage.nativeElement.value.trim();
-    if (msg) {
-      msg = this.replaceEmojisInMessage(msg);
+    if (msg && this.parentRef) {
+      msg = this.parentRef.replaceEmojisInMessage(msg);
     }
     if (msg.trim() == "" && (!this.attachedFiles || this.attachedFiles.length == 0)) {
       return alert("Message content cannot be empty.");
@@ -377,8 +377,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       } else {
         parent.setCookie("notificationpermission", "1", 1);
       }
-    }
-    console.log("Getting firebase stuff");
+    } 
     try {
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
@@ -400,19 +399,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
       console.log('Current Notification Permission:', Notification.permission);
 
-      if (Notification.permission === 'default') {
-        // Ask for permission
-        const permission = await Notification.requestPermission();
-        console.log('User responded with:', permission);
+      if (Notification.permission === 'default') { 
+        const permission = await Notification.requestPermission(); 
         if (permission === "granted") {
           const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
-          console.log('FCM Token:', token);
           await this.subscribeToNotificationTopic(token);
-        } else {
-          console.log('Notification permission denied');
-        }
-      } else {
-        console.log('Permission already:', Notification.permission);
+        } 
+      } else { 
         const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
         await this.subscribeToNotificationTopic(token);
       }

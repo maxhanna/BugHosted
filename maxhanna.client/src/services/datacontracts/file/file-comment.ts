@@ -11,6 +11,7 @@ export class FileComment {
   storyId?: number;
   commentId?: number;
   fileId?: number;
+  userProfileId?: number;
   commentFiles?: FileEntry[];
   date?: Date;
   city?: string;

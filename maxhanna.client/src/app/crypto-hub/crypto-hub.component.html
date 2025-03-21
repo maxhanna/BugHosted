@@ -2,7 +2,7 @@
   <div class="closeButton" (click)="remove_me('CoinWalletComponent');"></div>
   <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Crypto Hub</div>
-  <div [class]="noMining ? 'noMiningHubSection' : 'hubSection'"> 
+  <div [class]="noMining ? 'noMiningHubSection' : 'hubSection'">
     <div class="cryptoHubConverterAndCoinWatchWrapper">
       <div class="BTCtoCADConversionWrapperDiv sectionContainer">
         <div class="sectionName btcToCadConversionHeader">BTC to {{selectedCurrency}} Conversion</div>
@@ -39,13 +39,13 @@
 
       <table class="sectionContainer" id="coinWatchTable">
         <thead>
-          <tr> 
+          <tr>
             <th title="Coin name" (click)="sortTable(0, 'coinWatchTable')" class="cursorPointerUnderlined">Name</th>
             <th title="Rate ({{selectedCurrency}}$)" (click)="sortTable(1, 'coinWatchTable')" class="cursorPointerUnderlined">Rate</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let item of data" (click)="selectCoin(item.name)"> 
+          <tr *ngFor="let item of data" (click)="selectCoin(item.name)">
             <td>{{ item.name }} <span *ngIf="item.symbol">({{ item.symbol }})</span></td>
             <td>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</td>
           </tr>
@@ -90,6 +90,7 @@
             <th (click)="sortTable(1, 'walletTable')">Currency</th>
             <th (click)="sortTable(2, 'walletTable')">Total Balance</th>
             <th (click)="sortTable(3, 'walletTable')" title="Fiat rate">${{selectedCurrency}}</th>
+            <th (click)="sortTable(4, 'walletTable')" title="Wallet data"></th>
           </tr>
         </thead>
         <tbody *ngIf="wallet">
@@ -99,6 +100,7 @@
               <td>{{ wallet.total?.currency }}</td>
               <td>{{ isDiscreete ? '***' : wallet.total?.totalBalance }}</td>
               <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(multiplyValues(wallet.total?.available, btcFiatConversion))) }}</td>
+              <td></td>
             </tr>
           </ng-container>
           <ng-container *ngFor="let currency of wallet.currencies">
@@ -110,6 +112,7 @@
               <td>{{ currency.currency }}</td>
               <td>{{ isDiscreete ? '***' : currency.totalBalance }}</td>
               <td>{{ isDiscreete ? '***' : formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currency))) }}</td>
+              <td title="Wallet data" class="cursorPointer" (click)="showWalletData(currency)">ℹ️</td>
             </tr>
           </ng-container>
         </tbody>
@@ -163,5 +166,27 @@
   </div>
   <div>
     <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+  </div>
+</div>
+
+
+
+<div *ngIf="isWalletPanelOpen" class="popupPanel">
+  <div class="popupPanelTitle walletPopupTitle">
+    Wallet ℹ️
+    <div>{{currentlySelectedWallet}}</div>
+  </div>
+  <div *ngIf="allWalletBalanceData && allWalletBalanceData.length > 0 && currentlySelectedWallet != 'Nicehash Wallet'">
+    <app-line-graph #walletDataLineGraphComponent
+                    [type]="'Crypto'"
+                    [selectedCurrency]="selectedCurrency"
+                    [selectedPeriod]="'5d'"
+                    [data]="allWalletBalanceData"
+                    [selectedCoin]="currentSelectedCoin">
+    </app-line-graph>
+  </div>
+  <div *ngIf="currentlySelectedWallet == 'Nicehash Wallet'">Feature is currently unavailable for Nicehash Wallet addresses.</div> 
+  <div>
+    <button id="closeOverlay" (click)="closeWalletPanel()">Close</button>
   </div>
 </div>

@@ -364,7 +364,7 @@ namespace maxhanna.Server.Controllers
 					// Hash the password with the salt
 					string hashedPassword = HashPassword(user.Pass, salt);
 
-					string insertSql = @"INSERT INTO maxhanna.users (username, pass, salt) VALUES (@Username, @Password, @Salt);";
+					string insertSql = @"INSERT INTO maxhanna.users (username, pass, salt, created, last_seen) VALUES (@Username, @Password, @Salt, UTC_TIMESTAMP(), UTC_TIMESTAMP());";
 					MySqlCommand insertCmd = new MySqlCommand(insertSql, conn);
 					insertCmd.Parameters.AddWithValue("@Username", user.Username);
 					insertCmd.Parameters.AddWithValue("@Password", hashedPassword);
@@ -1550,8 +1550,8 @@ namespace maxhanna.Server.Controllers
 						// Define the base SQL command with parameters for insertion
 						cmd.CommandText = @"
                     INSERT INTO user_btc_wallet_info 
-                    (user_id, btc_address, final_balance, total_received, total_sent, last_fetched) 
-                    VALUES (@UserId, @BtcAddress, 0, 0, 0, NOW())
+                    (user_id, btc_address, last_fetched) 
+                    VALUES (@UserId, @BtcAddress, UTC_TIMESTAMP())
                     ON DUPLICATE KEY UPDATE 
                         btc_address = VALUES(btc_address),
                         last_fetched = VALUES(last_fetched);";
@@ -1683,9 +1683,20 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string sql = @"
-                SELECT btc_address, final_balance, total_received, total_sent, last_fetched
-                FROM user_btc_wallet_info
-                WHERE user_id = @UserId";
+                SELECT 
+										wi.btc_address, 
+										wb.final_balance, 
+										wb.total_received, 
+										wb.total_sent, 
+										wb.fetched_at
+								FROM user_btc_wallet_info wi
+								LEFT JOIN user_btc_wallet_balance wb ON wi.id = wb.wallet_id
+								WHERE wi.user_id = @UserId 
+								AND wb.fetched_at = (
+										SELECT MAX(fetched_at) 
+										FROM user_btc_wallet_balance 
+										WHERE wallet_id = wi.id
+								);";
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
@@ -1738,6 +1749,7 @@ namespace maxhanna.Server.Controllers
 
 			return miningWallet;
 		}
+
 
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
 		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");

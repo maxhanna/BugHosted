@@ -9,6 +9,7 @@ const routes: Routes = [
   { path: 'Social/:storyId', component: AppComponent },
   { path: 'Social', component: AppComponent },
   { path: 'User/:userId', component: AppComponent },
+  { path: 'User/:userId/:storyId', component: AppComponent },
   { path: 'File/:fileId', component: AppComponent },
   { path: 'File', component: AppComponent },
   { path: 'Wordler', component: AppComponent },

@@ -721,10 +721,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       const tgtFile = this.directory.data.find((file: FileEntry) => file.id == parseInt(this.fileId!));
       if (tgtFile) {
         const title = tgtFile.givenFileName ?? tgtFile.fileName ?? "Bughosted File";
+        const image = `https://bughosted.com/assets/Uploads/${(this.getDirectoryName(tgtFile) != '.' ? this.getDirectoryName(tgtFile) : '') + tgtFile.fileName }`;
         if (title) {
           const parent = this.inputtedParentRef ?? this.parentRef;
           if (parent) {
-            parent.replacePageTitleAndDescription(title, title);
+            parent.replacePageTitleAndDescription(title, title, image);
           } 
         }
       }

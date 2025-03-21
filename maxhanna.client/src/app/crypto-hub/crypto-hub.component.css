@@ -185,3 +185,10 @@
     max-height: CALC(var(--vh, 1vh) * 99);
   }
 }
+.walletPopupTitle {
+  text-align: center !important; 
+}
+
+  .walletPopupTitle div {
+    font-size: small;
+  }

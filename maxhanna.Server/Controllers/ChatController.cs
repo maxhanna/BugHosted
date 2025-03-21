@@ -307,7 +307,7 @@ namespace maxhanna.Server.Controllers
 					? string.Join(",", request.Receivers.Select(r => r.Id))
 					: string.Empty;
 
-			_logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.User?.Id}. chatId: {request.ChatId}, receivers: {receiverList}. pageNumber: {pageNumber} pageSize: {pageSize}");
+		//	_logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.User?.Id}. chatId: {request.ChatId}, receivers: {receiverList}. pageNumber: {pageNumber} pageSize: {pageSize}");
 			List<ChatMessage> messages = new List<ChatMessage>();
 			int? chatId = null;
 			if (request.ChatId == null)
@@ -384,12 +384,12 @@ namespace maxhanna.Server.Controllers
 						// Calculate total number of pages
 						if (totalRecords > 0)
 						{
-							Console.WriteLine("Found a pre-existing chat history");
+							//Console.WriteLine("Found a pre-existing chat history");
 
 							totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
 							int offset = (pageNumber - 1) * pageSize;
-							Console.WriteLine($"totalPages: {totalPages} offset: {offset} totalRecords: {totalRecords}, pageNumber: {pageNumber}");
+							//Console.WriteLine($"totalPages: {totalPages} offset: {offset} totalRecords: {totalRecords}, pageNumber: {pageNumber}");
 
 							string sql = @"
                         SELECT 

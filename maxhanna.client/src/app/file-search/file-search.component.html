@@ -111,7 +111,7 @@
                                 [autoplay]="true"
                                 [blockExpand]="fileSearchMode ? true : false"
                                 [showCommentSection]="true"
-                                [showCommentSectionOnLoad]="showCommentsInOpenedFiles.includes(file.id)"
+                                [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
                                 [showCommentSectionHeader]="fileSearchMode ? false : displayComments"
                                 [showTopics]="showTopics"
                                 [inputtedParentRef]="inputtedParentRef"

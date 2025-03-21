@@ -179,11 +179,12 @@ namespace maxhanna.Server.Services
 				using var conn = new MySqlConnection(_connectionString);
 				await conn.OpenAsync();
 
-				// Fetch the most recently updated BTC wallet
+				// Fetch the most recently updated BTC wallet where the last_fetched timestamp is older than 1 hour
 				string fetchWalletSql = @"
-            SELECT id, user_id, btc_address 
+            SELECT id, user_id, btc_address, last_fetched 
             FROM user_btc_wallet_info 
-            ORDER BY last_fetched ASC 
+            WHERE last_fetched < UTC_TIMESTAMP() - INTERVAL 1 HOUR
+            ORDER BY last_fetched ASC
             LIMIT 1;";
 
 				WalletInfo? wallet = null;
@@ -203,7 +204,7 @@ namespace maxhanna.Server.Services
 
 				if (wallet == null)
 				{
-					_logger.LogInformation("No BTC wallets found to update.");
+					_logger.LogInformation("No BTC wallets found to update or all wallets are up to date.");
 					return;
 				}
 
@@ -215,35 +216,41 @@ namespace maxhanna.Server.Services
 					return;
 				}
 
-				// Update the database with the new wallet data
-				string updateSql = @"
-            INSERT INTO user_btc_wallet_info (user_id, btc_address, final_balance, total_received, total_sent, last_fetched)
-            VALUES (@UserId, @BtcAddress, @FinalBalance, @TotalReceived, @TotalSent, NOW())
-            ON DUPLICATE KEY UPDATE
-                final_balance = VALUES(final_balance),
-                total_received = VALUES(total_received),
-                total_sent = VALUES(total_sent),
-                last_fetched = NOW();";
+				// Insert the new wallet balance data into user_btc_wallet_balance
+				string insertSql = @"
+            INSERT INTO user_btc_wallet_balance (wallet_id, final_balance, total_received, total_sent, fetched_at)
+            VALUES (@WalletId, @FinalBalance, @TotalReceived, @TotalSent, UTC_TIMESTAMP());";
 
-				using (var updateCmd = new MySqlCommand(updateSql, conn))
+				using (var insertCmd = new MySqlCommand(insertSql, conn))
 				{
-					updateCmd.Parameters.AddWithValue("@UserId", wallet.UserId);
-					updateCmd.Parameters.AddWithValue("@BtcAddress", wallet.BtcAddress);
-					updateCmd.Parameters.AddWithValue("@FinalBalance", walletData.FinalBalance);
-					updateCmd.Parameters.AddWithValue("@TotalReceived", walletData.TotalReceived);
-					updateCmd.Parameters.AddWithValue("@TotalSent", walletData.TotalSent);
-					updateCmd.Parameters.AddWithValue("@Id", wallet.Id);
+					insertCmd.Parameters.AddWithValue("@WalletId", wallet.Id);
+					insertCmd.Parameters.AddWithValue("@FinalBalance", walletData.FinalBalance);
+					insertCmd.Parameters.AddWithValue("@TotalReceived", walletData.TotalReceived);
+					insertCmd.Parameters.AddWithValue("@TotalSent", walletData.TotalSent);
 
+					await insertCmd.ExecuteNonQueryAsync();
+				}
+
+				// Update the last_fetched timestamp in user_btc_wallet_info
+				string updateLastFetchedSql = @"
+            UPDATE user_btc_wallet_info 
+            SET last_fetched = UTC_TIMESTAMP() 
+            WHERE id = @WalletId;";
+
+				using (var updateCmd = new MySqlCommand(updateLastFetchedSql, conn))
+				{
+					updateCmd.Parameters.AddWithValue("@WalletId", wallet.Id);
 					await updateCmd.ExecuteNonQueryAsync();
 				}
 
-				_logger.LogInformation($"Successfully updated wallet info for address: {wallet.BtcAddress}");
+				_logger.LogInformation($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
 			}
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "Error occurred while updating BTC wallet info.");
 			}
 		}
+
 
 		private async Task<BTCWalletData?> FetchBTCWalletData(string btcAddress)
 		{

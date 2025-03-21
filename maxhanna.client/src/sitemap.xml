@@ -41819,7 +41819,7 @@
   </url>
   <url>
     <loc>https://bughosted.com/Social/397</loc>
-    <lastmod>2025-03-19</lastmod>
+    <lastmod>2025-03-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
@@ -43219,12 +43219,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://bughosted.com/Social/399</loc>
-    <lastmod>2025-03-20</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://bughosted.com/File/19826</loc>
     <lastmod>2025-03-21</lastmod>
     <changefreq>daily</changefreq>
@@ -43559,6 +43553,243 @@
   </url>
   <url>
     <loc>https://bughosted.com/File/19857</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19859</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19860</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041529.webm</video:title>
+      <video:description>Video: 1000041529.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041529.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:47Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19858</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041528.webm</video:title>
+      <video:description>Video: 1000041528.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041528.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:47Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19861</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041524.mp4</video:title>
+      <video:description>Video: 1000041524.mp4</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041524.mp4</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:47Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19862</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19863</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041522.webm</video:title>
+      <video:description>Video: 1000041522.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041522.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:47Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19864</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041521.webm</video:title>
+      <video:description>Video: 1000041521.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041521.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:48Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19865</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19866</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041519.webm</video:title>
+      <video:description>Video: 1000041519.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041519.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:48Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19867</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19868</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041515.webm</video:title>
+      <video:description>Video: 1000041515.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041515.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:48Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19869</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041516.webm</video:title>
+      <video:description>Video: 1000041516.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041516.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:48Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19870</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041517.webm</video:title>
+      <video:description>Video: 1000041517.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041517.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:48Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19871</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041514.mp4</video:title>
+      <video:description>Video: 1000041514.mp4</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041514.mp4</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:31:48Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19872</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19873</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19874</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19875</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19876</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/19877</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/19878</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>1000041530.webm</video:title>
+      <video:description>Video: 1000041530.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Meme/1000041530.webm</video:content_loc>
+      <video:duration>0</video:duration>
+      <video:publication_date>2025-03-21T12:39:45Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Social/403</loc>
+    <lastmod>2025-03-21</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Social/212</loc>
     <lastmod>2025-03-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>

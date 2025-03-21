@@ -79,7 +79,6 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.setupEventListeners();
 
     document.addEventListener('fullscreenchange', () => {
-      console.log("inside fullscreenchange document listener");
       if (!document.fullscreenElement) {
         this.canvas.nativeElement.style.width = "100%";
         this.canvas.nativeElement.style.height = "325px";
@@ -162,8 +161,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
 
     const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user);
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
-
-    console.log(fileType, this.currentFileType);
+     
     const style = {
       backgroundColor: 'black',
       zIndex: '1',

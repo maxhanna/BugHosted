@@ -8,6 +8,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 		public int? FileId { get; set; }
 		public int? StoryId { get; set; }
 		public int? CommentId { get; set; }
+		public int? UserProfileId { get; set; }
 		public string? City { get; set; }
 		public string? Country { get; set; }
 		public string? Ip { get; set; }

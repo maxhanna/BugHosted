@@ -24,14 +24,17 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
 
   data?: CoinValue[]; 
   allHistoricalData?: CoinValue[] = [];
+  allWalletBalanceData?: CoinValue[] = [];
   allHistoricalExchangeRateData?: ExchangeRate[] = [];
   btcWalletResponse?: MiningWalletResponse = undefined;
   btcToCadPrice = 0;
   isAddCryptoDivVisible = false;
   areWalletAddressesHidden = true;
   isMenuPanelOpen = false;
+  isWalletPanelOpen = false;
   latestCurrencyPriceRespectToCAD = 0;
-  uniqueCurrencyNames: string[] = []; 
+  uniqueCurrencyNames: string[] = [];
+  currentlySelectedWallet: string = "";
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild('btcConvertSATValue') btcConvertSATValue!: ElementRef<HTMLInputElement>;
@@ -242,7 +245,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
       this.closeMenuPanel();
       return;
     }
-    this.isMenuPanelOpen = true; 
+    this.isMenuPanelOpen = true;
     if (this.parentRef) {
       this.parentRef.showOverlay();
     }
@@ -252,5 +255,79 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     if (this.parentRef) {
       this.parentRef.closeOverlay();
     }
+  }
+  async showWalletData(currency: Currency) {
+    if (!currency.address) { return alert("No BTC Wallet address to look up."); }
+    this.showWalletPanel();
+    this.currentlySelectedWallet = currency.address;
+
+    await this.coinValueService.getWalletBalanceData(currency.address).then(res => {
+      if (res) {
+        this.allWalletBalanceData = res;
+        this.processWalletBalances();  
+      }
+    });
+  }
+  showWalletPanel() {
+    if (this.isWalletPanelOpen) {
+      this.closeWalletPanel();
+      return;
+    }
+    this.isWalletPanelOpen = true;
+    if (this.parentRef) {
+      this.parentRef.showOverlay();
+    }
+  }
+  closeWalletPanel() {
+    this.isWalletPanelOpen = false;
+    if (this.parentRef) {
+      this.parentRef.closeOverlay();
+    }
+  }
+  processWalletBalances() {
+    if (!this.allWalletBalanceData) return;
+
+    const additionalEntries: CoinValue[] = [];
+
+    for (const entry of this.allWalletBalanceData) {
+      const closestRate = this.findClosestRate(entry.timestamp); 
+      if (closestRate !== null) { 
+        let btcValueInCad = (entry.valueCAD * (this.btcToCadPrice * ((closestRate ?? 1) ?? 1))) / 100_000_000;  
+
+        const newEntry: CoinValue = {
+          id: entry.id,
+          symbol: "BTC",
+          name: "BTCto" + this.selectedCurrency,
+          valueCAD: btcValueInCad,
+          timestamp: entry.timestamp
+        };
+
+        additionalEntries.push(newEntry);
+      }
+    }
+
+    this.allWalletBalanceData.push(...additionalEntries);
+  }
+  findClosestRate(timestamp: string): number | null {
+    if (!this.allHistoricalExchangeRateData || this.allHistoricalExchangeRateData.length === 0) {
+      return null;
+    } 
+    let closestRate: ExchangeRate | null = null;
+    let minDifference = Number.MAX_VALUE;
+
+    const tmpHistoricalData = this.allHistoricalExchangeRateData.filter(x => x.targetCurrency == this.selectedCurrency);
+     
+    for (const rateEntry of tmpHistoricalData) { 
+      const rateTimestamp = new Date(rateEntry.timestamp).getTime();
+      const targetTimestamp = new Date(timestamp).getTime();
+      const difference = Math.abs(targetTimestamp - rateTimestamp);
+
+      if (difference < minDifference) {
+        minDifference = difference;
+        closestRate = rateEntry; 
+      }
+    }
+
+    return closestRate ? closestRate.rate : null;
   }
 }

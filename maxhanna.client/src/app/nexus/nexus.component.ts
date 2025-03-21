@@ -701,8 +701,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   private async getUnitStats(force?: boolean) {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) {
-      console.log("cant get unit stats, no base present");
+    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { 
       return;
     };
     if (!this.units) {

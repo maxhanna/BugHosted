@@ -143,7 +143,7 @@ export function generateReward(source: Bot, target: Bot) {
   if (parts.length > 0) {
     const randomPart = parts[Math.floor(Math.random() * parts.length)];
     if (randomPart) {
-      const randomDamageMod = Math.floor(Math.random() * randomPart?.damageMod ?? target.level) + 1;
+      const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
 
       generatedPart = new MetaBotPart({
         id: 0,
@@ -159,8 +159,7 @@ export function generateReward(source: Bot, target: Bot) {
 
   if (generateGenericPart) {
     const randomSkill = skills[Math.floor(Math.random() * skills.length)];
-    let partName = skills.find(x => x.partName === randomSkill.partName)?.partName;
-    partName = (partName ?? HEAD);
+    const partName = (randomSkill.partName ?? HEAD);
     generatedPart = new MetaBotPart({
       id: 0,
       metabotId: source.id,
