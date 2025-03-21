@@ -113,7 +113,7 @@ namespace maxhanna.Server.Controllers
 							// Step 4: Update last_seen and fetch user details
 							string sql = @"
                         UPDATE maxhanna.users 
-                        SET last_seen = NOW() 
+                        SET last_seen = UTC_TIMESTAMP() 
                         WHERE id = @UserId;
 
                         SELECT 
@@ -594,6 +594,37 @@ namespace maxhanna.Server.Controllers
 			finally
 			{
 				conn.Close();
+			}
+		}
+
+
+		[HttpPost("/User/UpdateLastSeen", Name = "UpdateLastSeen")]
+		public async void UpdateLastSeen([FromBody] int userId)
+		{
+			_logger.LogInformation($"POST /User/UpdateLastSeen with userId: {userId}");
+
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+
+			using (MySqlConnection conn = new MySqlConnection(connectionString))
+			{
+				try
+				{
+					await conn.OpenAsync(); 
+					string sql = @"
+                    UPDATE maxhanna.users 
+                    SET last_seen = UTC_TIMESTAMP() 
+                    WHERE id = @UserId;";
+
+					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+						await cmd.ExecuteReaderAsync();
+					} 
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine("An error occurred while processing the UpdateLastSeen request."); 
+				}
 			}
 		}
 

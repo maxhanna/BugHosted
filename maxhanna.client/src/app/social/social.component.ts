@@ -210,6 +210,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const message = (document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement).value;
     story.storyText = message;
     if (document.getElementById('storyText' + story.id) && this.parentRef && this.parentRef.user) {
+      this.parentRef?.updateLastSeen();
       this.socialService.editStory(this.parentRef.user, story);
       this.isEditing = this.isEditing.filter(x => x != story.id);
     }
@@ -235,7 +236,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const search = keywords ?? this.search?.nativeElement.value;
     const userId = this.user?.id;
     let storyId = this.getSearchStoryId();
-     
+
+    this.parentRef?.updateLastSeen();
     const res = await this.socialService.getStories(
       this.parentRef?.user,
       search,
@@ -357,10 +359,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   private async postSingleStory(user: User, storyText: string): Promise<any> {
     const story = this.createStory(user, storyText, this.attachedFiles);
+    this.parentRef?.updateLastSeen();
     return this.socialService.postStory(user, story);
   }
 
   private async postEachFileAsSeparateStory(user: User, storyText: string): Promise<any[]> {
+    this.parentRef?.updateLastSeen();
     const promises = this.attachedFiles.map(file => {
       const story = this.createStory(user, storyText, [file]);
       return this.socialService.postStory(user, story);
@@ -380,6 +384,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   async editStoryTopic(topics: Topic[], story: Story) {
     const user = this.parentRef?.user ?? this.parent?.user;
     if (user) {
+      this.parentRef?.updateLastSeen();
       this.socialService.editTopics(user, story, topics); 
       this.closeStoryOptionsPanel();
       this.editingTopics = this.editingTopics.filter(x => x != story.id); 
@@ -868,6 +873,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     const user = parent?.user;
     if (user && user.id && story.id) {
+      this.parentRef?.updateLastSeen();
       if (story.hidden) {
         story.hidden = false;
         this.socialService.unhideStory(user.id, story.id).then(res => {

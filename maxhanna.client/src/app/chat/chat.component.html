@@ -45,7 +45,8 @@
              [class.align-right]="message.sender.id !== (parentRef?.user?.id ?? 0)">
           <!-- USER MESSAGE -->
           <ng-container *ngIf="message.sender.id === (parentRef?.user?.id ?? 0)">
-            <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
+            <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}<span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
+
             <div class="profileTag">
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
@@ -77,7 +78,7 @@
           </ng-container>
           <!-- RECEIVER MESSAGE -->
           <ng-container *ngIf="message.sender.id !== (parentRef?.user?.id ?? 0)">
-            <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}</span>
+            <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}<span class="receiverSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
             <div class="messageContent ">
               <div [innerHTML]="getTextForDOM(message.content)"></div>
               <div class="otherPersonsReactionDiv">

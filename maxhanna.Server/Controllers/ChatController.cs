@@ -488,6 +488,7 @@ namespace maxhanna.Server.Controllers
 											ChatId = (int)chatId,
 											Sender = sender,
 											Receiver = [receiver],
+											Seen = reader.IsDBNull(reader.GetOrdinal("seen")) ? null : reader.GetString("seen"),
 											Content = reader["content"].ToString(),
 											Timestamp = Convert.ToDateTime(reader["timestamp"]),
 											Reactions = new List<Reaction>()
@@ -551,21 +552,19 @@ namespace maxhanna.Server.Controllers
 						await conn.OpenAsync();
 
 						string updateSql = @"
-                        UPDATE
-                            maxhanna.messages m
-                        SET 
-													seen = CASE
+                        UPDATE maxhanna.messages 
+												SET seen = CASE 
 														WHEN seen IS NULL THEN @SenderId
-														ELSE CONCAT(seen, ',', @SenderId)
-													END
-												WHERE 
-													chat_id = @ChatId 
-													AND (seen IS NULL OR seen NOT LIKE CONCAT('%,', @SenderId, ',%') 
-													AND seen NOT LIKE CONCAT(@SenderId, ',%')
-													AND seen NOT LIKE CONCAT('%,', @SenderId)
-													AND seen != @SenderId);
+														WHEN seen NOT LIKE CONCAT('%', @SenderId, '%') THEN CONCAT(seen, ',', @SenderId)
+														ELSE seen
+												END
+												WHERE chat_id = @ChatId 
+												AND sender != @SenderId;
 
-												UPDATE maxhanna.notifications SET is_read = 1 WHERE user_id = @SenderId AND chat_id = @ChatId;";
+												UPDATE maxhanna.notifications 
+												SET is_read = 1 
+												WHERE user_id = @SenderId 
+												AND chat_id = @ChatId;";
 
 						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
 						updateCmd.Parameters.AddWithValue("@ChatId", (int)chatId);

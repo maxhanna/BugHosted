@@ -13,12 +13,14 @@ export class Message {
   timestamp: Date;
   reactions?: Reaction[];
   files?: FileEntry[];
+  seen?: string;
 
-  constructor(id: number, chatId: number, sender: User, receiver: User[], content: string, timestamp: Date, reactions?: Reaction[], files?: FileEntry[]) {
+  constructor(id: number, chatId: number, sender: User, receiver: User[], content: string, timestamp: Date, reactions?: Reaction[], files?: FileEntry[], seen?: string) {
     this.id = id;
     this.chatId = chatId;
     this.sender = sender;
     this.receiver = receiver;
+    this.seen = seen;
     this.content = content;
     this.timestamp = timestamp;
     this.reactions = reactions;

@@ -293,7 +293,7 @@
   <div class="aboutPopupPanelContentContainer">
     <div class="topProfileContainer" id="aboutContainer">
       <div *ngIf="user || parentRef?.user" class="aboutContainer">
-        <label>
+        <label style="display:flex; gap: 10px;">
           <button (click)="expandDiv('aboutContainer');">{{isAboutExpanded ? '-' : '+'}}</button>
           <span class="cursorPointerUnderlined">About</span>
         </label>
@@ -393,9 +393,9 @@
     <!-- TROPHIES -->
     <div class="topProfileContainer" id="trophyContainer">
       <div *ngIf="user || parentRef?.user" class="aboutContainer">
-        <label>
+        <label style="display:flex; gap: 10px;">
           <button (click)="expandDiv('trophyContainer');">{{isTrophyExpanded ? '-' : '+'}}</button>
-          <span class="cursorPointerUnderlined">Trophies</span>
+          <span class="cursorPointerUnderlined">Trophies ({{trophies?.length ?? 0}})</span>
         </label>  
         <div *ngIf="isTrophyExpanded" class="trophyContainerWrapper">
           <div *ngFor="let trophy of trophies">
@@ -421,9 +421,9 @@
     </div>
     <!-- MUSIC -->
     <div class="topProfileContainer" id="musicProfileContainer">
-      <label>
+      <label style="display:flex; gap: 10px;">
         <button (click)="expandDiv('musicProfileContainer');">{{isMusicContainerExpanded ? '-' : '+'}}</button>
-        <span class="cursorPointerUnderlined">Music</span>
+        <span class="cursorPointerUnderlined">Music ({{songPlaylist.length}})</span>
       </label>
       <div *ngIf="isMusicContainerExpanded">
         <app-music *ngIf="isMusicContainerExpanded"

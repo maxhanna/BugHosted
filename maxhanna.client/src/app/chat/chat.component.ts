@@ -120,6 +120,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (!this.currentChatUsers.some(x => x.id == user.id)) {
         this.currentChatUsers.push(user);
       }
+      this.parentRef?.updateLastSeen();
       const res = await this.chatService.getMessageHistory(
         user,
         this.currentChatUsers,
@@ -132,7 +133,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
       if (res) { 
         const newMessages = res.messages.filter((newMessage: Message) => !this.chatHistory.some((existingMessage: Message) => existingMessage.id === newMessage.id));
-
+        this.updateSeenStatus(res);
         if (!this.isChangingPage) {
           this.playSoundIfNewMessage(newMessages);
         }
@@ -148,6 +149,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       }
     } catch { }
   }
+    private updateSeenStatus(res: any) {
+        res.messages.forEach((newMessage: Message) => {
+            const existingMessage = this.chatHistory.find((msg: Message) => msg.id === newMessage.id);
+            if (existingMessage) {
+                existingMessage.seen = newMessage.seen;
+            }
+        });
+    }
+
   private playSoundIfNewMessage(newMessages: Message[]) {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
     const receivedNewMessages = newMessages.length > 0 && newMessages.some(x => x.sender.id != user.id);
@@ -359,6 +369,16 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   async requestNotificationPermission() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      const cookie = parent.getCookie("notificationPermission");
+      if (cookie) {
+        return;
+      } else {
+        parent.setCookie("notificationpermission", "1", 1);
+      }
+    }
+    console.log("Getting firebase stuff");
     try {
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
@@ -369,9 +389,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         appId: "1:288598058428:web:a4605e4d8eea73eac137b9",
         measurementId: "G-MPRXZ6WVE9"
       };
-      this.app = initializeApp(firebaseConfig);
-      this.messaging = await getMessaging(this.app);
-
+      this.app = initializeApp(firebaseConfig); 
+      this.messaging = await getMessaging(this.app); 
       onMessage(this.messaging, (payload: any) => {
         const parent = this.inputtedParentRef ?? this.parentRef;
         const body = payload.notification.body;

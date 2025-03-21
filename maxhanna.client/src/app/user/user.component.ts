@@ -62,7 +62,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   contacts: Contact[] = [];
   isMusicContainerExpanded = false;
   isAboutExpanded = true;
-  isTrophyExpanded = true;
+  isTrophyExpanded = false;
   playListCount = 0;
   playListFirstFetch = true;
   justLoggedIn = false;

@@ -16,6 +16,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Chat
 	{
 		public int Id { get; set; }
 		public int ChatId { get; set; }
+		public string? Seen { get; set; }
 		public User? Sender { get; set; }
 		public User[]? Receiver { get; set; }
 		public string? Content { get; set; }

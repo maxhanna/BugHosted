@@ -101,6 +101,7 @@ export class FileUploadComponent implements OnDestroy {
     this.displayFileUploadOptions = false;
     this.displayFileUploadTopics = false;
 
+    this.inputtedParentRef?.updateLastSeen();
     const filesArray = Array.from(files);
 
     const isPublic = (this.showPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;

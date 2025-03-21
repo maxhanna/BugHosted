@@ -47,7 +47,8 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   ngOnInit() { 
-    if (this.comment_id) { 
+    if (this.comment_id) {
+      this.parentRef?.updateLastSeen();
       this.commentService.getCommentDataByIds(this.comment_id).then(res => { 
         this.commentList = res;
         this.subCommentCountUpdatedEvent.emit({ commentCount: this.commentList.length, comment_id: this.comment_id });
@@ -93,6 +94,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   async addAsyncComment(comment: FileComment, currentDate: Date) {
+    this.parentRef?.updateLastSeen();
     const res = await this.commentService.addComment(
       comment.commentText ?? "",
       this.inputtedParentRef?.user,
@@ -159,6 +161,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   async deleteCommentAsync(comment: FileComment) {
     if (!this.inputtedParentRef?.user) { return alert("You must be logged in to delete a comment!"); }
 
+    this.parentRef?.updateLastSeen();
     const res = await this.commentService.deleteComment(this.inputtedParentRef?.user, comment.id);
     if (res && res.includes("success")) {
       this.commentRemovedEvent.emit(comment as FileComment);
@@ -194,6 +197,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value; 
     this.editingComments = this.editingComments.filter(x => x != comment.id);
     if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
+      this.parentRef?.updateLastSeen();
       this.commentService.editComment(this.inputtedParentRef.user, comment.id, message).then(res => {
         if (res) {
           this.inputtedParentRef?.showNotification(res);
@@ -280,6 +284,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     const currentDate = new Date();
     if (text) { 
       const user = this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
+      this.parentRef?.updateLastSeen();
       const res = await this.commentService.addComment(text, user, undefined, undefined, comment.id, undefined);
       if (res) { 
         if (this.commentList.find(x => x.date == currentDate)) {

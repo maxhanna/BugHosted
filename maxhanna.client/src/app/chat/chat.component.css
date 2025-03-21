@@ -241,3 +241,8 @@ input[type="text"] {
   .addChatMemberLi::before {
     content: "• ";
   }
+.receiverSeen, .userSeen {
+  font-size: xx-small;
+  cursor: pointer;
+  margin-left: 5px;
+}

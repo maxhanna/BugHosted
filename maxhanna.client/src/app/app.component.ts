@@ -538,6 +538,13 @@ export class AppComponent implements OnInit, AfterViewInit {
   async indexLink(url: string) {
     this.crawlerService.indexLink(url);
   }
+  async updateLastSeen(user?: User) {
+    const tmpUser = user ?? this.user;
+
+    if (tmpUser && tmpUser.id != 0) { 
+      this.userService.updateLastSeen(tmpUser);
+    }
+  }
   async getLocation() {
     if (this.location) { 
       return this.location;

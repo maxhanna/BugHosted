@@ -157,9 +157,11 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.read(notification, true);
     }
     console.log(notification);
-    if (notification.text?.includes('Captured a base at')) {
+    if (notification.text?.includes('Captured') && notification.text?.includes('base at')) {
       this.parentRef?.createComponent('Bug-Wars');
-    } if (notification.text?.includes('Shared a note')) {
+    } else if (notification.text?.includes('BugWars')) {
+      this.parentRef?.createComponent('Bug-Wars');
+    } else if (notification.text?.includes('Shared a note')) {
       this.parentRef?.createComponent('Notepad');
     } else if (notification.fileId) {
       this.goToFileId(notification)

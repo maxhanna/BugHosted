@@ -188,7 +188,21 @@ export class UserService {
       return error;
     }
   }
+  async updateLastSeen(user: User) {
+    try {
+      const response = await fetch('/user/updatelastseen', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user.id),
+      });
 
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
   async updateNSFW(user: User, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updatensfw', {
