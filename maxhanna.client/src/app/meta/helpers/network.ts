@@ -208,7 +208,8 @@ export function subscribeToMainGameEvents(object: any) {
       const tgt = object.mainScene?.level?.children?.find((x: any) => x.id === bot.id);
 
       if (tgt) { 
-        tgt.hp = 0; 
+        tgt.hp = 0;
+        tgt.isDeployed = false;
       }
     }
   });
@@ -439,7 +440,7 @@ export function subscribeToMainGameEvents(object: any) {
 
   events.on("GOT_REWARDS", object, (rewards: MetaBotPart[]) => {
     if (!rewards || rewards.length == 0) return;
-    const targetBot = object.metaHero.metabots.any((x: MetaBot) => x.id == rewards[0].metabotId);
+    const targetBot = object.metaHero?.metabots?.find((x: MetaBot) => x.id == rewards[0].metabotId);
     if (targetBot) { 
       object.metaService.updateBotParts(object.metaHero, rewards);
       object.mainScene.inventory.parts = object.mainScene.inventory.parts.concat(rewards);

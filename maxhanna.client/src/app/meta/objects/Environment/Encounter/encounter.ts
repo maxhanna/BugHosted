@@ -53,8 +53,8 @@ export class RandomEncounter extends Npc {
     events.on("BOT_DESTROYED", this, (params: Bot ) => {
       if (params?.heroId === this.id) { 
         setTimeout(() => {
-          this.spawnEnemy()
-        }, 15000);
+          this.spawnEnemy();
+        }, Math.random() * (30000 - 15000) + 15000);
       }
     });
   }

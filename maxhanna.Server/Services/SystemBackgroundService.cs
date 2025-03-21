@@ -70,7 +70,7 @@ namespace maxhanna.Server.Services
 				{
 					await DeleteOldBattleReports();
 					await DeleteOldGuests();
-					await DeleteOldSearchResults();
+					await DeleteOldSearchResults(); 
 					_lastDailyTaskRun = DateTime.Now;
 				}
 
@@ -456,36 +456,43 @@ namespace maxhanna.Server.Services
 												AND (author IS NULL OR author = '') 
 												AND (keywords IS NULL OR keywords = '') 
 												AND (image_url IS NULL OR image_url = '') 
-												AND last_crawled < NOW() - INTERVAL 10 DAY;
-
-												WITH RankedResults AS (
-														SELECT id, url, title, description, author, keywords, image_url, last_crawled,
-																	 ROW_NUMBER() OVER (PARTITION BY  
-																				CASE 
-																						WHEN url LIKE 'http://www.%' THEN SUBSTRING(url, 12) 
-																						WHEN url LIKE 'https://www.%' THEN SUBSTRING(url, 13) 
-																						WHEN url LIKE 'http://%' THEN SUBSTRING(url, 8) 
-																						WHEN url LIKE 'https://%' THEN SUBSTRING(url, 9) 
-																						ELSE url 
-																				END 
-																				ORDER BY  
-																						(url LIKE 'https://%') DESC,   
-																						(title IS NOT NULL AND title != '') DESC, 
-																						(description IS NOT NULL AND description != '') DESC, 
-																						(author IS NOT NULL AND author != '') DESC, 
-																						(keywords IS NOT NULL AND keywords != '') DESC, 
-																						(image_url IS NOT NULL AND image_url != '') DESC,  
-																						last_crawled DESC
-																	 ) AS RowNum
-														FROM search_results
-												)
-												DELETE FROM search_results WHERE id IN (SELECT id FROM RankedResults WHERE RowNum > 1)
-												AND last_crawled < NOW() - INTERVAL 10 DAY;";
+												AND response_code IS NULL
+												AND last_crawled < NOW() - INTERVAL 1 DAY;
+ 
+												DELETE s FROM search_results s
+												JOIN (
+														SELECT id FROM (
+																SELECT id, 
+																				ROW_NUMBER() OVER (
+																						PARTITION BY  
+																								CASE 
+																										WHEN url LIKE 'http://www.%' THEN SUBSTRING(url, 12) 
+																										WHEN url LIKE 'https://www.%' THEN SUBSTRING(url, 13) 
+																										WHEN url LIKE 'http://%' THEN SUBSTRING(url, 8) 
+																										WHEN url LIKE 'https://%' THEN SUBSTRING(url, 9) 
+																										ELSE url 
+																								END 
+																						ORDER BY  
+																								(url LIKE 'https://%') DESC,   
+																								(title IS NOT NULL AND title != '') DESC, 
+																								(description IS NOT NULL AND description != '') DESC, 
+																								(author IS NOT NULL AND author != '') DESC, 
+																								(keywords IS NOT NULL AND keywords != '') DESC, 
+																								(image_url IS NOT NULL AND image_url != '') DESC, 
+																								(response_code IS NOT NULL) DESC,
+																								last_crawled DESC
+																				) AS RowNum 
+																FROM search_results
+														) RankedResults 
+														WHERE RankedResults.RowNum > 1
+												) duplicates 
+												ON s.id = duplicates.id
+												WHERE s.last_crawled < NOW() - INTERVAL 1 DAY;";
 
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_logger.LogInformation($"Deleted {affectedRows} search results older than 10 days.");
+						_logger.LogInformation($"Deleted {affectedRows} search results older than 1 day.");
 					}
 				}
 			}

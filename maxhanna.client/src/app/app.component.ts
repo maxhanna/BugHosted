@@ -51,6 +51,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   isModalOpen = false;
   isModal = false;
   isModalCloseVisible = true;
+  isShowingYoutubePopup = false;
   isShowingOverlay = false;
   pictureSrcs: { key: string, value: string, type: string, extension: string }[] = []; 
   isNavigationInitialized: boolean = false;
@@ -170,7 +171,11 @@ export class AppComponent implements OnInit, AfterViewInit {
         if (this.router.url.includes('Crawler')) {
           this.checkAndClearRouterOutlet();
           const url = this.router.url.toLowerCase().split('crawler/')[1]?.split('?')[0];
-          this.createComponent("Crawler", { "url": url });
+          if (url) {
+            this.createComponent("Crawler", { "url": url });
+          } else {
+            this.createComponent("Crawler");
+          }
         }
         if (this.router.url.includes('Array')) {
           this.checkAndClearRouterOutlet();
@@ -499,6 +504,25 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
   removeResizeListener() { 
     window.removeEventListener('resize', this.updateHeight);
+  }
+  playYoutubeVideo() {
+    this.showOverlay();
+    this.isShowingYoutubePopup = true;
+
+    const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
+    setTimeout(() => {
+      let target = document.getElementById(`youtubeIframe`) as HTMLIFrameElement;
+      if (!target || !videoId) return; 
+      target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`; 
+    }, 50);
+  }
+  closeYoutubePopup() {
+    this.closeOverlay();
+    let target = document.getElementById(`youtubeIframe`) as HTMLIFrameElement;
+    if (target) {
+      target.src = ''; 
+    }
+    this.isShowingYoutubePopup = false;
   }
   visitExternalLinkButtonClicked() {
     const url = (document.getElementById("hiddenUrlToVisit") as HTMLInputElement).value;

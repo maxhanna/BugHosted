@@ -20,4 +20,17 @@
 </router-outlet>
 <div class="overlay" *ngIf="isShowingOverlay" (click)="closeOverlay()"></div>
 <input type="hidden" id="hiddenUrlToVisit" />
-<button style="width:0px;height:0px;visibility:hidden;" id="hiddenUrlToVisitButton" (click)="visitExternalLinkButtonClicked()"></button>
+<button style="width:0px;height:0px;display:none;" id="hiddenUrlToVisitButton" (click)="visitExternalLinkButtonClicked()"></button>
+
+
+<button id="youtubeVideoButton" style="display:none;" (click)="playYoutubeVideo()" class="hiddenInput"></button>
+<input type="hidden" id="youtubeVideoIdInput" /> 
+
+
+
+<!-- Youtube Popup -->
+<div class="popupPanel" *ngIf="isShowingYoutubePopup"> 
+  <iframe id="youtubeIframe"></iframe>
+  <button id="closeOverlay" (click)="closeYoutubePopup()">Close</button>
+</div>
+

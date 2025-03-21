@@ -135,23 +135,29 @@ export function generateReward(source: Bot, target: Bot) {
     { skill: RIGHT_PUNCH, partName: RIGHT_ARM },
   ];
 
+  let generateGenericPart = true;
   const parts = [target.head, target.legs, target.leftArm, target.rightArm].filter(
     (part) => part !== undefined
   ) as MetaBotPart[];
 
   if (parts.length > 0) {
     const randomPart = parts[Math.floor(Math.random() * parts.length)];
-    const randomDamageMod = Math.floor(Math.random() * randomPart.damageMod) + 1;
+    if (randomPart) {
+      const randomDamageMod = Math.floor(Math.random() * randomPart?.damageMod ?? target.level) + 1;
 
-    generatedPart = new MetaBotPart({
-      id: 0,
-      metabotId: source.id, 
-      skill: randomPart.skill,
-      type: randomPart.type,
-      damageMod: randomDamageMod,
-      partName: randomPart.partName,
-    });
-  } else {
+      generatedPart = new MetaBotPart({
+        id: 0,
+        metabotId: source.id,
+        skill: randomPart.skill,
+        type: randomPart.type,
+        damageMod: randomDamageMod,
+        partName: randomPart.partName,
+      });
+      generateGenericPart = false;
+    } 
+  }
+
+  if (generateGenericPart) {
     const randomSkill = skills[Math.floor(Math.random() * skills.length)];
     let partName = skills.find(x => x.partName === randomSkill.partName)?.partName;
     partName = (partName ?? HEAD);

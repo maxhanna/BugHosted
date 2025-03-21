@@ -52,3 +52,10 @@
   .notificationBubble:not(:first-of-type) {
     margin-top: 20px;
   }
+
+#youtubeIframe {
+  width: 98vw;  
+  max-width: 800px;  
+  aspect-ratio: 16 / 9; 
+  border: none; 
+}

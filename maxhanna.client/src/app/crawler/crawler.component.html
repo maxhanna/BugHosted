@@ -1,5 +1,6 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('Crawler');"></div>
+  <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Crawler</div>
   <div class="xxSmallFont nbDiv">
     <div *ngIf="!searchMetadata.length">Total indexes: {{indexCount}}</div>
@@ -32,8 +33,11 @@
           </p>
           <p *ngIf="metadata.description" class="descriptionDiv descriptClass">{{ metadata.description }}</p>
           <p *ngIf="metadata.author" class="descriptionDiv authorClass">{{ metadata.author }}</p>
+          <p *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
+            {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
+          </p>
           <p *ngIf="metadata.keywords" class="descriptionDiv keywordsClass">{{ metadata.keywords }}</p>
-        </div> 
+        </div>
       </div>
     </div>
     <div *ngIf="searchMetadata.length == 0 && !error && !loading" class="smallFont nbDiv">
@@ -41,5 +45,5 @@
       <div>(make sure to include http or https in the request)</div>
       <div>Note: You can see the latest indexes by searching with: *</div>
     </div>
-  </div> 
+  </div>
 </div>

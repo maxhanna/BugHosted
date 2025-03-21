@@ -280,7 +280,7 @@
               {{ metadata.title.replace(' - YouTube', '') }}
             </div>
           </div>
-          <div class="optionsStatsDiv">
+          <div class="optionsStatsDiv" *ngIf="isYoutubeUrl(metadata.url)">
             <div class="optionsStatsHeader">
               Save to Music Playlist:
             </div>
@@ -382,14 +382,7 @@
             <div class="storyText"
                  [style.display]="isEditing.includes(story.id) ? 'none' : 'block'"
                  [innerHtml]="getTextForDOM(story.storyText, story.id)"
-                 [id]="'storyText' + story.id"></div>
-
-            <iframe [style.height]="openedStoryYoutubeVideos.includes(story.id) ? '500px' : '0px'"
-                    [style.width]="openedStoryYoutubeVideos.includes(story.id) ? '100%' : '0px'"
-                    [style.visibility]="openedStoryYoutubeVideos.includes(story.id) ? 'visible' : 'hidden'"
-                    [id]="'youtubeIframe' + story.id"></iframe>
-
-
+                 [id]="'storyText' + story.id"></div>  
 
             <textarea [id]="'storyTextTextarea' + story.id" [style.width]="isEditing.includes(story.id) ? '100%' : '0'" [style.display]="isEditing.includes(story.id) ? 'block' : 'none'">{{story.storyText}}</textarea>
             <div class="editingTextAreaButtonWrapperDiv">
@@ -494,6 +487,3 @@
   </div>
 
 </div>
-<button id="youtubeVideoButton" [style.visibility]="'hidden'" (click)="playYoutubeVideo()" class="hiddenInput"></button>
-<input type="text" id="youtubeVideoIdInput" [style.visibility]="'hidden'" class="hiddenInput" />
-<input type="text" id="youtubeVideoStoryIdInput" [style.visibility]="'hidden'" class="hiddenInput" />

@@ -21,8 +21,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   currentChatId?: number;
   chatHistory: Message[] = [];
   attachedFiles: FileEntry[] = [];
-  selectedUsers: User[] = []
-  isPlayingYoutubeVideo = false;
+  selectedUsers: User[] = [] 
   @ViewChild('newMessage') newMessage!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('chatWindow') chatWindow!: ElementRef;
   @ViewChild(MediaSelectorComponent) attachmentSelector!: MediaSelectorComponent;
@@ -409,23 +408,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return parent.getTextForDOM(text, componentId);
     } else return "Error fetching parent component.";
   }
-
-  playYoutubeVideo() {
-    this.isPlayingYoutubeVideo = true;
-    const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
-    setTimeout(() => {
-      let target = document.getElementById(`youtubeIframe`) as HTMLIFrameElement;
-      if (!target || !videoId) return;
-      target.style.visibility = 'visible';
-      target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
-      setTimeout(() => {
-        if (target && !this.isElementInViewport(target)) {
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 200);
-    }, 50);
-  }
-
+   
   filterUniqueUsers(users: User[]): User[] {
     return users.filter((user, index, self) =>
       index === self.findIndex(u => (u.id === user.id || u.username === user.username))

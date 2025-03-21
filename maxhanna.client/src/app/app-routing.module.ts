@@ -18,6 +18,7 @@ const routes: Routes = [
   { path: 'War', component: AppComponent },
   { path: 'Meta', component: AppComponent },
   { path: 'Crawler/:url', component: AppComponent },
+  { path: 'Crawler', component: AppComponent },
 ];
 
 @NgModule({

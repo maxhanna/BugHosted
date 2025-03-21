@@ -31,4 +31,5 @@ export class MetaData {
   author?: string;
   keywords?: string;
   imageUrl?: string;
+  httpStatus?: number;
 }

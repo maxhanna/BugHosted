@@ -411,9 +411,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       if (goodUrl) {
         const videoId = this.extractYouTubeVideoId(metadataUrl ?? story.storyText); 
         if (videoId) {
-          (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId;
-          (document.getElementById('youtubeVideoStoryIdInput') as HTMLInputElement).value = story.id + "";
-          this.playYoutubeVideo();
+          (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value = videoId; 
+          this.parentRef?.playYoutubeVideo();
         } else {
           window.open(goodUrl, '_blank');
         }
@@ -454,34 +453,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }, 20);
   }
-
-  playYoutubeVideo() {
-    this.openedStoryYoutubeVideos.forEach(x => {
-      let target = document.getElementById(`youtubeIframe${x}`) as HTMLIFrameElement;
-      if (target) {
-        target.src = '';
-        target.style.visibility = 'hidden';
-      }
-      this.openedStoryYoutubeVideos = this.openedStoryYoutubeVideos.filter(y => y != x);
-    })
-    const videoId = (document.getElementById('youtubeVideoIdInput') as HTMLInputElement).value;
-    const storyId = (document.getElementById('youtubeVideoStoryIdInput') as HTMLInputElement).value;
-    this.expanded.push("storyTextContainer" + storyId);
-    this.openedStoryYoutubeVideos.push(parseInt(storyId));
-    setTimeout(() => {
-      let target = document.getElementById(`youtubeIframe${storyId}`) as HTMLIFrameElement;
-      if (!target || !videoId) return;
-      target.style.visibility = 'visible';
-      target.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1`;
-      setTimeout(() => {
-        let container = document.getElementById(`storyTextContainer${storyId}`)?.getElementsByTagName("iframe")[0];
-        if (container && !this.isElementInViewport(container)) {
-          container.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 200);
-    }, 50);
-  }
-
+    
   isValidYoutubeImageUrl(url?: string): boolean {
     if (!url) return false;
     return url.includes("ytimg");

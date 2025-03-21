@@ -6,6 +6,7 @@ using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 
@@ -14,6 +15,7 @@ public class WebCrawler
 	private readonly HttpClient _httpClient = new HttpClient();
 	private readonly IConfiguration _config;
 	private const string Chars = "abcdefghijklmnopqrstuvwxyz123456789";
+	public static readonly HashSet<string> _visitedUrls = new HashSet<string>();
 	private static readonly List<string> DomainSuffixes = new List<string>
 	{
 			"com", "io", "net", "ca", "qc.ca", "org", "gov", "edu", "co", "biz", "info", "us", "tv", "me", "co.uk",
@@ -28,7 +30,7 @@ public class WebCrawler
 	private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(10); 
 	private DateTime _lastRequestTime = DateTime.MinValue;
 	private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1); 
-	private readonly Queue<string> urlsToScrapeQueue = new Queue<string>();
+	private readonly List<string> urlsToScrapeQueue = new List<string>();
 
 
 	public WebCrawler(IConfiguration config)
@@ -42,10 +44,7 @@ public class WebCrawler
 
 		foreach (string domain in nextDomains)
 		{
-			if (!urlsToScrapeQueue.Contains(domain))
-			{
-				urlsToScrapeQueue.Enqueue(domain); 
-			}
+			StartScrapingAsync(domain);
 		}
 
 		// Once the list is built, scrape URLs from the list 1 by 1
@@ -57,22 +56,15 @@ public class WebCrawler
 		string? lastDomain = await LoadLastGeneratedDomain();
 		string nextDomain = string.IsNullOrEmpty(lastDomain) ? "a.com" : GetNextDomain(lastDomain);
 		nextDomain = nextDomain.ToLower().Replace("http://", "").Replace("https://", "");
-		// Generate both http:// and https:// versions
+
 		string httpVersion = "http://" + nextDomain;
 		string httpsVersion = "https://" + nextDomain;
 
-		List<string> results = new List<string>();
-		results.Add(httpsVersion);
-		results.Add(httpVersion);
-
-		return results;  
+		return new List<string> { httpsVersion, httpVersion };
 	}
 
 	private string GetNextDomain(string lastDomain)
-	{
-		int maxAttempts = 100; // Prevent infinite loops
-		int attemptCount = 0;
-
+	{  
 		// Remove protocol (http:// or https://)
 		lastDomain = lastDomain.ToLower().Replace("http://", "").Replace("https://", "");
 
@@ -389,13 +381,7 @@ public class WebCrawler
 						continue; // Skip empty, anchor, and mailto links
 					}
 					var absoluteUrl = new Uri(new Uri(url), href).ToString();
-					lock (urlsToScrapeQueue)  // Lock to ensure thread safety when adding URLs
-					{
-						if (!urlsToScrapeQueue.Contains(absoluteUrl))
-						{ 
-							urlsToScrapeQueue.Enqueue(absoluteUrl);
-						}
-					}
+					StartScrapingAsync(absoluteUrl); 
 				}
 			}
 		}
@@ -411,6 +397,11 @@ public class WebCrawler
 	private bool IsValidDomain(string domain)
 	{
 		if (domain.ToLower().Contains("javascript:"))
+		{
+			Console.WriteLine("invalid domain, javascript in the link: " + domain);
+			return false;
+		}
+		if (domain.ToLower().Contains("tel:"))
 		{
 			Console.WriteLine("invalid domain, javascript in the link: " + domain);
 			return false;
@@ -493,18 +484,23 @@ public class WebCrawler
 		{
 			foreach (var url in sitemapUrls)
 			{
-				lock (urlsToScrapeQueue)
-				{
-					if (!urlsToScrapeQueue.Contains(url))
-					{
-						Console.WriteLine($"Enqueued ({urlsToScrapeQueue.Count}) for later: {url.Substring(0, Math.Min(url.Length, 200 - 30))}{(url.Length > 200 - 30 ? "..." : "")}");
-						urlsToScrapeQueue.Enqueue(url);
-					}
-				}
-			} 
+				StartScrapingAsync(url);
+			}
 		}
 	}
-
+	public async Task StartScrapingAsync(string initialUrl)
+	{
+		if (_visitedUrls.Add(initialUrl) && !urlsToScrapeQueue.Contains(initialUrl) && urlsToScrapeQueue.Count < 10000)   
+		{
+			Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count}) Enqueued for later: " +
+				$"{initialUrl.Substring(0, Math.Min(initialUrl.Length, 25))}" +
+				$"{(initialUrl.Length > 35 ? "..." + initialUrl[^10..] : "")}");
+			urlsToScrapeQueue.Add(initialUrl);
+		}
+		ClearVisitedUrls();
+		_ = ScrapeUrlsSequentially();
+		 
+	}
 	private async Task<string> GetSitemapXml(string sitemapUrl)
 	{
 		using (var httpClient = new HttpClient())
@@ -527,38 +523,38 @@ public class WebCrawler
 			}
 		}
 	}
+
+
 	private async Task ScrapeUrlsSequentially()
 	{
-		await scrapeSemaphore.WaitAsync(); 
-		try
+		if (scrapeSemaphore.CurrentCount > 0)
 		{
-			while (urlsToScrapeQueue.Count > 0)  
+			await scrapeSemaphore.WaitAsync();
+			try
 			{
-				var url = string.Empty;
-				lock (urlsToScrapeQueue)
+				while (urlsToScrapeQueue.Count > 0)
 				{
-					url = urlsToScrapeQueue.Dequeue();
-				}
+					string url = GetRandomUrlFromList(urlsToScrapeQueue); 
+					if (DateTime.Now - _lastRequestTime < _requestInterval)
+					{
+						await Task.Delay(_requestInterval - (DateTime.Now - _lastRequestTime));
+					}
 
-				if (DateTime.Now - _lastRequestTime < _requestInterval)
-				{
-					await Task.Delay(_requestInterval - (DateTime.Now - _lastRequestTime));
-				}
+					_lastRequestTime = DateTime.Now;
 
-				_lastRequestTime = DateTime.Now;
-
-				Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count()})Scraping : " + url);
-				Metadata? metaData = await ScrapeUrlData(url);
-				if (metaData != null)
-				{
-					await SaveSearchResult(url, metaData); 
-					CrawlSitemap(url);
+					Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count()})Scraping : " + url);
+					Metadata? metaData = await ScrapeUrlData(url);
+					if (metaData != null)
+					{
+						await SaveSearchResult(url, metaData);
+						CrawlSitemap(url);
+					}
 				}
 			}
-		}
-		finally
-		{
-			scrapeSemaphore.Release();  // Ensure the semaphore is always released, even if an exception occurs
+			finally
+			{
+				scrapeSemaphore.Release();  // Ensure the semaphore is always released, even if an exception occurs
+			}
 		}
 	}
 
@@ -609,8 +605,29 @@ public class WebCrawler
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine($"Error extracting URLs from sitemap index: {ex.Message}");
+			//Console.WriteLine($"Error extracting URLs from sitemap index: {ex.Message}");
 		}
 		return sitemapUrls;
+	}
+
+	public string GetRandomUrlFromList(List<string> urls)
+	{
+		if (urls.Count > 0)
+		{
+			Random rng = new Random();
+			int randomIndex = rng.Next(0, urls.Count);
+			string randomUrl = urls[randomIndex];
+			urls.RemoveAt(randomIndex);
+			return randomUrl;
+		}
+
+		return null;
+	}
+	public void ClearVisitedUrls()
+	{
+		if (_visitedUrls.Count >= 10000)
+		{
+			_visitedUrls.Clear();
+		} 
 	}
 }

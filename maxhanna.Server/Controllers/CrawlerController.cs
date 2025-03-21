@@ -7,8 +7,7 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Xml;
-using static maxhanna.Server.Controllers.AiController;
+using System.Xml; 
 
 namespace maxhanna.Server.Controllers
 {
@@ -20,15 +19,15 @@ namespace maxhanna.Server.Controllers
 		private readonly IConfiguration _config;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
-		private static readonly ConcurrentQueue<string> _urlQueue = new ConcurrentQueue<string>();
+		private static readonly List<string> _urlQueue = new List<string>();
 		private static readonly HashSet<string> _visitedUrls = new HashSet<string>();
-		private static readonly TimeSpan _requestDelay = TimeSpan.FromSeconds(10);
+		private static readonly TimeSpan _requestDelay = TimeSpan.FromSeconds(10); 
 
 		public CrawlerController(ILogger<CrawlerController> logger, IConfiguration config)
 		{
 			_logger = logger;
 			_config = config;
-		}
+ 		}
 
 		[HttpPost("/Crawler/SearchUrl", Name = "SearchUrl")]
 		public async Task<IActionResult> SearchUrl([FromBody] CrawlerRequest request)
@@ -46,7 +45,7 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 
 					string checkUrlQuery = @"
-                SELECT id, url, title, description, author, keywords, image_url, failed 
+                SELECT id, url, title, description, author, keywords, image_url, failed, response_code 
                 FROM search_results 
                 WHERE (@searchAll IS TRUE OR url_hash = @urlHash 
                                             OR LOWER(url) LIKE @search
@@ -55,6 +54,7 @@ namespace maxhanna.Server.Controllers
                                             OR LOWER(keywords) LIKE @search 
                                             OR LOWER(image_url) LIKE @search 
                                             OR LOWER(description) LIKE @search)
+								AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL)) 
                 ORDER BY CASE WHEN @searchAll IS TRUE THEN found_date ELSE id END DESC;";
 
 					bool searchAll = request.Url == "*";
@@ -67,20 +67,17 @@ namespace maxhanna.Server.Controllers
 						using (var reader = await command.ExecuteReaderAsync())
 						{
 							while (reader.Read())
-							{
-								if (!reader.GetBoolean("failed"))
-								{
-									results.Add(new Metadata
-									{
-										Id = reader.GetInt32("id"),
-										Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
-										Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
-										Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
-										ImageUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString("image_url"),
-										Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
-										Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords")
-									});
-								}
+							{ 
+								results.Add(new Metadata
+								{ 
+									Url = reader.IsDBNull(reader.GetOrdinal("url")) ? null : reader.GetString("url"),
+									Title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString("title"),
+									Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
+									ImageUrl = reader.IsDBNull(reader.GetOrdinal("image_url")) ? null : reader.GetString("image_url"),
+									Author = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString("author"),
+									Keywords = reader.IsDBNull(reader.GetOrdinal("keywords")) ? null : reader.GetString("keywords"),
+									HttpStatus = reader.IsDBNull(reader.GetOrdinal("response_code")) ? null : reader.GetInt32("response_code"),
+								}); 
 							}
 						}
 					}
@@ -88,7 +85,7 @@ namespace maxhanna.Server.Controllers
 					Console.WriteLine($"Found {results.Count} results before searching manually");
 					var scrapedResults = new List<Metadata>();
 
-					if (request.Url.Trim() != "*")
+					if (request.Url.Trim() != "*" && IsValidDomain(request.Url))
 					{
 						var urlVariants = new List<string>();
 
@@ -113,9 +110,12 @@ namespace maxhanna.Server.Controllers
 								{
 									foreach (var cMeta in mainMetadata)
 									{
+										cMeta.Url = new Uri(new Uri(urlVariant), cMeta.Url).ToString().TrimEnd('/');
 										results.Add(cMeta);
-										string fullUrl = new Uri(new Uri(urlVariant), cMeta.Url).ToString();
-										InsertScrapedData(fullUrl, cMeta);
+										if (cMeta.HttpStatus == null)
+										{ 
+											InsertScrapedData(cMeta.Url, cMeta);
+										}
 									}
 								}
 							}
@@ -138,7 +138,7 @@ namespace maxhanna.Server.Controllers
 								.ToList();
 					}
 
-					if (allResults.Count == 0)
+					if (allResults.Count == 0 && IsValidDomain(request.Url))
 					{
 						await InsertFailureRecord(request.Url, null);
 					}
@@ -230,7 +230,7 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task InsertFailureRecord(string url, int? responseCode)
 		{
-			Console.WriteLine($"Inserting failure record: {url}, Response Code: {responseCode}");
+			Console.WriteLine($"Failure record: {url}, Response Code: {responseCode}");
 
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 			using (var connection = new MySqlConnection(connectionString))
@@ -317,9 +317,13 @@ namespace maxhanna.Server.Controllers
 			var response = await httpClient.GetAsync(url);
 
 			if (!response.IsSuccessStatusCode)
-			{
-				Console.WriteLine($"Failed to fetch {url}. Status: {response.StatusCode}");
+			{ 
 				InsertFailureRecord(url, (int)response.StatusCode);
+				var tmpmetadata = new Metadata
+				{
+				 HttpStatus = (int)response.StatusCode,
+				};
+				metaList.Add(tmpmetadata);
 				return metaList;
 			}
 
@@ -362,11 +366,14 @@ namespace maxhanna.Server.Controllers
 		}
 		public async Task StartScrapingAsync(string initialUrl)
 		{
-			if (_visitedUrls.Add(initialUrl))  // Prevent duplicate scraping
+			if (_visitedUrls.Add(initialUrl) && !_urlQueue.Contains(initialUrl) && _urlQueue.Count < 10000)
 			{
-				Console.WriteLine($"Enqueued ({_urlQueue.Count}) for later: {initialUrl.Substring(0, Math.Min(initialUrl.Length, 200 - 30))}{(initialUrl.Length > 200 - 30 ? "..." : "")}");
-				_urlQueue.Enqueue(initialUrl);
+				Console.WriteLine($"(Ctrl:{_urlQueue.Count}) Enqueued for later: " +
+						$"{initialUrl.Substring(0, Math.Min(initialUrl.Length, 25))}" +
+						$"{(initialUrl.Length > 35 ? "..." + initialUrl[^10..] : "")}"); 
+				_urlQueue.Add(initialUrl);
 			}
+			ClearVisitedUrls();
 
 			// Start the worker only if it's not already running
 			if (_semaphore.CurrentCount > 0)
@@ -377,8 +384,9 @@ namespace maxhanna.Server.Controllers
 
 		public async Task StartScrapingAsyncWorker()
 		{
-			while (_urlQueue.TryDequeue(out var url))
+			while (_urlQueue.Count() > 0)
 			{
+				string url = GetRandomUrlFromList(_urlQueue);
 				await _semaphore.WaitAsync();
 				try
 				{
@@ -412,8 +420,15 @@ namespace maxhanna.Server.Controllers
 		{
 			int score = 0;
 			string search = searchTerm.ToLower();
-
-			if (result.Url?.ToLower().Contains(search) == true) score += 100;
+			if (Uri.TryCreate(result.Url, UriKind.Absolute, out Uri url))
+			{
+				string domain = url.Host.ToLower();
+				if (domain.Contains(search))
+				{
+					score += 150;
+				}
+			}
+			if (result.Url?.ToLower().Contains(search) == true) score += 75;
 			if (result.Title?.ToLower().Contains(search) == true) score += 50;
 			if (result.Description?.ToLower().Contains(search) == true) score += 30;
 			if (result.Author?.ToLower().Contains(search) == true) score += 20;
@@ -522,7 +537,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error processing sitemap: {ex.Message}");
+				//Console.WriteLine($"Error processing sitemap: {ex.Message}");
 			}
 
 			return urls;
@@ -548,20 +563,28 @@ namespace maxhanna.Server.Controllers
 			// Ensure there are no multiple TLDs (e.g., "imprioc.com.com")
 			if (Regex.IsMatch(domain, @"\.[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)+$"))
 			{
+				Console.WriteLine("invalid domain, multiple TLDs : " + domain);
+				return false;
+			}
+
+			if (domain.ToLower().Contains("tel:"))
+			{
+				Console.WriteLine("invalid domain, tel in the link: " + domain);
 				return false;
 			}
 
 			// Ensure no double dots ".." exist in the domain
 			if (domain.Contains(".."))
 			{
+				Console.WriteLine("invalid domain, too many periods: " + domain); 
 				return false;
 			}
 
-			// Ensure the domain only contains valid characters
-			if (!Regex.IsMatch(domain, @"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
+			if (!domain.Contains("."))
 			{
+				Console.WriteLine("invalid domain, not enough periods: " + domain); 
 				return false;
-			}
+			} 
 
 			return true;
 		}
@@ -680,6 +703,27 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return sitemapUrls;
-		} 
+		}
+		public string GetRandomUrlFromList(List<string> urls)
+		{ 
+			if (urls.Count > 0)
+			{ 
+				Random rng = new Random();
+				int randomIndex = rng.Next(0, urls.Count);
+				string randomUrl = urls[randomIndex]; 
+				urls.RemoveAt(randomIndex);
+				return randomUrl;  
+			}
+
+			return null;
+		}
+		private void ClearVisitedUrls()
+		{
+			if (_visitedUrls.Count > 10000)
+			{ 
+				_visitedUrls.Clear();
+				_logger.LogInformation("Visited URLs have been cleared.");
+			}
+		}
 	}
 }

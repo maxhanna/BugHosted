@@ -109,15 +109,6 @@
               </div>
             </div>
           </ng-container>
-        </div>
-        <div [style.visibility]="isPlayingYoutubeVideo ? 'visible' : 'hidden'"
-             [style.textAlign]="'center'"
-             [style.height]="isPlayingYoutubeVideo ? '500px' : '0px'">
-          <iframe [style.height]="isPlayingYoutubeVideo ? '500px' : '0px'"
-                  [style.width]="isPlayingYoutubeVideo ? '100%' : '0px'"
-                  [style.visibility]="isPlayingYoutubeVideo ? 'visible' : 'hidden'"
-                  id="youtubeIframe"></iframe>
-          <button (click)="isPlayingYoutubeVideo = false">Hide Youtube Video</button>
         </div> 
         <div *ngIf="(!chatHistory  || chatHistory.length == 0 ) && !isLoading">
           ZZzzz. Empty chat!
@@ -161,7 +152,4 @@
       <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" (groupChatEvent)="addChatMember($event)"></app-user-list>
     </div>
   </div>
-</div>
-
-<button id="youtubeVideoButton" [style.visibility]="'hidden'" (click)="playYoutubeVideo()" class="hiddenInput"></button>
-<input type="text" id="youtubeVideoIdInput" [style.visibility]="'hidden'" class="hiddenInput" /> 
+</div> 

@@ -68,8 +68,7 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
 
   openSource(url: string) {
     this.selectedArticle = undefined;
-    window.open(url, '_blank');
-    event?.stopPropagation();
+    this.parentRef?.visitExternalLink(url);  
   }
   selectArticle(article: Article): void {
     if (this.selectedArticle) {
