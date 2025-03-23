@@ -3,18 +3,24 @@
   <div class="componentTitle">HostAI</div>
 
   <div class="chat-container" #chatContainer>
-    <div class="chat-box">
-      <div class="message" *ngFor="let message of chatMessages; let i = index">
-        <div class="hr" *ngIf="message.sender === 'You' && i > 0"></div>
-        <strong>{{ message.sender }}:</strong>
-        <span [innerHTML]="parseGeminiMessage(message)" *ngIf="!message?.message?.mimeType"></span>
-        <img [src]="parseGeminiMessage(message)" *ngIf="message?.message?.mimeType" />
+    <div class="chat-box" *ngIf="chatMessages && chatMessages.length > 0">
+      <div *ngFor="let message of chatMessages; let i = index">
+        <div class="hr" *ngIf="i > 0"></div>
+        <div>
+          <strong>{{ message.sender }}:</strong>
+          <span class="message" [innerHTML]="parseGeminiMessage(message)" *ngIf="!message?.message?.mimeType"></span>
+          <img [src]="parseGeminiMessage(message)" *ngIf="message?.message?.mimeType" />
+        </div>
       </div>
       <div class="loadingResponseDiv" *ngIf="isLoading">Loading...</div>
     </div>
+    <div *ngIf="!isLoading && (!chatMessages || chatMessages.length == 0)" class="emptyHostAiMessage">
+      <div>Welcome to HostAI.</div>
+      <div>Start by typing a message.</div>
+    </div>
 
-    <div class="textAreaOptionsDiv">
-      <button (click)="createCodeSnippet()"><pre><\></pre></button>
+    <div class="messageButtonsWrapperDiv">
+      <button (click)="createCodeSnippet()"><\></button>
       <button (click)="generateImage()">🖼️</button>
     </div>
     <div class="input-container">
@@ -23,5 +29,5 @@
                 placeholder="Type your message..." rows="4" #chatInput></textarea>
       <button (click)="sendMessage()">Send</button>
     </div>
-  </div>
+  </div> 
 </div>

@@ -93,8 +93,7 @@ export class StartMenu extends GameObject {
 
     this.displayStartMenu();
 
-    events.on("PRESSED_ESCAPE", this, () => {
-      console.log("escape presed");
+    events.on("PRESSED_ESCAPE", this, () => { 
       events.emit("START_PRESSED");
     });
   }
@@ -102,8 +101,7 @@ export class StartMenu extends GameObject {
     const input = (root as Main).input as Input;
     if (input.heldDirections.length > 0 || Object.values(input.keys).some(value => value === true)) {
       this.handleKeyboardInput(root, input);
-    }
-    //console.log("step", this.background.position); 
+    } 
   }
 
 
@@ -129,14 +127,12 @@ export class StartMenu extends GameObject {
 
   }
 
-  private displayStartMenu() {
-    console.log('in display sm');
+  private displayStartMenu() {  
     this.clearMenu();
     this.items = this.regularMenuChoices;
 
     for (let x = 0; x < this.items.length; x++) {
-      const sts = new SpriteTextString(this.items[x], new Vector2(this.menuLocationX + 10, this.menuLocationY + 10 + (10 * x)), "Black");
-      console.log(this.heroLocation, this.distanceToHero, this.menuLocationX);
+      const sts = new SpriteTextString(this.items[x], new Vector2(this.menuLocationX + 10, this.menuLocationY + 10 + (10 * x)), "Black"); 
       this.addChild(sts);
     }
   }
@@ -450,8 +446,7 @@ export class StartMenu extends GameObject {
           this.displayPartSelection(this.metabotPartItems[this.currentlySelectedId], this.selectedMetabot);
         }
         else if (this.isDisplayingMetabots) {
-          const selection = this.items[this.currentlySelectedId];
-          console.log(selection);
+          const selection = this.items[this.currentlySelectedId]; 
           const bot = this.inventoryItems.find(ii => ii.name === selection);
           if (bot) { 
             const stats = typeof bot.stats === "string"

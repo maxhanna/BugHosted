@@ -524,12 +524,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     while (/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/s.test(text)) {
       text = text.replace(/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/gs, (match, username, userId, timestamp, quotedMessage) => {
         const formattedTimestamp = new Date(timestamp).toLocaleString();
-
+        const truncatedMessage = quotedMessage.length > 200 ? quotedMessage.slice(0, 200) + "..." : quotedMessage; 
+        const escapedQuotedMessage = encodeURIComponent(quotedMessage);
         return `
       <span class="quote-text">
-        <span class="quote-user">${username}</span> 
-        <span class="quote-time">(${formattedTimestamp})</span>:  
-        "<span class="quote-message">${quotedMessage}</span>"
+        <a class='quote-link' onClick="document.getElementById('scrollToQuoteDateInput').value='${timestamp}';document.getElementById('scrollToQuoteMessageInput').value='${escapedQuotedMessage}';document.getElementById('quoteClickButton').click()">
+          <span class="quote-user">${username}</span>
+          <span class="quote-time">(${formattedTimestamp})</span>:  
+        "<span class="quote-message">${truncatedMessage}</span>"</a>
       </span>
     `;
       });
@@ -565,6 +567,49 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     // Reassemble the message from the processed parts
     return processedParts.join('');
+  }
+
+
+  scrollToQuote() { 
+    let timestamp = (document.getElementById("scrollToQuoteDateInput") as HTMLInputElement).value;
+    let message = (document.getElementById("scrollToQuoteMessageInput") as HTMLInputElement).value; 
+    if (!timestamp || !message) {
+      console.log("No message or timestamp found for quote.");
+      return;
+    } 
+    message = decodeURIComponent(message); 
+    const messageElements = [
+      ...Array.from(document.getElementsByTagName("div")),
+      ...Array.from(document.getElementsByTagName("span")), 
+    ];  
+    let foundMatch = false; 
+    for (const element of messageElements) {
+      const elementText = element.textContent?.trim() || "";
+      const elementTimestamp = element.getAttribute('data-timestamp');
+       
+      if (
+        (elementText.toLowerCase().includes(message.toLowerCase())
+          && (element.classList.contains('messageContainer') || element.classList.contains('commentContent'))
+        )
+        || elementTimestamp === timestamp) {
+        if (elementTimestamp === timestamp) console.log("found by timestamp")
+        else if (elementText.toLowerCase().includes(message.toLowerCase())) { console.log("found by message", element); } 
+        foundMatch = true;
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
+      }
+    } 
+    if (!foundMatch) {
+      console.log("No matching message found."); 
+    }
+  }  
+  formatTimestamp(timestamp: any) {
+    const date = new Date(timestamp);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${month}/${day} ${hours}:${minutes}`;
   }
   getDirectoryName(file: FileEntry): string {
     let base = file.directory?.replace('E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/', '').trim();

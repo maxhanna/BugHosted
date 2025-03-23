@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef } from '@angular/core';
+import { Component, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { AiService } from '../../services/ai.service'; 
 import { ChildComponent } from '../child.component'; 
 
@@ -8,7 +8,7 @@ import { ChildComponent } from '../child.component';
   templateUrl: './host-ai.component.html',
   styleUrl: './host-ai.component.css'
 })
-export class HostAiComponent extends ChildComponent {
+export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private aiService: AiService) { super(); }
   userMessage: string = '';  
   chatMessages: { sender: string, message: any }[] = [];  
@@ -16,14 +16,21 @@ export class HostAiComponent extends ChildComponent {
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
 
+  ngOnInit() {
+    this.parentRef?.addResizeListener();
+  }
+  ngOnDestroy() { 
+    this.parentRef?.removeResizeListener();
+  }
   sendMessage() {
     this.userMessage = this.chatInput.nativeElement.value.trim();
     this.startLoading();
     if (this.userMessage.trim()) { 
       this.pushMessage({ sender: 'You', message: this.userMessage }); 
       this.aiService.sendMessage(this.userMessage).then(
-        (response) => { 
-          this.pushMessage({ sender: 'Host', message: response.reply });
+        (response) => {
+          let reply = this.parseGeminiMessage(response.reply); 
+          this.pushMessage({ sender: 'Host', message: reply });
           this.stopLoading();
         },
         (error) => { 
@@ -71,21 +78,21 @@ export class HostAiComponent extends ChildComponent {
       }
     }
   }
-  parseGeminiMessage(message: any): string { 
+  parseGeminiMessage(message: any): string {
     if (message?.message?.reply && message?.message?.mimeType) {
-      let safeUrl = `data:${message.message.mimeType};base64,${message.message.reply}`; 
+      let safeUrl = `data:${message.message.mimeType};base64,${message.message.reply}`;
       return safeUrl.toString(); // Bypass Angular's sanitization for trusted HTML
-    } 
-    if (message?.sender === 'You' || message?.sender === 'System') {
+    }
+    if (message?.sender === 'You') {
       // For user/system messages, don't allow HTML rendering
-      return this.formatMessage(message.message, false);
+      return this.formatMessage(message.message, false, false);
     }
 
     // For AI responses, allow HTML rendering
-    return this.formatMessage(message?.message ?? message, true);
+    return this.formatMessage(message?.message ?? message, true, true);
   }
 
-  formatMessage(text: string, allowHtml?: boolean): string {
+  formatMessage(text: string, allowHtml?: boolean, addBr = false): string {  
     // First, handle code blocks (```)
     let formattedText = text
       .replace(/```([\s\S]*?)```/g, (_, codeContent) => {
@@ -96,23 +103,14 @@ export class HostAiComponent extends ChildComponent {
       .replace(/^- (.*)$/gm, "<ul><li>$1</li></ul>"); // - List item → <ul><li>List item</li></ul>
 
     // Replace line breaks outside of code blocks (we don't want them inside <pre><code>)
-    formattedText = formattedText.replace(/(?:^|\n)(?!<pre><code>)/g, "<br>");
-
+    if (addBr) {  
+      formattedText = formattedText.replace(/(?:^|\n)(?!<pre><code>)/g, "<br>");
+    }
     // Now, either escape or allow HTML tags depending on the flag
     return formattedText;
   }
 
-  escapeHtmlExceptCode(text: string): string {
-    // Escape HTML except inside code blocks
-    return text.replace(/<pre><code>[\s\S]*?<\/code><\/pre>/g, (codeBlock) => {
-      return codeBlock.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }).replace(/&(?!amp;|lt;|gt;|quot;|#039;)/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
+  
   escapeHtml(text: string): string {
     return text.replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")

@@ -1,65 +1,56 @@
 .componentMain {
-  width: 90vw; 
+  width: 90vw;
+  height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
 
 .chat-container {
-  height: CALC(var(--vh, 1vh) * 100 - 85px);
-  margin: 0 auto;
-  border: 1px solid #ccc;
-  padding: 10px;
-  border-radius: 8px;
+  height: CALC(var(--vh, 1vh) * 100 - 60px);   
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   justify-content: space-between;
   align-content: space-around;
-  align-items: stretch;
+  align-items: stretch; 
 }
 
 .chat-box {
-  height: CALC(var(--vh, 1vh) * 100 - 180px);
-  overflow-y: scroll;
-  border-bottom: 1px solid #ccc;
-  padding: 10px;
-  margin-bottom: 10px;
+  height: CALC(var(--vh, 1vh) * 100 - 145px);
+  overflow-y: auto; 
+  padding-left: 30px;
+  padding-right: 30px;
 }
 
 .message {
-  margin-bottom: 10px;
+  padding-left: 20px;
+  padding-right: 20px;
+  display: inline-block;
 }
 
 .input-container {
   display: flex;
   flex-direction: row;
+  height:35px;
 }
 
 textarea {
   width: 100%;
-  padding: 10px;
+  padding: 5px;
   border: 1px solid #ccc;
   border-radius: 4px;
 }
 
 button {
-  padding: 10px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  cursor: pointer;
-  border-radius: 4px;
+  padding: 10px;  
+  cursor: pointer; 
 }
 
-  button:hover {
-    background-color: #45a049;
-  }
-
+ 
 .hr {
   border-bottom: 1px solid white;
   margin: 20px;
 }
 pre {
-  background: #2d2d2d;
-  color: #ffffff;
+  background: #2d2d2d; 
   padding: 10px;
   border-radius: 5px;
   overflow-x: auto;
@@ -89,12 +80,22 @@ ol, ul {
     padding: unset;
     line-height: unset;
   }
-
-  .textAreaOptionsDiv button {
-    padding: 0px 5px;
-    width:50px;
-    height:55px;
-  }
+.messageButtonsWrapperDiv {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-content: flex-start;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top:5px;
+  margin-bottom:5px;
+}
+.messageButtonsWrapperDiv button { 
+  width: 40px;
+  height: 35px;
+  line-height:0;
+}
 
 .loadingResponseDiv {
   margin:20px;
@@ -107,4 +108,18 @@ ol, ul {
   height: auto;
   border-radius: 8px;
   margin-top: 10px;
+}
+.emptyHostAiMessage {
+  font-size: xx-large;
+  height: CALC(var(--vh, 1vh)* 100 - 145px);
+  overflow-y: auto;
+  padding-left: 30px;
+  padding-right: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--component-background-color) 5%, var(--main-highlight-color) 95%);
+  padding: 16px;
+  text-align: center;
 }

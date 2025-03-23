@@ -595,3 +595,7 @@ fieldset {
 .quote-time {
   font-size: smaller;
 }
+.quote-link {
+  color: unset; 
+  cursor: pointer;
+}

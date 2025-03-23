@@ -3,7 +3,9 @@ using maxhanna.Server.Controllers.DataContracts.Crawler;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System;
 using System.Collections.Concurrent;
+using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -19,9 +21,11 @@ namespace maxhanna.Server.Controllers
 		private readonly IConfiguration _config;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
-		private static readonly List<string> _urlQueue = new List<string>();
-		private static readonly HashSet<string> _visitedUrls = new HashSet<string>();
-		private static readonly TimeSpan _requestDelay = TimeSpan.FromSeconds(10); 
+		private static readonly TimeSpan _requestDelay = TimeSpan.FromSeconds(10);
+		private HashSet<string> _visitedUrls = new HashSet<string>();
+		private List<string> _urlsToScrapeQueue = new List<string>();
+		private Queue<string> delayedUrlsQueue = new Queue<string>();
+		private static bool isProcessing = false;
 
 		public CrawlerController(ILogger<CrawlerController> logger, IConfiguration config)
 		{
@@ -110,18 +114,34 @@ namespace maxhanna.Server.Controllers
 						totalResults = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
 					}
 
+					var urlVariants = new List<string>();
 					Console.WriteLine($"Found {results.Count} results before searching manually");
-					var scrapedResults = new List<Metadata>();
-
-					if (request.Url.Trim() != "*" && IsValidDomain(request.Url))
+					int scrapedResults = 0;
+					bool skipHttpCheck = false;
+					if (!IsValidDomain(request.Url))
 					{
-						var urlVariants = new List<string>();
+						if (!request.Url.StartsWith("http://") && !request.Url.StartsWith("https://"))
+						{
+							if (!request.Url.Contains(".com"))
+							{
+								urlVariants.Add("https://" + request.Url + ".com");
+								skipHttpCheck = true;
+							}
+							if (!request.Url.Contains(".net"))
+							{
+								urlVariants.Add("https://" + request.Url + ".net");
+								skipHttpCheck = true;
+							}
+						}
+					}
+					if (request.Url.Trim() != "*")
+					{
 
 						if (request.Url.StartsWith("http://") || request.Url.StartsWith("https://"))
 						{
 							urlVariants.Add(request.Url);
 						}
-						else
+						else if (!skipHttpCheck)
 						{
 							urlVariants.Add("http://" + request.Url);
 							urlVariants.Add("https://" + request.Url);
@@ -138,6 +158,7 @@ namespace maxhanna.Server.Controllers
 								{
 									foreach (var cMeta in mainMetadata)
 									{
+										scrapedResults++;
 										cMeta.Url = new Uri(new Uri(urlVariant), cMeta.Url).ToString().TrimEnd('/');
 										results.Add(cMeta); 
 										InsertScrapedData(cMeta.Url, cMeta); 
@@ -146,13 +167,24 @@ namespace maxhanna.Server.Controllers
 							}
 							catch (Exception innerEx)
 							{
-								Console.WriteLine("Error scraping data: " + urlVariant + ". Error: " + innerEx.Message);
-								InsertFailureRecord(urlVariant, null);
+								if (innerEx.InnerException is AuthenticationException authEx)
+								{  
+									InsertFailureRecord(urlVariant, 495);
+									var tmpmetadata = new Metadata
+									{
+										Url = urlVariant,
+										HttpStatus = 495,
+									};
+								}
+								else
+								{ 
+									InsertFailureRecord(urlVariant, null);
+								}
 							}
 						}
 					}
 
-					var allResults = results.Concat(scrapedResults).ToList();
+					var allResults = results.ToList();
 
 					if (request.Url.Trim() != "*")
 					{
@@ -169,7 +201,7 @@ namespace maxhanna.Server.Controllers
 					}
 
 					// Return the results along with the total count for pagination
-					return Ok(new { Results = allResults, TotalResults = totalResults });
+					return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
 				}
 			}
 			catch (Exception ex)
@@ -346,7 +378,8 @@ namespace maxhanna.Server.Controllers
 				InsertFailureRecord(url, (int)response.StatusCode);
 				var tmpmetadata = new Metadata
 				{
-				 HttpStatus = (int)response.StatusCode,
+					Url = url,
+					HttpStatus = (int)response.StatusCode,
 				};
 				metaList.Add(tmpmetadata);
 				return metaList;
@@ -391,31 +424,63 @@ namespace maxhanna.Server.Controllers
 		}
 		public async Task StartScrapingAsync(string initialUrl)
 		{
-			if (_visitedUrls.Add(initialUrl) && !_urlQueue.Contains(initialUrl) && _urlQueue.Count < 10000)
+			if (_visitedUrls.Add(initialUrl) && !_urlsToScrapeQueue.Contains(initialUrl) && _urlsToScrapeQueue.Count < 10000)
 			{
-				Console.WriteLine($"(Ctrl:{_urlQueue.Count}) Enqueued for later: " +
-						$"{initialUrl.Substring(0, Math.Min(initialUrl.Length, 25))}" +
-						$"{(initialUrl.Length > 35 ? "..." + initialUrl[^10..] : "")}"); 
-				_urlQueue.Add(initialUrl);
+				if (delayedUrlsQueue.Count < 50000)
+				{
+					delayedUrlsQueue.Enqueue(initialUrl);
+					if (delayedUrlsQueue.Count == 1)
+					{
+						await ProcessDelayedUrlsQueueAsync();
+					}
+				} 
 			}
-			ClearVisitedUrls();
+		}
 
-			// Start the worker only if it's not already running
-			if (_semaphore.CurrentCount > 0)
+		private async Task ProcessDelayedUrlsQueueAsync()
+		{
+			if (isProcessing)
+				return;
+
+			isProcessing = true;
+
+			while (delayedUrlsQueue.Count > 0)
 			{
-				_ = StartScrapingAsyncWorker(); // Fire-and-forget, runs in background
+				string urlToProcess = delayedUrlsQueue.Dequeue();
+				await Task.Delay(5000);
+
+				string? existingUrl = await GetFreshCrawledDomains(urlToProcess);
+				if (string.IsNullOrEmpty(existingUrl))
+				{
+					Console.WriteLine($"(Ctrl:{_urlsToScrapeQueue.Count})Enqueued: " +
+							$"{urlToProcess.Substring(0, Math.Min(urlToProcess.Length, 25))}" +
+							$"{(urlToProcess.Length > 35 ? "..." + urlToProcess[^10..] : "")}");
+					_urlsToScrapeQueue.Add(urlToProcess);
+					if (_semaphore.CurrentCount > 0)
+					{
+						_ = StartScrapingAsyncWorker(); 
+					}
+				}
+				else
+				{
+					Console.WriteLine($"(Ctrl:{_urlsToScrapeQueue.Count})Skipping: " +
+							$"{urlToProcess.Substring(0, Math.Min(urlToProcess.Length, 25))}" +
+							$"{(urlToProcess.Length > 35 ? "..." + urlToProcess[^10..] : "")}");
+				}
 			}
+			isProcessing = false;
+			ClearVisitedUrls();   
 		}
 
 		public async Task StartScrapingAsyncWorker()
 		{
-			while (_urlQueue.Count() > 0)
+			while (_urlsToScrapeQueue.Count() > 0)
 			{
-				string url = GetRandomUrlFromList(_urlQueue);
+				string url = GetRandomUrlFromList(_urlsToScrapeQueue);
 				await _semaphore.WaitAsync();
 				try
 				{
-					Console.WriteLine($"(Ctrl:{_urlQueue.Count()})Scraping: {url}");
+					Console.WriteLine($"(Ctrl:{_urlsToScrapeQueue.Count()})Scraping: {url}");
 					await CrawlSitemap(url);
 					var childMetadata = await ScrapeUrlData(url);
 					if (childMetadata != null && childMetadata.Count > 0)
@@ -575,6 +640,30 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return urls;
+		}
+
+		private async Task<string?> GetFreshCrawledDomains(string url)
+		{
+			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			using (var connection = new MySqlConnection(connectionString))
+			{
+				await connection.OpenAsync();
+				var urlHash = GetUrlHash(url);
+				string query = @"
+            SELECT url 
+            FROM search_results 
+            WHERE url_hash = @UrlHash 
+            AND last_crawled >= UTC_TIMESTAMP() - INTERVAL 5 DAY 
+            LIMIT 1;";
+
+				using (var command = new MySqlCommand(query, connection))
+				{
+					command.Parameters.AddWithValue("@UrlHash", urlHash);
+
+					var result = await command.ExecuteScalarAsync();
+					return result?.ToString();
+				}
+			}
 		}
 
 		private void AddMediaUrls(XmlNode node, string tagName, List<string> urls)
@@ -755,8 +844,7 @@ namespace maxhanna.Server.Controllers
 		{
 			if (_visitedUrls.Count > 10000)
 			{ 
-				_visitedUrls.Clear();
-				_logger.LogInformation("Visited URLs have been cleared.");
+				_visitedUrls = new HashSet<string>(_visitedUrls.Take(5000).ToList());
 			}
 		}
 	}

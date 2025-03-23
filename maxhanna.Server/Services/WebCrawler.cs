@@ -4,6 +4,7 @@ using MySqlConnector;
 using Newtonsoft.Json;
 using System;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -15,7 +16,6 @@ public class WebCrawler
 	private readonly HttpClient _httpClient = new HttpClient();
 	private readonly IConfiguration _config;
 	private const string Chars = "abcdefghijklmnopqrstuvwxyz123456789";
-	public static readonly HashSet<string> _visitedUrls = new HashSet<string>();
 	private static readonly List<string> DomainSuffixes = new List<string>
 	{
 			"com", "io", "net", "ca", "qc.ca", "org", "gov", "edu", "co", "biz", "info", "us", "tv", "me", "co.uk",
@@ -30,8 +30,10 @@ public class WebCrawler
 	private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(10); 
 	private DateTime _lastRequestTime = DateTime.MinValue;
 	private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1); 
-	private readonly List<string> urlsToScrapeQueue = new List<string>();
-
+	private List<string> urlsToScrapeQueue = new List<string>();
+	private HashSet<string> _visitedUrls = new HashSet<string>();
+	private Queue<string> delayedUrlsQueue = new Queue<string>();
+	private static bool isProcessing = false;
 
 	public WebCrawler(IConfiguration config)
 	{
@@ -192,7 +194,7 @@ public class WebCrawler
 			string query;
 			if (randomize)
 			{
-				query = "SELECT url FROM search_results WHERE last_crawled < UTC_TIMESTAMP() - INTERVAL 1 DAY ORDER BY RAND() LIMIT 1;";
+				query = "SELECT url FROM search_results WHERE last_crawled < UTC_TIMESTAMP() - INTERVAL 2 DAY ORDER BY RAND() LIMIT 1;";
 			}
 			else
 			{
@@ -211,8 +213,29 @@ public class WebCrawler
 			}
 		}
 	}
+	private async Task<string?> GetFreshCrawledDomains(string url)
+	{
+		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+		using (var connection = new MySqlConnection(connectionString))
+		{
+			await connection.OpenAsync();
+			var urlHash = GetUrlHash(url);
+			string query = @"
+            SELECT url 
+            FROM search_results 
+            WHERE url_hash = @UrlHash 
+            AND last_crawled >= UTC_TIMESTAMP() - INTERVAL 5 DAY 
+            LIMIT 1;";
 
+			using (var command = new MySqlCommand(query, connection))
+			{
+				command.Parameters.AddWithValue("@UrlHash", urlHash);
 
+				var result = await command.ExecuteScalarAsync();
+				return result?.ToString();
+			}
+		}
+	}
 	private async Task SaveSearchResult(string domain, Metadata metadata)
 	{ 
 		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
@@ -506,16 +529,48 @@ public class WebCrawler
 	}
 	public async Task StartScrapingAsync(string initialUrl)
 	{
-		if (_visitedUrls.Add(initialUrl) && !urlsToScrapeQueue.Contains(initialUrl) && urlsToScrapeQueue.Count < 10000)   
+		if (_visitedUrls.Add(initialUrl) && !urlsToScrapeQueue.Contains(initialUrl) && urlsToScrapeQueue.Count < 10000)
 		{
-			Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count}) Enqueued for later: " +
-				$"{initialUrl.Substring(0, Math.Min(initialUrl.Length, 25))}" +
-				$"{(initialUrl.Length > 35 ? "..." + initialUrl[^10..] : "")}");
-			urlsToScrapeQueue.Add(initialUrl);
+			if (delayedUrlsQueue.Count < 50000)
+			{
+				delayedUrlsQueue.Enqueue(initialUrl);
+				if (delayedUrlsQueue.Count == 1)
+				{
+					await ProcessDelayedUrlsQueueAsync();
+				}
+			}
+		} 
+	}
+
+	private async Task ProcessDelayedUrlsQueueAsync()
+	{
+		if (isProcessing)
+			return;
+		isProcessing = true;
+
+		while (delayedUrlsQueue.Count > 0)
+		{
+			string urlToProcess = delayedUrlsQueue.Dequeue(); 
+			await Task.Delay(5000);
+
+			string? existingUrl = await GetFreshCrawledDomains(urlToProcess);
+			if (string.IsNullOrEmpty(existingUrl))
+			{
+				Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count})Enqueued: " +
+						$"{urlToProcess.Substring(0, Math.Min(urlToProcess.Length, 25))}" +
+						$"{(urlToProcess.Length > 35 ? "..." + urlToProcess[^10..] : "")}");
+				urlsToScrapeQueue.Add(urlToProcess);
+				_ = ScrapeUrlsSequentially();
+			}
+			else
+			{
+				Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count})Skipping: " +
+						$"{urlToProcess.Substring(0, Math.Min(urlToProcess.Length, 25))}" +
+						$"{(urlToProcess.Length > 35 ? "..." + urlToProcess[^10..] : "")}");
+			}
 		}
-		ClearVisitedUrls();
-		_ = ScrapeUrlsSequentially();
-		 
+		isProcessing = false;
+		ClearVisitedUrls();  // Clear visited URLs after all delayed URLs are processed
 	}
 	private async Task<string> GetSitemapXml(string sitemapUrl)
 	{
@@ -558,7 +613,7 @@ public class WebCrawler
 
 					_lastRequestTime = DateTime.Now;
 
-					Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count()})Scraping : " + url);
+					Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count()})Scraping: " + url);
 					Metadata? metaData = await ScrapeUrlData(url);
 					if (metaData != null)
 					{
@@ -639,11 +694,19 @@ public class WebCrawler
 
 		return null;
 	}
+	private string GetUrlHash(string url)
+	{
+		using (var sha256 = SHA256.Create())
+		{
+			byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(url));
+			return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+		}
+	}
 	public void ClearVisitedUrls()
 	{
 		if (_visitedUrls.Count >= 10000)
-		{
-			_visitedUrls.Clear();
-		} 
+		{ 
+			_visitedUrls = new HashSet<string>(_visitedUrls.Take(5000).ToList()); 
+		}
 	}
 }

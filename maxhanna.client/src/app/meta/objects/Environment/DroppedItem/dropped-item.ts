@@ -3,12 +3,13 @@ import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
 import { Scenario } from "../../../helpers/story-flags";
 import { FLOOR, GameObject } from "../../game-object";
+import { snapToGrid } from "../../../helpers/grid-cells";
 
 export class DroppedItem extends GameObject {  
   item?: any;
   constructor(params: { position: Vector2, item?: any }) {
     super({
-      position: params.position,
+      position: new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y)),
       name: "Apple",
       forceDrawName: true,
       preventDrawName: false,
@@ -18,7 +19,7 @@ export class DroppedItem extends GameObject {
     const body = new Sprite({
       objectId: Math.floor(Math.random() * (9999)) * -1,
       resource: resources.images["apple"],
-      name: this.item.partName ?? "Apple", 
+      name: this.item?.partName ?? "Apple", 
       frameSize: new Vector2(5, 7),
       offsetX: 6,
       offsetY: 8,

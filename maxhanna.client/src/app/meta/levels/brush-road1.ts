@@ -346,8 +346,7 @@ export class BrushRoad1 extends Level {
     ];
     let ecId = -997712;
     for (let x = 0; x < tmpEncounterPositions.length; x++) {
-      const currentId = ecId-x;
-      console.log("intialzieing id = " + currentId);
+      const currentId = ecId-x; 
       const encounter = new RandomEncounter({
         id: currentId,
         position: tmpEncounterPositions[x],

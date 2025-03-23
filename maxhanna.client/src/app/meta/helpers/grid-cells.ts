@@ -11,7 +11,7 @@ export const RIGHT = "RIGHT";
 export const isSpaceFree = (walls: any, x: number, y: number) => {
   return !walls.has(`${x},${y}`);
 }
-export const snapToGrid = (value: number, gridSize: number): number => { 
+export const snapToGrid = (value: number, gridSize: number = gridCells(1)): number => { 
   if (gridSize <= 0) { 
     return 0;
   }

@@ -32,7 +32,7 @@
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"></app-user-tag>
               </div>
             </div>
-            <div class="messageContent">
+            <div class="messageContent" [attr.data-timestamp]="message.timestamp">
               <div [innerHTML]="getTextForDOM(message.content)"></div>
               <div class="reactionDiv">
                 <app-reaction [messageId]="message.id"
@@ -59,7 +59,7 @@
           <!-- RECEIVER MESSAGE -->
           <ng-container *ngIf="message.sender.id !== (parentRef?.user?.id ?? 0)">
             <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}<span class="receiverSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
-            <div class="messageContent ">
+            <div class="messageContent" [attr.data-timestamp]="message.timestamp">
               <div [innerHTML]="getTextForDOM(message.content)"></div>
               <div class="otherPersonsReactionDiv">
                 <app-reaction [messageId]="message.id"

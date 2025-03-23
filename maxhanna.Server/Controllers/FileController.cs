@@ -128,9 +128,8 @@ namespace maxhanna.Server.Controllers
 					bool nsfwEnabled = await GetNsfwForUser(user);
 					string nsfwEnabledJoins = nsfwEnabled ? @"
 						LEFT JOIN
-								maxhanna.file_topics ft ON ft.file_id = f.id
-						LEFT JOIN
-								maxhanna.topics t ON ft.topic_id = t.id AND t.topic = 'NSFW'" : "";
+								(SELECT file_id FROM maxhanna.file_topics WHERE topic_id IN (SELECT id FROM maxhanna.topics WHERE topic = 'NSFW')) ft
+						ON ft.file_id = f.id" : "";
 
 					var command = new MySqlCommand($@"
                         SELECT 

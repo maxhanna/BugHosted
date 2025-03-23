@@ -1,6 +1,5 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
-import { SkillType } from "../helpers/skill-types";
 import { resources } from "../helpers/resources";
 import { events } from "../helpers/events"; 
 import { Exit } from "../objects/Environment/Exit/exit";
@@ -9,13 +8,12 @@ import { BrushShop1 } from "./brush-shop1";
 import { RivalHomeLevel1 } from "./rival-home-level1";
 import { Sprite } from "../objects/sprite"; 
 import { HeroHome } from "./hero-home";
-import { GOT_FIRST_METABOT, START_FIGHT, Scenario, storyFlags } from "../helpers/story-flags";
+import { GOT_FIRST_METABOT, Scenario, storyFlags } from "../helpers/story-flags";
 import { Referee } from "../objects/Npc/Referee/referee";
 import { Gangster } from "../objects/Npc/Gangster/gangster";
 import { Animations } from "../helpers/animations";
 import { STAND_DOWN } from "../objects/Hero/hero-animations";
 import { FrameIndexPattern } from "../helpers/frame-index-pattern";
-import { MetaBot } from "../../../services/datacontracts/meta/meta-bot";
 import { Chicken } from "../objects/Environment/Chicken/chicken";
 import { House } from "../objects/Environment/House/house";
 import { Shop } from "../objects/Environment/Shop/shop";
@@ -24,7 +22,7 @@ import { Water } from "../objects/Environment/Water/water";
 import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
 import { Sign } from "../objects/Environment/Sign/sign";
 import { BrushRoad1 } from "./brush-road1";
-import { GROUND, FLOOR, HUD } from "../objects/game-object";
+import { GROUND, FLOOR } from "../objects/game-object";
 import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
  
 
@@ -312,7 +310,7 @@ export class BrushLevel1 extends Level {
       ]; 
       this.addChild(gangster3);
     }
-    const referee = new Referee({ position: new Vector2(gridCells(5), gridCells(8)), moveUpDown: 5 });
+    const referee = new Referee({ position: new Vector2(gridCells(5), gridCells(10)), moveUpDown: 5 });
     referee.textContent = [
       {
         string: ["I cant wait to see more meta-battles!"], 
