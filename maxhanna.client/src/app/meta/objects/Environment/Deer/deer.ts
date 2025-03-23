@@ -14,7 +14,7 @@ export class Deer extends Npc {
 
   constructor(x: number, y: number) {
     super({
-      id: 0,
+      id: Math.floor(Math.random() * (9999 + 1000)),
       position: new Vector2(x, y),
     })
     this.textPortraitFrame = undefined;

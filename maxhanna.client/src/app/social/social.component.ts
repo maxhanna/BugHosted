@@ -149,9 +149,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
           (e as HTMLElement).style.maxHeight = 'none';
         });
       }
-    }
- 
-
+    } 
     const user = this.parent?.user ?? this.parentRef?.user;
     if (user) {
       this.userService.getUserSettings(user).then(res => {

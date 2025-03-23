@@ -1,15 +1,10 @@
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { gridCells } from "../helpers/grid-cells";
-import { resources } from "../helpers/resources";
 import { events } from "../helpers/events";
 import { storyFlags, Scenario, CHARACTER_CREATE_STORY_TEXT_1, CHARACTER_CREATE_STORY_TEXT_2, CHARACTER_CREATE_STORY_TEXT_3, CHARACTER_CREATE_STORY_TEXT_4, CHARACTER_CREATE_STORY_TEXT_5, CHARACTER_CREATE_STORY_TEXT_6, CHARACTER_CREATE_STORY_TEXT_7, CHARACTER_CREATE_STORY_TEXT_8 } from "../helpers/story-flags";
-import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level"; 
-import { Sprite } from "../objects/sprite";
-import { Npc } from "../objects/Npc/npc";
 import { HeroRoomLevel } from "./hero-room";
 import { SpriteTextStringWithBackdrop } from "../objects/SpriteTextString/sprite-text-string-with-backdrop";
-import { input } from "@angular/core";
 import { Referee } from "../objects/Npc/Referee/referee";
 import { SpriteTextString } from "../objects/SpriteTextString/sprite-text-string";
 
@@ -17,7 +12,7 @@ export class CharacterCreate extends Level {
   textBox = new SpriteTextStringWithBackdrop({});
   inputKeyPressedDate = new Date();
   characterName = "";
-  referee = new Referee(gridCells(5), gridCells(5));
+  referee = new Referee({ position: new Vector2(gridCells(5), gridCells(5)) });
   profanity = ["4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass", "ass-fucker", "asses",
     "assfucker", "assfukka", "asshole", "assholes", "asswhole", "a_s_s", "b!tch", "b00bs", "b17ch", "b1tch", "ballbag", "balls",
     "ballsack", "bastard", "beastial", "beastiality", "bellend", "bestial", "bestiality", "bi+ch", "biatch", "bitch", "bitcher",

@@ -139,11 +139,8 @@ namespace maxhanna.Server.Controllers
 									foreach (var cMeta in mainMetadata)
 									{
 										cMeta.Url = new Uri(new Uri(urlVariant), cMeta.Url).ToString().TrimEnd('/');
-										results.Add(cMeta);
-										if (cMeta.HttpStatus == null)
-										{
-											InsertScrapedData(cMeta.Url, cMeta);
-										}
+										results.Add(cMeta); 
+										InsertScrapedData(cMeta.Url, cMeta); 
 									}
 								}
 							}

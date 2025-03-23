@@ -13,6 +13,7 @@ export class Stand extends GameObject {
     })
 
     this.body = new Sprite({
+      objectId: -100234,
       resource: resources.images["stand"],
       position: new Vector2(2, -60),
       frameSize: new Vector2(169, 88),

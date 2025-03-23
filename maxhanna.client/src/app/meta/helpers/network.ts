@@ -439,13 +439,9 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("GOT_REWARDS", object, (rewards: MetaBotPart[]) => {
-    if (!rewards || rewards.length == 0) return;
-    const targetBot = object.metaHero?.metabots?.find((x: MetaBot) => x.id == rewards[0].metabotId);
-    if (targetBot) { 
-      object.metaService.updateBotParts(object.metaHero, rewards);
-      object.mainScene.inventory.parts = object.mainScene.inventory.parts.concat(rewards);
-      object.parentRef?.showNotification("Found new " + rewards[0].partName);
-    } 
+    if (!rewards || rewards.length == 0) return; 
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "item": JSON.stringify(rewards[0]) })
+    object.metaService.updateEvents(metaEvent);    
   });
 
   events.on("PARTY_UP", object, (person: Hero) => {
@@ -572,6 +568,15 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           if (player || event.heroId === object.metaHero.id) {
             events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
             object.metaService.deleteEvent(event.id);
+          }
+        }
+        if (event.eventType === "ITEM_DROPPED") {
+          if (event.data) {  
+            const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
+            object.addItemToScene(tmpMetabotPart);
+
+            console.log(tmpMetabotPart);
+            events.emit("ALERT", "item dropped"); 
           }
         }
         if (event.eventType === "CHAT" && event.data) {

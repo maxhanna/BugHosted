@@ -130,13 +130,7 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
 		else {
 			player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
     } 
-  }
-  if (!bodyAtSpace(player.parent, position) && isUserControlled) {
-    const lastPos = player.position.duplicate();
-    player.destinationPosition.x = snapToGrid(lastPos.x, gridSize);
-    player.destinationPosition.y = snapToGrid(lastPos.y, gridSize); 
-		return;
-	}
+  } 
 	if (isSpaceFree(root.level?.walls, position.x, position.y) && !bodyAtSpace(player.parent, position, true)) {
 		player.destinationPosition = position;
 		if (player.slopeType) {

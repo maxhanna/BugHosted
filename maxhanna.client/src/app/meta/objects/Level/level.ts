@@ -10,7 +10,8 @@ export class Level extends GameObject {
   walls: Set<string> = new Set(); 
 
   constructor() {
-    super({ position: new Vector2(0, 0) }); 
+    super({ position: new Vector2(0, 0) });
+    this.isOmittable = false;
   }
 
   getDefaultHeroPosition() {

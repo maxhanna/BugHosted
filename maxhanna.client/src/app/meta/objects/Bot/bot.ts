@@ -59,18 +59,24 @@ export class Bot extends Character {
     isDeployed?: boolean,
     isEnemy?: boolean,
     preventDraw?: boolean,
+    forceDrawName?: boolean,
+    preventDrawName?: boolean,
     isSolid?: boolean,
   }) {
     super({
       id: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       position: params.position,
       colorSwap: params.colorSwap,
+      preventDraw: params.preventDraw,
+      forceDrawName: params.forceDrawName,
+      preventDrawName: params.preventDrawName,
       speed: 1,
       name: "Bot",
       exp: params.exp ?? 0,
       expForNextLevel: params.expForNextLevel ?? 0,
-      level: params.level ?? 1, 
-      body: new Sprite({
+      level: params.level ?? 1,
+      body: params.preventDraw ? undefined : new Sprite({
+        objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images[
           params.name == "Jaguar" ? "botFrame"
           : params.name == "Ram" ? "botFrame5"
@@ -81,6 +87,7 @@ export class Bot extends Character {
         name: "Bot",
         position: new Vector2(-7, 0),
         offsetX: (params.offsetX ?? 0), 
+        offsetY: (params.offsetY ?? 0), 
         colorSwap: params.colorSwap,
         hFrames: params.spriteName == "botFrame" ? 4 : 1,
         vFrames: params.spriteName == "botFrame" ? 4 : 1,
@@ -110,18 +117,20 @@ export class Bot extends Character {
     this.name = params.name ?? "Anon";
     this.isDeployed = params.isDeployed;
     this.isEnemy = params.isEnemy ?? false;
-    this.isSolid = params.isSolid ?? false;
-    this.preventDraw = params.preventDraw ?? false;
+    this.isSolid = params.isSolid ?? false; 
     const bodyScale = params.scale ?? new Vector2(1, 1);
     const shadowScale = new Vector2(bodyScale.x, bodyScale.y);
 
-    const shadow = new Sprite({
+    const shadow = params.preventDraw ? undefined : new Sprite({
+      objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       resource: resources.images["shadow"],
       position: new Vector2(-7 + (params.offsetX ?? 0), -20 + (params.offsetY ?? 0)),
       scale: shadowScale,
       frameSize: new Vector2(32, 32),
     });
-    this.addChild(shadow); 
+    if (shadow) {  
+      this.addChild(shadow); 
+    }
     this.setupEvents(); 
   }
 

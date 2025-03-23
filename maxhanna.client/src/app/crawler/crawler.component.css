@@ -5,11 +5,7 @@
 .crawler-container {
   min-width: 300px;
   margin: 10px 10px; 
-}
- 
-button { 
-  margin-left: 10px;
-}
+} 
 
 .loadingNotificationDiv {
   margin: 20px;
@@ -20,7 +16,7 @@ button {
   font-weight: bold;
 }
 
-img {
+.crawler-container img {
   max-width: 50px;
   max-height: 50px;
 }
@@ -30,6 +26,9 @@ img {
   justify-content: center;
   align-content: center;
   align-items: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 10px;
 }
 
 .nbDiv {

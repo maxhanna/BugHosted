@@ -51,25 +51,7 @@ export class RainbowAlleys1 extends Level {
       }
     );
     whiteBg.drawLayer = BASE;
-    this.addChild(whiteBg);
-
-    for (let x = 1; x < 57; x++) {
-      for (let y = -13; y < 45; y++) {
-        const whiteBg = new Sprite(
-          {
-            objectId: 0,
-            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
-            position: new Vector2(gridCells(x), gridCells(y)),
-            frame: 1,
-            frameSize: new Vector2(2, 2),
-            preventDraw: !this.showDebugSprites,
-            drawLayer: !this.showDebugSprites ? undefined : HUD
-          }
-        );
-        this.addChild(whiteBg);
-      }
-    }
-
+    this.addChild(whiteBg); 
 
     for (let x = -4; x < 40; x++) {
       for (let y = -10; y < 26; y++) {
@@ -137,6 +119,15 @@ export class RainbowAlleys1 extends Level {
       salesMan.body.offsetY -= 10;
     }
     this.addChild(salesMan);
+    const invisibleSalesman = new Salesman({
+      position: new Vector2(gridCells(9), gridCells(10) - 0.005),
+      heroPosition: new Vector2(gridCells(8), gridCells(12)),
+      entranceLevel: tmpLvl,
+      items: maskSelection,
+      preventDraw: !this.showDebugSprites
+    });
+    this.addChild(invisibleSalesman);
+
     const stand = new Stand(gridCells(5), gridCells(10));
     this.addChild(stand);
     const standbg = new Sprite({ position: new Vector2(gridCells(6), gridCells(9)), resource: resources.images["bedroomFloor"], frameSize: new Vector2(142, 32) });
@@ -254,8 +245,8 @@ export class RainbowAlleys1 extends Level {
      
     const sign1 = new Sign({ position: new Vector2(gridCells(21), gridCells(-5)), text: ["Underground", "Metro Station"] });
     const sign2 = new Sign({ position: new Vector2(gridCells(28), gridCells(-5)), text: ["Underground", "Metro Station"] });
-    const sign3 = new Sign({ position: new Vector2(gridCells(21), gridCells(42)), text: ["Next: Brush Road.", "Current: Rainbow Alleys." ]});
-    const sign4 = new Sign({ position: new Vector2(gridCells(28), gridCells(42)), flipX: true });
+    const sign3 = new Sign({ position: new Vector2(gridCells(21), gridCells(42)), text: ["Next: Brush Road2.", "Current: Rainbow Alleys." ]});
+    const sign4 = new Sign({ position: new Vector2(gridCells(28), gridCells(42)), text: ["Next: Brush Road2.", "Current: Rainbow Alleys."], flipX: true });
     this.addChild(sign1);
     this.addChild(sign2);
     this.addChild(sign3);

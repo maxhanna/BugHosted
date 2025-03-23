@@ -370,7 +370,7 @@ namespace maxhanna.Server.Services
 					// Check if an entry was added in the last 6 hours
 					var checkSql = @"
                 SELECT COUNT(*) FROM exchange_rates 
-                WHERE timestamp >= NOW() - INTERVAL 6 HOUR";
+                WHERE timestamp >= UTC_TIMESTAMP() - INTERVAL 6 HOUR";
 
 					using (var checkCmd = new MySqlCommand(checkSql, connection))
 					{
@@ -385,7 +385,7 @@ namespace maxhanna.Server.Services
 					// Delete old entries (older than 10 years)
 					var deleteSql = @"
                 DELETE FROM exchange_rates 
-                WHERE timestamp < NOW() - INTERVAL 10 YEAR";
+                WHERE timestamp < UTC_TIMESTAMP() - INTERVAL 10 YEAR";
 
 					using (var deleteCmd = new MySqlCommand(deleteSql, connection))
 					{
@@ -397,7 +397,7 @@ namespace maxhanna.Server.Services
 					{
 						var insertSql = @"
                     INSERT INTO exchange_rates (base_currency, target_currency, rate, timestamp) 
-                    VALUES (@base, @target, @rate, NOW())";
+                    VALUES (@base, @target, @rate, UTC_TIMESTAMP())";
 
 						using (var insertCmd = new MySqlCommand(insertSql, connection))
 						{
@@ -431,7 +431,7 @@ namespace maxhanna.Server.Services
 					var deleteSql = @"
                         DELETE FROM maxhanna.users 
                         WHERE username LIKE 'Guest%'
-                        AND (last_seen < (NOW() - INTERVAL 10 DAY));";
+                        AND (last_seen < (UTC_TIMESTAMP() - INTERVAL 10 DAY));";
 
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
@@ -464,7 +464,7 @@ namespace maxhanna.Server.Services
 												AND (keywords IS NULL OR keywords = '') 
 												AND (image_url IS NULL OR image_url = '') 
 												AND response_code IS NULL
-												AND last_crawled < NOW() - INTERVAL 1 DAY;
+												AND last_crawled < UTC_TIMESTAMP() - INTERVAL 1 DAY;
  
 												DELETE s FROM search_results s
 												JOIN (
@@ -494,7 +494,7 @@ namespace maxhanna.Server.Services
 														WHERE RankedResults.RowNum > 1
 												) duplicates 
 												ON s.id = duplicates.id
-												WHERE s.last_crawled < NOW() - INTERVAL 1 DAY;";
+												WHERE s.last_crawled < UTC_TIMESTAMP() - INTERVAL 1 DAY;";
 
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
@@ -623,7 +623,7 @@ namespace maxhanna.Server.Services
 				{
 					await conn.OpenAsync();
 
-					var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 1 HOUR)";
+					var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)";
 					using (var checkCmd = new MySqlCommand(checkSql, conn))
 					{
 						var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
@@ -635,7 +635,7 @@ namespace maxhanna.Server.Services
 					}
 
 					// Delete entries older than 10 years
-					var deleteSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(NOW(), INTERVAL 10 YEAR)";
+					var deleteSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)";
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						await deleteCmd.ExecuteNonQueryAsync();
@@ -644,7 +644,7 @@ namespace maxhanna.Server.Services
 					// Insert new coin data
 					foreach (var coin in coinData)
 					{
-						var sql = "INSERT INTO coin_value (symbol, name, value_cad, timestamp) VALUES (@Symbol, @Name, @ValueCAD, NOW())";
+						var sql = "INSERT INTO coin_value (symbol, name, value_cad, timestamp) VALUES (@Symbol, @Name, @ValueCAD, UTC_TIMESTAMP())";
 						using (var cmd = new MySqlCommand(sql, conn))
 						{
 							cmd.Parameters.AddWithValue("@Symbol", coin.symbol);

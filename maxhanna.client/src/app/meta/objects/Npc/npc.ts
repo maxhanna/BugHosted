@@ -41,6 +41,7 @@ export class Npc extends Character {
       position: config.position,
       body: config.body,
       isUserControlled: false,
+      preventDraw: config.preventDraw,
     });
     this.type = config.type;
     this.id = config.id;

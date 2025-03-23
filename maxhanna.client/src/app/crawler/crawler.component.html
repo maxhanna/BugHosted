@@ -6,20 +6,20 @@
     <div *ngIf="!searchMetadata.length">Total indexes: {{indexCount}}</div>
     <div *ngIf="searchMetadata?.length">Search results: {{searchMetadata.length}}</div>
   </div>
-  <div class="crawler-container">
+  <div class="crawler-container" [style.opacity]="isLoading ? 0.5 : 1">
     <div>
-      <div class="crawlerInputs" *ngIf="totalPages > 1">
+      <div class="crawlerInputs" *ngIf="totalPages > 1" style="margin-bottom:10px">
         <button (click)="onPageChange(currentPage - 1)" [disabled]="currentPage <= 1">Previous</button>
         <span>Page {{ currentPage }} of {{ totalPages }}</span>
         <button (click)="onPageChange(currentPage + 1)" [disabled]="currentPage >= totalPages">Next</button>
       </div>
       <div class="crawlerInputs"> 
         <input #urlInput type="text" placeholder="Enter URL" (keydown.enter)="searchUrl()" />
-        <button (click)="searchUrl()" [disabled]="loading">🔍Crawl</button>
+        <button (click)="searchUrl()" [disabled]="isLoading">🔍Crawl</button>
       </div>
     </div>
 
-    <div *ngIf="loading" class="loadingNotificationDiv">Loading...</div>
+    <div *ngIf="isLoading" class="loadingNotificationDiv">Loading...</div>
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
     <div class="metadataSearchWrapper">
@@ -50,12 +50,12 @@
         </div>
       </div>
     </div>
-    <div *ngIf="searchMetadata?.length == 0 && !error && !loading" class="smallFont nbDiv">
+    <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
       <div>Note: You can index your website by searching for it.</div>
       <div>(make sure to include http or https in the request)</div>
       <div>Note: You can see the latest indexes by searching with: *</div>
     </div>
-    <div>
+    <div style="text-align:center">
       <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Load More Results</button>
     </div>
   </div>
@@ -65,14 +65,14 @@
 <div class="popupPanel" *ngIf="isMenuOpen">
   <div class="popupPanelTitle">
     <span>Menu</span>
-    <div>
-      <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
-    </div>
   </div>
-  <div>
+  <div style="display: flex; gap: 15px; margin: 20px;">
     <label for="pageSize">Results per page:</label>
     <select id="pageSize" [value]="pageSize" (change)="onPageSizeChange()" #pageSizeDropdown>
       <option *ngFor="let size of pageSizes" [value]="size" [selected]="size === pageSize">{{ size }}</option>
     </select>
+  </div>
+  <div>
+    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
 </div>

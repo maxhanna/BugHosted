@@ -5,18 +5,19 @@ import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Level } from "../objects/Level/level";
 import { Watch } from "../objects/InventoryItem/Watch/watch";
+import { Painting } from "../objects/Environment/Painting/painting";
+import { Blinds } from "../objects/Environment/Blinds/blinds";
 import { Sprite } from "../objects/sprite";
 import { BrushLevel1 } from "./brush-level1";
 import { HeroRoomLevel } from "./hero-room";
-import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
-import { Npc } from "../objects/Npc/npc";
+import { Scenario } from "../helpers/story-flags";
 import { Mom } from "../objects/Npc/Mom/mom";
-import { BASE, FLOOR, HUD } from "../objects/game-object";
+import { BASE, FLOOR } from "../objects/game-object";
 
 
 export class HeroHome extends Level { 
   override defaultHeroPosition = new Vector2(gridCells(19), gridCells(2));
-  showDebugSprites = false;
+  showDebugSprites = false; 
 
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
     super();
@@ -27,23 +28,7 @@ export class HeroHome extends Level {
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
     }
-
-    for (let x = 1; x < 20; x++) {
-      for (let y = 1; y < 15; y++) {
-        const whiteBg = new Sprite(
-          {
-            objectId: 0,
-            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
-            position: new Vector2(gridCells(x), gridCells(y)),
-            frame: 1,
-            frameSize: new Vector2(2, 2),
-            preventDraw: !this.showDebugSprites,
-            drawLayer: !this.showDebugSprites ? undefined : HUD
-          }
-        );
-        this.addChild(whiteBg);
-      }
-    }
+ 
 
     const room = new Sprite(
       { resource: resources.images["heroHome"], frameSize: new Vector2(320, 220) }
@@ -83,40 +68,25 @@ export class HeroHome extends Level {
       this.addChild(watch);
     }
 
-    const blinds = new Sprite({
-      resource: resources.images["blinds"],
+    const blinds = new Blinds({ 
       position: new Vector2(gridCells(5), 0.01),
       scale: new Vector2(0.75, 0.75),
-      frameSize: new Vector2(30, 26)
+      textContent: ["Ahh, what a beautiful morning!"],
     });
-    this.addChild(blinds);
-
-    const painting = new Sprite({
-      resource: resources.images["painting"],
-      position: new Vector2(gridCells(9), 0.01),
-      scale: new Vector2(0.75, 0.75),
-      frameSize: new Vector2(30, 28)
-    }); 
-    painting.textContent = [
-      {
-        string: ["A picture of a beautiful hiking trail."],
-      } as Scenario,
-    ];
-    this.addChild(painting);
-
-
-    const blinds2 = new Sprite({
-      resource: resources.images["blinds"],
+    this.addChild(blinds); 
+    const blinds2 = new Blinds({
       position: new Vector2(gridCells(13), 0.01),
       scale: new Vector2(0.75, 0.75),
-      frameSize: new Vector2(30, 26)
-    }); 
-    blinds2.textContent = [
-      {
-        string: ["Ahh, what a beautiful morning!"],
-      } as Scenario,
-    ];
+      textContent: ["Ahh, what a beautiful morning!"]
+    });
     this.addChild(blinds2);
+
+    const painting = new Painting({
+      position: new Vector2(gridCells(9), 0.01),
+      scale: new Vector2(0.75, 0.75),
+      textContent: ["A picture of a beautiful hiking trail."]
+    });
+    this.addChild(painting);
 
     const chair = new Sprite({
       resource: resources.images["chair"],
@@ -186,16 +156,28 @@ export class HeroHome extends Level {
       this.addChild(exitOutside);
     }
 
-    this.walls = new Set();
+    for (let y = 0; y < gridCells(6); y += gridCells(1)) {
+      this.walls.add(`${gridCells(0)},${y}`);
+    }
+    for (let y = 0; y < gridCells(3); y += gridCells(1)) {
+      this.walls.add(`${gridCells(1)},${gridCells(3) + y}`); // fridge
+    }
+
     //walls:
-    for (let y = -16; y <= 224; y += 16) {
-      for (let x = -16; x <= 320; x += 16) {
+    for (let y = 0; y <= gridCells(14); y += gridCells(1)) {
+      for (let x = -gridCells(1); x <= gridCells(20); x += gridCells(1)) {
         // Add walls only for the perimeter: top row, bottom row, left column, and right column
-        if (y === -16 || y === 224 || x === -16 || x === 320) {
+        if (y === 0 || y === gridCells(14) || x === -gridCells(1) || x === gridCells(20)) {
           this.walls.add(`${x},${y}`);
         }
       }
     }
+    //counter walls
+    for (let x = 0; x < gridCells(8); x += gridCells(1)) {
+      if (x == gridCells(5)) continue;
+      this.walls.add(`${x},${gridCells(1)}`);
+    } 
+
   }
 
   override ready() {

@@ -8,12 +8,12 @@ import { MetaData } from '../../services/datacontracts/social/story';
   styleUrl: './crawler.component.css'
 })
 export class CrawlerComponent extends ChildComponent implements OnInit, OnDestroy { 
-  searchMetadata: MetaData[] = [];
-  loading: boolean = false;
+  searchMetadata: MetaData[] = []; 
   error: string = '';
   indexCount = 0;
   indexUpdateTimer: any;
   isMenuOpen = false;
+  lastSearch = "";
 
   pageSize: number = 10;  // Default page size
   currentPage: number = 1;
@@ -50,9 +50,14 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   async searchUrl() {
     this.error = '';
     const url = this.urlInput.nativeElement.value;
+    if (url != this.lastSearch) {
+      this.currentPage = 1;
+    }
+
+    this.lastSearch = url; 
     const currentPage = this.currentPage;
     const pageSize = this.pageSize;
-    this.loading = true; 
+    this.isLoading = true; 
 
     if (url) {
       await this.crawlerService.searchUrl(url, currentPage, pageSize).then(res => { 
@@ -70,8 +75,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     } else {
       this.searchMetadata = [];
     }
-    this.loading = false;
-    document.getElementsByClassName("crawler-container")[0].scrollTop = 0;
+    this.isLoading = false;
+    document.getElementsByClassName("componentMain")[0].scrollTop = 0;
   }
 
   onPageSizeChange() {
@@ -85,7 +90,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   onPageChange(page?: number) {
     let tmpPage = page;
     if (!tmpPage) {
-      tmpPage = (this.currentPage + 1) ?? 1;
+      tmpPage = (this.currentPage + 1);
     }
     if (tmpPage >= 1 && tmpPage <= this.totalPages) {
       this.currentPage = tmpPage;

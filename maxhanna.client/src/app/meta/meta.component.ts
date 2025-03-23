@@ -26,6 +26,7 @@ import { RainbowAlleys1 } from './levels/rainbow-alleys1';
 import { UndergroundLevel1 } from './levels/underground-level1';
 import { MetaEvent } from '../../services/datacontracts/meta/meta-event';
 import { InventoryItem } from './objects/InventoryItem/inventory-item';
+import { DroppedItem } from './objects/Environment/DroppedItem/dropped-item';
 import { RivalHomeLevel1 } from './levels/rival-home-level1';
 import { BrushShop1 } from './levels/brush-shop1';
 import { ColorSwap } from '../../services/datacontracts/meta/color-swap';
@@ -34,7 +35,6 @@ import { MetaBotPart } from '../../services/datacontracts/meta/meta-bot-part';
 import { Mask, getMaskNameById } from './objects/Wardrobe/mask';
 import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
-import { GameObject } from './objects/game-object';
 
 @Component({
   selector: 'app-meta',
@@ -267,6 +267,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       speed: hero.speed,
       mask: hero.mask ? new Mask(getMaskNameById(hero.mask)) : undefined,
       metabots: hero.metabots,
+      forceDrawName: true,
     });
     tmpHero.lastPosition = tmpHero.position.duplicate();
     tmpHero.destinationPosition = tmpHero.lastPosition.duplicate();
@@ -319,6 +320,11 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     existingBots.forEach((x: any) => x.destroy());
     this.mainScene.level?.addChild(tmpBot);
     return tmpBot;
+  }
+
+  private addItemToScene(item: MetaBotPart) {
+    const itemSkin = new DroppedItem({ position: new Vector2(this.metaHero.position.x, this.metaHero.position.y), item: item });
+    this.mainScene.level?.addChild(itemSkin);
   }
 
   private setUpdatedHeroPosition(existingHero: any, hero: MetaHero) {

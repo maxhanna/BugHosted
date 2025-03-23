@@ -24,10 +24,12 @@ export class Bugcatcher extends Npc {
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["bugcatcher"],
-        position: new Vector2(-7, -20),
+        position: new Vector2(0, 0),
         frameSize: new Vector2(32, 32),
         hFrames: 4,
         vFrames: 4,
+        offsetY: -10,
+        offsetX: -8,
         animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
@@ -44,7 +46,7 @@ export class Bugcatcher extends Npc {
         
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2((this.body?.position.x ?? 0) - 9, -30),
+      position: new Vector2((this.body?.position.x ?? 0) - 16, -20),
       scale: new Vector2(1.2, 1.2),
       frameSize: new Vector2(32, 32),
     });

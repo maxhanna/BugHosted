@@ -5,13 +5,12 @@ import { events } from "../helpers/events";
 import { Exit } from "../objects/Environment/Exit/exit";
 import { Wardrobe } from "../objects/Environment/Wardrobe/wardrobe";
 import { Level } from "../objects/Level/level";
-import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite";
 import { HeroHome } from "./hero-home";
-import { Inventory } from "../objects/inventory";
 import { Tv } from "../objects/Environment/Tv/tv";
 import { Scenario } from "../helpers/story-flags";
-import { BASE, HUD } from "../objects/game-object";
+import { BASE } from "../objects/game-object";
+import { Painting } from "../objects/Environment/Painting/painting";
  
 
 export class HeroRoomLevel extends Level {
@@ -27,33 +26,21 @@ export class HeroRoomLevel extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-    for (let x = 1; x < 20; x++) {
-      for (let y = 0; y < 15; y++) {
-        const whiteBg = new Sprite(
-          {
-            objectId: 0,
-            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
-            position: new Vector2(gridCells(x), gridCells(y)),
-            frame: 1,
-            frameSize: new Vector2(2, 2),
-            preventDraw: !this.showDebugSprites,
-            drawLayer: !this.showDebugSprites ? undefined : HUD
-          }
-        );
-        this.addChild(whiteBg);
-      }
-    }
+ 
     const floor = new Sprite(
       { resource: resources.images["bedroomFloor"], frameSize: new Vector2(320, 220) }
     );
     floor.drawLayer = BASE;
     this.addChild(floor);
     
-    const painting = new Sprite(
-      { resource: resources.images["painting"], position: new Vector2(gridCells(15), 0.01), scale: new Vector2(0.75, 0.75), frameSize: new Vector2(30, 28) }
-    );
+   
+    const painting = new Painting({
+      position: new Vector2(gridCells(15), gridCells(2)),
+      scale: new Vector2(0.75, 0.75),
+      offsetY: -20,
+      textContent: ["A picture of a beautiful hiking trail."]
+    });
     this.addChild(painting);
-
 
     const xbox = new Sprite(
       { resource: resources.images["xbox"], position: new Vector2(gridCells(8), gridCells(3)), scale: new Vector2(0.8, 0.8), frameSize: new Vector2(32, 28) }

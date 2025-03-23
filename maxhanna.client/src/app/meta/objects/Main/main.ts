@@ -25,7 +25,8 @@ export class Main extends GameObject {
     this.metaHero = config.metaHero;
     this.hero = config.hero;
     this.inventory = new Inventory({ character: this.hero })
-    this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId }) 
+    this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId });
+    this.isOmittable = false;
   }
 
   override ready() { 
@@ -78,13 +79,13 @@ export class Main extends GameObject {
     this.addChild(this.level);
   }
 
-  drawBackground(ctx: CanvasRenderingContext2D) {
+  drawBackground(ctx: CanvasRenderingContext2D) { 
     this.level?.background?.drawImage(ctx, 0, 0);
   }
 
   drawObjects(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
-      if (child.drawLayer !== HUD) {
+      if (child.drawLayer !== HUD) { 
         child.draw(ctx, 0, 0, true);
       } 
     });
@@ -92,7 +93,7 @@ export class Main extends GameObject {
 
   drawForeground(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
-      if (child.drawLayer === HUD) {
+      if (child.drawLayer === HUD) { 
         child.draw(ctx, 0, 0, true, true);
       } 
     }) 

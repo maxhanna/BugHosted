@@ -14,7 +14,7 @@ import { BASE, FLOOR, HUD } from "../objects/game-object";
 
 export class UndergroundLevel1 extends Level {
   override defaultHeroPosition = new Vector2(gridCells(3), gridCells(1));
-  showDebugSprites = true;
+  showDebugSprites = false;
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined }) {
     super();
     this.name = "UndergroundLevel1";
@@ -23,26 +23,7 @@ export class UndergroundLevel1 extends Level {
     }
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
-    }
-
-   
-    for (let x = -4; x < 170; x++) {
-      for (let y = 0; y < 9; y++) {
-        const whiteBg = new Sprite(
-          {
-            objectId: 0,
-            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
-            position: new Vector2(gridCells(x), gridCells(y)), 
-            frame: 1,
-            frameSize: new Vector2(2, 2),
-            preventDraw: !this.showDebugSprites,
-            drawLayer: !this.showDebugSprites ? undefined : HUD
-          }
-        ); 
-        this.addChild(whiteBg); 
-      }
-    }
-    
+    }  
 
     for (let x = -4; x < 90; x++) {
       for (let y = -10; y < 10; y++) {

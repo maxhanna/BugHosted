@@ -242,3 +242,12 @@ input[type="text"] {
   cursor: pointer;
   margin-left: 5px;
 }
+.chatMenuPopupWrapperDiv {
+  height: unset !important; 
+}
+  .chatMenuPopupWrapperDiv .optionsStatsDiv {
+    margin-bottom: 15px;
+  }
+  .chatMenuPopupCloseDiv {
+    margin: 20px 20px 0px 20px;
+  }

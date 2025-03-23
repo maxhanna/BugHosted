@@ -22,14 +22,15 @@ export class Salesman extends Npc {
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
       position: params.position,
       type: params.skin ?? "salesPerson",
-      preventDraw: params.preventDraw,
-      body: new Sprite({
+      preventDraw: params.preventDraw, 
+      body: params.preventDraw ? undefined : new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images[params.skin ?? "salesPerson"],
         position: new Vector2(0, 0),
         frameSize: new Vector2(32, 32),
         hFrames: 4,
         vFrames: 4,
+        preventDraw: params.preventDraw,
         animations: new Animations(
           { 
             walkLeft: new FrameIndexPattern(WALK_LEFT),
@@ -50,6 +51,7 @@ export class Salesman extends Npc {
     if (!this.preventDraw) { 
       const shadow = new Sprite({
         resource: resources.images["shadow"],
+        preventDraw: params.preventDraw,
         position: new Vector2(0, 0),
         offsetX: -10, 
         scale: new Vector2(1.25, 1),

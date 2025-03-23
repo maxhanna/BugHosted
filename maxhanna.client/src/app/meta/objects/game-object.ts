@@ -2,6 +2,8 @@ import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { Vector2 } from "../../../services/datacontracts/meta/vector2";
 import { events } from "../helpers/events";
 import { Scenario, storyFlags } from "../helpers/story-flags";
+import { Level } from "./Level/level";
+import { Character } from "./character";
 
 export const BASE = "BASE";
 export const GROUND = "GROUND";
@@ -21,9 +23,14 @@ export class GameObject {
   colorSwap?: ColorSwap = undefined;
   preventDraw: boolean = false;
   preventDrawName: boolean = false;
+  forceDrawName = false;
   name?: string;
+  isOmittable = true;
+  beforePreventDrawDistance = false;
 
   drawingForever = false;
+  distanceToHero = new Vector2(0,0);
+  heroLocation = new Vector2(0,0);
 
   constructor(params: {
     position: Vector2,
@@ -31,25 +38,48 @@ export class GameObject {
     drawLayer?: typeof BASE | typeof GROUND | typeof FLOOR | typeof HUD,
     preventDraw?: boolean,
     preventDrawName?: boolean,
+    forceDrawName?: boolean,
     isSolid?: boolean,
     textContent?: Scenario[],
     textPortraitFrame?: number,
+    isOmittable?: boolean,
     name?: string, 
   }) {
     this.position = params.position ?? new Vector2(0, 0);
     this.colorSwap = params.colorSwap;
     this.preventDraw = params.preventDraw ?? false;
     this.preventDrawName = params.preventDrawName ?? false;
+    this.forceDrawName = params.forceDrawName ?? false;
     this.drawLayer = params.drawLayer;
     this.isSolid = params.isSolid ?? false;
     this.textContent = params.textContent;
     this.textPortraitFrame = params.textPortraitFrame;
-    this.name = params.name;
-
+    this.name = params.name; 
+    this.beforePreventDrawDistance = this.preventDraw;
+    this.isOmittable = params.isOmittable ?? true;
     this.root = this;
     while (this.root && this.root.parent) {
       this.root = this.root.parent;
     }
+
+    events.on("CHARACTER_POSITION", this, (char: Character) => { 
+      if (char.isUserControlled) {
+        this.distanceToHero = new Vector2(Math.abs(this.position.x - char.destinationPosition.x), Math.abs(this.position.y - char.destinationPosition.y)); 
+        this.heroLocation = char.position;
+      }
+      if (char.isUserControlled && !this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
+        const thresh = 500;  
+        const added = this.distanceToHero.x + this.distanceToHero.y;
+
+        if (added < thresh) {
+          this.preventDraw = this.beforePreventDrawDistance;
+        } else {
+          if (!(this as any).objectId) { 
+            this.preventDraw = true; 
+          }
+        } 
+      }
+    });
   }
 
   stepEntry(delta: number, root: any) {
@@ -80,27 +110,25 @@ export class GameObject {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, x: number, y: number, force = false, forever = false) {
+  draw(ctx: CanvasRenderingContext2D, x: number, y: number, force = false, forever = false) { 
     if (this.preventDraw) return;
     const drawPosX = x + this.position.x;
     const drawPosY = y + this.position.y;
-      
-    this.drawImage(ctx, drawPosX, drawPosY);
 
-    if (this.drawingForever = this.drawingForever || forever) {
+    this.drawImage(ctx, drawPosX, drawPosY);
+    if (this.forceDrawName && !this.preventDrawName) {
+      this.drawName(ctx, drawPosX, drawPosY);
+    }
+
+    if (this.drawingForever = this.drawingForever || forever || !this.isOmittable) {
       this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true, true));
-    } else {
+    }
+    else {
       if (force) {
         this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, false));
       }
-      else {
-        const cameraPos = this.parent?.parent?.metaHero?.position;
-        const distanceX = Math.abs(this.position.x - cameraPos?.x);
-        const distanceY = Math.abs(this.position.y - cameraPos?.y);
-        const discrepancy = 350;
-        if (distanceX <= discrepancy && distanceY <= discrepancy) {
-          this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true));
-        } 
+      else { 
+        this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true)); 
       }
     } 
   } 
@@ -135,11 +163,10 @@ export class GameObject {
   }
 
 
-  drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-
+  drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
   }
 
-  addChild(gameObject: GameObject) {
+  addChild(gameObject: GameObject) { 
     gameObject.parent = this;
     this.children.push(gameObject); 
   }
@@ -170,4 +197,35 @@ export class GameObject {
       canSelectItems: match.canSelectItems
     } as Scenario;
   }
+
+
+  drawName(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+    if (this.name) {
+      // Set the font style and size for the name
+      ctx.font = "7px fontRetroGaming"; // Font and size
+      ctx.fillStyle = "chartreuse"; // Text color
+      ctx.textAlign = "center"; // Center the text
+
+
+      // Measure the width of the text
+      const textWidth = ctx.measureText(this.name).width;
+
+      // Set box properties for name
+      const boxPadding = 2; // Padding around the text
+      const boxWidth = textWidth + boxPadding * 2; // Box width
+      const boxHeight = 8; // Box height (fixed height)
+      const boxX = drawPosX - (boxWidth / 2) + 7; // Center the box horizontally
+      const boxY = drawPosY + 23; // Position the box below the player
+
+
+      // Draw the dark background box for the name
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
+      ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
+
+      // Draw the name text on top of the box
+      ctx.fillStyle = "chartreuse";
+      ctx.fillText(this.name, drawPosX + 7, boxY + boxHeight - 1);
+    }
+  }
+
 }

@@ -8,13 +8,14 @@ export class Wardrobe extends GameObject {
   body?: Sprite;
   blockSelection = false; 
   constructor(config: { position: Vector2, isVisible?: boolean }) {
-    super({
+    super({ 
       position: config.position,
       name: "Wardrobe",
-    })
+    }) 
     this.isSolid = true;
     if (config.isVisible !== false) {
       this.body = new Sprite({
+        objectId: -123123,
         resource: resources.images["wardrobe"],
         position: new Vector2(0, -50),
         frameSize: new Vector2(64, 70),

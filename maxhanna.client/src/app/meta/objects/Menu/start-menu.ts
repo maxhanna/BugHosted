@@ -19,8 +19,8 @@ export class StartMenu extends GameObject {
   menuLocationY = 10;
   selectorSprite = new Sprite({ resource: resources.images["pointer"], frameSize: new Vector2(12, 10), position: new Vector2(this.menuLocationX + 10, this.menuLocationY + 20) });
   background = new Sprite({
-    objectId: 0,
-    name: "StartMenu",
+    objectId: -12312312,
+    name: "StartMenuBG",
     resource: resources.images["white"],
     frameSize: new Vector2(2, 2),
     scale: new Vector2(8, 10),
@@ -52,15 +52,18 @@ export class StartMenu extends GameObject {
   menuHeight = 200;
 
   constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[], exits?: Exit[] }) {
-    super({ position: new Vector2(0, 0) });
+    super({ 
+      position: new Vector2(0, 0),
+      isOmittable: false,
+      preventDraw: false,
+    }); 
     this.drawLayer = HUD;
     this.name = "StartMenu";
     this.inventoryItems = params.inventoryItems ?? [];
     this.metabotParts = params.metabotParts ?? [];
     this.exits = params.exits ?? []; 
     this.addChild(this.background);
-    this.addChild(this.selectorSprite);
-    console.log("added background");
+    this.addChild(this.selectorSprite); 
 
     if (!storyFlags.contains(GOT_WATCH)) {
       this.regularMenuChoices = this.regularMenuChoices.filter(x => x != "Warping");
@@ -126,12 +129,14 @@ export class StartMenu extends GameObject {
 
   }
 
-  private displayStartMenu() {  
+  private displayStartMenu() {
+    console.log('in display sm');
     this.clearMenu();
     this.items = this.regularMenuChoices;
 
     for (let x = 0; x < this.items.length; x++) {
       const sts = new SpriteTextString(this.items[x], new Vector2(this.menuLocationX + 10, this.menuLocationY + 10 + (10 * x)), "Black");
+      console.log(this.heroLocation, this.distanceToHero, this.menuLocationX);
       this.addChild(sts);
     }
   }
@@ -426,7 +431,6 @@ export class StartMenu extends GameObject {
           }
         }
         else if (this.items[this.currentlySelectedId] === "Back" || (this.selectedMetabot && this.currentlySelectedId == this.metabotPartItems.length)) {
-          console.log("here for some reason");
           if (this.selectedMetabot && !this.selectedMetabotId && this.selectedMetabot.hp > 0) {
             this.displayMetabots();
           } else if (this.selectedMetabotId && this.selectedPart && this.selectedMetabotForParts) {
@@ -449,8 +453,7 @@ export class StartMenu extends GameObject {
           const selection = this.items[this.currentlySelectedId];
           console.log(selection);
           const bot = this.inventoryItems.find(ii => ii.name === selection);
-          if (bot) {
-            console.log(bot);
+          if (bot) { 
             const stats = typeof bot.stats === "string"
               ? JSON.parse(bot.stats) as MetaBot
               : bot.stats as MetaBot;

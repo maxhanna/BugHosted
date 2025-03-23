@@ -192,3 +192,12 @@
   .walletPopupTitle div {
     font-size: small;
   }
+
+.walletPopupWrapperDiv {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  height: unset !important;
+}
+.walletPanelCloseDiv {
+  margin: 20px 20px 0px 20px;
+}

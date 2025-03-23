@@ -9,6 +9,8 @@ import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 import { NotificationService } from '../../services/notification.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { UserService } from '../../services/user.service';
+import { UserSettings } from '../../services/datacontracts/user/user-settings';
 @Component({
   selector: 'app-chat',
   templateUrl: './chat.component.html',
@@ -39,11 +41,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   totalPages = 1;
   totalPagesArray: number[] = [];
   isDisplayingChatMembersPanel = false;
+  isMenuPanelOpen= false;
   showUserList = true;
   app?: any;
   messaging?: any;
+  ghostReadEnabled = false;
 
-  constructor(private chatService: ChatService, private notificationService: NotificationService) {
+  constructor(private chatService: ChatService, private notificationService: NotificationService, private userService: UserService) {
     super();
 
     const parent = this.parentRef ?? this.inputtedParentRef;
@@ -74,6 +78,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.selectedUsers = res;
         await this.openChat(this.selectedUsers);
       }
+    }
+    let user = this.parentRef?.user ?? this.inputtedParentRef?.user;
+    if (user) {
+      this.userService.getUserSettings(user).then((res?: UserSettings) => {
+        if (res) {
+          this.ghostReadEnabled = res.ghostReadEnabled ?? false;
+        }
+      })
     }
   }
 
@@ -268,6 +280,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     clearInterval(this.pollingInterval);
     this.showUserList = true;
     this.isPanelExpanded = true;
+
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
   }
 
   async sendMessage() {
@@ -343,11 +358,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     return this.currentChatUsers?.filter(x => x.id != (parent?.user?.id ?? 0));
   }
 
-  displayChatMembers() {
-    this.isDisplayingChatMembersPanel = true;
+  displayChatMembers() { 
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
-      parent.showOverlay();
+      parent.closeOverlay();
+      setTimeout(() => {
+        this.isDisplayingChatMembersPanel = true;
+        parent.showOverlay();
+      }, 10);
     }
   }
   closeChatMembersPanel() {
@@ -435,6 +453,31 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.newMessage.nativeElement.focus();
   }
 
+  showMenuPanel() {
+    if (this.isMenuPanelOpen) {
+      this.closeMenuPanel();
+      return;
+    }
+    this.isMenuPanelOpen = true;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.showOverlay(); 
+  }
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay(); 
+  }
+  async enableGhostRead() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user) return alert("You must be logged in to enable Ghost Read."); 
+    this.userService.updateGhostRead(user, !this.ghostReadEnabled).then(res => {
+      if (res) {
+        parent.showNotification(res);
+        this.ghostReadEnabled = !this.ghostReadEnabled;
+      }
+    });
+  }
   private async subscribeToNotificationTopic(token: string) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent?.user?.id) {

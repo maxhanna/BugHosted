@@ -15,7 +15,7 @@ export class Chicken extends Npc {
   randomMovementInterval = Math.max(2000, Math.floor(Math.random() * 15000));
   constructor(x: number, y: number) {
     super({
-      id: 0,
+      id: Math.floor(Math.random() * (9999)) * -1,
       position: new Vector2(x, y)
     })
    
@@ -23,9 +23,9 @@ export class Chicken extends Npc {
     this.position = new Vector2(x, y);
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
-    this.name = "Chicken";
-    this.id = 0; 
+    this.name = "Chicken"; 
     const shadow = new Sprite({
+      objectId: Math.floor(Math.random() * (9999)) * -1,
       resource: resources.images["shadow"],
       position: new Vector2(-9, -14), 
       frameSize: new Vector2(32, 32),

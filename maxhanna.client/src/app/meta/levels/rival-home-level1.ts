@@ -26,24 +26,6 @@ export class RivalHomeLevel1 extends Level {
       this.itemsFound = params.itemsFound;
     }
 
-
-    for (let x = 1; x < 20; x++) {
-      for (let y = 1; y < 15; y++) {
-        const whiteBg = new Sprite(
-          {
-            objectId: 0,
-            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
-            position: new Vector2(gridCells(x), gridCells(y)),
-            frame: 1,
-            frameSize: new Vector2(2, 2),
-            preventDraw: !this.showDebugSprites,
-            drawLayer: !this.showDebugSprites ? undefined : HUD
-          }
-        );
-        this.addChild(whiteBg);
-      }
-    }
-
     const room = new Sprite(
       { resource: resources.images["heroHome"], frameSize: new Vector2(320, 220) }
     );

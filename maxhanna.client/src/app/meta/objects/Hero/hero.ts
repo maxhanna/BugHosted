@@ -14,7 +14,11 @@ import { events } from "../../helpers/events";
 
 export class Hero extends Character {
   metabots?: MetaBot[];
-  constructor(params: { position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap, isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2 }) {
+  constructor(params: {
+    position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
+    isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
+    forceDrawName?: boolean, preventDrawName?: boolean,
+  }) {
     super({
       id: params.id ?? 0,
       position: params.position,
@@ -22,9 +26,11 @@ export class Hero extends Character {
       name: params.name ?? "Anon",
       mask: params.mask,
       isUserControlled: params.isUserControlled,
+      forceDrawName: params.forceDrawName ?? true,
+      preventDrawName: params.preventDrawName ?? false,
       body: new Sprite({
         objectId: params.id ?? 0,
-        resource: resources.images["hero"],
+        resource: resources.images["hero"], 
         name: "hero",
         position: new Vector2(-8, 0),
         frameSize: new Vector2(32, 32),
@@ -46,13 +52,14 @@ export class Hero extends Character {
         colorSwap: params.colorSwap,
         scale: params.scale,
       })
-    }) 
+    }); 
     this.facingDirection = DOWN;
     this.destinationPosition = this.position.duplicate();
     this.lastPosition = this.position.duplicate();
     this.speed = params.speed ?? 1;
     this.mask = params.mask;
     this.itemPickupTime = 0;
+    this.isOmittable = false;
     this.scale = params.scale ?? new Vector2(1, 1);
     this.metabots = params.metabots ?? [];
     const shadow = new Sprite({

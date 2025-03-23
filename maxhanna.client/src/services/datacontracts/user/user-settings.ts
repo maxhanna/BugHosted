@@ -1,4 +1,5 @@
 export class UserSettings { 
   userId!: number;
-  nsfwAllowed?: boolean; 
+  nsfwEnabled?: boolean; 
+  ghostReadEnabled?: boolean; 
 }

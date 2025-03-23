@@ -4,6 +4,7 @@ import { MenuItem } from './datacontracts/user/menu-item';
 import { User } from './datacontracts/user/user';
 import { UserAbout } from './datacontracts/user/user-about';
 import { HttpClient } from '@angular/common/http';
+import { UserSettings } from './datacontracts/user/user-settings';
 
 @Injectable({
   providedIn: 'root'
@@ -174,7 +175,7 @@ export class UserService {
   }
 
 
-  async getUserSettings(user: User) {
+  async getUserSettings(user: User): Promise<UserSettings | undefined> {
     try {
       const response = await fetch(`/user/getusersettings`, {
         method: 'POST',
@@ -185,7 +186,7 @@ export class UserService {
       }); 
       return await response.json();
     } catch (error) {
-      return error;
+      return undefined;
     }
   }
   async updateLastSeen(user: User) {
@@ -206,6 +207,22 @@ export class UserService {
   async updateNSFW(user: User, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updatensfw', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ User: user, IsAllowed: isAllowed }),
+      });
+
+
+      return await response.text();
+    } catch (error) {
+      return "Error";
+    }
+  }
+  async updateGhostRead(user: User, isAllowed: boolean) {
+    try {
+      const response = await fetch('/user/updateghostread', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

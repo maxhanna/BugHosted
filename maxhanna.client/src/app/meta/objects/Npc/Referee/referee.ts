@@ -11,13 +11,15 @@ import { Npc } from "../../Npc/npc";
 export class Referee extends Npc {
   directionIndex = 0;
 
-  constructor(x: number, y: number, partners?: Npc[]) {
+  constructor(params: { position: Vector2, partners?: Npc[], moveUpDown?:number, moveLeftRight?: number, }) {
     super({
       id: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-      position: new Vector2(x, y),
+      position: params.position,
       type: "referee",
       name: "Mr. Referee",
-      partners: partners ? partners : [],
+      partners: params.partners ? params.partners : [],
+      moveUpDown: params.moveUpDown,
+      moveLeftRight: params.moveLeftRight,
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["referee"],

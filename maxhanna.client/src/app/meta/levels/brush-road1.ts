@@ -43,23 +43,7 @@ export class BrushRoad1 extends Level {
     );
     whiteBg.drawLayer = GROUND;
     this.addChild(whiteBg);
-
-    for (let x = 1; x < 39; x++) {
-      for (let y = 0; y < 38; y++) {
-        const whiteBg = new Sprite(
-          {
-            objectId: 0,
-            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
-            position: new Vector2(gridCells(x), gridCells(y)),
-            frame: 1,
-            frameSize: new Vector2(2, 2),
-            preventDraw: !this.showDebugSprites,
-            drawLayer: !this.showDebugSprites ? undefined : HUD
-          }
-        );
-        this.addChild(whiteBg);
-      }
-    }
+     
 
     for (let x = -4; x < 24; x++) {
       for (let y = -4; y < 22; y++) {
@@ -84,7 +68,7 @@ export class BrushRoad1 extends Level {
       this.addChild(brickRoad2);
 
       const shrub = new Sprite(
-        { resource: resources.images["shrub"], position: new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(6)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
+        { objectId: 0, resource: resources.images["shrub"], position: new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(6)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
       );
       this.addChild(shrub);
     }
@@ -103,7 +87,7 @@ export class BrushRoad1 extends Level {
       this.addChild(brickRoad2);
 
       const shrub = new Sprite(
-        { resource: resources.images["shrub"], position: new Vector2(gridCells(0) + (x * 1.5) * gridCells(1), gridCells(34)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
+        { objectId: 0, resource: resources.images["shrub"], position: new Vector2(gridCells(0) + (x * 1.5) * gridCells(1), gridCells(34)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
       );
       this.addChild(shrub);
     }
@@ -200,7 +184,7 @@ export class BrushRoad1 extends Level {
 
     for (let x = 0; x < 43; x++) {
       const goldPath = new Sprite(
-        { resource: resources.images["goldenPath"], position: new Vector2(x * 14, 0), frameSize: new Vector2(14, 16) }
+        { objectId: 0, resource: resources.images["goldenPath"], position: new Vector2(x * 14, 0), frameSize: new Vector2(14, 16) }
       );
       goldPath.drawLayer = FLOOR;
       this.addChild(goldPath);
@@ -208,6 +192,7 @@ export class BrushRoad1 extends Level {
      
     const flowerBush = new Sprite(
       {
+        objectId: 0,
         resource: resources.images["flowerbush"], position: new Vector2(gridCells(7), gridCells(11)), frameSize: new Vector2(18, 16), hFrames: 4, vFrames: 1,
         animations: new Animations({ standDown: new FrameIndexPattern(STAND_DOWN) })
       }
@@ -241,22 +226,22 @@ export class BrushRoad1 extends Level {
     //map perimeter fences/bushes
     for (let x = 0; x < 38; x++) {
       const bb = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(0)), frameSize: new Vector2(15, 17), isSolid: true }
+        { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(0)), frameSize: new Vector2(15, 17), isSolid: true }
       ); 
       this.addChild(bb);
 
       const bb2 = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17), isSolid: true }
+        { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17), isSolid: true }
       ); 
       this.addChild(bb2);
 
       const fence = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16), isSolid: true }
       ); 
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(35)), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(35)), frameSize: new Vector2(16, 16), isSolid: true }
       ); 
       this.addChild(fence2);
     }
@@ -266,12 +251,12 @@ export class BrushRoad1 extends Level {
 
       } else { 
         const bb = new Sprite(
-          { resource: resources.images["biggerBush"], position: new Vector2(gridCells(-1), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
+          { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(gridCells(-1), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
         );
         this.addChild(bb);
 
         const fence = new Sprite(
-          { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(0), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
+          { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(0), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
         );
         this.addChild(fence);
       }
@@ -281,12 +266,12 @@ export class BrushRoad1 extends Level {
 
       } else {
         const bb2 = new Sprite(
-          { resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
+          { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
         );
         this.addChild(bb2);
 
         const fence2 = new Sprite(
-          { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
+          { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
         );
         this.addChild(fence2);
       }
@@ -294,7 +279,7 @@ export class BrushRoad1 extends Level {
     //top one neer exit
     for (let x = 0; x < 35; x++) {
       const fence = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(x), gridCells(14)), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(x), gridCells(14)), frameSize: new Vector2(16, 16), isSolid: true }
       );
       this.addChild(fence);
     }
@@ -302,7 +287,7 @@ export class BrushRoad1 extends Level {
     for (let x = 0; x < 38; x++) {
       if (x <= 15 || x >= 20) {
         const fence = new Sprite(
-          { resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(x), gridCells(29)), frameSize: new Vector2(16, 16), isSolid: true }
+          { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(x), gridCells(29)), frameSize: new Vector2(16, 16), isSolid: true }
         );
         this.addChild(fence);
       }
@@ -310,35 +295,35 @@ export class BrushRoad1 extends Level {
     //vertical dividers
     for (let y = 0; y < 25; y++) {
       const fence0 = new Sprite(
-        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(5), gridCells(14) + (y * gridCells(1) / 2)), frameSize: new Vector2(32, 32), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(5), gridCells(14) + (y * gridCells(1) / 2)), frameSize: new Vector2(32, 32), isSolid: true }
       );
       this.addChild(fence0);
 
       if (y < 23) { 
         const fence1 = new Sprite(
-          { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(10), gridCells(18) + (y * gridCells(1) / 2)), frameSize: new Vector2(32, 32), isSolid: true }
+          { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(10), gridCells(18) + (y * gridCells(1) / 2)), frameSize: new Vector2(32, 32), isSolid: true }
         );
         this.addChild(fence1);
       }
 
       const fence2 = new Sprite(
-        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(15), gridCells(14) + (y * gridCells(1) / 2)), frameSize: new Vector2(32, 32), isSolid: true, offsetX: 10 }
+        { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(15), gridCells(14) + (y * gridCells(1) / 2)), frameSize: new Vector2(32, 32), isSolid: true, offsetX: 10 }
       );
       this.addChild(fence2);
 
       const fence3 = new Sprite(
-        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(20), gridCells(14) + (y * gridCells(1) / 2)), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(20), gridCells(14) + (y * gridCells(1) / 2)), frameSize: new Vector2(16, 16), isSolid: true }
       );
       this.addChild(fence3); 
 
 
       const fence4 = new Sprite(
-        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(29), gridCells(17) + (y * gridCells(1) / 2)), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(29), gridCells(17) + (y * gridCells(1) / 2)), frameSize: new Vector2(16, 16), isSolid: true }
       );
       this.addChild(fence4); 
 
       const fence5 = new Sprite(
-        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(34), gridCells(14) + (y * gridCells(1) / 2)), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(34), gridCells(14) + (y * gridCells(1) / 2)), frameSize: new Vector2(16, 16), isSolid: true }
       );
       this.addChild(fence5); 
     }

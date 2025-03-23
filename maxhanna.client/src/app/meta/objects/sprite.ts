@@ -42,9 +42,19 @@ export class Sprite extends GameObject {
     offsetY?: number,
     drawLayer?: typeof BASE | typeof GROUND | typeof FLOOR | typeof HUD,
     preventDraw?: boolean,
+    preventDrawName?: boolean,
+    forceDrawName?: boolean,
   }) {
-    super({ position: params.position ?? new Vector2(0, 0) });
-    this.objectId = params.objectId ?? 0;
+    super({
+      position: params.position ?? new Vector2(0, 0),
+      forceDrawName: params.forceDrawName ?? false,
+      preventDraw: params.preventDraw ?? false,
+      preventDrawName: params.preventDrawName ?? true,
+      isSolid: !!params.isSolid,
+      name: params.name,
+      colorSwap: params.colorSwap, 
+    });
+    this.objectId = params.objectId ?? Math.floor(Math.random() * (9999)) * -1;
     this.position = params.position ?? new Vector2(0, 0);
     this.drawLayer = params.drawLayer;
     this.frame = params.frame ?? 1;
@@ -52,18 +62,14 @@ export class Sprite extends GameObject {
     this.hFrames = params.hFrames ?? this.frame;
     this.vFrames = params.vFrames ?? 1;
     this.scale = params.scale ?? new Vector2(1, 1);
-    this.frameSize = params.frameSize ?? new Vector2(16, 16);
-    this.name = params.name;
-    this.animations = params.animations;
-    this.colorSwap = params.colorSwap;
+    this.frameSize = params.frameSize ?? new Vector2(16, 16); 
+    this.animations = params.animations; 
     this.frameMap = new Map(); 
     this.flipX = params.flipX;
-    this.flipY = params.flipY;
-    this.isSolid = !!params.isSolid;
+    this.flipY = params.flipY; 
     this.rotation = params.rotation ?? 0;
     this.offsetX = params.offsetX ?? 0;
     this.offsetY = params.offsetY ?? 0;
-    this.preventDraw = params.preventDraw ?? false;
     this.buildFrameMap(); 
      
 

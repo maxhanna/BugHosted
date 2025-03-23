@@ -31,11 +31,18 @@ export class BrushShop1 extends Level {
     items: storyFlags.contains(GOT_FIRST_METABOT) ? [] : this.firstBotSelection,
   }); 
   invisibleSalesman = new Salesman({
-    position: new Vector2(gridCells(6), gridCells(5)),
+    position: new Vector2(gridCells(5), gridCells(5)),
     heroPosition: new Vector2(gridCells(3), gridCells(5)),
     entranceLevel: this,
     items: storyFlags.contains(GOT_FIRST_METABOT) ? [] : this.firstBotSelection,
-    preventDraw: true
+    preventDraw: !this.showDebugSprites
+  });
+  invisibleSalesman2 = new Salesman({
+    position: new Vector2(gridCells(5), gridCells(6)),
+    heroPosition: new Vector2(gridCells(3), gridCells(5)),
+    entranceLevel: this,
+    items: storyFlags.contains(GOT_FIRST_METABOT) ? [] : this.firstBotSelection,
+    preventDraw: !this.showDebugSprites
   }); 
 
   constructor(params: { heroPosition?: Vector2, itemsFound?: string[] | undefined } = {}) {
@@ -47,23 +54,7 @@ export class BrushShop1 extends Level {
     if (params.itemsFound) {
       this.itemsFound = params.itemsFound;
     }
-    for (let x = 0; x < 8; x++) {
-      for (let y = 0; y < 10; y++) {
-        const whiteBg = new Sprite(
-          {
-            objectId: 0,
-            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
-            position: new Vector2(gridCells(x), gridCells(y)),
-            frame: 1,
-            frameSize: new Vector2(2, 2),
-            preventDraw: !this.showDebugSprites,
-            drawLayer: !this.showDebugSprites ? undefined : HUD
-          }
-        );
-        this.addChild(whiteBg);
-      }
-    }
-
+ 
     for (let x = 0; x < gridCells(7); x += gridCells(2)) { // Increment by 25
       for (let y = 0; y < gridCells(7); y += gridCells(2)) { // Increment by 27
         const shopFloor = new Sprite(
@@ -90,7 +81,21 @@ export class BrushShop1 extends Level {
     );
     this.addChild(botCasing2);
 
-    for (let x = 0; x < 2; x++) { 
+    for (let x = 0; x < 2; x++) {
+      const botFrame3 = new Bot({
+        position: new Vector2(gridCells(2) + gridCells(x), gridCells(-1)),
+        spriteName: "botFrame2",
+        isEnemy: false,
+        isDeployed: false,
+        preventDraw: true,
+      });
+      const botFrame6 = new Bot({
+        position: new Vector2(gridCells(2) + gridCells(x), gridCells(0)),
+        spriteName: "botFrame2",
+        isEnemy: false,
+        isDeployed: false,
+        preventDraw: true,
+      });
       const botFrame = new Bot({
           position: new Vector2(gridCells(2) + gridCells(x), gridCells(0)),
           spriteName: "botFrame2",
@@ -99,20 +104,37 @@ export class BrushShop1 extends Level {
           isEnemy: false,
           isDeployed: false,
           preventDraw: x > 0 ? true : false,
-        }
-      );
+      });
       botFrame.textContent = [{ string: ["Ahh, This one looks so cool!"] } as Scenario];
+      botFrame3.textContent = [{ string: ["Ahh, This one looks so cool!"] } as Scenario];
+      botFrame6.textContent = [{ string: ["Ahh, This one looks so cool!"] } as Scenario];
       this.addChild(botFrame);
+      this.addChild(botFrame3);
+      this.addChild(botFrame6);
 
       const botFrame2 = new Bot({
-          position: new Vector2(gridCells(4) + gridCells(x), gridCells(0)),
-          spriteName: "botFrame5",
-          offsetX: 8,
-          offsetY: -12,
+        position: new Vector2(gridCells(4) + gridCells(x), gridCells(0)),
+        spriteName: "botFrame5",
+        offsetX: 8,
+        offsetY: -12,
         preventDraw: x > 0 ? true : false,
       });
+      const botFrame4 = new Bot({
+        position: new Vector2(gridCells(4) + gridCells(x), gridCells(-1)),
+        spriteName: "botFrame5",
+        preventDraw: true,
+      });
+      const botFrame5 = new Bot({
+        position: new Vector2(gridCells(4) + gridCells(x), gridCells(0)),
+        spriteName: "botFrame5",
+        preventDraw: true,
+      });
       botFrame2.textContent = [{ string: ["OH, I saw this in a competition on TV once!"]} as Scenario];
+      botFrame4.textContent = [{ string: ["OH, I saw this in a competition on TV once!"]} as Scenario];
+      botFrame5.textContent = [{ string: ["OH, I saw this in a competition on TV once!"]} as Scenario];
       this.addChild(botFrame2);
+      this.addChild(botFrame4);
+      this.addChild(botFrame5);
     } 
 
 
@@ -122,7 +144,7 @@ export class BrushShop1 extends Level {
     this.addChild(cornercounter2);
 
 
-    for (let x = 0; x < 3; x++) {
+    for (let x = 0; x < 5; x++) {
 
       const counterNoLedge = new Sprite(
         { resource: resources.images["counterNoLedge"], position: new Vector2(gridCells(5), gridCells(2) + gridCells(x)), frameSize: new Vector2(16, 32), isSolid: true }
@@ -170,19 +192,17 @@ export class BrushShop1 extends Level {
       this.addChild(exitOutside);
     }
 
-    //walls:
-    for (let x = 0; x <= 112; x += 16) {
-      this.walls.add(`${x},${0}`);
-    }
-
-    for (let y = -16; y <= 128; y += 16) {
-      for (let x = -16; x <= 320; x += 16) {
-        if (x === -16 || x === 320 || y === -16 || y === 128) { 
-          this.walls.add(`${x},${y}`);
-        }
-      }
-    }
-     
+    //walls: 
+    for (let x = 0; x <= 112; x += gridCells(1)) {
+      this.walls.add(`${x},${-gridCells(1)}`);
+      if (x == gridCells(3)) continue;
+      this.walls.add(`${x},${gridCells(7)}`); 
+    } 
+    for (let y = -gridCells(1); y <= gridCells(10); y += gridCells(1)) {
+      this.walls.add(`${-gridCells(1)},${y}`);
+      this.walls.add(`${gridCells(6)},${y}`); 
+    } 
+    this.walls.add(`${gridCells(0)},${gridCells(0)}`); 
     if (!storyFlags.contains(GOT_WATCH)) {
       this.salesman.textContent = [
         {
@@ -196,6 +216,7 @@ export class BrushShop1 extends Level {
         } as Scenario,
       ];
       this.invisibleSalesman.textContent = this.salesman.textContent;
+      this.invisibleSalesman2.textContent = this.salesman.textContent;
     } else {
       this.salesman.textContent = [
         {
@@ -212,16 +233,16 @@ export class BrushShop1 extends Level {
         } as Scenario,
       ];
       this.invisibleSalesman.textContent = this.salesman.textContent;
+      this.invisibleSalesman2.textContent = this.salesman.textContent;
     }  
   
 
     this.salesman.facingDirection = "LEFT";
     this.salesman.body?.animations?.play("standLeft");
     this.addChild(this.salesman);
-
-    this.invisibleSalesman.facingDirection = "LEFT";
-    this.invisibleSalesman.body?.animations?.play("standLeft");
+     
     this.addChild(this.invisibleSalesman);
+    this.addChild(this.invisibleSalesman2);
 
   }
 
@@ -236,6 +257,7 @@ export class BrushShop1 extends Level {
         this.firstBotSelection = [];
         this.salesman.items = this.firstBotSelection;
         this.invisibleSalesman.items = this.firstBotSelection;
+        this.invisibleSalesman2.items = this.firstBotSelection;
       }
     });
   }

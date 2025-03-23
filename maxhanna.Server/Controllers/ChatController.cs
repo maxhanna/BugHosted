@@ -554,6 +554,7 @@ namespace maxhanna.Server.Controllers
 						string updateSql = @"
                         UPDATE maxhanna.messages 
 												SET seen = CASE 
+														WHEN (SELECT ghost_read FROM user_settings WHERE user_id = @SenderId) = 1 THEN seen
 														WHEN seen IS NULL THEN @SenderId
 														WHEN seen NOT LIKE CONCAT('%', @SenderId, '%') THEN CONCAT(seen, ',', @SenderId)
 														ELSE seen

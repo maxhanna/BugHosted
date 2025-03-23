@@ -15,7 +15,7 @@ export class Sign extends GameObject {
     this.text = params.text ?? ["You are here."];
     
     this.body = new Sprite({
-      objectId: 0,
+      objectId: -1231,
       resource: resources.images["sign"], 
       frameSize: new Vector2(16, 18),
       isSolid: true,

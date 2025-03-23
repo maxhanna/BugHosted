@@ -52,24 +52,7 @@ export class BrushLevel1 extends Level {
       }
     );
     whiteBg.drawLayer = GROUND;
-    this.addChild(whiteBg);
-
-    for (let x = -2; x < 39; x++) {
-      for (let y = 0; y < 38; y++) {
-        const whiteBg = new Sprite(
-          {
-            objectId: 0,
-            resource: resources.images["white"], //Using whiteBg as possible stepping locations for our heroes. Thats why we preventDraw. This will stop our heroes from stepping out of bounds.
-            position: new Vector2(gridCells(x), gridCells(y)),
-            frame: 1,
-            frameSize: new Vector2(2, 2),
-            preventDraw: !this.showDebugSprites,
-            drawLayer: !this.showDebugSprites ? undefined : HUD
-          }
-        );
-        this.addChild(whiteBg);
-      }
-    }
+    this.addChild(whiteBg); 
 
     for (let x = -5; x < 24; x++) {
       for (let y = -5; y < 22; y++) {
@@ -147,7 +130,7 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 43; x++) {
       const goldPath = new Sprite(
-        { resource: resources.images["goldenPath"], position: new Vector2(x * 14, 0), frameSize: new Vector2(14, 16) }
+        { objectId: 0, resource: resources.images["goldenPath"], position: new Vector2(x * 14, 0), frameSize: new Vector2(14, 16) }
       );
       goldPath.drawLayer = FLOOR;
       this.addChild(goldPath);
@@ -156,13 +139,14 @@ export class BrushLevel1 extends Level {
     //plants alongside road
     for (let x = 0; x < 10; x++) {
       const shrub = new Sprite(
-        { resource: resources.images["shrub"], position: new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(15)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
+        { objectId: 0, resource: resources.images["shrub"], position: new Vector2(gridCells(3) + (x * 1.5) * gridCells(1), gridCells(15)), scale: new Vector2(0.55, 0.55), frameSize: new Vector2(56, 56) }
       );
       this.addChild(shrub);
     }
 
     const flowerBush = new Sprite(
       {
+        objectId: 0,
         resource: resources.images["flowerbush"], position: new Vector2(gridCells(7), gridCells(11)), frameSize: new Vector2(18, 16), hFrames: 4, vFrames: 1,
         animations: new Animations({ standDown: new FrameIndexPattern(STAND_DOWN) })
       }
@@ -172,26 +156,26 @@ export class BrushLevel1 extends Level {
     //hero's home fence
     for (let x = 0; x < 12; x++) {
       const fence = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1) + gridCells(8), gridCells(20)), frameSize: new Vector2(16, 16) }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1) + gridCells(8), gridCells(20)), frameSize: new Vector2(16, 16) }
       );
       fence.isSolid = true;
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1) + gridCells(8), gridCells(25)), frameSize: new Vector2(16, 16) }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1) + gridCells(8), gridCells(25)), frameSize: new Vector2(16, 16) }
       );
       fence2.isSolid = true;
       this.addChild(fence2);
     }
     for (let y = 0; y < 6; y++) {
       const fence = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(8), y * gridCells(1) + gridCells(20)), frameSize: new Vector2(16, 16) }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(8), y * gridCells(1) + gridCells(20)), frameSize: new Vector2(16, 16) }
       );
       fence.isSolid = true;
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(19), y * gridCells(1) + gridCells(20)), frameSize: new Vector2(16, 16) }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(gridCells(19), y * gridCells(1) + gridCells(20)), frameSize: new Vector2(16, 16) }
       );
       fence2.isSolid = true;
       this.addChild(fence2);
@@ -233,22 +217,22 @@ export class BrushLevel1 extends Level {
     //map perimeter fences/bushes
     for (let x = 0; x < 38; x++) {
       const bb = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(0)), frameSize: new Vector2(15, 17), isSolid: true }
+        { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(0)), frameSize: new Vector2(15, 17), isSolid: true }
       ); 
       this.addChild(bb);
 
       const bb2 = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17), isSolid: true }
+        { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17), isSolid: true }
       ); 
       this.addChild(bb2);
 
       const fence = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16), isSolid: true }
       ); 
       this.addChild(fence);
 
       const fence2 = new Sprite(
-        { resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(35)), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(35)), frameSize: new Vector2(16, 16), isSolid: true }
       ); 
       this.addChild(fence2);
     }
@@ -258,23 +242,23 @@ export class BrushLevel1 extends Level {
 
       } else {
         const bb = new Sprite(
-          { resource: resources.images["biggerBush"], position: new Vector2(gridCells(-1), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
+          { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(gridCells(-1), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
         ); 
         this.addChild(bb);
 
         const fence = new Sprite(
-          { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(0), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
+          { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(0), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
         ); 
         this.addChild(fence);
       }
 
       const bb2 = new Sprite(
-        { resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
+        { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
       ); 
       this.addChild(bb2);
 
       const fence2 = new Sprite(
-        { resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
+        { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
       ); 
       this.addChild(fence2);
     }
@@ -288,8 +272,19 @@ export class BrushLevel1 extends Level {
         possibleEnemies: ["spiderBot", "armobot"],
         moveLeftRight: 1,
         moveUpDown: 0
-      }); 
+      });
       this.addChild(encounter);
+
+      const encounterGangsterBot = new RandomEncounter({
+        id: -997710,
+        position: new Vector2(gridCells(14), gridCells(30)),
+        possibleEnemies: ["botFrame"],
+        moveLeftRight: 0,
+        moveUpDown: 0,
+        hp: 20,
+        level: 1,
+      });
+      this.addChild(encounterGangsterBot);
 
 
 
@@ -298,11 +293,7 @@ export class BrushLevel1 extends Level {
         {
           string: ["Our orders are to get your parents and bring them back to headquarters. You can't stop us."],
         } as Scenario
-      ];
-      const gangster1Metabot = new MetaBot({ id: -146, heroId: gangster1.id, type: SkillType.SPEED, name: "GG", position: new Vector2(0, 0) });
-      gangster1Metabot.hp = 80;
-      gangster1Metabot.level = 2;
-      gangster1.metabots.push(gangster1Metabot);
+      ]; 
       this.addChild(gangster1);
 
       const gangster2 = new Gangster({ position: new Vector2(gridCells(26), gridCells(18)) });
@@ -310,11 +301,7 @@ export class BrushLevel1 extends Level {
         {
           string: ["We're not here to chat, buzz off."],
         } as Scenario
-      ];
-      const gangster2Metabot = new MetaBot({ id: -146, heroId: gangster2.id, type: SkillType.SPEED, name: "GG2", position: new Vector2(0, 0) });
-      gangster2Metabot.hp = 80;
-      gangster2Metabot.level = 2;
-      gangster2.metabots.push(gangster2Metabot);
+      ]; 
       this.addChild(gangster2); 
 
       const gangster3 = new Gangster({ position: new Vector2(gridCells(12), gridCells(29)), moveLeftRight: 2 }); 
@@ -322,49 +309,16 @@ export class BrushLevel1 extends Level {
         {
           string: ["We're under strict orders not to let anyone in!!"], 
         } as Scenario
-      ];
-      for (let x = 0; x < 3; x++) {
-        const gangster3Metabot = new MetaBot({ id: (-146 - x), heroId: gangster3.id, type: SkillType.SPEED, name: "Jaguar", position: new Vector2(gridCells(14), gridCells(30)) });
-        gangster3Metabot.hp = 80;
-        gangster3Metabot.level = 2;
-        gangster3Metabot.isDeployed = (x == 0);
-        gangster3Metabot.spriteName = "Jaguar";
-        gangster3Metabot.name = "Jaguar";
-        gangster3.metabots.push(gangster3Metabot); 
-      }
-    
-      gangster3.partnerNpcs.push(gangster1);
-      gangster3.partnerNpcs.push(gangster2);
+      ]; 
       this.addChild(gangster3);
     }
-    const referee = new Referee(gridCells(5), gridCells(5));
+    const referee = new Referee({ position: new Vector2(gridCells(5), gridCells(8)), moveUpDown: 5 });
     referee.textContent = [
       {
-        string: ["You want a fight?!"],
-        addsFlag: START_FIGHT,
+        string: ["I cant wait to see more meta-battles!"], 
       } as Scenario
-    ];
-    const refereeMetabot = new MetaBot({ id: -146, heroId: referee.id, type: SkillType.SPEED, name: "Wasp", position: new Vector2(0, 0) });
-    refereeMetabot.hp = 10;
-    refereeMetabot.level = 5;
-    referee.metabots.push(refereeMetabot);
-    this.addChild(referee);
-
-    const referee2 = new Referee(gridCells(5), gridCells(25));
-    referee2.textContent = [
-      {
-        string: ["You want to fight both of us huh?!"],
-        addsFlag: START_FIGHT,
-      } as Scenario
-    ];
-
-    const refereeMetabot2 = new MetaBot({ id: -145, heroId: referee2.id, type: SkillType.SPEED, name: "Zippy", position: new Vector2(0, 0) });
-    refereeMetabot2.level = 5;
-    referee2.metabots.push(refereeMetabot2);
-    referee2.partnerNpcs.push(referee);
-    this.addChild(referee2);
-
-
+    ]; 
+    this.addChild(referee);  
   }
 
   override ready() {

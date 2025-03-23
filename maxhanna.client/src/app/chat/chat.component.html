@@ -1,6 +1,6 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('ChatComponent');"></div>
-  <div class="refreshButton" (click)="ngOnInit();"></div>
+  <div class="menuButton" (click)="showMenuPanel();"></div>
   <div class="componentTitle">Chat {{ getCommaSeperatedGroupChatUserNames() ? 'with ' + getCommaSeperatedGroupChatUserNames() : ''}} </div>
 
   <app-user-list (userClickEvent)="singleUserSelected($event);"
@@ -17,26 +17,6 @@
 
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUsers">
-      <div class="chatHeader">
-
-        <div class="pagination-controls" *ngIf="!showUserList">
-          <select (change)="changePage($event)">
-            <option *ngFor="let page of totalPagesArray; let i = index" [value]="i+1">{{ i+1 }}</option>
-          </select>
-          <span style="margin-right:10px; overflow:hidden; white-space: nowrap; text-overflow: ellipsis;">
-            <span (click)="displayChatMembers()" class="cursorPointerUnderlined">Connected With</span>
-            <span *ngIf="currentChatUsers.length > 1" style="cursor: pointer" (click)="displayChatMembers()"> ({{currentChatUsers.length}})</span> :
-            <span *ngFor="let chatUser of getChatUsersWithoutCurrentUser()" class="chatUserConnected" (click)="viewProfile(chatUser); $event.preventDefault();">
-              <span>{{chatUser.username}}</span>
-            </span>
-            <span *ngIf="getChatUsersWithoutCurrentUser()?.length == 0 && (parentRef?.user?.id == selectedUser?.id || inputtedParentRef?.user?.id == selectedUser?.id)" class="chatUserConnected" (click)="viewProfile(currentChatUsers[0]); $event.preventDefault();">
-              <span>{{currentChatUsers[0].username}}</span>
-            </span>
-          </span>
-        </div>
-
-        <button (click)="closeChat()">Back</button>
-      </div>
       <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
         <div *ngFor="let message of chatHistory"
              [class.messageContainer]="true"
@@ -110,7 +90,7 @@
               </div>
             </div>
           </ng-container>
-        </div> 
+        </div>
         <div *ngIf="(!chatHistory  || chatHistory.length == 0 ) && !isLoading">
           ZZzzz. Empty chat!
         </div>
@@ -128,7 +108,7 @@
                               (selectFileEvent)="selectFile($event)">
           </app-media-selector>
         </div>
-        <button (click)="sendMessage()">🗨️Send</button> 
+        <button (click)="sendMessage()">🗨️Send</button>
       </div>
     </div>
   </div>
@@ -153,4 +133,46 @@
       <app-user-list [searchOnly]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef" (groupChatEvent)="addChatMember($event)"></app-user-list>
     </div>
   </div>
-</div> 
+</div>
+
+
+<!-- Menu Popup -->
+<div class="popupPanel" *ngIf="isMenuPanelOpen"> 
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    Chat Menu
+  </div>  
+  <div class="optionsStatsWrapperDiv chatMenuPopupWrapperDiv">
+    <div class="optionsStatsDiv" *ngIf="!showUserList">
+      <div class="optionsStatsHeader">Page:</div>
+      <div class="optionsStatsDescription">
+        <select (change)="changePage($event)">
+          <option *ngFor="let page of totalPagesArray; let i = index" [value]="i+1">{{ i+1 }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList">
+      <div class="optionsStatsHeader">Close Chat:</div>
+      <div class="optionsStatsDescription">
+        <button (click)="closeChat()">Back</button>
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader" title="When Ghost Read is enabled: Read date no longer updates.">Ghost Read:</div>
+      <div class="optionsStatsDescription" title="When Ghost Read is enabled: Read date no longer updates.">
+        <button (click)="enableGhostRead()">{{ghostReadEnabled ? '🙈Disable' : '🙉Enable'}}</button>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatUsers">
+      <div class="optionsStatsHeader">
+        Chatting With:
+        <span *ngIf="currentChatUsers.length > 1" style="cursor: pointer" (click)="displayChatMembers()"> ({{currentChatUsers.length}})</span>
+      </div>
+      <div class="optionsStatsDescription">
+        <button (click)="displayChatMembers()">Display</button>
+      </div>
+    </div>
+  </div> 
+  <div class="chatMenuPopupCloseDiv">
+    <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
+  </div>
+</div>

@@ -68,6 +68,7 @@ export function attack(source: Bot, target: Bot) {
   // Define available attack parts
   calculateAndApplyDamage(source, target);
   if (target.hp <= 0 && target.isDeployed) {
+    source.targeting = undefined;
     generateReward(source, target);
     setTargetToDestroyed(target);
     findTargets(source);

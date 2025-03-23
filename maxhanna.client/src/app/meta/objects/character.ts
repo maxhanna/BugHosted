@@ -52,15 +52,21 @@ export class Character extends GameObject {
     exp?: number,
     expForNextLevel?: number,
     level?: number,
-		mask?: Mask,
+    mask?: Mask,
+    preventDraw?: boolean,
+    forceDrawName?: boolean,
+    preventDrawName?: boolean,
 	}) {
     super({
       position: params.position ?? new Vector2(0, 0),
-      colorSwap: params.colorSwap, 
+      colorSwap: params.colorSwap,
+      preventDraw: params.preventDraw,
+      forceDrawName: params.forceDrawName ?? true,
+      preventDrawName: params.preventDrawName ?? true,
     });
 		this.id = params.id;
-		this.name = params.name;
-    this.body = params.body;
+    this.name = params.name; 
+    this.body = this.preventDraw ? undefined : params.body;
     this.destinationPosition = this.position.duplicate();
     this.speed = params.speed ?? 1;
     this.level = params.level ?? 1;
@@ -136,11 +142,11 @@ export class Character extends GameObject {
 		}
 	} 
 
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
+    this.drawLatestMessage(ctx, drawPosX, drawPosY);
     if (!this.preventDrawName) { 
       this.drawName(ctx, drawPosX, drawPosY);
     }
-    this.drawLatestMessage(ctx, drawPosX, drawPosY);
     if ((this as any).isEnemy) { 
       this.drawHP(ctx, drawPosX, drawPosY);
       this.drawExp(ctx, drawPosX, drawPosY);
@@ -284,36 +290,6 @@ export class Character extends GameObject {
 			this.onPickupItem(data);
     });
 	}
-
-  drawName(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
-    if (this.name) {
-			// Set the font style and size for the name
-			ctx.font = "7px fontRetroGaming"; // Font and size
-			ctx.fillStyle = "chartreuse"; // Text color
-			ctx.textAlign = "center"; // Center the text
-
-
-			// Measure the width of the text
-			const textWidth = ctx.measureText(this.name).width;
-
-			// Set box properties for name
-			const boxPadding = 2; // Padding around the text
-			const boxWidth = textWidth + boxPadding * 2; // Box width
-			const boxHeight = 8; // Box height (fixed height)
-			const boxX = drawPosX - (boxWidth / 2) + 7; // Center the box horizontally
-			const boxY = drawPosY + 23; // Position the box below the player
-
-
-			// Draw the dark background box for the name
-			ctx.fillStyle = "rgba(0, 0, 0, 0.7)"; // Semi-transparent black for the box
-			ctx.fillRect(boxX, boxY, boxWidth, boxHeight); // Draw the box
-
-			// Draw the name text on top of the box
-			ctx.fillStyle = "chartreuse";
-			ctx.fillText(this.name, drawPosX + 7, boxY + boxHeight - 1);
-		}
-  }
-
   drawHP(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Define HP bar dimensions
     const barWidth = 40;  // Total width of HP bar

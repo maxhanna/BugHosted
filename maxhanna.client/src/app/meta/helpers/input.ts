@@ -174,7 +174,8 @@ export class Input {
     }
   }
   pressA(sendChat: boolean = true) {
-    if (sendChat && this.chatInput && document.activeElement?.id === this.chatInput.id) {
+    console.log("pressed a", sendChat);
+    if (sendChat && this.chatInput.value) {
       events.emit("SEND_CHAT_MESSAGE", this.chatInput.value);
       console.log("pressed a, saending chat");
     }

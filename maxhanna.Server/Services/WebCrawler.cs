@@ -53,7 +53,7 @@ public class WebCrawler
 
 	private async Task<List<string>> GenerateNextUrl()
 	{
-		string? lastDomain = await LoadLastGeneratedDomain();
+		string? lastDomain = await LoadLastGeneratedDomain(1, true);
 		string nextDomain = string.IsNullOrEmpty(lastDomain) ? "a.com" : GetNextDomain(lastDomain);
 		nextDomain = nextDomain.ToLower().Replace("http://", "").Replace("https://", "");
 
@@ -182,21 +182,37 @@ public class WebCrawler
 		newName.Append(Chars[0]);
 		return newName.ToString();
 	}
-
-	private async Task<string?> LoadLastGeneratedDomain()
+	private async Task<string?> LoadLastGeneratedDomain(int index = 1, bool randomize = false)
 	{
 		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 		using (var connection = new MySqlConnection(connectionString))
 		{
 			await connection.OpenAsync();
-			string query = "SELECT url FROM search_results ORDER BY last_crawled DESC LIMIT 1;";
+
+			string query;
+			if (randomize)
+			{
+				query = "SELECT url FROM search_results WHERE last_crawled < UTC_TIMESTAMP() - INTERVAL 1 DAY ORDER BY RAND() LIMIT 1;";
+			}
+			else
+			{
+				query = "SELECT url FROM search_results ORDER BY id DESC LIMIT 1 OFFSET @Index;";
+			}
+
 			using (var command = new MySqlCommand(query, connection))
 			{
+				if (!randomize)
+				{
+					command.Parameters.AddWithValue("@Index", index - 1);
+				}
+
 				var result = await command.ExecuteScalarAsync();
 				return result?.ToString();
 			}
 		}
 	}
+
+
 	private async Task SaveSearchResult(string domain, Metadata metadata)
 	{ 
 		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");

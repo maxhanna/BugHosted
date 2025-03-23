@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { MiningService } from '../../services/mining.service';
 import { Currency, MiningWalletResponse, Total } from '../../services/datacontracts/crypto/mining-wallet-response';
@@ -14,7 +14,7 @@ import { MiningRigsComponent } from '../mining-rigs/mining-rigs.component';
   templateUrl: './crypto-hub.component.html',
   styleUrl: './crypto-hub.component.css'
 })
-export class CryptoHubComponent extends ChildComponent implements OnInit {
+export class CryptoHubComponent extends ChildComponent implements OnInit, OnDestroy {
   wallet?: MiningWalletResponse | undefined;
   btcFiatConversion?: number = 0;
   currentSelectedCoin: string = 'Bitcoin';
@@ -24,6 +24,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
 
   data?: CoinValue[]; 
   allHistoricalData?: CoinValue[] = [];
+  allHistoricalDataPreCalculation?: CoinValue[] = [];
   allWalletBalanceData?: CoinValue[] = [];
   allHistoricalExchangeRateData?: ExchangeRate[] = [];
   btcWalletResponse?: MiningWalletResponse = undefined;
@@ -34,7 +35,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   isWalletPanelOpen = false;
   latestCurrencyPriceRespectToCAD = 0;
   uniqueCurrencyNames: string[] = [];
-  currentlySelectedWallet: string = "";
+  currentlySelectedCurrency?: Currency = undefined;
+
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild('btcConvertSATValue') btcConvertSATValue!: ElementRef<HTMLInputElement>;
@@ -52,6 +54,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   async ngOnInit() {
     this.startLoading(); 
     try {
+      this.parentRef?.addResizeListener();
       await this.getBTCWallets();
       
       await this.coinValueService.getLatestCoinValues().then(res => {
@@ -86,6 +89,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
       }
       await this.coinValueService.getAllCoinValues().then(res => {
         if (res) { 
+          this.allHistoricalDataPreCalculation = res;
           this.allHistoricalData = res;
           this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
         }
@@ -96,7 +100,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     this.convertBTCtoFIAT()
     this.stopLoading();
   }
-
+  ngOnDestroy() {
+    this.parentRef?.removeResizeListener();
+  }
   private async getBTCWallets() {
     this.wallet = await this.getNicehashWallets(); 
     this.wallet = this.wallet || { currencies: [] }; 
@@ -259,7 +265,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   async showWalletData(currency: Currency) {
     if (!currency.address) { return alert("No BTC Wallet address to look up."); }
     this.showWalletPanel();
-    this.currentlySelectedWallet = currency.address;
+    this.currentlySelectedCurrency = currency;
 
     await this.coinValueService.getWalletBalanceData(currency.address).then(res => {
       if (res) {
@@ -290,14 +296,16 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
     const additionalEntries: CoinValue[] = [];
 
     for (const entry of this.allWalletBalanceData) {
-      const closestRate = this.findClosestRate(entry.timestamp); 
-      if (closestRate !== null) { 
-        let btcValueInCad = (entry.valueCAD * (this.btcToCadPrice * ((closestRate ?? 1) ?? 1))) / 100_000_000;  
+      const closestRate = this.findClosestRate(entry.timestamp) ?? 1;
+      const closestBtcRate = this.findClosestBTCRate(entry.timestamp) ?? 1;
+      if (closestRate !== null) {
+        console.log(closestBtcRate, closestRate);
+        let btcValueInCad = (entry.valueCAD * (closestBtcRate * closestRate)) / 100_000_000;
 
         const newEntry: CoinValue = {
           id: entry.id,
           symbol: "BTC",
-          name: "BTCto" + this.selectedCurrency,
+          name: "BTC -> " + this.selectedCurrency,
           valueCAD: btcValueInCad,
           timestamp: entry.timestamp
         };
@@ -311,23 +319,80 @@ export class CryptoHubComponent extends ChildComponent implements OnInit {
   findClosestRate(timestamp: string): number | null {
     if (!this.allHistoricalExchangeRateData || this.allHistoricalExchangeRateData.length === 0) {
       return null;
-    } 
-    let closestRate: ExchangeRate | null = null;
-    let minDifference = Number.MAX_VALUE;
+    }
 
-    const tmpHistoricalData = this.allHistoricalExchangeRateData.filter(x => x.targetCurrency == this.selectedCurrency);
-     
-    for (const rateEntry of tmpHistoricalData) { 
-      const rateTimestamp = new Date(rateEntry.timestamp).getTime();
-      const targetTimestamp = new Date(timestamp).getTime();
-      const difference = Math.abs(targetTimestamp - rateTimestamp);
+    const targetTimestamp = new Date(timestamp).getTime();
+    const tmpHistoricalData = this.allHistoricalExchangeRateData
+      .filter(x => x.targetCurrency == this.selectedCurrency)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-      if (difference < minDifference) {
-        minDifference = difference;
-        closestRate = rateEntry; 
+    // Binary search for closest rate
+    let left = 0, right = tmpHistoricalData.length - 1;
+    while (left < right) {
+      const mid = Math.floor((left + right) / 2);
+      const midTimestamp = new Date(tmpHistoricalData[mid].timestamp).getTime();
+
+      if (midTimestamp === targetTimestamp) {
+        return tmpHistoricalData[mid].rate; // Exact match
+      } else if (midTimestamp < targetTimestamp) {
+        left = mid + 1;
+      } else {
+        right = mid;
       }
     }
 
-    return closestRate ? closestRate.rate : null;
+    // Closest rate is now at left or left - 1, compare both
+    const closest = tmpHistoricalData[left];
+    const previous = left > 0 ? tmpHistoricalData[left - 1] : null;
+
+    if (!previous) return closest.rate;
+
+    return Math.abs(new Date(previous.timestamp).getTime() - targetTimestamp) <
+      Math.abs(new Date(closest.timestamp).getTime() - targetTimestamp)
+      ? previous.rate
+      : closest.rate;
   }
+  findClosestBTCRate(timestamp: string): number | null {
+    if (!this.allHistoricalData || this.allHistoricalData.length === 0) {
+      return null;
+    }
+
+    console.log("Finding closest BTC rate to: " + timestamp);
+    const targetTimestamp = new Date(timestamp).getTime();
+
+    const tmpHistoricalData = this.allHistoricalData
+      .filter(x => x.name === "Bitcoin")
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    if (tmpHistoricalData.length === 0) {
+      return null;
+    }
+
+    // Binary search for the closest timestamp
+    let left = 0, right = tmpHistoricalData.length - 1;
+    while (left < right) {
+      const mid = Math.floor((left + right) / 2);
+      const midTimestamp = new Date(tmpHistoricalData[mid].timestamp).getTime();
+
+      if (midTimestamp === targetTimestamp) {
+        return tmpHistoricalData[mid].valueCAD; // Exact match found
+      } else if (midTimestamp < targetTimestamp) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
+    }
+
+    // Closest rate is now at left or left - 1, compare both
+    const closest = tmpHistoricalData[left];
+    const previous = left > 0 ? tmpHistoricalData[left - 1] : null;
+
+    if (!previous) return closest.valueCAD;
+
+    return Math.abs(new Date(previous.timestamp).getTime() - targetTimestamp) <
+      Math.abs(new Date(closest.timestamp).getTime() - targetTimestamp)
+      ? previous.valueCAD
+      : closest.valueCAD;
+  }
+
 }

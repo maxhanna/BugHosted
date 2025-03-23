@@ -174,19 +174,40 @@
 <div *ngIf="isWalletPanelOpen" class="popupPanel">
   <div class="popupPanelTitle walletPopupTitle">
     Wallet ℹ️
-    <div>{{currentlySelectedWallet}}</div>
+    <div *ngIf="currentlySelectedCurrency">{{currentlySelectedCurrency.address}}</div>
   </div>
-  <div *ngIf="allWalletBalanceData && allWalletBalanceData.length > 0 && currentlySelectedWallet != 'Nicehash Wallet'">
-    <app-line-graph #walletDataLineGraphComponent
-                    [type]="'Crypto'"
-                    [selectedCurrency]="selectedCurrency"
-                    [selectedPeriod]="'5d'"
-                    [data]="allWalletBalanceData"
-                    [selectedCoin]="currentSelectedCoin">
-    </app-line-graph>
+
+  <div class="optionsStatsWrapperDiv walletPopupWrapperDiv" *ngIf="currentlySelectedCurrency">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Currency:</div>
+      <div class="optionsStatsDescription">
+        {{currentlySelectedCurrency.currency}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Total:</div>
+      <div class="optionsStatsDescription">
+        {{currentlySelectedCurrency.totalBalance}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Value:</div>
+      <div class="optionsStatsDescription">
+        {{formatToCanadianCurrency(getConvertedCurrencyValue(calculateTotalValue(currentlySelectedCurrency)))}}
+      </div>
+    </div>
   </div>
-  <div *ngIf="currentlySelectedWallet == 'Nicehash Wallet'">Feature is currently unavailable for Nicehash Wallet addresses.</div> 
-  <div>
-    <button id="closeOverlay" (click)="closeWalletPanel()">Close</button>
+
+    <div *ngIf="allWalletBalanceData && allWalletBalanceData.length > 0 && currentlySelectedCurrency?.address != 'Nicehash Wallet'">
+      <app-line-graph #walletDataLineGraphComponent
+                      [type]="'Crypto'"
+                      [selectedCurrency]="selectedCurrency"
+                      [selectedPeriod]="'5d'"
+                      [data]="allWalletBalanceData"
+                      [selectedCoin]="currentSelectedCoin">
+      </app-line-graph>
+    </div>
+    <div class="walletPanelCloseDiv">
+      <button id="closeOverlay" (click)="closeWalletPanel()">Close</button>
+    </div>
   </div>
-</div>

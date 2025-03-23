@@ -42,7 +42,8 @@ export class RandomEncounter extends Npc {
       isDeployed: true,
       isSolid: true,
       isEnemy: true,
-      spriteName: randomSprite,
+      spriteName: randomSprite, 
+      preventDrawName: true,
     }); 
     this.enemy.destinationPosition = this.enemy.position;
     events.emit("CREATE_ENEMY", { bot: this.enemy });
