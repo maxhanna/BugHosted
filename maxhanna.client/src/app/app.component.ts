@@ -129,7 +129,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     private title: Title, 
     private sanitizer: DomSanitizer) { }
 
-  ngOnInit() {
+  ngOnInit() {  
     if (this.getCookie("user")) {
       this.user = JSON.parse(this.getCookie("user")); 
     } 
@@ -521,21 +521,37 @@ export class AppComponent implements OnInit, AfterViewInit {
     });
 
     // Step 4: Convert quotes and style the quote text
-    while (/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/s.test(text)) {
-      text = text.replace(/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/gs, (match, username, userId, timestamp, quotedMessage) => {
-        const formattedTimestamp = new Date(timestamp).toLocaleString();
-        const truncatedMessage = quotedMessage.length > 200 ? quotedMessage.slice(0, 200) + "..." : quotedMessage; 
-        const escapedQuotedMessage = encodeURIComponent(quotedMessage);
-        return `
-      <span class="quote-text">
-        <a class='quote-link' onClick="document.getElementById('scrollToQuoteDateInput').value='${timestamp}';document.getElementById('scrollToQuoteMessageInput').value='${escapedQuotedMessage}';document.getElementById('quoteClickButton').click()">
-          <span class="quote-user">${username}</span>
-          <span class="quote-time">(${formattedTimestamp})</span>:  
-        "<span class="quote-message">${truncatedMessage}</span>"</a>
-      </span>
-    `;
-      });
-    }  
+    const processQuotes = (inputText: string): string => {
+      let processedText = inputText;
+
+      // Use a regular expression to find all quotes
+      while (/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/gs.test(processedText)) {
+        processedText = processedText.replace(/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/gs, (match, username, userId, timestamp, quotedMessage) => {
+          const formattedTimestamp = new Date(timestamp).toLocaleString();
+
+          // Define the maximum truncation length (we reserve space for the breadcrumb)
+          const maxLength = 200;
+          const truncatedMessage = quotedMessage.length > maxLength && !quotedMessage.includes("____QUOTE_END____") ? quotedMessage.slice(0, maxLength) + "..." : quotedMessage;
+
+          const escapedQuotedMessage = encodeURIComponent(truncatedMessage); // Now encoding truncated message
+
+          // Insert the breadcrumb character to mark the end of each quote
+          return `
+        <div class="quote-text quote-link" onClick="document.getElementById('scrollToQuoteDateInput').value='${timestamp}';document.getElementById('scrollToQuoteMessageInput').value='${escapedQuotedMessage}';document.getElementById('quoteClickButton').click()">
+            <span class="quote-user">${username}</span>
+            <span class="quote-time">(${formattedTimestamp})</span>:  
+            "<span class="quote-message">${truncatedMessage}</span>"
+        </div>____QUOTE_END____`; // Special marker at the end
+        });
+      }
+
+      // Replace the special marker with the final quote termination (or remove if unnecessary)
+      processedText = processedText.replace(/____QUOTE_END____/g, '');
+
+      return processedText; // Return the properly formatted text
+    };
+
+    text = processQuotes(text);
 
     // Step 5: Convert Bold, Bullet-point, and Italics
     text = text

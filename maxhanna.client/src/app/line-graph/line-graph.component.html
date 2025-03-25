@@ -1,9 +1,8 @@
 <!-- Placeholder for the graph -->
 <div class="graphContainer">
-  <div class="graphTitle sectionName"> 
-    {{selectedCoin ? ('$' + selectedCoin + ' to ') : ''}}
-    {{graphTitle ? graphTitle : '$' + (selectedCurrency ?? 'CAD') + ' Over Time'}}
-    Span : {{selectedPeriod}} 
+  <div class="graphTitle sectionName">
+    {{graphTitle ? (selectedCoin.includes('->') ? ('$Bitcoin/' + ('$'+selectedCurrency) + ' Value') : graphTitle) : (selectedCoin ? ('$' + selectedCoin) : '') + '/$' + (selectedCurrency ?? 'CAD') + ' Over Time'}}
+    Span : {{selectedPeriod}}
   </div>
   <div class="graphOptions">
     <select (change)="changeGraphPeriod($event)" #periodSelect [value]="selectedPeriod">
@@ -20,14 +19,14 @@
       <option value="5y" [selected]="selectedPeriod === '5y'">5 Years</option>
     </select>
     <select (change)="changeCoin($event)" *ngIf="displayCoinSwitcher">
-      <option value="">All</option> 
+      <option value="">All</option>
       <option *ngIf="type == 'Crypto'" value="Bitcoin" [selected]="selectedCoin === 'Bitcoin'">Bitcoin</option>
       <option *ngIf="type == 'Currency'" value="USD" [selected]="selectedCoin === 'USD'">USD</option>
       <option *ngFor="let coin of getUniqueCoinNames()" [value]="coin" [selected]="selectedCoin === coin">{{ coin }}</option>
     </select>
   </div>
-  <div style="display: block; background-color: white;">
-    <canvas baseChart width="400" height="300"
+  <div class="canvasChartWrapper">
+    <canvas baseChart class="canvasChart"
             [datasets]="lineChartData"
             [labels]="lineChartLabels"
             [options]="lineChartOptions"

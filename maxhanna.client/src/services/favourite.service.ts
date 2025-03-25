@@ -55,6 +55,22 @@ export class FavouriteService {
     }
   } 
 
+  async deleteFavourite(user: User, favoriteId: number) {
+    try {
+      const response = await fetch(`/favourite/delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ User: user, FavouriteId: favoriteId }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  } 
+
   async updateFavourites(user: User, url: string, id: number, imageUrl?: string, name?: string) {
     try {
       const response = await fetch(`/favourite/`, {

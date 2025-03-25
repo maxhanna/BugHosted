@@ -23,10 +23,12 @@ export class Referee extends Npc {
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["referee"],
-        position: new Vector2(-7, -20),
+        position: new Vector2(0, 0),
         frameSize: new Vector2(32, 32),
         hFrames: 4,
         vFrames: 4,
+        offsetY: -10,
+        offsetX: -8,
         name: "Mr. Referee",
         animations: new Animations(
           {
@@ -45,7 +47,9 @@ export class Referee extends Npc {
     this.textPortraitFrame = 1;
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2(-16, -16),
+      position: new Vector2(0, 0),
+      offsetY: -6,
+      offsetX: -18,
       scale: new Vector2(1.25, 1),
       frameSize: new Vector2(32, 32),
     });
@@ -54,8 +58,8 @@ export class Referee extends Npc {
   }
 
   override ready() {
-    events.on("HERO_REQUESTS_ACTION", this, (objectAtPosition: any) => {
-      if (objectAtPosition.id === this.id) {
+    events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
+      if (params.objectAtPosition.id === this.id) {
         const oldKey = this.body?.animations?.activeKey;
         const oldFacingDirection = this.facingDirection;
         this.body?.animations?.play("standDown");

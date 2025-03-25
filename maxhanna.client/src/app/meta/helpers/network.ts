@@ -34,7 +34,18 @@ export function setActionBlocker(duration: number) {
     actionBlocker = false;
   }, duration);
 }
-
+function safeStringify(obj: any) {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) {
+        return "[Circular]";
+      }
+      seen.add(value);
+    }
+    return value;
+  });
+}
 export function subscribeToMainGameEvents(object: any) {
   events.on("CHANGE_LEVEL", object.mainScene, (level: Level) => {
     object.otherHeroes = [];
@@ -122,17 +133,28 @@ export function subscribeToMainGameEvents(object: any) {
   });
   events.on("SELECTED_PART", object, (params: { selectedPart: string, selection: string, selectedMetabotId: number }) => {
     const parts = object.mainScene.inventory.parts;
-    const skill = params.selection.split(' ')[0];
-    const dmg = params.selection.split(' ')[1];
+    const skill = params.selection.split(/\d/)[0];
+    const dmg = params.selection.split(' ').slice(-2, -1)[0];
     let targetPart = undefined;
     for (let part of parts) {
-      if (part.skill.name === skill && part.damageMod === parseInt(dmg) && part.partName === params.selectedPart) {
+      console.log("Checking part:", part); // Debugging: log the part being checked
+      console.log("skill:", skill); // Debugging: log the skill
+      console.log("part.skill.name:", part.skill.name); // Debugging: log part.skill.name
+      console.log("dmg:", dmg); // Debugging: log dmg value
+      console.log("part.damageMod:", part.damageMod); // Debugging: log part.damageMod
+      console.log("params.selectedPart:", params.selectedPart); // Debugging: log params.selectedPart
+      console.log("part.partName:", part.partName); // Debugging: log part.partName
+
+      if (part.skill.name.trim() === skill.trim() && part.damageMod === parseInt(dmg) && part.partName.trim() === params.selectedPart.trim()) {
         targetPart = part;
+        console.log("FOUND !");
         break;
       }
     }
     let oldPart = undefined;
     const metabotSelected = object.metaHero.metabots.find((b: MetaBot) => b.id === params.selectedMetabotId);
+
+    console.log("Selected a bot part : ", params, skill, dmg, parts, targetPart);
     if (metabotSelected && targetPart) {
       targetPart.metabotId = params.selectedMetabotId;
       if (targetPart.partName === LEFT_ARM) {
@@ -245,7 +267,7 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("WAVE_AT", object, (objectAtPosition: GameObject) => { 
-    const msg = `👋 ${(objectAtPosition as Hero).name} 👋`;
+    const msg = `👋 ${(objectAtPosition as Hero).name}`;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CHAT", object.metaHero.map, { "sender": object.metaHero.name ?? "Anon", "content": msg })
     object.metaService.updateEvents(metaEvent);
   });
@@ -255,7 +277,7 @@ export function subscribeToMainGameEvents(object: any) {
     const msgContent = object.getChatText();
     const receiver = (objectAtPosition as Hero).name ?? "Anon";
     const sender = (object.metaHero as Hero).name ?? "Anon";
-    const msg = `🤫 (${sender}:${receiver}) : ${msgContent} 🤫`;
+    const msg = `🤫 (${sender}:${receiver}) : ${msgContent}`;
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "WHISPER", object.metaHero.map, { "sender": sender, "receiver": receiver, "content": msg })
     object.metaService.updateEvents(metaEvent);
 
@@ -279,8 +301,8 @@ export function subscribeToMainGameEvents(object: any) {
     setActionBlocker(50);
   });
 
-  events.on("ITEM_PURCHASED", object, (item: InventoryItem) => {
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "BUY_ITEM", object.metaHero.map, { "item": `${JSON.stringify(item)}` })
+  events.on("ITEM_PURCHASED", object, (item: InventoryItem) => { 
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "BUY_ITEM", object.metaHero.map, { "item": safeStringify(item) });
     object.metaService.updateEvents(metaEvent);
     if (item.category === "botFrame") {
       const newBot = new MetaBot(
@@ -383,7 +405,7 @@ export function subscribeToMainGameEvents(object: any) {
       events.emit("CLOSE_INVENTORY_MENU", data);
     } else {
       const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject"); 
-      events.emit("OPEN_START_MENU", exits);
+      events.emit("OPEN_START_MENU", ({ exits: exits, location: object.mainScene.metaHero.position }));
     }
   });
 
@@ -393,7 +415,7 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("OPEN_START_MENU", object, () => {
-    object.reinitializeInventoryData();
+    object.reinitializeStartMenuData();
     object.isStartMenuOpened = true;
     events.emit("HIDE_START_BUTTON");
   });
@@ -438,9 +460,9 @@ export function subscribeToMainGameEvents(object: any) {
     object.metaService.updateEvents(metaEvent);
   });
 
-  events.on("GOT_REWARDS", object, (rewards: MetaBotPart[]) => {
-    if (!rewards || rewards.length == 0) return; 
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "item": JSON.stringify(rewards[0]) })
+  events.on("GOT_REWARDS", object, (params: { location: Vector2, part: MetaBotPart }) => {
+    if (!params.part) return;
+    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DROPPED", object.metaHero.map, { "location": safeStringify(params.location), "item": safeStringify(params.part) })
     object.metaService.updateEvents(metaEvent);    
   });
 
@@ -459,12 +481,21 @@ export function subscribeToMainGameEvents(object: any) {
       name: string,
       imageName: string,
       category: string,
+      item: any,
       stats: any,
     }) => {
     if (!actionBlocker) {
-      object.metaService.updateInventory(object.metaHero, data.name, data.imageName, data.category);
+      console.log(data);
+      if (data.category && data.stats) {
+        object.metaService.updateInventory(object.metaHero, data.name, data.imageName, data.category);
+      } else if (data.item) {
+        console.log("updating bot parts", data.item);
+        object.metaService.updateBotParts(object.metaHero, [data.item]); 
+        object.mainScene.inventory.parts.concat(data.item);
+        console.log(object.mainScene.inventory.parts);
+      }
       setActionBlocker(500);
-    }
+    } 
   });
 
   events.on("CREATE_ENEMY", object, (params: { bot: Bot, owner?: Character }) => { 
@@ -566,6 +597,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         if (event.eventType === "BUY_ITEM") {
           const player = object.partyMembers.find((x: Character) => x.id === event.heroId);
           if (player || event.heroId === object.metaHero.id) {
+            console.log(event && event.data ? event.data["item"] : "undefined item data");
             events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
             object.metaService.deleteEvent(event.id);
           }
@@ -573,10 +605,10 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         if (event.eventType === "ITEM_DROPPED") {
           if (event.data) {  
             const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
-            object.addItemToScene(tmpMetabotPart);
+            const location = JSON.parse(event.data["location"]) as Vector2;
+            object.addItemToScene(tmpMetabotPart, location);
 
-            console.log(tmpMetabotPart);
-            events.emit("ALERT", "item dropped"); 
+            console.log(tmpMetabotPart); 
           }
         }
         if (event.eventType === "CHAT" && event.data) {

@@ -203,6 +203,7 @@
                       [type]="'Crypto'"
                       [selectedCurrency]="selectedCurrency"
                       [selectedPeriod]="'5d'"
+                      [graphTitle]="!currentSelectedCoin.includes('->') ? '$Bitcoin Value' : ('$Bitcoin/' + (selectedCurrency) + ' Value')"
                       [data]="allWalletBalanceData"
                       [selectedCoin]="currentSelectedCoin">
       </app-line-graph>

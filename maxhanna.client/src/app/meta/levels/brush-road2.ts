@@ -17,7 +17,7 @@ import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
 import { BrushRoad1 } from "./brush-road1";
 import { RainbowAlleys1 } from "./rainbow-alleys1";
 import { BASE, GROUND, FLOOR, HUD } from "../objects/game-object";
-import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
+import { Encounter } from "../objects/Environment/Encounter/encounter";
 import { Sign } from "../objects/Environment/Sign/sign";
 
 
@@ -500,7 +500,7 @@ export class BrushRoad2 extends Level {
     let ecId = -997717;
     for (let x = 0; x < tmpEncounterPositions.length; x++) {
       const currentId = ecId - x; 
-      const encounter = new RandomEncounter({
+      const encounter = new Encounter({
         id: currentId,
         position: tmpEncounterPositions[x],
         possibleEnemies: ["spiderBot", "armobot"],

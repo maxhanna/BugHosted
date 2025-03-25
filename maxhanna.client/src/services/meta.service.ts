@@ -80,6 +80,7 @@ export class MetaService {
     return this.fetchData('/meta/updateinventory', { Hero: hero, Name: name, Image: image, Category: category });
   }
   async updateBotParts(hero: MetaHero, parts: MetaBotPart[]) {
+    console.log("in update bot parts. ", hero, parts);
     return this.fetchData('/meta/updatebotparts', { Hero: hero, parts: parts });
   }
 }

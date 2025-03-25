@@ -15,7 +15,7 @@ import { BrushLevel1 } from "./brush-level1";
 import { BrushRoad2 } from "./brush-road2";
 import { GROUND, FLOOR, HUD } from "../objects/game-object";
 import { Sign } from "../objects/Environment/Sign/sign";
-import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
+import { Encounter } from "../objects/Environment/Encounter/encounter";
  
 
 export class BrushRoad1 extends Level { 
@@ -347,7 +347,7 @@ export class BrushRoad1 extends Level {
     let ecId = -997712;
     for (let x = 0; x < tmpEncounterPositions.length; x++) {
       const currentId = ecId-x; 
-      const encounter = new RandomEncounter({
+      const encounter = new Encounter({
         id: currentId,
         position: tmpEncounterPositions[x],
         possibleEnemies: ["spiderBot", "armobot"],

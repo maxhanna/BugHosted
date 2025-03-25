@@ -1,6 +1,4 @@
-﻿using HtmlAgilityPack;
-using maxhanna.Server.Controllers.DataContracts.Crypto;
-using maxhanna.Server.Controllers.DataContracts.Metadata;
+﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
 using MySqlConnector;
 using Newtonsoft.Json;
 using System.Data;
@@ -37,7 +35,7 @@ namespace maxhanna.Server.Services
 		{
 			while (!stoppingToken.IsCancellationRequested)
 			{
-				_logger.LogInformation("Refreshing system information: {time}", DateTimeOffset.Now);
+				Console.WriteLine("Refreshing system information:" + DateTimeOffset.Now);
 
 				// Run tasks that need to execute every 1 minute
 				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
@@ -96,7 +94,7 @@ namespace maxhanna.Server.Services
 
 			if (!reader.HasRows)
 			{
-				_logger.LogInformation("No memes found.");
+				Console.WriteLine("No memes found.");
 				return;
 			}
 
@@ -134,7 +132,7 @@ namespace maxhanna.Server.Services
 			bool tweetPosted = await twitterService.PostTweetWithImage(accessToken, description, imageUrl);
 			if (tweetPosted)
 			{
-				_logger.LogInformation("Tweet posted successfully!");
+				Console.WriteLine("Tweet posted successfully!");
 			}
 			else
 			{
@@ -150,7 +148,7 @@ namespace maxhanna.Server.Services
 				bool mediaTweetPosted = await twitterService.PostTweetWithMedia(accessToken, description, mediaId);
 				if (mediaTweetPosted)
 				{
-					_logger.LogInformation("Tweet with media posted successfully!");
+					Console.WriteLine("Tweet with media posted successfully!");
 				}
 				else
 				{
@@ -204,7 +202,7 @@ namespace maxhanna.Server.Services
 
 				if (wallet == null)
 				{
-					_logger.LogInformation("No BTC wallets found to update or all wallets are up to date.");
+					Console.WriteLine("No BTC wallets found to update or all wallets are up to date.");
 					return;
 				}
 
@@ -243,7 +241,7 @@ namespace maxhanna.Server.Services
 					await updateCmd.ExecuteNonQueryAsync();
 				}
 
-				_logger.LogInformation($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
+				Console.WriteLine($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
 			}
 			catch (Exception ex)
 			{
@@ -295,7 +293,7 @@ namespace maxhanna.Server.Services
 					await using (var deleteCmd = new MySqlCommand(deleteSqlReportsAndBattles, conn, transaction))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_logger.LogInformation($"Deleted {affectedRows} old battle reports and references.");
+						Console.WriteLine($"Deleted {affectedRows} old battle reports and references.");
 					}
 
 					string deleteSqlBaseUpgrades = @"
@@ -311,7 +309,7 @@ namespace maxhanna.Server.Services
 					await using (var deleteCmd = new MySqlCommand(deleteSqlBaseUpgrades, conn, transaction))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_logger.LogInformation($"Deleted {affectedRows} null nexus base upgrade rows.");
+						Console.WriteLine($"Deleted {affectedRows} null nexus base upgrade rows.");
 					}
 
 					await transaction.CommitAsync();
@@ -377,7 +375,7 @@ namespace maxhanna.Server.Services
 						var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 						if (count > 0)
 						{
-							_logger.LogInformation("Exchange rates not added as entries exist in the last 6 hours.");
+							Console.WriteLine("Exchange rates not added as entries exist in the last 6 hours.");
 							return;
 						}
 					}
@@ -409,7 +407,7 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					_logger.LogInformation("Exchange rates stored successfully.");
+					Console.WriteLine("Exchange rates stored successfully.");
 				}
 			}
 			catch (Exception ex)
@@ -436,7 +434,7 @@ namespace maxhanna.Server.Services
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_logger.LogInformation($"Deleted {affectedRows} guest accounts older than 10 days.");
+						Console.WriteLine($"Deleted {affectedRows} guest accounts older than 10 days.");
 					}
 				}
 			}
@@ -499,7 +497,7 @@ namespace maxhanna.Server.Services
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						_logger.LogInformation($"Deleted {affectedRows} search results older than 1 day.");
+						Console.WriteLine($"Deleted {affectedRows} search results older than 1 day.");
 					}
 				}
 			}
@@ -567,7 +565,7 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					_logger.LogInformation($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}");
+					Console.WriteLine($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}");
 				}
 			}
 			catch (Exception ex)
@@ -629,7 +627,7 @@ namespace maxhanna.Server.Services
 						var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 						if (count > 0)
 						{
-							_logger.LogInformation("Coin values not added as entries were added in the last 1 hour.");
+							Console.WriteLine("Coin values not added as entries were added in the last 1 hour.");
 							return;
 						}
 					}
@@ -655,7 +653,7 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					_logger.LogInformation("Coin values stored successfully.");
+					Console.WriteLine("Coin values stored successfully.");
 				}
 			}
 			catch (Exception ex)

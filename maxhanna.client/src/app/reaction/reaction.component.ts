@@ -122,6 +122,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   @Input() inputtedParentRef?: AppComponent;
   @Input() userProfileId?: number;
   @Input() showSpan: boolean = false;
+  @Input() showSpanBorder: boolean = false;
   @Input() currentReactions?: Reaction[] = [];
   constructor(private reactionService: ReactionService, private notificationService: NotificationService) { super(); }
 
@@ -205,6 +206,19 @@ export class ReactionComponent extends ChildComponent implements OnInit {
         this.userReaction = foundReaction.type ?? '';
       }
     }
+    if (this.inputtedParentRef) {
+      const emojiMapArray = Object.entries(this.inputtedParentRef?.emojiMap).map(([key, emoji]) => ({
+        type: key.replace(/[:\-]/g, ''), // Remove colons and dashes to create a suitable type
+        emoji: emoji,
+        label: key // Use the original key as the label for now
+      }));
+
+      // Merge both lists, ensuring no duplicates based on the emoji value
+      const emojiSet = new Set(this.reactions.map(r => r.emoji));
+      const mergedReactions = [...this.reactions, ...emojiMapArray.filter(e => !emojiSet.has(e.emoji))];
+      this.filteredReactions = [...mergedReactions];
+      this.reactions = [...mergedReactions];
+    } 
   }
   reactionDisplayOnClick() { 
     this.showReactionChoices = !this.showReactionChoices;

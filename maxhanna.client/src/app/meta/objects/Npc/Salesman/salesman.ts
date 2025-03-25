@@ -77,8 +77,8 @@ export class Salesman extends Npc {
       } as Scenario]
     }
     //add animation/functionality for hero talking to salesman
-    events.on("HERO_REQUESTS_ACTION", this, (objectAtPosition: any) => {
-      if (objectAtPosition.id === this.id) {
+    events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
+      if (params.objectAtPosition.id === this.id) {
         const oldKey = this.body?.animations?.activeKey;
         const oldFacingDirection = this.facingDirection;
         this.body?.animations?.play("standDown");

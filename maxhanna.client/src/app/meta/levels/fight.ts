@@ -91,7 +91,7 @@ export class Fight extends Level {
       const rewardDisplay = new FightRewardBox({ position: new Vector2(30, -65), metabotParts: rewards });
       this.addChild(rewardDisplay);
 
-      events.emit("GOT_REWARDS", rewards);
+      //events.emit("GOT_REWARDS", rewards);
     });
     events.on("LEAVE_FIGHT", this, () => { 
       this.leaveFightFlag = true;

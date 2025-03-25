@@ -772,7 +772,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/File/GetFileById/{fileId}", Name = "GetFileById")]
 		public async Task<IActionResult> GetFileById([FromBody] User? user, int fileId)
 		{
-			_logger.LogInformation($"GET /File/GetFileById/{fileId}");
+			Console.WriteLine($"GET /File/GetFileById/{fileId}");
 
 			try
 			{

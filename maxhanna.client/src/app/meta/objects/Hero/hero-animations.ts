@@ -44,19 +44,19 @@ const makeStandingDownFrames = (rootFrame = 0) => {
     frames: [
       {
         time: 0,
-        frame: rootFrame + 1
-      },
-      {
-        time: 1000,
         frame: rootFrame
       },
       {
-        time: 1200,
+        time: 725,
         frame: rootFrame + 1
       },
       {
-        time: 2200,
+        time: 1450,
         frame: rootFrame + 2
+      },
+      {
+        time: 2200,
+        frame: rootFrame + 3
       }
     ]
   }

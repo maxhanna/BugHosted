@@ -382,7 +382,12 @@ export function isObjectNearby(playerOrObject: any) {
 			child.position.y <= neighborPosition.y + discrepancy
 		);
 	}) ?? [];
-   
+  console.log(possibilities);
+
+
+  // Prioritize items to pickup
+  const bestChoiceItem = possibilities.find((x: any) => x.itemLabel);
+  if (bestChoiceItem) return bestChoiceItem;
 
 	// Prioritize objects with text content
 	const bestChoice = possibilities.find((x: any) => x.textContent?.string);

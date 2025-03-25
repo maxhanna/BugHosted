@@ -1,19 +1,22 @@
 import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { CrawlerService } from '../../services/crawler.service'; 
-import { MetaData } from '../../services/datacontracts/social/story'; 
+import { CrawlerService } from '../../services/crawler.service';
+import { MetaData } from '../../services/datacontracts/social/story';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+
 @Component({
   selector: 'app-crawler',
   templateUrl: './crawler.component.html',
   styleUrl: './crawler.component.css'
 })
-export class CrawlerComponent extends ChildComponent implements OnInit, OnDestroy { 
-  searchMetadata: MetaData[] = []; 
+export class CrawlerComponent extends ChildComponent implements OnInit, OnDestroy {
+  searchMetadata: MetaData[] = [];
   error: string = '';
   indexCount = 0;
   indexUpdateTimer: any;
   isMenuOpen = false;
   lastSearch = "";
+  groupedResults?: { domain: string; links: MetaData[] }[] = [];
 
   pageSize: number = 10;  // Default page size
   currentPage: number = 1;
@@ -25,7 +28,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @Input() url: string = '';
-  constructor(private crawlerService: CrawlerService) { super(); }
+  constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService) { super(); }
   ngOnInit() {
     this.parentRef?.addResizeListener();
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
@@ -39,7 +42,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }, 1);
 
     this.indexUpdateTimer = setInterval(() => {
-      this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
+      if (this.urlInput.nativeElement.value.trim() == '') {
+        this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
+      }
     }, 60000);
   }
   ngOnDestroy() {
@@ -54,29 +59,82 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.currentPage = 1;
     }
 
-    this.lastSearch = url; 
+    this.lastSearch = url;
     const currentPage = this.currentPage;
     const pageSize = this.pageSize;
-    this.isLoading = true; 
+    this.startLoading();
 
     if (url) {
-      await this.crawlerService.searchUrl(url, currentPage, pageSize).then(res => { 
+      await this.crawlerService.searchUrl(url, currentPage, pageSize).then(res => {
         if (res && res.totalResults != 0) {
-          this.totalResults = res.totalResults;  
+          this.totalResults = res.totalResults;
           this.totalPages = Math.ceil(this.totalResults / this.pageSize);
           this.searchMetadata = res.results ?? [];
+          const groupedResults: { [domain: string]: MetaData[]; } = this.getGroupedResults(this.searchMetadata);
+
+          this.sortResults(groupedResults);
         } else {
           this.error = "No data from given URL.";
           this.totalResults = 0;
           this.totalPages = 0;
           this.searchMetadata = [];
+          this.groupedResults = [];
         }
       });
     } else {
       this.searchMetadata = [];
+      this.groupedResults = [];
     }
-    this.isLoading = false;
+    this.stopLoading();
     document.getElementsByClassName("componentMain")[0].scrollTop = 0;
+  }
+
+  private getGroupedResults(results: MetaData[]) {
+    const groupedResults: { [domain: string]: MetaData[]; } = {};
+
+    (results ?? []).forEach((metadata: MetaData) => {
+      try {
+        if (metadata.url) {
+          const urlObject = new URL(metadata.url);
+          const domain = urlObject.hostname;
+
+          if (!groupedResults[domain]) {
+            groupedResults[domain] = [];
+          }
+          groupedResults[domain].push(metadata);
+        }
+      } catch (error) {
+        console.error("Invalid URL:", metadata.url);
+      }
+    });
+    return groupedResults;
+  }
+
+  private sortResults(groupedResults: { [domain: string]: MetaData[]; }) {
+    this.groupedResults = Object.entries(groupedResults).map(([domain, links]) => {
+      const sortedLinks = links.sort((a: any, b:any) => {
+        const urlA = new URL(a.url);
+        const urlB = new URL(b.url);
+
+        // Check if one URL is the top-level URL (i.e., it has no path or only '/' as a path)
+        const isTopLevelA = urlA.pathname === '/' || urlA.pathname === '';
+        const isTopLevelB = urlB.pathname === '/' || urlB.pathname === '';
+
+        if (isTopLevelA && !isTopLevelB) {
+          return -1;  // Move top-level URLs to the front
+        } else if (!isTopLevelA && isTopLevelB) {
+          return 1;   // Move subpages after top-level URLs
+        }
+
+        // If both are top-level or both are subpages, sort them alphabetically by URL
+        return a.url.localeCompare(b.url);
+      });
+
+      return {
+        domain,
+        links: sortedLinks
+      };
+    });
   }
 
   onPageSizeChange() {
@@ -113,6 +171,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.parentRef.closeOverlay();
     }
   }
+  getSanitizedDescription(s?: string): SafeHtml {
+    if (!s) return "";
+    return this.sanitizer.bypassSecurityTrustHtml(s);
+  }
   getHttpStatusMeaning(status: number): string {
     switch (status) {
       case 200:
@@ -142,5 +204,5 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       default:
         return 'Unknown status code.';
     }
-  } 
+  }
 }

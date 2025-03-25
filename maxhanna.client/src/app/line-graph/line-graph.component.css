@@ -13,3 +13,13 @@
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   text-align: center;
 }
+.canvasChart {
+  max-width: 100%;
+  min-height: 300px;
+}
+.canvasChartWrapper {
+  display: block;
+  background-color: white;
+  display: flex;
+  justify-content: center; 
+}

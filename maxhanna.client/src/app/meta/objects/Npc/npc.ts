@@ -2,7 +2,7 @@ import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Scenario } from "../../helpers/story-flags";
-import { DOWN, gridCells, snapToGrid } from "../../helpers/grid-cells";
+import { DOWN, LEFT, RIGHT, UP, gridCells, snapToGrid } from "../../helpers/grid-cells";
 import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { hexToRgb, resources } from "../../helpers/resources";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
@@ -107,24 +107,28 @@ export class Npc extends Character {
       case 0:
         // Move up
         if (this.moveUpDown) {
+          this.facingDirection = UP;
           this.destinationPosition.y = this.position.y - gridCells(this.moveUpDown);
         }
         break;
       case 1:
         // Move right
         if (this.moveLeftRight) {
+          this.facingDirection = RIGHT;
           this.destinationPosition.x = this.position.x + gridCells(this.moveLeftRight);
         }
         break;
       case 2:
         // Move down
         if (this.moveUpDown) {
+          this.facingDirection = DOWN;
           this.destinationPosition.y = this.position.y + gridCells(this.moveUpDown);
         }
         break;
       case 3:
         // Move left
         if (this.moveLeftRight) {
+          this.facingDirection = LEFT;
           this.destinationPosition.x = this.position.x - gridCells(this.moveLeftRight);
         }
         break;

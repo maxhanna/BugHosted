@@ -11,7 +11,11 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   backdrop = new Sprite({
     resource: resources.images["textBox"],
     frameSize: new Vector2(256, 64)
-  }); 
+  });
+  menuLocationX = 10;
+  menuLocationY = 12;
+  selectorSprite = new Sprite({ resource: resources.images["pointer"], frameSize: new Vector2(12, 10), position: new Vector2(this.menuLocationX, this.menuLocationY) });
+
   portrait?: Sprite;
   objectSubject: any;
   content: string[] = [];
@@ -55,6 +59,9 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     events.on("CLOSE_MENUS", this, () => {
       events.emit("HERO_MOVEMENT_LOCK");
     });
+    if (this.canSelectItems) { 
+      this.addChild(this.selectorSprite);  
+    }
   } 
 
   override destroy() {
@@ -109,15 +116,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
     }
 
     for (let x = 0; x < textContent.length; x++) {
-      let words = calculateWords({ content: textContent[x], color: "White" });
-      const totalWordWidth = words.reduce((sum, word) => sum + word.wordWidth, 0);
-      if ((subjectName ? x > 0 : true) && x === this.selectionIndex && this.canSelectItems) {
-        // Draw a red square beside the selected word
-        ctx.strokeStyle = 'red';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(cursorX, cursorY, totalWordWidth + 10, LINE_VERTICAL_WIDTH);
-      }
-
+      let words = calculateWords({ content: textContent[x], color: "White" });  
       words.forEach(word => {
         //Decide if we can fit this next word on this line
         const spaceRemaining = drawPosX + LINE_WIDTH_MAX - cursorX;
@@ -192,6 +191,8 @@ export class SpriteTextStringWithBackdrop extends GameObject {
       events.emit("END_TEXT_BOX");
     }
     if (input?.verifyCanPressKey() && !input.chatSelected) {
+      const selectionSpacer = 12;
+
       if (input?.getActionJustPressed("ArrowUp")
         || input?.heldDirections.includes("UP")
         || input?.getActionJustPressed("KeyW")) {
@@ -199,14 +200,16 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         if (this.selectionIndex <= 0) {
           this.selectionIndex = this.content.length;
         }
+        this.selectorSprite.position.y = this.selectionIndex == 0 ? this.menuLocationY : (this.selectionIndex * selectionSpacer);
       }
       else if (input?.getActionJustPressed("ArrowDown")
         || input?.heldDirections.includes("DOWN")
         || input?.getActionJustPressed("KeyS")) {
         this.selectionIndex++;
         if (this.selectionIndex == this.content.length + (this.objectSubject?.name ? 1 : 0)) {
-          this.selectionIndex = 0;
+          this.selectionIndex = 0; 
         }
+        this.selectorSprite.position.y = this.selectionIndex == 0 ? this.menuLocationY : this.selectionIndex * selectionSpacer;
       }
       else if (input?.getActionJustPressed("ArrowLeft")
         || input?.heldDirections.includes("LEFT")
@@ -215,14 +218,16 @@ export class SpriteTextStringWithBackdrop extends GameObject {
         if (this.selectionIndex < 0) {
           this.selectionIndex = this.content.length - (this.objectSubject?.name ? 0 : 1);
         }
+        this.selectorSprite.position.y = this.selectionIndex == 0 ? this.menuLocationY : (this.selectionIndex * selectionSpacer);
       }
       else if (input?.getActionJustPressed("ArrowRight")
         || input?.heldDirections.includes("RIGHT")
         || input?.getActionJustPressed("KeyD")) {
         this.selectionIndex++;
         if (this.selectionIndex == this.content.length + (this.objectSubject?.name ? 1 : 0)) {
-          this.selectionIndex = 0;
+          this.selectionIndex = 0; 
         }
+        this.selectorSprite.position.y = this.selectionIndex == 0 ? this.menuLocationY : (this.selectionIndex * selectionSpacer);
       }
 
     }

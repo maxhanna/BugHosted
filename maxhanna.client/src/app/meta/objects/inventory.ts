@@ -16,8 +16,8 @@ export class Inventory extends GameObject {
   parts: MetaBotPart[] = [];
   currentlySelectedId?: number = undefined;
   startMenu?: StartMenu;
-  parentCharacter: Character;
-  constructor(config: { character: Character }) {
+  parentCharacter: MetaHero;
+  constructor(config: { character: MetaHero }) {
     super({ position: new Vector2(0, 0) });
     this.drawLayer = HUD;
     this.items = [];
@@ -33,13 +33,10 @@ export class Inventory extends GameObject {
 
   override ready() {
     events.on("CHARACTER_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string, stats?: any }) => {
-      if (data.hero?.isUserControlled) {
+      if (data.hero?.isUserControlled && data.category && data.stats) {
         const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category, stats: data.stats } as InventoryItem;
         this.updateStoryFlags(itemData);
         this.items.push(itemData);
-
-        //Show on the screen.
-       // this.renderInventory();
       }
     });
 
@@ -54,8 +51,6 @@ export class Inventory extends GameObject {
 
       this.updateStoryFlags(itemData);
       this.items.push(itemData);
-
-     // this.renderInventory();
     });
 
     events.on("PARTY_INVITE_ACCEPTED", this, (data: { playerId: number, party: MetaHero[] }) => {
@@ -74,9 +69,9 @@ export class Inventory extends GameObject {
       this.closeStartMenu()
     });
 
-    events.on("OPEN_START_MENU", this, (data: Exit[]) => {
+    events.on("OPEN_START_MENU", this, (data: {exits : Exit[], location: Vector2}) => {
       if (this.closeStartMenu()) return; 
-      this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts, exits: data });
+      this.startMenu = new StartMenu({ inventoryItems: this.items, metabotParts: this.parts, exits: data.exits, location: data.location });
       this.addChild(this.startMenu);  
       events.emit("HERO_MOVEMENT_LOCK"); 
     });
@@ -161,7 +156,7 @@ export class Inventory extends GameObject {
       ctx.moveTo(drawPos.x, drawPos.y);
       ctx.lineTo(drawPos.x, drawPos.y + cornerSize);
       ctx.stroke();
-
+                                                                                                                                                                     
       // Top-right corner
       ctx.beginPath();
       ctx.moveTo(drawPos.x + width, drawPos.y);

@@ -6,13 +6,15 @@
   </div>
   <div class=topLinks>
     <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
+    <button (click)="addLink()" *ngIf="showNameImageInput" [disabled]="isLoading">💾Create</button>
     <div *ngIf="favouriteSearch.length > 0">
       <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Existing' }} Links:</div>
       <div class="favouriteListWrapper">
         <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv">
-          <a [href]="getSafeUrl(sFav.url)" target="_blank">
-            <div class="favImage" *ngIf="sFav.imageUrl">
-              <img [src]="sFav.imageUrl" />
+          <a (click)="parentRef?.visitExternalLink(sFav.url)">
+            <div class="favImage" [title]="sFav.name">
+              <img [src]="sFav.imageUrl" *ngIf="sFav.imageUrl" />
+              <div class="emptyFavImage" *ngIf="!sFav.imageUrl"></div>
             </div>
             <div class="favName">
               {{ sFav.name && sFav.name.trim() ? sFav.name : sFav.url }}
@@ -21,23 +23,25 @@
           <button (click)="addLink(sFav)"
                   class="cursorPointer"
                   [disabled]="isIncludedInFavourites(sFav)"
-                  [title]="isIncludedInFavourites(sFav) ? 'Already added' : 'Add To Favourites'">➕</button>
+                  [title]="isIncludedInFavourites(sFav) ? 'Already added' : 'Add To Favourites'">
+            ➕
+          </button>
         </div>
-      </div> 
+      </div>
     </div>
-    <button (click)="addLink()" *ngIf="showNameImageInput">💾Create</button>
 
-    <div *ngIf="showNameImageInput">
-      <input #linkNameInput placeholder="Website Name" />
-      <input #linkImageInput placeholder="Website Logo URL" />
-    </div>
+    <!--<div *ngIf="showNameImageInput">
+    <input #linkNameInput placeholder="Website Name" />
+    <input #linkImageInput placeholder="Website Logo URL" />
+  </div>-->
     <div *ngIf="!showNameImageInput && !showingLatestLinks && !isSearchingUrls">
-      <div class="miniTitle">Your Favs:</div> 
+      <div class="miniTitle">Your Favs:</div>
       <div class="favouriteListWrapper">
         <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''">
-          <a [href]="getSafeUrl(fav.url)" target="_blank">
-            <div class="favImage" *ngIf="fav.imageUrl">
-              <img [src]="fav.imageUrl" />
+          <a (click)="parentRef?.visitExternalLink(fav.url)">
+            <div class="favImage">
+              <img [src]="fav.imageUrl" *ngIf="fav.imageUrl" />
+              <div class="emptyFavImage" *ngIf="!fav.imageUrl"></div>
             </div>
             <div class="favName">
               {{fav.name && fav.name.trim() ? fav.name : fav.url}}
@@ -54,7 +58,7 @@
       <button (click)="showEditLinks = !showEditLinks" class="cursorPointer" *ngIf="userFavourites.length > 0 && (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{showEditLinks ? 'Done ' : ''}}Edit{{showEditLinks ? 'ing' : ''}}{{showEditLinks ? '' : ' Links'}}</button>
       <button (click)="showLatestLinks()" class="cursorPointer" *ngIf="showingLatestLinks || (!showNameImageInput && !showingLatestLinks && !isSearchingUrls)">{{ !showingLatestLinks ? 'Show' : 'Hide' }} Latest Links</button>
     </div>
-   </div>
+  </div>
 </div>
 
 
@@ -74,7 +78,7 @@
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Created By:</div>
       <div class="optionsStatsDescription">
-        <app-user-tag [user]="getTmpUserById(editingFavourite?.createdBy)" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+        <app-user-tag [user]="editingCreatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv">
@@ -84,13 +88,17 @@
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Modified By:</div>
       <div class="optionsStatsDescription">
-        <app-user-tag [user]="getTmpUserById(editingFavourite?.modifiedBy)" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
+        <app-user-tag [user]="editingUpdatedBy" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
       </div>
     </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">Modification Date:</div>
       <div class="optionsStatsDescription">{{ editingFavourite?.modificationDate  | date: 'y/MM/dd HH:mm' }}</div>
-    </div> 
+    </div>
+    <div class="optionsStatsDiv" *ngIf="parentRef?.user?.id === editingFavourite?.createdBy">
+      <div class="optionsStatsHeader">Permanently Delete:</div>
+      <div class="optionsStatsDescription"><button (click)="permanentlyDelete(editingFavourite)">❌Delete</button></div>
+    </div>
   </div>
   <div>
     <button id="closeOverlay" (click)="closeEditPanel()">Close</button>

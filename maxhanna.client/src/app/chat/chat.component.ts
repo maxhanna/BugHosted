@@ -26,6 +26,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   selectedUsers: User[] = [] 
   @ViewChild('newMessage') newMessage!: ElementRef<HTMLTextAreaElement>;
   @ViewChild('chatWindow') chatWindow!: ElementRef;
+  @ViewChild('changePageMenuSelect') changePageMenuSelect!: ElementRef<HTMLSelectElement>;
   @ViewChild(MediaSelectorComponent) attachmentSelector!: MediaSelectorComponent;
   hasManuallyScrolled = false;
   private pollingInterval: any;
@@ -204,6 +205,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.pageNumber = +event.target.value;
     this.chatHistory = [];
     this.isChangingPage = true;
+    this.closeMenuPanel();
     await this.getMessageHistory(this.pageNumber, this.pageSize);
   }
   async openChat(users?: User[]) {
@@ -385,6 +387,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   async requestNotificationPermission() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) {
+      const currentUrl = window.location.href;
+      if (currentUrl.includes(":8000/")) {
+        return; 
+      }
       const cookie = parent.getCookie("notificationPermission");
       if (cookie) {
         return;
@@ -454,6 +460,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.closeMenuPanel();
       return;
     }
+    setTimeout(() => {
+      if (this.changePageMenuSelect && this.changePageMenuSelect.nativeElement) {
+        this.changePageMenuSelect.nativeElement.value = this.pageNumber.toString();
+      }
+    }, 50);
+
     this.isMenuPanelOpen = true;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.showOverlay(); 

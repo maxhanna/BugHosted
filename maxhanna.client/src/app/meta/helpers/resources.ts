@@ -63,6 +63,7 @@ export class Resources {
       house: `${this.dir}house.png`,
       houseSide: `${this.dir}house-side.png`,
       knight: `${this.dir}knight-sheet-1.png`,
+      leftArm: `${this.dir}LEFT_ARM.png`,
       menuBorder: `${this.dir}menuborder.png`,
       metalrailside: `${this.dir}metalrailside.png`,
       metalrail: `${this.dir}metalrail.png`,

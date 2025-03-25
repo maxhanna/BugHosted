@@ -4,7 +4,7 @@
   <div class="componentTitle">Crawler</div>
   <div class="xxSmallFont nbDiv">
     <div *ngIf="!searchMetadata.length">Total indexes: {{indexCount}}</div>
-    <div *ngIf="searchMetadata?.length">Search results: {{searchMetadata.length}}</div>
+    <div *ngIf="searchMetadata?.length">Search results: {{totalResults}}</div>
   </div>
   <div class="crawler-container" [style.opacity]="isLoading ? 0.5 : 1">
     <div>
@@ -23,32 +23,29 @@
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
     <div class="metadataSearchWrapper">
-      <div *ngFor="let metadata of searchMetadata" class="metadataSearchDiv">
-        <div class="metadataTitleWrapper">
-          <div class="metadataTitleDiv">
-            <a (click)="parentRef?.visitExternalLink(metadata?.url)" class="descriptionDiv cursorPointerUnderlined">{{ metadata.url }}</a>
+      <div *ngFor="let group of groupedResults" class="metadataSearchDiv">
+        <div class="groupDomainTitle">{{ group.domain }}</div>
+        <div *ngFor="let metadata of group.links"> 
+          <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointerUnderlined">
+            <a *ngIf="metadata.url" (click)="parentRef?.visitExternalLink(metadata.url)" [innerHTML]="getSanitizedDescription(metadata.title)"></a>
+          </div>
+          <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
+            <a (click)="parentRef?.visitExternalLink(metadata.url)">{{ metadata.url }}</a><button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites">❤️</button>
           </div>
           <div class="imageUrlPictureDiv">
-            <a *ngIf="metadata.imageUrl" [href]="metadata.imageUrl" target="_blank">
+            <a *ngIf="metadata.imageUrl" (click)="parentRef?.visitExternalLink(metadata.url)">
               <img *ngIf="metadata.imageUrl" [src]="metadata.imageUrl" [attr.loading]="'lazy'" [title]="metadata.imageUrl" />
             </a>
           </div>
-        </div>
-        <div>
-          <p *ngIf="metadata.title" class="descriptionDiv titleClass">
-            <a *ngIf="metadata.url" [href]="metadata.url" target="_blank">{{ metadata.title }}</a>
-          </p>
-          <p *ngIf="metadata.description" class="descriptionDiv descriptClass">{{ metadata.description }}</p>
-          <p *ngIf="metadata.author" class="descriptionDiv authorClass">{{ metadata.author }}</p>
-          <p *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
+          <div *ngIf="metadata.description" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
+          <div *ngIf="metadata.author" class="descriptionDiv authorClass" [innerHTML]="getSanitizedDescription(metadata.author)"></div>
+          <div *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
             {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
-          </p>
-          <p *ngIf="metadata.keywords" class="descriptionDiv keywordsClass">{{ metadata.keywords }}</p>
-          <p class="descriptionDiv keywordsClass">
-            <button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)">❤️Favourite</button>
-          </p>
+          </div>
+          <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass" [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
         </div>
       </div>
+
     </div>
     <div *ngIf="searchMetadata?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
       <div>Note: You can index your website by searching for it.</div>

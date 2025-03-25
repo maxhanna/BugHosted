@@ -2,10 +2,11 @@
   max-height: CALC(var(--vh, 1vh)* 100 - 60px);
   overflow: auto;
 }
+
 .crawler-container {
   min-width: 300px;
-  margin: 10px 10px; 
-} 
+  margin: 10px 10px;
+}
 
 .loadingNotificationDiv {
   margin: 20px;
@@ -40,13 +41,14 @@
   border-radius: 12px;
   margin: 22px;
   padding: 12px; 
-  overflow: auto;
   display: flex;
   flex-direction: column;
   word-break: break-all;
 }
+
 .metadataSearchWrapper {
 }
+
 .metadataTitleWrapper {
   display: flex;
   align-content: space-between;
@@ -55,6 +57,7 @@
   white-space: pre;
   text-overflow: ellipsis;
 }
+
 .metadataTitleDiv {
   display: flex;
   word-break: break-word;
@@ -78,13 +81,48 @@
   word-break: break-word;
   text-align: left;
 }
+
 .imageUrlPictureDiv {
-  margin: 2px; 
+  margin: 2px;
+  position: relative;
+  top: -15px;
+  left: calc(100% - 60px);
+  width: 0px;
+  height: 0px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-direction: column;
 }
-.keywordsClass , .authorClass{
+
+.keywordsClass, .authorClass {
   font-size: xx-small;
 }
+
 .descriptClass {
   margin: 10px;
   font-size: smaller;
+}
+.groupDomainTitle {
+  font-size: x-small;
+  color: var(--secondary-font-color);
+}
+
+.metadataTitleLinkFavouriteWrapper {
+  display: flex;
+  gap: 15px;
+  max-width: calc(100% - 70px);
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: flex-start;
+  align-content: flex-start;
+  flex-direction: row;
+  text-align: left;
+}
+.metadataTitleLinkFavouriteWrapper a {
+  text-align: left !important;
+}
+.metadataTitleLinkFavouriteWrapper button {
+  cursor: pointer;
 }

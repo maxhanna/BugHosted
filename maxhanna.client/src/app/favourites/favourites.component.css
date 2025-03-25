@@ -1,32 +1,56 @@
 .componentMain {
   min-width: 300px;
 }
-.topLinks
-{
-    align-content: center;
-    text-align: center;
+
+.topLinks {
+  align-content: center;
+  text-align: center;
 }
+
 .favouritesTitle {
   text-align: center;
 }
+
 .favouriteDiv {
   display: flex;
   justify-content: center;
   align-content: center;
   align-items: center;
   flex-direction: column;
-  max-width: 100px;
-  word-break: break-word;
+  width: 125px;
+  height: 100px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.favName {
+  width: 125px;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.emptyFavImage {
+  width: 50px;
+  height: 50px;
+  border: var(--main-border);
 }
 .favImage {
-  border: 1px solid var(--main-font-color);
-  border-radius: 12px;
-  background-color:white;
+  height: 50px;
+  width: 50px; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
 }
+
 .favouriteDiv img, .favImage {
   max-width: 50px;
   max-height: 50px;
 }
+
 .favouriteDiv a {
   display: flex;
   flex-direction: column;
@@ -35,39 +59,47 @@
   justify-content: center;
   align-items: center;
 }
+
 .favouriteListWrapper {
   margin: 20px;
   min-height: 200px;
   display: flex;
-  gap: 20px;
+  column-gap: 40px;
   flex-direction: row;
-  justify-content: flex-start;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
+  row-gap: 10px;
+  align-content: center;
 }
 
 .editOrDeleteSpanWrapper {
   display: flex;
   gap: 10px;
 }
+
 .editingPopupPanelInputs {
   padding: 20px;
   display: flex;
   flex-direction: column;
 }
+
 .editingPopupPanel .optionsStatsWrapperDiv {
   height: unset !important;
   overflow: unset !important;
 }
+
 .editingPopupPanel #closeOverlay {
   margin-top: 30px;
   margin-bottom: 10px;
 }
+
 .miniTitle {
   margin: 5px;
   font-size: smaller;
   font-weight: bold;
 }
+
 .linkOptionButtons {
   display: flex;
   gap: 20px;

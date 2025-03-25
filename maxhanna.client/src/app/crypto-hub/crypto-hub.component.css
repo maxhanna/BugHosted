@@ -14,8 +14,7 @@
     flex-wrap: nowrap;
   }
 } 
-.wallet {
-  min-width: 300px;
+.wallet { 
   overflow: auto;
   border: 1px solid dashed;
   padding: 10px;
@@ -186,7 +185,9 @@
   }
 }
 .walletPopupTitle {
-  text-align: center !important; 
+  text-align: center !important;
+  max-width: 97vw;
+  word-break: break-all;
 }
 
   .walletPopupTitle div {

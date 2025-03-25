@@ -590,12 +590,16 @@ fieldset {
   right: 99vw;
 }
 .quote-text {
-  font-size: small;
+  font-size: x-small; 
+}
+.quote-message {
+  color: var(--secondary-font-color);
 }
 .quote-time {
-  font-size: smaller;
+  font-size: smaller; 
 }
 .quote-link {
-  color: unset; 
+  color: unset;
   cursor: pointer;
+  text-align: unset;
 }

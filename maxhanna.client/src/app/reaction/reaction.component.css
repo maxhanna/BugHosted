@@ -13,24 +13,25 @@
   background-color: unset;
   color: var(--secondary-font-color);
 }
-
 .addReactionSpan {
-  white-space: nowrap;
-  font-size: small;
   border: 1px solid;
   border-radius: 50%;
+}
+.addReactionSpan, .addReactionSpanNoBorder {
+  white-space: nowrap;
+  font-size: small;
   padding-right: 2px;
   padding: 2px;
   cursor: pointer;
   text-shadow: 1px 1px black;
-  display: flex;
-  justify-content: center;
+  display: flex; 
+  white-space: nowrap;
   align-items: center;
+  justify-content: center;
   align-content: center;
   flex-wrap: nowrap;
-  flex-direction: row;
-  text-align: center;
-}
+  flex-direction: row; 
+} 
 
 .reactionWrapper {
   display: flex;
@@ -80,6 +81,8 @@
 
 .reactionsDisplaySpan {
   display: inline-block;
+  position:relative;
+  top: 2px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;

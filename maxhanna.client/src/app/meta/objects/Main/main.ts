@@ -24,7 +24,7 @@ export class Main extends GameObject {
     this.heroId = config.heroId;
     this.metaHero = config.metaHero;
     this.hero = config.hero;
-    this.inventory = new Inventory({ character: this.hero })
+    this.inventory = new Inventory({ character: this.metaHero });
     this.camera = new Camera({ position: new Vector2(0, 0), heroId: this.heroId });
     this.isOmittable = false;
   }
@@ -37,9 +37,9 @@ export class Main extends GameObject {
     });
 
     //LAUNCH TEXT BOX HANDLER
-    events.on("HERO_REQUESTS_ACTION", this, (withObject: any) => { 
-      if (typeof withObject.getContent === "function") {
-        const content = withObject.getContent(); 
+    events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => { 
+      if (typeof params.objectAtPosition.getContent === "function") {
+        const content = params.objectAtPosition.getContent(); 
         if (!content) {
           return;
         }
@@ -52,7 +52,7 @@ export class Main extends GameObject {
           portraitFrame: content.portraitFrame,
           string: content.string,
           canSelectItems: content.canSelectItems,
-          objectSubject: withObject
+          objectSubject: params.objectAtPosition
         });
         this.addChild(textBox);
         events.emit("START_TEXT_BOX");

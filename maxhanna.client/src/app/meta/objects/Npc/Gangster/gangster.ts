@@ -24,10 +24,12 @@ export class Gangster extends Npc {
       body: new Sprite({
         objectId: Math.floor(Math.random() * (-9999 + 1000)) - 1000,
         resource: resources.images["gangster"],
-        position: new Vector2(-7, -20),
+        position: new Vector2(0, 0),
         frameSize: new Vector2(32, 31),
         hFrames: 4,
         vFrames: 2,
+        offsetY: -8,
+        offsetX: -8,
         animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
@@ -45,7 +47,9 @@ export class Gangster extends Npc {
 
     const shadow = new Sprite({
       resource: resources.images["shadow"],
-      position: new Vector2((this.body?.position.x ?? 0) - 9, -30),
+      position: new Vector2(0, 0),
+      offsetY: -20,
+      offsetX: -15,
       scale: new Vector2(1.2, 1.2),
       frameSize: new Vector2(32, 32),
     });
@@ -57,7 +61,7 @@ export class Gangster extends Npc {
       setTimeout(() => {
         this.latestMessage = "";
       }, 2000);
-    }, 15000); 
+    }, Math.floor(Math.random() * 55000) + 10000); 
     this.textContent = [
       {
         string: [`Are you here alone?`],
@@ -67,8 +71,8 @@ export class Gangster extends Npc {
   }
 
   override ready() { 
-    events.on("HERO_REQUESTS_ACTION", this, (objectAtPosition: any) => {
-      if (objectAtPosition.id === this.id) {
+    events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
+      if (params.objectAtPosition.id === this.id) {
         const oldKey = this.body?.animations?.activeKey;
         const oldFacingDirection = this.facingDirection;
         this.body?.animations?.play("standDown");

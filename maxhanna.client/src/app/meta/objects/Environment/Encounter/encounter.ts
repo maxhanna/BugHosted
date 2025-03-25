@@ -3,7 +3,7 @@ import { events } from "../../../helpers/events";
 import { Bot } from "../../Bot/bot";
 import { Npc } from "../../Npc/npc";
 
-export class RandomEncounter extends Npc {
+export class Encounter extends Npc {
   enemy: Bot;
   lastSpawned: Date = new Date();
   possibleEnemies: string[] = [];

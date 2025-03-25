@@ -1,3 +1,4 @@
+using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts.Favourite;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -183,7 +184,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				_logger.LogError(ex, "An error occurred while upserting favourite.");
-				return StatusCode(500, "An error occurred while upserting favourite.");
+				return StatusCode(500, new { Message = "An error occurred while upserting favourite." });
 			}
 		}
 
@@ -232,6 +233,42 @@ namespace maxhanna.Server.Controllers
 			_logger.LogInformation($"Post /Favourite/Remove (id: {request.FavouriteId})");
 
 			string sql = @"DELETE FROM favourites_selected WHERE favourite_id = @fav_id AND user_id = @user_id LIMIT 1;";
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@fav_id", request.FavouriteId);
+						cmd.Parameters.AddWithValue("@user_id", request.User.Id);
+
+						int rowsAffected = await cmd.ExecuteNonQueryAsync();
+						if (rowsAffected > 0)
+						{
+							return Ok("Favourite removed successfully.");
+						}
+						else
+						{
+							return NotFound("Failed to removed favourite.");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while removing favourite.");
+				return StatusCode(500, "An error occurred while removing favourite.");
+			}
+		}
+
+		[HttpPost("/Favourite/Delete", Name = "DeleteFavourite")]
+		public async Task<IActionResult> DeleteFavourite([FromBody] AddFavouriteRequest request)
+		{
+			_logger.LogInformation($"Post /Favourite/Delete (id: {request.FavouriteId})");
+
+			string sql = @"DELETE FROM favourites WHERE id = @fav_id AND created_by = @user_id LIMIT 1;";
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))

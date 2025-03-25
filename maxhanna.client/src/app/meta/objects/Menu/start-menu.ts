@@ -13,6 +13,7 @@ import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from "../../../../servic
 import { Watch } from "./../InventoryItem/Watch/watch";
 import { storyFlags, GOT_WATCH, GOT_FIRST_METABOT } from "../../helpers/story-flags";
 import { Exit } from "../Environment/Exit/exit";
+import { gridCells } from "../../helpers/grid-cells";
 
 export class StartMenu extends GameObject {
   menuLocationX = 190;
@@ -41,7 +42,7 @@ export class StartMenu extends GameObject {
   metabotPartItems = [HEAD, LEGS, LEFT_ARM, RIGHT_ARM];
   regularMenuChoices = ["Meta-Bots", "Journal", "Warping", "Exit"];
 
-  blockClearWarpInput = false;
+  blockClearWarpInput = true;
   coordXSelected = false;
   coordYSelected = false;
   currentWarpX = "00";
@@ -51,7 +52,7 @@ export class StartMenu extends GameObject {
   menuWidth = 125;
   menuHeight = 200;
 
-  constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[], exits?: Exit[] }) {
+  constructor(params: { inventoryItems?: InventoryItem[], metabotParts?: MetaBotPart[], exits?: Exit[], location: Vector2 }) {
     super({ 
       position: new Vector2(0, 0),
       isOmittable: false,
@@ -61,10 +62,11 @@ export class StartMenu extends GameObject {
     this.name = "StartMenu";
     this.inventoryItems = params.inventoryItems ?? [];
     this.metabotParts = params.metabotParts ?? [];
-    this.exits = params.exits ?? []; 
+    this.exits = params.exits ?? [];
+    this.currentWarpX = String(params.location.x / gridCells(1)).padStart(2, '0');
+    this.currentWarpY = String(params.location.y / gridCells(1)).padStart(2, '0');
     this.addChild(this.background);
-    this.addChild(this.selectorSprite); 
-
+    this.addChild(this.selectorSprite);  
     if (!storyFlags.contains(GOT_WATCH)) {
       this.regularMenuChoices = this.regularMenuChoices.filter(x => x != "Warping");
     }
@@ -118,10 +120,10 @@ export class StartMenu extends GameObject {
     this.selectedMetabotId = undefined;
     this.selectedMetabotForParts = undefined;
 
-    if (!this.blockClearWarpInput) { 
-      this.currentWarpX = "00";
-      this.currentWarpY = "00";
-    }
+    //if (!this.blockClearWarpInput) { 
+    //  this.currentWarpX = "00";
+    //  this.currentWarpY = "00";
+    //}
     this.currentlySelectedId = 0;
     this.selectorSprite.position.y = 30 + (this.currentlySelectedId * 10);
 
@@ -272,7 +274,7 @@ export class StartMenu extends GameObject {
         if (part) {
           // Stats to insert directly after part name
           const partStats = `${part.skill.name} ${part.damageMod} ${getAbbrTypeLabel(part.skill.type)}`;
-          itemsWithStats.push(partStats);
+        //  itemsWithStats.push(partStats);
 
           const statsLabel = new SpriteTextString(partStats, new Vector2(this.menuLocationX + 20, this.menuLocationY + 20 + (20 * x)), "Black");
           this.addChild(statsLabel);
@@ -291,7 +293,7 @@ export class StartMenu extends GameObject {
     this.selectedPart = selectedPart;
     this.selectedMetabotId = selectedMetabotForParts.id;
     this.selectedMetabotForParts = selectedMetabotForParts;
-
+    console.log("displaying " + selectedPart);
     const filteredParts = this.metabotParts.filter(part => part.partName === this.selectedPart && !part.metabotId);
     let x = 0;
     for (let part of filteredParts) {
@@ -334,6 +336,7 @@ export class StartMenu extends GameObject {
       this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
     } else if (this.items.length > 0) {
       // Original increment logic
+      console.log(this.items);
       this.currentlySelectedId = (this.currentlySelectedId > this.items.length - 2 ? 0 : ++this.currentlySelectedId);
       this.selectorSprite.position.y = 30 + (this.currentlySelectedId * (this.selectedMetabot && !this.selectedPart ? 20 : 10));
     }
@@ -362,7 +365,8 @@ export class StartMenu extends GameObject {
 
   private handleKeyboardInput(root: GameObject, input: Input) {  
     if (input?.verifyCanPressKey()) {
-      if (input?.keys["Space"] && !this.blockSelection) { 
+      if (input?.keys["Space"] && !this.blockSelection) {
+        console.log(this.items[this.currentlySelectedId], this.selectedMetabot);
         if (this.items[this.currentlySelectedId] === "Exit") {
           events.emit("START_PRESSED");
         }
@@ -377,7 +381,7 @@ export class StartMenu extends GameObject {
           events.emit("WARP", { x: this.currentWarpX, y: this.currentWarpY });
         }
         else if (this.items[this.currentlySelectedId] === "Warp Coords Input") {
-          this.displayWarpCoordsInput("00", "00");
+          this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
         }
         else if (this.items[this.currentlySelectedId].includes("Warp to exit:")) {
           const coords = this.items[this.currentlySelectedId].replace("Warp to exit:", "").trim();
@@ -426,7 +430,7 @@ export class StartMenu extends GameObject {
             this.selectorSprite.position.x = 20 + (this.selectorSprite.position.x);
           }
         }
-        else if (this.items[this.currentlySelectedId] === "Back" || (this.selectedMetabot && this.currentlySelectedId == this.metabotPartItems.length)) {
+        else if (this.items[this.currentlySelectedId] === "Back") {
           if (this.selectedMetabot && !this.selectedMetabotId && this.selectedMetabot.hp > 0) {
             this.displayMetabots();
           } else if (this.selectedMetabotId && this.selectedPart && this.selectedMetabotForParts) {
@@ -439,11 +443,12 @@ export class StartMenu extends GameObject {
         } else if (this.items[this.currentlySelectedId] === "Meta-Bots") {
           this.displayMetabots(); 
         }
-        else if (this.selectedMetabot && (this.metabotPartItems[this.currentlySelectedId] === LEGS
-          || this.metabotPartItems[this.currentlySelectedId] === LEFT_ARM
-          || this.metabotPartItems[this.currentlySelectedId] === RIGHT_ARM
-          || this.metabotPartItems[this.currentlySelectedId] === HEAD)) {
-          this.displayPartSelection(this.metabotPartItems[this.currentlySelectedId], this.selectedMetabot);
+        else if (this.selectedMetabot && (this.items[this.currentlySelectedId] === LEGS
+          || this.items[this.currentlySelectedId] === LEFT_ARM
+          || this.items[this.currentlySelectedId] === RIGHT_ARM
+          || this.items[this.currentlySelectedId] === HEAD)) {
+          console.log("display part selection");
+          this.displayPartSelection(this.items[this.currentlySelectedId], this.selectedMetabot);
         }
         else if (this.isDisplayingMetabots) {
           const selection = this.items[this.currentlySelectedId]; 

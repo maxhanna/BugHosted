@@ -171,7 +171,7 @@ export function generateReward(source: Bot, target: Bot) {
     });
 
     if (generatedPart) {
-      events.emit("GOT_REWARDS", [generatedPart]);
+      events.emit("GOT_REWARDS", { location: target.position, part: generatedPart });
     }
   }
 }

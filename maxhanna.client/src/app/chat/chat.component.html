@@ -145,7 +145,7 @@
     <div class="optionsStatsDiv" *ngIf="!showUserList">
       <div class="optionsStatsHeader">Page:</div>
       <div class="optionsStatsDescription">
-        <select (change)="changePage($event)">
+        <select (change)="changePage($event)" #changePageMenuSelect>
           <option *ngFor="let page of totalPagesArray; let i = index" [value]="i+1">{{ i+1 }}</option>
         </select>
       </div>

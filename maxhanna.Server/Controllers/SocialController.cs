@@ -1193,36 +1193,41 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<Metadata> FetchMetadataAsync(string url)
 		{
-			var httpClient = new HttpClient();
-			var response = await httpClient.GetAsync(url);
-			var html = await response.Content.ReadAsStringAsync();
-
-			var htmlDocument = new HtmlDocument();
-			htmlDocument.LoadHtml(html);
 			var metadata = new Metadata();
-			_logger.LogInformation($"Got HTML for {url}.");
-
-			// Extract metadata from HTML document
-			var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
-			if (titleNode != null)
+			try
 			{
-				metadata.Title = titleNode.InnerText.Trim();
-			}
+				var httpClient = new HttpClient();
+				var response = await httpClient.GetAsync(url);
+				var html = await response.Content.ReadAsStringAsync();
 
-			var metaDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']");
-			if (metaDescriptionNode != null)
+				var htmlDocument = new HtmlDocument();
+				htmlDocument.LoadHtml(html);
+				_logger.LogInformation($"Got HTML for {url}.");
+
+				// Extract metadata from HTML document
+				var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
+				if (titleNode != null)
+				{
+					metadata.Title = titleNode.InnerText.Trim();
+				}
+
+				var metaDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']");
+				if (metaDescriptionNode != null)
+				{
+					metadata.Description = metaDescriptionNode.GetAttributeValue("content", "").Trim();
+				}
+
+				var metaImageNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:image']");
+				if (metaImageNode != null)
+				{
+					metadata.ImageUrl = metaImageNode.GetAttributeValue("content", "").Trim();
+				}
+
+				metadata.Url = url;
+			} catch(Exception ex)
 			{
-				metadata.Description = metaDescriptionNode.GetAttributeValue("content", "").Trim();
-			}
-
-			var metaImageNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:image']");
-			if (metaImageNode != null)
-			{
-				metadata.ImageUrl = metaImageNode.GetAttributeValue("content", "").Trim();
-			}
-
-			metadata.Url = url;
-
+				Console.WriteLine("SocialCtrl: Failed to fetch metadata : " + ex.Message);
+			} 
 			return metadata;
 		}
 

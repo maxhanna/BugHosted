@@ -23,7 +23,7 @@ import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
 import { Sign } from "../objects/Environment/Sign/sign";
 import { BrushRoad1 } from "./brush-road1";
 import { GROUND, FLOOR } from "../objects/game-object";
-import { RandomEncounter } from "../objects/Environment/Encounter/encounter";
+import { Encounter } from "../objects/Environment/Encounter/encounter";
  
 
 export class BrushLevel1 extends Level { 
@@ -264,7 +264,7 @@ export class BrushLevel1 extends Level {
     //Npcs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
     if (storyFlags.contains(GOT_FIRST_METABOT)) {
  
-      const encounter = new RandomEncounter({
+      const encounter = new Encounter({
         id: -997711,
         position: new Vector2(gridCells(33), gridCells(4)),
         possibleEnemies: ["spiderBot", "armobot"],
@@ -273,7 +273,7 @@ export class BrushLevel1 extends Level {
       });
       this.addChild(encounter);
 
-      const encounterGangsterBot = new RandomEncounter({
+      const encounterGangsterBot = new Encounter({
         id: -997710,
         position: new Vector2(gridCells(14), gridCells(30)),
         possibleEnemies: ["botFrame"],

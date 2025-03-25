@@ -371,7 +371,8 @@
                             [user]="parentRef?.user"
                             [inputtedParentRef]="parentRef"
                             [userProfileId]="userProfileId"
-                            [component]="story"  
+                            [component]="story"
+                            [showSpan]="true"
                             [currentReactions]="story.reactions"></app-reaction>
             </span>
             <span (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton" title="Show post options">

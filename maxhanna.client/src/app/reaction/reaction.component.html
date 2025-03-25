@@ -12,7 +12,7 @@
       {{userHasReacted() ? replaceReactionType(userReaction) : '✚'}}
       <span class="addReactionTitleSpan" *ngIf="!userHasReacted()" title="Reactions"></span>
     </button>
-    <span class="addReactionSpan"
+    <span [class]="showSpanBorder ? 'addReactionSpan' : 'addReactionSpanNoBorder'"
           (click)="reactionButtonOnClick($event)"
           [id]="'addReactionSpan_' + reactionId"
           [title]="(userHasReacted() ? 'Change' : 'Add') + ' Reaction'"

@@ -115,7 +115,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.ctx.save(); //Save the current state for camera offset;
     if (this.mainScene.camera) {
       this.ctx.translate(this.mainScene.camera.position?.x ?? 0, this.mainScene.camera.position?.y ?? 0); //Offset by camera position:
-    } 
+    }
     this.mainScene.drawObjects(this.ctx);
     this.ctx.restore(); //Restore to original state 
     this.mainScene.drawForeground(this.ctx); //Draw anything above the game world
@@ -206,7 +206,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
               legs: enemy.legs,
               isSolid: true,
             });
-            if (tmp.hp) { 
+            if (tmp.hp) {
               this.mainScene.level.addChild(tmp);
             }
           }
@@ -258,7 +258,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  private addHeroToScene(hero: MetaHero) { 
+  private addHeroToScene(hero: MetaHero) {
     const tmpHero = new Hero({
       id: hero.id,
       name: hero.name ?? "Anon",
@@ -279,7 +279,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.mainScene.level?.addChild(tmpHero);
 
     for (let i = 0; i < hero.metabots.length; i++) {
-      if (hero.metabots[i].isDeployed == true) { 
+      if (hero.metabots[i].isDeployed == true) {
         this.addBotToScene(hero, hero.metabots[i]);
         break;
       }
@@ -290,7 +290,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
 
   private addBotToScene(metaHero: MetaHero, bot: MetaBot) {
     if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return; }
-     
+
     if (metaHero && metaHero.metabots && metaHero.metabots.length > 0) {
       let tgtBot = metaHero.metabots.find(x => x.id === bot.id);
       if (tgtBot) {
@@ -322,8 +322,21 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     return tmpBot;
   }
 
-  private addItemToScene(item: MetaBotPart) {
-    const itemSkin = new DroppedItem({ position: new Vector2(this.metaHero.position.x, this.metaHero.position.y), item: item });
+  private addItemToScene(item: MetaBotPart, location: Vector2) {
+    const offsets = [
+      new Vector2(-gridCells(1), 0),
+      new Vector2(-gridCells(2), 0),
+      new Vector2(gridCells(1), 0),
+      new Vector2(gridCells(2), 0),
+      new Vector2(0, -gridCells(1)),
+      new Vector2(0, -gridCells(2)),
+      new Vector2(0, gridCells(1)),
+      new Vector2(0, gridCells(2)),
+      new Vector2(0, 0)
+    ]
+    const randomOffset = offsets[Math.floor(Math.random() * offsets.length)];
+    const newLocation = new Vector2( location.x + randomOffset.x, location.y + randomOffset.y);
+    const itemSkin = new DroppedItem({ position: newLocation, item: item });
     this.mainScene.level?.addChild(itemSkin);
   }
 
@@ -395,10 +408,10 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     this.mainScene.camera.centerPositionOnTarget(this.metaHero.position);
   }
 
-  private async reinitializeInventoryData() { 
+  private async reinitializeInventoryData() {
     if (this.mainScene?.inventory?.items) {
       this.mainScene.inventory.items.forEach((item: any) => this.mainScene.inventory.removeFromInventory(item.id));
-    }  
+    }
     await this.metaService.fetchInventoryData(this.metaHero).then(inventoryData => {
       if (inventoryData) {
         const inventoryItems = inventoryData.inventory as InventoryItem[];
@@ -415,7 +428,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
           if (item.category === "botFrame") {
             const bot = this.mainScene?.level?.children?.find((x: Bot) => x.heroId == this.metaHero.id && x.name === invItem.name);
             const metaBot = this.metaHero.metabots.find(bot => bot.name === invItem.name);
-            if (bot && metaBot) { 
+            if (bot && metaBot) {
               metaBot.hp = bot.hp;
               metaBot.level = bot.level;
               metaBot.isDeployed = bot.isDeployed;
@@ -428,6 +441,30 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
         }
       }
     });
+  }
+
+  reinitializeStartMenuData() {  
+    for (let item of this.mainScene?.inventory?.items) {
+      let invItem = {
+        image: item.image,
+        name: item.name,
+        id: item.id,
+        category: item.category,
+      } as InventoryItem;
+      if (item.category === "botFrame") {
+        const bot = this.mainScene?.level?.children?.find((x: Bot) => x.heroId == this.metaHero.id && x.name === item.name);
+        const metaBot = this.metaHero.metabots.find(bot => bot.name === invItem.name);
+        if (bot && metaBot) {
+          console.log(bot);
+          metaBot.hp = bot.hp;
+          metaBot.level = bot.level;
+          metaBot.isDeployed = bot.isDeployed;
+          metaBot.exp = bot.exp;
+        }
+
+        item.stats = JSON.stringify(metaBot);
+      }
+    }
   }
 
   private getLevelFromLevelName(key: string): Level {
@@ -479,9 +516,9 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   lockMovementForChat() {
-    console.log("lock movement for chat"); 
+    console.log("lock movement for chat");
     events.emit("HERO_MOVEMENT_LOCK");
- 
+
   }
   async changeColor() {
     this.metaHero.color = this.colorInput.nativeElement.value;
@@ -495,7 +532,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     containers.forEach((container: any) => {
       container.style.height = '100vh';
     });
-     
+
   };
 
   goFullScreen() {

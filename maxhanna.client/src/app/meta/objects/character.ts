@@ -10,27 +10,28 @@ import { events } from "../helpers/events";
 import { resources } from "../helpers/resources";
 
 export class Character extends GameObject {
-	id: number;
-	facingDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT = DOWN;
-	destinationPosition: Vector2 = new Vector2(1, 1);
-	lastPosition: Vector2 = new Vector2(1, 1);
-	body?: Sprite;
-	isUserControlled? = false;
-	slopeType: undefined | typeof UP | typeof DOWN;
-	slopeDirection: undefined | typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT;
-	ogScale = new Vector2(1, 1);
-	endScale = new Vector2(1, 1);
-	steppedUpOrDown = false;
-	slopeIncrements = 0.05;
-	lastStandAnimationTime = 0;
-	slopeStepHeight?: Vector2;
-	speed: number = 1;
-	scale: Vector2 = new Vector2(1, 1);
-	latestMessage = "";
-	mask?: Mask = undefined
-	distanceLeftToTravel? = 0;
-	itemPickupTime: number = 0;
-	itemPickupShell: any;
+  id: number;
+  facingDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT = DOWN;
+  destinationPosition: Vector2 = new Vector2(1, 1);
+  lastPosition: Vector2 = new Vector2(1, 1);
+  body?: Sprite;
+  isUserControlled? = false;
+  slopeType: undefined | typeof UP | typeof DOWN;
+  slopeDirection: undefined | typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT;
+  ogScale = new Vector2(1, 1);
+  endScale = new Vector2(1, 1);
+  steppedUpOrDown = false;
+  slopeIncrements = 0.05;
+  lastStandAnimationTime = 0;
+  lastMaskCalculationTime = 1110;
+  slopeStepHeight?: Vector2;
+  speed: number = 1;
+  scale: Vector2 = new Vector2(1, 1);
+  latestMessage = "";
+  mask?: Mask = undefined
+  distanceLeftToTravel? = 0;
+  itemPickupTime: number = 0;
+  itemPickupShell: any;
   isLocked = false;
   hp = 0;
   level = 1;
@@ -38,14 +39,14 @@ export class Character extends GameObject {
   expForNextLevel = 0;
 
   private messageCache: HTMLCanvasElement | null = null;
-  private cachedMessage: string = ""; 
+  private cachedMessage: string = "";
 
-	constructor(params: {
-		id: number,
-		name: string,
-		body?: Sprite,
-		position?: Vector2,
-		colorSwap?: ColorSwap,
+  constructor(params: {
+    id: number,
+    name: string,
+    body?: Sprite,
+    position?: Vector2,
+    colorSwap?: ColorSwap,
     isUserControlled?: boolean,
     speed?: number,
     hp?: number,
@@ -56,7 +57,7 @@ export class Character extends GameObject {
     preventDraw?: boolean,
     forceDrawName?: boolean,
     preventDrawName?: boolean,
-	}) {
+  }) {
     super({
       position: params.position ?? new Vector2(0, 0),
       colorSwap: params.colorSwap,
@@ -64,8 +65,8 @@ export class Character extends GameObject {
       forceDrawName: params.forceDrawName ?? true,
       preventDrawName: params.preventDrawName ?? true,
     });
-		this.id = params.id;
-    this.name = params.name; 
+    this.id = params.id;
+    this.name = params.name;
     this.body = this.preventDraw ? undefined : params.body;
     this.destinationPosition = this.position.duplicate();
     this.speed = params.speed ?? 1;
@@ -73,223 +74,246 @@ export class Character extends GameObject {
     this.exp = params.exp ?? 0;
     this.expForNextLevel = params.expForNextLevel ?? 0;
     this.hp = params.hp ?? 0;
-		this.isUserControlled = params.isUserControlled ?? false;
-		this.mask = params.mask;
-		if (this.body) {
-			this.initializeBody();
-		}
-		this.body?.animations?.play("standDown");
+    this.isUserControlled = params.isUserControlled ?? false;
+    this.mask = params.mask;
+    if (this.body) {
+      this.initializeBody();
+    }
+    this.body?.animations?.play("standDown");
 
-		this.setupEvents(); 
-	}
+    this.setupEvents();
+  }
 
-	override destroy() {
-		this.destroyBody();
-		super.destroy();
-	}
+  override destroy() {
+    this.destroyBody();
+    super.destroy();
+  }
 
-	destroyBody() {
-		this.body?.destroy();
-		this.mask?.destroy();
-	}
+  destroyBody() {
+    this.body?.destroy();
+    this.mask?.destroy();
+  }
 
-	initializeBody() {
-		let offsetY;
-		if (this.scale.y < 0.75) {
-			offsetY = 7;
-		} else if (this.scale.y < 0.8) {
-			offsetY = 5;
-		} else if (this.scale.y < 0.9) {
-			offsetY = 5;
-		} else if (this.scale.y < 0.95) {
-			offsetY = 3;
-		} else {
-			offsetY = 0;
-		}
-		if (this.body) {
-			this.destroyBody();
-			this.body.scale = this.scale;
-			this.body.position.y = offsetY;
+  initializeBody() {
+    let offsetY;
+    if (this.scale.y < 0.75) {
+      offsetY = 7;
+    } else if (this.scale.y < 0.8) {
+      offsetY = 5;
+    } else if (this.scale.y < 0.9) {
+      offsetY = 5;
+    } else if (this.scale.y < 0.95) {
+      offsetY = 3;
+    } else {
+      offsetY = 0;
+    }
+    if (this.body) {
+      this.destroyBody();
+      this.body.scale = this.scale;
+      this.body.position.y = offsetY;
 
-			if (!this.children.includes(this.body)) {
-				this.addChild(this.body); 
-			}
+      if (!this.children.includes(this.body)) {
+        this.addChild(this.body);
+      }
 
-			let animation = this.body?.animations?.activeKey;
-			if (!animation) {
-				this.body?.animations?.play(animation ?? "standDown");
-			}
+      let animation = this.body?.animations?.activeKey;
+      if (!animation) {
+        this.body?.animations?.play(animation ?? "standDown");
+      }
 
-			if (this.mask) {
-				if (this.facingDirection == UP) {
-				} else if (this.facingDirection == DOWN) {
-					this.mask.frame = 0;
-				} else if (this.facingDirection == LEFT) {
-					this.mask.frame = 1;
-				} else if (this.facingDirection == RIGHT) {
-					this.mask.frame = 2;
-				}
+      this.reinitializeMask();
+    }
+  }
 
-				this.mask.scale = this.scale;
-				this.mask.position = this.body.position.duplicate();
-				this.mask.position.y += offsetY / 2;
-				this.mask.offsetX = offsetY / 2;
+  private reinitializeMask() {
+    if (this.mask && this.body) { 
+      let offsetY;
+      if (this.scale.y < 0.75) {
+        offsetY = 7;
+      } else if (this.scale.y < 0.8) {
+        offsetY = 5;
+      } else if (this.scale.y < 0.9) {
+        offsetY = 5;
+      } else if (this.scale.y < 0.95) {
+        offsetY = 3;
+      } else {
+        offsetY = 0;
+      }
+      if (this.facingDirection == UP) {
+      } else if (this.facingDirection == DOWN) {
+        this.mask.frame = 0;
+      } else if (this.facingDirection == LEFT) {
+        this.mask.frame = 1;
+      } else if (this.facingDirection == RIGHT) {
+        this.mask.frame = 2;
+      }
 
-				if (!this.children.includes(this.mask)) { 
-					this.addChild(this.mask);
-				}
-			}
-		}
-	} 
+      this.mask.scale = this.scale;
+      this.mask.position = this.body.position.duplicate();
+      this.mask.position.y += offsetY / 2;
+      this.mask.offsetX = offsetY / 2;
 
-  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
+      if (!this.children.includes(this.mask)) {
+        this.addChild(this.mask);
+      }
+    }
+  }
+
+  override drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     this.drawLatestMessage(ctx, drawPosX, drawPosY);
-    if (!this.preventDrawName) { 
+    if (!this.preventDrawName) {
       this.drawName(ctx, drawPosX, drawPosY);
     }
-    if ((this as any).isEnemy) { 
+    if ((this as any).isEnemy) {
       this.drawHP(ctx, drawPosX, drawPosY);
       this.drawExp(ctx, drawPosX, drawPosY);
     }
-	}
+  }
 
-	override step(delta: number, root: any) { 
-		const input = root.input as Input;
-		if (this.isLocked) return;
+  override step(delta: number, root: any) {
+    const input = root.input as Input;
+    if (this.isLocked) return;
 
-		if (this.itemPickupTime > 0) {
-			this.workOnItemPickup(delta);
-			return;
-		}
-		if (input?.getActionJustPressed("Space") && this.isUserControlled) { 
-			const objectAtPosition = isObjectNearby(this); 
-			if (objectAtPosition) {
-				events.emit("HERO_REQUESTS_ACTION", objectAtPosition);
-			}
+    if (this.itemPickupTime > 0) {
+      this.workOnItemPickup(delta);
+      return;
+    }
+    if (input?.getActionJustPressed("Space") && this.isUserControlled) {
+      const objectAtPosition = isObjectNearby(this);
+      if (objectAtPosition) {
+        events.emit("HERO_REQUESTS_ACTION", { hero: this, objectAtPosition: objectAtPosition });
+      }
     }
 
-    this.distanceLeftToTravel = moveTowards(this, this.destinationPosition, this.speed); 
-		const hasArrived = (this.distanceLeftToTravel ?? 0) <= 1;
-		if (hasArrived || !this.isUserControlled) { 
-			tryMove(this, root, (this.isUserControlled ?? false), this.distanceLeftToTravel ?? 0);
+    this.distanceLeftToTravel = moveTowards(this, this.destinationPosition, this.speed);
+    const hasArrived = (this.distanceLeftToTravel ?? 0) <= 1;
+    if (hasArrived || !this.isUserControlled) {
+      tryMove(this, root, (this.isUserControlled ?? false), this.distanceLeftToTravel ?? 0);
     }
 
-		this.tryEmitPosition();
-		this.recalculateMaskPositioning();
-	}
+    this.tryEmitPosition();
+    this.recalculateMaskPositioning();
+  }
 
-	tryEmitPosition() {
-		if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
-			return;
-		}
-		this.lastPosition.x = this.position.x;
-		this.lastPosition.y = this.position.y; 
-		events.emit("CHARACTER_POSITION", this); 
-	}
+  tryEmitPosition() {
+    if (this.lastPosition.x === this.position.x && this.lastPosition.y === this.position.y) {
+      return;
+    }
+    this.lastPosition.x = this.position.x;
+    this.lastPosition.y = this.position.y;
+    events.emit("CHARACTER_POSITION", this);
+  }
 
-	onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
-		console.log(data);
-		if (data.hero?.id == this.id) {
-			this.destinationPosition = data.position.duplicate();
-			this.itemPickupTime = 2500;
-			this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
-			this.itemPickupShell.addChild(new Sprite({
-				resource: resources.images[data.imageName],
-				position: new Vector2(0, -30),
-				scale: new Vector2(0.85, 0.85),
-				frameSize: new Vector2(22, 24),
-			}));
-			this.addChild(this.itemPickupShell);
-		}
-	}
-	private recalculateMaskPositioning() {
-		if (!this.mask || !this.body) return;
-		this.mask.offsetY = this.body.offsetY;
-		if (this.body.frame >= 12 && this.body.frame < 16) {
-			this.mask.preventDraw = true;
-		} else {
-			this.mask.preventDraw = false;
+  onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
+    console.log(data);
+    if (data.hero?.id == this.id) {
+/*      this.mask?.destroy();*/ 
+      this.itemPickupTime = 2500;
+      this.itemPickupShell = new GameObject({ position: new Vector2(0, 0) });
+      this.itemPickupShell.addChild(new Sprite({
+        resource: resources.images[data.imageName],
+        position: new Vector2(0, -30),
+        scale: new Vector2(0.85, 0.85),
+        frameSize: new Vector2(22, 24),
+      }));
+      this.addChild(this.itemPickupShell);
+      this.recalculateMaskPositioning();
+    }
+  }
+  private recalculateMaskPositioning() {
+    if (!this.mask || !this.body) return;
+    const currentTime = Date.now();
+    if (currentTime - this.lastMaskCalculationTime < 10) return;
+    this.lastMaskCalculationTime = currentTime;
 
-			switch (this.body.frame) {
-				case 5:
-				case 7:
-					this.mask.offsetY += 2;
-					break;
 
-				case 8:
-					// Set frame 1 and keep offsetY at 0 for frame 8
-					this.mask.frame = 1;
-					break;
+    this.mask.offsetY = this.body.offsetY;
+    if (this.body.frame >= 12 && this.body.frame < 16) {
+      this.mask.preventDraw = true;
+    } else {
+      this.mask.preventDraw = false;
 
-				case 9:
-					// Set frame 1 with an adjusted offsetY for frame 9
-					this.mask.frame = 1;
-					this.mask.offsetY += -2;
-					break;
+      switch (this.body.frame) {
+        case 5:
+        case 7:
+          this.mask.offsetY += 2;
+          break;
 
-				case 10:
-					this.mask.frame = 2;
-					break;
+        case 8:
+          // Set frame 1 and keep offsetY at 0 for frame 8
+          this.mask.frame = 1;
+          break;
 
-				case 11:
-					// Set frame 2 for frames 10 and 11
-					this.mask.frame = 2;
-					this.mask.offsetY += -2;
-					break;
+        case 9:
+          // Set frame 1 with an adjusted offsetY for frame 9
+          this.mask.frame = 1;
+          this.mask.offsetY += -2;
+          break;
 
-				default:
-					// Default to frame 0 for any other cases
-					this.mask.frame = 0;
-					break;
-			}
-		}
-	}
-	workOnItemPickup(delta: number) { 
-		this.itemPickupTime -= delta;
-		if (this.body?.animations?.activeKey != "pickupDown") {
-			this.body?.animations?.play("pickupDown"); 
-		}
-		if (this.itemPickupTime <= 0) { 
-			this.itemPickupShell.destroy();
-		}
-	}
+        case 10:
+          this.mask.frame = 2;
+          break;
 
-  setupEvents() { 
-		events.emit("CHARACTER_CREATED", this); 
-		events.on("CHARACTER_SLOPE", this, (params: {
-			character: Character;
-			slopeType: typeof UP | typeof DOWN;
-			slopeDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT;
-			startScale: Vector2;
-			endScale: Vector2;
-			slopeStepHeight: Vector2;
-		}) => { 
-			if (params.character.id === this.id) { 
-				this.ogScale = this.scale;
-				this.endScale = params.endScale;
-				this.slopeType = params.slopeType;
-				this.slopeDirection = params.slopeDirection;
-				this.slopeStepHeight = params.slopeStepHeight;
+        case 11:
+          // Set frame 2 for frames 10 and 11
+          this.mask.frame = 2;
+          this.mask.offsetY += -2;
+          break;
 
-				if (!this.scale.matches(params.startScale)) {
-					this.scale = params.startScale;
-					this.ogScale = params.startScale;
-					this.endScale = params.endScale; 
-					this.initializeBody();
-				}
-			}
-		});
-		events.on("CHARACTER_PICKS_UP_ITEM", this, (data: {
-			position: Vector2;
-			hero: Character;
-			name: string;
-			imageName: string;
-			category: string;
-			stats: any;
-		}) => {
-			this.onPickupItem(data);
+        default:
+          // Default to frame 0 for any other cases
+          this.mask.frame = 0;
+          break;
+      }
+    }
+  }
+  workOnItemPickup(delta: number) {
+    this.itemPickupTime -= delta;
+    if (this.body?.animations?.activeKey != "pickupDown") {
+      this.body?.animations?.play("pickupDown");
+    }
+    this.recalculateMaskPositioning();
+    if (this.itemPickupTime <= 0) {
+      this.itemPickupShell.destroy();
+    }
+  }
+
+  setupEvents() {
+    events.emit("CHARACTER_CREATED", this);
+    events.on("CHARACTER_SLOPE", this, (params: {
+      character: Character;
+      slopeType: typeof UP | typeof DOWN;
+      slopeDirection: typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT;
+      startScale: Vector2;
+      endScale: Vector2;
+      slopeStepHeight: Vector2;
+    }) => {
+      if (params.character.id === this.id) {
+        this.ogScale = this.scale;
+        this.endScale = params.endScale;
+        this.slopeType = params.slopeType;
+        this.slopeDirection = params.slopeDirection;
+        this.slopeStepHeight = params.slopeStepHeight;
+
+        if (!this.scale.matches(params.startScale)) {
+          this.scale = params.startScale;
+          this.ogScale = params.startScale;
+          this.endScale = params.endScale;
+          this.initializeBody();
+        }
+      }
     });
-	}
+    events.on("CHARACTER_PICKS_UP_ITEM", this, (data: {
+      position: Vector2;
+      hero: Character;
+      name: string;
+      imageName: string;
+      category: string;
+      stats: any;
+    }) => {
+      this.onPickupItem(data);
+    });
+  }
   drawHP(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     // Define HP bar dimensions
     const barWidth = 40;  // Total width of HP bar
@@ -332,7 +356,7 @@ export class Character extends GameObject {
   drawExp(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {
     if (this.expForNextLevel === 0) {
       this.calculateExpForNextLevel(this);
-    } 
+    }
 
     // Define EXP bar dimensions
     const barWidth = 40;
@@ -429,7 +453,7 @@ export class Character extends GameObject {
 
   private calculateExpForNextLevel(player: Character) {
     player.expForNextLevel = (player.level + 1) * 15;
-  } 
+  }
 
   private splitMessageIntoLines(message: string, ctx: CanvasRenderingContext2D): string[] {
     const words = message.split(" ");
