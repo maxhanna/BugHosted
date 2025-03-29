@@ -11,6 +11,9 @@ import { Tv } from "../objects/Environment/Tv/tv";
 import { Scenario } from "../helpers/story-flags";
 import { BASE } from "../objects/game-object";
 import { Painting } from "../objects/Environment/Painting/painting";
+import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
+import { InventoryItem } from "../objects/InventoryItem/inventory-item";
+import { AI_MASK } from "../objects/Wardrobe/mask";
  
 
 export class HeroRoomLevel extends Level {
@@ -59,6 +62,7 @@ export class HeroRoomLevel extends Level {
       } as Scenario,
     ]; 
     this.addChild(tv);
+
 
     const exit = new Exit({
       position: new Vector2(gridCells(18), gridCells(1)), showSprite: false

@@ -9,9 +9,10 @@ type GroupedDefences = {
   [key: string]: NexusAttackSent[];
 };
 @Component({
-  selector: 'app-nexus-support-screen',
-  templateUrl: './nexus-support-screen.component.html',
-  styleUrl: './nexus-support-screen.component.css'
+    selector: 'app-nexus-support-screen',
+    templateUrl: './nexus-support-screen.component.html',
+    styleUrl: './nexus-support-screen.component.css',
+    standalone: false
 })
 export class NexusSupportScreenComponent implements OnInit {
   @Input() nexusDefencesIncoming?: NexusAttackSent[];

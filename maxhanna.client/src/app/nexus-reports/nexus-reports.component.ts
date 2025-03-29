@@ -8,9 +8,10 @@ import { ChildComponent } from '../child.component';
 import { AppComponent } from '../app.component';
 
 @Component({
-  selector: 'app-nexus-reports',
-  templateUrl: './nexus-reports.component.html',
-  styleUrl: './nexus-reports.component.css'
+    selector: 'app-nexus-reports',
+    templateUrl: './nexus-reports.component.html',
+    styleUrl: './nexus-reports.component.css',
+    standalone: false
 })
 export class NexusReportsComponent extends ChildComponent implements OnInit, OnChanges {
   @Input() battleReports?: NexusBattleOutcomeReports;

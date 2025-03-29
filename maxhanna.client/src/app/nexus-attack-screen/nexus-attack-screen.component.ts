@@ -10,9 +10,10 @@ import { NotificationService } from '../../services/notification.service';
 
 
 @Component({
-  selector: 'app-nexus-attack-screen',
-  templateUrl: './nexus-attack-screen.component.html',
-  styleUrl: './nexus-attack-screen.component.css'
+    selector: 'app-nexus-attack-screen',
+    templateUrl: './nexus-attack-screen.component.html',
+    styleUrl: './nexus-attack-screen.component.css',
+    standalone: false
 })
 export class NexusAttackScreenComponent extends ChildComponent {
   @Input() user?: User;

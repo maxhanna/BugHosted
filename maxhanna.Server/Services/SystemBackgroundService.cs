@@ -68,7 +68,8 @@ namespace maxhanna.Server.Services
 				{
 					await DeleteOldBattleReports();
 					await DeleteOldGuests();
-					await DeleteOldSearchResults(); 
+					await DeleteOldSearchResults();
+					await DeleteNotificationRequests();
 					_lastDailyTaskRun = DateTime.Now;
 				}
 
@@ -317,6 +318,42 @@ namespace maxhanna.Server.Services
 				catch (Exception ex)
 				{
 					_logger.LogError(ex, "Error occurred while deleting old battle reports or base upgrades. Rolling back transaction.");
+					await transaction.RollbackAsync();
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
+			}
+		}
+
+		private async Task DeleteNotificationRequests()
+		{
+			try
+			{
+				await using MySqlConnection conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+				try
+				{
+					string deleteSql = @"
+						UPDATE maxhanna.user_settings 
+            SET notifications_enabled = NULL, 
+                notifications_changed_date = UTC_TIMESTAMP() 
+            WHERE notifications_changed_date < DATE_SUB(NOW(), INTERVAL 2 MONTH);";
+
+					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+					{
+						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+						Console.WriteLine($"Deleted {affectedRows} notification settings.");
+					}
+
+					await transaction.CommitAsync();
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "Error occurred while deleting notification settings. Rolling back transaction.");
 					await transaction.RollbackAsync();
 				}
 			}

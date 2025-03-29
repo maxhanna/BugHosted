@@ -375,7 +375,8 @@ namespace maxhanna.Server.Controllers
                 keywords = VALUES(keywords),
                 image_url = VALUES(image_url), 
                 last_crawled = UTC_TIMESTAMP(),
-								failed = 0;";
+								response_code = NULL,
+								failed = FALSE;";
 
 					using (var command = new MySqlCommand(insertOrUpdateQuery, connection))
 					{

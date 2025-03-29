@@ -127,8 +127,10 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
 
 			setAnimationToStandAfterTimeElapsed(player);
 		}
-		else {
-			player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
+    else {
+      if (!player.targeting) {
+        player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
+      }
     } 
   } 
 	if (isSpaceFree(root.level?.walls, position.x, position.y) && !bodyAtSpace(player.parent, position, true)) {
@@ -332,7 +334,11 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 	setTimeout(() => {
 		const currentTime = new Date().getTime();
 		if (currentTime - player.lastStandAnimationTime >= 300) {
-			if (player.destinationPosition.matches(player.position)) {
+      if (player.destinationPosition.matches(player.position)) {
+        if (player.targeting) return;
+        if (player.name == "Jaguar") {
+          console.log("stand animation", player.targeting);
+        }
 				player.body.animations?.play(
 					"stand" + player.facingDirection.charAt(0) +
 					player.facingDirection.substring(1, player.facingDirection.length).toLowerCase()

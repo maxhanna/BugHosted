@@ -9,9 +9,10 @@ import { Topic } from '../../services/datacontracts/topics/topic';
  
 
 @Component({
-  selector: 'app-media-viewer',
-  templateUrl: './media-viewer.component.html',
-  styleUrl: './media-viewer.component.css'
+    selector: 'app-media-viewer',
+    templateUrl: './media-viewer.component.html',
+    styleUrl: './media-viewer.component.css',
+    standalone: false
 })
 export class MediaViewerComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private fileService: FileService) { 

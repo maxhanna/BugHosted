@@ -12,9 +12,10 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { UserService } from '../../services/user.service';
 import { UserSettings } from '../../services/datacontracts/user/user-settings';
 @Component({
-  selector: 'app-chat',
-  templateUrl: './chat.component.html',
-  styleUrls: ['./chat.component.css'],
+    selector: 'app-chat',
+    templateUrl: './chat.component.html',
+    styleUrls: ['./chat.component.css'],
+    standalone: false
 })
 export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   users: Array<User> = [];
@@ -47,22 +48,17 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   app?: any;
   messaging?: any;
   ghostReadEnabled = false;
+  notificationsEnabled?: boolean = undefined;
 
   constructor(private chatService: ChatService, private notificationService: NotificationService, private userService: UserService) {
     super();
 
     const parent = this.parentRef ?? this.inputtedParentRef;
-    parent?.addResizeListener();
-    if (parent?.user?.id) { //only allow notifications pushed if user is logged in.
-      try {
-        this.requestNotificationPermission();
-      } catch (e) {
-        console.log("error configuring firebase: ", e);
-      }
-    }
+    parent?.addResizeListener(); 
   }
 
   async ngOnInit() {
+    let notificationsEnabled = false;
     if (this.selectedUser) {
       if (this.inputtedParentRef) {
         this.parentRef = this.inputtedParentRef;
@@ -84,7 +80,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (user) {
       this.userService.getUserSettings(user).then((res?: UserSettings) => {
         if (res) {
-          this.ghostReadEnabled = res.ghostReadEnabled ?? false;
+          this.notificationsEnabled = res.notificationsEnabled;
+          if (this.notificationsEnabled == undefined || this.notificationsEnabled) {
+            this.requestNotificationPermission();
+          } 
         }
       })
     }
@@ -241,10 +240,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
       if (!this.currentChatId && message0.chatId) {
         this.currentChatId = message0.chatId;
-      }
-
-
-      this.requestNotificationPermission();
+      } 
     }
     setTimeout(() => {
       this.scrollToBottomIfNeeded();
@@ -386,18 +382,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   async requestNotificationPermission() {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent) {
-      const currentUrl = window.location.href;
-      if (currentUrl.includes(":8000/")) {
-        return; 
-      }
-      const cookie = parent.getCookie("notificationPermission");
-      if (cookie) {
-        return;
-      } else {
-        parent.setCookie("notificationpermission", "1", 1);
-      }
-    } 
+    if (!parent?.user) {
+      return;
+    }
+    const currentUrl = window.location.href;
+    if (currentUrl.includes(":8000/")) {
+      return;
+    }  
     try {
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
@@ -418,16 +409,27 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       });
 
       console.log('Current Notification Permission:', Notification.permission);
-
-      if (Notification.permission === 'default') { 
-        const permission = await Notification.requestPermission(); 
-        if (permission === "granted") {
+      if (this.notificationsEnabled == undefined) {
+        if (Notification.permission === 'default') {
+          const permission = await Notification.requestPermission();
+          if (permission === "granted") {
+            const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
+            await this.subscribeToNotificationTopic(token);
+            this.userService.updateNotificationsEnabled(parent.user, true);
+          } else {
+            console.log('User declined notification permission');
+            this.userService.updateNotificationsEnabled(parent.user, false);
+          }
+        } else if (Notification.permission === 'granted') {
           const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
           await this.subscribeToNotificationTopic(token);
-        } 
-      } else { 
-        const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
-        await this.subscribeToNotificationTopic(token);
+          this.userService.updateNotificationsEnabled(parent.user, true);
+        } else {
+          console.log('User denied notification permission');
+          this.userService.updateNotificationsEnabled(parent.user, false);
+        }
+      } else {
+        console.log("User has already enabled or disabled notifications.");
       }
     } catch (error) {
       console.log('Error requesting notification permission:', error);

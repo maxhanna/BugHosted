@@ -5,11 +5,10 @@ import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 
 @Component({
-  standalone: true,
-  selector: 'app-line-graph',
-  templateUrl: './line-graph.component.html',
-  styleUrls: ['./line-graph.component.css'],
-  imports: [BaseChartDirective, CommonModule]
+    selector: 'app-line-graph',
+    templateUrl: './line-graph.component.html',
+    styleUrls: ['./line-graph.component.css'],
+    imports: [BaseChartDirective, CommonModule]
 })
 export class LineGraphComponent implements OnInit, OnChanges {
   @Input() data: any[] = [];

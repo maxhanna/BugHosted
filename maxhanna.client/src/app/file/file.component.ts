@@ -8,9 +8,10 @@ import { TopicRank } from '../../services/datacontracts/topics/topic-rank';
 import { TopicService } from '../../services/topic.service';
   
 @Component({
-  selector: 'app-file',
-  templateUrl: './file.component.html',
-  styleUrls: ['./file.component.css']
+    selector: 'app-file',
+    templateUrl: './file.component.html',
+    styleUrls: ['./file.component.css'],
+    standalone: false
 })
 export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private fileService: FileService, private topicService: TopicService) {

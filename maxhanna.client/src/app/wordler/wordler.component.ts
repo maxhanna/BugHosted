@@ -7,9 +7,10 @@ import { User } from '../../services/datacontracts/user/user';
 type DifficultyKey = "Easy Difficulty" | "Medium Difficulty" | "Hard Difficulty" | "Master Wordler";
 
 @Component({
-  selector: 'app-wordler',
-  templateUrl: './wordler.component.html',
-  styleUrls: ['./wordler.component.css']
+    selector: 'app-wordler',
+    templateUrl: './wordler.component.html',
+    styleUrls: ['./wordler.component.css'],
+    standalone: false
 })
 export class WordlerComponent extends ChildComponent implements OnInit {
   wordToGuess: string = 'people';

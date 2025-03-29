@@ -6,9 +6,10 @@ import { User } from '../../services/datacontracts/user/user';
 import { ChildComponent } from '../child.component';
 
 @Component({
-  selector: 'app-topics',
-  templateUrl: './topics.component.html',
-  styleUrl: './topics.component.css'
+    selector: 'app-topics',
+    templateUrl: './topics.component.html',
+    styleUrl: './topics.component.css',
+    standalone: false
 })
 export class TopicsComponent extends ChildComponent {
   @Input() user: User | undefined;

@@ -6,9 +6,10 @@ import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
-  selector: 'app-emulation',
-  templateUrl: './emulation.component.html',
-  styleUrl: './emulation.component.css'
+    selector: 'app-emulation',
+    templateUrl: './emulation.component.html',
+    styleUrl: './emulation.component.css',
+    standalone: false
 })
 export class EmulationComponent extends ChildComponent implements OnInit, OnDestroy {
   isMenuPanelOpen = false;
@@ -74,7 +75,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   actionDelay = 50;
   constructor(private romService: RomService, private fileService: FileService) { super(); }
 
-  async ngOnInit() {
+  async ngOnInit() {  
     this.overrideGetUserMedia();
     this.setupEventListeners();
 

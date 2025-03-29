@@ -10,9 +10,10 @@ import { UserService } from '../../services/user.service';
 import { MiningRigsComponent } from '../mining-rigs/mining-rigs.component';
 
 @Component({
-  selector: 'app-crypto-hub',
-  templateUrl: './crypto-hub.component.html',
-  styleUrl: './crypto-hub.component.css'
+    selector: 'app-crypto-hub',
+    templateUrl: './crypto-hub.component.html',
+    styleUrl: './crypto-hub.component.css',
+    standalone: false
 })
 export class CryptoHubComponent extends ChildComponent implements OnInit, OnDestroy {
   wallet?: MiningWalletResponse | undefined;
@@ -216,13 +217,25 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }).format(value);
   }
   saveNewCryptoWallet() {
+    const user = this.parentRef?.user;
+    if (!user) return alert("You must be signed in to add a wallet.");
     const walletInfo = this.newWalletInput.nativeElement.value;
+
+    // General Bitcoin address validation regex
+    const btcAddressRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,42}$/;
+
     if (walletInfo && this.parentRef?.user) {
-      this.userService.updateBTCWalletAddresses(this.parentRef.user, [walletInfo]);
+      if (btcAddressRegex.test(walletInfo)) {
+        this.userService.updateBTCWalletAddresses(this.parentRef.user, [walletInfo]);
+      } else {
+        alert('Invalid Bitcoin address. Please check for invalid characters.');
+      }
     }
+
     this.isAddCryptoDivVisible = false;
     this.ngOnInit();
   }
+
   private formatWithCommas(value: number): string {
     return value.toLocaleString('en-US');
   }

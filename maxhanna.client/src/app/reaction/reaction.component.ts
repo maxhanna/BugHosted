@@ -11,9 +11,10 @@ import { Message } from '../../services/datacontracts/chat/message';
 import { ChildComponent } from '../child.component';
 
 @Component({
-  selector: 'app-reaction',
-  templateUrl: './reaction.component.html',
-  styleUrl: './reaction.component.css'
+    selector: 'app-reaction',
+    templateUrl: './reaction.component.html',
+    styleUrl: './reaction.component.css',
+    standalone: false
 })
 export class ReactionComponent extends ChildComponent implements OnInit {
   @ViewChild('reactionFilter') reactionFilter!: ElementRef;

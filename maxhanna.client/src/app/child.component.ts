@@ -3,8 +3,9 @@ import { AppComponent } from './app.component';
 import { User } from '../services/datacontracts/user/user';
 
 @Component({
-  selector: 'app-child-component',
-  template: '',
+    selector: 'app-child-component',
+    template: '',
+    standalone: false
 })
 export class ChildComponent {
   public unique_key?: number;

@@ -38,9 +38,10 @@ import { FileService } from '../services/file.service';
 
 
 @Component({
-  selector: 'app-root',
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+    selector: 'app-root',
+    templateUrl: './app.component.html',
+    styleUrl: './app.component.css',
+    standalone: false
 })
 export class AppComponent implements OnInit, AfterViewInit {
   user: User | undefined = undefined;
@@ -236,7 +237,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.replacePageTitleAndDescription(componentType, componentType);
 
     if (!componentType || componentType.trim() === "") { 
-      window.location = window.location;
+      window.location.reload(); 
       return null;
     }
 
@@ -420,7 +421,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     } 
 
     if (scalable) {
-      window.location = window.location;
+      window.location.reload(); 
     } else {  
       this.meta.updateTag({ name: 'viewport', content: `width=device-width, initial-scale=1.0, user-scalable=no` });  
     }

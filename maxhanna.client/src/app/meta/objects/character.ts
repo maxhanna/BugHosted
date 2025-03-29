@@ -15,6 +15,7 @@ export class Character extends GameObject {
   destinationPosition: Vector2 = new Vector2(1, 1);
   lastPosition: Vector2 = new Vector2(1, 1);
   body?: Sprite;
+  shadow?: Sprite;
   isUserControlled? = false;
   slopeType: undefined | typeof UP | typeof DOWN;
   slopeDirection: undefined | typeof UP | typeof DOWN | typeof LEFT | typeof RIGHT;
@@ -45,6 +46,7 @@ export class Character extends GameObject {
     id: number,
     name: string,
     body?: Sprite,
+    shadow?: Sprite,
     position?: Vector2,
     colorSwap?: ColorSwap,
     isUserControlled?: boolean,
@@ -68,6 +70,7 @@ export class Character extends GameObject {
     this.id = params.id;
     this.name = params.name;
     this.body = this.preventDraw ? undefined : params.body;
+    this.shadow = this.preventDraw ? undefined : params.shadow;
     this.destinationPosition = this.position.duplicate();
     this.speed = params.speed ?? 1;
     this.level = params.level ?? 1;
@@ -90,7 +93,8 @@ export class Character extends GameObject {
   }
 
   destroyBody() {
-    this.body?.destroy();
+    this.children?.forEach((x: any) => x.destroy());
+    this.body?.destroy(); 
     this.mask?.destroy();
   }
 
@@ -111,9 +115,15 @@ export class Character extends GameObject {
       this.destroyBody();
       this.body.scale = this.scale;
       this.body.position.y = offsetY;
-
+      if (this.shadow) { 
+        this.shadow.scale = this.scale;
+        this.shadow.position.y = offsetY;
+      }
       if (!this.children.includes(this.body)) {
         this.addChild(this.body);
+      }
+      if (this.shadow && !this.children.includes(this.shadow)) {
+        this.addChild(this.shadow);
       }
 
       let animation = this.body?.animations?.activeKey;
@@ -202,10 +212,11 @@ export class Character extends GameObject {
     this.lastPosition.x = this.position.x;
     this.lastPosition.y = this.position.y;
     events.emit("CHARACTER_POSITION", this);
+    //if (this.name == "Max") console.log("emitting position", this.lastPosition);
   }
 
   onPickupItem(data: { position: Vector2, hero: any, name: string, imageName: string, category: string, stats?: any }) {
-    console.log(data);
+    //console.log(data);
     if (data.hero?.id == this.id) {
 /*      this.mask?.destroy();*/ 
       this.itemPickupTime = 2500;
@@ -474,6 +485,5 @@ export class Character extends GameObject {
       lines.push(currentLine.trim());
     }
     return lines;
-  }
-
+  } 
 }

@@ -15,9 +15,10 @@ import { NexusAttackScreenComponent } from '../nexus-attack-screen/nexus-attack-
 
 
 @Component({
-  selector: 'app-nexus-map',
-  templateUrl: './nexus-map.component.html',
-  styleUrl: './nexus-map.component.css'
+    selector: 'app-nexus-map',
+    templateUrl: './nexus-map.component.html',
+    styleUrl: './nexus-map.component.css',
+    standalone: false
 })
 export class NexusMapComponent extends ChildComponent {
   selectedNexusBase?: NexusBase;

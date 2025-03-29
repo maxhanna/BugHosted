@@ -86,7 +86,7 @@ export class Main extends GameObject {
   drawObjects(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
       if (child.drawLayer !== HUD) { 
-        child.draw(ctx, 0, 0, true);
+        child.draw(ctx, 0, 0);
       } 
     });
   }
@@ -94,7 +94,7 @@ export class Main extends GameObject {
   drawForeground(ctx: CanvasRenderingContext2D) { 
     this.children.forEach((child: GameObject) => {
       if (child.drawLayer === HUD) { 
-        child.draw(ctx, 0, 0, true, true);
+        child.draw(ctx, 0, 0);
       } 
     }) 
   }

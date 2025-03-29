@@ -10,9 +10,10 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 
 @Component({
-  selector: 'app-array',
-  templateUrl: './array.component.html',
-  styleUrl: './array.component.css'
+    selector: 'app-array',
+    templateUrl: './array.component.html',
+    styleUrl: './array.component.css',
+    standalone: false
 })
 export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy {
   hero = new ArrayCharacter();

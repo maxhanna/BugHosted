@@ -7,6 +7,7 @@ export class Resources {
   constructor() {
     this.toLoad = {
       advertisementpanelside: `${this.dir}advertisementpanelside.png`,
+      aimask: `${this.dir}Aimask.png`,
       apple: `${this.dir}apple.png`,
       armobot: `${this.dir}armobot.png`,
       anbumask: `${this.dir}anbumask.png`,
@@ -58,6 +59,7 @@ export class Resources {
       graphitisun: `${this.dir}graphitisun.png`,
       graphitiyack: `${this.dir}graphitiyack.png`,
       grassBlade: `${this.dir}grassblade.png`,
+      groundFire: `${this.dir}groundFire.png`,
       hero: `${this.dir}herospritesheet.png`,
       heroHome: `${this.dir}hero-home.png`,
       house: `${this.dir}house.png`,

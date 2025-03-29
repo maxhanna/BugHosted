@@ -7,9 +7,10 @@ import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
 
 @Component({
-  selector: 'app-file-upload',
-  templateUrl: './file-upload.component.html',
-  styleUrl: './file-upload.component.css'
+    selector: 'app-file-upload',
+    templateUrl: './file-upload.component.html',
+    styleUrl: './file-upload.component.css',
+    standalone: false
 })
 export class FileUploadComponent implements OnDestroy {
   @Input() currentDirectory = '';

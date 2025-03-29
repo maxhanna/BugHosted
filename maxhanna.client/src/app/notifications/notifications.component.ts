@@ -11,9 +11,10 @@ import { CommentService } from '../../services/comment.service';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 
 @Component({
-  selector: 'app-notifications',
-  templateUrl: './notifications.component.html',
-  styleUrl: './notifications.component.css'
+    selector: 'app-notifications',
+    templateUrl: './notifications.component.html',
+    styleUrl: './notifications.component.css',
+    standalone: false
 })
 export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private notificationService: NotificationService, private commentService: CommentService, private location: Location) {

@@ -185,7 +185,7 @@ export class Inventory extends GameObject {
 
   private updateStoryFlags(itemData: InventoryItem) {
     if (itemData.category === "watch" && !storyFlags.contains(GOT_WATCH)) { storyFlags.add(GOT_WATCH); }
-    else if (itemData.category === "botFrame" && !storyFlags.contains(GOT_FIRST_METABOT)) { storyFlags.add(GOT_FIRST_METABOT); }
+    else if (itemData.category === "botFrame" && !storyFlags.contains(GOT_FIRST_METABOT)) { storyFlags.add(GOT_FIRST_METABOT); } 
   }
 
   private deselectSelectedItem() {

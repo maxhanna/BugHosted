@@ -46,7 +46,7 @@ export class Encounter extends Npc {
       preventDrawName: true,
     }); 
     this.enemy.destinationPosition = this.enemy.position;
-    events.emit("CREATE_ENEMY", { bot: this.enemy });
+    events.emit("CREATE_ENEMY", { bot: this.enemy, owner: this });
     return this.enemy;
   }
 
@@ -55,7 +55,7 @@ export class Encounter extends Npc {
       if (params?.heroId === this.id) { 
         setTimeout(() => {
           this.spawnEnemy();
-        }, Math.random() * (30000 - 15000) + 15000);
+        }, Math.random() * (70000 - 35000) + 35000);
       }
     });
   }

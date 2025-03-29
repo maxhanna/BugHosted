@@ -4,6 +4,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Transactions;
@@ -810,8 +811,45 @@ namespace maxhanna.Server.Controllers
 					conn.Close();
 				}
 			}
-		}
+		} 
 
+		[HttpPost("/User/UpdateNotificationsEnabled", Name = "UpdateNotificationsEnabled")]
+		public async Task<IActionResult> UpdateNotificationsEnabled([FromBody] UpdateNsfwRequest request)
+		{
+			_logger.LogInformation($"POST /User/UpdateNotificationsEnabled (for user: {request.User.Id})");
+
+			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				try
+				{
+					await conn.OpenAsync();
+
+					string updateSql = @"
+                INSERT INTO maxhanna.user_settings (user_id, notifications_enabled, notifications_changed_date)
+                VALUES (@userId, @notifications_enabled, UTC_TIMESTAMP())
+                ON DUPLICATE KEY UPDATE 
+                    notifications_enabled = VALUES(notifications_enabled)
+										notifications_changed_date = UTC_TIMESTAMP();";
+
+					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
+					updateCmd.Parameters.AddWithValue("@userId", request.User.Id);
+					updateCmd.Parameters.AddWithValue("@notifications_enabled", request.IsAllowed ? 1 : 0);
+
+					await updateCmd.ExecuteNonQueryAsync();
+
+					return Ok("Successfully updated notifications_enabled setting.");
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "An error occurred while processing the update notifications_enabled POST request.");
+					return StatusCode(500, "An error occurred while processing the update notifications_enabled request.");
+				}
+				finally
+				{
+					conn.Close();
+				}
+			}
+		}
 
 		[HttpPost("/User/UpdateGhostRead", Name = "UpdateGhostRead")]
 		public async Task<IActionResult> UpdateGhostRead([FromBody] UpdateNsfwRequest request)
@@ -862,7 +900,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 
 					string selectSql = @"
-                SELECT nsfw_enabled, ghost_read 
+                SELECT nsfw_enabled, ghost_read, notifications_enabled 
                 FROM maxhanna.user_settings 
                 WHERE user_id = @userId;";
 
@@ -880,6 +918,7 @@ namespace maxhanna.Server.Controllers
 						{
 							userSettings.NsfwEnabled = reader.GetInt32("nsfw_enabled") == 1;
 							userSettings.GhostReadEnabled = reader.GetInt32("ghost_read") == 1;
+							userSettings.NotificationsEnabled = reader.IsDBNull("notifications_enabled") ? null : reader.GetInt32("notifications_enabled") == 1;
 						}
 						else
 						{

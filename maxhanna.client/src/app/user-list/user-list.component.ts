@@ -11,9 +11,10 @@ import { Message } from '../../services/datacontracts/chat/message';
 
 
 @Component({
-  selector: 'app-user-list',
-  templateUrl: './user-list.component.html',
-  styleUrl: './user-list.component.css'
+    selector: 'app-user-list',
+    templateUrl: './user-list.component.html',
+    styleUrl: './user-list.component.css',
+    standalone: false
 })
 export class UserListComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User;

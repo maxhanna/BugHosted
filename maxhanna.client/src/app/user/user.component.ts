@@ -19,9 +19,10 @@ import { CurrencyFlagPipe } from '../currency-flag.pipe';
 import { NexusService } from '../../services/nexus.service';
 
 @Component({
-  selector: 'app-user',
-  templateUrl: './user.component.html',
-  styleUrl: './user.component.css'
+    selector: 'app-user',
+    templateUrl: './user.component.html',
+    styleUrl: './user.component.css',
+    standalone: false
 })
 export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User | undefined;
@@ -315,7 +316,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.user = undefined;
     this.parentRef?.showNotification("Logged out successfully, refresh in 100 milliseconds.");
     setTimeout(() => {
-      window.location = window.location;
+      window.location.reload(); 
     }, 100);
   }
 

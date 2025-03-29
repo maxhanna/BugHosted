@@ -34,8 +34,7 @@ export class Chicken extends Npc {
 
     this.body = new Sprite({
       objectId: this.id,
-      resource: resources.images["chicken"],
-      position: new Vector2(0, 0),
+      resource: resources.images["chicken"], 
       frameSize: new Vector2(15, 15),
       hFrames: 4,
       vFrames: 8,

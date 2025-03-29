@@ -17,7 +17,7 @@ export const typeEffectiveness = new Map<SkillType, SkillType>([
 
 
 export function calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
-  if (!attackingBot || attackingBot.hp <= 0 || !defendingBot) return;
+  if (!attackingBot || attackingBot.hp <= 0 || !defendingBot || defendingBot.isInvulnerable || attackingBot.isInvulnerable) return;
 
   let attackingPart = attackingBot.lastAttackPart ?? attackingBot.leftArm;
   if (attackingPart?.partName === LEFT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
@@ -77,7 +77,7 @@ export function attack(source: Bot, target: Bot) {
 
 
 export function findTargets(source: Bot) {
-  if (source.hp > 0 && source.isDeployed) {
+  if (source.hp > 0 && source.isDeployed && source.canAttack) {
     let nearest = getBotsInRange(source)[0];
 
     if (nearest && nearest.name) {
@@ -87,7 +87,7 @@ export function findTargets(source: Bot) {
 }
 
 export function target(source: Bot, targetBot: Bot) {
-  if (targetBot.id === source.id || source.targeting) return;
+  if (targetBot.id === source.id || source.targeting) return; 
   source.targeting = targetBot;
   faceTarget(source, targetBot);
   events.emit("TARGET_LOCKED", { source: source, target: targetBot })
@@ -95,6 +95,7 @@ export function target(source: Bot, targetBot: Bot) {
 }
 
 export function untarget(source: Bot, targetBot: Bot) {
+  console.log("untarget")
   if (source.targeting) {
     source.targeting = undefined;
     events.emit("TARGET_UNLOCKED", { source: source, target: targetBot })
@@ -112,6 +113,10 @@ export function faceTarget(source: Bot, target: Bot) {
   } else {
     source.facingDirection = dy > 0 ? DOWN : UP;
   }
+  if (!source.body?.animations?.activeKey.includes("attack")) { 
+    source.body?.animations?.play("attack" + source.facingDirection.charAt(0) + source.facingDirection.substring(1, source.facingDirection.length).toLowerCase());
+  }
+
 }
 
 export function generateReward(source: Bot, target: Bot) {

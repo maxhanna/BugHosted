@@ -4,9 +4,10 @@ import { ChildComponent } from '../child.component';
 
 
 @Component({
-  selector: 'app-host-ai',
-  templateUrl: './host-ai.component.html',
-  styleUrl: './host-ai.component.css'
+    selector: 'app-host-ai',
+    templateUrl: './host-ai.component.html',
+    styleUrl: './host-ai.component.css',
+    standalone: false
 })
 export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy {
   constructor(private aiService: AiService) { super(); }

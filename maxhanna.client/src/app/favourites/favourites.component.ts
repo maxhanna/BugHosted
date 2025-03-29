@@ -7,14 +7,13 @@ import { CrawlerService } from '../../services/crawler.service';
 import { UserService } from '../../services/user.service';
 
 @Component({
-  selector: 'app-favourites',
-  templateUrl: './favourites.component.html',
-  styleUrl: './favourites.component.css'
+    selector: 'app-favourites',
+    templateUrl: './favourites.component.html',
+    styleUrl: './favourites.component.css',
+    standalone: false
 })
 export class FavouritesComponent extends ChildComponent implements OnInit {
-  @ViewChild('linkInput') linkInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('linkImageInput') linkImageInput!: ElementRef<HTMLInputElement>;
-  @ViewChild('linkNameInput') linkNameInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('linkInput') linkInput!: ElementRef<HTMLInputElement>; 
   @ViewChild('editingUrlInput') editingUrlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingImageUrlInput') editingImageUrlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingNameInput') editingNameInput!: ElementRef<HTMLInputElement>;
@@ -121,9 +120,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   }
 
   private resetInputs() {
-    if (this.linkInput && this.linkInput.nativeElement) this.linkInput.nativeElement.value = "";
-    if (this.linkImageInput && this.linkImageInput.nativeElement) this.linkImageInput.nativeElement.value = "";
-    if (this.linkNameInput && this.linkNameInput.nativeElement) this.linkNameInput.nativeElement.value = "";
+    if (this.linkInput && this.linkInput.nativeElement) this.linkInput.nativeElement.value = ""; 
     this.isSearchingUrls = false; 
   }
 

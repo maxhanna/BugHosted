@@ -7,10 +7,11 @@ import { Level } from "../objects/Level/level";
 import { Watch } from "../objects/InventoryItem/Watch/watch";
 import { Sprite } from "../objects/sprite";
 import { BrushLevel1 } from "./brush-level1";
-import { HeroRoomLevel } from "./hero-room";
-import { GOT_WATCH, Scenario, TALKED_TO_MOM, TALKED_TO_MOM_ABOUT_DAD, TALKED_TO_MOM_ABOUT_WATCH } from "../helpers/story-flags";
-import { Npc } from "../objects/Npc/npc"; 
-import { FLOOR, HUD } from "../objects/game-object";
+import { Scenario } from "../helpers/story-flags";
+import { BASE, FLOOR } from "../objects/game-object";
+import { DroppedItem } from "../objects/Environment/DroppedItem/dropped-item";
+import { InventoryItem } from "../objects/InventoryItem/inventory-item";
+import { AI_MASK } from "../objects/Wardrobe/mask";
 
 
 export class RivalHomeLevel1 extends Level { 
@@ -27,7 +28,7 @@ export class RivalHomeLevel1 extends Level {
     }
 
     const room = new Sprite(
-      { resource: resources.images["heroHome"], frameSize: new Vector2(320, 220) }
+      { resource: resources.images["heroHome"], frameSize: new Vector2(320, 220), drawLayer: BASE }
     );
     this.addChild(room);
 
@@ -35,7 +36,7 @@ export class RivalHomeLevel1 extends Level {
       { resource: resources.images["cornercounter"], position: new Vector2(gridCells(0), gridCells(1)), frameSize: new Vector2(33, 49) }
     );
     cornercounter.isSolid = true;
-    this.addChild(cornercounter);
+    this.addChild(cornercounter); 
 
     const stove = new Sprite(
       { resource: resources.images["stove"], position: new Vector2(gridCells(2), gridCells(1)), frameSize: new Vector2(32, 34), isSolid: true }
@@ -113,22 +114,7 @@ export class RivalHomeLevel1 extends Level {
       frameSize: new Vector2(32, 32),
       drawLayer: FLOOR
     }); 
-    this.addChild(chair2);
-    const chair3 = new Sprite({
-      resource: resources.images["chair"],
-      position: new Vector2(gridCells(13), gridCells(5)),
-      frameSize: new Vector2(32, 32),
-      drawLayer: FLOOR
-    }); 
-    this.addChild(chair3);
-
-    const chair4 = new Sprite({
-      resource: resources.images["chair"],
-      position: new Vector2(gridCells(13), gridCells(8)),
-      frameSize: new Vector2(32, 32),
-      drawLayer: FLOOR
-    }); 
-    this.addChild(chair4);
+    this.addChild(chair2); 
 
 
     const carpet1 = new Sprite({
@@ -146,10 +132,16 @@ export class RivalHomeLevel1 extends Level {
     }); 
     this.addChild(carpet2);
 
-
-    const exitBackToRoom = new Exit({ position: new Vector2(gridCells(18), gridCells(2)), showSprite: true, rotation: (Math.PI * 3) / 2, targetMap: "HeroRoom" }); 
-    this.addChild(exitBackToRoom);
-
+    if (!this.itemsFound.includes("AiMask")) { 
+      const aiMask = new DroppedItem({
+        position: new Vector2(gridCells(9), gridCells(7)),
+        item: new InventoryItem({ id: 0, name: "AiMask", image: AI_MASK.name, category: "mask", stats: "1" }),
+        itemLabel: "AiMask",
+        itemSkin: "aimask",
+        preventDestroyTimeout: true,
+      });
+      this.addChild(aiMask);
+    }
 
     const exitOutside = new Exit({
       position: new Vector2(gridCells(10), gridCells(13)), showSprite: false, targetMap: "BrushLevel1"
@@ -169,11 +161,8 @@ export class RivalHomeLevel1 extends Level {
   }
 
   override ready() {
-    events.on("CHARACTER_EXITS", this, (targetMap: string) => {
-      if (targetMap === "HeroRoom") {
-        events.emit("CHANGE_LEVEL", new HeroRoomLevel({ heroPosition: new Vector2(gridCells(18), gridCells(2)), itemsFound: this.itemsFound }));
-      }
-      else if (targetMap === "BrushLevel1") {
+    events.on("CHARACTER_EXITS", this, (targetMap: string) => { 
+      if (targetMap === "BrushLevel1") {
         events.emit("CHANGE_LEVEL", new BrushLevel1({ heroPosition: new Vector2(gridCells(13), gridCells(10)), itemsFound: this.itemsFound }));
       }
     })

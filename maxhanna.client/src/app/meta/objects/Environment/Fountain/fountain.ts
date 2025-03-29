@@ -11,14 +11,14 @@ export class Fountain extends GameObject {
   walls: Set<string> = new Set<string>();
   constructor(params: { position: Vector2, preventDraw?: boolean  }) {
     super({
-      position: params.position,
+      position: params.position, 
       isSolid: true,
       name: "Fountain",
-      preventDraw: params.preventDraw
+      preventDraw: params.preventDraw, 
     })
     
     const body = new Sprite({
-      objectId: 0,
+      objectId: Math.floor(Math.random() * (9999)) * -1, 
       resource: resources.images["fountain"],
       name: "Fountain",
       position: new Vector2(0, -28),

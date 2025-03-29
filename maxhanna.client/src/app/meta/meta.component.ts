@@ -37,9 +37,10 @@ import { Bot } from './objects/Bot/bot';
 import { Character } from './objects/character';
 
 @Component({
-  selector: 'app-meta',
-  templateUrl: './meta.component.html',
-  styleUrls: ['./meta.component.css']
+    selector: 'app-meta',
+    templateUrl: './meta.component.html',
+    styleUrls: ['./meta.component.css'],
+    standalone: false
 })
 
 export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {

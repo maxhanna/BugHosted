@@ -20,9 +20,10 @@ import { NexusBasesComponent } from '../nexus-bases/nexus-bases.component';
 import { NexusReportsComponent } from '../nexus-reports/nexus-reports.component';
 
 @Component({
-  selector: 'app-nexus',
-  templateUrl: './nexus.component.html',
-  styleUrl: './nexus.component.css'
+    selector: 'app-nexus',
+    templateUrl: './nexus.component.html',
+    styleUrl: './nexus.component.css',
+    standalone: false
 })
 export class NexusComponent extends ChildComponent implements OnInit, OnDestroy {
   notifications: string[] = [];
@@ -798,7 +799,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       if (upgradeStat) {
         const remainingTimeInSeconds = (unitTimeDuration * upgradeStat.duration) - elapsedTimeInSeconds;
         this.isUpgradingUnits = true;
-        this.startUnitResearchTimer(`${unit.unitType} level ${foundUnitLevel}` ?? "?", remainingTimeInSeconds, upgrade);
+        this.startUnitResearchTimer(`${unit.unitType} level ${foundUnitLevel}`, remainingTimeInSeconds, upgrade);
       }
     });
   }

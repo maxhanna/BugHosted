@@ -65,9 +65,9 @@ export class SpriteTextStringWithBackdrop extends GameObject {
   } 
 
   override destroy() {
-    super.destroy();
     events.emit("UNBLOCK_START_MENU");
     events.emit("HERO_MOVEMENT_UNLOCK");
+    super.destroy();
   }
 
 

@@ -32,6 +32,10 @@ export class GameObject {
   distanceToHero = new Vector2(0,0);
   heroLocation = new Vector2(0,0);
 
+  tmpSortedChildren: any = [];
+  lastSortTime: number = 0;
+  lastCharPosTime: number = 0;  
+
   constructor(params: {
     position: Vector2,
     colorSwap?: ColorSwap,
@@ -63,21 +67,24 @@ export class GameObject {
     }
 
     events.on("CHARACTER_POSITION", this, (char: Character) => { 
-      if (char.isUserControlled) {
-        this.distanceToHero = new Vector2(Math.abs(this.position.x - char.destinationPosition.x), Math.abs(this.position.y - char.destinationPosition.y)); 
-        this.heroLocation = char.position;
-      }
-      if (char.isUserControlled && !this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
-        const thresh = 500;  
-        const added = this.distanceToHero.x + this.distanceToHero.y;
+      if (char.isUserControlled && char.id != (this as any).id && Date.now() - this.lastCharPosTime > 50) {
+         
+        this.lastCharPosTime = Date.now();
+        const parent = this.parent ?? this;
 
-        if (added < thresh) {
-          this.preventDraw = this.beforePreventDrawDistance;
-        } else {
-          if (!(this as any).objectId) { 
+        this.distanceToHero = new Vector2(Math.abs(parent.position.x - char.lastPosition.x), Math.abs(parent.position.y - char.lastPosition.y));
+        this.heroLocation = char.position;
+
+        if (!this.beforePreventDrawDistance && this.isOmittable && this.parent?.isOmittable) {
+          const thresh = 400;
+          const reDraw = this.distanceToHero.x < thresh && this.distanceToHero.y < thresh;
+
+          if (reDraw) { 
+            this.preventDraw = this.beforePreventDrawDistance;
+          } else { 
             this.preventDraw = true; 
           }
-        } 
+        }
       }
     });
   }
@@ -88,8 +95,7 @@ export class GameObject {
     if (!this.hasReadyBeenCalled) {
       this.hasReadyBeenCalled = true;
       this.ready();
-    }
-
+    } 
     this.step(delta, root);
   }
 
@@ -110,58 +116,40 @@ export class GameObject {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, x: number, y: number, force = false, forever = false) { 
+  draw(ctx: CanvasRenderingContext2D, x: number, y: number) { 
     if (this.preventDraw) return;
+
+    if (Date.now() - this.lastSortTime > 50) { 
+      this.sortChildren(); 
+      //if (this.name == 'Max') console.log("resorting");
+      this.lastSortTime = Date.now();
+    }
+
     const drawPosX = x + this.position.x;
     const drawPosY = y + this.position.y;
 
     this.drawImage(ctx, drawPosX, drawPosY);
     if (this.forceDrawName && !this.preventDrawName) {
       this.drawName(ctx, drawPosX, drawPosY);
-    }
-
-    if (this.drawingForever = this.drawingForever || forever || !this.isOmittable) {
-      this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true, true));
-    }
-    else {
-      if (force) {
-        this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, false));
-      }
-      else { 
-        this.sortChildren().forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY, true)); 
-      }
     } 
+    this.tmpSortedChildren.forEach((child: GameObject) => child.draw(ctx, drawPosX, drawPosY)); 
   } 
-
   sortChildren() {
-    return [...this.children].sort((a, b) => { 
+    this.tmpSortedChildren = [...this.children].sort((a: any, b: any) => {
       // Step 1: Prioritize by drawLayer order: BASE < GROUND < FLOOR < all others
-      if (a.drawLayer === BASE && b.drawLayer !== BASE) {
-        return -1;
-      }
-      if (b.drawLayer === BASE && a.drawLayer !== BASE) {
-        return 1;
-      }
+      if (a.drawLayer === BASE && b.drawLayer !== BASE) return -1;
+      if (b.drawLayer === BASE && a.drawLayer !== BASE) return 1;
 
-      if (a.drawLayer === GROUND && b.drawLayer !== GROUND) {
-        return -1;
-      }
-      if (b.drawLayer === GROUND && a.drawLayer !== GROUND) {
-        return 1;
-      }
+      if (a.drawLayer === GROUND && b.drawLayer !== GROUND) return -1;
+      if (b.drawLayer === GROUND && a.drawLayer !== GROUND) return 1;
 
-      if (a.drawLayer === FLOOR && b.drawLayer !== FLOOR) {
-        return -1;
-      }
-      if (b.drawLayer === FLOOR && a.drawLayer !== FLOOR) {
-        return 1;
-      }
+      if (a.drawLayer === FLOOR && b.drawLayer !== FLOOR) return -1;
+      if (b.drawLayer === FLOOR && a.drawLayer !== FLOOR) return 1;
 
       // Step 2: If both objects are on the same drawLayer or none of the above, sort by y position
       return a.position.y - b.position.y;
-    }); 
+    });
   }
-
 
   drawImage(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) { 
   }

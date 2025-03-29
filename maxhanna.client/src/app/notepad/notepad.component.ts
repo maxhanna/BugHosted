@@ -7,9 +7,10 @@ import { User } from '../../services/datacontracts/user/user';
 import { NotificationService } from '../../services/notification.service';
 
 @Component({
-  selector: 'app-notepad',
-  templateUrl: './notepad.component.html',
-  styleUrl: './notepad.component.css'
+    selector: 'app-notepad',
+    templateUrl: './notepad.component.html',
+    styleUrl: './notepad.component.css',
+    standalone: false
 })
 export class NotepadComponent extends ChildComponent {
   notes: Array<Note> = [];

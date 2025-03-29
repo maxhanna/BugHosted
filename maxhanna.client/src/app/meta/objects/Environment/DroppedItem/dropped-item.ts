@@ -1,33 +1,34 @@
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2"; 
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
-import { Scenario } from "../../../helpers/story-flags";
 import { FLOOR, GameObject } from "../../game-object";
 import { snapToGrid } from "../../../helpers/grid-cells";
-import { MetaBotPart } from "../../../../../services/datacontracts/meta/meta-bot-part";
 import { events } from "../../../helpers/events";
 
 export class DroppedItem extends GameObject {  
   item?: any;
   itemLabel = `${this.item?.damageMod} ${this.item?.skill?.name}`;
+  itemSkin = "leftArm";
   id = Math.floor(Math.random() * 55000) + 10000;
   objectId = Math.floor(Math.random() * 55000) + 10000;
-  constructor(params: { position: Vector2, item?: any }) {
+  preventDestroyTimeout = false;
+  constructor(params: { position: Vector2, item?: any, itemLabel?: string, itemSkin?: string, preventDestroyTimeout?: boolean }) {
     super({ 
       position: new Vector2(snapToGrid(params.position.x), snapToGrid(params.position.y)),
-      name: `${params.item?.damageMod} ${params.item?.skill?.name}`,
+      name: params.itemLabel ?? `${params.item?.damageMod} ${params.item?.skill?.name}`,
       forceDrawName: true,
       preventDrawName: false,
       drawLayer: FLOOR,
     })
     this.item = params.item;
-    this.itemLabel = `${this.item?.damageMod} ${this.item?.skill?.name}`;
-
+    this.itemLabel = params.itemLabel ?? `${this.item?.damageMod} ${this.item?.skill?.name}`;
+    this.itemSkin = params.itemSkin ?? "leftArm";
+    this.preventDestroyTimeout = params.preventDestroyTimeout ?? false;
     const body = new Sprite({
       objectId: Math.floor(Math.random() * (9999)) * -1,
-      resource: resources.images["leftArm"],
-      name: this.itemLabel ?? "Item", 
-      frameSize: new Vector2(6, 17), 
+      resource: resources.images[this.itemSkin],
+      name: this.itemLabel ?? "Item",
+      frameSize: this.itemSkin.includes("mask") ? new Vector2(32, 32) : new Vector2(6, 17),  
       drawLayer: FLOOR,
       rotation: Math.floor(Math.random() * 360) + 1,
     });
@@ -39,18 +40,25 @@ export class DroppedItem extends GameObject {
     this.addChild(shadow); 
   }
   override ready() {
-    setTimeout(() => {
-      this.destroy();
-    }, 60000);
+    if (!this.preventDestroyTimeout) { 
+      setTimeout(() => {
+        this.destroy();
+      }, 60000);
+    }
     events.on("HERO_REQUESTS_ACTION", this, (params: { hero: any, objectAtPosition: any }) => {
-      if (params.objectAtPosition.id === this.id && params.objectAtPosition.item) { 
-        events.emit("CHARACTER_PICKS_UP_ITEM", {
-          position: new Vector2(0, 0),
-          id: this.id, 
-          imageName: "leftArm",
-          hero: params.hero,
-          item: params.objectAtPosition.item,
-        }); 
+      if (params.objectAtPosition.id === this.id && params.objectAtPosition.item) {   
+        if (this.item && this.item.category && this.item.stats) {
+          console.log(this.item);
+          events.emit("ITEM_PURCHASED", this.item);
+        } else {
+          events.emit("CHARACTER_PICKS_UP_ITEM", {
+            position: params.objectAtPosition.position,
+            id: this.id,
+            imageName: this.itemSkin,
+            hero: params.hero,
+            item: params.objectAtPosition.item,
+          });
+        }
         this.destroy();
       }
     }); 

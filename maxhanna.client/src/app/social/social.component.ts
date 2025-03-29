@@ -18,7 +18,10 @@ import { TodoService } from '../../services/todo.service';
 import { Todo } from '../../services/datacontracts/todo';
 import { NotificationService } from '../../services/notification.service';
 
-@Pipe({ name: 'clickableUrls' })
+@Pipe({
+    name: 'clickableUrls',
+    standalone: false
+})
 export class ClickableUrlsPipe implements PipeTransform {
   transform(value?: string): string {
     if (!value) {
@@ -30,9 +33,10 @@ export class ClickableUrlsPipe implements PipeTransform {
 }
 
 @Component({
-  selector: 'app-social',
-  templateUrl: './social.component.html',
-  styleUrls: ['./social.component.css']
+    selector: 'app-social',
+    templateUrl: './social.component.html',
+    styleUrls: ['./social.component.css'],
+    standalone: false
 })
 export class SocialComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   fileMetadata: any;

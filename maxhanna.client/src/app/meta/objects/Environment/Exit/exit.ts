@@ -32,6 +32,7 @@ export class Exit extends GameObject {
 
   override ready() {
     events.on("CHARACTER_POSITION", this, (character: Character) => {
+      if (character.id < 0) return;
       const roundedHeroX = Math.round(character.position.x);
       const roundedHeroY = Math.round(character.position.y);
       if (this.position.x === roundedHeroX && this.position.y === roundedHeroY) { 

@@ -363,9 +363,6 @@
             {{ story.timeSince }}
           </div>
           <div class="postOptionButtonWrapper">
-            <span class="showCommentSpan" (click)="showComments(story.id)">
-              🗨️{{story.storyComments?.length}}
-            </span>
             <span class="postOptionButtons">
               <app-reaction [storyId]="story.id"
                             [user]="parentRef?.user"
@@ -374,6 +371,9 @@
                             [component]="story"
                             [showSpan]="true"
                             [currentReactions]="story.reactions"></app-reaction>
+            </span>
+            <span class="showCommentSpan" (click)="showComments(story.id)">
+              🗨️{{story.storyComments?.length}}
             </span>
             <span (click)="showStoryOptionsPanel(story);" class="postOptionButtons showPostOptionButton" title="Show post options">
               ⚙️

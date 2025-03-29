@@ -166,30 +166,30 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 
-				// Get the latest timestamp
-				string timestampSql = @"SELECT MAX(timestamp) FROM coin_value";
-				MySqlCommand timestampCmd = new MySqlCommand(timestampSql, conn);
-				var latestTimestamp = await timestampCmd.ExecuteScalarAsync() as DateTime?;
+				// SQL query to get the latest values for each coin by symbol (or id)
+				string sql = @"
+            SELECT id, symbol, name, value_cad, timestamp
+						FROM coin_value
+						WHERE (name, timestamp) IN (
+								SELECT name, MAX(timestamp)
+								FROM coin_value
+								GROUP BY name
+						) LIMIT 100;";
 
-				if (latestTimestamp != null)
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				using (var reader = await cmd.ExecuteReaderAsync())
 				{
-					string sql = @"SELECT id, symbol, name, value_cad, timestamp FROM coin_value WHERE timestamp = @latestTimestamp";
-					MySqlCommand cmd = new MySqlCommand(sql, conn);
-					cmd.Parameters.AddWithValue("@latestTimestamp", latestTimestamp);
-					using (var reader = await cmd.ExecuteReaderAsync())
+					while (await reader.ReadAsync())
 					{
-						while (await reader.ReadAsync())
+						var coinValue = new CoinValue
 						{
-							var coinValue = new CoinValue
-							{
-								Id = reader.GetInt32(reader.GetOrdinal("id")),
-								Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
-								Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
-								ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
-								Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
-							};
-							coinValues.Add(coinValue);
-						}
+							Id = reader.GetInt32(reader.GetOrdinal("id")),
+							Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
+							Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
+							ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+							Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
+						};
+						coinValues.Add(coinValue);
 					}
 				}
 			}
@@ -204,6 +204,7 @@ namespace maxhanna.Server.Controllers
 
 			return coinValues;
 		}
+
 
 		[HttpPost("/CurrencyValue/GetLatest/", Name = "GetLatestCurrencyValues")]
 		public async Task<List<ExchangeRate>> GetLatestCurrencyValues()

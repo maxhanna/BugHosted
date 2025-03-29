@@ -16,6 +16,9 @@ import { BrushRoad2 } from "./brush-road2";
 import { GROUND, FLOOR, HUD } from "../objects/game-object";
 import { Sign } from "../objects/Environment/Sign/sign";
 import { Encounter } from "../objects/Environment/Encounter/encounter";
+import { Bugcatcher } from "../objects/Npc/Bugcatcher/bugcatcher";
+import { Scenario } from "../helpers/story-flags";
+import { Fire } from "../objects/Effects/Fire/fire";
  
 
 export class BrushRoad1 extends Level { 
@@ -197,8 +200,16 @@ export class BrushRoad1 extends Level {
         animations: new Animations({ standDown: new FrameIndexPattern(STAND_DOWN) })
       }
     );
-    this.addChild(flowerBush);
-      
+    this.addChild(flowerBush); 
+
+    const bugCatcher = new Bugcatcher({ position: new Vector2(gridCells(8), gridCells(32)) });
+    bugCatcher.textContent = [
+      {
+        string: ["Have you found any bot parts yet??!", "You can equip them from the start-menu!!"],
+      } as Scenario
+    ]; 
+    this.addChild(bugCatcher);  
+
     //exits  
 
     const sign1 = new Sign(

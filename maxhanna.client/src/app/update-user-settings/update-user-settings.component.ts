@@ -17,9 +17,10 @@ import { CoinValueService } from '../../services/coin-value.service';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 
 @Component({
-  selector: 'app-update-user-settings',
-  templateUrl: './update-user-settings.component.html',
-  styleUrl: './update-user-settings.component.css'
+    selector: 'app-update-user-settings',
+    templateUrl: './update-user-settings.component.html',
+    styleUrl: './update-user-settings.component.css',
+    standalone: false
 })
 export class UpdateUserSettingsComponent extends ChildComponent implements OnInit {
   updateUserDivVisible = true;
@@ -218,7 +219,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           const res = await this.userService.deleteUser(tmpUser);
           this.parentRef?.showNotification(res["message"]);
           this.parentRef?.deleteCookie("user");
-          window.location = window.location;
+          window.location.reload(); 
         } catch (error) {
           this.parentRef?.showNotification(`Error deleting user ${this.parentRef!.user?.username}`);
         }
@@ -288,14 +289,31 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (!this.parentRef || !this.parentRef.user) {
       return alert("You must be logged in!");
     }
+
     const inputs = Array.from(document.getElementsByClassName("btcWalletInput")) as HTMLInputElement[];
     let wallets: string[] = [];
+
+    // Bitcoin address validation regex
+    const btcAddressRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,42}$/;
+
+    // Loop through each input and validate the wallet address
     for (let input of inputs) {
-      wallets.push(input.value);
+      const walletInfo = input.value;
+
+      // Check if the wallet address is valid
+      if (!btcAddressRegex.test(walletInfo)) {
+        return alert(`Invalid Bitcoin address: ${walletInfo}. Please check for invalid characters.`);
+      }
+
+      // Add valid wallet address to the list
+      wallets.push(walletInfo);
     }
+
+    // Proceed with updating BTC wallet addresses if all are valid
     await this.userService.updateBTCWalletAddresses(this.parentRef.user, wallets);
     alert("BTC Wallet Addresses Updated. Visit the Crypto-Hub App To Track.");
   }
+
   async getBTCWalletAddresses() {
     if (this.btcWalletAddresses) return;
 

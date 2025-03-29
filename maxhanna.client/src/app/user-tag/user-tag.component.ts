@@ -6,9 +6,10 @@ import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { UserService } from '../../services/user.service';
 
 @Component({
-  selector: 'app-user-tag',
-  templateUrl: './user-tag.component.html',
-  styleUrl: './user-tag.component.css'
+    selector: 'app-user-tag',
+    templateUrl: './user-tag.component.html',
+    styleUrl: './user-tag.component.css',
+    standalone: false
 })
 export class UserTagComponent extends ChildComponent implements OnInit, OnChanges {
   @Input() user?: User;

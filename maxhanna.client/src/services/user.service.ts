@@ -220,6 +220,22 @@ export class UserService {
       return "Error";
     }
   }
+  async updateNotificationsEnabled(user: User, isAllowed: boolean) {
+    try {
+      const response = await fetch('/user/updatenotificationsenabled', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ User: user, IsAllowed: isAllowed }),
+      });
+
+
+      return await response.text();
+    } catch (error) {
+      return "Error";
+    }
+  }
   async updateGhostRead(user: User, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updateghostread', {

@@ -6,9 +6,10 @@ import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 
 @Component({
-  selector: 'app-todo',
-  templateUrl: './todo.component.html',
-  styleUrl: './todo.component.css'
+    selector: 'app-todo',
+    templateUrl: './todo.component.html',
+    styleUrl: './todo.component.css',
+    standalone: false
 })
 export class TodoComponent extends ChildComponent implements OnInit {
   todos: Array<Todo> = [];

@@ -337,7 +337,9 @@ public class WebCrawler
                 keywords = VALUES(keywords),
                 image_url = VALUES(image_url), 
                 found_date = UTC_TIMESTAMP(), 
-                last_crawled = UTC_TIMESTAMP();";
+                last_crawled = UTC_TIMESTAMP(), 
+								failed = FALSE,
+								response_code = NULL;";
 				using (var insertCommand = new MySqlCommand(insertQuery, connection))
 				{
 					insertCommand.Parameters.AddWithValue("@url", domain.ToLower());

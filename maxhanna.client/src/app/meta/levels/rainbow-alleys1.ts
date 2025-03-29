@@ -24,6 +24,7 @@ import { ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, getMaskNameById 
 import { UndergroundLevel1 } from "./underground-level1";
 import { BASE, FLOOR, GROUND, HUD } from "../objects/game-object";
 import { Sign } from "../objects/Environment/Sign/sign";
+import { Bot } from "../objects/Bot/bot";
  
 
 export class RainbowAlleys1 extends Level { 
@@ -162,6 +163,15 @@ export class RainbowAlleys1 extends Level {
     this.addChild(wardrobe);
 
 
+    for (let x = 0; x < 3; x++) {
+      const punchingBot = new Bot({
+        position: new Vector2(gridCells(35) + gridCells(x * 5), gridCells(30)),
+        isDeployed: true, isEnemy: true, hp: 100,
+        isInvulnerable: true, name: "Punching-Bot", forceDrawName: true,
+        preventDrawName: false, isSolid: true, canAttack: false,
+      });
+      this.addChild(punchingBot);
+    } 
 
     const stand2 = new Stand(gridCells(5), gridCells(2));
     this.addChild(stand2);

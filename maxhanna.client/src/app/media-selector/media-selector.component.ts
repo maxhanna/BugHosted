@@ -6,9 +6,10 @@ import { FileUploadComponent } from '../file-upload/file-upload.component';
 
 
 @Component({
-  selector: 'app-media-selector',
-  templateUrl: './media-selector.component.html',
-  styleUrl: './media-selector.component.css'
+    selector: 'app-media-selector',
+    templateUrl: './media-selector.component.html',
+    styleUrl: './media-selector.component.css',
+    standalone: false
 })
 export class MediaSelectorComponent implements OnDestroy {
   displaySearchButton = false;

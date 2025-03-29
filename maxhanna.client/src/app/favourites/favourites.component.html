@@ -10,11 +10,11 @@
     <div *ngIf="favouriteSearch.length > 0">
       <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Existing' }} Links:</div>
       <div class="favouriteListWrapper">
-        <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv">
+        <div *ngFor="let sFav of favouriteSearch" class="favouriteDiv" [title]="sFav.url">
           <a (click)="parentRef?.visitExternalLink(sFav.url)">
             <div class="favImage" [title]="sFav.name">
               <img [src]="sFav.imageUrl" *ngIf="sFav.imageUrl" />
-              <div class="emptyFavImage" *ngIf="!sFav.imageUrl"></div>
+              <div class="emptyFavImage" *ngIf="!sFav.imageUrl" [title]="sFav.url"></div>
             </div>
             <div class="favName">
               {{ sFav.name && sFav.name.trim() ? sFav.name : sFav.url }}
@@ -28,20 +28,15 @@
           </button>
         </div>
       </div>
-    </div>
-
-    <!--<div *ngIf="showNameImageInput">
-    <input #linkNameInput placeholder="Website Name" />
-    <input #linkImageInput placeholder="Website Logo URL" />
-  </div>-->
+    </div> 
     <div *ngIf="!showNameImageInput && !showingLatestLinks && !isSearchingUrls">
       <div class="miniTitle">Your Favs:</div>
       <div class="favouriteListWrapper">
-        <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''">
+        <div *ngFor="let fav of userFavourites" class="favouriteDiv" [style.border]="showEditLinks ? '1px solid' : ''" [title]="fav.url">
           <a (click)="parentRef?.visitExternalLink(fav.url)">
             <div class="favImage">
               <img [src]="fav.imageUrl" *ngIf="fav.imageUrl" />
-              <div class="emptyFavImage" *ngIf="!fav.imageUrl"></div>
+              <div class="emptyFavImage" *ngIf="!fav.imageUrl" [title]="fav.url"></div>
             </div>
             <div class="favName">
               {{fav.name && fav.name.trim() ? fav.name : fav.url}}

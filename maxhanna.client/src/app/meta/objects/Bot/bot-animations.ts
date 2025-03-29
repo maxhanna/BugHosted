@@ -24,7 +24,7 @@ const makeWalkingFrames = (rootFrame = 0) => {
 
 const makeSideWalkingFrames = (rootFrame = 0) => {
   return {
-    duration: 400,
+    duration: 500,
     frames: [
       {
         time: 0,
@@ -80,11 +80,11 @@ export const WALK_UP = makeWalkingFrames(12);
 export const WALK_LEFT = makeSideWalkingFrames(8);
 
 export const STAND_DOWN = makeStandingDownFrames(1);
-export const STAND_RIGHT = makeStandingFrames(11);
+export const STAND_RIGHT = makeStandingFrames(10);
 export const STAND_UP = makeStandingFrames(12);
-export const STAND_LEFT = makeStandingFrames(9);
+export const STAND_LEFT = makeStandingFrames(8);
 
-export const PICK_UP_DOWN = { 
+export const PICK_UP_DOWN = {
   duration: 2500,
   frames: [
     {
@@ -99,5 +99,43 @@ export const PICK_UP_DOWN = {
       time: 800,
       frame: 18
     },
-  ] 
+  ]
+}
+
+export const ATTACK_LEFT = {
+  duration: 1000,
+  frames: [
+    {
+      time: 0,
+      frame: 18
+    },
+  ]
+}
+export const ATTACK_RIGHT = {
+  duration: 1000,
+  frames: [
+    {
+      time: 0,
+      frame: 17
+    },
+  ]
+}
+export const ATTACK_DOWN = {
+  duration: 1000,
+  frames: [
+    {
+      time: 0,
+      frame: 16
+    },
+  ]
+}
+
+export const ATTACK_UP = {
+  duration: 1000,
+  frames: [
+    {
+      time: 0,
+      frame: 19
+    },
+  ]
 }

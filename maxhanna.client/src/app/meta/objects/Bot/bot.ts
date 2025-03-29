@@ -1,5 +1,6 @@
 import { Vector2 } from "../../../../services/datacontracts/meta/vector2";
 import { Sprite } from "../sprite";
+import { Fire } from "../Effects/Fire/fire";
 import { SkillType } from "../../helpers/skill-types";
 import { DOWN, LEFT, RIGHT, UP, gridCells, isOnGrid } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
@@ -8,7 +9,7 @@ import { resources } from "../../helpers/resources";
 import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { events } from "../../helpers/events";
 import { attack, calculateAndApplyDamage, findTargets, untarget } from "../../helpers/fight";
-import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./bot-animations";
+import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN, ATTACK_LEFT, ATTACK_UP, ATTACK_DOWN, ATTACK_RIGHT } from "./bot-animations";
 import { MetaBotPart } from "../../../../services/datacontracts/meta/meta-bot-part";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { Character } from "../character";
@@ -30,6 +31,8 @@ export class Bot extends Character {
   lastAttack = new Date();
   lastAttackPart?: MetaBotPart;
   lastTargetDate = new Date();
+  isInvulnerable = false;
+  canAttack = true; 
   frameMap = {
     "Jaguar": "botFrame1",
     "Ram": "botFrame5",
@@ -62,6 +65,8 @@ export class Bot extends Character {
     forceDrawName?: boolean,
     preventDrawName?: boolean,
     isSolid?: boolean,
+    isInvulnerable?: boolean,
+    canAttack?: boolean, 
   }) {
     super({
       id: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
@@ -89,8 +94,8 @@ export class Bot extends Character {
         offsetX: (params.offsetX ?? 0), 
         offsetY: (params.offsetY ?? 0), 
         colorSwap: params.colorSwap,
-        hFrames: params.spriteName == "botFrame" ? 4 : 1,
-        vFrames: params.spriteName == "botFrame" ? 4 : 1,
+        hFrames: params.spriteName?.includes("botFrame") ? 4 : 1,
+        vFrames: params.spriteName?.includes("botFrame") ? 5 : 1,
         animations: new Animations(
           {
             walkDown: new FrameIndexPattern(WALK_DOWN),
@@ -102,8 +107,20 @@ export class Bot extends Character {
             standLeft: new FrameIndexPattern(STAND_LEFT),
             standUp: new FrameIndexPattern(STAND_UP),
             pickupDown: new FrameIndexPattern(PICK_UP_DOWN),
+            attackDown: new FrameIndexPattern(ATTACK_DOWN),
+            attackUp: new FrameIndexPattern(ATTACK_UP),
+            attackLeft: new FrameIndexPattern(ATTACK_LEFT),
+            attackRight: new FrameIndexPattern(ATTACK_RIGHT),
           })
-      })
+      }),
+      shadow: params.preventDraw ? undefined : new Sprite({
+        objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
+        resource: resources.images["shadow"],
+        scale: params.scale,
+        offsetX: -7 + (params.offsetX ?? 0),
+        offsetY: 2 + (params.offsetY ?? 0),
+        frameSize: new Vector2(32, 32),
+      }),
     });
     this.heroId = params.heroId;
     this.facingDirection = DOWN;
@@ -117,23 +134,24 @@ export class Bot extends Character {
     this.name = params.name ?? "Anon";
     this.isDeployed = params.isDeployed;
     this.isEnemy = params.isEnemy ?? false;
-    this.isSolid = params.isSolid ?? false; 
-    const bodyScale = params.scale ?? new Vector2(1, 1);
-    const shadowScale = new Vector2(bodyScale.x, bodyScale.y);
-
-    const shadow = params.preventDraw ? undefined : new Sprite({
-      objectId: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
-      resource: resources.images["shadow"],
-      position: new Vector2(-7 + (params.offsetX ?? 0), -20 + (params.offsetY ?? 0)),
-      scale: shadowScale,
-      frameSize: new Vector2(32, 32),
-    });
-    if (shadow) {  
-      this.addChild(shadow); 
-    }
+    this.isSolid = params.isSolid ?? false;   
+    this.isInvulnerable = params.isInvulnerable ?? false;   
+    this.canAttack = params.canAttack ?? true;   
     this.setupEvents(); 
   }
 
+  override destroy() {
+    this.isLocked = true;
+    this.destroyBody();
+    const fire = new Fire(this.position.x, this.position.y);
+    this.parent?.children?.push(fire);  
+    setTimeout(() => {
+      fire.destroy();
+      super.destroy();
+      this.parent?.removeChild(fire);
+      this.parent?.removeChild(this);
+    }, 1100); 
+  }
 
   override ready() {
     findTargets(this); 
@@ -152,7 +170,7 @@ export class Bot extends Character {
         findTargets(this);
       }
     });
-    events.on("BOT_DESTROYED", this, () => {
+    events.on("BOT_DESTROYED", this, (params: Bot) => { 
       if (this.isDeployed && this.hp > 0) {
         findTargets(this);
       }
@@ -186,17 +204,17 @@ export class Bot extends Character {
   override step(delta: number, root: any) {
     super.step(delta, root);
 
-    if (this.targeting) {  
-      if (this.lastAttack.getTime() + 1000 < new Date().getTime()) {
-        this.lastAttack = new Date();
+    if (this.targeting && this.lastAttack.getTime() + 1000 < new Date().getTime()) {  
+       
+      this.lastAttack = new Date();
 
-        const botsInRange = getBotsInRange(this);
-        if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {
-          attack(this, this.targeting);
-        } else {
-          untarget(this, this.targeting);
-        }
-      } 
+      const botsInRange = getBotsInRange(this);
+      if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {
+        attack(this, this.targeting);
+      } else {
+        untarget(this, this.targeting);
+      }
+      
     } 
   } 
 

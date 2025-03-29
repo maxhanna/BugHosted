@@ -10,9 +10,10 @@ import { NotificationService } from '../../services/notification.service';
 import { Story } from '../../services/datacontracts/social/story';
 
 @Component({
-  selector: 'app-comments',
-  templateUrl: './comments.component.html',
-  styleUrl: './comments.component.css'
+    selector: 'app-comments',
+    templateUrl: './comments.component.html',
+    styleUrl: './comments.component.css',
+    standalone: false
 })
 export class CommentsComponent extends ChildComponent implements OnInit {
   showCommentLoadingOverlay = false;
@@ -28,7 +29,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   @Input() commentList: FileComment[] = [];
   @Input() showComments = false;
   @Input() showCommentsHeader = true;
-  @Input() type: string = '' || "Social" || "File" || "Comment";
+  @Input() type: "" | "Social" | "File" | "Comment" = "";
   @Input() component_id: number = 0;
   @Input() component: any = undefined;
   @Input() comment_id?: number = undefined;

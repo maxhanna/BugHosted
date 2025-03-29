@@ -7,9 +7,10 @@ import { FileService } from '../../services/file.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 
 @Component({
-  selector: 'app-themes',
-  templateUrl: './themes.component.html',
-  styleUrls: ['./themes.component.css']
+    selector: 'app-themes',
+    templateUrl: './themes.component.html',
+    styleUrls: ['./themes.component.css'],
+    standalone: false
 })
 export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy {
   @ViewChild('backgroundColor') backgroundColor!: ElementRef;

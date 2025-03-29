@@ -5,9 +5,10 @@ import { MetaData } from '../../services/datacontracts/social/story';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
-  selector: 'app-crawler',
-  templateUrl: './crawler.component.html',
-  styleUrl: './crawler.component.css'
+    selector: 'app-crawler',
+    templateUrl: './crawler.component.html',
+    styleUrl: './crawler.component.css',
+    standalone: false
 })
 export class CrawlerComponent extends ChildComponent implements OnInit, OnDestroy {
   searchMetadata: MetaData[] = [];

@@ -5,9 +5,10 @@ import { TodoService } from '../../services/todo.service';
 import { User } from '../../services/datacontracts/user/user';
 
 @Component({
-  selector: 'app-music',
-  templateUrl: './music.component.html',
-  styleUrl: './music.component.css'
+    selector: 'app-music',
+    templateUrl: './music.component.html',
+    styleUrl: './music.component.css',
+    standalone: false
 })
 export class MusicComponent extends ChildComponent implements OnInit, AfterViewInit {
   @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;

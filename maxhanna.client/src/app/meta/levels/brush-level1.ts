@@ -259,7 +259,15 @@ export class BrushLevel1 extends Level {
         { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
       ); 
       this.addChild(fence2);
-    }
+    } 
+
+    const gangster0 = new Gangster({ position: new Vector2(gridCells(13), gridCells(10)), });
+    gangster0.textContent = [
+      {
+        string: ["Scram kid, Im not letting anyone in!", "Bosses orders!"],
+      } as Scenario
+    ];
+    this.addChild(gangster0);
 
     //Npcs <<-- PLACED AT THE END BECAUSE FOR SOME REASON, IT DOESNT RENDER MY ACCOUNT (MAX) ON BOTTOM UNLESS ITS POSITIONED HERE LMAO
     if (storyFlags.contains(GOT_FIRST_METABOT)) {
@@ -282,9 +290,7 @@ export class BrushLevel1 extends Level {
         hp: 20,
         level: 1,
       });
-      this.addChild(encounterGangsterBot);
-
-
+      this.addChild(encounterGangsterBot); 
 
       const gangster1 = new Gangster({ position: new Vector2(gridCells(15), gridCells(15)) });
       gangster1.textContent = [

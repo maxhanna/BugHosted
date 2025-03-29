@@ -336,7 +336,7 @@ export class StartMenu extends GameObject {
       this.displayWarpCoordsInput(this.currentWarpX, this.currentWarpY);
     } else if (this.items.length > 0) {
       // Original increment logic
-      console.log(this.items);
+      //console.log(this.items);
       this.currentlySelectedId = (this.currentlySelectedId > this.items.length - 2 ? 0 : ++this.currentlySelectedId);
       this.selectorSprite.position.y = 30 + (this.currentlySelectedId * (this.selectedMetabot && !this.selectedPart ? 20 : 10));
     }

@@ -7,10 +7,11 @@ import { NexusService } from '../../services/nexus.service';
 import { ChildComponent } from '../child.component';
 
 @Component({
-  selector: 'app-nexus-bases',
-  templateUrl: './nexus-bases.component.html',
-  styleUrl: './nexus-bases.component.css',
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'app-nexus-bases',
+    templateUrl: './nexus-bases.component.html',
+    styleUrl: './nexus-bases.component.css',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: false
 })
 export class NexusBasesComponent extends ChildComponent implements OnInit {
   constructor(private nexusService: NexusService) { super(); }

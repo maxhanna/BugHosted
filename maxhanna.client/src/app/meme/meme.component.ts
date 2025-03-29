@@ -9,9 +9,10 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 import { UserService } from '../../services/user.service';
 
 @Component({
-  selector: 'app-meme',
-  templateUrl: './meme.component.html',
-  styleUrls: ['./meme.component.css']
+    selector: 'app-meme',
+    templateUrl: './meme.component.html',
+    styleUrls: ['./meme.component.css'],
+    standalone: false
 })
 export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  { 
   notifications: string[] = [];

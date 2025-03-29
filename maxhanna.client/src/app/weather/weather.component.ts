@@ -10,9 +10,10 @@ interface WeatherForecast {
 }
 
 @Component({
-  selector: 'app-weather',
-  templateUrl: './weather.component.html',
-  styleUrl: './weather.component.css'
+    selector: 'app-weather',
+    templateUrl: './weather.component.html',
+    styleUrl: './weather.component.css',
+    standalone: false
 })
 export class WeatherComponent extends ChildComponent implements OnInit {
   weather: WeatherResponse = new WeatherResponse();

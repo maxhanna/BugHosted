@@ -6,9 +6,10 @@ import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-en
 
 
 @Component({
-  selector: 'app-calendar',
-  templateUrl: './calendar.component.html',
-  styleUrl: './calendar.component.css'
+    selector: 'app-calendar',
+    templateUrl: './calendar.component.html',
+    styleUrl: './calendar.component.css',
+    standalone: false
 })
 export class CalendarComponent extends ChildComponent implements OnInit {
   @ViewChild('monthBack') monthBack!: ElementRef<HTMLElement>;

@@ -14,9 +14,10 @@ import { UserService } from '../../services/user.service';
 
 
 @Component({
-  selector: 'app-file-search',
-  templateUrl: './file-search.component.html',
-  styleUrl: './file-search.component.css'
+    selector: 'app-file-search',
+    templateUrl: './file-search.component.html',
+    styleUrl: './file-search.component.css',
+    standalone: false
 })
 export class FileSearchComponent extends ChildComponent implements OnInit {
   defaultCurrentPage = 1;

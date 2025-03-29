@@ -4,9 +4,10 @@ import { Contact } from '../../services/datacontracts/user/contact';
 import { ContactService } from '../../services/contact.service';
 
 @Component({
-  selector: 'app-contacts',
-  templateUrl: './contacts.component.html',
-  styleUrl: './contacts.component.css'
+    selector: 'app-contacts',
+    templateUrl: './contacts.component.html',
+    styleUrl: './contacts.component.css',
+    standalone: false
 })
 export class ContactsComponent extends ChildComponent implements OnInit {
   contacts: Contact[] = [];

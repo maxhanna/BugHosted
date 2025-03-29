@@ -9,9 +9,10 @@ import { CoinValue } from '../../services/datacontracts/crypto/coin-value';
 import { AppComponent } from '../app.component';
  
 @Component({
-  selector: 'app-mining-rigs',
-  templateUrl: './mining-rigs.component.html',
-  styleUrl: './mining-rigs.component.css'
+    selector: 'app-mining-rigs',
+    templateUrl: './mining-rigs.component.html',
+    styleUrl: './mining-rigs.component.css',
+    standalone: false
 })
 export class MiningRigsComponent extends ChildComponent implements OnChanges { 
   @Input() inputtedParentRef?: AppComponent;

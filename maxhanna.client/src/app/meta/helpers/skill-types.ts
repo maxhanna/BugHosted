@@ -46,7 +46,18 @@ export const abbrTypeLabels = new Map<number, string>([
   [SkillType.INTELLIGENCE, 'INT'],
   [SkillType.NORMAL, 'NRM']
 ]);
+export const typeCounters = new Map<SkillType, SkillType>([
+  [SkillType.SPEED, SkillType.STRENGTH],       // Speed counters Strength
+  [SkillType.STRENGTH, SkillType.ARMOR],       // Strength counters Armor
+  [SkillType.ARMOR, SkillType.RANGED],         // Armor counters Ranged
+  [SkillType.RANGED, SkillType.STEALTH],       // Ranged counters Stealth
+  [SkillType.STEALTH, SkillType.INTELLIGENCE], // Stealth counters Intelligence
+  [SkillType.INTELLIGENCE, SkillType.SPEED]    // Intelligence counters Speed
+]);
 
+export const getCounterType = (type: SkillType): SkillType | null => {
+  return typeCounters.get(type) || null;
+}; 
 export const getTypeLabel = (choice: number): string => typeLabels.get(choice) || 'NORMAL';
 export const getAbbrTypeLabel = (choice: number): string => abbrTypeLabels.get(choice) || 'NRM';
 

@@ -17,6 +17,7 @@ export class Mask extends Sprite {
 
 export function getMaskNameById(maskId?: number) {
   const masks = [
+    AI_MASK,
     BUNNYEARS_MASK,
     BOT_MASK,
     ANBU_MASK,
@@ -28,6 +29,10 @@ export function getMaskNameById(maskId?: number) {
   return mask ? mask.name : ""; // Return mask name if found, otherwise null
 }
 
+export const AI_MASK = {
+  name: "aimask",
+  id: 5,
+}
 export const BUNNYEARS_MASK = {
   name: "bunnyearsmask",
   id: 4,

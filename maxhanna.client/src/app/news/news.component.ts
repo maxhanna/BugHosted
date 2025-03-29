@@ -5,9 +5,10 @@ import { Article, ArticlesResult } from '../../services/datacontracts/news/news-
 import { NotepadService } from '../../services/notepad.service';
 
 @Component({
-  selector: 'app-news',
-  templateUrl: './news.component.html',
-  styleUrl: './news.component.css'
+    selector: 'app-news',
+    templateUrl: './news.component.html',
+    styleUrl: './news.component.css',
+    standalone: false
 })
 export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
   newsArticles?: undefined | ArticlesResult;

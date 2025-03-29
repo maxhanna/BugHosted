@@ -3,9 +3,10 @@ import { NexusUnits } from '../../services/datacontracts/nexus/nexus-units';
 import { AppComponent } from '../app.component';
 
 @Component({
-  selector: 'app-nexus-base-units',
-  templateUrl: './nexus-base-units.component.html',
-  styleUrl: './nexus-base-units.component.css'
+    selector: 'app-nexus-base-units',
+    templateUrl: './nexus-base-units.component.html',
+    styleUrl: './nexus-base-units.component.css',
+    standalone: false
 })
 export class NexusBaseUnitsComponent {
 
