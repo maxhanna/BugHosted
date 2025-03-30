@@ -8,6 +8,7 @@ import { isObjectNearby, moveTowards, tryMove } from "../helpers/move-towards";
 import { Input } from "../helpers/input";
 import { events } from "../helpers/events";
 import { resources } from "../helpers/resources";
+import { WarpBase } from "./Effects/Warp/warp-base";
 
 export class Character extends GameObject {
   id: number;
@@ -38,6 +39,7 @@ export class Character extends GameObject {
   level = 1;
   exp = 0;
   expForNextLevel = 0;
+  isWarping = false;
 
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
@@ -59,6 +61,7 @@ export class Character extends GameObject {
     preventDraw?: boolean,
     forceDrawName?: boolean,
     preventDrawName?: boolean,
+    facingDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | undefined,
   }) {
     super({
       position: params.position ?? new Vector2(0, 0),
@@ -77,19 +80,34 @@ export class Character extends GameObject {
     this.exp = params.exp ?? 0;
     this.expForNextLevel = params.expForNextLevel ?? 0;
     this.hp = params.hp ?? 0;
+    this.facingDirection = params.facingDirection ?? DOWN;
     this.isUserControlled = params.isUserControlled ?? false;
     this.mask = params.mask;
     if (this.body) {
       this.initializeBody();
-    }
-    this.body?.animations?.play("standDown");
+    }  
+    setTimeout(() => {
+      this.body?.animations?.play("stand" +
+        this.facingDirection.charAt(0) +
+        this.facingDirection.substring(1).toLowerCase());
+    }, 100);
 
     this.setupEvents();
   }
 
   override destroy() {
-    this.destroyBody();
-    super.destroy();
+    if (this.isWarping) {
+      const warpBase = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
+      this.parent?.addChild(warpBase);
+      this.isWarping = false;
+      setTimeout(() => {
+        warpBase.destroy();
+        this.destroy();
+      }, 1300);
+    } else { 
+      this.destroyBody();
+      super.destroy();
+    }
   }
 
   destroyBody() {

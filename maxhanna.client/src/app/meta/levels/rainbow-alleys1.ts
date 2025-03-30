@@ -8,9 +8,6 @@ import { StoneCircle } from "../objects/Environment/StoneCircle/stone-circle";
 import { Fountain } from "../objects/Environment/Fountain/fountain";
 import { Level } from "../objects/Level/level";
 import { Sprite } from "../objects/sprite"; 
-import { Scenario } from "../helpers/story-flags";
-import { Spiderbot } from "../objects/Npc/Spiderbot/spiderbot";
-import { Armobot } from "../objects/Npc/Armobot/armobot";
 import { Museum } from "../objects/Environment/Museum/museum";
 import { Stand } from "../objects/Environment/Stand/stand";
 import { ColorSwap } from "../../../services/datacontracts/meta/color-swap";
@@ -20,11 +17,12 @@ import { HouseSide } from "../objects/Environment/House/house-side";
 import { Wardrobe } from "../objects/Environment/Wardrobe/wardrobe";
 import { Salesman } from "../objects/Npc/Salesman/salesman";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
-import { ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, getMaskNameById } from "../objects/Wardrobe/mask";
+import { ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, VISOR_MASK, getMaskNameById } from "../objects/Wardrobe/mask";
 import { UndergroundLevel1 } from "./underground-level1";
-import { BASE, FLOOR, GROUND, HUD } from "../objects/game-object";
+import { BASE, FLOOR } from "../objects/game-object";
 import { Sign } from "../objects/Environment/Sign/sign";
 import { Bot } from "../objects/Bot/bot";
+import { StoneRoad } from "../objects/Environment/StoneRoad/stone-road";
  
 
 export class RainbowAlleys1 extends Level { 
@@ -62,36 +60,30 @@ export class RainbowAlleys1 extends Level {
       }
     }
     for (let y = -1; y < 10; y++) {
-      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = FLOOR;
+      const stoneRoad = new StoneRoad(gridCells(1), gridCells(4 * y)); 
       this.addChild(stoneRoad);
     }
 
     for (let x = 0; x < 2; x++) { //center road
-      for (let y = -5; y < 13; y++) {
-        const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(21) + gridCells(4 * x), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
-        stoneRoad.drawLayer = GROUND;
+      for (let y = -5; y < 13; y++) { 
+        const stoneRoad = new StoneRoad(gridCells(21) + gridCells(4 * x), gridCells(4 * y)); 
         this.addChild(stoneRoad);
       }
     }
-    for (let x = 0; x < 12; x++) {
-      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(5) + gridCells(4 * x), gridCells(12)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = FLOOR;
-      this.addChild(stoneRoad);
+    for (let x = 0; x < 12; x++) { 
+      const stoneRoad = new StoneRoad(gridCells(5) + gridCells(4 * x), gridCells(12));
+      this.addChild(stoneRoad); 
     }
     for (let y = -1; y < 10; y++) {
-      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(52), gridCells(4 * y)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = FLOOR;
-      this.addChild(stoneRoad);
+      const stoneRoad = new StoneRoad(gridCells(52), gridCells(4 * y));
+      this.addChild(stoneRoad); 
     }
     for (let x = 0; x < 14; x++) {
-      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(-4)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = FLOOR;
-      this.addChild(stoneRoad);
+      const stoneRoad = new StoneRoad(gridCells(1) + gridCells(4 * x), gridCells(-4));
+      this.addChild(stoneRoad);  
     }
     for (let x = 0; x < 14; x++) {
-      const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(36)), frameSize: new Vector2(64, 64) });
-      stoneRoad.drawLayer = FLOOR;
+      const stoneRoad = new StoneRoad(gridCells(1) + gridCells(4 * x), gridCells(36));
       this.addChild(stoneRoad);
     }
 
@@ -104,6 +96,7 @@ export class RainbowAlleys1 extends Level {
       new InventoryItem({ id: 0, name: "AnbuMask", image: ANBU_MASK.name, category: "mask" }),
       new InventoryItem({ id: 0, name: "BotMask", image: BOT_MASK.name, category: "mask" }),
       new InventoryItem({ id: 0, name: "BunnyEarsMask", image: BUNNYEARS_MASK.name, category: "mask" }),
+      new InventoryItem({ id: 0, name: "VisorMask", image: VISOR_MASK.name, category: "mask" }),
     ];
 
     const tmpLvl = new Level();
@@ -162,13 +155,19 @@ export class RainbowAlleys1 extends Level {
     }
     this.addChild(wardrobe);
 
-
+    const offsets = [
+      { x: 0, y: -2, dir: "DOWN" },   // Top bot
+      { x: -2, y: 0, dir: "RIGHT" },  // Left bot
+      { x: 2, y: 0, dir: "LEFT" },    // Right bot
+      { x: 0, y: 2, dir: "UP" },      // Bottom bot
+    ];
     for (let x = 0; x < 3; x++) {
       const punchingBot = new Bot({
-        position: new Vector2(gridCells(35) + gridCells(x * 5), gridCells(30)),
+        position: new Vector2(gridCells(45) + gridCells(offsets[x].x), gridCells(30) + gridCells(offsets[x].y)),
         isDeployed: true, isEnemy: true, hp: 100,
         isInvulnerable: true, name: "Punching-Bot", forceDrawName: true,
         preventDrawName: false, isSolid: true, canAttack: false,
+        facingDirection: offsets[x].dir as typeof DOWN,
       });
       this.addChild(punchingBot);
     } 
@@ -222,7 +221,7 @@ export class RainbowAlleys1 extends Level {
       const stoneRoad = new Sprite({ objectId: 0, resource: resources.images["stoneroad"], position: new Vector2(gridCells(1) + gridCells(4 * x), gridCells(32)), frameSize: new Vector2(64, 64) });
       stoneRoad.drawLayer = FLOOR;
       this.addChild(stoneRoad);
-    }
+    } 
 
     const stoneCircle = new StoneCircle(gridCells(25), gridCells(13));
     this.addChild(stoneCircle);

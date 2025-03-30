@@ -21,6 +21,7 @@ import { storyFlags } from "./story-flags";
 import { Character } from "../objects/character";
 import { Encounter } from "../objects/Environment/Encounter/encounter";
 import { generateReward, setTargetToDestroyed } from "./fight";
+import { WarpBase } from "../objects/Effects/Warp/warp-base";
 
 
 export class Network {
@@ -189,11 +190,20 @@ export function subscribeToMainGameEvents(object: any) {
 
 
   events.on("DEPLOY", object, async (params: { bot: MetaBot, metaHero?: MetaHero }) => {
-    const hero = params.metaHero ?? object.metaHero;
+    const tmpMetahero = params.metaHero && !(params.metaHero instanceof MetaHero) ?
+      object.mainScene?.level?.children?.find((x: any) => x.id === params.metaHero?.id) : params.metaHero;
+    const hero = tmpMetahero ?? object.metaHero;
     if (params.bot.id) {
-      object.addBotToScene(hero, params.bot);
+      const addedBot = object.addBotToScene(hero, params.bot);
+
+      const warpBase = new WarpBase({ position: addedBot.position, parentId: addedBot.id, offsetX: -8, offsetY: 12 });
+      object.mainScene.level?.addChild(warpBase);
+      setTimeout(() => {
+        warpBase.destroy();
+      }, 1300);
+
       if (object.metaHero.id === hero.id) {
-        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "DEPLOY", object.metaHero.map, { "metaHero": `${JSON.stringify(hero)}`, "metaBot": `${JSON.stringify(params.bot)}` });
+        const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "DEPLOY", object.metaHero.map, { "metaHero": `${safeStringify(hero)}`, "metaBot": `${safeStringify(params.bot)}` });
         object.metaService.updateEvents(metaEvent);
       }
      // await object.reinitializeInventoryData();
@@ -219,6 +229,7 @@ export function subscribeToMainGameEvents(object: any) {
       if (tgt) {
         tgt.preventDestroyAnimation = true;
         tgt.isDeployed = false;
+        tgt.isWarping = true;
         tgt.destroy();
       }
       const tgtHeroBot = object.metaHero.metabots.find((x: any) => x.id === params.bot.id);
@@ -523,7 +534,7 @@ export function subscribeToMainGameEvents(object: any) {
 
     if (tgtCreateEvent || tgtDestroyedEvent) {
       console.log(`Bot was ${tgtCreateEvent ? 'spawned' : 'destroyed'} not long ago, no need to recreate.`);
-      params.owner.lastCreated = tgtDestroyedEvent.timestamp;
+      params.owner.lastCreated = tgtCreateEvent?.timestamp ?? tgtDestroyedEvent.timestamp;
       return;
     } 
 
@@ -588,7 +599,13 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             targetBot.isDeployed = true;
           }
           if (tmpHero.id != object.metaHero.id) {
-            object.addBotToScene(tmpHero, targetBot);
+            const addedBot = object.addBotToScene(tmpHero, targetBot);
+
+            const warpBase = new WarpBase({ position: addedBot.position, parentId: addedBot?.id ?? 0, offsetX: -8 });
+            object.mainScene.level?.addChild(warpBase); 
+            setTimeout(() => {
+              warpBase.destroy(); 
+            }, 1300);
           }
         }
         if (event.eventType === "BOT_DESTROYED" && event.data) {
@@ -601,18 +618,21 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             generateReward(winnerBot, bot);
           }
           setTargetToDestroyed(bot);
-
-          const oldTargetSprite1 = object.mainScene.level?.children.find((child: any) => child.parentId == winnerBotId);
-          if (oldTargetSprite1) {
-            console.log("oldTargetSprite1 ", oldTargetSprite1);
-            oldTargetSprite1.body?.destroy();
-            oldTargetSprite1.destroy();
+          if (winnerBotId) {  
+            const oldTargetSprite1 = object.mainScene.level?.children.find((child: any) => child.parentId == winnerBotId);
+            if (oldTargetSprite1) {
+              console.log("oldTargetSprite1 ", oldTargetSprite1);
+              oldTargetSprite1.body?.destroy();
+              oldTargetSprite1.destroy();
+            }
           }
-          const oldTargetSprite2 = object.mainScene.level?.children.find((child: any) => child.parentId == bot.id);
-          if (oldTargetSprite2) {
-            console.log("oldTargetSprite2 ", oldTargetSprite2);
-            oldTargetSprite2.body?.destroy();
-            oldTargetSprite2.destroy();
+          if (bot) { 
+            const oldTargetSprite2 = object.mainScene.level?.children.find((child: any) => child.parentId == bot?.id);
+            if (oldTargetSprite2) {
+              console.log("oldTargetSprite2 ", oldTargetSprite2);
+              oldTargetSprite2.body?.destroy();
+              oldTargetSprite2.destroy();
+            }
           }
           const oldTargetSprite3 = object.mainScene.level?.children.find((child: any) => child.heroId == event.heroId);
           if (oldTargetSprite3) {
@@ -639,6 +659,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         if (event.eventType === "CALL_BOT_BACK") {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
           if (bot) {
+            bot.isWarping = true;
             bot.destroy();
           }
         }

@@ -19,6 +19,7 @@ export function getMaskNameById(maskId?: number) {
   const masks = [
     AI_MASK,
     BUNNYEARS_MASK,
+    VISOR_MASK,
     BOT_MASK,
     ANBU_MASK,
     BUNNY_MASK,
@@ -29,6 +30,10 @@ export function getMaskNameById(maskId?: number) {
   return mask ? mask.name : ""; // Return mask name if found, otherwise null
 }
 
+export const VISOR_MASK = {
+  name: "visormask",
+  id: 6,
+}
 export const AI_MASK = {
   name: "aimask",
   id: 5,

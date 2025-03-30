@@ -3,7 +3,7 @@ import { MetaBot } from "../../../../services/datacontracts/meta/meta-bot";
 import { Character } from "../character";
 import { Sprite } from "../sprite";
 import { Mask } from "../Wardrobe/mask";
-import { DOWN, gridCells } from "../../helpers/grid-cells";
+import { DOWN, gridCells, isSpaceFree } from "../../helpers/grid-cells";
 import { Animations } from "../../helpers/animations";
 import { bodyAtSpace, isObjectNearby } from "../../helpers/move-towards";
 import { resources } from "../../helpers/resources";
@@ -11,6 +11,7 @@ import { FrameIndexPattern } from "../../helpers/frame-index-pattern";
 import { WALK_DOWN, WALK_UP, WALK_LEFT, WALK_RIGHT, STAND_DOWN, STAND_RIGHT, STAND_LEFT, STAND_UP, PICK_UP_DOWN } from "./hero-animations";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
 import { events } from "../../helpers/events";
+import { WarpBase } from "../Effects/Warp/warp-base";
 
 export class Hero extends Character {
   metabots?: MetaBot[];
@@ -104,12 +105,36 @@ export class Hero extends Character {
         this.isLocked = false;
         events.emit("END_TEXT_BOX");
       });
-      events.on("WARP", this, (params: { x: string, y: string }) => { 
+      events.on("WARP", this, (params: { x: string, y: string }) => {
+        console.log("warping ", params);
         const warpPosition = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
-        const isBodyAtSpace = bodyAtSpace(this.parent, warpPosition);
-        if (isBodyAtSpace) {
-          this.destinationPosition = warpPosition.duplicate();
-          this.position = this.destinationPosition.duplicate();
+        const spaceIsFreeForWarp = isSpaceFree(this.parent.walls, warpPosition.x, warpPosition.y);
+        const deployedBot = this.metabots?.find(x => x.isDeployed);
+        if (spaceIsFreeForWarp) {
+          events.emit("HERO_MOVEMENT_LOCK");
+          if (deployedBot) { 
+            events.emit("CALL_BOT_BACK", { bot: deployedBot });
+          }
+          const warpBase = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
+          this.parent.addChild(warpBase);
+          setTimeout(() => {
+            events.emit("HERO_MOVEMENT_UNLOCK");
+            this.destinationPosition = warpPosition.duplicate();
+            this.position = this.destinationPosition.duplicate();
+            warpBase.destroy();
+            setTimeout(() => {
+              events.emit("HERO_MOVEMENT_LOCK");
+              if (deployedBot) {
+                events.emit("DEPLOY", { metaHero: this, bot: deployedBot });
+              }
+              const warpBase2 = new WarpBase({ position: this.position, parentId: this.id, offsetX: -8, offsetY: 12 });
+              this.parent.addChild(warpBase2);
+              setTimeout(() => {
+                warpBase2.destroy();
+                events.emit("HERO_MOVEMENT_UNLOCK"); 
+              }, 1300);
+            }, 15); 
+          }, 1300);
         } else {
           events.emit("INVALID_WARP", this);
         }

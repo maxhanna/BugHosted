@@ -92,7 +92,7 @@ export function target(source: Bot, targetBot: Bot) {
   events.emit("TARGET_LOCKED", { source: source, target: targetBot })
   console.log(source.name + " targeting : " + targetBot.name);
 
-  const targetSprite = new Target({ position: targetBot.position, parentId: source.id });
+  const targetSprite = new Target({ position: targetBot.position, parentId: source.id, targetId: targetBot.id });
   source.parent?.addChild(targetSprite);
 }
 

@@ -67,7 +67,8 @@ export class Bot extends Character {
     preventDrawName?: boolean,
     isSolid?: boolean,
     isInvulnerable?: boolean,
-    canAttack?: boolean, 
+    canAttack?: boolean,
+    facingDirection?: "UP" | "DOWN" | "LEFT" | "RIGHT" | undefined,
   }) {
     super({
       id: params.id ?? Math.floor(Math.random() * (-9999 + 1000)) - 1000,
@@ -75,7 +76,8 @@ export class Bot extends Character {
       colorSwap: params.colorSwap,
       preventDraw: params.preventDraw,
       forceDrawName: params.forceDrawName,
-      preventDrawName: params.preventDrawName,
+      preventDrawName: params.preventDrawName, 
+      facingDirection: params.facingDirection,
       speed: 1,
       name: "Bot",
       exp: params.exp ?? 0,
@@ -137,7 +139,7 @@ export class Bot extends Character {
     this.isEnemy = params.isEnemy ?? false;
     this.isSolid = params.isSolid ?? false;   
     this.isInvulnerable = params.isInvulnerable ?? false;   
-    this.canAttack = params.canAttack ?? true;   
+    this.canAttack = params.canAttack ?? true; 
     this.setupEvents(); 
   }
 

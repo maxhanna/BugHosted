@@ -1,5 +1,5 @@
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";  
-import { FLOOR, GameObject } from "../../game-object";
+import { FLOOR, GameObject, GROUND } from "../../game-object";
 import { Sprite } from "../../sprite"; 
 import { resources } from "../../../helpers/resources";  
 
@@ -8,7 +8,9 @@ export class StoneCircle extends GameObject {
 
   constructor(x: number, y: number) {
     super({
-      position: new Vector2(x, y), drawLayer: FLOOR, isSolid: true
+      position: new Vector2(x, y),
+      drawLayer: GROUND,
+      isSolid: true
     }) 
 
     this.body = new Sprite({

@@ -316,7 +316,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       rightArm: bot.rightArm,
       head: bot.head,
       legs: bot.legs,
-    });
+    }); 
     const existingBots = this.mainScene.level?.children?.filter((x: any) => x.heroId === metaHero.id && x.isDeployed);
     existingBots.forEach((x: any) => x.destroy());
     this.mainScene.level?.addChild(tmpBot);
