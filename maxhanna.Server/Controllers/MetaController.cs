@@ -1220,11 +1220,10 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					sql = @"
+					sql = @$"
                 UPDATE maxhanna.meta_bot 
                 SET is_deployed = 0, hp = 0 
-                WHERE hero_id = @heroId"
-							+ (metabotId.HasValue ? " AND id = @botId" : "");
+                WHERE hero_id = @heroId {(metabotId.HasValue ? " AND id = @botId" : "")};";
 
 					if (metabotId.HasValue)
 					{
@@ -1304,11 +1303,16 @@ namespace maxhanna.Server.Controllers
 					var botJson = metaEvent.Data["bot"];
 					//Console.WriteLine("Received Bot JSON: " + botJson);
 					MetaBot? bot = JsonSerializer.Deserialize<MetaBot>(botJson);
-
 					if (bot != null)
 					{
-						//Console.WriteLine($"Created bot: {bot.Name}, Level: {bot.Level}, HP: {bot.Hp}");
-						_ = CreateBot(bot);
+						bool botExists = await EnemyBotCreationEventExists(bot.HeroId, connection, transaction);
+						if (!botExists)
+						{ 
+							_ = CreateBot(bot);
+						} else
+						{
+							Console.WriteLine("Bot already exists.");
+						}
 					}
 					else
 					{
@@ -1491,7 +1495,13 @@ namespace maxhanna.Server.Controllers
 		{
 			//Console.WriteLine($"Bot {deadBot.Id} has died. Stopping DPS."); 
 			if (deadBot == null) return;
-			MetaEvent tmpEvent = new MetaEvent(0, deadBot.HeroId, DateTime.Now, "BOT_DESTROYED", map, null);
+			MetaEvent tmpEvent = new MetaEvent(0, 
+				deadBot.HeroId,
+				DateTime.Now,
+				"BOT_DESTROYED",
+				map,
+				new Dictionary<string, string> { { "winnerBotId", (winnerBot?.Id ?? 0).ToString() } }
+			);
 			await UpdateEventsInDB(tmpEvent, connection, transaction);
 			await DestroyMetabot(deadBot.HeroId, deadBot.Id, connection, transaction);
 			if (winnerBot?.HeroId > 0)
@@ -1558,7 +1568,25 @@ namespace maxhanna.Server.Controllers
 
 			return part;
 		}
-		  
+
+		private async Task<bool> EnemyBotCreationEventExists(int botHeroId, MySqlConnection connection, MySqlTransaction? transaction)
+		{
+			string checkEventSql = @"
+      SELECT COUNT(*) 
+      FROM maxhanna.meta_event 
+      WHERE event = 'CREATE_ENEMY' 
+      AND JSON_UNQUOTE(JSON_EXTRACT(data, '$.HeroId')) = @BotHeroId;";
+
+			using (var command = new MySqlCommand(checkEventSql, connection, transaction))
+			{
+				command.Parameters.AddWithValue("@BotHeroId", botHeroId);
+
+				var result = await command.ExecuteScalarAsync();
+				return Convert.ToInt32(result) > 0;
+			}
+		}
+
+
 		private void ApplyDamageToBot(MetaBot attackingBot, MetaBot defendingBot, MetaBotPart attackingPart, MetaBotPart defendingPart, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			// 1. Calculate damage for both bots using the same formula

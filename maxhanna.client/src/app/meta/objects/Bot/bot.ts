@@ -32,6 +32,7 @@ export class Bot extends Character {
   lastAttackPart?: MetaBotPart;
   lastTargetDate = new Date();
   isInvulnerable = false;
+  preventDestroyAnimation = false;
   canAttack = true; 
   frameMap = {
     "Jaguar": "botFrame1",
@@ -141,16 +142,20 @@ export class Bot extends Character {
   }
 
   override destroy() {
-    this.isLocked = true;
-    this.destroyBody();
-    const fire = new Fire(this.position.x, this.position.y);
-    this.parent?.children?.push(fire);  
-    setTimeout(() => {
-      fire.destroy();
+    if (!this.preventDestroyAnimation) {
+      this.isLocked = true;
+      this.destroyBody();
+      const fire = new Fire(this.position.x, this.position.y);
+      this.parent?.children?.push(fire);
+      setTimeout(() => {
+        fire.destroy();
+        super.destroy();
+        this.parent?.removeChild(fire);
+        this.parent?.removeChild(this);
+      }, 1100);
+    } else {
       super.destroy();
-      this.parent?.removeChild(fire);
-      this.parent?.removeChild(this);
-    }, 1100); 
+    } 
   }
 
   override ready() {
@@ -213,8 +218,11 @@ export class Bot extends Character {
         attack(this, this.targeting);
       } else {
         untarget(this, this.targeting);
-      }
-      
+        if (this.lastTargetDate.getTime() + 500 < new Date().getTime()) {
+          this.lastTargetDate = new Date();
+          findTargets(this);
+        }
+      } 
     } 
   } 
 

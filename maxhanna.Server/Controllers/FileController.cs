@@ -123,13 +123,7 @@ namespace maxhanna.Server.Controllers
 					Console.WriteLine($"setting page:{page}&offset={offset}; file position is : {filePosition}, page size is : {pageSize}, folder path: {directory}");
 
 					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
-					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user);
-
-					bool nsfwEnabled = await GetNsfwForUser(user);
-					string nsfwEnabledJoins = nsfwEnabled ? @"
-						LEFT JOIN
-								(SELECT file_id FROM maxhanna.file_topics WHERE topic_id IN (SELECT id FROM maxhanna.topics WHERE topic = 'NSFW')) ft
-						ON ft.file_id = f.id" : "";
+					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user); 
 
 					var command = new MySqlCommand($@"
                         SELECT 
@@ -167,8 +161,7 @@ namespace maxhanna.Server.Controllers
                         LEFT JOIN
                             maxhanna.user_display_pictures luudp ON luudp.user_id = uu.id
                         LEFT JOIN
-                            maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id
-												{nsfwEnabledJoins}
+                            maxhanna.file_uploads udpfl ON udp.file_id = udpfl.id 
                         WHERE
                             {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
                             (
@@ -398,7 +391,7 @@ namespace maxhanna.Server.Controllers
 
 					GetFileReactions(fileEntries, connection, fileIds, commentIds, fileIdsParameters, commentIdsParameters);
 					GetFileTopics(fileEntries, connection, fileIds, fileIdsParameters);
-					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters, nsfwEnabledJoins);
+					var result = GetDirectoryResults(user, directory, search, page, pageSize, fileEntries, fileTypeCondition, visibilityCondition, ownershipCondition, hiddenCondition, connection, searchCondition, extraParameters);
 
 					return Ok(result);
 				}
@@ -410,13 +403,13 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private Object GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters, string nsfwEnabledJoins)
+		private Object GetDirectoryResults(User? user, string directory, string? search, int page, int pageSize, List<FileEntry> fileEntries, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
 		{
 			// Get the total count of files for pagination
 			int totalCount = GetResultCount(user,
 				directory, search, fileTypeCondition, visibilityCondition,
 				ownershipCondition, hiddenCondition, connection, searchCondition,
-				extraParameters, nsfwEnabledJoins);
+				extraParameters);
 			var result = new
 			{
 				TotalCount = totalCount,
@@ -558,15 +551,14 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		private static int GetResultCount(User? user, string directory, string? search, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters, string nsfwEnabledJoins)
+		private static int GetResultCount(User? user, string directory, string? search, string fileTypeCondition, string visibilityCondition, string ownershipCondition, string hiddenCondition, MySqlConnection connection, string searchCondition, List<MySqlParameter> extraParameters)
 		{
 			var totalCountCommand = new MySqlCommand(
 					$@"SELECT COUNT(*) 
                         FROM 
                             maxhanna.file_uploads f  
                         LEFT JOIN
-                            maxhanna.users u ON f.user_id = u.id
-												{nsfwEnabledJoins}
+                            maxhanna.users u ON f.user_id = u.id 
                         WHERE 
                             {(!string.IsNullOrEmpty(search) ? "" : "f.folder_path = @folderPath AND ")}
                             ( 
@@ -600,7 +592,7 @@ namespace maxhanna.Server.Controllers
 			bool nsfwEnabled = false;
 			if (user?.Id != null)
 			{
-				string nsfwSql = @"SELECT nsfw_enabled FROM user_settings WHERE user_id = @userId";
+				string nsfwSql = @"SELECT nsfw_enabled FROM user_settings WHERE user_id = @userId;";
 				using (var conn = new MySqlConnection(_connectionString))
 				{
 					await conn.OpenAsync();
@@ -620,7 +612,17 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
 		{
-			string searchCondition = "";
+			string searchCondition = ""; 
+			bool nsfwEnabled = await GetNsfwForUser(user);
+			if (!nsfwEnabled)
+			{
+				searchCondition += $@"
+					AND NOT EXISTS (
+						SELECT 1 FROM maxhanna.file_topics ft
+						JOIN maxhanna.topics t ON t.id = ft.topic_id
+						WHERE t.topic = 'NSFW' AND ft.file_id = f.id
+					)";
+			} 
 
 			if (string.IsNullOrWhiteSpace(search))
 				return (searchCondition, new List<MySqlParameter>());
@@ -652,7 +654,7 @@ namespace maxhanna.Server.Controllers
 			else if (search.Contains("gameboy", StringComparison.OrdinalIgnoreCase))
 			{
 				searchCondition += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
-			}
+			} 
 
 			// Add the parameter
 			List<MySqlParameter> parameters = new List<MySqlParameter> {

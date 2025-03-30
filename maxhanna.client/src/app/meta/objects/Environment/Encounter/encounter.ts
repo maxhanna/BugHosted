@@ -7,7 +7,8 @@ export class Encounter extends Npc {
   enemy: Bot;
   lastSpawned: Date = new Date();
   possibleEnemies: string[] = [];
-  directionIndex = 1; 
+  directionIndex = 1;
+  lastCreated = new Date();
   constructor(params: {
     id: number,
     position: Vector2,
@@ -31,6 +32,14 @@ export class Encounter extends Npc {
   }
 
   private spawnEnemy() {
+    const now = new Date();
+    const elapsedTime = (now.getTime() - this.lastCreated.getTime()) / 1000; // Convert to seconds
+    if (elapsedTime < 35) { 
+      setTimeout(() => {
+        this.spawnEnemy();
+      }, Math.random() * (70000 - 35000) + 35000);
+      return this.enemy;
+    }
     const randomSprite = this.possibleEnemies[Math.floor(Math.random() * this.possibleEnemies.length)];
     this.enemy = new Bot({
       position: this.position,
@@ -47,11 +56,12 @@ export class Encounter extends Npc {
     }); 
     this.enemy.destinationPosition = this.enemy.position;
     events.emit("CREATE_ENEMY", { bot: this.enemy, owner: this });
+    this.lastCreated = new Date();
     return this.enemy;
   }
 
   override ready() {
-    events.on("BOT_DESTROYED", this, (params: Bot ) => {
+    events.on("BOT_DESTROYED", this, (params: Bot) => {
       if (params?.heroId === this.id) { 
         setTimeout(() => {
           this.spawnEnemy();

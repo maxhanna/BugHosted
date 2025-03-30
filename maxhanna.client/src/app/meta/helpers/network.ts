@@ -20,6 +20,7 @@ import { BrushLevel1 } from "../levels/brush-level1";
 import { storyFlags } from "./story-flags";
 import { Character } from "../objects/character";
 import { Encounter } from "../objects/Environment/Encounter/encounter";
+import { generateReward, setTargetToDestroyed } from "./fight";
 
 
 export class Network {
@@ -216,6 +217,7 @@ export function subscribeToMainGameEvents(object: any) {
         }
       }
       if (tgt) {
+        tgt.preventDestroyAnimation = true;
         tgt.isDeployed = false;
         tgt.destroy();
       }
@@ -496,12 +498,35 @@ export function subscribeToMainGameEvents(object: any) {
     } 
   });
 
-  events.on("CREATE_ENEMY", object, (params: { bot: Bot, owner?: Character }) => { 
-    const bot = object.mainScene.level?.children.find((x: any) => x.heroId == params.owner?.id) as Bot;  
-    if (bot) {
-      console.log("Bot already exists, no need to recreate.");
+  events.on("CREATE_ENEMY", object, (params: { bot: Bot, owner?: any }) => { 
+    const bot = object.mainScene.level?.children.find((x: any) => x.heroId == params.owner?.id) as Bot;
+    const bot2 = object.mainScene.level?.children.find((x: any) => x.id == params.bot?.id) as Bot; 
+    if (bot || bot2) { 
       return;
     }
+    if (params.owner) { 
+      params.owner.lastCreated = new Date();
+    }
+    const tgtCreateEvent = object.events.find((x: MetaEvent) => {
+      if ((x.eventType === "CREATE_ENEMY") && x.data && x.data["bot"]) {
+        const bot = typeof x.data["bot"] === "string" ? JSON.parse(x.data["bot"]) : x.data["bot"];
+        return bot["HeroId"] == params.owner.id;
+      }
+      return false;
+    });  
+    const tgtDestroyedEvent = object.events.find((x: MetaEvent) => {
+      if ((x.eventType === "BOT_DESTROYED") && x.heroId) { 
+        return x.heroId == params.owner.id;
+      }
+      return false;
+    });
+
+    if (tgtCreateEvent || tgtDestroyedEvent) {
+      console.log(`Bot was ${tgtCreateEvent ? 'spawned' : 'destroyed'} not long ago, no need to recreate.`);
+      params.owner.lastCreated = tgtDestroyedEvent.timestamp;
+      return;
+    } 
+
 
     const botData = {
       Id: params.bot.id,
@@ -515,7 +540,6 @@ export function subscribeToMainGameEvents(object: any) {
       HeroId: params.bot.heroId || 39758
     };
     const ownerData = params.owner ? { id: params.owner.id, name: params.owner.name } : null;
-
     const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "CREATE_ENEMY", object.metaHero.map, {
       "bot": JSON.stringify(botData),
       "owner": JSON.stringify(ownerData)
@@ -567,8 +591,36 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             object.addBotToScene(tmpHero, targetBot);
           }
         }
-        if (event.eventType === "BOT_DESTROYED") {
+        if (event.eventType === "BOT_DESTROYED" && event.data) {
+          console.log(event);
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
+          const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number;
+          const winnerBot = object.mainScene.level.children.find((x: any) => x.id == winnerBotId) as Bot;
+          if (winnerBot.heroId === object.metaHero.id) {
+            console.log("you killed the bot, so generating reward", winnerBot);
+            generateReward(winnerBot, bot);
+          }
+          setTargetToDestroyed(bot);
+
+          const oldTargetSprite1 = object.mainScene.level?.children.find((child: any) => child.parentId == winnerBotId);
+          if (oldTargetSprite1) {
+            console.log("oldTargetSprite1 ", oldTargetSprite1);
+            oldTargetSprite1.body?.destroy();
+            oldTargetSprite1.destroy();
+          }
+          const oldTargetSprite2 = object.mainScene.level?.children.find((child: any) => child.parentId == bot.id);
+          if (oldTargetSprite2) {
+            console.log("oldTargetSprite2 ", oldTargetSprite2);
+            oldTargetSprite2.body?.destroy();
+            oldTargetSprite2.destroy();
+          }
+          const oldTargetSprite3 = object.mainScene.level?.children.find((child: any) => child.heroId == event.heroId);
+          if (oldTargetSprite3) {
+            console.log("oldTargetSprite3 ", oldTargetSprite3);
+            oldTargetSprite3.body?.destroy();
+            oldTargetSprite3.destroy();
+          }
+
           if (bot) { 
             bot.hp = 0;
             bot.isDeployed = false;

@@ -80,7 +80,7 @@
   margin-bottom: 10px;
   width: 100%;
   justify-content: space-evenly;
-  line-height: 0px;
+  line-height: 20px;
 }
 
 .commentTextArea {

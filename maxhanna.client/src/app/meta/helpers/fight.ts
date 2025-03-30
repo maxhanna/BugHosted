@@ -5,6 +5,7 @@ import { HEADBUTT, KICK, LEFT_PUNCH, RIGHT_PUNCH, Skill, SkillType } from './ski
 import { getBotsInRange } from './move-towards';
 import { DOWN, LEFT, RIGHT, UP } from './grid-cells';
 import { events } from './events';
+import { Target } from '../objects/Effects/Target/target';
 
 export const typeEffectiveness = new Map<SkillType, SkillType>([
   [SkillType.SPEED, SkillType.STRENGTH],       // Speed counters Strength
@@ -69,15 +70,13 @@ export function attack(source: Bot, target: Bot) {
   calculateAndApplyDamage(source, target);
   if (target.hp <= 0 && target.isDeployed) {
     source.targeting = undefined;
-    generateReward(source, target);
-    setTargetToDestroyed(target);
     findTargets(source);
   }
 }
 
 
 export function findTargets(source: Bot) {
-  if (source.hp > 0 && source.isDeployed && source.canAttack) {
+  if (source.hp > 0 && source.isDeployed && source.canAttack && !source.targeting) {
     let nearest = getBotsInRange(source)[0];
 
     if (nearest && nearest.name) {
@@ -92,6 +91,9 @@ export function target(source: Bot, targetBot: Bot) {
   faceTarget(source, targetBot);
   events.emit("TARGET_LOCKED", { source: source, target: targetBot })
   console.log(source.name + " targeting : " + targetBot.name);
+
+  const targetSprite = new Target({ position: targetBot.position, parentId: source.id });
+  source.parent?.addChild(targetSprite);
 }
 
 export function untarget(source: Bot, targetBot: Bot) {
@@ -100,6 +102,13 @@ export function untarget(source: Bot, targetBot: Bot) {
     source.targeting = undefined;
     events.emit("TARGET_UNLOCKED", { source: source, target: targetBot })
     console.log(source.name + " lost target: " + targetBot.name);
+
+    const oldTargetSprite = source.parent?.children.find((child: any) => child.parentId == source.id);
+    if (oldTargetSprite) {
+      console.log("oldTargetSprite ", oldTargetSprite); 
+      oldTargetSprite.body?.destroy(); 
+      oldTargetSprite.destroy(); 
+    }
   }
 }
 
@@ -115,15 +124,13 @@ export function faceTarget(source: Bot, target: Bot) {
   }
   if (!source.body?.animations?.activeKey.includes("attack")) { 
     source.body?.animations?.play("attack" + source.facingDirection.charAt(0) + source.facingDirection.substring(1, source.facingDirection.length).toLowerCase());
-  }
-
+  } 
 }
 
 export function generateReward(source: Bot, target: Bot) {
-  // Determine rarity chance based on level difference
-  const levelDifference = target.level - source.level;
+  // Determine rarity chance based on level difference 
   const baseChance = 0.5; // 50% base chance
-  let rarityModifier = Math.max(0.1, 1 / (1 + Math.exp(levelDifference / 5))); // Logistic decay
+  let rarityModifier = Math.max(0.1, 1 / (1 + Math.exp(source.level / 5))); // Logistic decay
 
   const dropChance = baseChance * rarityModifier;
   const roll = Math.random();
@@ -153,7 +160,7 @@ export function generateReward(source: Bot, target: Bot) {
 
       generatedPart = new MetaBotPart({
         id: 0,
-        metabotId: source.id,
+        metabotId: target.id,
         skill: randomPart.skill,
         type: randomPart.type,
         damageMod: randomDamageMod,
@@ -168,7 +175,7 @@ export function generateReward(source: Bot, target: Bot) {
     const partName = (randomSkill.partName ?? HEAD);
     generatedPart = new MetaBotPart({
       id: 0,
-      metabotId: source.id,
+      metabotId: target.id,
       skill: randomSkill.skill,
       type: SkillType.NORMAL,
       damageMod: 1,
@@ -184,6 +191,6 @@ export function generateReward(source: Bot, target: Bot) {
 export function setTargetToDestroyed(target: Bot) {
   // target.isDeployed = false;
   // target.destroy();
-  console.log(target.name + " has been destroyed!");
+  console.log("Setting target to destroyed!", target);
   events.emit("BOT_DESTROYED", target);
 }

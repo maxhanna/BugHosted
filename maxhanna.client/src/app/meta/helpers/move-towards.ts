@@ -335,10 +335,7 @@ export function setAnimationToStandAfterTimeElapsed(player: any) {
 		const currentTime = new Date().getTime();
 		if (currentTime - player.lastStandAnimationTime >= 300) {
       if (player.destinationPosition.matches(player.position)) {
-        if (player.targeting) return;
-        if (player.name == "Jaguar") {
-          console.log("stand animation", player.targeting);
-        }
+        if (player.targeting) return; 
 				player.body.animations?.play(
 					"stand" + player.facingDirection.charAt(0) +
 					player.facingDirection.substring(1, player.facingDirection.length).toLowerCase()
@@ -358,6 +355,7 @@ export function getBotsInRange(player: Bot): Bot[] {
       (child.isDeployed) &&
       (child.id != player.id) &&
       (child.isEnemy) &&
+      (child.hp > 0) &&
       !(child instanceof Sprite) &&
       child.position.x >= player.position.x - discrepancy &&
       child.position.x <= player.position.x + discrepancy &&
@@ -387,9 +385,7 @@ export function isObjectNearby(playerOrObject: any) {
 			child.position.y >= neighborPosition.y - discrepancy &&
 			child.position.y <= neighborPosition.y + discrepancy
 		);
-	}) ?? [];
-  console.log(possibilities);
-
+	}) ?? []; 
 
   // Prioritize items to pickup
   const bestChoiceItem = possibilities.find((x: any) => x.itemLabel);

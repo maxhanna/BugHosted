@@ -101,6 +101,10 @@ export class Salesman extends Npc {
       }
       if (selectedItem === "Repair") {
         events.emit("REPAIR_ALL_METABOTS");
+        this.latestMessage = "All bots repaired!";
+        setTimeout(() => {
+          this.latestMessage = "";
+        }, 5000); 
       }
     }); 
   } 

@@ -95,6 +95,7 @@ export class Resources {
       stove: `${this.dir}stove.png`,
       stoneCircle: `${this.dir}stonecircle.png`,
       stoneroad: `${this.dir}stoneroad.png`,
+      target: `${this.dir}target.png`,
       textBox: `${this.dir}text-box.png`,
       tree: `${this.dir}tree.png`,
       tv: `${this.dir}tv.png`,
