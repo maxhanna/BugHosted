@@ -49274,7 +49274,7 @@
   </url>
   <url>
     <loc>https://bughosted.com/File/20406</loc>
-    <lastmod>2025-03-30</lastmod>
+    <lastmod>2025-03-31</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
@@ -49322,5 +49322,50 @@
       <video:family_friendly>yes</video:family_friendly>
       <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
     </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Media/20410</loc>
+    <lastmod>2025-03-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <video:video>
+      <video:title>Screenrecorder-2025-03-30-22-46-37-553.webm</video:title>
+      <video:description>Video: Screenrecorder-2025-03-30-22-46-37-553.webm</video:description>
+      <video:content_loc>https://bughosted.com/assets/Uploads/Users/Max/Screenrecorder-2025-03-30-22-46-37-553.webm</video:content_loc>
+      <video:duration>20</video:duration>
+      <video:publication_date>2025-03-31T02:48:14Z</video:publication_date>
+      <video:family_friendly>yes</video:family_friendly>
+      <video:thumbnail_loc>https://www.bughosted.com/assets/logo.jpg</video:thumbnail_loc>
+    </video:video>
+  </url>
+  <url>
+    <loc>https://bughosted.com/Social/409</loc>
+    <lastmod>2025-03-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/20412</loc>
+    <lastmod>2025-03-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/20413</loc>
+    <lastmod>2025-03-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/User/306</loc>
+    <lastmod>2025-03-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://bughosted.com/File/20414</loc>
+    <lastmod>2025-03-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

@@ -135,7 +135,7 @@ export class RivalHomeLevel1 extends Level {
     if (!this.itemsFound.includes("AiMask")) { 
       const aiMask = new DroppedItem({
         position: new Vector2(gridCells(9), gridCells(7)),
-        item: new InventoryItem({ id: 0, name: "AiMask", image: AI_MASK.name, category: "mask", stats: "1" }),
+        item: new InventoryItem({ id: 0, name: "AiMask", image: AI_MASK.name, category: "mask" }),
         itemLabel: "AiMask",
         itemSkin: "aimask",
         preventDestroyTimeout: true,

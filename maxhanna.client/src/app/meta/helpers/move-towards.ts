@@ -49,7 +49,7 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
 	const { input } = root;
 	if (isUserControlled && !input.direction) {
 		player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
-		return;
+    return;
 	}
 	const gridSize = gridCells(1);
 	let position = player.destinationPosition.duplicate();
@@ -128,8 +128,10 @@ export function tryMove(player: any, root: any, isUserControlled: boolean, dista
 			setAnimationToStandAfterTimeElapsed(player);
 		}
     else {
-      if (!player.targeting) {
+      if (!player.targeting && player.lastAttack?.getTime() + 500 < new Date().getTime()) {
         player.body.animations?.play("stand" + player.facingDirection.charAt(0) + player.facingDirection.substring(1, player.facingDirection.length).toLowerCase());
+      } else if (player.targeting && player.lastAttack && player.lastAttack.getTime() + 500 >= new Date().getTime()) {
+        player.body.animations?.play("attack" + player.facingDirection.charAt(0) + player.facingDirection.substring(1).toLowerCase());
       }
     } 
   } 
@@ -387,6 +389,7 @@ export function isObjectNearby(playerOrObject: any) {
 		);
 	}) ?? []; 
 
+  //console.log(possibilities);
   // Prioritize items to pickup
   const bestChoiceItem = possibilities.find((x: any) => x.itemLabel);
   if (bestChoiceItem) return bestChoiceItem;

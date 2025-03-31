@@ -32,7 +32,7 @@ export class Main extends GameObject {
   override ready() { 
     this.addChild(this.inventory); 
     //CHANGE LEVEL HANDLER
-    events.on("CHANGE_LEVEL", this, (level: Level) => {
+    events.on("CHANGE_LEVEL", this, (level: Level) => { 
       this.setLevel(level); 
     });
 

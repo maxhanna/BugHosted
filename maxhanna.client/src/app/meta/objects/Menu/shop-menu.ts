@@ -21,7 +21,7 @@ export class ShopMenu extends Level {
   blockSelection = true;
   sellingMode = false;
   scrollPage = 0;
-  MAX_VISIBLE_ITEMS = 5;
+  MAX_VISIBLE_ITEMS = 6;
   totalPages = 1;
 
   constructor(params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[], sellingMode?: boolean }) {
@@ -90,7 +90,7 @@ export class ShopMenu extends Level {
 
     this.printTotalPages();
 
-    console.log(shopItemsToDisplay);
+    console.log("SHOP ITEMS TO DISPLAY: ",shopItemsToDisplay);
   }
 
   private printTotalPages() {

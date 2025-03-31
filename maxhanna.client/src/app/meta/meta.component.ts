@@ -290,7 +290,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   private addBotToScene(metaHero: MetaHero, bot: MetaBot) {
-    if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return; }
+    if (this.mainScene.level?.children.some((x: any) => x.id === bot.id)) { return bot; }
 
     if (metaHero && metaHero.metabots && metaHero.metabots.length > 0) {
       let tgtBot = metaHero.metabots.find(x => x.id === bot.id);
@@ -317,8 +317,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
       head: bot.head,
       legs: bot.legs,
     }); 
-    const existingBots = this.mainScene.level?.children?.filter((x: any) => x.heroId === metaHero.id && x.isDeployed);
-    existingBots.forEach((x: any) => x.destroy());
+ 
     this.mainScene.level?.addChild(tmpBot);
     return tmpBot;
   }

@@ -79,13 +79,13 @@ export class Hero extends Character {
   override ready() {
     if (this.isUserControlled) {
       events.on("START_TEXT_BOX", this, () => {
-        this.isLocked = true;
+        this.isLocked = true; 
       });
       events.on("END_TEXT_BOX", this, () => {
         this.isLocked = false;
       });
       events.on("HERO_MOVEMENT_LOCK", this, () => {
-        this.isLocked = true;
+        this.isLocked = true;  
       });
       events.on("HERO_MOVEMENT_UNLOCK", this, () => {
         this.isLocked = false;
@@ -109,7 +109,7 @@ export class Hero extends Character {
         console.log("warping ", params);
         const warpPosition = new Vector2(gridCells(parseInt(params.x)), gridCells(parseInt(params.y)));
         const spaceIsFreeForWarp = isSpaceFree(this.parent.walls, warpPosition.x, warpPosition.y);
-        const deployedBot = this.metabots?.find(x => x.isDeployed);
+        const deployedBot = this.metabots?.find(x => x.isDeployed && x.hp > 0);
         if (spaceIsFreeForWarp) {
           events.emit("HERO_MOVEMENT_LOCK");
           if (deployedBot) { 

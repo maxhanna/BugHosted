@@ -16,7 +16,7 @@ import { Watch } from "./../InventoryItem/Watch/watch";
 import { storyFlags, GOT_WATCH } from "../../helpers/story-flags";
 import { Hero } from "../Hero/hero";
 import { ColorSwap } from "../../../../services/datacontracts/meta/color-swap";
-import { AI_MASK, ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, NO_MASK, getMaskNameById } from "../Wardrobe/mask";
+import { AI_MASK, ANBU_MASK, BOT_MASK, BUNNYEARS_MASK, BUNNY_MASK, Mask, NO_MASK, VISOR_MASK, getMaskNameById } from "../Wardrobe/mask";
 
 export class WardrobeMenu extends Level {
   menuLocationX = 190;
@@ -190,6 +190,7 @@ export class WardrobeMenu extends Level {
             [BOT_MASK.name.toLowerCase()]: BOT_MASK,
             [BUNNY_MASK.name.toLowerCase()]: BUNNY_MASK,
             [ANBU_MASK.name.toLowerCase()]: ANBU_MASK,
+            [VISOR_MASK.name.toLowerCase()]: VISOR_MASK,
             [NO_MASK.name.toLowerCase()]: NO_MASK,
           };
           let maskStats = maskMap[this.items[this.currentlySelectedId].toLowerCase()] || NO_MASK;

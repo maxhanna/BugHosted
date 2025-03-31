@@ -332,7 +332,8 @@
   <div>
     <input #popupSearch (keyup)="searchDirectory()" placeholder="Search {{ currentDirectory }}" [value]="searchTerms" />
     <div *ngIf="directory">Result(s): {{ directory.totalCount }}</div>
-  </div> 
+  </div>
+  <div class="smallFont">Deliniate with quotes " to search for exact search terms. Use space ( ) or commas (,) to find seperate keywords.</div>
   <div>
     <button id="closeOverlay" (click)="closeSearchPanel()">Ok</button>
   </div>

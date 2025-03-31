@@ -69,20 +69,25 @@ export function attack(source: Bot, target: Bot) {
   // Define available attack parts
   calculateAndApplyDamage(source, target);
   if (target.hp <= 0 && target.isDeployed) {
-    source.targeting = undefined;
-    findTargets(source);
+    source.targeting = undefined; 
   }
 }
 
 
 export function findTargets(source: Bot) {
-  if (source.hp > 0 && source.isDeployed && source.canAttack && !source.targeting) {
+  const now = new Date().getTime();
+  if (source.hp > 0 && source.isDeployed
+    && source.canAttack
+    && !source.targeting
+    && (source.lastAttack.getTime() + 1000 < now)
+    && (source.lastTargetDate.getTime() + 500 < now))
+  { 
+    source.lastTargetDate = new Date();
     let nearest = getBotsInRange(source)[0];
-
-    if (nearest && nearest.name) {
+    if (nearest && nearest.name) { 
       target(source, nearest);
-    }
-  }
+    }  
+  } 
 }
 
 export function target(source: Bot, targetBot: Bot) {
@@ -124,6 +129,7 @@ export function faceTarget(source: Bot, target: Bot) {
   }
   if (!source.body?.animations?.activeKey.includes("attack")) { 
     source.body?.animations?.play("attack" + source.facingDirection.charAt(0) + source.facingDirection.substring(1, source.facingDirection.length).toLowerCase());
+    console.log("set animation to : ", source.body?.animations?.activeKey);
   } 
 }
 
@@ -191,6 +197,6 @@ export function generateReward(source: Bot, target: Bot) {
 export function setTargetToDestroyed(target: Bot) {
   // target.isDeployed = false;
   // target.destroy();
-  console.log("Setting target to destroyed!", target);
+ // console.log("Setting target to destroyed!", target);
   events.emit("BOT_DESTROYED", target);
 }

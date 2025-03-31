@@ -1,8 +1,7 @@
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
-import { FLOOR, GameObject, GROUND } from "../../game-object";
+import { GameObject, GROUND } from "../../game-object";
 import { Sprite } from "../../sprite";
 import { resources } from "../../../helpers/resources";
-import { gridCells } from "../../../helpers/grid-cells";
 
 export class StoneRoad extends GameObject {
   body: Sprite;
@@ -11,7 +10,7 @@ export class StoneRoad extends GameObject {
     super({
       position: new Vector2(x, y),
       drawLayer: GROUND,
-      isSolid: true
+      isSolid: false
     })
 
     this.body = new Sprite({

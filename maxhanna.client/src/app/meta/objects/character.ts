@@ -9,6 +9,7 @@ import { Input } from "../helpers/input";
 import { events } from "../helpers/events";
 import { resources } from "../helpers/resources";
 import { WarpBase } from "./Effects/Warp/warp-base";
+import { findTargets } from "../helpers/fight";
 
 export class Character extends GameObject {
   id: number;
@@ -154,7 +155,8 @@ export class Character extends GameObject {
   }
 
   private reinitializeMask() {
-    if (this.mask && this.body) { 
+    if (this.mask && this.body) {
+      this.mask.colorSwap = this.colorSwap;
       let offsetY;
       if (this.scale.y < 0.75) {
         offsetY = 7;

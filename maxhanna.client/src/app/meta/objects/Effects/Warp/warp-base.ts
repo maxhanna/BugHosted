@@ -35,7 +35,8 @@ export class WarpBase extends GameObject {
       animations: new Animations({
         warpBaseAnimation: new FrameIndexPattern(WARP_BASE_ANIMATION),
       }),
-      drawLayer: BASE, 
+      drawLayer: BASE,
+      isSolid: false,
     });
     this.addChild(this.body);
     this.body.animations?.play("warpBaseAnimation");
@@ -54,13 +55,13 @@ export class WarpBase extends GameObject {
         warpSpiralAnimation: new FrameIndexPattern(WARP_SPIRAL_ANIMATION),
       }),
       drawLayer: HUD,
+      isSolid: false,
     }); 
     this.addChild(this.spiral);
     this.spiral.animations?.play("warpSpiralAnimation");
 
   }
-  override destroy() {
-    console.log("Warp Base destroyed");
+  override destroy() { 
     this.body?.destroy();
     this.spiral?.destroy();
     super.destroy();

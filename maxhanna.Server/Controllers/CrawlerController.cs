@@ -3,6 +3,7 @@ using maxhanna.Server.Controllers.DataContracts.Crawler;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text;
@@ -23,7 +24,7 @@ namespace maxhanna.Server.Controllers
 		private static readonly TimeSpan _requestDelay = TimeSpan.FromSeconds(10);
 		private HashSet<string> _visitedUrls = new HashSet<string>();
 		private List<string> _urlsToScrapeQueue = new List<string>();
-		private Queue<string> delayedUrlsQueue = new Queue<string>();
+		private List<string> delayedUrlsQueue = new List<string>();
 		private static bool isProcessing = false;
 
 		public CrawlerController(ILogger<CrawlerController> logger, IConfiguration config)
@@ -66,16 +67,14 @@ namespace maxhanna.Server.Controllers
 
 					// Define the common search condition
 					string whereCondition = @$"
-                (
-									@searchAll IS TRUE OR url_hash = @urlHash 
-									OR {(hasCommaSeparatedKeywords ? string.Join(" OR ", keywords.Select((_, index) => $" LOWER(url) LIKE @search{index}")) : " LOWER(url) LIKE @search")}
-									OR {(hasCommaSeparatedKeywords ? string.Join(" OR ", keywords.Select((_, index) => $" LOWER(title) LIKE @search{index}")) : " LOWER(title) LIKE @search")}
-									OR {(hasCommaSeparatedKeywords ? string.Join(" OR ", keywords.Select((_, index) => $" LOWER(author) LIKE @search{index}")) : " LOWER(author) LIKE @search")}
-									OR {(hasCommaSeparatedKeywords ? string.Join(" OR ", keywords.Select((_, index) => $" LOWER(keywords) LIKE @search{index}")) : " LOWER(keywords) LIKE @search")}
-									OR {(hasCommaSeparatedKeywords ? string.Join(" OR ", keywords.Select((_, index) => $" LOWER(image_url) LIKE @search{index}")) : " LOWER(image_url) LIKE @search")}
-									OR {(hasCommaSeparatedKeywords ? string.Join(" OR ", keywords.Select((_, index) => $" LOWER(description) LIKE @search{index}")) : " LOWER(description) LIKE @search")}
-                ) AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))";
-					 
+					(
+							@searchAll IS TRUE 
+							OR url_hash = @urlHash
+							OR MATCH(title, description, author, keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
+							OR url LIKE @search
+					)
+					AND (failed = 0 OR (failed = 1 AND response_code IS NOT NULL))";
+
 
 					// Query to get the paginated results
 					string checkUrlQuery = $@"
@@ -91,26 +90,18 @@ namespace maxhanna.Server.Controllers
                 FROM search_results 
                 WHERE {whereCondition};";
 
-					 
+
 					bool searchAll = (request.Url == "*");
 					using (var command = new MySqlCommand(checkUrlQuery, connection))
 					{
 						command.Parameters.AddWithValue("@searchAll", searchAll);
 						command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash);
 
-						if (hasCommaSeparatedKeywords)
-						{ 
-							foreach (var (keyword, index) in keywords.Select((keyword, index) => (keyword, index)))
-							{
-								command.Parameters.AddWithValue($"@search{index}", keyword);
-							}
-						}
-						else
-						{ 
-							command.Parameters.AddWithValue("@search", "%" + request.Url.ToLower() + "%");
-						}
+			 
+						command.Parameters.AddWithValue("@search",  request.Url.ToLower() );
+						 
 						command.Parameters.AddWithValue("@pageSize", pageSize);
-						command.Parameters.AddWithValue("@offset", offset); 
+						command.Parameters.AddWithValue("@offset", offset);
 						using (var reader = await command.ExecuteReaderAsync())
 						{
 							while (reader.Read())
@@ -135,17 +126,9 @@ namespace maxhanna.Server.Controllers
 						countCommand.Parameters.AddWithValue("@searchAll", searchAll);
 						countCommand.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash);
 
-						if (hasCommaSeparatedKeywords)
-						{ 
-							foreach (var (keyword, index) in keywords.Select((keyword, index) => (keyword, index)))
-							{
-								countCommand.Parameters.AddWithValue($"@search{index}", keyword);
-							}
-						}
-						else
-						{
-							countCommand.Parameters.AddWithValue("@search", "%" + request.Url.ToLower() + "%");
-						}
+					 
+						countCommand.Parameters.AddWithValue("@search",   request.Url.ToLower()  );
+						 
 
 						totalResults = Convert.ToInt32(await countCommand.ExecuteScalarAsync());
 					}
@@ -155,41 +138,51 @@ namespace maxhanna.Server.Controllers
 					int scrapedResults = 0;
 					bool skipHttpCheck = false;
 					bool skipScrape = false;
+					string tmpUrl = request.Url.Trim().Replace(",", "").Replace(" ", "").Replace("'", "");
+
 					if (!IsValidDomain(request.Url))
 					{
 						if (!request.Url.StartsWith("http://") && !request.Url.StartsWith("https://"))
 						{
-							if (!request.Url.Contains(".com"))
+							string builtUrl = "http://" + tmpUrl;
+							bool addedCom = false;
+							bool addedNet = false;
+							if (!tmpUrl.Contains(".com"))
 							{
-								urlVariants.Add("https://" + request.Url + ".com");
+								urlVariants.Add(builtUrl + ".com");
 								skipHttpCheck = true;
 								if (pageNumber != 1)
 								{
 									skipScrape = true;
 								}
+								addedCom = true;
 							}
-							if (!request.Url.Contains(".net"))
+							if (!tmpUrl.Contains(".net"))
 							{
-								urlVariants.Add("https://" + request.Url + ".net");
+								urlVariants.Add(builtUrl + ".net");
 								skipHttpCheck = true;
 								if (pageNumber != 1)
 								{
 									skipScrape = true;
 								}
+								addedNet = true;
+							}
+							if (!addedCom || !addedNet)
+							{
+								urlVariants.Add(builtUrl);
 							}
 						}
 					}
 					if (request.Url.Trim() != "*" && !skipScrape)
-					{
-
-						if (request.Url.StartsWith("http://") || request.Url.StartsWith("https://"))
+					{ 
+						if (tmpUrl.StartsWith("http://") || tmpUrl.StartsWith("https://"))
 						{
-							urlVariants.Add(request.Url);
+							urlVariants.Add(tmpUrl);
 						}
 						else if (!skipHttpCheck)
 						{
-							urlVariants.Add("http://" + request.Url);
-							urlVariants.Add("https://" + request.Url);
+							urlVariants.Add("http://" + tmpUrl);
+							urlVariants.Add("https://" + tmpUrl);
 						}
 
 						// Await these sequentially before launching async tasks
@@ -205,16 +198,16 @@ namespace maxhanna.Server.Controllers
 									{
 										scrapedResults++;
 										cMeta.Url = new Uri(new Uri(urlVariant), cMeta.Url).ToString().TrimEnd('/');
-										results.Add(cMeta); 
-										InsertScrapedData(cMeta.Url, cMeta); 
+										results.Add(cMeta);
+										_ = InsertScrapedData(cMeta.Url, cMeta);
 									}
 								}
 							}
 							catch (Exception innerEx)
 							{
 								if (innerEx.InnerException is AuthenticationException authEx)
-								{  
-									InsertFailureRecord(urlVariant, 495);
+								{
+									_ = InsertFailureRecord(urlVariant, 495);
 									var tmpmetadata = new Metadata
 									{
 										Url = urlVariant,
@@ -222,13 +215,13 @@ namespace maxhanna.Server.Controllers
 									};
 								}
 								else
-								{ 
-									InsertFailureRecord(urlVariant, null);
+								{
+									_ = InsertFailureRecord(urlVariant, null);
 								}
 							}
 						}
 					}
-
+					_ = ProcessDelayedUrlsQueueAsync();
 					var allResults = results.ToList();
 
 					if (request.Url.Trim() != "*")
@@ -244,7 +237,6 @@ namespace maxhanna.Server.Controllers
 					{
 						await InsertFailureRecord(request.Url, null);
 					}
-
 					// Return the results along with the total count for pagination
 					return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
 				}
@@ -288,8 +280,8 @@ namespace maxhanna.Server.Controllers
 			// Await these sequentially before launching async tasks
 			foreach (var urlVariant in urlVariants)
 			{
-				 await StartScrapingAsync(urlVariant);
-			}  
+				await StartScrapingAsync(urlVariant);
+			}
 		}
 
 
@@ -302,7 +294,7 @@ namespace maxhanna.Server.Controllers
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
 			try
-			{ 
+			{
 				using (var connection = new MySqlConnection(connectionString))
 				{
 					await connection.OpenAsync();
@@ -310,24 +302,23 @@ namespace maxhanna.Server.Controllers
 					string checkUrlQuery = @"SELECT count(*) as count FROM search_results;";
 
 					using (var command = new MySqlCommand(checkUrlQuery, connection))
-					{ 
+					{
 
 						using (var reader = await command.ExecuteReaderAsync())
 						{
-							while (reader.Read())
+							if (await reader.ReadAsync())
 							{
-								int count = reader.GetInt32("count");
-								return Ok(count);
+								return Ok(reader.GetInt32("count"));
 							}
 						}
 					}
-					 
+
 					return Ok(0);
 				}
 			}
 			catch (Exception ex)
 			{
-				return Ok(0); 
+				return Ok(0);
 			}
 		}
 		private async Task InsertFailureRecord(string url, int? responseCode = null)
@@ -357,7 +348,7 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 		private async Task InsertScrapedData(string url, Metadata scrapedData)
-		{ 
+		{
 			try
 			{
 				string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
@@ -390,10 +381,11 @@ namespace maxhanna.Server.Controllers
 						await command.ExecuteNonQueryAsync();
 					}
 				}
-			} catch (Exception ex)
+			}
+			catch (Exception ex)
 			{
 				Console.WriteLine("Exception writing url to db: " + ex.Message);
-			} 
+			}
 		}
 
 		// Helper method to generate a hash for the URL (used for unique identification)
@@ -411,7 +403,8 @@ namespace maxhanna.Server.Controllers
 			List<Metadata> metaList = new List<Metadata>();
 			try
 			{
-				var response = await _httpClient.GetAsync(url);
+				using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+				var response = await _httpClient.GetAsync(url, cts.Token);
 
 				if (!response.IsSuccessStatusCode)
 				{
@@ -428,22 +421,22 @@ namespace maxhanna.Server.Controllers
 				var html = await response.Content.ReadAsStringAsync();
 				if (html.Length > 5_000_000)
 				{
-				//	Console.WriteLine("Ctrl Exception: HTML document too large to parse.");
+					//	Console.WriteLine("Ctrl Exception: HTML document too large to parse.");
 					return metaList;
 				}
-				if (html.Count(c => c == '<') > 10_000) 
+				if (html.Count(c => c == '<') > 10_000)
 				{
-			//		Console.WriteLine("Ctrl Exception: Potentially malformed or deeply nested HTML.");
+					//		Console.WriteLine("Ctrl Exception: Potentially malformed or deeply nested HTML.");
 					return metaList;
 				}
 				var htmlDocument = new HtmlDocument
 				{
-					OptionMaxNestedChildNodes = 100 
+					OptionMaxNestedChildNodes = 100
 				};
 				htmlDocument.OptionCheckSyntax = true;
 				htmlDocument.LoadHtml(html);
 
-				Uri baseUri = new Uri(url); 
+				Uri baseUri = new Uri(url);
 				string? faviconUrl = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='icon' or @rel='shortcut icon']")?
 					.GetAttributeValue("href", "").Trim();
 
@@ -471,13 +464,13 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (StackOverflowException ex)
 			{
-		//		Console.WriteLine("Stack Overflow Error on URL: " + url);
+				//		Console.WriteLine("Stack Overflow Error on URL: " + url);
 				return metaList;
 			}
 			catch (Exception ex)
 			{
 				_ = InsertFailureRecord(url);
-			//	Console.WriteLine("Ctrl: Error scraping data :" + ex.Message);
+				//	Console.WriteLine("Ctrl: Error scraping data :" + ex.Message);
 			}
 			return metaList;
 		}
@@ -497,61 +490,56 @@ namespace maxhanna.Server.Controllers
 
 				var absoluteUrl = new Uri(new Uri(baseUrl), href).ToString();
 
-				StartScrapingAsync(absoluteUrl); 
+				_ = StartScrapingAsync(absoluteUrl);
 			}
 		}
 		public async Task StartScrapingAsync(string initialUrl)
 		{
-			if (_visitedUrls.Add(initialUrl) && !_urlsToScrapeQueue.Contains(initialUrl) && _urlsToScrapeQueue.Count < 10000)
+			if (delayedUrlsQueue.Count < 10000 && IsValidDomain(initialUrl))
 			{
-				if (delayedUrlsQueue.Count < 50000)
+				if (_visitedUrls.Add(initialUrl) && !_urlsToScrapeQueue.Contains(initialUrl) && IsValidDomain(initialUrl))
 				{
-					delayedUrlsQueue.Enqueue(initialUrl);
-					if (delayedUrlsQueue.Count == 1)
-					{
+					
+						delayedUrlsQueue.Add(initialUrl);
+						//Console.WriteLine($"(Ctrl:{delayedUrlsQueue.Count})Enqueued({_urlsToScrapeQueue.Count}): " + ShortenUrl(initialUrl));
+
 						await ProcessDelayedUrlsQueueAsync();
-					}
-				} 
+					 
+				}
 			}
 		}
 
 		private async Task ProcessDelayedUrlsQueueAsync()
 		{
-			if (isProcessing)
-				return;
+			//Console.WriteLine("Ctrl: Starting delayed URL processing...");
 
-			isProcessing = true;
-
-			while (delayedUrlsQueue.Count > 0)
+			if (_semaphore.CurrentCount > 0)
 			{
-				string urlToProcess = delayedUrlsQueue.Dequeue();
-				await Task.Delay(5000);
-
-				string? existingUrl = await GetFreshCrawledDomains(urlToProcess);
-				if (!string.IsNullOrEmpty(existingUrl) && IsValidDomain(existingUrl))
+				while (delayedUrlsQueue.Count > 0)
 				{
-					//Console.WriteLine($"(Ctrl:{_urlsToScrapeQueue.Count})Enqueued: " +
-					//		$"{urlToProcess.Substring(0, Math.Min(urlToProcess.Length, 25))}" +
-					//		$"{(urlToProcess.Length > 35 ? "..." + urlToProcess[^10..] : "")}");
-					_urlsToScrapeQueue.Add(urlToProcess);
-					if (_semaphore.CurrentCount > 0)
+					string urlToProcess = GetRandomUrlFromList(delayedUrlsQueue);
+					await Task.Delay(5000);
+
+					string? existingUrl = await GetFreshCrawledDomains(urlToProcess);
+					if (string.IsNullOrEmpty(existingUrl))
 					{
-						_ = StartScrapingAsyncWorker(); 
+						_urlsToScrapeQueue.Add(urlToProcess);
+
+						_ = StartScrapingAsyncWorker();
+
+					} else
+					{
+						Console.WriteLine("Ctrl: Skipping URL, already processed: " + urlToProcess);
 					}
 				}
-				else
-				{
-					//Console.WriteLine($"(Ctrl:{_urlsToScrapeQueue.Count})Skipping: " +
-					//		$"{urlToProcess.Substring(0, Math.Min(urlToProcess.Length, 25))}" +
-					//		$"{(urlToProcess.Length > 35 ? "..." + urlToProcess[^10..] : "")}");
-				}
+				ClearVisitedUrls();
 			}
-			isProcessing = false;
-			ClearVisitedUrls();   
 		}
 
 		public async Task StartScrapingAsyncWorker()
 		{
+			if (isProcessing) return;
+			isProcessing = true;
 			while (_urlsToScrapeQueue.Count() > 0)
 			{
 				string? url = GetRandomUrlFromList(_urlsToScrapeQueue);
@@ -560,8 +548,8 @@ namespace maxhanna.Server.Controllers
 					await _semaphore.WaitAsync();
 					try
 					{
-						Console.WriteLine($"(Ctrl:{delayedUrlsQueue.Count()})Scraping: ${url.Substring(0, Math.Min(url.Length, 25))} ${(url.Length > 35 ? "..." + url[^10..] : "")}");
-						await CrawlSitemap(url);
+						Console.WriteLine($"(Ctrl:{delayedUrlsQueue.Count()}#{_urlsToScrapeQueue.Count()})Scraping: {ShortenUrl(url)}");
+						_ = CrawlSitemap(url);
 						var childMetadata = await ScrapeUrlData(url);
 						if (childMetadata != null && childMetadata.Count > 0)
 						{
@@ -580,12 +568,13 @@ namespace maxhanna.Server.Controllers
 					{
 						_semaphore.Release();
 					}
-				}  
-				// Ensure exactly 1 second between requests
+				}
+				// Ensure exactly 10 second between requests
 				await Task.Delay(_requestDelay);
 			}
+			isProcessing = false;
 		}
-	  
+
 		private int CalculateRelevanceScore(Metadata result, string searchTerm)
 		{
 			int score = 20;
@@ -621,8 +610,7 @@ namespace maxhanna.Server.Controllers
 			domain = domain.TrimEnd('/');
 			string[] possibleSitemapUrls = {
 				$"{domain}/sitemap.xml",
-				$"{domain}/sitemap_index.xml",
-				$"{domain}/robots.txt"
+				$"{domain}/sitemap_index.xml"
 		};
 
 			// Check each possible URL for a sitemap
@@ -633,15 +621,16 @@ namespace maxhanna.Server.Controllers
 					return url;
 				}
 			}
-			return null; 
+			return null;
 		}
 
 		private async Task<bool> UrlExists(string url)
 		{
 			try
-			{ 
-				var response = await _httpClient.GetAsync(url);
-				return response.IsSuccessStatusCode;  // Return true if the URL exists
+			{
+				using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+				var response = await _httpClient.GetAsync(url, cts.Token);
+				return response.IsSuccessStatusCode;
 			}
 			catch
 			{
@@ -653,7 +642,8 @@ namespace maxhanna.Server.Controllers
 			var urls = new List<string>();
 			try
 			{
-				var response = await _httpClient.GetAsync(sitemapUrl);
+				using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+				var response = await _httpClient.GetAsync(sitemapUrl, cts.Token);
 				if (!response.IsSuccessStatusCode)
 				{
 					return urls;
@@ -752,57 +742,64 @@ namespace maxhanna.Server.Controllers
 				using (var command = new MySqlCommand(query, connection))
 				{
 					command.Parameters.AddWithValue("@UrlHash", urlHash);
-
+					//Console.WriteLine($"Ctrl: checking if {url} was crawled: " + urlHash);
 					var result = await command.ExecuteScalarAsync();
-					return result?.ToString();
+
+					if (result == null || result == DBNull.Value)
+						return null;
+
+					return result.ToString();
 				}
 			}
-		} 
+		}
+
 		private bool IsValidDomain(string domain)
 		{
-			if (!string.IsNullOrEmpty(domain)) {
+			if (!string.IsNullOrEmpty(domain))
+			{
 				// Ensure there are no multiple TLDs (e.g., "imprioc.com.com")
 				if (Regex.IsMatch(domain, @"\.[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)+$"))
 				{
-				//	Console.WriteLine("invalid domain, multiple TLDs : " + domain);
+					//	Console.WriteLine("invalid domain, multiple TLDs : " + domain);
 					return false;
 				}
 
 				if (domain.ToLower().Contains("tel:"))
 				{
-				//	Console.WriteLine("invalid domain, tel in the link: " + domain);
+					//	Console.WriteLine("invalid domain, tel in the link: " + domain);
 					return false;
 				}
 
 				// Ensure no double dots ".." exist in the domain
 				if (domain.Contains(".."))
 				{
-				//	Console.WriteLine("invalid domain, too many periods: " + domain);
+					//	Console.WriteLine("invalid domain, too many periods: " + domain);
 					return false;
 				}
 
 				if (!domain.Contains("."))
 				{
-				//	Console.WriteLine("invalid domain, not enough periods: " + domain);
+					//	Console.WriteLine("invalid domain, not enough periods: " + domain);
 					return false;
 				}
 
 				return true;
-			} else
-			{ 
+			}
+			else
+			{
 				return false;
 			}
 		}
-	 
+
 		private async Task CrawlSitemap(string domain)
 		{
 			string? sitemapUrl = await FindSitemapUrl(domain);
 
 			if (sitemapUrl == null)
-			{ 
+			{
 				return;
 			}
-			  
+
 			try
 			{
 				// Fetch the sitemap index and parse it
@@ -812,48 +809,49 @@ namespace maxhanna.Server.Controllers
 				var sitemapUrls = ExtractSitemapUrlsFromIndex(sitemapIndexXml);
 
 				if (sitemapUrls.Count == 0)
-				{ 
+				{
 					return;
-				} 
+				}
 
 				// Process each individual sitemap
 				foreach (var sitemap in sitemapUrls)
-				{ 
-					var urls = await GetUrlsFromSitemap(sitemap);  
+				{
+					var urls = await GetUrlsFromSitemap(sitemap);
 					foreach (var url in urls)
-					{ 
+					{
 						_ = StartScrapingAsync(url);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-			//	Console.WriteLine($"Error while crawling sitemap index {sitemapUrl}: {ex.Message}");
+				//	Console.WriteLine($"Error while crawling sitemap index {sitemapUrl}: {ex.Message}");
 			}
 		}
 		private async Task<string> GetSitemapXml(string sitemapUrl)
-		{ 
+		{
 			try
-			{ 
-				HttpResponseMessage response = await _httpClient.GetAsync(sitemapUrl);
+			{
+				using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+				HttpResponseMessage response = await _httpClient.GetAsync(sitemapUrl, cts.Token);
 
 				// Ensure successful response
 				response.EnsureSuccessStatusCode();
 
 				// Read the response content as a string
 				string xmlContent = await response.Content.ReadAsStringAsync();
-				return xmlContent; 
+				return xmlContent;
 			}
 			catch (HttpRequestException ex)
 			{
 				//Console.WriteLine($"HTTP request failed for {sitemapUrl}: {ex.Message}");
 				if (ex.InnerException is System.Net.Sockets.SocketException socketEx)
 				{
-				//	Console.WriteLine($"DNS resolution failed for {sitemapUrl}: {socketEx.Message}");
+					//	Console.WriteLine($"DNS resolution failed for {sitemapUrl}: {socketEx.Message}");
 				}
 				else
 				{
-				//	Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+					//	Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
 				}
 
 				return string.Empty;
@@ -862,7 +860,7 @@ namespace maxhanna.Server.Controllers
 			{
 				//Console.WriteLine($"Error fetching sitemap XML from {sitemapUrl}: {ex.Message}");
 				return string.Empty; // Return empty if failed
-			} 
+			}
 		}
 
 		private List<string> ExtractSitemapUrlsFromIndex(string sitemapIndexXml)
@@ -872,7 +870,7 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				if (string.IsNullOrWhiteSpace(sitemapIndexXml))
-				{ 
+				{
 					return sitemapUrls;
 				}
 
@@ -897,8 +895,8 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				else
-				{ 
-					var rawUrls = sitemapIndexXml.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries); 
+				{
+					var rawUrls = sitemapIndexXml.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
 					foreach (var url in rawUrls)
 					{
 						var trimmedUrl = url.Trim();
@@ -917,14 +915,14 @@ namespace maxhanna.Server.Controllers
 			return sitemapUrls;
 		}
 		public string? GetRandomUrlFromList(List<string> urls)
-		{ 
+		{
 			if (urls.Count > 0)
-			{ 
+			{
 				Random rng = new Random();
 				int randomIndex = rng.Next(0, urls.Count);
-				string randomUrl = urls[randomIndex]; 
+				string randomUrl = urls[randomIndex];
 				urls.RemoveAt(randomIndex);
-				return randomUrl;  
+				return randomUrl;
 			}
 
 			return null;
@@ -932,9 +930,18 @@ namespace maxhanna.Server.Controllers
 		private void ClearVisitedUrls()
 		{
 			if (_visitedUrls.Count > 10000)
-			{ 
+			{
 				_visitedUrls = new HashSet<string>(_visitedUrls.Take(5000).ToList());
 			}
+		}
+		string ShortenUrl(string url, int maxLength = 50)
+		{
+			if (url.Length <= maxLength) return url;
+
+			int firstPartLength = maxLength / 2 - 3;  // Adjust to leave room for "..."
+			int lastPartLength = maxLength - firstPartLength - 3;
+
+			return url.Substring(0, firstPartLength) + "..." + url[^lastPartLength..];
 		}
 	}
 }

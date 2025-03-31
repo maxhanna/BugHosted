@@ -37,8 +37,7 @@ export class Target extends GameObject {
     this.addChild(this.body);
     this.body.animations?.play("targetAnimation");
   }
-  override destroy() {
-    console.log("Target destroyed");
+  override destroy() { 
     this.body?.destroy();
     super.destroy();
   }

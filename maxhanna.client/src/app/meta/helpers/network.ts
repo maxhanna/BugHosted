@@ -59,6 +59,24 @@ export function subscribeToMainGameEvents(object: any) {
       object.metaHero.map = level.name ?? "HERO_ROOM";
       object.metaHero.position = level.getDefaultHeroPosition();
       object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
+      let tmpBotPosition = object.metaHero.position;
+      tmpBotPosition.y += gridCells(1);
+      tmpBotPosition.x += gridCells(1);
+      setTimeout(() => {
+        const deployedBot = object.metaHero.metabots.find((x: MetaBot) => x.isDeployed && x.hp > 0);
+        if (deployedBot) {
+          //console.log("set deployedBot position to hero position", deployedBot.position, object.metaHero.position);
+          deployedBot.position = tmpBotPosition;
+          deployedBot.destinationPosition = tmpBotPosition;
+          deployedBot.lastPosition = tmpBotPosition;
+          const levelBot = object.mainScene.level.children.find((x: Bot) => x.id === deployedBot.id);
+          if (levelBot) {
+            levelBot.position = tmpBotPosition;
+            levelBot.destinationPosition = tmpBotPosition;
+            levelBot.lastPosition = tmpBotPosition;
+          }
+        } 
+      }, 25); 
     }
   });
 
@@ -380,21 +398,21 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("START_FIGHT", object, (source: Npc) => { 
-    const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "START_FIGHT", object.metaHero.map, { "party_members": `${JSON.stringify(object.partyMembers)}`, "source": `${source.type}` })
-    object.metaService.updateEvents(metaEvent);
-    const itemsFound = object.mainScene.inventory.getItemsFound();
-    events.emit("CHANGE_LEVEL",
-      new Fight({
-        metaHero: object.metaHero,
-        parts: object.mainScene.inventory.parts.filter((x: any) => x.metabotId),
-        entryLevel: (object.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFound }) : object.getLevelFromLevelName(object.metaHero.map)),
-        enemies: [source],
-        party: object.partyMembers.length > 1 ? object.partyMembers : [object.metaHero],
-        itemsFound: itemsFound
-      })
-    );
-  });
+  //events.on("START_FIGHT", object, (source: Npc) => { 
+  //  const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "START_FIGHT", object.metaHero.map, { "party_members": `${JSON.stringify(object.partyMembers)}`, "source": `${source.type}` })
+  //  object.metaService.updateEvents(metaEvent);
+  //  const itemsFound = object.mainScene.inventory.getItemsFound();
+  //  events.emit("CHANGE_LEVEL",
+  //    new Fight({
+  //      metaHero: object.metaHero,
+  //      parts: object.mainScene.inventory.parts.filter((x: any) => x.metabotId),
+  //      entryLevel: (object.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFound }) : object.getLevelFromLevelName(object.metaHero.map)),
+  //      enemies: [source],
+  //      party: object.partyMembers.length > 1 ? object.partyMembers : [object.metaHero],
+  //      itemsFound: itemsFound
+  //    })
+  //  );
+  //});
   events.on("HIDE_START_BUTTON", object, () => {
     object.hideStartButton = true;
   })
@@ -489,8 +507,8 @@ export function subscribeToMainGameEvents(object: any) {
       stats: any,
     }) => {
     if (!actionBlocker) {
-      console.log("CHARACTER_PICKS_UP_ITEM",data);
-      if (data.category && data.stats) {
+      //console.log("picking up item: ",data);
+      if (data.category) {
         object.metaService.updateInventory(object.metaHero, data.name, data.imageName, data.category);
       } else if (data.item) { 
         object.metaService.updateBotParts(object.metaHero, [data.item]); 
@@ -533,7 +551,7 @@ export function subscribeToMainGameEvents(object: any) {
     });
 
     if (tgtCreateEvent || tgtDestroyedEvent) {
-      console.log(`Bot was ${tgtCreateEvent ? 'spawned' : 'destroyed'} not long ago, no need to recreate.`);
+      console.log(`Bot ${params.bot.name} was ${tgtCreateEvent ? 'spawned' : 'destroyed'} not long ago, no need to recreate.`);
       params.owner.lastCreated = tgtCreateEvent?.timestamp ?? tgtDestroyedEvent.timestamp;
       return;
     } 
@@ -611,50 +629,47 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         if (event.eventType === "BOT_DESTROYED" && event.data) {
           console.log(event);
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
-          const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number;
-          const winnerBot = object.mainScene.level.children.find((x: any) => x.id == winnerBotId) as Bot;
-          if (winnerBot.heroId === object.metaHero.id) {
-            console.log("you killed the bot, so generating reward", winnerBot);
-            generateReward(winnerBot, bot);
-          }
-          setTargetToDestroyed(bot);
-          if (winnerBotId) {  
+          const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number || undefined;
+         // console.log("winnerBotId", winnerBotId);
+          if (winnerBotId) {
+            const winnerBot = object.mainScene.level.children.find((x: any) => x.id == winnerBotId) as Bot;
+            winnerBot.targeting = undefined;
+            if (winnerBot.heroId === object.metaHero.id) {
+              //console.log("you killed the bot, so generating reward", winnerBot);
+              generateReward(winnerBot, bot);
+            }
+
             const oldTargetSprite1 = object.mainScene.level?.children.find((child: any) => child.parentId == winnerBotId);
-            if (oldTargetSprite1) {
-              console.log("oldTargetSprite1 ", oldTargetSprite1);
-              oldTargetSprite1.body?.destroy();
+            if (oldTargetSprite1) {  
               oldTargetSprite1.destroy();
             }
           }
+        
+          setTargetToDestroyed(bot); 
           if (bot) { 
             const oldTargetSprite2 = object.mainScene.level?.children.find((child: any) => child.parentId == bot?.id);
-            if (oldTargetSprite2) {
-              console.log("oldTargetSprite2 ", oldTargetSprite2);
+            if (oldTargetSprite2) { 
               oldTargetSprite2.body?.destroy();
               oldTargetSprite2.destroy();
             }
-          }
-          const oldTargetSprite3 = object.mainScene.level?.children.find((child: any) => child.heroId == event.heroId);
-          if (oldTargetSprite3) {
-            console.log("oldTargetSprite3 ", oldTargetSprite3);
-            oldTargetSprite3.body?.destroy();
-            oldTargetSprite3.destroy();
-          }
-
-          if (bot) { 
             bot.hp = 0;
             bot.isDeployed = false;
-            bot.targeting = undefined; 
+            bot.targeting = undefined;
             bot.destroyBody();
             bot.destroy();
             setTimeout(() => {
               if (bot.heroId == object.metaHero.id) {
                 const metaBot = object.metaHero.metabots.find((bot: MetaBot) => bot.name === bot.name);
                 metaBot.hp = 0;
-                metaBot.isDeployed = false;
+                metaBot.isDeployed = false; 
               }
             }, 50);
           }
+          const oldTargetSprite3 = object.mainScene.level?.children.find((child: any) => child.heroId == event.heroId);
+          if (oldTargetSprite3) { 
+            oldTargetSprite3.body?.destroy();
+            oldTargetSprite3.destroy();
+          } 
         }
         if (event.eventType === "CALL_BOT_BACK") {
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId);
@@ -674,7 +689,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
         } 
         if (event.eventType === "ITEM_DESTROYED") {
           if (event.data) {  
-            console.log(event.data);
+          //  console.log(event.data);
             const dmgMod = event.data["damage"];
             const position = JSON.parse(event.data["position"]) as Vector2;
             const skillName = event.data["skill"];
@@ -689,10 +704,9 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               }
             }
             const tgtObject = object.mainScene.level?.children.find((x: any) => {
-              const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`;
-              const hasObjectId = x.objectId;
+              const isMatchingLabel = x.itemLabel === `${dmgMod ?? 1} ${skillName ?? 1}`; 
               const isNearby = possiblePositions.some(pos => x.position.x === pos.x && x.position.y === pos.y);
-              return hasObjectId && isNearby;
+              return isMatchingLabel && isNearby;
             });
             console.log("Item_Destroyed netwkr", dmgMod, skillName, tgtObject); 
             if (tgtObject) { tgtObject.destroy(); }

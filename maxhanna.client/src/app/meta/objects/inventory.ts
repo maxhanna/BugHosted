@@ -33,7 +33,7 @@ export class Inventory extends GameObject {
 
   override ready() {
     events.on("CHARACTER_PICKS_UP_ITEM", this, (data: { imageName: string, position: Vector2, name: string, hero: any, category: string, stats?: any }) => {
-      if (data.hero?.isUserControlled && data.category && data.stats) {
+      if (data.hero?.isUserControlled && data.category) {
         const itemData = { id: this.nextId++, image: data.imageName, name: data.name, category: data.category, stats: data.stats } as InventoryItem;
         this.updateStoryFlags(itemData);
         this.items.push(itemData);

@@ -612,37 +612,55 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<(string, List<MySqlParameter>)> GetWhereCondition(string? search, User? user)
 		{
-			string searchCondition = ""; 
+			string searchCondition = "";
 			bool nsfwEnabled = await GetNsfwForUser(user);
 			if (!nsfwEnabled)
 			{
 				searchCondition += $@"
-					AND NOT EXISTS (
-						SELECT 1 FROM maxhanna.file_topics ft
-						JOIN maxhanna.topics t ON t.id = ft.topic_id
-						WHERE t.topic = 'NSFW' AND ft.file_id = f.id
-					)";
-			} 
+            AND NOT EXISTS (
+                SELECT 1 FROM maxhanna.file_topics ft
+                JOIN maxhanna.topics t ON t.id = ft.topic_id
+                WHERE t.topic = 'NSFW' AND ft.file_id = f.id
+            )";
+			}
 
 			if (string.IsNullOrWhiteSpace(search))
 				return (searchCondition, new List<MySqlParameter>());
 
-			string paramName = "@WhereSearch";
-			searchCondition += $@"
-        AND (
-            LOWER(f.file_name) LIKE {paramName}
-            OR LOWER(f.given_file_name) LIKE {paramName}
-            OR LOWER(f.description) LIKE {paramName}
-            OR LOWER(u.username) LIKE {paramName}
-            OR f.id IN (
-                SELECT ft.file_id 
-                FROM maxhanna.file_topics ft
-                JOIN maxhanna.topics t ON ft.topic_id = t.id
-                WHERE LOWER(t.topic) LIKE {paramName}
-            )
-        )";
+			List<string> conditions = new();
+			List<MySqlParameter> parameters = new();
 
-			// Check for specific keywords and append conditions
+			// Split search input into multiple keywords
+			var tmpSearch = search.Replace(",", " ");
+			var searchTerms = tmpSearch.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+			  
+			// Use FULLTEXT search for better ranking 
+			searchCondition += $@"
+      AND 
+			( 
+				(
+					MATCH(f.file_name, f.description, f.given_file_name) 
+					AGAINST (@FullTextSearch IN NATURAL LANGUAGE MODE)
+				)
+				OR
+				(
+					LOWER(f.file_name) LIKE CONCAT('%', @FullTextSearch, '%')
+          OR LOWER(f.given_file_name) LIKE CONCAT('%', @FullTextSearch, '%')
+          OR LOWER(f.description) LIKE CONCAT('%', @FullTextSearch, '%')
+          OR LOWER(u.username) LIKE CONCAT('%', @FullTextSearch, '%')
+          OR f.id IN (
+              SELECT ft.file_id 
+              FROM maxhanna.file_topics ft
+              JOIN maxhanna.topics t ON ft.topic_id = t.id
+              WHERE LOWER(t.topic) LIKE CONCAT('%', @FullTextSearch, '%')
+          )
+				)
+			)";
+
+			parameters.Add(new MySqlParameter("@FullTextSearch", search));
+		 
+
+			// Special rules for keywords like "sega", "nintendo", "gameboy"
 			if (search.Contains("sega", StringComparison.OrdinalIgnoreCase))
 			{
 				searchCondition += " AND f.file_name LIKE '%.md'";
@@ -654,15 +672,11 @@ namespace maxhanna.Server.Controllers
 			else if (search.Contains("gameboy", StringComparison.OrdinalIgnoreCase))
 			{
 				searchCondition += " AND (f.file_name LIKE '%.gbc' OR f.file_name LIKE '%.gba')";
-			} 
-
-			// Add the parameter
-			List<MySqlParameter> parameters = new List<MySqlParameter> {
-				new MySqlParameter(paramName, $"%{search.Trim()}%")
-			};
+			}
 
 			return (searchCondition, parameters);
 		}
+
 
 		[HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
 		public async Task<IActionResult> UpdateFileData([FromBody] FileDataRequest request)

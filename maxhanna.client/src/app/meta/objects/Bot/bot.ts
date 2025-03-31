@@ -30,7 +30,7 @@ export class Bot extends Character {
   targeting?: Bot = undefined;
   lastAttack = new Date();
   lastAttackPart?: MetaBotPart;
-  lastTargetDate = new Date();
+  lastTargetDate = new Date(); 
   isInvulnerable = false;
   preventDestroyAnimation = false;
   canAttack = true; 
@@ -40,6 +40,7 @@ export class Bot extends Character {
     "Bee": "botFrame7",
   }
 
+  private targetingInterval?: any;
 
   constructor(params: {
     position: Vector2,
@@ -144,6 +145,11 @@ export class Bot extends Character {
   }
 
   override destroy() {
+    if (this.targetingInterval) {
+      clearInterval(this.targetingInterval); // Stop the interval
+      this.targetingInterval = undefined;
+    }
+
     if (!this.preventDestroyAnimation) {
       this.isLocked = true;
       this.destroyBody();
@@ -161,27 +167,15 @@ export class Bot extends Character {
   }
 
   override ready() {
-    findTargets(this); 
+    this.targetingInterval = setInterval(() => {
+      findTargets(this);
+    }, 1000);
     events.on("CHARACTER_POSITION", this, (hero: any) => {
       if (hero.id === this.heroId) {
         this.followHero(hero);
-      }
-      if (!this.targeting && (this.lastTargetDate.getTime() + 500 < new Date().getTime())) {
-        this.lastTargetDate = new Date();
-        findTargets(this);
-      }
+      } 
     });
-    events.emit("BOT_CREATED");
-    events.on("BOT_CREATED", this, () => {
-      if (this.isDeployed && this.hp > 0) {
-        findTargets(this);
-      }
-    });
-    events.on("BOT_DESTROYED", this, (params: Bot) => { 
-      if (this.isDeployed && this.hp > 0) {
-        findTargets(this);
-      }
-    });
+    events.emit("BOT_CREATED");  
   }
  
 
@@ -217,13 +211,10 @@ export class Bot extends Character {
 
       const botsInRange = getBotsInRange(this);
       if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {
+        console.log("bot is in range : ", botsInRange);
         attack(this, this.targeting);
       } else {
-        untarget(this, this.targeting);
-        if (this.lastTargetDate.getTime() + 500 < new Date().getTime()) {
-          this.lastTargetDate = new Date();
-          findTargets(this);
-        }
+        untarget(this, this.targeting); 
       } 
     } 
   } 

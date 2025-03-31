@@ -290,35 +290,32 @@ public class WebCrawler
 	}
 	private async Task<string?> GetFreshCrawledDomains(string url)
 	{
-		try
+		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+		using (var connection = new MySqlConnection(connectionString))
 		{
-			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
-			using (var connection = new MySqlConnection(connectionString))
-			{
-				await connection.OpenAsync();
-				var urlHash = GetUrlHash(url);
-				string query = @"
+			await connection.OpenAsync();
+			var urlHash = GetUrlHash(url.ToLower());
+			string query = @"
             SELECT url 
             FROM search_results 
             WHERE url_hash = @UrlHash 
             AND last_crawled >= UTC_TIMESTAMP() - INTERVAL 5 DAY 
             LIMIT 1;";
 
-				using (var command = new MySqlCommand(query, connection))
-				{
-					command.Parameters.AddWithValue("@UrlHash", urlHash);
+			using (var command = new MySqlCommand(query, connection))
+			{
+				command.Parameters.AddWithValue("@UrlHash", urlHash);
+				//Console.WriteLine($"Crwler: checking if {url} was crawled: " + urlHash);
+				var result = await command.ExecuteScalarAsync();
 
-					var result = await command.ExecuteScalarAsync();
-					return result?.ToString();
-				}
+				if (result == null || result == DBNull.Value)
+					return null;
+
+				return result.ToString();
 			}
-		} catch (Exception ex)
-		{
-			//Console.WriteLine("Crawler exception : " + ex.Message);
-			return string.Empty; 
 		}
-		
 	}
+
 	private async Task SaveSearchResult(string domain, Metadata metadata)
 	{ 
 		try
@@ -640,8 +637,7 @@ public class WebCrawler
 			// Standard sitemap locations
 			string[] possibleSitemapUrls = {
 				$"{domain}/sitemap.xml",
-				$"{domain}/sitemap_index.xml",
-				$"{domain}/robots.txt"
+				$"{domain}/sitemap_index.xml"
 		};
 
 			// Check each possible URL for a sitemap
@@ -664,12 +660,18 @@ public class WebCrawler
 	{
 		try
 		{
-			var response = await _httpClient.GetAsync(url);
-			return response.IsSuccessStatusCode;  // Return true if the URL exists
+			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); 
+			var response = await _httpClient.GetAsync(url, cts.Token);
+			return response.IsSuccessStatusCode;
 		}
-		catch (Exception ex)
+		catch (TaskCanceledException)
 		{
-			return false;  // Return false if there's an error
+			Console.WriteLine("Request timed out.");
+			return false;
+		}
+		catch
+		{
+			return false;   
 		}
 	}
 	  
@@ -731,9 +733,7 @@ public class WebCrawler
 				string? existingUrl = await GetFreshCrawledDomains(urlToProcess);
 				if (string.IsNullOrEmpty(existingUrl) && IsValidDomain(urlToProcess))
 				{
-					//Console.WriteLine($"(Crawler:{urlsToScrapeQueue.Count})Enqueued: " +
-					//		$"{urlToProcess.Substring(0, Math.Min(urlToProcess.Length, 25))}" +
-					//		$"{(urlToProcess.Length > 35 ? "..." + urlToProcess[^10..] : "")}");
+					//Console.WriteLine($"(Crawler:{delayedUrlsQueue.Count}#{urlsToScrapeQueue.Count})Enqueued: {ShortenUrl(urlToProcess)}");
 					urlsToScrapeQueue.Add(urlToProcess);
 					_ = ScrapeUrlsSequentially();
 				}
@@ -809,7 +809,7 @@ public class WebCrawler
 
 						_lastRequestTime = DateTime.Now;
 
-						Console.WriteLine($"(Crawler:{delayedUrlsQueue.Count()})Scraping: " + $"{url.Substring(0, Math.Min(url.Length, 25)) + (url.Length > 35 ? "..." + url[^10..] : "")}");
+						Console.WriteLine($"(Crawler:{delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()})Scraping: " + $"{url.Substring(0, Math.Min(url.Length, 25)) + (url.Length > 35 ? "..." + url[^10..] : "")}");
 						Metadata? metaData = await ScrapeUrlData(url);
 						if (metaData != null)
 						{
@@ -912,6 +912,15 @@ public class WebCrawler
 		//	Console.WriteLine("Crawler exception : " + ex.Message);
 		}
 		return "";
+	}
+	string ShortenUrl(string url, int maxLength = 50)
+	{
+		if (url.Length <= maxLength) return url;
+
+		int firstPartLength = maxLength / 2 - 3;  // Adjust to leave room for "..."
+		int lastPartLength = maxLength - firstPartLength - 3;
+
+		return url.Substring(0, firstPartLength) + "..." + url[^lastPartLength..];
 	}
 	public void ClearVisitedUrls()
 	{
