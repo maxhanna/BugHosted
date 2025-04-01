@@ -31,7 +31,7 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
   notifications: string[] = [];
 
   constructor(private miningService: MiningService, private coinValueService: CoinValueService) {
-    super();
+    super(); 
   }
   ngOnInit() {
     this.rate = 1;
@@ -196,5 +196,26 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
     if (parent) {
       parent.showNotification(text);
     } 
+  }
+  getParentToCreateUserComponent() {
+    console.log("create user component");
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.createComponent("User");
+    }
+  }
+  goToUserSettingsComponent() {
+    console.log("create usersettings component");
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      parent.openUserSettings()
+    }
+  }
+  getIsUserLoggedIn(): boolean {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) {
+      return parent.user ? true : false;
+    }
+    return false;
   }
 }

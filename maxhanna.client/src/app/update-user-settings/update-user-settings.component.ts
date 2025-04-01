@@ -45,6 +45,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
   @Input() inputtedParentRef?: AppComponent;
   @Input() showOnlySelectableMenuItems? = true;
+  @Input() showOnlyWeatherLocation? = false;
   @Input() areSelectableMenuItemsExplained? = true;
 
   @ViewChild('updatedUsername') updatedUsername!: ElementRef<HTMLInputElement>;
@@ -71,7 +72,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     super();
   }
   async ngOnInit() {
-    this.selectableIcons = this.parentRef!.navigationItems.filter(x => x.title !== 'Close Menu' && x.title !== 'User' && x.title !== 'UpdateUserSettings');
+    this.selectableIcons = this.parentRef!.navigationItems
+      .filter(x => x.title !== 'Close Menu' && x.title !== 'User' && x.title !== 'UpdateUserSettings')
+      .sort((a, b) => a.title.localeCompare(b.title));
 
     this.updateUserDivVisible = true;
     this.isGeneralToggled = true;

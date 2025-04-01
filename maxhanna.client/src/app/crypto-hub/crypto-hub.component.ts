@@ -10,10 +10,10 @@ import { UserService } from '../../services/user.service';
 import { MiningRigsComponent } from '../mining-rigs/mining-rigs.component';
 
 @Component({
-    selector: 'app-crypto-hub',
-    templateUrl: './crypto-hub.component.html',
-    styleUrl: './crypto-hub.component.css',
-    standalone: false
+  selector: 'app-crypto-hub',
+  templateUrl: './crypto-hub.component.html',
+  styleUrl: './crypto-hub.component.css',
+  standalone: false
 })
 export class CryptoHubComponent extends ChildComponent implements OnInit, OnDestroy {
   wallet?: MiningWalletResponse | undefined;
@@ -23,7 +23,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   noMining = false;
   isDiscreete = false;
 
-  data?: CoinValue[]; 
+  data?: CoinValue[];
   allHistoricalData?: CoinValue[] = [];
   allHistoricalDataPreCalculation?: CoinValue[] = [];
   allWalletBalanceData?: CoinValue[] = [];
@@ -53,11 +53,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     super();
   }
   async ngOnInit() {
-    this.startLoading(); 
+    this.startLoading();
     try {
       this.parentRef?.addResizeListener();
       await this.getBTCWallets();
-      
+
       await this.coinValueService.getLatestCoinValues().then(res => {
         this.data = res;
       });
@@ -70,26 +70,20 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       await this.coinValueService.getLatestCoinValuesByName("Bitcoin").then(res => {
         if (res) {
           this.btcToCadPrice = res.valueCAD;
+          if (!this.btcFiatConversion) {
+            this.btcFiatConversion = res.valueCAD;
+          }
+          console.log(res);
         }
       });
       await this.coinValueService.getUniqueCurrencyNames().then(res => { this.uniqueCurrencyNames = res; })
-      if (this.parentRef?.user) {
-        await this.coinValueService.getUserCurrency(this.parentRef?.user).then(async res => {
-          if (res) {
-            if (res.includes("not found")) { 
-              this.selectedCurrency = "CAD";
-            } else { 
-              this.selectedCurrency = res;
-            }
-            const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(this.selectedCurrency) as ExchangeRate;
-            if (ceRes) {
-              this.latestCurrencyPriceRespectToCAD = ceRes.rate; 
-            }
-          }
-        });
+      await this.getUserCurrency();
+      const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(this.selectedCurrency) as ExchangeRate;
+      if (ceRes) {
+        this.latestCurrencyPriceRespectToCAD = ceRes.rate;
       }
       await this.coinValueService.getAllCoinValues().then(res => {
-        if (res) { 
+        if (res) {
           this.allHistoricalDataPreCalculation = res;
           this.allHistoricalData = res;
           this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
@@ -101,12 +95,28 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.convertBTCtoFIAT()
     this.stopLoading();
   }
+  private async getUserCurrency() {
+    if (this.parentRef?.user) {
+      await this.coinValueService.getUserCurrency(this.parentRef?.user).then(async (res) => {
+        if (res) {
+          if (res.includes("not found")) {
+            this.selectedCurrency = "CAD";
+          } else {
+            this.selectedCurrency = res;
+          }
+        }
+      });
+    } else {
+      this.selectedCurrency = "CAD";
+    }
+  }
+
   ngOnDestroy() {
     this.parentRef?.removeResizeListener();
   }
   private async getBTCWallets() {
-    this.wallet = await this.getNicehashWallets(); 
-    this.wallet = this.wallet || { currencies: [] }; 
+    this.wallet = await this.getNicehashWallets();
+    this.wallet = this.wallet || { currencies: [] };
 
     if (this.parentRef?.user) {
       await this.userService.getBTCWallet(this.parentRef.user).then(res => {
@@ -118,8 +128,8 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
               available: btcData.available,
               fiatRate: btcData.fiatRate ?? this.btcFiatConversion,
               address: btcData.address
-            } as Currency; 
-            this.wallet?.currencies?.push(tmpCurrency); 
+            } as Currency;
+            this.wallet?.currencies?.push(tmpCurrency);
           });
         }
       });
@@ -135,16 +145,18 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         available: this.wallet.currencies
           .filter(x => x.currency?.toUpperCase() === "BTC")
           .reduce((sum, curr) => sum + Number(curr.available || 0), 0)
-          .toString(), 
+          .toString(),
       };
       this.wallet.currencies.forEach(x => !x.address ? x.address = "Nicehash Wallet" : x.address);
     }
   }
 
   private async getNicehashWallets() {
-    const res = await this.miningService.getMiningWallet(this.parentRef?.user!) as MiningWalletResponse;
+    if (!this.parentRef?.user) return;
+    const res = await this.miningService.getMiningWallet(this.parentRef?.user) as MiningWalletResponse;
     if (res) {
-      this.btcFiatConversion = res.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate; 
+      this.btcFiatConversion = res.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate;
+      console.log(this.btcFiatConversion);
     }
     return res;
   }
@@ -177,7 +189,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   convertBTCtoFIAT(): void {
     const btcValue = parseFloat(this.btcConvertBTCValue.nativeElement.value) || 0;
     const cadValue = btcValue * this.btcToCadPrice * (this.latestCurrencyPriceRespectToCAD ?? 1);
-     
+
     this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(cadValue);
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
   }
@@ -192,13 +204,13 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(sanitizedValue);
   }
 
-  convertCADtoBTC(): void { 
+  convertCADtoBTC(): void {
     const currencyValue = parseFloat(this.btcConvertCADValue.nativeElement.value.replace(/[$,]/g, '')) || 0;
     const btcValue = currencyValue / (this.btcToCadPrice * (this.btcFiatConversion ?? 1));
 
     this.btcConvertBTCValue.nativeElement.value = btcValue.toFixed(8);
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(btcValue * 1e8);
-    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(currencyValue); 
+    this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(currencyValue);
   }
 
   convertSatoshiToBTC(): void {
@@ -209,7 +221,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.btcConvertCADValue.nativeElement.value = this.formatToCanadianCurrency(btcValue * this.btcToCadPrice * this.latestCurrencyPriceRespectToCAD);
     this.btcConvertSATValue.nativeElement.value = this.formatWithCommas(satValue);
   }
-   
+
   formatToCanadianCurrency(value: number): string {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
@@ -252,7 +264,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     if (!cadValue) return 0;
     else return cadValue * (this.latestCurrencyPriceRespectToCAD ?? 1);
   }
-  getConvertedCurrencyValueByString(cadValue?: string) { 
+  getConvertedCurrencyValueByString(cadValue?: string) {
     if (!cadValue) return 0;
     else return parseInt(cadValue) * (this.latestCurrencyPriceRespectToCAD ?? 1);
   }
@@ -283,7 +295,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     await this.coinValueService.getWalletBalanceData(currency.address).then(res => {
       if (res) {
         this.allWalletBalanceData = res;
-        this.processWalletBalances();  
+        this.processWalletBalances();
       }
     });
   }
@@ -370,7 +382,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       return null;
     }
 
-    console.log("Finding closest BTC rate to: " + timestamp);
+    //console.log("Finding closest BTC rate to: " + timestamp);
     const targetTimestamp = new Date(timestamp).getTime();
 
     const tmpHistoricalData = this.allHistoricalData

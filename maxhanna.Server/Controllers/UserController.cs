@@ -1,6 +1,7 @@
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Weather;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
@@ -668,6 +669,83 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+
+		[HttpPost("/User/GetIpAddress", Name = "GetIpAddress")]
+		public async Task<WeatherLocation> GetIpAddress([FromBody] User user)
+		{
+			_logger.LogInformation($"Getting IP Information for user ID: {user.Id}");
+
+			var loc = new WeatherLocation();
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = "SELECT user_id, location, city, country FROM maxhanna.user_ip_address WHERE user_id = @Owner;";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Owner", user.Id);
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							while (await rdr.ReadAsync())
+							{
+								loc.Ownership = rdr.GetInt32(0);
+								loc.Location = rdr.IsDBNull(rdr.GetOrdinal("location")) ? null : rdr.GetString("location");
+								loc.City = rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city");
+								loc.Country = rdr.IsDBNull(rdr.GetOrdinal("country")) ? null : rdr.GetString("country");
+							}
+						}
+					}
+				} 
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error occurred while retrieving IP information.");
+				throw;
+			}
+
+			return loc;
+		}
+
+		[HttpPut("/User/UpdateIpAddress", Name = "UpdateIpAddress")]
+		public async Task<IActionResult> UpdateIpAddress([FromBody] CreateWeatherLocation location)
+		{
+			_logger.LogInformation($"Updating or creating ip information for user ID: {location.user.Id}");
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = "INSERT INTO maxhanna.user_ip_address (user_id, location, city, country) VALUES (@Owner, @Location, @City, @Country) " +
+											 "ON DUPLICATE KEY UPDATE location = @Location, city = @City, country = @Country;";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Owner", location.user.Id);
+						cmd.Parameters.AddWithValue("@Location", location.location);
+						cmd.Parameters.AddWithValue("@City", location.city);
+						cmd.Parameters.AddWithValue("@Country", location.country);
+						if (await cmd.ExecuteNonQueryAsync() >= 0)
+						{ 
+							return Ok("User ip updated.");
+						}
+						else
+						{
+							_logger.LogInformation("Returned 500");
+							return StatusCode(500, "Failed to update or create data");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error occurred while updating or creating IP information.");
+				throw;
+			}
+		}
 
 		private async Task DeleteUserFiles(User user, MySqlConnection conn)
 		{

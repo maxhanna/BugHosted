@@ -25,7 +25,7 @@
              [class.align-right]="message.sender.id !== (parentRef?.user?.id ?? 0)">
           <!-- USER MESSAGE -->
           <ng-container *ngIf="message.sender.id === (parentRef?.user?.id ?? 0)">
-            <span class="messageTimestamp">{{ formatTimestamp(message.timestamp) }}<span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
+            <span class="messageTimestamp">{{ getUtcTimestamp(message.timestamp) }}<span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span></span>
 
             <div class="profileTag">
               <div class="usernameProfileLink">

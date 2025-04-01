@@ -9,7 +9,7 @@ export class StoneCircle extends GameObject {
   constructor(x: number, y: number) {
     super({
       position: new Vector2(x, y),
-      drawLayer: GROUND,
+      drawLayer: FLOOR,
       isSolid: true
     }) 
 

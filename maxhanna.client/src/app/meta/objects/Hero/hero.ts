@@ -101,6 +101,15 @@ export class Hero extends Character {
           events.emit("WHISPER_AT", isObjectNearby(this));  
         }
       });
+      events.on("CHANGE_LEVEL", this, () => {
+        const deployedBot = this.metabots?.find(x => x.isDeployed && x.hp > 0);
+        if (deployedBot) {
+          events.emit("CALL_BOT_BACK", { bot: deployedBot });
+          setTimeout(() => {
+            events.emit("DEPLOY", { metaHero: this, bot: deployedBot });
+          }, 2450);
+        } 
+      });
       events.on("CLOSE_HERO_DIALOGUE", this, () => {
         this.isLocked = false;
         events.emit("END_TEXT_BOX");

@@ -373,6 +373,38 @@ export class UserService {
     }
   }
 
+  async getIPAddress(user: User) {
+    try {
+      const response = await fetch(`/user/getipaddress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user),
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async updateIPAddress(user: User, location: string, city?: string, country?: string) {
+    try {
+      const response = await fetch(`/user/updateipaddress`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user, location, city, country }),
+      });
+
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  } 
+
   async updateTheme(user: User, theme: JSON) {
     try {
       const response = await fetch('/user/updateusertheme/', {
@@ -416,9 +448,7 @@ export class UserService {
     } catch (error) {
       return 'error';
     }
-  }
-
-
+  } 
   async getTheme(user: User) {
     try {
       const response = await fetch('/user/getusertheme/', {

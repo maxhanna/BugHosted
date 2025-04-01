@@ -201,7 +201,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           this.checkAndClearRouterOutlet();
           this.createComponent('Wordler');
         }
-        if (this.router.url.includes('Crypto')) {
+        if (this.router.url.includes('Crypto') || this.router.url.includes('Cryptocurrency') || this.router.url.includes('Defi')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Crypto-Hub');
         }
@@ -231,7 +231,8 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.router.dispose();
     }
   }
-  createComponent(componentType: string, inputs?: { [key: string]: any; }) { 
+  createComponent(componentType: string, inputs?: { [key: string]: any; }) {
+    console.log("in create component : " + componentType);
     this.navigationComponent.minimizeNav();
     this.closeOverlay();
     this.replacePageTitleAndDescription(componentType, componentType);
@@ -737,6 +738,9 @@ export class AppComponent implements OnInit, AfterViewInit {
           if (res) {
             this.location = { ip: res.ip, city: res.city, country: res.country };
             this.setCookie("location", JSON.stringify(this.location), 1);
+            if (this.user) { 
+              this.userService.updateIPAddress(this.user, res.ip, res.city, res.country);
+            }
           }
         });
       } 

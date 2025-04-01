@@ -428,17 +428,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       try {
         const resCreateUser = await this.userService.createUser(tmpUser);
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
-          tmpUser.id = parseInt(resCreateUser!);
-          try {
-            this.updateWeatherInBackground(tmpUser);
-          } catch {
-            this.parentRef?.showNotification("No weather data can be fetched");
-          }
+          tmpUser.id = parseInt(resCreateUser!); 
           await this.userService.addMenuItem(tmpUser, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
           await this.login(guest ? tmpUserName : undefined, true);
           if (!this.loginOnly) {
             this.parentRef?.createComponent('UpdateUserSettings');
-          }
+          } 
+          this.parentRef?.getLocation(); 
         } else {
           this.parentRef?.showNotification(`${JSON.parse(resCreateUser!)["message"]}`);
         }
@@ -477,7 +473,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef.user = tmpUser;
         this.parentRef.resetUserCookie();
         this.parentRef?.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
-        this.updateWeatherInBackground(tmpUser);
+        this.parentRef?.getLocation();
 
         this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
 
@@ -525,13 +521,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   openChat() {
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
-  }
-  async updateWeatherInBackground(tmpUser: User, withCity?: boolean) {
-    const ip = await this.parentRef?.getLocation();
-    if (ip) {
-      await this.weatherService.updateWeatherLocation(tmpUser, ip.ip, ip.city, ip.country);
-    }
-  }
+  }  
   openFriendsPanel() {
     this.isFriendsPanelOpen = true;
     const parent = this.parentRef ?? this.inputtedParentRef;

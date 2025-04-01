@@ -7,7 +7,7 @@
       <legend *ngIf="!showOnlySelectableMenuItems">Update:</legend>
 
       <!--USERNAME / PASSWORD-->
-      <div (click)="isGeneralToggled = !isGeneralToggled" *ngIf="!showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div (click)="isGeneralToggled = !isGeneralToggled" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
         <div class="sectionHeaderLabel popupPanelTitle">
           <div>
             <span class="helperSpanTitle" title="Change your username or password."></span>
@@ -18,7 +18,7 @@
           <button (click)="updateUser()" title="Update settings" [disabled]="!isGeneralToggled" *ngIf="isGeneralToggled">💾Save Username/Password</button>
         </div>
       </div>
-      <div *ngIf="!showOnlySelectableMenuItems && isGeneralToggled" class="sectionDescriptionDiv">
+      <div *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && isGeneralToggled" class="sectionDescriptionDiv">
         <div class="sectionDescriptionSection">
           <div>Name:</div>
           <div><input type="text" placeholder="New Username" #updatedUsername [value]="parentRef!.user!.username" /></div>
@@ -35,14 +35,14 @@
             <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW()" />
           </div>
         </div>
-        <div class="sectionDescriptionSection"> 
+        <div class="sectionDescriptionSection profilePictureSectionContainer"> 
           <div>
             Attach your profile picture:
             <div class="avatar" *ngIf="!this.parentRef?.user!.displayPictureFile">
               <span class="avatarBug">🪲</span>
               <span class="avatarBust">👤</span>
             </div>
-            <div *ngIf="this.parentRef?.user?.displayPictureFile">
+            <div *ngIf="this.parentRef?.user?.displayPictureFile" class="displayPictureContainerDiv">
               <div class="xxSmallFont">Current display picture:</div>
               <div class="avatar">
                 <app-media-viewer #displayPictureViewer
@@ -73,7 +73,7 @@
       
 
       <!--ABOUT-->
-      <div (click)="isAboutToggled = !isAboutToggled" *ngIf="!showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div (click)="isAboutToggled = !isAboutToggled" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
         <div class="sectionHeaderLabel popupPanelTitle">
           <div>
             <span class="helperSpanTitle" title="Your contact information."></span>
@@ -84,7 +84,7 @@
           <button (click)="updateUserAbout()" title="Update information" [disabled]="!isAboutToggled" *ngIf="isAboutToggled">💾Save About You</button>
         </div>
       </div>
-      <div *ngIf="!showOnlySelectableMenuItems && isAboutToggled" class="sectionDescriptionDiv">
+      <div *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && isAboutToggled" class="sectionDescriptionDiv">
         <div class="sectionDescriptionSection">
           <div>Description:</div>
           <div><input type="text" placeholder="Profile description" #updatedDescription [value]="parentRef?.user?.about?.description ?? ''" /></div>
@@ -135,7 +135,7 @@ but you can also set your own City for a more precise location."></span>
           <button (click)="updateWeatherLocation()" title="Update settings" [disabled]="!isWeatherLocationToggled" *ngIf="isWeatherLocationToggled">💾Save Location</button>
         </div>
       </div>
-      <div *ngIf="isWeatherLocationToggled">
+      <div *ngIf="isWeatherLocationToggled || showOnlyWeatherLocation">
         <div>
           <div>Location:</div>
           <div><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></div>
@@ -145,7 +145,7 @@ but you can also set your own City for a more precise location."></span>
 
 
       <!--Nicehash API-->
-      <div (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
         <div class="sectionHeaderLabel popupPanelTitle">
           <div><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></div>
           <div class="cursorPointerUnderlined">Nicehash API Keys</div>
@@ -175,7 +175,7 @@ but you can also set your own City for a more precise location."></span>
 
 
       <!--BTC Wallet Addresses-->
-      <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()" *ngIf="!showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
         <div class="sectionHeaderLabel popupPanelTitle">
           <div><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></div>
           <div class="cursorPointerUnderlined">BTC Wallet Addresses</div>
@@ -201,7 +201,7 @@ but you can also set your own City for a more precise location."></span>
 
 
       <!-- Menu Icons -->
-      <div (click)="getMenuIcons()" class="sectionHeaderDiv">
+      <div (click)="getMenuIcons()" class="sectionHeaderDiv" *ngIf="!showOnlyWeatherLocation">
         <div *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionHeaderLabel popupPanelTitle">
           <div>
             <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
@@ -281,7 +281,7 @@ but you can also set your own City for a more precise location."></span>
                     </div>
                     <div *ngIf="icon.title == 'Notepad'" [id]="icon.title+'tddiv'">
                       <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Jot down notes and share them with others.
+                        Jot down notes and share them with others. Saved news articles show up here.
                       </div>
                     </div>
                     <div *ngIf="icon.title == 'Contacts'" [id]="icon.title+'tddiv'">
@@ -294,7 +294,7 @@ but you can also set your own City for a more precise location."></span>
                     <div *ngIf="icon.title == 'Crawler'" [id]="icon.title+'tddiv'">
                       <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                         <div>
-                          Our search engine with uncensored results. Index your website or search our database of websites for any information.
+                          Our search engine with a full database of uncensored results. Index your website or search our database of websites for any information that can be found on the web.
                         </div>
                       </div>
                     </div>
@@ -325,13 +325,13 @@ but you can also set your own City for a more precise location."></span>
                     </div>
                     <div *ngIf="icon.title == 'Chat'" [id]="icon.title+'tddiv'">
                       <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Still under construction. Chat system to connect you with your friends or groups of friends.
+                        Chat system to connect you with your friends or groups of friends.
                       </div>
                     </div>
                     <div *ngIf="icon.title == 'Favourites'" [id]="icon.title+'tddiv'">
                       <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
                         Share and keep track of your favourite links.
-                        Make a list of your favourites, other users can see and search for the links you added too!
+                        Make a list of your favourites, other users can see and search for the links you added too! Track how many people also added the favourite you created and see how popular your favourites are!
                       </div>
                     </div>
                     <div *ngIf="icon.title == 'Array'" [id]="icon.title+'tddiv'">
@@ -351,7 +351,7 @@ but you can also set your own City for a more precise location."></span>
                     </div>
                     <div *ngIf="icon.title == 'Theme'" [id]="icon.title+'tddiv'">
                       <div [id]="icon.title+'tddivdiv'" (click)="menuInformationZoom(icon.title+'td')" [class]="parentRef && parentRef.isModalOpen ? '' : 'ellipsis'">
-                        Change the site's theme!
+                        Change the site's theme! Share your theme with others or use a theme someone else has shared!
                       </div>
                     </div>
                   </div>  
@@ -365,7 +365,7 @@ but you can also set your own City for a more precise location."></span>
 
 
       <!--Delete Account-->
-      <div (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+      <div (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
         <div class="sectionHeaderLabel popupPanelTitle">
           <div><span class="helperSpanTitle" title="Delete your account"></span></div>
           <div class="cursorPointerUnderlined">Delete your account?</div>

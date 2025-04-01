@@ -59,13 +59,29 @@ export function subscribeToMainGameEvents(object: any) {
       object.metaHero.map = level.name ?? "HERO_ROOM";
       object.metaHero.position = level.getDefaultHeroPosition();
       object.mainScene.level.itemsFound = object.mainScene.inventory.getItemsFound();
-      let tmpBotPosition = object.metaHero.position;
-      tmpBotPosition.y += gridCells(1);
-      tmpBotPosition.x += gridCells(1);
+
+      const levelHero = object.mainScene.level.children.find((x: Character) => x.id === object.hero.id) ?? object.metaHero;
+ 
+      let tmpBotPosition = levelHero.position.duplicate();
+
+      switch (levelHero.facingDirection) {
+        case "UP":
+          tmpBotPosition.y -= gridCells(1); // Move bot below the hero
+          break;
+        case "DOWN":
+          tmpBotPosition.y += gridCells(1); // Move bot above the hero
+          break;
+        case "LEFT":
+          tmpBotPosition.x -= gridCells(1); // Move bot to the right
+          break;
+        case "RIGHT":
+          tmpBotPosition.x += gridCells(1); // Move bot to the left
+          break;
+      }
+       
       setTimeout(() => {
         const deployedBot = object.metaHero.metabots.find((x: MetaBot) => x.isDeployed && x.hp > 0);
         if (deployedBot) {
-          //console.log("set deployedBot position to hero position", deployedBot.position, object.metaHero.position);
           deployedBot.position = tmpBotPosition;
           deployedBot.destinationPosition = tmpBotPosition;
           deployedBot.lastPosition = tmpBotPosition;
@@ -75,6 +91,8 @@ export function subscribeToMainGameEvents(object: any) {
             levelBot.destinationPosition = tmpBotPosition;
             levelBot.lastPosition = tmpBotPosition;
           }
+
+          console.log("set deployedBot position to hero position", deployedBot.position, object.metaHero.position);
         } 
       }, 25); 
     }

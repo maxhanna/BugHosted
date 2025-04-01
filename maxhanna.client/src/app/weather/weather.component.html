@@ -3,7 +3,7 @@
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Weather</div>
   <p class="notification">Current location :
-    <span class="cursorPointerUnderlined" (click)="parentRef?.createComponent('UpdateUserSettings')">
+    <span class="cursorPointerUnderlined" (click)="createUpdateUserComponent();">
       {{location}}
     </span>
   </p>

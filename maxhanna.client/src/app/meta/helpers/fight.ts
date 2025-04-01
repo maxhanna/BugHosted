@@ -1,11 +1,12 @@
 import { Bot } from '../objects/Bot/bot';
 import { HEAD, LEFT_ARM, LEGS, MetaBotPart, RIGHT_ARM } from '../../../services/datacontracts/meta/meta-bot-part';
 import { Character } from '../objects/character';
-import { HEADBUTT, KICK, LEFT_PUNCH, RIGHT_PUNCH, Skill, SkillType } from './skill-types';
+import { HEADBUTT, KICK, LEFT_PUNCH, RIGHT_PUNCH, Skill, SkillType, STING } from './skill-types';
 import { getBotsInRange } from './move-towards';
 import { DOWN, LEFT, RIGHT, UP } from './grid-cells';
 import { events } from './events';
 import { Target } from '../objects/Effects/Target/target';
+import { Sting } from '../objects/Effects/Sting/sting';
 
 export const typeEffectiveness = new Map<SkillType, SkillType>([
   [SkillType.SPEED, SkillType.STRENGTH],       // Speed counters Strength
@@ -68,6 +69,16 @@ export function attack(source: Bot, target: Bot) {
   faceTarget(source, target);
   // Define available attack parts
   calculateAndApplyDamage(source, target);
+  const lastAttackPart = source.lastAttackPart;
+  if (lastAttackPart) {
+    console.log(lastAttackPart.skill.name);
+    if (lastAttackPart.skill.name === STING.name) {
+      const sting = new Sting(source.position.x, source.position.y);
+      source.parent?.addChild(sting);
+      console.log("added sting");
+      sting.moveTo(target.position.x, target.position.y, 1000); 
+    }
+  }
   if (target.hp <= 0 && target.isDeployed) {
     source.targeting = undefined; 
   }
@@ -96,13 +107,14 @@ export function target(source: Bot, targetBot: Bot) {
   faceTarget(source, targetBot);
   events.emit("TARGET_LOCKED", { source: source, target: targetBot })
   console.log(source.name + " targeting : " + targetBot.name);
-
+  source.isLocked = true;
+  setTimeout(() => { source.isLocked = false; }, 1000);
   const targetSprite = new Target({ position: targetBot.position, parentId: source.id, targetId: targetBot.id });
   source.parent?.addChild(targetSprite);
 }
 
 export function untarget(source: Bot, targetBot: Bot) {
-  console.log("untarget")
+//  console.log("untarget")
   if (source.targeting) {
     source.targeting = undefined;
     events.emit("TARGET_UNLOCKED", { source: source, target: targetBot })
@@ -110,7 +122,6 @@ export function untarget(source: Bot, targetBot: Bot) {
 
     const oldTargetSprite = source.parent?.children.find((child: any) => child.parentId == source.id);
     if (oldTargetSprite) {
-      console.log("oldTargetSprite ", oldTargetSprite); 
       oldTargetSprite.body?.destroy(); 
       oldTargetSprite.destroy(); 
     }
@@ -129,7 +140,7 @@ export function faceTarget(source: Bot, target: Bot) {
   }
   if (!source.body?.animations?.activeKey.includes("attack")) { 
     source.body?.animations?.play("attack" + source.facingDirection.charAt(0) + source.facingDirection.substring(1, source.facingDirection.length).toLowerCase());
-    console.log("set animation to : ", source.body?.animations?.activeKey);
+    //console.log("set animation to : ", source.body?.animations?.activeKey);
   } 
 }
 

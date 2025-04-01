@@ -1,4 +1,4 @@
-.componentMain { 
+.componentMain {
   max-width: 500px;
   max-height: CALC(var(--vh, 1vh) * 100 - 60px);
 }
@@ -57,7 +57,7 @@
     background-color: var(--secondary-component-background-color);
   }
 
-.settingsDiv { 
+.settingsDiv {
   overflow: auto;
 }
 
@@ -161,19 +161,22 @@ input:checked + .slider:before {
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   padding-left: 10px;
 }
+
 .sectionHeaderDiv {
   display: flex;
-  flex-direction: row; 
+  flex-direction: row;
   justify-content: space-between;
   align-content: center;
   align-items: center;
 }
+
 .sectionHeaderLabel {
   display: flex;
   flex-direction: row;
-  gap: 15px; 
+  gap: 15px;
   text-align: left;
 }
+
 .sectionDescriptionDiv {
   display: flex;
   align-content: center;
@@ -183,6 +186,7 @@ input:checked + .slider:before {
   flex-wrap: wrap;
   border: 1px solid black;
 }
+
 .sectionDescriptionSection {
   display: flex;
   justify-content: space-between;
@@ -192,16 +196,32 @@ input:checked + .slider:before {
   margin: 10px;
   border-bottom: 1px solid black;
 }
+
   .sectionDescriptionSection:hover {
     border-bottom: 1px solid var(--main-link-color);
   }
-  .sectionHeaderLabel {
-  }
+
+.sectionHeaderLabel {
+}
+
 .selectableIconMenuSection {
   margin-top: 20px;
   border-top: var(--main-border);
 }
+
 .selectableMenuIconDescriptions {
   padding: 20px;
   font-size: smaller;
+}
+
+.profilePictureSectionContainer {
+  padding: 15px;
+}
+
+.displayPictureContainerDiv {
+  display: flex;
+  justify-content: center;
+  align-content: center;
+  flex-direction: column;
+  align-items: center;
 }

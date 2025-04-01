@@ -90,6 +90,7 @@ export class Resources {
       shopFloor: `${this.dir}shopfloor.png`,
       shrub: `${this.dir}shrub.png`,
       shortgrass: `${this.dir}shortgrass.png`,
+      skill_sting: `${this.dir}skill_sting.png`,
       spiderBot: `${this.dir}spiderbot.png`,
       stand: `${this.dir}stand.png`,
       stove: `${this.dir}stove.png`,

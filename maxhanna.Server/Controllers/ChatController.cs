@@ -129,7 +129,7 @@ namespace maxhanna.Server.Controllers
 
 			// Query to get chat IDs and receiver IDs from messages
 			string query = @"
-				 SELECT 
+				SELECT 
 						m.chat_id,
 						m.receiver,
 						MAX(m.timestamp) AS latest_timestamp
@@ -688,7 +688,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				string sql = "INSERT INTO maxhanna.messages (sender, receiver, chat_id, content) VALUES (@Sender, @Receiver, @ChatId, @Content)";
+				string sql = "INSERT INTO maxhanna.messages (sender, receiver, chat_id, content, timestamp) VALUES (@Sender, @Receiver, @ChatId, @Content, UTC_TIMESTAMP())";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);

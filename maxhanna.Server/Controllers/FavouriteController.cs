@@ -24,19 +24,22 @@ namespace maxhanna.Server.Controllers
 			_logger.LogInformation($"POST /Favourite (search: {request.Search})");
 
 			string sql = $@"
-        SELECT  
-						id,
-            url, 
-            image_url, 
-            created_by, 
-            creation_date, 
-            modified_by, 
-            modification_date,
-						name
-        FROM 
-            favourites
+				SELECT  
+            f.id,
+            f.url, 
+            f.image_url, 
+            f.created_by, 
+            f.creation_date, 
+            f.modified_by, 
+            f.modification_date,
+            f.last_added_date,
+            f.name,
+            COUNT(fs.user_id) AS user_count
+        FROM favourites f
+        LEFT JOIN favourites_selected fs ON f.id = fs.favourite_id
         WHERE 1=1  
             {(string.IsNullOrEmpty(request.Search) ? "" : " AND (url LIKE CONCAT('%', @Search, '%') OR name LIKE CONCAT('%', @Search, '%')) ")}
+				GROUP BY f.id, f.url, f.image_url, f.created_by, f.creation_date, f.modified_by, f.modification_date, f.last_added_date, f.name  
         ORDER BY {(string.IsNullOrEmpty(request.Search) ? "url, creation_date" : "creation_date")} DESC
 				LIMIT 20;";
 
@@ -60,10 +63,12 @@ namespace maxhanna.Server.Controllers
 							int idIndex = rdr.GetOrdinal("id");
 							int urlIndex = rdr.GetOrdinal("url");
 							int imageUrlIndex = rdr.GetOrdinal("image_url");
+							int userCountIndex = rdr.GetOrdinal("user_count");
 							int createdByIndex = rdr.GetOrdinal("created_by");
 							int creationDateIndex = rdr.GetOrdinal("creation_date");
 							int modifiedByIndex = rdr.GetOrdinal("modified_by");
 							int modificationDateIndex = rdr.GetOrdinal("modification_date");
+							int lastAddedDateIndex = rdr.GetOrdinal("last_added_date");
 							int nameIndex = rdr.GetOrdinal("name");
 
 							while (await rdr.ReadAsync())
@@ -73,10 +78,12 @@ namespace maxhanna.Server.Controllers
 										url: rdr.GetString(urlIndex),
 										name: rdr.IsDBNull(nameIndex) ? null : rdr.GetString(nameIndex),
 										imageUrl: rdr.IsDBNull(imageUrlIndex) ? null : rdr.GetString(imageUrlIndex),
+										userCount: rdr.IsDBNull(userCountIndex) ? 0 : rdr.GetInt32(userCountIndex),
 										createdBy: rdr.IsDBNull(createdByIndex) ? null : rdr.GetInt32(createdByIndex),
 										creationDate: rdr.GetDateTime(creationDateIndex),
 										modifiedBy: rdr.IsDBNull(modifiedByIndex) ? null : rdr.GetInt32(modifiedByIndex),
-										modificationDate: rdr.GetDateTime(modificationDateIndex)
+										modificationDate: rdr.GetDateTime(modificationDateIndex),
+										lastAddedDate: rdr.GetDateTime(lastAddedDateIndex)
 								));
 							}
 
@@ -100,8 +107,8 @@ namespace maxhanna.Server.Controllers
 
 			string checkSql = request.Id != null ? "SELECT id FROM favourites WHERE id = @Id LIMIT 1;" : "SELECT id FROM favourites WHERE url = @Url LIMIT 1;";
 			string insertSql = @"
-        INSERT INTO favourites (url, image_url, created_by, creation_date, modified_by, modification_date, name)
-        VALUES (@Url, @ImageUrl, @CreatedBy, NOW(), @ModifiedBy, NOW(), @Name);
+        INSERT INTO favourites (url, image_url, created_by, creation_date, modified_by, modification_date, name, last_added_date)
+        VALUES (@Url, @ImageUrl, @CreatedBy, UTC_TIMESTAMP(), @ModifiedBy, UTC_TIMESTAMP(), @Name, UTC_TIMESTAMP());
         SELECT LAST_INSERT_ID();";
 			string updateSql = $@"
         UPDATE favourites
@@ -109,7 +116,8 @@ namespace maxhanna.Server.Controllers
 						image_url = @ImageUrl, 
             name = @Name, 
             modified_by = @ModifiedBy, 
-            modification_date = NOW()
+            modification_date = UTC_TIMESTAMP(),
+            last_added_date = UTC_TIMESTAMP()
         WHERE {(request.Id != null ? "id = @Id" : "url = @Url")};
         SELECT id FROM favourites WHERE {(request.Id != null ? "id = @Id" : "url = @Url")};";
 
@@ -195,7 +203,9 @@ namespace maxhanna.Server.Controllers
 		{
 			_logger.LogInformation($"Post /Favourite/Add (id: {request.FavouriteId})");
 
-			string sql = @"INSERT INTO favourites_selected (favourite_id, user_id) VALUES (@fav_id, @user_id);";
+			string sql = @"
+			UPDATE maxhanna.favourites SET last_added_date = UTC_TIMESTAMP() WHERE id = @fav_id LIMIT 1;
+			INSERT INTO maxhanna.favourites_selected (favourite_id, user_id) VALUES (@fav_id, @user_id);";
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -305,19 +315,22 @@ namespace maxhanna.Server.Controllers
 			_logger.LogInformation($"POST /Favourite/User (user_id: {request.UserId})");
 
 			string sql = @"
-        SELECT 
-            f.id,
-            f.url, 
-            f.image_url, 
-            f.created_by, 
-            f.creation_date, 
-            f.modified_by, 
-            f.modification_date,
-            f.name
-        FROM favourites_selected fs
-        JOIN favourites f ON fs.favourite_id = f.id
-        WHERE fs.user_id = @UserId
-        ORDER BY f.creation_date DESC;";
+				SELECT  
+						f.id,
+						f.url, 
+						f.image_url, 
+						f.created_by, 
+						f.creation_date, 
+						f.modified_by, 
+						f.modification_date,
+						f.last_added_date,
+						f.name,
+						COUNT(fs.user_id) AS user_count
+				FROM favourites f
+				LEFT JOIN favourites_selected fs ON f.id = fs.favourite_id
+				WHERE f.id IN (SELECT favourite_id FROM favourites_selected WHERE user_id = @UserId)
+				GROUP BY f.id, f.url, f.image_url, f.created_by, f.creation_date, f.modified_by, f.modification_date, f.last_added_date, f.name
+				ORDER BY f.creation_date DESC;";
 
 			try
 			{
@@ -336,10 +349,12 @@ namespace maxhanna.Server.Controllers
 							int idIndex = rdr.GetOrdinal("id");
 							int urlIndex = rdr.GetOrdinal("url");
 							int imageUrlIndex = rdr.GetOrdinal("image_url");
+							int userCountIndex = rdr.GetOrdinal("user_count");
 							int createdByIndex = rdr.GetOrdinal("created_by");
 							int creationDateIndex = rdr.GetOrdinal("creation_date");
 							int modifiedByIndex = rdr.GetOrdinal("modified_by");
 							int modificationDateIndex = rdr.GetOrdinal("modification_date");
+							int lastAddedDateIndex = rdr.GetOrdinal("last_added_date");
 							int nameIndex = rdr.GetOrdinal("name");
 
 							while (await rdr.ReadAsync())
@@ -349,10 +364,12 @@ namespace maxhanna.Server.Controllers
 										url: rdr.GetString(urlIndex),
 										name: rdr.IsDBNull(nameIndex) ? null : rdr.GetString(nameIndex),
 										imageUrl: rdr.IsDBNull(imageUrlIndex) ? null : rdr.GetString(imageUrlIndex),
+										userCount: rdr.IsDBNull(userCountIndex) ? 0 : rdr.GetInt32(userCountIndex),
 										createdBy: rdr.IsDBNull(createdByIndex) ? null : rdr.GetInt32(createdByIndex),
 										creationDate: rdr.GetDateTime(creationDateIndex),
 										modifiedBy: rdr.IsDBNull(modifiedByIndex) ? null : rdr.GetInt32(modifiedByIndex),
-										modificationDate: rdr.GetDateTime(modificationDateIndex)
+										modificationDate: rdr.GetDateTime(modificationDateIndex),
+										lastAddedDate: rdr.GetDateTime(lastAddedDateIndex)
 								));
 							}
 

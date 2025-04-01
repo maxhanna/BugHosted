@@ -30,9 +30,19 @@ export class ChildComponent {
   getUtcTimeSince(dateString?: Date | string, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
     if (!dateString) return '';
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    let tmpDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);  
-     
+    let tmpDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+
     return this.daysSinceDate(tmpDate, granularity);
+  }
+  getUtcTimestamp(date: any): string {  
+    const tdate = typeof date === 'string' ? new Date(date) : date;
+    if (tdate) {
+      let tmpDate = new Date(tdate.getTime() - tdate.getTimezoneOffset() * 60000);
+      if (this.parentRef) {
+        return this.parentRef.formatTimestamp(tmpDate);
+      } else return tmpDate.toLocaleTimeString();
+    }  
+    return "";
   }
   daysSinceDate(dateString?: Date | string, granularity?: 'year' | 'month' | 'day' | 'hour' | 'minute'): string {
     if (!dateString) return '';

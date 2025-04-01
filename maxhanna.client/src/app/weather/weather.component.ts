@@ -137,4 +137,7 @@ export class WeatherComponent extends ChildComponent implements OnInit {
     const hourPart = parseInt(timeParts[1].split(':')[0]);
     return hourPart === hour;
   }
+  createUpdateUserComponent() {
+    this.parentRef?.createComponent('UpdateUserSettings', { showOnlyWeatherLocation: true, showOnlySelectableMenuItems: false, areSelectableMenuItemsExplained: false, inputtedParentRef: this.parentRef });
+  }
 }

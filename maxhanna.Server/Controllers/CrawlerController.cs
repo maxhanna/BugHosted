@@ -66,10 +66,10 @@ namespace maxhanna.Server.Controllers
 																.ToList();
 
 					// Define the common search condition
-					string whereCondition = @$"
-					(
-							@searchAll IS TRUE 
-							OR url_hash = @urlHash
+					bool searchAll = (request.Url == "*");
+					string whereCondition = searchAll ? " (failed = 0 OR (failed = 1 AND response_code IS NOT NULL)) " : @$"
+					( 
+							url_hash = @urlHash
 							OR MATCH(title, description, author, keywords) AGAINST (@search IN NATURAL LANGUAGE MODE)
 							OR url LIKE @search
 					)
@@ -91,13 +91,10 @@ namespace maxhanna.Server.Controllers
                 WHERE {whereCondition};";
 
 
-					bool searchAll = (request.Url == "*");
 					using (var command = new MySqlCommand(checkUrlQuery, connection))
 					{
 						command.Parameters.AddWithValue("@searchAll", searchAll);
-						command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash);
-
-			 
+						command.Parameters.AddWithValue("@urlHash", searchAll ? DBNull.Value : (object)urlHash); 
 						command.Parameters.AddWithValue("@search",  request.Url.ToLower() );
 						 
 						command.Parameters.AddWithValue("@pageSize", pageSize);
@@ -725,8 +722,9 @@ namespace maxhanna.Server.Controllers
 				//Console.WriteLine($"Error processing media URLs: {ex.Message}");
 			}
 		}
-		private async Task<string?> GetFreshCrawledDomains(string url)
+		private async Task<string?> GetFreshCrawledDomains(string? url)
 		{
+			if (string.IsNullOrEmpty(url)) return null;
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 			using (var connection = new MySqlConnection(connectionString))
 			{

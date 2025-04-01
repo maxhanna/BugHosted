@@ -111,7 +111,9 @@
     </table>
   </div>
   <div *ngIf="!isLoading && miningRigs.length == 0" class="noMiningRigsDiv">
-    No mining rigs detected, Enter your Nicehash API details in the <a (click)="parentRef?.openUserSettings()">user settings</a> to be able to track and manage them here.
+    No mining rigs detected,
+    <span class="cursorPointer" *ngIf="!getIsUserLoggedIn()"><a (click)="getParentToCreateUserComponent()">first log in</a>, then</span>
+    Enter your Nicehash API details in the <a (click)="goToUserSettingsComponent()" class="cursorPointer">user settings</a> to be able to track and manage them here.
   </div>
   <div *ngIf="isLoading">Loading...</div>
 </div> 
