@@ -92,7 +92,7 @@ export function subscribeToMainGameEvents(object: any) {
             levelBot.lastPosition = tmpBotPosition;
           }
 
-          console.log("set deployedBot position to hero position", deployedBot.position, object.metaHero.position);
+          //console.log("set deployedBot position to hero position", deployedBot.position, object.metaHero.position);
         } 
       }, 25); 
     }
@@ -108,7 +108,7 @@ export function subscribeToMainGameEvents(object: any) {
 
     const invItems = object.mainScene.inventory.items;
     if (object.mainScene.level) {
-      console.log(object.mainScene.level);
+      //console.log(object.mainScene.level);
       object.mainScene.setLevel(new WardrobeMenu({ entranceLevel: object.getLevelFromLevelName((object.mainScene.level.name ?? "HERO_ROOM")), heroPosition: object.metaHero.position, inventoryItems: invItems, hero: object.metaHero }));
     }
     object.stopPollingForUpdates = true;
@@ -176,24 +176,23 @@ export function subscribeToMainGameEvents(object: any) {
     const dmg = params.selection.split(' ').slice(-2, -1)[0];
     let targetPart = undefined;
     for (let part of parts) {
-      console.log("Checking part:", part); // Debugging: log the part being checked
-      console.log("skill:", skill); // Debugging: log the skill
-      console.log("part.skill.name:", part.skill.name); // Debugging: log part.skill.name
-      console.log("dmg:", dmg); // Debugging: log dmg value
-      console.log("part.damageMod:", part.damageMod); // Debugging: log part.damageMod
-      console.log("params.selectedPart:", params.selectedPart); // Debugging: log params.selectedPart
-      console.log("part.partName:", part.partName); // Debugging: log part.partName
+      //console.log("Checking part:", part); // Debugging: log the part being checked
+      //console.log("skill:", skill); // Debugging: log the skill
+      //console.log("part.skill.name:", part.skill.name); // Debugging: log part.skill.name
+      //console.log("dmg:", dmg); // Debugging: log dmg value
+      //console.log("part.damageMod:", part.damageMod); // Debugging: log part.damageMod
+      //console.log("params.selectedPart:", params.selectedPart); // Debugging: log params.selectedPart
+      //console.log("part.partName:", part.partName); // Debugging: log part.partName
 
       if (part.skill.name.trim() === skill.trim() && part.damageMod === parseInt(dmg) && part.partName.trim() === params.selectedPart.trim()) {
-        targetPart = part;
-        console.log("FOUND !");
+        targetPart = part; 
         break;
       }
     }
     let oldPart = undefined;
     const metabotSelected = object.metaHero.metabots.find((b: MetaBot) => b.id === params.selectedMetabotId);
 
-    console.log("Selected a bot part : ", params, skill, dmg, parts, targetPart);
+   // console.log("Selected a bot part : ", params, skill, dmg, parts, targetPart);
     if (metabotSelected && targetPart) {
       targetPart.metabotId = params.selectedMetabotId;
       if (targetPart.partName === LEFT_ARM) {
@@ -554,9 +553,10 @@ export function subscribeToMainGameEvents(object: any) {
     if (params.owner) { 
       params.owner.lastCreated = new Date();
     }
+    // console.log(object.events); events arent updated as soon as you start the game, so bots need to wait before being created when u first load in.
     const tgtCreateEvent = object.events.find((x: MetaEvent) => {
       if ((x.eventType === "CREATE_ENEMY") && x.data && x.data["bot"]) {
-        const bot = typeof x.data["bot"] === "string" ? JSON.parse(x.data["bot"]) : x.data["bot"];
+        const bot = typeof x.data["bot"] === "string" ? JSON.parse(x.data["bot"]) : x.data["bot"]; 
         return bot["HeroId"] == params.owner.id;
       }
       return false;
@@ -569,10 +569,10 @@ export function subscribeToMainGameEvents(object: any) {
     });
 
     if (tgtCreateEvent || tgtDestroyedEvent) {
-      console.log(`Bot ${params.bot.name} was ${tgtCreateEvent ? 'spawned' : 'destroyed'} not long ago, no need to recreate.`);
+     // console.log(`Bot ${params.bot.name} was ${tgtCreateEvent ? 'spawned' : 'destroyed'} not long ago, no need to recreate.`);
       params.owner.lastCreated = tgtCreateEvent?.timestamp ?? tgtDestroyedEvent.timestamp;
       return;
-    } 
+    }
 
 
     const botData = {
@@ -644,8 +644,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
             }, 1300);
           }
         }
-        if (event.eventType === "BOT_DESTROYED" && event.data) {
-          console.log(event);
+        if (event.eventType === "BOT_DESTROYED" && event.data) { 
           const bot = object.mainScene.level?.children.find((x: any) => x.heroId == event.heroId) as Bot;
           const winnerBotId = JSON.parse(event.data["winnerBotId"]) as number || undefined;
          // console.log("winnerBotId", winnerBotId);
@@ -726,14 +725,14 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
               const isNearby = possiblePositions.some(pos => x.position.x === pos.x && x.position.y === pos.y);
               return isMatchingLabel && isNearby;
             });
-            console.log("Item_Destroyed netwkr", dmgMod, skillName, tgtObject); 
+           // console.log("Item_Destroyed netwkr", dmgMod, skillName, tgtObject); 
             if (tgtObject) { tgtObject.destroy(); }
           }
         }
         if (event.eventType === "BUY_ITEM") {
           const player = object.partyMembers.find((x: Character) => x.id === event.heroId);
           if (player || event.heroId === object.metaHero.id) {
-            console.log(event && event.data ? event.data["item"] : "undefined item data");
+            //console.log(event && event.data ? event.data["item"] : "undefined item data");
             events.emit("BUY_ITEM_CONFIRMED", { heroId: event.heroId, item: (event.data ? event.data["item"] : "") })
             object.metaService.deleteEvent(event.id);
           }
@@ -742,9 +741,7 @@ export function actionMultiplayerEvents(object: any, metaEvents: MetaEvent[]) {
           if (event.data) {  
             const tmpMetabotPart = JSON.parse(event.data["item"]) as MetaBotPart;
             const location = JSON.parse(event.data["location"]) as Vector2;
-            object.addItemToScene(tmpMetabotPart, location);
-
-            console.log(tmpMetabotPart); 
+            object.addItemToScene(tmpMetabotPart, location); 
           }
         }
         if (event.eventType === "CHAT" && event.data) {

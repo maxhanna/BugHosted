@@ -210,8 +210,7 @@ export class Bot extends Character {
       this.lastAttack = new Date();
 
       const botsInRange = getBotsInRange(this);
-      if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) {
-        console.log("bot is in range : ", botsInRange);
+      if (botsInRange.some((x: Bot) => x.id == this.targeting?.id)) { 
         attack(this, this.targeting);
       } else {
         untarget(this, this.targeting); 

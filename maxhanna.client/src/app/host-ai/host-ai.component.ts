@@ -24,11 +24,13 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     this.parentRef?.removeResizeListener();
   }
   sendMessage() {
+    const user = this.parentRef?.user;
+    if (!user) { return alert("You must be logged in to use this feature!"); }
     this.userMessage = this.chatInput.nativeElement.value.trim();
     this.startLoading();
     if (this.userMessage.trim()) { 
       this.pushMessage({ sender: 'You', message: this.userMessage }); 
-      this.aiService.sendMessage(this.userMessage).then(
+      this.aiService.sendMessage(user, this.userMessage).then(
         (response) => {
           let reply = this.parseGeminiMessage(response.reply); 
           this.pushMessage({ sender: 'Host', message: reply });
@@ -36,7 +38,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
         },
         (error) => { 
           console.error(error);
-          this.pushMessage({ sender: 'System', message: 'Error communicating with the server.' });
+          this.pushMessage({ sender: 'System', message: error.reply });
           this.stopLoading();
         }
       );
@@ -47,6 +49,8 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   generateImage() {
+    const user = this.parentRef?.user;
+    if (!user) { return alert("You must be logged in to use this feature!"); }
     this.userMessage = this.chatInput.nativeElement.value.trim();
     const prompt = this.userMessage.trim();
     if (!prompt) return;
@@ -54,12 +58,12 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     this.startLoading();
     this.pushMessage({ sender: 'You', message: prompt });
 
-    this.aiService.generateImage(prompt).then(
+    this.aiService.generateImage(user, prompt).then(
       (response) => {
         if (response && response.reply && response.mimeType) {
           this.pushMessage({ sender: 'Host', message: { reply: response.reply, mimeType: response.mimeType } });
         } else { 
-          this.pushMessage({ sender: 'Host', message: `Error generating image.` });
+          this.pushMessage({ sender: 'Host', message: { reply: response.reply } });
         }
         this.stopLoading();
       },
@@ -90,12 +94,17 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     }
 
     // For AI responses, allow HTML rendering
-    return this.formatMessage(message?.message ?? message, true, true);
+    return this.formatMessage(message?.message ?? message?.reply ?? message, true, true);
   }
 
-  formatMessage(text: string, allowHtml?: boolean, addBr = false): string {  
+  formatMessage(text: any, allowHtml?: boolean, addBr = false): string {  
     // First, handle code blocks (```)
-    let formattedText = text
+    let tmpText = text;
+    if (typeof tmpText === 'object') {
+      tmpText = tmpText.reply;
+    }  
+    const text2 = tmpText + '';
+    let formattedText = text2
       .replace(/```([\s\S]*?)```/g, (_, codeContent) => {
         return `<pre><code>${this.escapeHtml(codeContent.trim())}</code></pre>`;
       }) // Wrap code blocks with <pre><code> tags

@@ -191,7 +191,7 @@ namespace maxhanna.Server.Controllers
 					{
 						command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
 					}
-					Console.WriteLine(command.CommandText);
+					//Console.WriteLine(command.CommandText);
 
 					using (var reader = command.ExecuteReader())
 					{

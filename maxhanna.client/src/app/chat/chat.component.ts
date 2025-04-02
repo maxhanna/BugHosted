@@ -88,7 +88,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       })
     }
   }
-
+  
   ngOnDestroy() {
     this.inputtedParentRef?.removeResizeListener();
     this.parentRef?.removeResizeListener();
@@ -487,6 +487,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.ghostReadEnabled = !this.ghostReadEnabled;
       }
     });
+  }
+  getUtcTimestampString(date?: Date) {
+    if (!date) return "";
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    return parent?.convertUtcToLocalTime(date) ?? date;
   }
   private async subscribeToNotificationTopic(token: string) {
     const parent = this.inputtedParentRef ?? this.parentRef;

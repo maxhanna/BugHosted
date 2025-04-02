@@ -29,6 +29,7 @@ export class Sting extends GameObject {
       animations: new Animations({
         stingAnimation: new FrameIndexPattern(STING_ANIMATION),
       }),
+      scale: new Vector2(0.6, 0.6),
     });
     this.addChild(this.body);
     this.body.animations?.play("stingAnimation"); 
@@ -46,10 +47,7 @@ export class Sting extends GameObject {
       const progress = Math.min(elapsed / duration, 1);
 
       if (this.body) {
-        this.body.flipX = deltaX < 0;
-        this.body.flipY = false; // FlipY is no longer needed if using rotation
-
-        // Get the correct angle
+        this.body.flipX = true;  
         this.body.rotation = Math.atan2(deltaY, deltaX);
       }
 

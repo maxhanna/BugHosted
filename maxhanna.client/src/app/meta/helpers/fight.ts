@@ -71,11 +71,10 @@ export function attack(source: Bot, target: Bot) {
   calculateAndApplyDamage(source, target);
   const lastAttackPart = source.lastAttackPart;
   if (lastAttackPart) {
-    console.log(lastAttackPart.skill.name);
+   // console.log(lastAttackPart.skill.name);
     if (lastAttackPart.skill.name === STING.name) {
       const sting = new Sting(source.position.x, source.position.y);
-      source.parent?.addChild(sting);
-      console.log("added sting");
+      source.parent?.addChild(sting); 
       sting.moveTo(target.position.x, target.position.y, 1000); 
     }
   }
@@ -153,7 +152,7 @@ export function generateReward(source: Bot, target: Bot) {
   const roll = Math.random();
 
   if (roll > dropChance) {
-    console.log("No reward this time!"); // Exit early if unlucky
+    //console.log("No reward this time!"); // Exit early if unlucky
     return;
   }
 

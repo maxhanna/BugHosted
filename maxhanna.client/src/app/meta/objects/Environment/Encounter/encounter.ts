@@ -8,7 +8,7 @@ export class Encounter extends Npc {
   lastSpawned: Date = new Date();
   possibleEnemies: string[] = [];
   directionIndex = 1;
-  lastCreated = new Date();
+  lastCreated = new Date(0);
   spawnTimeout: any;
   constructor(params: {
     id: number,

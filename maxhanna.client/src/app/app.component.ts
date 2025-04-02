@@ -529,7 +529,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       // Use a regular expression to find all quotes
       while (/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/gs.test(processedText)) {
         processedText = processedText.replace(/\[Quoting \{(.+?)\|(\d+)\|([\d-T:.]+)\}: (.*?)\](?!\])/gs, (match, username, userId, timestamp, quotedMessage) => {
-          const formattedTimestamp = new Date(timestamp).toLocaleString();
+          const formattedTimestamp = this.convertUtcToLocalTime(timestamp);
 
           // Define the maximum truncation length (we reserve space for the breadcrumb)
           const maxLength = 200;
@@ -628,6 +628,28 @@ export class AppComponent implements OnInit, AfterViewInit {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${month}/${day} ${hours}:${minutes}`;
+  }
+  convertUtcToLocalTime(date: Date): string {
+    if (!date) return "";
+
+    // Get the user's local time zone dynamically
+    const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    // Check if the date is already in UTC format, if not, treat it as UTC
+    const utcDate = date.toString().includes("Z") ? new Date(date) : new Date(date + "Z");
+
+    const options = {
+      timeZone: userTimeZone,  // Use the user's local time zone
+      hour12: false,           // 24-hour format
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric'
+    } as Intl.DateTimeFormatOptions;
+
+    return utcDate.toLocaleString('en-US', options);  // Format the date with the user's time zone
   }
   getDirectoryName(file: FileEntry): string {
     let base = file.directory?.replace('E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/', '').trim();
