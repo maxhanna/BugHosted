@@ -26,6 +26,7 @@ import { NexusReportsComponent } from '../nexus-reports/nexus-reports.component'
     standalone: false
 })
 export class NexusComponent extends ChildComponent implements OnInit, OnDestroy {
+  serverDown? = false;
   notifications: string[] = [];
   isUserComponentOpen = true;
   isCommandCenterOpen = false;
@@ -194,7 +195,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     super();
   }
 
-  async ngOnInit() {
+  async ngOnInit() { 
+    this.serverDown = (!await this.parentRef?.isServerUp());
     this.isUserNew = true;
     this.isUserComponentOpen = (!this.parentRef?.user || this.parentRef.user.id == 0);
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);

@@ -19,8 +19,11 @@ export const typeEffectiveness = new Map<SkillType, SkillType>([
 
 
 export function calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
-  if (!attackingBot || attackingBot.hp <= 0 || !defendingBot || defendingBot.isInvulnerable || attackingBot.isInvulnerable) return;
-
+  if (!attackingBot || !defendingBot || attackingBot.hp <= 0) return;
+  console.log(attackingBot.leftArm);
+  console.log(attackingBot.rightArm);
+  console.log(attackingBot.legs);
+  console.log(attackingBot.head);
   let attackingPart = attackingBot.lastAttackPart ?? attackingBot.leftArm;
   if (attackingPart?.partName === LEFT_ARM && (attackingBot.rightArm || attackingBot.leftArm || attackingBot.legs || attackingBot.head)) {
     attackingPart = attackingBot.rightArm ?? attackingBot.leftArm ?? attackingBot.legs ?? attackingBot.head!;
@@ -40,10 +43,13 @@ export function calculateAndApplyDamage(attackingBot: Bot, defendingBot: Bot) {
   } else if (attackingPart && typeEffectiveness.get(defendingType) === attackingType) {
     typeMultiplier = 0.5; // Not Effective
   }
-
   const baseDamage = attackingBot.level * (attackingPart?.damageMod ?? 1);
   const appliedDamage = baseDamage * typeMultiplier;
-  defendingBot.hp = Math.max(0, defendingBot.hp - appliedDamage);
+  console.log(`${attackingBot.name} attacking ${defendingBot.name} with ${attackingPart?.partName} dealing ${appliedDamage} (${appliedDamage}/${defendingBot.hp})`)
+
+  if (!defendingBot.isInvulnerable) { 
+    defendingBot.hp = Math.max(0, defendingBot.hp - appliedDamage);
+  }
 }
 
 export function awardExpToPlayers(player: Character, enemy: Character) {
@@ -70,8 +76,8 @@ export function attack(source: Bot, target: Bot) {
   // Define available attack parts
   calculateAndApplyDamage(source, target);
   const lastAttackPart = source.lastAttackPart;
-  if (lastAttackPart) {
-   // console.log(lastAttackPart.skill.name);
+  console.log(`${source.name} attacking ${target.name} with ${lastAttackPart?.skill?.name}`);
+  if (lastAttackPart) { 
     if (lastAttackPart.skill.name === STING.name) {
       const sting = new Sting(source.position.x, source.position.y);
       source.parent?.addChild(sting); 

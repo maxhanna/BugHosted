@@ -1,5 +1,7 @@
+import { MetaBotPart, RIGHT_ARM, LEFT_ARM, LEGS, HEAD } from "../../../../../services/datacontracts/meta/meta-bot-part";
 import { Vector2 } from "../../../../../services/datacontracts/meta/vector2";
 import { events } from "../../../helpers/events";
+import { STING } from "../../../helpers/skill-types";
 import { Bot } from "../../Bot/bot";
 import { Npc } from "../../Npc/npc";
 
@@ -8,7 +10,7 @@ export class Encounter extends Npc {
   lastSpawned: Date = new Date();
   possibleEnemies: string[] = [];
   directionIndex = 1;
-  lastCreated = new Date(0);
+  lastCreated = new Date();
   spawnTimeout: any;
   constructor(params: {
     id: number,
@@ -23,13 +25,13 @@ export class Encounter extends Npc {
       id: params.id,
       position: params.position,
       moveLeftRight: params.moveLeftRight,
-      moveUpDown: params.moveUpDown,  
+      moveUpDown: params.moveUpDown,
     });
     this.hp = params.hp ?? 100;
     this.level = params.level ?? 1;
     this.possibleEnemies = params.possibleEnemies;
-    this.enemy = this.spawnEnemy();  
-    this.isSolid = false; 
+    this.enemy = this.spawnEnemy();
+    this.isSolid = false;
   }
   override destroy() {
     if (this.spawnTimeout) {
@@ -39,17 +41,17 @@ export class Encounter extends Npc {
     super.destroy();
   }
   private spawnEnemy() {
+    this.spawnTimeout = setTimeout(() => {
+      this.spawnEnemy(); 
+    }, Math.random() * (70000 - 35000) + 35000);
+
     if (this.enemy && this.enemy.hp > 0) {
       return this.enemy;
     }
 
     const now = new Date();
     const elapsedTime = (now.getTime() - this.lastCreated.getTime()) / 1000; // Convert to seconds
-    if (elapsedTime < 35) { 
-      this.spawnTimeout = setTimeout(() => {
-        this.spawnEnemy();
-        this.spawnTimeout = null; // Reset after execution
-      }, Math.random() * (70000 - 35000) + 35000); 
+    if (elapsedTime < 35) {
       return this.enemy;
     }
 
@@ -64,9 +66,13 @@ export class Encounter extends Npc {
       isDeployed: true,
       isSolid: true,
       isEnemy: true,
-      spriteName: randomSprite, 
+      spriteName: randomSprite,
       preventDrawName: true,
-    }); 
+      rightArm: new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 5, skill: STING, partName: RIGHT_ARM }),
+      leftArm: new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 5, skill: STING, partName: LEFT_ARM }),
+      legs: new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 1, skill: STING, partName: LEGS }),
+      head: new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 1, skill: STING, partName: HEAD }),
+    });
     this.enemy.destinationPosition = this.enemy.position;
     events.emit("CREATE_ENEMY", { bot: this.enemy, owner: this });
     this.lastCreated = new Date();
@@ -75,11 +81,11 @@ export class Encounter extends Npc {
 
   override ready() {
     events.on("BOT_DESTROYED", this, (params: Bot) => {
-      if (params?.heroId === this.id) { 
+      if (params?.heroId === this.id) {
         this.spawnTimeout = setTimeout(() => {
           this.spawnEnemy();
-          this.spawnTimeout = null; 
-        }, Math.random() * (70000 - 35000) + 35000); 
+          this.spawnTimeout = null;
+        }, Math.random() * (70000 - 35000) + 35000);
       }
     });
   }

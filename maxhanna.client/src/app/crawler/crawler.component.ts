@@ -18,7 +18,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   isMenuOpen = false;
   lastSearch = "";
   groupedResults?: { domain: string; links: MetaData[] }[] = [];
-
+  storageStats?: any;
   pageSize: number = 10;  // Default page size
   currentPage: number = 1;
   totalResults: number = 0;  // To be populated by API
@@ -157,6 +157,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
   showMenuPanel() {
+    if (!this.storageStats) {
+      this.crawlerService.storageStats().then(res => { if (res) this.storageStats = res; });
+    }
     if (this.isMenuOpen) {
       this.closeMenuPanel();
       return;
@@ -175,7 +178,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   getSanitizedDescription(s?: string): SafeHtml {
     if (!s) return "";
     return this.sanitizer.bypassSecurityTrustHtml(s);
-  }
+  } 
   getHttpStatusMeaning(status: number): string {
     switch (status) {
       case 200:

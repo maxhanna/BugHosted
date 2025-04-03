@@ -13,8 +13,7 @@ import { storyFlags } from './helpers/story-flags';
 import { actionMultiplayerEvents, subscribeToMainGameEvents } from './helpers/network';
 import { Hero } from './objects/Hero/hero';
 import { Main } from './objects/Main/main';
-import { HeroRoomLevel } from './levels/hero-room';
-import { Fight } from './levels/fight';
+import { HeroRoomLevel } from './levels/hero-room'; 
 import { CharacterCreate } from './levels/character-create';
 import { Level } from './objects/Level/level';
 import { CaveLevel1 } from './levels/cave-level1';
@@ -75,10 +74,12 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   blockOpenStartMenu = false;
   isStartMenuOpened = false;
   hideStartButton = false;
+  serverDown? = false;
 
   private pollingInterval: any;
 
   async ngOnInit() {
+    this.serverDown = (!await this.parentRef?.isServerUp());
     this.parentRef?.setViewportScalability(false);
     this.parentRef?.addResizeListener();
     this.canvas = this.gameCanvas.nativeElement;
@@ -481,16 +482,16 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     else if (upperKey == "RAINBOWALLEYS1") return new RainbowAlleys1({ itemsFound: itemsFoundNames });
     else if (upperKey == "UNDERGROUNDLEVEL1") return new UndergroundLevel1({ itemsFound: itemsFoundNames });
     else if (upperKey == "BRUSHSHOP1") return new BrushShop1({ itemsFound: itemsFoundNames });
-    else if (upperKey == "FIGHT") return new Fight(
-      {
-        metaHero: this.metaHero,
-        parts: this.mainScene?.inventory.parts.filter((x: any) => x.metabotId),
-        entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFoundNames }) : this.getLevelFromLevelName(this.metaHero.map)),
-        enemies: undefined,
-        party: [this.metaHero],
-        itemsFound: itemsFoundNames
-      }
-    );
+    //else if (upperKey == "FIGHT") return new Fight(
+    //  {
+    //    metaHero: this.metaHero,
+    //    parts: this.mainScene?.inventory.parts.filter((x: any) => x.metabotId),
+    //    entryLevel: (this.metaHero.map == "FIGHT" ? new BrushLevel1({ itemsFound: itemsFoundNames }) : this.getLevelFromLevelName(this.metaHero.map)),
+    //    enemies: undefined,
+    //    party: [this.metaHero],
+    //    itemsFound: itemsFoundNames
+    //  }
+    //);
     return new HeroRoomLevel();
   }
 

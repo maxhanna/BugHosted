@@ -1,18 +1,19 @@
 import { Component, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/core';
-import { AiService } from '../../services/ai.service'; 
-import { ChildComponent } from '../child.component'; 
+import { AiService } from '../../services/ai.service';
+import { ChildComponent } from '../child.component';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 
 @Component({
-    selector: 'app-host-ai',
-    templateUrl: './host-ai.component.html',
-    styleUrl: './host-ai.component.css',
-    standalone: false
+  selector: 'app-host-ai',
+  templateUrl: './host-ai.component.html',
+  styleUrl: './host-ai.component.css',
+  standalone: false
 })
 export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy {
-  constructor(private aiService: AiService) { super(); }
-  userMessage: string = '';  
-  chatMessages: { sender: string, message: any }[] = [];  
+  constructor(private aiService: AiService, private sanitizer: DomSanitizer) { super(); }
+  userMessage: string = '';
+  chatMessages: { sender: string, message: any }[] = [];
 
   @ViewChild('chatInput') chatInput!: ElementRef<HTMLInputElement>;
   @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
@@ -20,7 +21,7 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
   ngOnInit() {
     this.parentRef?.addResizeListener();
   }
-  ngOnDestroy() { 
+  ngOnDestroy() {
     this.parentRef?.removeResizeListener();
   }
   sendMessage() {
@@ -28,116 +29,77 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     if (!user) { return alert("You must be logged in to use this feature!"); }
     this.userMessage = this.chatInput.nativeElement.value.trim();
     this.startLoading();
-    if (this.userMessage.trim()) { 
-      this.pushMessage({ sender: 'You', message: this.userMessage }); 
+    if (this.userMessage.trim()) {
+      this.pushMessage({ sender: 'You', message: this.userMessage });
       this.aiService.sendMessage(user, this.userMessage).then(
         (response) => {
-          let reply = this.parseGeminiMessage(response.reply); 
+          let reply = this.parseMessage(response.response);
           this.pushMessage({ sender: 'Host', message: reply });
           this.stopLoading();
         },
-        (error) => { 
+        (error) => {
           console.error(error);
           this.pushMessage({ sender: 'System', message: error.reply });
           this.stopLoading();
         }
       );
-       
+
       this.userMessage = '';
       this.chatInput.nativeElement.value = "";
       this.chatInput.nativeElement.focus();
     }
   }
   generateImage() {
-    const user = this.parentRef?.user;
-    if (!user) { return alert("You must be logged in to use this feature!"); }
-    this.userMessage = this.chatInput.nativeElement.value.trim();
-    const prompt = this.userMessage.trim();
-    if (!prompt) return;
-
-    this.startLoading();
-    this.pushMessage({ sender: 'You', message: prompt });
-
-    this.aiService.generateImage(user, prompt).then(
-      (response) => {
-        if (response && response.reply && response.mimeType) {
-          this.pushMessage({ sender: 'Host', message: { reply: response.reply, mimeType: response.mimeType } });
-        } else { 
-          this.pushMessage({ sender: 'Host', message: { reply: response.reply } });
-        }
-        this.stopLoading();
-      },
-      (error) => {
-        console.error('Image generation failed:', error);
-        this.stopLoading();
-      }
-    );
+    return alert("Feature not yet available");
   }
-  handleKeyDown(event: KeyboardEvent) { 
+  handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
-      if (event.shiftKey) { 
+      if (event.shiftKey) {
         return;
-      } else { 
+      } else {
         event.preventDefault();
         this.sendMessage();
       }
     }
   }
-  parseGeminiMessage(message: any): string {
-    if (message?.message?.reply && message?.message?.mimeType) {
-      let safeUrl = `data:${message.message.mimeType};base64,${message.message.reply}`;
-      return safeUrl.toString(); // Bypass Angular's sanitization for trusted HTML
-    }
-    if (message?.sender === 'You') {
-      // For user/system messages, don't allow HTML rendering
-      return this.formatMessage(message.message, false, false);
-    }
 
-    // For AI responses, allow HTML rendering
-    return this.formatMessage(message?.message ?? message?.reply ?? message, true, true);
-  }
+  parseMessage(message: string): string {
+    if (!message) return '';
 
-  formatMessage(text: any, allowHtml?: boolean, addBr = false): string {  
-    // First, handle code blocks (```)
-    let tmpText = text;
-    if (typeof tmpText === 'object') {
-      tmpText = tmpText.reply;
-    }  
-    const text2 = tmpText + '';
-    let formattedText = text2
-      .replace(/```([\s\S]*?)```/g, (_, codeContent) => {
-        return `<pre><code>${this.escapeHtml(codeContent.trim())}</code></pre>`;
-      }) // Wrap code blocks with <pre><code> tags
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // **bold** → <strong>bold</strong>
-      .replace(/^(\d+)\. (.*)$/gm, "<ol><li>$2</li></ol>") // 1. List item → <ol><li>List item</li></ol>
-      .replace(/^- (.*)$/gm, "<ul><li>$1</li></ul>"); // - List item → <ul><li>List item</li></ul>
+    // Preserve <pre> blocks
+    const preBlocks: string[] = [];
+    message = message.replace(/<pre>([\s\S]*?)<\/pre>/g, (match, code) => {
+      preBlocks.push(code);
+      return `<pre-placeholder-${preBlocks.length - 1}>`;
+    });
 
-    // Replace line breaks outside of code blocks (we don't want them inside <pre><code>)
-    if (addBr) {  
-      formattedText = formattedText.replace(/(?:^|\n)(?!<pre><code>)/g, "<br>");
-    }
-    // Now, either escape or allow HTML tags depending on the flag
-    return formattedText;
-  }
+    // Convert **bold** to <b>...</b>
+    message = message.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
 
-  
-  escapeHtml(text: string): string {
-    return text.replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-  createCodeSnippet(): void {
-    const codeSnippet = `\`\`\`
-console.log("Hello, world!");
-\`\`\``; // Example code snippet, adjust as needed
+    // Convert *italic* to <i>...</i>
+    message = message.replace(/\*(.*?)\*/g, '<i>$1</i>');
 
-    // Insert the code snippet at the current cursor position
-    this.insertAtCursor(codeSnippet);
-  }
+    // Convert [text](URL) to <a href="URL">text</a>
+    message = message.replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank">$1</a>');
 
-  // Helper function to insert text at the current cursor position in the textarea
+    // Convert special HTML entities
+    message = message
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&copy;/g, '©');
+
+    // Convert line breaks to <br> (except in <pre>)
+    message = message.replace(/\n/g, '<br>');
+
+    // Restore <pre> blocks
+    message = message.replace(/<pre-placeholder-(\d+)>/g, (_, index) => {
+      return `<pre>${preBlocks[parseInt(index)]}</pre>`;
+    });
+
+    return message;
+  }  
   insertAtCursor(text: string): void {
     const chatInput = <HTMLTextAreaElement>document.querySelector('textarea');
     const cursorPos = chatInput.selectionStart;
@@ -153,8 +115,19 @@ console.log("Hello, world!");
       chatInput.focus();
     }, 0);
   }
+  createCodeSnippet(): void {
+    const codeSnippet = `\`\`\`
+console.log("Hello, world!");
+\`\`\``;
+    this.insertAtCursor(codeSnippet);
+  } 
   pushMessage(message: any) {
     this.chatMessages.push(message);
-    this.chatContainer.nativeElement.scrollTop = this.chatContainer.nativeElement.scrollHeight;
+    setTimeout(() => { 
+        const tgt = document.getElementsByClassName("chat-box")[0];
+        if (tgt) {
+          tgt.scrollTop = tgt.scrollHeight;
+        }  
+    }, 500);
   }
 }

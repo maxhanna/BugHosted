@@ -12,9 +12,22 @@
   align-content: space-around;
   align-items: stretch; 
 }
+ 
+
+  .chat-container .input-container {
+    flex-grow: 1; /* Let the input container take up available space */
+    display: flex;
+    flex-direction: row;
+  }
+
+    .chat-container .input-container textarea {
+      flex-grow: 1; /* Let the textarea expand within the input container */
+      min-height: 40px; /* Set a minimum height to prevent it from shrinking too much */
+    }
+
 
 .chat-box {
-  height: CALC(var(--vh, 1vh) * 100 - 145px);
+  height: CALC(var(--vh, 1vh) * 100 - 160px);
   overflow-y: auto; 
   padding-left: 30px;
   padding-right: 30px;
@@ -24,6 +37,7 @@
   padding-left: 20px;
   padding-right: 20px;
   display: inline-block;
+  word-break: break-word;
 }
 
 .input-container {
@@ -111,7 +125,7 @@ ol, ul {
 }
 .emptyHostAiMessage {
   font-size: xx-large;
-  height: CALC(var(--vh, 1vh)* 100 - 145px);
+  height: CALC(var(--vh, 1vh)* 100 - 200px);
   overflow-y: auto;
   padding-left: 30px;
   padding-right: 30px;

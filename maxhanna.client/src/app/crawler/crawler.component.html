@@ -69,6 +69,45 @@
       <option *ngFor="let size of pageSizes" [value]="size" [selected]="size === pageSize">{{ size }}</option>
     </select>
   </div>
+  <div class="popupPanelTitle">Database Nerd Stats:</div>
+  <div *ngIf="storageStats" class="optionsStatsWrapperDiv">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Avg. Row Size Bytes:</div>
+      <div class="optionsStatsDescription">
+        {{storageStats.avgRowSizeBytes}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Avg. Row Size MBytes:</div>
+      <div class="optionsStatsDescription">
+        {{storageStats.avgRowSizeMB}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Total Rows:</div>
+      <div class="optionsStatsDescription">
+        {{storageStats.totalRows}}
+      </div>
+    </div> 
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Days of Data:</div>
+      <div class="optionsStatsDescription">
+        {{storageStats.daysOfData}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Avg. Rows per Day:</div>
+      <div class="optionsStatsDescription">
+        {{storageStats.avgRowsPerDay}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Projected Monthly MB usage:</div>
+      <div class="optionsStatsDescription">
+        {{storageStats.projectedMonthlyUsageMB.toFixed(2)}}
+      </div>
+    </div>
+  </div>
   <div>
     <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>

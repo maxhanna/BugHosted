@@ -40,7 +40,8 @@ export class Character extends GameObject {
   level = 1;
   exp = 0;
   expForNextLevel = 0;
-  isWarping = false;
+  isWarping = false; 
+  isBackgroundSelectionLocked = false;
 
   private messageCache: HTMLCanvasElement | null = null;
   private cachedMessage: string = "";
@@ -208,7 +209,7 @@ export class Character extends GameObject {
       this.workOnItemPickup(delta);
       return;
     }
-    if (input?.getActionJustPressed("Space") && this.isUserControlled) {
+    if (input?.getActionJustPressed("Space") && this.isUserControlled && !this.isBackgroundSelectionLocked) {
       const objectAtPosition = isObjectNearby(this);
       if (objectAtPosition) {
         events.emit("HERO_REQUESTS_ACTION", { hero: this, objectAtPosition: objectAtPosition });
@@ -343,6 +344,14 @@ export class Character extends GameObject {
       stats: any;
     }) => {
       this.onPickupItem(data);
+    });
+    events.on("BLOCK_BACKGROUND_SELECTION", this, () => {
+      this.isBackgroundSelectionLocked = true;
+    });
+    events.on("UNBLOCK_BACKGROUND_SELECTION", this, () => {
+      setTimeout(() => { 
+        this.isBackgroundSelectionLocked = false;
+      }, 10);
     });
   }
   drawHP(ctx: CanvasRenderingContext2D, drawPosX: number, drawPosY: number) {

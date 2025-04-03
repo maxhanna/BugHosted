@@ -19,6 +19,7 @@ import { House } from "../objects/Environment/House/house";
 import { Shop } from "../objects/Environment/Shop/shop";
 import { Deer } from "../objects/Environment/Deer/deer";
 import { Water } from "../objects/Environment/Water/water";
+import { Rocks } from "../objects/Environment/Rocks/rocks";
 import { GiantTree } from "../objects/Environment/GiantTree/giant-tree";
 import { Sign } from "../objects/Environment/Sign/sign";
 import { BrushRoad1 } from "./brush-road1";
@@ -63,14 +64,39 @@ export class BrushLevel1 extends Level {
 
     for (let x = 0; x < 3; x++) {
       const water = new Water(gridCells(2 * x) + gridCells(31), gridCells(2));
-      water.drawLayer = FLOOR;
+      water.drawLayer = GROUND;
       this.addChild(water);
       const water2 = new Water(gridCells(2 * x) + gridCells(31), gridCells(4));
-      water2.drawLayer = FLOOR;
+      water2.drawLayer = GROUND;
       this.addChild(water2);
       const water3 = new Water(gridCells(2 * x) + gridCells(31), gridCells(6));
-      water3.drawLayer = FLOOR;
+      water3.drawLayer = GROUND;
       this.addChild(water3);
+    }
+
+    for (let y = 1; y < 7; y++) {
+      const rock = new Rocks({
+        position: new Vector2(gridCells(30), gridCells(y) + gridCells(1)),
+        frame: y,
+        offsetY: -5
+      });
+      this.addChild(rock);
+      const rock2 = new Rocks({
+        position: new Vector2(gridCells(36), gridCells(y) + gridCells(1)),
+        frame: y,
+        offsetY: -5
+      });
+      this.addChild(rock2);
+    }
+    for (let x = 1; x < 8; x++) {
+      const rock = new Rocks({
+        position: new Vector2(gridCells(x) + gridCells(29), gridCells(1)), 
+      });
+      this.addChild(rock);
+      const rock2 = new Rocks({
+        position: new Vector2(gridCells(x) + gridCells(29), gridCells(7)), 
+      });
+      this.addChild(rock2);
     }
 
 
@@ -178,6 +204,15 @@ export class BrushLevel1 extends Level {
       fence2.isSolid = true;
       this.addChild(fence2);
     }
+    for (let y = 0; y < 2; y++) { 
+      const rock = new Rocks({
+        position: new Vector2(gridCells(19), gridCells(26 + y)),
+        frame: 4 + y,
+        offsetX: -8,
+        offsetY: -2,
+      });
+      this.addChild(rock);
+    }
     //hero's home chickens
     const chicken3 = new Chicken(gridCells(13), gridCells(21));
     this.addChild(chicken3);
@@ -223,12 +258,12 @@ export class BrushLevel1 extends Level {
         { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(x * gridCells(1), gridCells(36)), frameSize: new Vector2(15, 17), isSolid: true }
       ); 
       this.addChild(bb2);
-
-      const fence = new Sprite(
-        { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16), isSolid: true }
-      ); 
-      this.addChild(fence);
-
+      if (x < 31) { 
+        const fence = new Sprite(
+          { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(1)), frameSize: new Vector2(16, 16), isSolid: true }
+        );
+        this.addChild(fence); 
+      }
       const fence2 = new Sprite(
         { objectId: 0, resource: resources.images["fenceHorizontal"], position: new Vector2(x * gridCells(1), gridCells(35)), frameSize: new Vector2(16, 16), isSolid: true }
       ); 
@@ -255,10 +290,12 @@ export class BrushLevel1 extends Level {
       ); 
       this.addChild(bb2);
 
-      const fence2 = new Sprite(
-        { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
-      ); 
-      this.addChild(fence2);
+      if (y > 15) { 
+        const fence2 = new Sprite(
+          { objectId: 0, resource: resources.images["fenceVertical"], position: new Vector2(gridCells(37), y * gridCells(1) / 2), frameSize: new Vector2(16, 16), isSolid: true }
+        );
+        this.addChild(fence2);
+      }
     } 
 
     const gangster0 = new Gangster({ position: new Vector2(gridCells(13), gridCells(10)), });

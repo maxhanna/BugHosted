@@ -19,6 +19,7 @@ import { Encounter } from "../objects/Environment/Encounter/encounter";
 import { Bugcatcher } from "../objects/Npc/Bugcatcher/bugcatcher";
 import { Scenario } from "../helpers/story-flags";
 import { Fire } from "../objects/Effects/Fire/fire";
+import { Rocks } from "../objects/Environment/Rocks/rocks";
  
 
 export class BrushRoad1 extends Level { 
@@ -277,7 +278,14 @@ export class BrushRoad1 extends Level {
 
       } else {
         const bb2 = new Sprite(
-          { objectId: 0, resource: resources.images["biggerBush"], position: new Vector2(gridCells(38), gridCells(y) / 2), frameSize: new Vector2(15, 17), isSolid: true }
+          {
+            objectId: 0,
+            resource: resources.images["biggerBush"],
+            position: new Vector2(gridCells(38), gridCells(y) / 2),
+            frameSize: new Vector2(15, 17),
+            isSolid: true,
+            drawLayer: GROUND
+          }
         );
         this.addChild(bb2);
 
@@ -287,6 +295,13 @@ export class BrushRoad1 extends Level {
         this.addChild(fence2);
       }
     }
+    const delimeterRock = new Rocks({
+      position: new Vector2(gridCells(38), gridCells(35)),
+      frame: 2,
+      offsetX: -2,
+      drawLayer: HUD
+    });
+    this.addChild(delimeterRock);
     //top one neer exit
     for (let x = 0; x < 35; x++) {
       const fence = new Sprite(

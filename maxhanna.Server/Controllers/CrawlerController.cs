@@ -4,11 +4,13 @@ using maxhanna.Server.Controllers.DataContracts.Metadata;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System;
+using System.Data;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -132,22 +134,21 @@ namespace maxhanna.Server.Controllers
 
 					var urlVariants = new List<string>();
 					Console.WriteLine($"Found {results.Count} results before searching manually");
-					int scrapedResults = 0;
-					bool skipHttpCheck = false;
+					int scrapedResults = 0; 
 					bool skipScrape = false;
 					string tmpUrl = request.Url.Trim().Replace(",", "").Replace(" ", "").Replace("'", "");
-
+					string buildUrlCom = "";
+					string buildUrlNet = "";
 					if (!IsValidDomain(request.Url))
 					{
 						if (!request.Url.StartsWith("http://") && !request.Url.StartsWith("https://"))
 						{
-							string builtUrl = "http://" + tmpUrl;
+							string builtUrl = tmpUrl;
 							bool addedCom = false;
 							bool addedNet = false;
 							if (!tmpUrl.Contains(".com"))
 							{
-								urlVariants.Add(builtUrl + ".com");
-								skipHttpCheck = true;
+								buildUrlCom = builtUrl + ".com"; 
 								if (pageNumber != 1)
 								{
 									skipScrape = true;
@@ -156,8 +157,7 @@ namespace maxhanna.Server.Controllers
 							}
 							if (!tmpUrl.Contains(".net"))
 							{
-								urlVariants.Add(builtUrl + ".net");
-								skipHttpCheck = true;
+								buildUrlNet = builtUrl + ".net"; 
 								if (pageNumber != 1)
 								{
 									skipScrape = true;
@@ -176,12 +176,26 @@ namespace maxhanna.Server.Controllers
 						{
 							urlVariants.Add(tmpUrl);
 						}
-						else if (!skipHttpCheck)
+						else 
 						{
-							urlVariants.Add("http://" + tmpUrl);
-							urlVariants.Add("https://" + tmpUrl);
-						}
-
+							if (!string.IsNullOrEmpty(buildUrlCom) || !string.IsNullOrEmpty(buildUrlNet))
+							{
+								if (!string.IsNullOrEmpty(buildUrlCom))
+								{
+									urlVariants.Add("http://" + buildUrlCom);
+									urlVariants.Add("https://" + buildUrlCom);
+								}
+								if (!string.IsNullOrEmpty(buildUrlNet))
+								{
+									urlVariants.Add("http://" + buildUrlNet);
+									urlVariants.Add("https://" + buildUrlNet);
+								}
+							} else if (IsValidDomain("https://" + tmpUrl))
+							{
+								urlVariants.Add("http://" + tmpUrl);
+								urlVariants.Add("https://" + tmpUrl);
+							} 
+						} 
 						// Await these sequentially before launching async tasks
 						foreach (var urlVariant in urlVariants)
 						{
@@ -198,6 +212,9 @@ namespace maxhanna.Server.Controllers
 										results.Add(cMeta);
 										_ = InsertScrapedData(cMeta.Url, cMeta);
 									}
+								} else
+								{
+									_ = InsertFailureRecord(urlVariant); 
 								}
 							}
 							catch (Exception innerEx)
@@ -344,6 +361,125 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 		}
+
+		[HttpGet("/Crawler/GetStorageStats", Name = "GetStorageStats")]
+		public async Task<IActionResult> GetStorageStats()
+		{
+			_logger.LogInformation("GET /StorageStats");
+
+			string sql = @"
+        SELECT 
+            -- Calculate average row size in bytes
+            (
+                AVG(LENGTH(url)) +
+                AVG(LENGTH(IFNULL(title, ''))) +
+                AVG(LENGTH(IFNULL(description, ''))) +
+                AVG(LENGTH(IFNULL(author, ''))) +
+                AVG(LENGTH(IFNULL(keywords, ''))) +
+                AVG(LENGTH(IFNULL(image_url, ''))) +
+                4 + -- id (int)
+                8 + -- found_date (timestamp)
+                8 + -- last_crawled (timestamp)
+                64 + -- url_hash (char(64))
+                1 + -- failed (tinyint)
+                4 + -- response_code (int)
+                20  -- overhead for row structure
+            ) AS avg_row_size_bytes,
+            
+            -- Convert to MB
+            (
+                AVG(LENGTH(url)) +
+                AVG(LENGTH(IFNULL(title, ''))) +
+                AVG(LENGTH(IFNULL(description, ''))) +
+                AVG(LENGTH(IFNULL(author, ''))) +
+                AVG(LENGTH(IFNULL(keywords, ''))) +
+                AVG(LENGTH(IFNULL(image_url, ''))) +
+                4 + 8 + 8 + 64 + 1 + 4 + 20
+            ) / (1024 * 1024) AS avg_row_size_mb,
+            
+            -- Get total row count
+            COUNT(*) AS total_rows,
+            
+            -- Get date range
+            MIN(found_date) AS earliest_date,
+            MAX(found_date) AS latest_date,
+            
+            -- Calculate days of data
+            TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) AS days_of_data,
+            
+            -- Calculate rows per day (avoiding division by zero)
+            CASE 
+                WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN COUNT(*)
+                ELSE COUNT(*) / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))
+            END AS avg_rows_per_day,
+            
+            -- Calculate estimated monthly usage in MB (projecting from daily average)
+            CASE 
+                WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN 
+                    COUNT(*) * (
+                        AVG(LENGTH(url)) +
+                        AVG(LENGTH(IFNULL(title, ''))) +
+                        AVG(LENGTH(IFNULL(description, ''))) +
+                        AVG(LENGTH(IFNULL(author, ''))) +
+                        AVG(LENGTH(IFNULL(keywords, ''))) +
+                        AVG(LENGTH(IFNULL(image_url, ''))) +
+                        4 + 8 + 8 + 64 + 1 + 4 + 20
+                    ) / (1024 * 1024)
+                ELSE 
+                    (COUNT(*) / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))) * 30 * 
+                    (
+                        AVG(LENGTH(url)) +
+                        AVG(LENGTH(IFNULL(title, ''))) +
+                        AVG(LENGTH(IFNULL(description, ''))) +
+                        AVG(LENGTH(IFNULL(author, ''))) +
+                        AVG(LENGTH(IFNULL(keywords, ''))) +
+                        AVG(LENGTH(IFNULL(image_url, ''))) +
+                        4 + 8 + 8 + 64 + 1 + 4 + 20
+                    ) / (1024 * 1024)
+            END AS projected_monthly_usage_mb
+        FROM 
+            search_results";
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							if (await rdr.ReadAsync())
+							{
+								var stats = new
+								{
+									AvgRowSizeBytes = rdr.IsDBNull("avg_row_size_bytes") ? 0 : rdr.GetDecimal("avg_row_size_bytes"),
+									AvgRowSizeMB = rdr.IsDBNull("avg_row_size_mb") ? 0 : rdr.GetDecimal("avg_row_size_mb"),
+									TotalRows = rdr.IsDBNull("total_rows") ? 0 : rdr.GetInt32("total_rows"),
+									EarliestDate = rdr.IsDBNull("earliest_date") ? DateTime.MinValue : rdr.GetDateTime("earliest_date"),
+									LatestDate = rdr.IsDBNull("latest_date") ? DateTime.MinValue : rdr.GetDateTime("latest_date"),
+									DaysOfData = rdr.IsDBNull("days_of_data") ? 0 : rdr.GetInt32("days_of_data"),
+									AvgRowsPerDay = rdr.IsDBNull("avg_rows_per_day") ? 0 : rdr.GetDecimal("avg_rows_per_day"),
+									ProjectedMonthlyUsageMB = rdr.IsDBNull("projected_monthly_usage_mb") ? 0 : rdr.GetDecimal("projected_monthly_usage_mb")
+								};
+
+								return Ok(stats);
+							}
+							else
+							{
+								return NotFound("No storage statistics available");
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while fetching storage statistics.");
+				return StatusCode(500, "An error occurred while fetching storage statistics.");
+			}
+		}
 		private async Task InsertScrapedData(string url, Metadata scrapedData)
 		{
 			try
@@ -462,11 +598,12 @@ namespace maxhanna.Server.Controllers
 			catch (StackOverflowException ex)
 			{
 				//		Console.WriteLine("Stack Overflow Error on URL: " + url);
+				_ = InsertFailureRecord(url, 500);
 				return metaList;
 			}
 			catch (Exception ex)
 			{
-				_ = InsertFailureRecord(url);
+				_ = InsertFailureRecord(url, 500);
 				//	Console.WriteLine("Ctrl: Error scraping data :" + ex.Message);
 			}
 			return metaList;

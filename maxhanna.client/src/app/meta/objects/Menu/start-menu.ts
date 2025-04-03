@@ -94,11 +94,13 @@ export class StartMenu extends GameObject {
     this.addChild(watchSprite);
 
     this.displayStartMenu();
-
+     
     events.on("PRESSED_ESCAPE", this, () => { 
-      events.emit("START_PRESSED");
+      events.emit("START_PRESSED");  
     });
   }
+
+
   override step(delta: number, root: GameObject) {
     const input = (root as Main).input as Input;
     if (input.heldDirections.length > 0 || Object.values(input.keys).some(value => value === true)) {
@@ -368,7 +370,8 @@ export class StartMenu extends GameObject {
       if (input?.keys["Space"] && !this.blockSelection) {
         console.log(this.items[this.currentlySelectedId], this.selectedMetabot);
         if (this.items[this.currentlySelectedId] === "Exit") {
-          events.emit("START_PRESSED");
+          events.emit("START_PRESSED"); 
+          events.emit("UNBLOCK_BACKGROUND_SELECTION");
         }
         else if (this.items[this.currentlySelectedId] === "Warping") {
           this.displayWatchMenu();

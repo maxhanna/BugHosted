@@ -47,4 +47,18 @@ export class CrawlerService {
       return null;
     }
   }
+  async storageStats() {
+    try {
+      const response = await fetch(`/crawler/getstoragestats`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
 }

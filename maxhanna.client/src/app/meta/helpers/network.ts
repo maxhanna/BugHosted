@@ -9,8 +9,7 @@ import { Bot } from "../objects/Bot/bot";
 import { GameObject } from "../objects/game-object";
 import { Level } from "../objects/Level/level";
 import { ShopMenu } from "../objects/Menu/shop-menu";
-import { WardrobeMenu } from "../objects/Menu/wardrobe-menu";
-import { Fight } from "../levels/fight";
+import { WardrobeMenu } from "../objects/Menu/wardrobe-menu"; 
 import { gridCells } from "./grid-cells";
 import { HEADBUTT, Skill } from "./skill-types";
 import { InventoryItem } from "../objects/InventoryItem/inventory-item";
@@ -103,7 +102,8 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("WARDROBE_OPENED", object, () => {
-    if (actionBlocker) return;
+    if (actionBlocker) return; 
+    events.emit("BLOCK_BACKGROUND_SELECTION");
     object.blockOpenStartMenu = true;
 
     const invItems = object.mainScene.inventory.items;
@@ -125,7 +125,8 @@ export function subscribeToMainGameEvents(object: any) {
   });
 
   events.on("SHOP_OPENED", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
-    if (!actionBlocker) { 
+    if (!actionBlocker) {
+      events.emit("BLOCK_BACKGROUND_SELECTION");
       object.blockOpenStartMenu = true;
       object.mainScene?.setLevel(new ShopMenu(params));
       object.stopPollingForUpdates = true;
@@ -133,7 +134,8 @@ export function subscribeToMainGameEvents(object: any) {
     }
   });
 
-  events.on("SHOP_OPENED_TO_SELL", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => {
+  events.on("SHOP_OPENED_TO_SELL", object, (params: { heroPosition: Vector2, entranceLevel: Level, items?: InventoryItem[] }) => { 
+    events.emit("BLOCK_BACKGROUND_SELECTION");
     let shopParts: InventoryItem[] = [];
     let x = 0;
     const parts = object.mainScene.inventory.parts.sort((x: MetaBotPart, y: MetaBotPart) => {
@@ -160,7 +162,8 @@ export function subscribeToMainGameEvents(object: any) {
     console.log(newLevel, params.entranceLevel);
     newLevel.defaultHeroPosition = params.heroPosition;
     events.emit("CHANGE_LEVEL", newLevel);
-    events.emit("SHOW_START_BUTTON");
+    events.emit("SHOW_START_BUTTON"); 
+    events.emit("UNBLOCK_BACKGROUND_SELECTION");
   });
   events.on("SHOP_CLOSED", object, (params: { heroPosition: Vector2, entranceLevel: Level }) => {
     object.stopPollingForUpdates = false;
@@ -168,7 +171,8 @@ export function subscribeToMainGameEvents(object: any) {
     const newLevel = object.getLevelFromLevelName((params.entranceLevel.name ?? "HERO_ROOM"));
     newLevel.defaultHeroPosition = params.heroPosition;
     events.emit("CHANGE_LEVEL", newLevel);
-    events.emit("SHOW_START_BUTTON");
+    events.emit("SHOW_START_BUTTON"); 
+    events.emit("UNBLOCK_BACKGROUND_SELECTION");
   });
   events.on("SELECTED_PART", object, (params: { selectedPart: string, selection: string, selectedMetabotId: number }) => {
     const parts = object.mainScene.inventory.parts;
@@ -442,9 +446,11 @@ export function subscribeToMainGameEvents(object: any) {
     }
     if (object.isStartMenuOpened) {
       events.emit("CLOSE_INVENTORY_MENU", data);
+      events.emit("UNBLOCK_BACKGROUND_SELECTION");
     } else {
       const exits = object.mainScene.level.children.filter((x: GameObject) => x.name == "exitObject"); 
       events.emit("OPEN_START_MENU", ({ exits: exits, location: object.mainScene.metaHero.position }));
+      events.emit("BLOCK_BACKGROUND_SELECTION");
     }
   });
 
@@ -573,8 +579,7 @@ export function subscribeToMainGameEvents(object: any) {
       params.owner.lastCreated = tgtCreateEvent?.timestamp ?? tgtDestroyedEvent.timestamp;
       return;
     }
-
-
+    console.log("bot created :", params.bot); 
     const botData = {
       Id: params.bot.id,
       Type: params.bot.botType,
@@ -582,6 +587,10 @@ export function subscribeToMainGameEvents(object: any) {
       Level: params.bot.level,
       Exp: params.bot.exp,
       Hp: params.bot.hp,
+      LeftArm: params.bot.leftArm,
+      RightArm: params.bot.rightArm,
+      Head: params.bot.head,
+      Legs: params.bot.legs,
       IsDeployed: true,
       IsEnemy: true,
       HeroId: params.bot.heroId || 39758

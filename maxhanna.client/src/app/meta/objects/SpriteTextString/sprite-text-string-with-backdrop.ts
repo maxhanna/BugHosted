@@ -56,6 +56,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
       this.getPortraitOfNonPortraitObject(config);
     }
     events.emit("BLOCK_START_MENU");
+    events.emit("BLOCK_BACKGROUND_SELECTION");
     events.on("CLOSE_MENUS", this, () => {
       events.emit("HERO_MOVEMENT_LOCK");
     });
@@ -66,6 +67,7 @@ export class SpriteTextStringWithBackdrop extends GameObject {
 
   override destroy() {
     events.emit("UNBLOCK_START_MENU");
+    events.emit("UNBLOCK_BACKGROUND_SELECTION");
     events.emit("HERO_MOVEMENT_UNLOCK");
     super.destroy();
   }

@@ -295,16 +295,7 @@ namespace maxhanna.Server.Controllers
 								existingBotCount = Convert.ToInt32(await command.ExecuteScalarAsync()); 
 							}  
 							if (Convert.ToInt32(existingBotCount) > 0)
-							{  
-								//string deleteSql = $@"DELETE FROM maxhanna.meta_bot WHERE hero_id = @HeroId LIMIT {(existingBotCount - 1)};";
-
-								//using (var deleteCommand = new MySqlCommand(deleteSql, connection, transaction))
-								//{ 
-								//	deleteCommand.Parameters.AddWithValue("@HeroId", bot.HeroId);
-								//	await deleteCommand.ExecuteNonQueryAsync();
-								//	Console.WriteLine("Deleted extra bots with the same HeroId.");
-								//}
-
+							{   
 								await transaction.CommitAsync();
 								Console.WriteLine("A bot with the same hero_id already exists.");
 								return BadRequest("A bot with the same hero_id already exists.");
@@ -327,6 +318,10 @@ namespace maxhanna.Server.Controllers
 						};
 
 						long? botId = await this.ExecuteInsertOrUpdateOrDeleteAsync(sql, parametersForInsert, connection, transaction);
+						if (botId == null) {
+							Console.WriteLine("Failed to create metabot, BotId IS NULL");
+							throw new Exception("Failed to create MetaBot");
+						} 
 						await transaction.CommitAsync();
 
 						MetaBot heroBot = new MetaBot
@@ -337,7 +332,11 @@ namespace maxhanna.Server.Controllers
 							Name = bot.Name,
 							Hp = bot.Hp,
 							Type = bot.Type,
-							IsDeployed = bot.IsDeployed
+							IsDeployed = bot.IsDeployed, 
+							Head = bot.Head,
+							Legs = bot.Legs,
+							LeftArm = bot.LeftArm,
+							RightArm = bot.RightArm
 						};
 
 						return Ok(heroBot);
@@ -345,6 +344,7 @@ namespace maxhanna.Server.Controllers
 					catch (Exception ex)
 					{
 						await transaction.RollbackAsync();
+						Console.WriteLine(ex.ToString());
 						return StatusCode(500, "Internal server error: " + ex.Message);
 					}
 				}
@@ -863,7 +863,7 @@ namespace maxhanna.Server.Controllers
     FROM
         maxhanna.meta_bot b
     LEFT JOIN
-        maxhanna.meta_bot_part p ON b.id = p.metabot_id
+        maxhanna.meta_encounter_bot_part p ON b.hero_id = p.hero_id
     WHERE b.hero_id IN (" + string.Join(",", heroIds) + ");"; // Inject IDs safely
 
 			MySqlCommand cmd = new MySqlCommand(sql, conn, transaction);
@@ -1301,8 +1301,11 @@ namespace maxhanna.Server.Controllers
 				if (metaEvent.Data.ContainsKey("bot"))
 				{
 					var botJson = metaEvent.Data["bot"];
-					//Console.WriteLine("Received Bot JSON: " + botJson);
-					MetaBot? bot = JsonSerializer.Deserialize<MetaBot>(botJson);
+					Console.WriteLine("Received Bot JSON: " + botJson);
+					var bot = JsonSerializer.Deserialize<MetaBot>(botJson, new JsonSerializerOptions
+					{
+						PropertyNameCaseInsensitive = true
+					}); 
 					if (bot != null)
 					{
 						bool botExists = await EnemyBotCreationEventExists(bot.HeroId, connection, transaction);
@@ -1453,10 +1456,19 @@ namespace maxhanna.Server.Controllers
 
 								if (!attackerStopped && attackingBot != null && defendingBot != null)
 								{
-									// 3. Fetch last used bot part for both bots
-									MetaBotPart attackingPart = GetLastUsedPart(attackingBot.Id, connection, transaction);
-									MetaBotPart defendingPart = GetLastUsedPart(defendingBot.Id, connection, transaction);
-
+									MetaBotPart? attackingPart = 
+										GetLastUsedPart(attackingBot.HeroId > 0 ? "meta_bot_part" : "meta_encounter_bot_part",
+										attackingBot.HeroId > 0 ? "metabot_id" : "hero_id",
+										attackingBot.HeroId > 0 ? attackingBot.Id : attackingBot.HeroId,
+										connection, 
+										transaction);
+									MetaBotPart? defendingPart =
+										GetLastUsedPart(defendingBot.HeroId > 0 ? "meta_bot_part" : "meta_encounter_bot_part",
+										defendingBot.HeroId > 0 ? "metabot_id" : "hero_id",
+										defendingBot.HeroId > 0 ? defendingBot.Id : defendingBot.HeroId,
+										connection,
+										transaction);
+									 
 									// 4. Apply damage to both bots every second
  									ApplyDamageToBot(attackingBot, defendingBot, attackingPart, defendingPart, connection, transaction);
 
@@ -1531,13 +1543,19 @@ namespace maxhanna.Server.Controllers
 		{ 
 			return (player.Level + 1) * 15;
 		}
-
-		private MetaBotPart GetLastUsedPart(int botId, MySqlConnection connection, MySqlTransaction? transaction)
+		private MetaBotPart GetLastUsedPart(string tableName, string idColumn, int id, MySqlConnection connection, MySqlTransaction? transaction)
 		{
-			string fetchPartSql = @"
+			string fetchPartSql = $@"
         SELECT part_name, damage_mod, skill, type 
-        FROM maxhanna.meta_bot_part 
-        WHERE metabot_id = @BotId 
+        FROM maxhanna.{tableName} 
+        WHERE {idColumn} = @Id 
+        ORDER BY last_used DESC 
+        LIMIT 1";
+
+			string updateLastUsedSql = $@"
+        UPDATE maxhanna.{tableName} 
+        SET last_used = UTC_TIMESTAMP() 
+        WHERE {idColumn} = @Id 
         ORDER BY last_used DESC 
         LIMIT 1";
 
@@ -1550,7 +1568,7 @@ namespace maxhanna.Server.Controllers
 
 			using (var command = new MySqlCommand(fetchPartSql, connection, transaction))
 			{
-				command.Parameters.AddWithValue("@BotId", botId);
+				command.Parameters.AddWithValue("@Id", id);
 
 				using (var reader = command.ExecuteReader())
 				{
@@ -1566,8 +1584,15 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 
+			using (var command = new MySqlCommand(updateLastUsedSql, connection, transaction))
+			{
+				command.Parameters.AddWithValue("@Id", id);
+				command.ExecuteNonQuery();
+			}
+
 			return part;
 		}
+
 
 		private async Task<bool> EnemyBotCreationEventExists(int botHeroId, MySqlConnection connection, MySqlTransaction? transaction)
 		{
@@ -1636,10 +1661,7 @@ namespace maxhanna.Server.Controllers
 			int appliedDamage = (int)(baseDamage * typeMultiplier);
 
 			return appliedDamage > 0 ? appliedDamage : 0;
-		}
-
-
-
+		} 
 		private async Task<long?> ExecuteInsertOrUpdateOrDeleteAsync(string sql, Dictionary<string, object?> parameters, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
 		{
 			string cmdText = "";

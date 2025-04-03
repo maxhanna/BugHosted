@@ -14,7 +14,7 @@ import { events } from "../../helpers/events";
 import { WarpBase } from "../Effects/Warp/warp-base";
 
 export class Hero extends Character {
-  metabots?: MetaBot[];
+  metabots?: MetaBot[]; 
   constructor(params: {
     position: Vector2, id?: number, name?: string, metabots?: MetaBot[], colorSwap?: ColorSwap,
     isUserControlled?: boolean, speed?: number, mask?: Mask, scale?: Vector2,
@@ -85,11 +85,11 @@ export class Hero extends Character {
         this.isLocked = false;
       });
       events.on("HERO_MOVEMENT_LOCK", this, () => {
-        this.isLocked = true;  
+        this.isLocked = true;
       });
       events.on("HERO_MOVEMENT_UNLOCK", this, () => {
         this.isLocked = false;
-      });
+      }); 
       events.on("SELECTED_ITEM", this, (selectedItem: string) => { 
         if (selectedItem === "Party Up") {
           events.emit("PARTY_UP", isObjectNearby(this));

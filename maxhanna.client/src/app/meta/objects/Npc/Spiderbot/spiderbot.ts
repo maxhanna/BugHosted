@@ -27,8 +27,8 @@ export class Spiderbot extends Bot {
 
     this.rightArm = new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 5, skill: STING, partName: RIGHT_ARM })
     this.leftArm = new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 5, skill: STING, partName: LEFT_ARM })
-    this.legs = new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 1, skill: KICK, partName: LEGS })
-    this.head = new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 1, skill: HEADBUTT, partName: HEAD })
+    this.legs = new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 1, skill: STING, partName: LEGS })
+    this.head = new MetaBotPart({ id: 0, metabotId: this.id, damageMod: 1, skill: STING, partName: HEAD })
   } 
 
   override getContent() {

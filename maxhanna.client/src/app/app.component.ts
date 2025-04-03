@@ -748,6 +748,16 @@ export class AppComponent implements OnInit, AfterViewInit {
       this.userService.updateLastSeen(tmpUser);
     }
   }
+  async isServerUp() {
+    try {
+      const usersCount = await this.userService.getUserCount();
+      if (!usersCount || parseInt(usersCount) == 0) {
+        return false;
+      } else return true;
+    } catch {
+      return false;
+    } 
+  }
   async getLocation() {
     if (this.location) { 
       return this.location;

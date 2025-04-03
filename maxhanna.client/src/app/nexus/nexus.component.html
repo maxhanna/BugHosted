@@ -1,8 +1,8 @@
 <div class=componentMain>
   <div class="closeButton" (click)="remove_me('NexusComponent');"></div>
   <div class="componentTitle">Bug Wars</div>
-
-  <div *ngIf="!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading" class="centeredText">
+  <div *ngIf="serverDown">We are sorry, server is currently down. Please be patient while we bring it back online.</div> 
+  <div *ngIf="!serverDown && !isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading" class="centeredText">
     <button (click)="start()">Enter the fight</button>
   </div>
   <div *ngIf="isUserComponentOpen || (!isUserComponentOpen && parentRef && parentRef.user && isUserNew && !isLoading)">
@@ -21,7 +21,7 @@
     </div>
   </div>
 
-  <div class="gamescreen" *ngIf="!isUserNew">
+  <div class="gamescreen" *ngIf="!serverDown && !isUserNew">
     <!-- Conditionally display incoming attacks -->
     <div *ngIf="shouldShowIncomingAttacks() || shouldShowIncomingDefences()" class="incomingCount" (click)="toggleScreen('bases', !isBasesOpen)">
       <div *ngIf="shouldShowIncomingAttacks()" class="attacksIncomingCount">{{attacksIncomingCount}}⚔️</div>
@@ -326,7 +326,7 @@
         Current upgrade limit : {{nexusBase.commandCenterLevel + 1}}
       </div>
       <div>
-        Player Color : <input type="color" #playerColorInput [value]="'#'+playerColor" (change)="setPlayerColor()" /> 
+        Player Color : <input type="color" #playerColorInput [value]="'#'+playerColor" (change)="setPlayerColor()" />
       </div>
       <div>
         Base Name : <input type="text" #baseNameInput [placeholder]="nexusBase.baseName ?? ''" (keyup.enter)="setBaseName()" />

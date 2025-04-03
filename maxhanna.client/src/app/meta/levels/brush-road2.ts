@@ -22,6 +22,7 @@ import { TALKED_TO_SKILL_PERSON, TALKED_TO_SKILL_PERSON_2 } from "../helpers/sto
 import { Sign } from "../objects/Environment/Sign/sign";
 import { Scenario } from "../helpers/story-flags";
 import { SkillType, getCounterType, typeLabels } from "../helpers/skill-types";
+import { Rocks } from "../objects/Environment/Rocks/rocks";
 
 
 export class BrushRoad2 extends Level {
@@ -516,7 +517,17 @@ export class BrushRoad2 extends Level {
 		}
 
 		const yardGiantTree = new GiantTree(gridCells(housesStartX) + gridCells(30), gridCells(housesStartY) - gridCells(8));
-		this.addChild(yardGiantTree);
+    this.addChild(yardGiantTree);
+    for (let x = 0; x < 2; x++) { 
+      const yardRock = new Rocks({
+        position: new Vector2(gridCells(housesStartX) + gridCells(28+x), gridCells(housesStartY) - gridCells(8)),
+        frame: 6 + x,
+        offsetY: 8,
+        offsetX: 7,
+        drawLayer: HUD
+      });
+      this.addChild(yardRock);
+    }
 
 		const apple = new Sprite(
 			{ resource: resources.images["apple"], position: new Vector2(gridCells(housesStartX) + gridCells(35), gridCells(housesStartY) - gridCells(6)), frameSize: new Vector2(5, 7), isSolid: false }

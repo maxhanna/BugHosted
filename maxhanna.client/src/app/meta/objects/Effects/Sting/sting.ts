@@ -32,22 +32,24 @@ export class Sting extends GameObject {
       scale: new Vector2(0.6, 0.6),
     });
     this.addChild(this.body);
-    this.body.animations?.play("stingAnimation"); 
+    this.body.animations?.play("stingAnimation");
   }
 
-  moveTo(targetX: number, targetY: number, duration: number) {
+  moveTo(targetX: number, targetY: number, speed: number) {
     const startX = this.position.x;
     const startY = this.position.y;
     const deltaX = targetX - startX;
     const deltaY = targetY - startY;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    const duration = Math.min(distance / (speed / 6), 1000);
     const startTime = performance.now();
 
     const animate = () => {
-      const elapsed = performance.now() - startTime;
+      const elapsed = (performance.now() - startTime) / 1000; // Convert to seconds
       const progress = Math.min(elapsed / duration, 1);
 
       if (this.body) {
-        this.body.flipX = true;  
+        this.body.flipX = true;
         this.body.rotation = Math.atan2(deltaY, deltaX);
       }
 

@@ -36,7 +36,7 @@ namespace maxhanna.Server.Controllers
 				return BadRequest("User cannot be null.");
 			}
 
-			_logger.LogInformation($"POST /Ai/SendMessage ({request.Message})");
+			_logger.LogInformation($"POST /Ai/SendMessageToAi ({request.Message})");
 
 			try
 			{
@@ -45,47 +45,74 @@ namespace maxhanna.Server.Controllers
 				{
 					return StatusCode(429, new { Reply = "You have exceeded the maximum number of text requests for this month." });
 				}
-				await UpdateUserRequestCount(request.User!, request.Message, "text");
-				string apiKey = _config.GetValue<string>("GoogleGemini:ApiKey") ?? "";
-				if (string.IsNullOrEmpty(apiKey))
-				{
-					return StatusCode(500, new { Reply = "Google Gemini API key is not configured." });
-				}
 
+				await UpdateUserRequestCount(request.User!, request.Message, "text");
+
+				// Ollama API URL
+				string url = "http://localhost:11434/api/generate";
+
+				// Ollama request payload
 				var requestBody = new
 				{
-					contents = new[] { new { parts = new[] { new { text = request.Message } } } }
+					model = "gemma3",  // Make sure you have the correct model installed
+					prompt = request.Message,
+					stream = false, 
 				};
 
 				var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-				var response = await _httpClient.PostAsync($"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-001:generateContent?key={apiKey}", jsonContent);
-				var responseBody = await response.Content.ReadAsStringAsync();
-
-				_logger.LogInformation($"Google Gemini response: {responseBody}");
-
-				if (!response.IsSuccessStatusCode)
+				// Create a CancellationTokenSource
+				using (var cancellationTokenSource = new CancellationTokenSource())
 				{
-					_logger.LogError($"Google Gemini API error: {responseBody}");
-					return StatusCode((int)response.StatusCode, new { Reply = "Error communicating with Google Gemini API." });
+					var cancellationToken = cancellationTokenSource.Token;
+
+					// Create an HttpRequestMessage
+					var httpRequestMessage = new HttpRequestMessage(HttpMethod.Post, url)
+					{
+						Content = jsonContent
+					};
+
+					// Pass the cancellation token in the request
+					var ollamaResponse = await _httpClient.SendAsync(httpRequestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+					if (!ollamaResponse.IsSuccessStatusCode)
+					{
+						return StatusCode((int)ollamaResponse.StatusCode, new { Reply = "Error communicating with Ollama API." });
+					}
+
+					// Stream the response
+					var stream = ollamaResponse.Content.ReadAsStream();
+					var buffer = new byte[1024];
+					using (var ms = new MemoryStream())
+					{
+						while (true)
+						{
+							var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+							if (bytesRead == 0)
+								break;
+
+							ms.Write(buffer, 0, bytesRead);
+							var chunk = Encoding.UTF8.GetString(ms.ToArray());
+							ms.SetLength(0); // Reset the MemoryStream for the next chunk
+
+							// Send each chunk as part of the response
+							await Response.WriteAsync(chunk, cancellationToken);
+							await Response.Body.FlushAsync(cancellationToken);
+						}
+					}
+
+					return new EmptyResult(); // End the response
 				}
-
-				string reply = JsonDocument.Parse(responseBody)
-													 .RootElement
-													 .GetProperty("candidates")[0]
-													 .GetProperty("content")
-													 .GetProperty("parts")[0]
-													 .GetProperty("text")
-													 .GetString() ?? "No response from AI.";
-
-				return Ok(new { Reply = reply });
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error in SendMessage: {ex.Message}");
-				return StatusCode(500, "Internal server error.");
+				_logger.LogError($"Error in SendMessageToAi: {ex.Message}");
+				return StatusCode(500, new { Reply = "Internal server error." });
 			}
 		}
+
+
+
 		[HttpPost("/Ai/GenerateImageWithAi", Name = "GenerateImageWithAi")]
 		public async Task<IActionResult> GenerateImageWithAi([FromBody] AiRequest request)
 		{
@@ -149,16 +176,14 @@ namespace maxhanna.Server.Controllers
 				_logger.LogError($"Error in GenerateImageWithAi: {ex.Message}");
 				return StatusCode(500, new { Reply = "Internal server error." });
 			}
-		}
-
-
+		} 
 		private async Task<bool> HasExceededUsageLimit(string callType, int userId)
 		{
 			string sql = "";
 			long currentCount = 0;
 			long limit = 0;
-			int MaxTextRequestsPerHourGlobal = 60;
-			int MaxTextRequestsPerHourUser = 20;
+			int MaxTextRequestsPerHourGlobal = 600;
+			int MaxTextRequestsPerHourUser = 66;
 			int MaxImageRequestsPerHour = 1;
 
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));

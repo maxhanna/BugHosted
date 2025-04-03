@@ -70,6 +70,7 @@ namespace maxhanna.Server.Services
 					await DeleteOldGuests();
 					await DeleteOldSearchResults();
 					await DeleteNotificationRequests();
+					await DeleteHostAiRequests();
 					_lastDailyTaskRun = DateTime.Now;
 				}
 
@@ -354,6 +355,39 @@ namespace maxhanna.Server.Services
 				catch (Exception ex)
 				{
 					_logger.LogError(ex, "Error occurred while deleting notification settings. Rolling back transaction.");
+					await transaction.RollbackAsync();
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
+			}
+		}  
+		private async Task DeleteHostAiRequests()
+		{
+			try
+			{
+				await using MySqlConnection conn = new MySqlConnection(_connectionString);
+				await conn.OpenAsync();
+
+				await using MySqlTransaction transaction = await conn.BeginTransactionAsync();
+				try
+				{
+					var deleteSql = @"
+                DELETE FROM maxhanna.host_ai_calls 
+                WHERE created < UTC_TIMESTAMP() - INTERVAL 1 YEAR;";
+
+					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
+					{
+						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
+						Console.WriteLine($"Deleted {affectedRows} notification settings.");
+					}
+
+					await transaction.CommitAsync();
+				}
+				catch (Exception ex)
+				{
+					_logger.LogError(ex, "Error occurred while deleting old HostAI calls. Rolling back transaction.");
 					await transaction.RollbackAsync();
 				}
 			}
