@@ -8,6 +8,9 @@ import { LineGraphComponent } from '../line-graph/line-graph.component';
 import { CoinValueService } from '../../services/coin-value.service';
 import { UserService } from '../../services/user.service';
 import { MiningRigsComponent } from '../mining-rigs/mining-rigs.component';
+import { AiService } from '../../services/ai.service';
+import { User } from '../../services/datacontracts/user/user';
+import { TradeService } from '../../services/trade.service';
 
 @Component({
   selector: 'app-crypto-hub',
@@ -37,7 +40,29 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   latestCurrencyPriceRespectToCAD = 0;
   uniqueCurrencyNames: string[] = [];
   currentlySelectedCurrency?: Currency = undefined;
+  finishedGeneratingAiMessage = false;
+  finishedGeneratingAiWalletMessage = false;
 
+  aiMessages: { addr: string, message: string }[] = [];
+  hideHostAiMessageWallet = false;
+  hideHostAiMessage = false;
+
+  @ViewChild('scrollContainer', { static: true }) scrollContainer!: ElementRef;
+
+  isDragging = false;
+  startX = 0;
+  scrollLeft = 0;
+  scrollInterval: any;
+  isTradebotBalanceShowing = false;
+  tradebotBalances: {
+    id: number,
+    user_id: number,
+    from_currency: string,
+    to_currency: string,
+    value: string,
+    btc_price_cad: string,
+    timestamp: Date
+  }[] = [];
 
   @ViewChild(LineGraphComponent) lineGraphComponent!: LineGraphComponent;
   @ViewChild('btcConvertSATValue') btcConvertSATValue!: ElementRef<HTMLInputElement>;
@@ -49,10 +74,15 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
 
   @Output() coinSelected = new EventEmitter<string>();
 
-  constructor(private miningService: MiningService, private coinValueService: CoinValueService, private userService: UserService) {
+  constructor(private miningService: MiningService,
+    private coinValueService: CoinValueService,
+    private userService: UserService,
+    private aiService: AiService,
+    private tradeService: TradeService) {
     super();
   }
   async ngOnInit() {
+    this.startAutoScroll();
     this.startLoading();
     try {
       this.parentRef?.addResizeListener();
@@ -62,7 +92,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.data = res;
       });
 
-      await this.coinValueService.getAllExchangeRateValues().then(res => {
+      await this.coinValueService.getAllExchangeRateValuesForGraph().then(res => {
         if (res) {
           this.allHistoricalExchangeRateData = res;
         }
@@ -82,18 +112,24 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       if (ceRes) {
         this.latestCurrencyPriceRespectToCAD = ceRes.rate;
       }
-      await this.coinValueService.getAllCoinValues().then(res => {
+      await this.coinValueService.getAllCoinValuesForGraph().then(res => {
         if (res) {
           this.allHistoricalDataPreCalculation = res;
           this.allHistoricalData = res;
           this.allHistoricalData?.forEach(x => x.valueCAD = x.valueCAD * this.latestCurrencyPriceRespectToCAD);
         }
       });
+
+      const coinValueBTCData = this.allHistoricalData?.filter(x => x.name === "Bitcoin");
+      this.generateAiMessage("1", coinValueBTCData).then(res => { this.finishedGeneratingAiMessage = true; });
     } catch (error) {
       console.error('Error fetching coin values:', error);
     }
     this.convertBTCtoFIAT()
     this.stopLoading();
+    setTimeout(() => {
+      this.scrollContainer.nativeElement.scrollLeft = Math.random() * (this.scrollContainer.nativeElement.scrollWidth - this.scrollContainer.nativeElement.clientWidth);
+    }, 10);
   }
   private async getUserCurrency() {
     if (this.parentRef?.user) {
@@ -112,6 +148,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
 
   ngOnDestroy() {
+    clearInterval(this.scrollInterval);
     this.parentRef?.removeResizeListener();
   }
   private async getBTCWallets() {
@@ -298,7 +335,48 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         this.processWalletBalances();
       }
     });
+    this.finishedGeneratingAiWalletMessage = false;
+    await this.generateAiMessage(currency.address, this.allWalletBalanceData).then(res => { this.finishedGeneratingAiWalletMessage = true; });
   }
+
+  private async generateAiMessage(walletAddress: string, data: any) {
+    const tgtMessage = this.aiMessages.find(x => x.addr === walletAddress);
+    if (!tgtMessage && walletAddress != "Nicehash Wallet") {
+      let latest = data?.slice(-250) || [];
+      let message = "";
+      const today = new Date();
+      const fiveDaysAgo = new Date(today);
+      fiveDaysAgo.setDate(today.getDate() - 5);
+      const todayStr = today.toLocaleDateString('en-US');
+      const fiveDaysAgoStr = fiveDaysAgo.toLocaleDateString('en-US');
+      if (walletAddress === "1") {
+        message = `Analyze the following Bitcoin wallet balance data: ${JSON.stringify(latest)}. 
+            Focus on trends, volatility, and price action over the last 5 days (${fiveDaysAgoStr} to ${todayStr}).  
+            Identify:
+            - Recent trends (uptrend, downtrend, or consolidation).
+            - Volatility and major price swings.
+            - Potential buy or sell signals based on expert trading strategies. 
+            Provide a recommendation: Should I buy, sell, or hold today? Justify your answer with relevant analysis.
+            Avoid any disclaimers or unnecessary commentary. Avoid reiterating the prompt.`;
+      } else {
+        message = `Analyze the following Bitcoin wallet balance data: ${JSON.stringify(latest)}. 
+        Focus on trends, volatility, and price action over the last 5 days (${fiveDaysAgoStr} to ${todayStr}).  
+            Identify:
+            - Recent trends (uptrend, downtrend, or consolidation).
+            - Volatility and major price swings.
+            - Potential buy or sell signals based on expert trading strategies.  
+            Provide a recommendation on whether to buy, sell, or hold today, with clear justification based on the trends and price action in the last 5 days.
+            Avoid any disclaimers or unnecessary commentary. Avoid reiterating the prompt.`;
+      }
+
+      await this.aiService.sendMessage(new User(0), true, message, 600).then(res => {
+        if (res && res.response) {
+          this.aiMessages.push({ addr: walletAddress ?? "1", message: this.aiService.parseMessage(res.response) });
+        }
+      });
+    }
+  }
+
   showWalletPanel() {
     if (this.isWalletPanelOpen) {
       this.closeWalletPanel();
@@ -324,7 +402,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       const closestRate = this.findClosestRate(entry.timestamp) ?? 1;
       const closestBtcRate = this.findClosestBTCRate(entry.timestamp) ?? 1;
       if (closestRate !== null) {
-        console.log(closestBtcRate, closestRate);
         let btcValueInCad = (entry.valueCAD * (closestBtcRate * closestRate)) / 100_000_000;
 
         const newEntry: CoinValue = {
@@ -338,7 +415,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
         additionalEntries.push(newEntry);
       }
     }
-
     this.allWalletBalanceData.push(...additionalEntries);
   }
   findClosestRate(timestamp: string): number | null {
@@ -419,5 +495,71 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       ? previous.valueCAD
       : closest.valueCAD;
   }
+  getAiMessage(walletAddr?: string) {
+    if (!walletAddr) return "";
+    return this.aiMessages.find(x => x.addr === walletAddr)?.message;
+  }
+  checkBalance() {
+    this.isTradebotBalanceShowing = true;
+    this.tradeService.GetWalletBalance('').then(res => {
+      if (res) {
+        this.tradebotBalances = res; 
+      }
+    });
+  }
 
+  onMouseDown(event: MouseEvent) {
+    this.isDragging = true;
+    this.scrollContainer.nativeElement.classList.add('dragging');
+    this.startX = event.pageX - this.scrollContainer.nativeElement.offsetLeft;
+    this.scrollLeft = this.scrollContainer.nativeElement.scrollLeft;
+    clearInterval(this.scrollInterval);
+  }
+
+  onMouseMove(event: MouseEvent) {
+    if (!this.isDragging) return;
+    event.preventDefault();
+    const x = event.pageX - this.scrollContainer.nativeElement.offsetLeft;
+    const walk = (x - this.startX) * 1; // speed factor
+    this.scrollContainer.nativeElement.scrollLeft = this.scrollLeft - walk;
+  }
+
+  onMouseUp() {
+    this.isDragging = false;
+    this.scrollContainer.nativeElement.classList.remove('dragging');
+    this.startAutoScroll();
+  }
+
+  onTouchStart(event: TouchEvent) {
+    this.isDragging = true;
+    this.startX = event.touches[0].pageX - this.scrollContainer.nativeElement.offsetLeft;
+    this.scrollLeft = this.scrollContainer.nativeElement.scrollLeft;
+    clearInterval(this.scrollInterval);
+  }
+
+  onTouchMove(event: TouchEvent) {
+    if (!this.isDragging) return;
+    const x = event.touches[0].pageX - this.scrollContainer.nativeElement.offsetLeft;
+    const walk = (x - this.startX) * 1;
+    this.scrollContainer.nativeElement.scrollLeft = this.scrollLeft - walk;
+  }
+
+  onTouchEnd() {
+    this.isDragging = false;
+    this.startAutoScroll();
+  }
+
+  startAutoScroll() {
+    // Scroll by a small amount every second
+    this.scrollInterval = setInterval(() => {
+      if (!this.isDragging) {
+        this.scrollContainer.nativeElement.scrollLeft += 5; // Scroll right by 1px
+      }
+      const isAtEnd = this.scrollContainer.nativeElement.scrollLeft + this.scrollContainer.nativeElement.clientWidth >= this.scrollContainer.nativeElement.scrollWidth;
+
+      if (isAtEnd) {
+        this.scrollContainer.nativeElement.scrollLeft = 0;
+      }
+    }, 500); // every 0.5 seconds
+  }
 }

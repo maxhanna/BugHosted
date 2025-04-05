@@ -1,6 +1,7 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
 using MySqlConnector;
 using Newtonsoft.Json;
+using RestSharp;
 using System.Data;
 using System.Text;
 
@@ -14,6 +15,7 @@ namespace maxhanna.Server.Services
 		private readonly string _connectionString;
 		private readonly HttpClient _httpClient;
 		private readonly WebCrawler _webCrawler;
+		private readonly KrakenService _krakenService;
 		private readonly IConfiguration _config;
 		private DateTime _lastDailyTaskRun = DateTime.MinValue;
 		private DateTime _lastMinuteTaskRun = DateTime.MinValue;
@@ -21,7 +23,7 @@ namespace maxhanna.Server.Services
 		private DateTime _lastHourlyTaskRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
 		private DateTime _lastMidDayTaskRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
 
-		public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config, WebCrawler webCrawler)
+		public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService)
 		{
 			_logger = logger;
 			_config = config;
@@ -29,6 +31,7 @@ namespace maxhanna.Server.Services
 			_apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
 			_httpClient = new HttpClient();
 			_webCrawler = webCrawler; 
+			_krakenService = krakenService; 
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,16 +44,17 @@ namespace maxhanna.Server.Services
 				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
 				{ 
 					await FetchWebsiteMetadata();
+					await MakeCryptoTrade();
 				} 
 				// Run tasks that need to execute every 5 minutes
 				if ((DateTime.Now - _lastFiveMinuteTaskRun).TotalMinutes >= 5)
 				{
-					await UpdateLastBTCWalletInfo(); 
+					await UpdateLastBTCWalletInfo();
+					await FetchAndStoreCoinValues();
 				}
 				// Check if 1 hour has passed since the last coin fetch
 				if ((DateTime.Now - _lastHourlyTaskRun).TotalHours >= 1)
 				{
-					await FetchAndStoreCoinValues();
 					await AssignTrophies();
 				//	await PostRandomMemeToTwitter();
 					_lastHourlyTaskRun = DateTime.Now;
@@ -161,7 +165,7 @@ namespace maxhanna.Server.Services
 
 
 		private async Task FetchWebsiteMetadata()
-		{ 
+		{
 			try
 			{
 				await _webCrawler.FetchWebsiteMetadata();
@@ -169,6 +173,18 @@ namespace maxhanna.Server.Services
 			catch (Exception ex)
 			{
 				Console.WriteLine("Exception while crawling : " + ex.Message);
+			}
+		}
+
+		private async Task MakeCryptoTrade()
+		{
+			try
+			{
+				await _krakenService.MakeATrade(); 
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine("Exception while trading : " + ex.Message);
 			}
 		}
 
@@ -647,7 +663,49 @@ namespace maxhanna.Server.Services
 
 
 		private async Task FetchAndStoreCoinValues()
+		{ 
+			await StoreCoinValues(); 
+		}
+		private async Task StoreCoinValues()
 		{
+			try
+			{
+				using (var conn = new MySqlConnection(_connectionString))
+				{
+					await conn.OpenAsync();
+
+					if (await IsSystemUpToDate(conn)) return;
+					await DeleteOldCoinValueEntries(conn);
+					CoinResponse[] coinData = await FetchCoinData();
+
+					if (coinData != null)
+					{
+						foreach (var coin in coinData)
+						{
+							var sql = "INSERT INTO coin_value (symbol, name, value_cad, timestamp) VALUES (@Symbol, @Name, @ValueCAD, UTC_TIMESTAMP())";
+							using (var cmd = new MySqlCommand(sql, conn))
+							{
+								cmd.Parameters.AddWithValue("@Symbol", coin.symbol);
+								cmd.Parameters.AddWithValue("@Name", coin.name);
+								cmd.Parameters.AddWithValue("@ValueCAD", coin.rate);
+
+								await cmd.ExecuteNonQueryAsync();
+							}
+						}
+					}
+
+					Console.WriteLine("Coin values stored successfully.");
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "Error occurred while storing coin values.");
+			}
+		}
+
+		private async Task<CoinResponse[]> FetchCoinData()
+		{
+			CoinResponse[] coinData = [];
 			var body = new
 			{
 				currency = "CAD",
@@ -668,11 +726,7 @@ namespace maxhanna.Server.Services
 				if (response.IsSuccessStatusCode)
 				{
 					var responseContent = await response.Content.ReadAsStringAsync();
-					var coinData = JsonConvert.DeserializeObject<CoinResponse[]>(responseContent);
-					if (coinData != null)
-					{
-						await StoreCoinValues(coinData);
-					}
+					coinData = JsonConvert.DeserializeObject<CoinResponse[]>(responseContent) ?? [];
 				}
 				else
 				{
@@ -683,54 +737,33 @@ namespace maxhanna.Server.Services
 			{
 				_logger.LogError(ex, "Error occurred while fetching coin values.");
 			}
+
+			return coinData;
 		}
-		private async Task StoreCoinValues(CoinResponse[] coinData)
+
+		private static async Task DeleteOldCoinValueEntries(MySqlConnection conn)
 		{
-			try
+			// Delete entries older than 10 years
+			var deleteSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)";
+			using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 			{
-				using (var conn = new MySqlConnection(_connectionString))
+				await deleteCmd.ExecuteNonQueryAsync();
+			}
+		}
+
+		private static async Task<bool> IsSystemUpToDate(MySqlConnection conn)
+		{
+			var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE)";
+			using (var checkCmd = new MySqlCommand(checkSql, conn))
+			{
+				var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+				if (count > 0)
 				{
-					await conn.OpenAsync();
-
-					var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)";
-					using (var checkCmd = new MySqlCommand(checkSql, conn))
-					{
-						var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
-						if (count > 0)
-						{
-							Console.WriteLine("Coin values not added as entries were added in the last 1 hour.");
-							return;
-						}
-					}
-
-					// Delete entries older than 10 years
-					var deleteSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR)";
-					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-					{
-						await deleteCmd.ExecuteNonQueryAsync();
-					}
-
-					// Insert new coin data
-					foreach (var coin in coinData)
-					{
-						var sql = "INSERT INTO coin_value (symbol, name, value_cad, timestamp) VALUES (@Symbol, @Name, @ValueCAD, UTC_TIMESTAMP())";
-						using (var cmd = new MySqlCommand(sql, conn))
-						{
-							cmd.Parameters.AddWithValue("@Symbol", coin.symbol);
-							cmd.Parameters.AddWithValue("@Name", coin.name);
-							cmd.Parameters.AddWithValue("@ValueCAD", coin.rate);
-
-							await cmd.ExecuteNonQueryAsync();
-						}
-					}
-
-					Console.WriteLine("Coin values stored successfully.");
+					Console.WriteLine("Coin values not added as entries were added in the last 15 minutes.");
+					return true;
 				}
 			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error occurred while storing coin values.");
-			}
+			return false;
 		}
 	}
 

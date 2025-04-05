@@ -53,7 +53,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('orgId') orgId!: ElementRef<HTMLInputElement>;
   @ViewChild('apiKey') apiKey!: ElementRef<HTMLInputElement>;
   @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
-  @ViewChild('weatherLocationInput') weatherLocationInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('weatherLocationCityInput') weatherLocationCityInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('weatherLocationCountryInput') weatherLocationCountryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
 
   @ViewChild('updatedEmail') updatedEmail!: ElementRef<HTMLInputElement>;
@@ -94,6 +95,11 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       });
     }
     this.getUniqueCurrencyNames();
+
+    if (this.showOnlyWeatherLocation) {
+      this.isWeatherLocationToggled = true;
+      this.getWeatherLocation();
+    }
   }
   async getNicehashApiKeys() {
     if (this.isNicehashApiKeysToggled) {
@@ -154,16 +160,18 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async getWeatherLocation() {
     if (this.isWeatherLocationToggled) {
       const res = await this.weatherService.getWeatherLocation(this.parentRef?.user!);
-      this.weatherLocationInput.nativeElement.value = res.location;
+      this.weatherLocationCountryInput.nativeElement.value = res.country;
+      this.weatherLocationCityInput.nativeElement.value = res.city;
     }
   }
 
   async updateWeatherLocation() {
     if (this.isWeatherLocationToggled) {
       try {
-        const inputLoc = this.weatherLocationInput.nativeElement.value;
-        if (inputLoc && inputLoc.trim() != '') {
-          await this.weatherService.updateWeatherLocation(this.parentRef!.user!, this.weatherLocationInput.nativeElement.value);
+        const inputCityLoc = this.weatherLocationCityInput.nativeElement.value;
+        const inputCountryLoc = this.weatherLocationCountryInput.nativeElement.value;
+        if ((inputCityLoc && inputCityLoc.trim() != '') || (inputCountryLoc && inputCountryLoc.trim() != '')) {
+          await this.weatherService.updateWeatherLocation(this.parentRef!.user!, inputCityLoc, inputCityLoc, inputCountryLoc);
         }
         else {
           if (this.parentRef?.user) {

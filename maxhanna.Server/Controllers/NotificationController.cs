@@ -292,111 +292,194 @@ namespace maxhanna.Server.Controllers
 			if (canSendRes != null) { return canSendRes; }
 
 			bool sendFirebaseNotification = true;
+
+
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 			using (var conn = new MySqlConnection(connectionString))
 			{
 				await conn.OpenAsync();
-
-				if (request.CommentId != null)
+				await UpdateLastSeen(conn, request);
+				await ResolveParentCommentAsync(conn, request);
+				if (await TryResolveStoryNotification(conn, request))
 				{
-					// Fetch parent comment to get the associated file_id or story_id
-					string parentQuery = @"
-						SELECT file_id, story_id 
-						FROM maxhanna.comments 
-						WHERE id = @comment_id 
-						LIMIT 1;";
-
-					using (var parentCmd = new MySqlCommand(parentQuery, conn))
-					{
-						parentCmd.Parameters.AddWithValue("@comment_id", request.CommentId);
-
-						using (var reader = await parentCmd.ExecuteReaderAsync())
-						{
-							if (await reader.ReadAsync())
-							{
-								request.FileId = reader["file_id"] as int?;
-								request.StoryId = reader["story_id"] as int?;
-							}
-						}
-					}
-
-					Console.WriteLine($"Resolved comment parent: FileID={request.FileId}, StoryID={request.StoryId}");
+					sendFirebaseNotification = true;
 				}
-
-				string notificationSql = "";
-				string? targetColumn = request.FileId != null ? "file_id" :
-															 request.StoryId != null ? "story_id" :
-															 request.CommentId != null ? "comment_id" :
-															 null;
-
-				if (targetColumn != null) //Insert notification for Files, Stories or Comments here
+				if (await TryResolveFileNotification(conn, request))
 				{
-					string targetTable = targetColumn == "file_id" ? "file_uploads" :
-															 targetColumn == "story_id" ? "stories" : "comments";
-
-					Console.WriteLine($"Sending notif on target column : {targetColumn}");
-					notificationSql = $@"
-						INSERT INTO maxhanna.notifications (user_id, from_user_id, {targetColumn}, text, date, user_profile_id)
-						VALUES ((SELECT user_id FROM maxhanna.{targetTable} WHERE id = @{targetColumn}), @user_id, @{targetColumn}, @comment, UTC_TIMESTAMP(), @userProfileId);";
-
-					if (targetColumn == "file_id")
-					{
-						notificationSql += @"
-							INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text)
-							SELECT DISTINCT user_id, @user_id, @file_id, @comment
-							FROM maxhanna.comments
-							WHERE file_id = @file_id AND user_id <> @user_id;";
-					}
-
-					using (var cmd = new MySqlCommand(notificationSql, conn))
-					{
-						cmd.Parameters.AddWithValue("@user_id", request.FromUser?.Id ?? 0);
-						cmd.Parameters.AddWithValue("@comment", request.Message);
-						cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
-
-						if (request.FileId != null)
-						{
-							cmd.Parameters.AddWithValue("@file_id", request.FileId);
-						}
-						else if (request.StoryId != null)
-						{
-							cmd.Parameters.AddWithValue("@story_id", request.StoryId);
-						}
-						else if (request.CommentId != null)
-						{
-							cmd.Parameters.AddWithValue("@comment_id", request.CommentId);
-						}
-
-						await cmd.ExecuteNonQueryAsync();
-					}
-
+					sendFirebaseNotification = true;
 				}
-				else if (request.UserProfileId != null) // Insert notification for User Profiles here
+				if (await TryResolveCommentNotification(conn, request))
 				{
-					Console.WriteLine($"Sending notif on UserProfileId : {request.UserProfileId}");
-					notificationSql = $@"
+					sendFirebaseNotification = true;
+				}
+				if (await TryResolveProfileNotification(conn, request))
+				{
+					sendFirebaseNotification = true;
+				}
+				if (await TryResolveChatNotification(conn, request))
+				{
+					sendFirebaseNotification = true;
+				}
+				if (!sendFirebaseNotification && request.Message != null)
+				{
+					if (await TryResolveGenericMessageNotification(conn, request))
+					{
+						sendFirebaseNotification = true;
+					}
+				} 
+			}  
+			if (sendFirebaseNotification)
+			{
+				SendFirebaseNotifications(request);
+			}
+
+			return Ok("Notification(s) Created");
+		}
+		private async Task<bool> ResolveParentCommentAsync(MySqlConnection conn, NotificationRequest request)
+		{
+			if (request.CommentId == null) return false;
+
+			string query = "SELECT file_id, story_id FROM maxhanna.comments WHERE id = @comment_id LIMIT 1;";
+			using var cmd = new MySqlCommand(query, conn);
+			cmd.Parameters.AddWithValue("@comment_id", request.CommentId);
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			if (await reader.ReadAsync())
+			{
+				request.FileId = reader["file_id"] as int?;
+				request.StoryId = reader["story_id"] as int?;
+			}
+			return true;
+		}
+
+		private async Task<bool> TryResolveStoryNotification(MySqlConnection conn, NotificationRequest request)
+		{
+			if (request.StoryId == null) return false;
+			Console.WriteLine($"Sending notif on target column : story_id" + request.StoryId);
+			string notificationSql = $@"
+						INSERT INTO maxhanna.notifications (user_id, from_user_id, story_id, text, date, user_profile_id)
+						SELECT user_id, @user_id, @storyId, @comment, UTC_TIMESTAMP(), @userProfileId
+						FROM maxhanna.stories
+						WHERE id = @storyId AND user_id != @user_id;
+
+						INSERT INTO maxhanna.notifications (user_id, from_user_id, story_id, text)
+						SELECT DISTINCT user_id, @user_id, @story_id, @comment
+						FROM maxhanna.comments
+						WHERE story_id = @story_id AND user_id <> @user_id";
+
+			using (var cmd = new MySqlCommand(notificationSql, conn))
+			{
+				cmd.Parameters.AddWithValue("@user_id", request.FromUser?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@comment", request.Message);
+				cmd.Parameters.AddWithValue("@storyId", request.StoryId);
+				cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
+				cmd.Parameters.AddWithValue("@story_id", request.StoryId);
+				await cmd.ExecuteNonQueryAsync();
+			}
+			return true;
+		}  
+		private async Task UpdateLastSeen(MySqlConnection conn, NotificationRequest request)
+		{ 
+			string notificationSql = $@"
+						UPDATE maxhanna.users 
+						SET last_seen = UTC_TIMESTAMP() 
+						WHERE id = @UserId;";
+
+			using (var cmd = new MySqlCommand(notificationSql, conn))
+			{
+				cmd.Parameters.AddWithValue("@UserId", request.FromUser?.Id ?? 0); 
+				await cmd.ExecuteNonQueryAsync();
+			} 
+		}
+		private async Task<bool> TryResolveFileNotification(MySqlConnection conn, NotificationRequest request)
+		{
+			if (request.FileId == null) return false;
+			Console.WriteLine($"Sending notif on target column : file_id" + request.FileId);
+			string notificationSql = $@"
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text, date, user_profile_id)
+					VALUES ((SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id), @user_id, @file_id, @comment, UTC_TIMESTAMP(), @userProfileId);
+
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text)
+					SELECT DISTINCT user_id, @user_id, @file_id, @comment
+					FROM maxhanna.comments
+					WHERE file_id = @file_id AND user_id <> @user_id";
+
+			using (var cmd = new MySqlCommand(notificationSql, conn))
+			{
+				cmd.Parameters.AddWithValue("@user_id", request.FromUser?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@comment", request.Message);
+				cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
+				cmd.Parameters.AddWithValue("@file_id", request.FileId);
+				await cmd.ExecuteNonQueryAsync();
+			}
+			return true;
+		}
+
+		private async Task<bool> TryResolveCommentNotification(MySqlConnection conn, NotificationRequest request)
+		{
+			if (request.CommentId == null) return false;
+			Console.WriteLine($"Sending notif on target column : comment_id : " + request.CommentId);
+			bool hasStory = request.StoryId != null;
+			bool hasFile = request.FileId != null;  
+
+			string notificationSql = $@"
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, comment_id, text, date, user_profile_id{(hasFile ? ", file_id" : "")}{(hasStory ? ", story_id" : "")})
+					VALUES ((SELECT user_id FROM maxhanna.comments WHERE id = @comment_id LIMIT 1), @user_id, @comment_id, @comment, UTC_TIMESTAMP(), @userProfileId{(hasFile ? ", @file_id" : "")}{(hasStory ? ", @story_id" : "")});
+
+					INSERT INTO maxhanna.notifications (user_id, from_user_id, comment_id, text{(hasFile ? ", file_id" : "")}{(hasStory ? ", story_id" : "")})
+					SELECT DISTINCT user_id, @user_id, @comment_id, @comment{(hasFile ? ", @file_id" : "")}{(hasStory ? ", @story_id" : "")}
+					FROM maxhanna.comments
+					WHERE id = @comment_id AND user_id <> @user_id";
+
+			using (var cmd = new MySqlCommand(notificationSql, conn))
+			{
+				cmd.Parameters.AddWithValue("@user_id", request.FromUser?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@comment", request.Message);
+				cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
+				cmd.Parameters.AddWithValue("@comment_id", request.CommentId);
+				if (hasFile)
+				{
+					cmd.Parameters.AddWithValue("@file_id", request.FileId); 
+				}
+				if (hasStory)
+				{ 
+					cmd.Parameters.AddWithValue("@story_id", request.StoryId);
+				}
+				await cmd.ExecuteNonQueryAsync();
+			}
+			return true;
+		}
+
+		private async Task<bool> TryResolveProfileNotification(MySqlConnection conn, NotificationRequest request)
+		{
+			if (request.UserProfileId == null) return false;
+			Console.WriteLine($"Sending notif on UserProfileId : {request.UserProfileId}");
+			string notificationSql = $@"
 						INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, story_id, text, date)
 						VALUES (@to_user, @from_user, @user_profile_id, @story_id, @comment, UTC_TIMESTAMP());";
-					using (var cmd = new MySqlCommand(notificationSql, conn))
-					{
-						cmd.Parameters.AddWithValue("@to_user", request.ToUser.FirstOrDefault()?.Id ?? 0);
-						cmd.Parameters.AddWithValue("@from_user", request.FromUser?.Id ?? 0);
-						cmd.Parameters.AddWithValue("@user_profile_id", request.UserProfileId ?? (object)DBNull.Value);
-						cmd.Parameters.AddWithValue("@story_id", request.StoryId ?? (object)DBNull.Value);
-						cmd.Parameters.AddWithValue("@comment", request.Message);
-						await cmd.ExecuteNonQueryAsync();
-					}
-				}
-				else if (request.ChatId != null) // Insert notification for chat messages here
+			using (var cmd = new MySqlCommand(notificationSql, conn))
+			{
+				cmd.Parameters.AddWithValue("@to_user", request.ToUser.FirstOrDefault()?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@from_user", request.FromUser?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@user_profile_id", request.UserProfileId ?? (object)DBNull.Value);
+				cmd.Parameters.AddWithValue("@story_id", request.StoryId ?? (object)DBNull.Value);
+				cmd.Parameters.AddWithValue("@comment", request.Message);
+				await cmd.ExecuteNonQueryAsync();
+			}
+			return true;
+		}
+		private async Task<bool> TryResolveChatNotification(MySqlConnection conn, NotificationRequest request)
+		{
+			if (request.ChatId == null) return false;
+			bool sendFirebaseNotification = true;
+			Console.WriteLine($"Sending notif on ChatId : {request.ChatId}");
+			foreach (var receiverUser in request.ToUser)
+			{
+				if (receiverUser.Id == (request.FromUser?.Id ?? 0))
 				{
-					Console.WriteLine($"Sending notif on ChatId : {request.ChatId}");
-					foreach (var receiverUser in request.ToUser)
-					{
-						if (receiverUser.Id == (request.FromUser?.Id ?? 0))
-						{
-							continue;
-						}
-						string checkSql = @"
+					continue;
+				}
+				string checkSql = @"
 							SELECT COUNT(*) 
 							FROM maxhanna.notifications
 							WHERE user_id = @Receiver
@@ -404,7 +487,7 @@ namespace maxhanna.Server.Controllers
 								AND chat_id IS NOT NULL
 								AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
 
-						string updateNotificationSql = @"
+				string updateNotificationSql = @"
 							UPDATE maxhanna.notifications
 							SET text = CASE
 															WHEN LENGTH(text) <= 250 THEN CONCAT(text, ', ', @Content)
@@ -417,63 +500,67 @@ namespace maxhanna.Server.Controllers
 								AND date >= UTC_TIMESTAMP() - INTERVAL 10 MINUTE;";
 
 
-						string insertNotificationSql = @"
+				string insertNotificationSql = @"
 							INSERT INTO maxhanna.notifications
 									(user_id, from_user_id, chat_id, text, date)
 							VALUES
 									(@Receiver, @Sender, @ChatId, @Content, UTC_TIMESTAMP());";
 
-						using (var checkCommand = new MySqlCommand(checkSql, conn))
+				using (var checkCommand = new MySqlCommand(checkSql, conn))
+				{
+					checkCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
+					checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+					checkCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
+					checkCommand.Parameters.AddWithValue("@Content", request.Message);
+					Console.WriteLine("Checking to see if notif exists");
+					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
+
+					Console.WriteLine("NOTIF Count : " + count);
+					if (count > 0)
+					{
+						sendFirebaseNotification = false;
+						using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
 						{
-							checkCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-							checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-							checkCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
-							checkCommand.Parameters.AddWithValue("@Content", request.Message);
-							Console.WriteLine("Checking to see if notif exists");
-							var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
+							updateCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
+							updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+							updateCommand.Parameters.AddWithValue("@Content", request.Message);
+							updateCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
 
-							Console.WriteLine("NOTIF Count : " + count);
-							if (count > 0)
-							{
-								sendFirebaseNotification = false;
-								using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
-								{
-									updateCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-									updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-									updateCommand.Parameters.AddWithValue("@Content", request.Message);
-									updateCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
+							await updateCommand.ExecuteNonQueryAsync();
+						}
+					}
+					else
+					{
+						using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
+						{
+							insertCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
+							insertCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+							insertCommand.Parameters.AddWithValue("@Content", request.Message);
+							insertCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
 
-									await updateCommand.ExecuteNonQueryAsync();
-								}
-							}
-							else
-							{
-								using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
-								{
-									insertCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-									insertCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-									insertCommand.Parameters.AddWithValue("@Content", request.Message);
-									insertCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
-
-									Console.WriteLine($"inserted NOTIF {request.FromUser?.Id ?? 0} {receiverUser.Id} {request.Message} {request.ChatId}");
-									await insertCommand.ExecuteNonQueryAsync();
-								}
-							}
+							Console.WriteLine($"inserted NOTIF {request.FromUser?.Id ?? 0} {receiverUser.Id} {request.Message} {request.ChatId}");
+							await insertCommand.ExecuteNonQueryAsync();
 						}
 					}
 				}
-				else if (request.Message != null)
+			}
+			return sendFirebaseNotification;
+		}
+		
+		private async Task<bool> TryResolveGenericMessageNotification(MySqlConnection conn, NotificationRequest request)
+		{
+			if (request.Message == null) return false;
+			bool sendFirebaseNotification = true;
+			foreach (var receiverUser in request.ToUser)
+			{
+				if (receiverUser.Id == (request.FromUser?.Id ?? 0))
 				{
-					foreach (var receiverUser in request.ToUser)
-					{
-						if (receiverUser.Id == (request.FromUser?.Id ?? 0))
-						{
-							continue;
-						}
+					continue;
+				}
 
-						Console.WriteLine($"Checking for existing generic notifications");
+				Console.WriteLine($"Checking for existing generic notifications");
 
-						string checkSql = @"
+				string checkSql = @"
 							SELECT COUNT(*) 
 							FROM maxhanna.notifications
 							WHERE user_id = @Receiver
@@ -485,7 +572,7 @@ namespace maxhanna.Server.Controllers
 								AND user_profile_id IS NULL
 								AND date >= NOW() - INTERVAL 10 MINUTE;";
 
-						string updateNotificationSql = @"
+				string updateNotificationSql = @"
 							UPDATE maxhanna.notifications
 							SET text = CASE
 									WHEN LENGTH(text) <= 250 THEN CONCAT(text, ', ', @Content)
@@ -501,60 +588,51 @@ namespace maxhanna.Server.Controllers
 								AND user_profile_id IS NULL
 								AND date >= NOW() - INTERVAL 10 MINUTE;";
 
-						string insertNotificationSql = @"
+				string insertNotificationSql = @"
 							INSERT INTO maxhanna.notifications (user_id, from_user_id, text, user_profile_id)
 							VALUES (@Receiver, @Sender, @Content, @UserProfileId);";
 
-						using (var checkCommand = new MySqlCommand(checkSql, conn))
+				using (var checkCommand = new MySqlCommand(checkSql, conn))
+				{
+					checkCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
+					checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+					checkCommand.Parameters.AddWithValue("@Content", request.Message);
+					checkCommand.Parameters.AddWithValue("@UserProfileId", request.UserProfileId ?? (object)DBNull.Value);
+
+					int count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
+
+					Console.WriteLine("NOTIF Count (generic): " + count);
+
+					if (count > 0)
+					{
+						// Update existing notification
+						using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
 						{
-							checkCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-							checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-							checkCommand.Parameters.AddWithValue("@Content", request.Message);
-							checkCommand.Parameters.AddWithValue("@UserProfileId", request.UserProfileId ?? (object)DBNull.Value);
+							updateCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
+							updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+							updateCommand.Parameters.AddWithValue("@Content", request.Message);
+							sendFirebaseNotification = false;
+							await updateCommand.ExecuteNonQueryAsync();
+						}
+					}
+					else
+					{
+						// Insert new notification
+						using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
+						{
+							insertCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
+							insertCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+							insertCommand.Parameters.AddWithValue("@Content", request.Message);
 
-							int count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
-
-							Console.WriteLine("NOTIF Count (generic): " + count);
-
-							if (count > 0)
-							{
-								// Update existing notification
-								using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
-								{
-									updateCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-									updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-									updateCommand.Parameters.AddWithValue("@Content", request.Message);
-									sendFirebaseNotification = false;
-									await updateCommand.ExecuteNonQueryAsync();
-								}
-							}
-							else
-							{
-								// Insert new notification
-								using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
-								{
-									insertCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-									insertCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-									insertCommand.Parameters.AddWithValue("@Content", request.Message);
-
-									Console.WriteLine($"Inserted NOTIF {request.FromUser?.Id ?? 0} {receiverUser.Id} {request.Message}");
-									await insertCommand.ExecuteNonQueryAsync();
-								}
-							}
+							Console.WriteLine($"Inserted NOTIF {request.FromUser?.Id ?? 0} {receiverUser.Id} {request.Message}");
+							await insertCommand.ExecuteNonQueryAsync();
 						}
 					}
 				}
 			}
 
-				//Notify with firebase
-			if (sendFirebaseNotification)
-			{
-				SendFirebaseNotifications(request);
-			}
-
-			return Ok("Notification(s) Created");
+			return sendFirebaseNotification;
 		}
-
 		private async Task SendFirebaseNotifications(NotificationRequest request)
 		{
 			var tmpMessage = request.Message ?? "Notification from Bughosted.com";

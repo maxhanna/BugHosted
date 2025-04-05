@@ -33,7 +33,9 @@ builder.Services.AddHostedService<NexusUnitUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusBuildingUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusUnitBackgroundService>(); 
 builder.Services.AddHostedService<NexusDefenceBackgroundService>();
+builder.Services.AddHttpClient<KrakenService>();
 builder.Services.AddSingleton<WebCrawler>(); 
+builder.Services.AddSingleton<KrakenService>(); 
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = long.MaxValue); // Allows for large files
 

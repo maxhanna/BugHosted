@@ -916,6 +916,10 @@ namespace maxhanna.Server.Controllers
 				{
 					//	Console.WriteLine("invalid domain, not enough periods: " + domain);
 					return false;
+				} 
+				if (!domain.Contains("http"))
+				{
+					return false;
 				}
 
 				return true;

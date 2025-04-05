@@ -2,6 +2,7 @@ import { Component, ViewChild, ElementRef, OnDestroy, OnInit } from '@angular/co
 import { AiService } from '../../services/ai.service';
 import { ChildComponent } from '../child.component';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { User } from '../../services/datacontracts/user/user';
 
 
 @Component({
@@ -25,15 +26,14 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
     this.parentRef?.removeResizeListener();
   }
   sendMessage() {
-    const user = this.parentRef?.user;
-    if (!user) { return alert("You must be logged in to use this feature!"); }
+    const user = this.parentRef?.user ?? new User(0); 
     this.userMessage = this.chatInput.nativeElement.value.trim();
     this.startLoading();
     if (this.userMessage.trim()) {
-      this.pushMessage({ sender: 'You', message: this.userMessage });
-      this.aiService.sendMessage(user, this.userMessage).then(
+      this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
+      this.aiService.sendMessage(user, false, this.userMessage).then(
         (response) => {
-          let reply = this.parseMessage(response.response);
+          let reply = this.aiService.parseMessage(response.response);
           this.pushMessage({ sender: 'Host', message: reply });
           this.stopLoading();
         },
@@ -61,45 +61,8 @@ export class HostAiComponent extends ChildComponent implements OnInit, OnDestroy
         this.sendMessage();
       }
     }
-  }
+  } 
 
-  parseMessage(message: string): string {
-    if (!message) return '';
-
-    // Preserve <pre> blocks
-    const preBlocks: string[] = [];
-    message = message.replace(/<pre>([\s\S]*?)<\/pre>/g, (match, code) => {
-      preBlocks.push(code);
-      return `<pre-placeholder-${preBlocks.length - 1}>`;
-    });
-
-    // Convert **bold** to <b>...</b>
-    message = message.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-
-    // Convert *italic* to <i>...</i>
-    message = message.replace(/\*(.*?)\*/g, '<i>$1</i>');
-
-    // Convert [text](URL) to <a href="URL">text</a>
-    message = message.replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-
-    // Convert special HTML entities
-    message = message
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&copy;/g, '©');
-
-    // Convert line breaks to <br> (except in <pre>)
-    message = message.replace(/\n/g, '<br>');
-
-    // Restore <pre> blocks
-    message = message.replace(/<pre-placeholder-(\d+)>/g, (_, index) => {
-      return `<pre>${preBlocks[parseInt(index)]}</pre>`;
-    });
-
-    return message;
-  }  
   insertAtCursor(text: string): void {
     const chatInput = <HTMLTextAreaElement>document.querySelector('textarea');
     const cursorPos = chatInput.selectionStart;

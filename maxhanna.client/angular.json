@@ -70,7 +70,7 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
-            "production": { 
+            "production": {
               "buildTarget": "maxhanna.client:build:production",
               "port": 443,
               "host": "0.0.0.0",
@@ -78,12 +78,14 @@
               "sslCert": "ssl/bughosted_com.crt",
               "sslKey": "ssl/bughosted_com.key",
               "liveReload": false,
-              "watch": false
+              "watch": false,
+              "hmr": false
             },
             "development": {
               "buildTarget": "maxhanna.client:build:development",
               "liveReload": true,
-              "watch": true
+              "watch": true,
+              "hmr": false
             },
             "test": {
               "buildTarget": "maxhanna.client:build:development",
@@ -91,15 +93,17 @@
               "host": "0.0.0.0",
               "ssl": false,
               "liveReload": true,
-              "watch": true
+              "watch": true,
+              "hmr": false
             },
             "http": {
               "buildTarget": "maxhanna.client:build:production",
               "port": 80,
               "host": "0.0.0.0",
               "ssl": false,
-              "liveReload": true,
-              "watch": true
+              "liveReload": false,
+              "watch": false,
+              "hmr": false
             },
             "https": {
               "buildTarget": "maxhanna.client:build:production",
@@ -109,7 +113,8 @@
               "sslCert": "ssl/bughosted_com.crt",
               "sslKey": "ssl/bughosted_com.key",
               "liveReload": false,
-              "watch": false
+              "watch": false,
+              "hmr": false
             }
           },
           "defaultConfiguration": "production",

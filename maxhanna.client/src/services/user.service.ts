@@ -152,6 +152,21 @@ export class UserService {
       return null; // Return null in case of error
     }
   }
+  async getUserIpFromBackend(user: User) {
+    try { 
+      const response = await fetch('/user/getipaddress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
+        },
+        body: JSON.stringify(user), // Convert the user object to JSON string
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null; // Return null in case of error
+    }
+  }
 
   isValidIpAddress(value?: string): boolean {
     if (!value) return false;

@@ -19,10 +19,10 @@ import { CurrencyFlagPipe } from '../currency-flag.pipe';
 import { NexusService } from '../../services/nexus.service';
 
 @Component({
-    selector: 'app-user',
-    templateUrl: './user.component.html',
-    styleUrl: './user.component.css',
-    standalone: false
+  selector: 'app-user',
+  templateUrl: './user.component.html',
+  styleUrl: './user.component.css',
+  standalone: false
 })
 export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() user?: User | undefined;
@@ -90,7 +90,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.removeBorderOnSocial();
     }, 50);
-    setTimeout(() => { 
+    setTimeout(() => {
       this.removeBorderOnSocial();
     }, 500);
   }
@@ -123,21 +123,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         await this.loadFriendData();
         await this.loadWordlerData();
         await this.loadSongData();
-        await this.loadContactsData();
-        if (!this.user) {
-          this.parentRef?.getLocation().then(res => {
-            if (res?.city) {
-              this.weatherLocation = res;
-            }
-          });
-        } else {
-          this.weatherService.getWeatherLocation(this.user).then(res => {
-            if (res.city) {
-              this.weatherLocation = res;
-            }
-          });
-        }
-        
+        await this.loadContactsData(); 
+        await this.loadLocation(this.user); 
         await this.getIsBeingFollowedByUser();
       }
       this.getNSFWValue();
@@ -147,6 +134,22 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.stopLoading();
   }
 
+
+  private async loadLocation(user: User) {
+    let gotLoc = false;
+    const wRes = await this.weatherService.getWeatherLocation(user);
+    if (wRes) { 
+      this.weatherLocation = { city: wRes.city, country: wRes.country };
+      gotLoc = true;
+    }
+    if (!gotLoc) {
+      this.parentRef?.getLocation(this.user).then(res => {
+        if (res?.city) {
+          this.weatherLocation = res;
+        }
+      });
+    }
+  }
 
   ngOnDestroy() {
     if (this.justLoggedIn) {
@@ -316,7 +319,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.user = undefined;
     this.parentRef?.showNotification("Logged out successfully, refresh in 100 milliseconds.");
     setTimeout(() => {
-      window.location.reload(); 
+      window.location.reload();
     }, 100);
   }
 
@@ -428,13 +431,13 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
       try {
         const resCreateUser = await this.userService.createUser(tmpUser);
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
-          tmpUser.id = parseInt(resCreateUser!); 
+          tmpUser.id = parseInt(resCreateUser!);
           await this.userService.addMenuItem(tmpUser, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
           await this.login(guest ? tmpUserName : undefined, true);
           if (!this.loginOnly) {
             this.parentRef?.createComponent('UpdateUserSettings');
-          } 
-          this.parentRef?.getLocation(); 
+          }
+          this.parentRef?.getLocation();
         } else {
           this.parentRef?.showNotification(`${JSON.parse(resCreateUser!)["message"]}`);
         }
@@ -521,7 +524,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   openChat() {
     this.parentRef?.createComponent("Chat", { selectedUser: this.user });
-  }  
+  }
   openFriendsPanel() {
     this.isFriendsPanelOpen = true;
     const parent = this.parentRef ?? this.inputtedParentRef;
@@ -611,7 +614,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
     this.socialComponent.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
   }
+  isUserOnline(lastSeen: string | Date): boolean {
+    const lastSeenDate = new Date(lastSeen);
 
+    return (Date.now() - lastSeenDate.getTime()) < 10 * 60 * 1000;
+  }
   private getNSFWValue() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
@@ -635,11 +642,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     });
   }
 
-  private removeBorderOnSocial() { 
-    const tgtElement = document.getElementsByClassName("componentMain")[1]; 
-    if (tgtElement) { 
+  private removeBorderOnSocial() {
+    const tgtElement = document.getElementsByClassName("componentMain")[1];
+    if (tgtElement) {
       (tgtElement as HTMLDivElement).style.border = "unset";
     }
   }
-   
+
 }

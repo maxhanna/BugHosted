@@ -4,53 +4,54 @@
   <div class="componentTitle">Crypto Hub</div>
   <div [class]="noMining ? 'noMiningHubSection' : 'hubSection'">
     <div class="cryptoHubConverterAndCoinWatchWrapper">
-      <div class="BTCtoCADConversionWrapperDiv sectionContainer">
-        <div class="sectionName btcToCadConversionHeader">BTC to {{selectedCurrency}} Conversion</div>
+      <div class="marquee-scroll"
+           (mousedown)="onMouseDown($event)"
+           (mouseup)="onMouseUp()"
+           (mousemove)="onMouseMove($event)"
+           (mouseleave)="onMouseUp()"
+           (touchstart)="onTouchStart($event)"
+           (touchend)="onTouchEnd()"
+           (touchmove)="onTouchMove($event)"
+           #scrollContainer>
+        <a *ngFor="let item of data"
+           (click)="selectCoin(item.name)"
+           class="cursorPointer marquee-item">
+          <div>{{ item.name }} <span *ngIf="item.symbol">({{ item.symbol }})</span></div>
+          <div>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</div>
+        </a>
+      </div>
+
+
+      <div class="BTCtoCADConversionWrapperDiv">
         <div class="BTCtoCADConversionDiv">
-          <div class="BTCtoCADConversionDiv">
-            <label for="btcConvertBTCValue">BTC:</label>
-            <input id="btcConvertBTCValue"
-                   type="text"
-                   value="1"
-                   #btcConvertBTCValue
-                   (input)="convertBTCtoFIAT()"
-                   placeholder="Enter BTC amount" />
-          </div>
+          <label for="btcConvertBTCValue">BTC:</label>
+          <input id="btcConvertBTCValue"
+                 type="text"
+                 value="1"
+                 #btcConvertBTCValue
+                 (input)="convertBTCtoFIAT()"
+                 placeholder="Enter BTC amount" />
+        </div>
 
-          <div class="BTCtoCADConversionDiv">
-            <label for="btcConvertCADValue">{{selectedCurrency}}:</label>
-            <input id="btcConvertCADValue"
-                   type="text"
-                   #btcConvertCADValue
-                   (input)="convertCurrencyToBTC()"
-                   placeholder="Enter CAD amount" />
-          </div>
+        <div class="BTCtoCADConversionDiv">
+          <label for="btcConvertCADValue">{{selectedCurrency}}:</label>
+          <input id="btcConvertCADValue"
+                 type="text"
+                 #btcConvertCADValue
+                 (input)="convertCurrencyToBTC()"
+                 placeholder="Enter CAD amount" />
+        </div>
 
-          <div class="BTCtoCADConversionDiv">
-            <label for="btcConvertSATValue">SAT:</label>
-            <input id="btcConvertSATValue"
-                   type="text"
-                   #btcConvertSATValue
-                   (input)="convertSatoshiToBTC()"
-                   placeholder="Enter Satoshi amount" />
-          </div>
+        <div class="BTCtoCADConversionDiv">
+          <label for="btcConvertSATValue">SAT:</label>
+          <input id="btcConvertSATValue"
+                 type="text"
+                 #btcConvertSATValue
+                 (input)="convertSatoshiToBTC()"
+                 placeholder="Enter Satoshi amount" />
         </div>
       </div>
 
-      <table class="sectionContainer" id="coinWatchTable">
-        <thead>
-          <tr>
-            <th title="Coin name" (click)="sortTable(0, 'coinWatchTable')" class="cursorPointerUnderlined">Name</th>
-            <th title="Rate ({{selectedCurrency}}$)" (click)="sortTable(1, 'coinWatchTable')" class="cursorPointerUnderlined">Rate</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of data" (click)="selectCoin(item.name)">
-            <td>{{ item.name }} <span *ngIf="item.symbol">({{ item.symbol }})</span></td>
-            <td>{{ item.valueCAD ? formatToCanadianCurrency(getConvertedCurrencyValue(item.valueCAD)) : '-' }}</td>
-          </tr>
-        </tbody>
-      </table>
     </div>
 
     <div *ngIf="allHistoricalData && allHistoricalData.length > 0" class="graphContainerDiv sectionContainer">
@@ -58,7 +59,7 @@
       <app-line-graph #lineGraphComponent
                       [type]="'Crypto'"
                       [selectedCurrency]="selectedCurrency"
-                      [selectedPeriod]="'5d'"
+                      [selectedPeriod]="'5y'"
                       [data]="allHistoricalData!"
                       [selectedCoin]="currentSelectedCoin">
       </app-line-graph>
@@ -73,7 +74,7 @@
       </app-line-graph>
     </div>
   </div>
-  <div class="hubSection miningHubSection sectionContainer" *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
+  <div class="hubSection miningHubSection" *ngIf="latestCurrencyPriceRespectToCAD && latestCurrencyPriceRespectToCAD != 0">
     <app-mining-rigs #miningRigComponent
                      [isDiscreete]="isDiscreete"
                      [inputtedParentRef]="parentRef"
@@ -126,6 +127,16 @@
         </div>
       </div>
     </div>
+
+    <div class="sectionContainer">
+      <div class="popupPanelTitle cursorPointer" (click)="hideHostAiMessage = !hideHostAiMessage">
+        <span class="warning-text" title="This is not actual financial advice. This is based off AI and the data presented to it from your wallet. We take no responsibility in what you do with this information.">⚠️</span>
+        HostAI: <span *ngIf="!finishedGeneratingAiMessage">Generating...</span>
+      </div>
+      <div class="aiMessage" *ngIf="finishedGeneratingAiMessage && !hideHostAiMessage">
+        <span [innerHTML]="getAiMessage('1')"></span>
+      </div>
+    </div>
   </div>
 
   <div *ngIf="!data && isLoading">
@@ -165,6 +176,34 @@
     </div>
   </div>
   <div>
+    Experimental: <button (click)="checkBalance()">Tradebot Stats</button>
+    <div *ngIf="isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer">
+      <table class="mainTable">
+        <thead>
+          <tr>
+            <th></th> 
+            <th class="xxSmallFont">From Currency</th>
+            <th class="xxSmallFont">To Currency</th>
+            <th class="xxSmallFont">Value</th>
+            <th class="xxSmallFont">BTC Price CAD</th>
+            <th class="xxSmallFont">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let trade of tradebotBalances">
+            <td class="xxSmallFont">{{ trade.id }}</td> 
+            <td>{{ trade.from_currency }}</td>
+            <td>{{ trade.to_currency }}</td>
+            <td>{{ trade.value }}</td>
+            <td>{{ trade.btc_price_cad }}</td>
+            <td>{{ getUtcTimeSince(trade.timestamp) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+  <div>
     <button id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
 </div>
@@ -198,17 +237,24 @@
     </div>
   </div>
 
-    <div *ngIf="allWalletBalanceData && allWalletBalanceData.length > 0 && currentlySelectedCurrency?.address != 'Nicehash Wallet'">
-      <app-line-graph #walletDataLineGraphComponent
-                      [type]="'Crypto'"
-                      [selectedCurrency]="selectedCurrency"
-                      [selectedPeriod]="'5d'"
-                      [graphTitle]="!currentSelectedCoin.includes('->') ? '$Bitcoin Value' : ('$Bitcoin/' + (selectedCurrency) + ' Value')"
-                      [data]="allWalletBalanceData"
-                      [selectedCoin]="currentSelectedCoin">
-      </app-line-graph>
-    </div>
-    <div class="walletPanelCloseDiv">
-      <button id="closeOverlay" (click)="closeWalletPanel()">Close</button>
-    </div>
+  <div *ngIf="allWalletBalanceData && allWalletBalanceData.length > 0 && currentlySelectedCurrency?.address != 'Nicehash Wallet'">
+    <app-line-graph #walletDataLineGraphComponent
+                    [type]="'Crypto'"
+                    [selectedCurrency]="selectedCurrency"
+                    [selectedPeriod]="'5d'"
+                    [graphTitle]="!currentSelectedCoin.includes('->') ? '$Bitcoin Value' : ('$Bitcoin/' + (selectedCurrency) + ' Value')"
+                    [data]="allWalletBalanceData"
+                    [selectedCoin]="currentSelectedCoin">
+    </app-line-graph>
   </div>
+  <div class="popupPanelTitle cursorPointer" (click)="hideHostAiMessageWallet = !hideHostAiMessageWallet">
+    <span class="warning-text" title="This is not actual financial advice. This is based off AI and the data presented to it from your wallet. We take no responsibility in what you do with this information.">⚠️</span>
+    HostAI: <span *ngIf="!finishedGeneratingAiWalletMessage">Generating...</span>
+  </div>
+  <div class="aiMessage" *ngIf="currentlySelectedCurrency?.address != 'Nicehash Wallet' && !hideHostAiMessageWallet">
+    <span [innerHTML]="getAiMessage(currentlySelectedCurrency?.address)"></span>
+  </div>
+  <div class="walletPanelCloseDiv">
+    <button id="closeOverlay" (click)="closeWalletPanel()">Close</button>
+  </div>
+</div>

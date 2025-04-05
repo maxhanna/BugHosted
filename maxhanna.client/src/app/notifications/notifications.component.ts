@@ -110,6 +110,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
   viewProfileByNotification(notification?: UserNotification) {
     if (!notification) return;
+    this.read(notification);
     const userProfileId = notification.userProfileId;
     if (userProfileId && userProfileId != 0) {
       const storyId = notification.storyId;

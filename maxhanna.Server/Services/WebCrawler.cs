@@ -260,10 +260,26 @@ public class WebCrawler
 				string query;
 				if (randomize)
 				{
-					query = @"SELECT url FROM search_results 
-										WHERE last_crawled < UTC_TIMESTAMP() - INTERVAL 2 DAY
-										ORDER BY SHA2(CONCAT(url, RAND()), 256) 
-										LIMIT 1;";
+					query = @"
+						SELECT url
+						FROM (
+								SELECT sr.url, dc.domain_count
+								FROM search_results sr
+								JOIN (
+										SELECT 
+												SUBSTRING_INDEX(url, '/', 3) AS domain,
+												COUNT(*) AS domain_count
+										FROM search_results
+										GROUP BY domain
+								) dc ON SUBSTRING_INDEX(sr.url, '/', 3) = dc.domain
+								WHERE sr.last_crawled < UTC_TIMESTAMP() - INTERVAL 2 DAY
+									AND sr.url LIKE 'http%'         
+									AND sr.url LIKE '%.%'          
+								ORDER BY (SHA2(CONCAT(sr.url, RAND()), 256) + dc.domain_count * 100000)
+								LIMIT 1000 OFFSET 100
+						) AS sliced
+						ORDER BY RAND()
+						LIMIT 1;";
 				}
 				else
 				{
@@ -598,9 +614,13 @@ public class WebCrawler
 			}
 
 			// Ensure no double dots ".." exist in the domain
-			if (domain.Contains(".."))
+			if (domain.Contains("..") || !domain.Contains("."))
 			{
 				//Console.WriteLine("invalid domain, multiple ..: " + domain);
+				return false;
+			}
+			if (!domain.Contains("http"))
+			{ 
 				return false;
 			}
 
@@ -625,9 +645,7 @@ public class WebCrawler
 		{
 			//Console.WriteLine("Crawler exception : " + ex.Message);
 			return false;
-		}
-		
-
+		} 
 		return true;
 	}
 	private async Task<string?> FindSitemapUrl(string domain)
@@ -700,7 +718,7 @@ public class WebCrawler
 	{
 		try
 		{
-			if (_visitedUrls.Add(initialUrl) && !urlsToScrapeQueue.Contains(initialUrl) && urlsToScrapeQueue.Count < 10000)
+			if (_visitedUrls.Add(initialUrl) && !urlsToScrapeQueue.Contains(initialUrl) && urlsToScrapeQueue.Count < 10000 && IsValidDomain(initialUrl))
 			{
 				if (delayedUrlsQueue.Count < 50000)
 				{

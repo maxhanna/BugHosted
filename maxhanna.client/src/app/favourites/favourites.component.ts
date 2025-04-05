@@ -92,8 +92,12 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       const linkUrl = this.linkInput.nativeElement.value;
       let imageUrl = "";
       let name = "";
+      let tmpLinkUrl = linkUrl;
+      if (!tmpLinkUrl.includes("http://")) {
+        tmpLinkUrl = "https://" + tmpLinkUrl;
+      }
       if (linkUrl.includes('.')) { 
-        const cRes = await this.crawlerService.searchUrl(linkUrl);
+        const cRes = await this.crawlerService.searchUrl(tmpLinkUrl);
         if (cRes) {
           let targetData = cRes.results[0];
           imageUrl = targetData.imageUrl;
@@ -102,10 +106,10 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       }  
       const user = this.parentRef.user;
       if (linkUrl) {
-        await this.favoriteService.updateFavourites(user, linkUrl, 0, imageUrl, name).then(res => {
+        await this.favoriteService.updateFavourites(user, tmpLinkUrl, 0, imageUrl, name ?? linkUrl).then(res => {
           var tmpFav = new Favourite();
-          tmpFav.name = name;
-          tmpFav.url = linkUrl;
+          tmpFav.name = name ?? linkUrl;
+          tmpFav.url = tmpLinkUrl;
           tmpFav.imageUrl = imageUrl;
           tmpFav.id = res.id;
           this.parentRef?.showNotification(res.message);

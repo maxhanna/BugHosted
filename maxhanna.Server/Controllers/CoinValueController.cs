@@ -21,7 +21,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/CoinValue/", Name = "GetAllCoinValues")]
 		public async Task<List<CoinValue>> GetAllCoinValues()
 		{
-			_logger.LogInformation("GET /CoinValue/GetAll");
+			_logger.LogInformation("GET /CoinValue/");
 			var coinValues = new List<CoinValue>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -30,6 +30,62 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				string sql = @"SELECT id, symbol, name, value_cad, timestamp FROM coin_value";
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						var coinValue = new CoinValue
+						{
+							Id = reader.GetInt32(reader.GetOrdinal("id")),
+							Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
+							Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name")),
+							ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
+							Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
+						};
+						coinValues.Add(coinValue);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while trying to get all coin values.");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+
+			return coinValues;
+		}
+
+		[HttpPost("/CoinValue/GetAllForGraph", Name = "GetAllCoinValuesForGraph")]
+		public async Task<List<CoinValue>> GetAllCoinValuesForGraph()
+		{
+			_logger.LogInformation("GET /CoinValue/GetAllForGraph");
+			var coinValues = new List<CoinValue>();
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"
+				(
+					SELECT id, symbol, name, value_cad, timestamp
+					FROM coin_value
+					ORDER BY timestamp DESC
+					LIMIT 1000
+				)
+				UNION ALL
+				(
+					SELECT id, symbol, name, value_cad, timestamp
+					FROM coin_value
+					WHERE timestamp < (SELECT MAX(timestamp) FROM coin_value)
+					ORDER BY RAND()
+					LIMIT 5000
+				)
+				ORDER BY timestamp ASC;";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -126,6 +182,64 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				string sql = @"SELECT id, base_currency, target_currency, rate, timestamp FROM maxhanna.exchange_rates";
+				MySqlCommand cmd = new MySqlCommand(sql, conn);
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					while (await reader.ReadAsync())
+					{
+						var exchangeRate = new ExchangeRate
+						{
+							Id = reader.GetInt32(reader.GetOrdinal("id")),
+							BaseCurrency = reader.IsDBNull(reader.GetOrdinal("base_currency")) ? null : reader.GetString(reader.GetOrdinal("base_currency")),
+							TargetCurrency = reader.IsDBNull(reader.GetOrdinal("target_currency")) ? null : reader.GetString(reader.GetOrdinal("target_currency")),
+							Rate = reader.IsDBNull(reader.GetOrdinal("rate")) ? 0 : reader.GetDecimal(reader.GetOrdinal("rate")),
+							Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
+						};
+						exchangeRates.Add(exchangeRate);
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "An error occurred while trying to get all exchange rate values.");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+
+			return exchangeRates;
+		}
+
+
+		[HttpPost("/CurrencyValue/GetAllForGraph", Name = "GetAllCurrencyValuesForGraph")]
+		public async Task<List<ExchangeRate>> GetAllCurrencyValuesForGraph()
+		{
+			_logger.LogInformation("GET /CurrencyValue/GetAllForGraph");
+			var exchangeRates = new List<ExchangeRate>();
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				string sql = @"
+(
+  SELECT id, base_currency, target_currency, rate, timestamp
+  FROM maxhanna.exchange_rates
+  ORDER BY timestamp DESC
+  LIMIT 1000
+)
+UNION ALL
+(
+  SELECT id, base_currency, target_currency, rate, timestamp
+  FROM maxhanna.exchange_rates
+  WHERE timestamp < (SELECT MAX(timestamp) FROM maxhanna.exchange_rates)
+  ORDER BY RAND()
+  LIMIT 5000
+)
+ORDER BY timestamp ASC; 
+";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{

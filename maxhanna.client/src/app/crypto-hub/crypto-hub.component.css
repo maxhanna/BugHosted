@@ -7,30 +7,34 @@
   flex-wrap: wrap;
   justify-content: flex-start;
   align-items: center;
-  align-content: space-between; 
+  align-content: space-between;
 }
+
 @media only screen and (max-width : 1000px) {
   .componentMain {
     flex-wrap: nowrap;
   }
-} 
-.wallet { 
+}
+
+.wallet {
   overflow: auto;
   border: 1px solid dashed;
   padding: 10px;
-} 
+}
+
   .wallet table {
     width: 100%;
   }
-   
+
     .wallet table td {
       text-align: center;
-    }    
+    }
+
 @media only screen and (max-width : 667px) {
   .wallet {
     font-size: small;
-  } 
-} 
+  }
+}
 
 .sectionName {
   font-family: Courier New, Arial;
@@ -38,6 +42,7 @@
   text-shadow: 0px 0.50px 0.50px var(--secondary-font-color);
   text-align: center;
 }
+
 .noMiningHubSection {
   display: inline-flex;
   flex-direction: column;
@@ -45,6 +50,7 @@
   margin-left: auto;
   margin-right: auto;
 }
+
 .hubSection {
   display: inline-flex;
   flex-direction: column;
@@ -52,11 +58,12 @@
   margin-left: auto;
   margin-right: auto;
 }
- 
-@media only screen and (max-width : 667px) { 
+
+@media only screen and (max-width : 667px) {
   .hubSection {
     display: flex !important;
   }
+
   .noMiningHubSection {
     display: inline-flex;
     flex-direction: column;
@@ -64,7 +71,7 @@
     margin-left: auto;
     margin-right: auto;
   }
-} 
+}
 
 
 .sectionContainer {
@@ -81,82 +88,70 @@
 }
 
 
-@media only screen and (min-width : 670px) {
-  .btcToCadConversionHeader {
-    display: inline-flex;
-  }
-}
-.BTCtoCADConversionDiv {
-  display: inline-flex;
-  justify-content: center;
-  align-content: flex-start;
-  align-items: center;
-  flex-direction: row;
-}
-@media only screen and (max-width : 1000px) {
-  .BTCtoCADConversionDiv {
-    flex-wrap: wrap;
-  }
-}
-
 .BTCtoCADConversionWrapperDiv {
+  width: 100%;
   padding: 5px;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: space-around;
   align-items: center;
-  align-content: center; 
+  align-content: center;
 }
 
-.BTCtoCADConversionDiv input {
-  width: 100%;
-  max-width: 180px;
+
+.BTCtoCADConversionDiv {
+  width: 150px;
+  display: flex;
+  justify-content: center;
+  align-content: flex-start;
+  align-items: center;
+  flex-direction: row;
 }
 
-.BTCtoCADConversionDiv label {
-  padding: 5px;
-  font-size: small;
-  font-weight: bold;
-}
+  .BTCtoCADConversionDiv input {
+    width: 100px;
+  }
+
+  .BTCtoCADConversionDiv label {
+    padding: 5px;
+    font-size: small;
+    font-weight: bold;
+    width: 50px;
+    text-align: left;
+  }
 
 .miningHubSection {
   display: inline-flex;
   flex-direction: column;
 }
+
 .cryptoHubConverterAndCoinWatchWrapper {
-  display: flex; 
+  display: flex;
   flex-wrap: wrap;
   align-content: center;
   justify-content: center;
-  gap: 20px;
 }
-  .cryptoHubConverterAndCoinWatchWrapper div, .cryptoHubConverterAndCoinWatchWrapper table {
-    max-width: 400px;
-  }
-    .cryptoHubConverterAndCoinWatchWrapper table th {
-      padding: 10px;
-      max-width: 400px;
-    }
-/* typical phone screen resolution */
-@media only screen and (max-width : 1000px) {
-  .cryptoHubConverterAndCoinWatchWrapper div {
-    max-width: 200px !important;
-  }
-}
+
+  .cryptoHubConverterAndCoinWatchWrapper table th {
+    padding: 10px;
+  } 
 
 .normalBtcAddress, .hiddenBtcAddress {
   text-align: left !important;
 }
+
 .hiddenBtcAddress {
   max-width: 50px;
   text-overflow: ellipsis;
   overflow: hidden;
 }
+
 .selectedCurrencyDropdownWrapper {
   display: flex;
   white-space: nowrap;
 }
+
 .discreeteModeSelectorDiv {
   display: flex;
   align-items: center;
@@ -165,25 +160,29 @@
   flex-wrap: nowrap;
   flex-direction: row;
 }
+
 .discreeteModeSpan {
-  font-size: 25px; 
+  font-size: 25px;
   cursor: pointer;
 }
+
 .menuPanelOptionsDiv {
   height: 125px !important;
   min-width: 315px;
   margin-top: 35px;
 }
+
 #coinWatchTable tr:hover {
   text-decoration: underline dotted var(--main-link-color);
   cursor: pointer;
-} 
+}
 
 @media only screen and (max-width: 667px) {
   .popupPanel {
     max-height: CALC(var(--vh, 1vh) * 99);
   }
 }
+
 .walletPopupTitle {
   text-align: center !important;
   max-width: 97vw;
@@ -199,6 +198,52 @@
   margin-bottom: 20px;
   height: unset !important;
 }
+
 .walletPanelCloseDiv {
   margin: 20px 20px 0px 20px;
+}
+
+.aiMessage {
+  max-height: 150px;
+  overflow: auto;
+  padding: 10px;
+}
+.marquee-scroll {
+  overflow-x: auto;
+  display: flex;
+  gap: 20px;
+  padding: 10px;
+  margin-top: 15px;
+  height: 35px;
+  white-space: nowrap;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;
+  user-select: none;
+}
+
+  .marquee-scroll.dragging {
+    cursor: grabbing;
+  }
+
+.marquee-item {
+  display: inline-flex;
+  gap: 10px;
+  padding-right: 20px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.marquee-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px; 
+}
+
+.marquee-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--main-link-color);
+}
+
+.marquee-scroll::-webkit-scrollbar-track {
+  background-color: var(--main-bg-color);
+  border: none;
 }

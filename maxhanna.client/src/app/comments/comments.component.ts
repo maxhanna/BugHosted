@@ -46,6 +46,9 @@ export class CommentsComponent extends ChildComponent implements OnInit {
 
   constructor(private commentService: CommentService, private notificationService: NotificationService, private sanitizer: DomSanitizer) {
     super();
+    if (!this.inputtedParentRef && this.parentRef) {
+      this.inputtedParentRef = this.parentRef;
+    }
   }
 
   ngOnInit() { 
@@ -131,22 +134,19 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     }
     this.sendNotifications(comment); 
   }
-  private sendNotifications(comment: FileComment) {
-    console.log("test", comment);
-    const isStory = this.type == "Social";
-    const isFile = this.type == "File";
-    const isFileComment = this.type == "Comment";
-    const tmpComponent = isStory ? (this.component as Story)
-      : isFile ? (this.component as FileEntry)
-      : isFileComment ? (this.component as FileComment) 
-      : undefined; 
-
-    if (this.inputtedParentRef && tmpComponent?.user) {
+  private sendNotifications(comment: FileComment) { 
+    const replyingToUser = this.component?.user; 
+    const isStory = this.type == "Social" || this.component?.storyId;  
+    const fromUser = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
+    const message = (!comment || !comment.commentText) ? (isStory || this.userProfileId) ? "Social Post Comment" : "File Comment"
+      : comment.commentText.length > 50 ? comment.commentText.slice(0, 50) + "…"
+      : comment.commentText;
+    if (replyingToUser) {
       const notificationData = {
-        fromUser: this.inputtedParentRef.user ?? new User(0, "Anonymous"),
-        toUser: [tmpComponent.user],
-        message: (isStory || this.userProfileId) ? "Social Post Comment" : "File Comment",
-        storyId: comment.storyId,
+        fromUser: fromUser,
+        toUser: [replyingToUser],
+        message: message,
+        storyId: comment.storyId ?? this.component.storyId,
         fileId: comment.fileId,
         commentId: comment.commentId,
         userProfileId: comment.userProfileId,

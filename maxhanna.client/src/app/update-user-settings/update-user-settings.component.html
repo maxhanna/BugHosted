@@ -138,7 +138,8 @@ but you can also set your own City for a more precise location."></span>
       <div *ngIf="isWeatherLocationToggled || showOnlyWeatherLocation">
         <div>
           <div>Location:</div>
-          <div><input type="text" placeholder="IP Address/City (ex: 'Montreal')" #weatherLocationInput /></div>
+          <div><input type="text" placeholder="City (ex: 'Montreal')" #weatherLocationCityInput /></div>
+          <div><input type="text" placeholder="Country (ex: 'Canada')" #weatherLocationCountryInput /></div>
           <div></div>
         </div>
       </div>

@@ -105,10 +105,10 @@ fieldset {
   }
 }
 
-.refreshButton::before, .closeButton::before, .menuButton::before {
+.refreshButton::before, .closeButton::before, .menuButton::before, .menuBackButton::before {
   z-index: 1;
 }
-.refreshButton::before, .closeButton::before, .menuButton::before, .notificationTopButton, .topSearchButtonDiv {
+.refreshButton::before, .closeButton::before, .menuButton::before, .menuBackButton::before, .notificationTopButton, .topSearchButtonDiv {
   position: absolute;
   top: 0px;
   width: 50px;
@@ -131,6 +131,11 @@ fieldset {
 
 .menuButton::before {
   content: '☰'; 
+}
+.menuBackButton::before {
+  content: '🡰';
+  right: 50px;
+  text-shadow: 1px 1px var(--main-link-color);
 }
 
 .refreshButton::before, .menuButton::before {

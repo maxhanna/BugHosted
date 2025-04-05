@@ -27,6 +27,21 @@ export class CoinValueService {
     }
   }
 
+  async getAllCoinValuesForGraph() {
+    try {
+      const response = await fetch(`/coinvalue/getallforgraph`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
   async getWalletBalanceData(walletAddress: string) {
     try {
       const response = await fetch(`/coinvalue/getwalletbalancedata`, {
@@ -46,6 +61,22 @@ export class CoinValueService {
   async getAllExchangeRateValues() {
     try {
       const response = await fetch(`/currencyvalue`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+
+  async getAllExchangeRateValuesForGraph() {
+    try {
+      const response = await fetch(`/currencyvalue/getallforgraph`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

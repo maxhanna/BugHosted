@@ -40,6 +40,14 @@
   word-break: break-word;
 }
 
+  .message pre, .message code {
+    word-break: break-word;
+  }
+    .message pre ::ng-deep *, .message code ::ng-deep * {
+      word-break: break-word;
+    }
+
+
 .input-container {
   display: flex;
   flex-direction: row;

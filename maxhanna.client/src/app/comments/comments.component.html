@@ -18,7 +18,7 @@
       <div class="commentAvatar usernameProfileLink">
         <app-user-tag [user]="comment.user" [inputtedParentRef]="inputtedParentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
-      <div class="commentDate">{{getUtcTimeSince(comment.date)}}</div>
+      <div class="commentDate">{{inputtedParentRef?.convertUtcToLocalTime(comment.date)}}</div>
       <div class="commentReaction">
         <app-reaction [commentId]="comment.id"
                       [component]="comment"
@@ -134,7 +134,7 @@
         Date:
       </div>
       <div class="optionsStatsDescription">
-        {{optionsComment.date}}
+        {{inputtedParentRef?.convertUtcToLocalTime(optionsComment.date)}}
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="optionsComment.country">

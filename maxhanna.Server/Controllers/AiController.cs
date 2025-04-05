@@ -31,12 +31,12 @@ namespace maxhanna.Server.Controllers
 			{
 				return BadRequest("Message cannot be empty.");
 			}
-			if (request.User == null || request.User.Id == 0)
+			if (request.User == null)
 			{
 				return BadRequest("User cannot be null.");
 			}
 
-			_logger.LogInformation($"POST /Ai/SendMessageToAi ({request.Message})");
+			_logger.LogInformation($"POST /Ai/SendMessageToAi (user: {request.User.Id})");
 
 			try
 			{
@@ -45,8 +45,10 @@ namespace maxhanna.Server.Controllers
 				{
 					return StatusCode(429, new { Reply = "You have exceeded the maximum number of text requests for this month." });
 				}
-
-				await UpdateUserRequestCount(request.User!, request.Message, "text");
+				if (!request.SkipSave)
+				{ 
+					await UpdateUserRequestCount(request.User!, request.Message, "text");
+				}
 
 				// Ollama API URL
 				string url = "http://localhost:11434/api/generate";
@@ -56,7 +58,8 @@ namespace maxhanna.Server.Controllers
 				{
 					model = "gemma3",  // Make sure you have the correct model installed
 					prompt = request.Message,
-					stream = false, 
+					stream = false,
+					max_tokens = request.MaxCount,
 				};
 
 				var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -258,24 +261,13 @@ namespace maxhanna.Server.Controllers
 			cmd.Parameters.AddWithValue("@message", message);
 			cmd.Parameters.AddWithValue("@type", callType); // Add the type parameter
 			await cmd.ExecuteNonQueryAsync();
-		}
-		private bool IsValidBase64(string base64String)
-		{
-			try
-			{
-				Convert.FromBase64String(base64String); // Attempt to decode base64
-				return true;
-			}
-			catch
-			{
-				return false;
-			}
-		}
-
+		} 
 		public class AiRequest
 		{
 			public required User User { get; set; }
 			public required string Message { get; set; }
+			public required bool SkipSave { get; set; } 
+			public required int MaxCount { get; set; } 
 		}
 
 		public class AiResponse

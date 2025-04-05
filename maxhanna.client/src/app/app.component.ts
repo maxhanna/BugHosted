@@ -264,6 +264,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         childComponent[key] = inputs[key];
       });
     }
+    this.updateLastSeen();
     this.componentsReferences.push(childComponentRef);
     return childComponentRef;
   }
@@ -533,24 +534,23 @@ export class AppComponent implements OnInit, AfterViewInit {
 
           // Define the maximum truncation length (we reserve space for the breadcrumb)
           const maxLength = 200;
-          const truncatedMessage = quotedMessage.length > maxLength && !quotedMessage.includes("____QUOTE_END____") ? quotedMessage.slice(0, maxLength) + "..." : quotedMessage;
+          const truncatedMessage = quotedMessage.length > maxLength && !quotedMessage.includes("____QUOTE_START____") && !quotedMessage.includes("____QUOTE_END____") ? quotedMessage.slice(0, maxLength) + "..." : quotedMessage;
 
           const escapedQuotedMessage = encodeURIComponent(truncatedMessage); // Now encoding truncated message
 
           // Insert the breadcrumb character to mark the end of each quote
           return `
-        <div class="quote-text quote-link" onClick="document.getElementById('scrollToQuoteDateInput').value='${timestamp}';document.getElementById('scrollToQuoteMessageInput').value='${escapedQuotedMessage}';document.getElementById('quoteClickButton').click()">
+        ____QUOTE_START____<div class="quote-text quote-link" onClick="document.getElementById('scrollToQuoteDateInput').value='${timestamp}';document.getElementById('scrollToQuoteMessageInput').value='${escapedQuotedMessage}';document.getElementById('quoteClickButton').click()">
             <span class="quote-user">${username}</span>
             <span class="quote-time">(${formattedTimestamp})</span>:  
             "<span class="quote-message">${truncatedMessage}</span>"
-        </div>____QUOTE_END____`; // Special marker at the end
+        </div>____QUOTE_END____`;  
         });
       }
+       
+      processedText = processedText.replace(/____QUOTE_END____/g, '').replace(/____QUOTE_START____/g, '');
 
-      // Replace the special marker with the final quote termination (or remove if unnecessary)
-      processedText = processedText.replace(/____QUOTE_END____/g, '');
-
-      return processedText; // Return the properly formatted text
+      return processedText; 
     };
 
     text = processQuotes(text);
@@ -629,7 +629,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     const minutes = date.getMinutes().toString().padStart(2, '0');
     return `${month}/${day} ${hours}:${minutes}`;
   }
-  convertUtcToLocalTime(date: Date): string {
+  convertUtcToLocalTime(date?: Date): string {
     if (!date) return "";
 
     // Get the user's local time zone dynamically
@@ -746,6 +746,7 @@ export class AppComponent implements OnInit, AfterViewInit {
 
     if (tmpUser && tmpUser.id != 0) { 
       this.userService.updateLastSeen(tmpUser);
+      tmpUser.lastSeen = new Date();
     }
   }
   async isServerUp() {
@@ -758,7 +759,13 @@ export class AppComponent implements OnInit, AfterViewInit {
       return false;
     } 
   }
-  async getLocation() {
+  async getLocation(user?: User) {
+    if (user && this.user?.id != user.id) {
+      const res = await this.userService.getUserIpFromBackend(user);
+      if (res) {
+        return { ip: res.ip, city: res.city, country: res.country };
+      }
+    }
     if (this.location) { 
       return this.location;
     }

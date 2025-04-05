@@ -39,10 +39,18 @@
         <div class="seperatedUserHeader">
           <div class="invertedHighlights xxSmallFont">Last Seen: </div>
           <div>
-            {{(user && user.lastSeen ? (user.lastSeen | date: 'y/MM/d') : 'Unknown')}}
-            <span class="invertedHighlights xxSmallFont">({{user && user.lastSeen ? getUtcTimeSince(user.lastSeen, 'minute') : '0 days'}})</span>
+            <span *ngIf="user && user.lastSeen && isUserOnline(user.lastSeen)">
+              🟢 Online
+            </span>
+            <span *ngIf="user && user.lastSeen && !isUserOnline(user.lastSeen)"  class="invertedHighlights xxSmallFont">
+              {{ getUtcTimeSince(user.lastSeen) }} 
+            </span>
+            <span *ngIf="!user?.lastSeen">
+              Unknown <span class="invertedHighlights xxSmallFont">(0 days)</span>
+            </span>
           </div>
         </div>
+
         <div class="profileControls" *ngIf="user || parentRef?.user">
           <select (change)="onProfileControlsChange()" #profileControls class="profileControlsSelector">
             <option selected disabled>Options</option>
