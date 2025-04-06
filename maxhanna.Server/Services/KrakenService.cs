@@ -9,10 +9,11 @@ using System.Text.Json.Serialization;
 public class KrakenService
 {
 	private const decimal _MaximumTradeBalanceRatio = 0.9m;
-	private const decimal _TradeThreshold = 0.008m;
+	private const decimal _TradeThreshold = 0.007m;
 	private const decimal _MinimumBTCTradeAmount = 0.00005m;
 	private const decimal _ValueTradePercentage = 0.15m;
 	private const decimal _BTCPriceDiscrepencyStopPercentage = 0.10m;
+	private const decimal _InitialMinimumBTCAmountToStart = 0.001999m;
 	private readonly HttpClient _httpClient;
 	private static IConfiguration? _config;
 	private readonly string _apiKey;
@@ -76,28 +77,48 @@ public class KrakenService
 				Console.WriteLine("Failed to get wallet balances");
 				return false;
 			}
+			Console.WriteLine("Balances: ");
+			foreach (var pair in balances)
+			{
+				Console.WriteLine($"{pair.Key}: {pair.Value}");
+			}
+
 			var btcPriceToCad = await GetBtcPriceToCad();
 			if (!ValidatePriceDiscrepency(currentPrice, btcPriceToCad))
 			{
 				return false;
 			}
 
-			decimal btcBalance = balances.ContainsKey("XBT") ? balances["XBT"] : 0;
+			decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
 			decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
 
 			if (spread >= _TradeThreshold)
 			{
 				decimal btcToTrade = btcBalance * _ValueTradePercentage;
-				if (Is90PercentOfTotalWorth(btcBalance, usdcBalance))
+				decimal? usdToCadRate = await GetUsdToCadRate();
+				Console.WriteLine("USD to CAD rate: " + usdToCadRate.Value + "; btcPriceToCad: " + btcPriceToCad);
+				if (usdToCadRate.HasValue && btcPriceToCad.HasValue && (btcToTrade > 0))
 				{
-					Console.WriteLine($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcBalance}/{usdcBalance}");
-					return false;
-				}
-				if (btcToTrade > 0)
-				{
+					// Convert the BTC price to USD
+					decimal btcPriceInUsd = btcPriceToCad.Value / usdToCadRate.Value;
+
+					// Now you can get the value of btcToTrade in USDC (1 USDC = 1 USD) 
+					decimal btcValueInUsdc = btcToTrade * btcPriceInUsd; 
+					Console.WriteLine($"BTC to trade in USDC: {btcValueInUsdc}");
+					if (Is90PercentOfTotalWorth(btcValueInUsdc, usdcBalance)) 
+					{
+						Console.WriteLine($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcValueInUsdc}/{usdcBalance}");
+						return false;
+					}
+				 
 					Console.WriteLine($"Spread is +{spread:P}, selling {btcToTrade} BTC for USDC");
-					await ExecuteXBTtoUSDCTrade(userId, btcToTrade.ToString("0.00000000"), "sell");
+					await ExecuteXBTtoUSDCTrade(userId, btcToTrade.ToString("0.00000000"), "sell"); 
 				}
+				else
+				{
+					Console.WriteLine("Error fetching USDC exchange rates.");
+					return false;
+				} 
 			}
 			else if (spread <= -_TradeThreshold)
 			{
@@ -199,17 +220,17 @@ public class KrakenService
 	private async Task<decimal?> GetBtcPriceToCad()
 	{
 		try
-		{ 
-			var pair = "XXBTZCAD";   
+		{
+			var pair = "XXBTZCAD";
 			var response = await MakeRequestAsync("/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair });
-			Console.WriteLine("Response: " + response.ToString()); 
+			//Console.WriteLine("Response: " + response.ToString()); 
 			// Check if the response contains the expected "result" key
 			if (response == null || !response.ContainsKey("result"))
 			{
 				Console.WriteLine("Failed to get BTC price in CAD: 'result' not found.");
 				return null;
-			} 
-			var result = (JObject)response["result"]; 
+			}
+			var result = (JObject)response["result"];
 			if (!result.ContainsKey(pair))
 			{
 				Console.WriteLine("Failed to find XXBTZCAD pair in the response.");
@@ -222,28 +243,67 @@ public class KrakenService
 			{
 				Console.WriteLine("Failed to extract ask price from response.");
 				return null;
-			} 
+			}
 			// The ask price is the first value in the array
 			var askPrice = askArray[0].ToObject<decimal>();
 			return askPrice;
 		}
 		catch (Exception ex)
-		{ 
+		{
 			Console.WriteLine($"Error fetching BTC price to CAD: {ex.Message}");
 			return null;
 		}
-	} 
+	}
+
+
+	private async Task<decimal?> GetBtcPriceToUSDC()
+	{
+		try
+		{
+			var pair = "XXBTZUSD";
+			var response = await MakeRequestAsync("/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair });
+			//Console.WriteLine("Response: " + response.ToString()); 
+			// Check if the response contains the expected "result" key
+			if (response == null || !response.ContainsKey("result"))
+			{
+				Console.WriteLine("Failed to get BTC price in USD: 'result' not found.");
+				return null;
+			}
+			var result = (JObject)response["result"];
+			if (!result.ContainsKey(pair))
+			{
+				Console.WriteLine("Failed to find XXBTZUSD pair in the response.");
+				return null;
+			}
+
+			// Extract the ask price from the 'a' key (ask prices are in the array)
+			var askArray = result[pair]["a"]?.ToObject<JArray>();
+			if (askArray == null || askArray.Count < 1)
+			{
+				Console.WriteLine("Failed to extract ask price from response.");
+				return null;
+			}
+			// The ask price is the first value in the array
+			var askPrice = askArray[0].ToObject<decimal>();
+			return askPrice;
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error fetching BTC price to USD: {ex.Message}");
+			return null;
+		}
+	}
 
 	private async Task TradeHalfBTCForUSDC(int userId)
 	{
-		decimal minBtc = 0.001999m;
+		decimal minBtc = _InitialMinimumBTCAmountToStart;
 		var balances = await GetBalance();
 		if (balances == null)
 		{
 			Console.WriteLine("Failed to get wallet balances");
 			return;
 		}
-		decimal btcBalance = balances.ContainsKey("XBT") ? balances["XBT"] : 0;
+		decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
 		decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
 
 		Console.WriteLine($"Insufficient funds (BTC: {btcBalance}, USDC: {usdcBalance})");
@@ -303,47 +363,7 @@ public class KrakenService
 		{
 			var result = (JObject)response["result"];
 			orderId = result["orderId"]?.ToString();
-		}
-
-		// If no order ID is received, wait and re-check in a loop (up to maxWaitSeconds)
-		int maxWaitSeconds = 30;
-		int waitedSeconds = 0;
-		while (string.IsNullOrEmpty(orderId) && waitedSeconds < maxWaitSeconds)
-		{
-			Console.WriteLine("No order ID received. Waiting 1 second and rechecking...");
-			await Task.Delay(1000);
-			waitedSeconds++;
-
-			// Attempt to query the order status again if we now have an orderId.
-			// This assumes that the order might show up shortly after placing it.
-			// Here, you might consider re-querying the open orders endpoint to see if your order appears.
-			var openOrdersResponse = await QueryOpenOrdersForPair(pair);
-			Console.WriteLine("Open orders: " + openOrdersResponse);
-
-			// Optionally, try to extract an order id from the open orders response.
-			// For example, if your openOrdersResponse JSON contains orders with keys equal to order IDs,
-			// you can attempt to parse it and see if one matches your trade criteria.
-			// For simplicity, we'll re-run CheckOrderStatus if we already had an orderId previously.
-			// (This code block could be extended with more sophisticated logic to detect the order.)
-
-			// (If you have additional identification info from your trade footprint,
-			// you could match it here to get the order ID.)
-
-			// For now, if CheckOrderStatus doesn't give an order ID, we simply continue waiting.
-			if (!string.IsNullOrEmpty(orderId))
-			{
-				break;
-			}
-		}
-
-		// If orderId is still null after waiting, log and delete footprint.
-		if (string.IsNullOrEmpty(orderId))
-		{
-			Console.WriteLine("Order still not found after waiting. Deleting trade footprint.");
-			await DeleteTradeFootprint(userId, from, to, amount);
-			return;
-		}
-
+		} 
 		// If we have an orderId, check its status.
 		var statusResponse = await CheckOrderStatus(orderId);
 		Console.WriteLine($"Order status: {statusResponse}");
@@ -357,12 +377,7 @@ public class KrakenService
 			{
 				Console.WriteLine("Trade response: " + statusResponse["status"]);
 			}
-		}
-		else
-		{
-			Console.WriteLine($"Trade failed or still pending: {from}->{to}/{amount}");
-			await DeleteTradeFootprint(userId, from, to, amount);
-		}
+		} 
 	}
 
 

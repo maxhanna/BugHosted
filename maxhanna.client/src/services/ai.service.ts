@@ -15,11 +15,7 @@ export class AiService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ User: user, Message: message, SkipSave: skipSave, MaxCount: maxCount ?? 0 }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      } 
+      }); 
       return response.json();
     } catch (error) {
       console.error('Error in AI streaming response:', error);

@@ -186,7 +186,7 @@ namespace maxhanna.Server.Controllers
 			long currentCount = 0;
 			long limit = 0;
 			int MaxTextRequestsPerHourGlobal = 600;
-			int MaxTextRequestsPerHourUser = 66;
+			int MaxTextRequestsPerHourUser = 100;
 			int MaxImageRequestsPerHour = 1;
 
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));

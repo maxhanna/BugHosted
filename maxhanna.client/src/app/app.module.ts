@@ -52,7 +52,8 @@ import { CurrencyFlagPipe } from './currency-flag.pipe';
 import { MetaComponent } from './meta/meta.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
 import { ThemesComponent } from './themes/themes.component';
-import { CrawlerComponent } from './crawler/crawler.component';  
+import { CrawlerComponent } from './crawler/crawler.component';
+import { SpeechRecognitionComponent } from './speech-recognition/speech-recognition.component';  
 
 @NgModule({
   declarations: [
@@ -102,6 +103,7 @@ import { CrawlerComponent } from './crawler/crawler.component';
     HostAiComponent,
     ThemesComponent,
     CrawlerComponent,
+    SpeechRecognitionComponent,
   ],
   bootstrap: [AppComponent],
   imports: [BrowserModule,

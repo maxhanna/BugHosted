@@ -192,11 +192,11 @@
         <tbody>
           <tr *ngFor="let trade of tradebotBalances">
             <td class="xxSmallFont">{{ trade.id }}</td> 
-            <td>{{ trade.from_currency }}</td>
-            <td>{{ trade.to_currency }}</td>
-            <td>{{ trade.value }}</td>
-            <td>{{ trade.btc_price_cad }}</td>
-            <td>{{ getUtcTimeSince(trade.timestamp) }}</td>
+            <td class="xxSmallFont">{{ trade.from_currency }}</td>
+            <td class="xxSmallFont">{{ trade.to_currency }}</td>
+            <td class="xxSmallFont">{{ trade.value }}</td>
+            <td class="xxSmallFont">{{ trade.btc_price_cad }}</td>
+            <td class="xxSmallFont">{{ getUtcTimeSince(trade.timestamp) }}</td>
           </tr>
         </tbody>
       </table>

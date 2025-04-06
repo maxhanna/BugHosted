@@ -1,6 +1,6 @@
 <div class="componentMain">
   <div class="closeButton" (click)="remove_me('HostAiComponent');"></div> 
-  <div class="componentTitle">HostAI</div>
+  <div class="componentTitle">{{this.hostName}}</div>
 
   <div class="chat-container" #chatContainer>
     <div class="chat-box" *ngIf="chatMessages && chatMessages.length > 0">
@@ -21,6 +21,8 @@
     <div class="messageButtonsWrapperDiv">
       <button (click)="createCodeSnippet()"><\></button>
       <button (click)="generateImage()">🖼️</button>
+      <app-speech-recognition (speechRecognitionEvent)="speechRecognitionEvent($event)" (speechRecognitionStopListeningEvent)="stopListening()"></app-speech-recognition>
+      <button (click)="stopTalking()" *ngIf="startedTalking">🤐</button> 
     </div>
     <div class="input-container">
       <textarea [value]="userMessage"
