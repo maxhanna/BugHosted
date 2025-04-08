@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Contacts
 {
 	public class CreateContact
 	{
-		public CreateContact(User user, Contact contact)
+		public CreateContact(int userId, Contact contact)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.contact = contact;
 		}
-		public User user { get; set; }
+		public int userId { get; set; }
 		public Contact contact { get; set; }
 	}
 }

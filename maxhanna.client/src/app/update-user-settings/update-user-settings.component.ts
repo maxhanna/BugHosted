@@ -4,7 +4,7 @@ import { MiningService } from '../../services/mining.service';
 import { WeatherService } from '../../services/weather.service';
 import { UserService } from '../../services/user.service';
 import { ChildComponent } from '../child.component';
-import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys';
+import { NicehashApiKeys } from '../../services/datacontracts/crypto/nicehash-api-keys'; 
 import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { UserAbout } from '../../services/datacontracts/user/user-about';
@@ -14,7 +14,7 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { AppComponent } from '../app.component';
 import { MiningWalletResponse } from '../../services/datacontracts/crypto/mining-wallet-response';
 import { CoinValueService } from '../../services/coin-value.service';
-import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
+import { TradeService } from '../../services/trade.service';
 
 @Component({
     selector: 'app-update-user-settings',
@@ -24,21 +24,22 @@ import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate'
 })
 export class UpdateUserSettingsComponent extends ChildComponent implements OnInit {
   updateUserDivVisible = true;
-  isGeneralToggled = true;
+  isGeneralToggled = false;
   isMenuIconsToggled = false;
-  isWeatherLocationToggled = false;
-  isDisplayPictureToggled = true;
+  isWeatherLocationToggled = false; 
   isDeleteAccountToggled = false;
   isBTCWalletAddressesToggled = false;
-  isAboutToggled = true;
+  isAboutToggled = false;
   showAddBTCWalletAddressInput = false;
   isNicehashApiKeysToggled = false;
+  isKrakenApiKeysToggled = false;
   selectableIcons: MenuItem[] = [];
   btcWalletAddresses?: string[];
   notifications: string[] = [];
   selectedCurrency = '';
   uniqueCurrencyNames: string[] = [];
   nhApiKeys?: NicehashApiKeys;
+  hasKrakenKeys?: boolean;
   displayPictureFile?: FileEntry = this.parentRef?.user?.displayPictureFile;
 
   isDisplayingNSFW = false;
@@ -52,7 +53,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('updatedPassword') updatedPassword!: ElementRef<HTMLInputElement>;
   @ViewChild('orgId') orgId!: ElementRef<HTMLInputElement>;
   @ViewChild('apiKey') apiKey!: ElementRef<HTMLInputElement>;
-  @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>;
+  @ViewChild('apiSecret') apiSecret!: ElementRef<HTMLInputElement>; 
+  @ViewChild('krakenApiKey') krakenApiKey!: ElementRef<HTMLInputElement>;
+  @ViewChild('krakenPrivateKey') krakenPrivateKey!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationCityInput') weatherLocationCityInput!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationCountryInput') weatherLocationCountryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
@@ -69,7 +72,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild(MediaViewerComponent) displayPictureViewer!: MediaViewerComponent;
 
 
-  constructor(private miningService: MiningService, private weatherService: WeatherService, private userService: UserService, private coinService: CoinValueService) {
+  constructor(private miningService: MiningService, private tradeService: TradeService, private weatherService: WeatherService, private userService: UserService, private coinService: CoinValueService) {
     super();
   }
   async ngOnInit() {
@@ -78,17 +81,17 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       .sort((a, b) => a.title.localeCompare(b.title));
 
     this.updateUserDivVisible = true;
-    this.isGeneralToggled = true;
+    this.isGeneralToggled = false;
     this.isMenuIconsToggled = false;
-    this.isWeatherLocationToggled = false;
-    this.isDisplayPictureToggled = true;
+    this.isWeatherLocationToggled = false; 
     this.isDeleteAccountToggled = false;
-    this.isAboutToggled = true;
+    this.isAboutToggled = false;
     this.isNicehashApiKeysToggled = false;
+    this.isKrakenApiKeysToggled = false;
 
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
-    if (user) { 
-      this.userService.getUserSettings(user).then(res => {
+    if (user?.id) {
+      this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
         }
@@ -102,8 +105,14 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     }
   }
   async getNicehashApiKeys() {
-    if (this.isNicehashApiKeysToggled) {
-      this.nhApiKeys = await this.miningService.getNicehashApiInfo((this.parentRef?.user)!);
+    const user = this.parentRef?.user;
+    if (this.isNicehashApiKeysToggled && user?.id) {
+      this.nhApiKeys = await this.miningService.getNicehashApiInfo(user.id);
+    }
+  }
+  async getKrakenApiKeys() {
+    if (this.isKrakenApiKeysToggled && this.parentRef?.user?.id && this.parentRef.user.id != 0) {
+      this.hasKrakenKeys = await this.tradeService.HasApiKey(this.parentRef.user.id);
     }
   }
   async getUniqueCurrencyNames() {
@@ -118,18 +127,20 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     }
   }
   async updateUserAbout() {
+    const parent = this.inputtedParentRef ? this.inputtedParentRef : this.parentRef; 
+    const user = parent?.user;
+
+    if (!user?.id) return;
     let about = new UserAbout(); 
-    about.userId = this.parentRef!.user!.id!;
+    about.userId = user.id;
     about.description = this.updatedDescription.nativeElement.value != '' ? this.updatedDescription.nativeElement.value : undefined;
     about.phone = this.updatedPhone.nativeElement.value != '' ? this.updatedPhone.nativeElement.value : undefined;
     about.email = this.updatedEmail.nativeElement.value != '' ? this.updatedEmail.nativeElement.value : undefined;
     about.isEmailPublic = this.isEmailPublicYes.nativeElement.checked ? true : false;
     about.birthday = this.updatedBirthday.nativeElement.value != '' ? new Date(this.updatedBirthday.nativeElement.value) : undefined;
     about.currency = this.selectedCurrencyDropdown.nativeElement.value != '' ? this.selectedCurrencyDropdown.nativeElement.value : undefined;
-    await this.userService.updateUserAbout(this.parentRef!.user!, about).then(async res => {
+    await this.userService.updateUserAbout(user.id, about).then(async res => {
       if (res) {
-        const parent = this.inputtedParentRef ? this.inputtedParentRef : this.parentRef;
-        const user = parent?.user;
         if (user && parent) {
           user.about = about;
           parent.resetUserCookie();
@@ -139,8 +150,26 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       }
     });
   }
+  async updateKrakenAPIKeys() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (this.isKrakenApiKeysToggled && user) {
+      const krakenPrivateKey = this.krakenPrivateKey.nativeElement.value;
+      const krakenApiKey = this.krakenApiKey.nativeElement.value; 
+      try {
+        this.tradeService.UpdateApiKey(user.id ?? 0, krakenApiKey, krakenPrivateKey).then(res => {
+          if (res) {
+            this.parentRef?.showNotification(res);
+          }
+        });
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  }
   async updateNHAPIKeys() {
-    if (this.isNicehashApiKeysToggled) {
+    const user = this.parentRef?.user;
+    if (this.isNicehashApiKeysToggled && user?.id) {
       let keys = new NicehashApiKeys();
       keys.orgId = this.orgId.nativeElement.value;
       keys.apiKey = this.apiKey.nativeElement.value;
@@ -148,7 +177,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       keys.ownership = this.parentRef?.user!.id;
 
       try {
-        await this.miningService.updateNicehashApiInfo((this.parentRef?.user)!, keys);
+        await this.miningService.updateNicehashApiInfo(user.id, keys);
         this.parentRef?.showNotification("Nicehash API Keys updated successfully");
       } catch {
         this.parentRef?.showNotification("Error while updating Nicehash API Keys!");
@@ -158,28 +187,28 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async getWeatherLocation() {
-    if (this.isWeatherLocationToggled) {
-      const res = await this.weatherService.getWeatherLocation(this.parentRef?.user!);
+    if (this.isWeatherLocationToggled && this.parentRef?.user?.id) {
+      const res = await this.weatherService.getWeatherLocation(this.parentRef.user.id);
       this.weatherLocationCountryInput.nativeElement.value = res.country;
       this.weatherLocationCityInput.nativeElement.value = res.city;
     }
   }
 
   async updateWeatherLocation() {
-    if (this.isWeatherLocationToggled) {
+    if (this.isWeatherLocationToggled && this.parentRef?.user?.id) {
       try {
         const inputCityLoc = this.weatherLocationCityInput.nativeElement.value;
         const inputCountryLoc = this.weatherLocationCountryInput.nativeElement.value;
         if ((inputCityLoc && inputCityLoc.trim() != '') || (inputCountryLoc && inputCountryLoc.trim() != '')) {
-          await this.weatherService.updateWeatherLocation(this.parentRef!.user!, inputCityLoc, inputCityLoc, inputCountryLoc);
+          await this.weatherService.updateWeatherLocation(this.parentRef.user.id, inputCityLoc, inputCityLoc, inputCountryLoc);
         }
         else {
-          if (this.parentRef?.user) {
+          if (this.parentRef?.user?.id) {
             const locationData = await this.parentRef.getLocation();
             if (locationData) {
-              const weatherLocation = await this.weatherService.getWeatherLocation(this.parentRef.user) as WeatherLocation;
+              const weatherLocation = await this.weatherService.getWeatherLocation(this.parentRef.user.id) as WeatherLocation;
               if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location) || weatherLocation.location?.trim() === '')) {
-                await this.weatherService.updateWeatherLocation(this.parentRef.user, locationData.ip, locationData.city, locationData.country);
+                await this.weatherService.updateWeatherLocation(this.parentRef.user.id, locationData.ip, locationData.city, locationData.country);
               }
             } 
           }
@@ -194,21 +223,24 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
 
   async avatarSelected(files: FileEntry[]) {
-    if (files && files.length > 0) {
-      const res = await this.userService.updateDisplayPicture(this.parentRef?.user!, files[0].id);
-      const targetParent = this.inputtedParentRef ?? this.parentRef;
-      if (targetParent && targetParent.user) {
-        targetParent.user.displayPictureFile = files[0];
-        targetParent.deleteCookie("user");
-        targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
-        this.ngOnInit();
-      }
+    const targetParent = this.inputtedParentRef ?? this.parentRef;
+    if (files && files.length > 0 && targetParent?.user?.id) {
+      await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id); 
+      targetParent.user.displayPictureFile = files[0];
+      targetParent.deleteCookie("user");
+      targetParent.setCookie("user", JSON.stringify(targetParent.user), 10);
+      this.ngOnInit(); 
     }
   }
 
   async updateUser() {
+    const username = this.updatedUsername.nativeElement.value;
+    const password = this.updatedPassword.nativeElement.value;
+    if (!username) {
+      return alert("Username cannot be empty!");
+    }
     const currUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
-    const tmpUser = new User(currUser.id, this.updatedUsername.nativeElement.value, this.updatedPassword.nativeElement.value);
+    const tmpUser = new User(currUser.id, username, password);
     this.startLoading();
     try {
       const res = await this.userService.updateUser(tmpUser);
@@ -218,21 +250,22 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     } catch (error) {
       this.parentRef?.showNotification(`Error updating user ${this.parentRef!.user?.username}. Error: ${JSON.stringify(error)}`);
     }
-    this.parentRef!.user = await this.userService.getUser(tmpUser);
+    this.parentRef!.user = await this.userService.login(username, password);
     this.stopLoading();
   }
 
   async deleteUser() {
-    if (this.parentRef!.getCookie("user")) {
+    const cookie = this.parentRef?.getCookie("user");
+    if (cookie && this.parentRef) {
       if (confirm("Are you sure you wish to delete your account? This will also delete all your saved data, chats, etc.")) {
-        const tmpUser = JSON.parse(this.parentRef!.getCookie("user")) as User;
+        const tmpUser = JSON.parse(cookie) as User;
         try {
-          const res = await this.userService.deleteUser(tmpUser);
-          this.parentRef?.showNotification(res["message"]);
-          this.parentRef?.deleteCookie("user");
+          const res = await this.userService.deleteUser(tmpUser.id ?? 0);
+          this.parentRef.showNotification(res["message"]);
+          this.parentRef.deleteCookie("user");
           window.location.reload(); 
         } catch (error) {
-          this.parentRef?.showNotification(`Error deleting user ${this.parentRef!.user?.username}`);
+          this.parentRef.showNotification(`Error deleting user ${this.parentRef!.user?.username}`);
         }
       }
     } else { return alert("You must be logged in first!"); }
@@ -241,7 +274,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.isMenuIconsToggled = !this.isMenuIconsToggled;
 
     if (this.isMenuIconsToggled) {
-      const response = await this.userService.getUserMenu(this.parentRef?.user!);
+      const response = await this.userService.getUserMenu(this.parentRef?.user?.id);
       this.parentRef!.userSelectedNavigationItems = response;
     }
   }
@@ -251,10 +284,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
 
     if (parent && parent.userSelectedNavigationItems.some(x => x.title == title)) {
       parent.userSelectedNavigationItems = parent.userSelectedNavigationItems.filter(x => x.title != title);
-      if (!parent.user) {
+      if (!parent.user || !parent.user.id) {
         parent.showNotification("You must be logged in to persist menu selections.");
-      } else { 
-        this.userService.deleteMenuItem(parent.user, title).then(res => {
+      } else {
+        this.userService.deleteMenuItem(parent.user.id, title).then(res => {
           if (res) {
             parent.showNotification(res);
           }
@@ -262,10 +295,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       }
     } else if (parent) {
       parent.userSelectedNavigationItems!.push(new MenuItem(parent.user?.id ?? 0, title));
-      if (!parent.user) {
+      if (!parent.user || !parent.user.id) {
         parent.showNotification("You must be logged in to persist menu selections."); 
       } else if (parent && parent.user) {
-        this.userService.addMenuItem(parent.user, [title]).then(res => {
+        this.userService.addMenuItem(parent.user.id, [title]).then(res => {
           if (res) {
             parent.showNotification(res);
           }
@@ -297,7 +330,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.showAddBTCWalletAddressInput = !this.showAddBTCWalletAddressInput;
   }
   async updateBTCWalletAddresses() {
-    if (!this.parentRef || !this.parentRef.user) {
+    const user = this.parentRef?.user;
+    if (!user?.id) {
       return alert("You must be logged in!");
     }
 
@@ -321,16 +355,17 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     }
 
     // Proceed with updating BTC wallet addresses if all are valid
-    await this.userService.updateBTCWalletAddresses(this.parentRef.user, wallets);
+    await this.coinService.updateBTCWalletAddresses(user.id, wallets);
     alert("BTC Wallet Addresses Updated. Visit the Crypto-Hub App To Track.");
   }
 
   async getBTCWalletAddresses() {
     if (this.btcWalletAddresses) return;
-
+    const user = this.parentRef?.user;
     this.btcWalletAddresses = [];
-    if (this.parentRef && this.parentRef.user) {
-      this.userService.getBTCWallet(this.parentRef.user).then((res: MiningWalletResponse) => {
+
+    if (user && user.id) {
+      this.coinService.getBTCWallet(user.id).then((res: MiningWalletResponse) => {
         if (res) {
           res?.currencies?.forEach(x => {
             if (x.address) {
@@ -344,19 +379,20 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async updateNSFW() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
-    if (!user) return alert("You must be logged in to view NSFW content.");
+    if (!user || !user.id) return alert("You must be logged in to view NSFW content.");
     const isChecked = this.nsfwCheckmark.nativeElement.checked;
-    this.userService.updateNSFW(user, isChecked).then(res => {
+    this.userService.updateNSFW(user.id, isChecked).then(res => {
       if (res) {
         parent.showNotification(res);
       }
     });
   }
   async deleteBTCWalletAddress(address: string) {
-    if (this.parentRef && this.parentRef.user) {
+    const user = this.parentRef?.user;
+    if (user && user.id) {
       if (!confirm(`Delete BTC Wallet Address : ${address}?`)) return;
 
-      await this.userService.deleteBTCWalletAddress(this.parentRef.user, address);
+      await this.coinService.deleteBTCWalletAddress(user.id, address);
       const inputs = Array.from(document.getElementsByClassName("btcWalletInput")) as HTMLInputElement[];
       for (let input of inputs) {
         if (input.value == address) {

@@ -8,7 +8,7 @@ import { User } from './datacontracts/user/user';
 })
 export class CalendarService {
 
-  async getCalendarEntries(user: User, startDate: Date, endDate: Date) {
+  async getCalendarEntries(userId: number = 0, startDate: Date, endDate: Date) {
     const params = new URLSearchParams({ startDate: startDate.toISOString(), endDate: endDate.toISOString() });
     try {
       const response = await fetch(`/calendar?` + params, {
@@ -16,7 +16,7 @@ export class CalendarService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -25,8 +25,8 @@ export class CalendarService {
     }
   }
 
-  async createCalendarEntries(user: User, calendarEntry: CalendarEntry) {
-    calendarEntry.ownership = user.id?.toString();
+  async createCalendarEntries(userId: number = 0, calendarEntry: CalendarEntry) {
+    calendarEntry.ownership = userId?.toString();
       
     try {
       const response = await fetch(`/calendar/create`, {
@@ -34,7 +34,7 @@ export class CalendarService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, calendarEntry }),
+        body: JSON.stringify({ userId, calendarEntry }),
       });
 
       return await response.json();
@@ -43,15 +43,15 @@ export class CalendarService {
     }
   }
 
-  async deleteCalendarEntry(user: User, calendarEntry: CalendarEntry) {
-    calendarEntry.ownership = user.id?.toString();
+  async deleteCalendarEntry(userId: number = 0, calendarEntry: CalendarEntry) {
+    calendarEntry.ownership = userId?.toString();
     try {
       const response = await fetch(`/calendar/${calendarEntry.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();

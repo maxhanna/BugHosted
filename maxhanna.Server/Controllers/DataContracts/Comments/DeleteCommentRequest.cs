@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Comments
 {
 	public class DeleteCommentRequest
 	{
-		public DeleteCommentRequest(User? user, int commentId)
+		public DeleteCommentRequest(int userId, int commentId)
 		{
-			User = user;
+			UserId = userId;
 			CommentId = commentId;
 		}
-		public User? User { get; set; }
+		public int UserId { get; set; }
 		public int CommentId { get; set; }
 	}
 }

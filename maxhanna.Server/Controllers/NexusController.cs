@@ -1,9 +1,9 @@
-using maxhanna.Server.Controllers.DataContracts.Files;
+﻿using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using Newtonsoft.Json;
+using Newtonsoft.Json; 
 
 namespace maxhanna.Server.Controllers
 {
@@ -11,13 +11,13 @@ namespace maxhanna.Server.Controllers
 	[Microsoft.AspNetCore.Components.Route("[controller]")]
 	public class NexusController : ControllerBase
 	{
-		private readonly ILogger<NexusController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString; 
 
-		public NexusController(ILogger<NexusController> logger, IConfiguration config)
+		public NexusController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 		}
@@ -25,9 +25,9 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus", Name = "GetBaseData")]
 		public async Task<IActionResult> GetBaseData([FromBody] NexusRequest req)
 		{
-			Console.WriteLine($"POST /Nexus ({req.User.Id}, {req.Nexus?.CoordsX}:{req.Nexus?.CoordsY}), current base gold : {req.Nexus?.Gold}");
+			_ = _log.Db($"POST /Nexus ({req.UserId}, {req.Nexus?.CoordsX}:{req.Nexus?.CoordsY}), current base gold : {req.Nexus?.Gold}", req.UserId, "NEXUS");
 
-			if (req.User == null || req.User.Id == 0)
+			if (req.UserId == 0)
 			{
 				return BadRequest("Invalid user data.");
 			}
@@ -41,7 +41,7 @@ namespace maxhanna.Server.Controllers
 					{
 						if (req.Nexus == null)
 						{
-							req.Nexus = await GetUserFirstBase(req.User, connection, transaction);
+							req.Nexus = await GetUserFirstBase(req.UserId, connection, transaction);
 						}
 
 						if (req.Nexus == null)
@@ -89,8 +89,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/SetBaseName", Name = "SetBaseName")]
 		public async Task<IActionResult> SetBaseName([FromBody] NexusBaseNameRequest request)
-		{
-			Console.WriteLine($"POST /Nexus/SetBaseName for player {request.User.Id}");
+		{ 
 			using (MySqlConnection conn = new MySqlConnection(_connectionString))
 			{
 				await conn.OpenAsync();
@@ -123,10 +122,9 @@ namespace maxhanna.Server.Controllers
 						return Ok($"Base successfully renamed {request.BaseName}.");
 					}
 					catch (Exception ex)
-					{
-						Console.WriteLine("ERROR: " + ex.Message);
+					{ 
 						await transaction.RollbackAsync();
-						return StatusCode(500, "An error occurred while processing your request.");
+						return StatusCode(500, "An error occurred while processing your request. " + ex.Message);
 					}
 				}
 			}
@@ -134,9 +132,8 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Nexus/GetNumberOfBases", Name = "GetNumberOfBases")]
-		public async Task<IActionResult> GetNumberOfBases([FromBody] User user)
-		{
-			Console.WriteLine($"POST /Nexus/GetNumberOfBases for player {user.Id}");
+		public async Task<IActionResult> GetNumberOfBases([FromBody] int userId)
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -145,7 +142,7 @@ namespace maxhanna.Server.Controllers
 				string sql = "SELECT COUNT(*) as count FROM maxhanna.nexus_bases WHERE user_id = @UserId;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", user.Id);
+				cmd.Parameters.AddWithValue("@UserId", userId);
 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -157,7 +154,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request for message history.");
+				_ = _log.Db("An error occurred while processing the POST request for message history." + ex.Message, userId, "NEXUS", true);
 			}
 			finally
 			{
@@ -168,10 +165,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/GetAllBuildingUpgradesList", Name = "GetAllBuildingUpgradesList")]
 		public async Task<IActionResult> GetAllBuildingUpgradesList()
-		{
-			//Console.WriteLine($"POST /Nexus/GetAllBuildingUpgradesList");
-
-
+		{ 
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -195,9 +189,9 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Nexus/GetAllBasesUnits", Name = "GetAllBasesUnits")]
-		public async Task<IActionResult> GetAllBasesUnits([FromBody] User? user)
+		public async Task<IActionResult> GetAllBasesUnits([FromBody] int userId)
 		{
-			//Console.WriteLine($"POST /Nexus/GetAllBasesUnits for user: {user?.Id ?? 0}");
+			//_ = _log.Db($"POST /Nexus/GetAllBasesUnits for user: {user?.Id ?? 0}");
 
 
 			using (var connection = new MySqlConnection(_connectionString))
@@ -207,7 +201,7 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						var availableUnits = await GetAllBasesUnitsList(user ?? new User(0, "Anonymous"), connection, transaction);
+						var availableUnits = await GetAllBasesUnitsList(userId, connection, transaction);
 
 						await transaction.CommitAsync();
 						return Ok(availableUnits);
@@ -237,7 +231,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var command = new MySqlCommand(sql, connection))
 					{
-						command.Parameters.AddWithValue("@userId", req.User.Id);
+						command.Parameters.AddWithValue("@userId", req.UserId);
 						command.Parameters.AddWithValue("@color", req.Color);
 
 						await command.ExecuteNonQueryAsync();
@@ -248,7 +242,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Exception in UpdatePlayerColor: " + ex.Message);
+				_ = _log.Db("Exception in UpdatePlayerColor: " + ex.Message, req.UserId, "NEXUS", true);
 				return StatusCode(500, "Internal server error.");
 			}
 		}
@@ -304,7 +298,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Exception in GetPlayerColor: " + ex.Message);
+				_ = _log.Db("Exception in GetPlayerColor: " + ex.Message, userId, "NEXUS", true);
 				return StatusCode(500, new { error = "Internal server error." });
 			}
 		}
@@ -312,8 +306,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/GetAllMiningSpeeds", Name = "GetAllMiningSpeeds")]
 		public async Task<IActionResult> GetAllMiningSpeeds()
-		{
-			//Console.WriteLine($"POST /Nexus/GetAllMiningSpeeds");
+		{ 
 			List<NexusMiningSpeed> speeds = new List<NexusMiningSpeed>();
 			MySqlConnection conn = new MySqlConnection(_connectionString);
 
@@ -350,7 +343,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
-				_logger.LogError(ex, "An error occurred getting mining speeds");
+				_ = _log.Db("An error occurred getting mining speeds." + ex.Message , null, "NEXUS", true);
 				return StatusCode(500, "Internal server error");
 			}
 			finally
@@ -364,7 +357,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/RefreshGold", Name = "RefreshGold")]
 		public async Task<IActionResult> RefreshGold()
 		{
-			//Console.WriteLine($"POST /Nexus/RefreshGold"); 
+			//_ = _log.Db($"POST /Nexus/RefreshGold"); 
 			MySqlConnection conn = new MySqlConnection(_connectionString);
 
 			await conn.OpenAsync();
@@ -378,7 +371,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
-				_logger.LogError(ex, "An error occurred updating nexus gold for all bases");
+				_ = _log.Db("An error occurred updating nexus gold for all bases. " + ex.Message, null, "NEXUS", true);
 				return StatusCode(500, "An error occurred updating nexus gold for all bases");
 			}
 			finally
@@ -390,36 +383,45 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Nexus/Start", Name = "Start")]
-		public async Task<IActionResult> Start([FromBody] User user)
+		public async Task<IActionResult> Start([FromBody] int userId)
 		{
-			Console.WriteLine($"POST /Nexus/Start Starting the game for player {user.Id}");
-
 			using MySqlConnection conn = new MySqlConnection(_connectionString);
 			try
 			{
 				await conn.OpenAsync();
 
-				// Query to get all available spots
+				// First, check if the user already has a base
+				string checkSql = "SELECT COUNT(*) FROM nexus_bases WHERE user_id = @UserId;";
+				using (var checkCmd = new MySqlCommand(checkSql, conn))
+				{
+					checkCmd.Parameters.AddWithValue("@UserId", userId);
+					var result = await checkCmd.ExecuteScalarAsync();
+					if (Convert.ToInt32(result) > 0)
+					{
+						return Conflict("User already has a base.");
+					}
+				}
+
+				// Find a random available spot
 				string query = @"
-        WITH RECURSIVE numbers AS ( 
-            SELECT 0 AS n
-            UNION ALL
-            SELECT n + 1
-            FROM numbers
-            WHERE n < 99
-        )
-        SELECT x.n AS coords_x, y.n AS coords_y
-        FROM numbers x
-        CROSS JOIN numbers y
-        LEFT JOIN nexus_bases nb ON x.n = nb.coords_x AND y.n = nb.coords_y
-        WHERE nb.coords_x IS NULL AND nb.coords_y IS NULL
-        ORDER BY RAND()
-        LIMIT 1;";
+					WITH RECURSIVE numbers AS ( 
+						SELECT 0 AS n
+						UNION ALL
+						SELECT n + 1
+						FROM numbers
+						WHERE n < 99
+					)
+					SELECT x.n AS coords_x, y.n AS coords_y
+					FROM numbers x
+					CROSS JOIN numbers y
+					LEFT JOIN nexus_bases nb ON x.n = nb.coords_x AND y.n = nb.coords_y
+					WHERE nb.coords_x IS NULL AND nb.coords_y IS NULL
+					ORDER BY RAND()
+					LIMIT 1;";
 
-				using MySqlCommand cmd = new MySqlCommand(query, conn);
+				using var cmd = new MySqlCommand(query, conn);
+				List<(int, int)> availableSpots = new();
 
-				// Execute the reader to get available spots
-				List<(int, int)> availableSpots = new List<(int, int)>();
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
 					while (await reader.ReadAsync())
@@ -428,35 +430,31 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				// If no available spots, return an error
 				if (availableSpots.Count == 0)
 				{
+					_ = _log.Db("No available spots to place the base.", userId);
 					return StatusCode(500, "No available spots to place the base.");
 				}
 
-				// Pick a random spot from the available ones
 				var random = new Random();
 				var (selectedX, selectedY) = availableSpots[random.Next(availableSpots.Count)];
 
-				// Insert the new base at the selected coordinates
 				string insertSql = @"
-				INSERT INTO maxhanna.nexus_bases (user_id, gold, base_name, coords_x, coords_y)
-				VALUES (@UserId, 200, @BaseName, @CoordsX, @CoordsY);
+					INSERT INTO nexus_bases (user_id, gold, base_name, coords_x, coords_y)
+					VALUES (@UserId, 200, @BaseName, @CoordsX, @CoordsY);
 
-				INSERT INTO nexus_colors (user_id, color)
-				VALUES (@UserId, LPAD(HEX(FLOOR(RAND() * 16777215)), 6, '0'))
-				ON DUPLICATE KEY UPDATE color = color;
+					INSERT INTO nexus_colors (user_id, color)
+					VALUES (@UserId, LPAD(HEX(FLOOR(RAND() * 16777215)), 6, '0'))
+					ON DUPLICATE KEY UPDATE color = color;
 
-
-				SELECT @CoordsX AS coords_x, @CoordsY AS coords_y;";
+					SELECT @CoordsX AS coords_x, @CoordsY AS coords_y;";
 
 				using var insertCmd = new MySqlCommand(insertSql, conn);
-				insertCmd.Parameters.AddWithValue("@UserId", user.Id);
-				insertCmd.Parameters.AddWithValue("@BaseName", user.Username ?? "Anonymous");
+				insertCmd.Parameters.AddWithValue("@UserId", userId);
+				insertCmd.Parameters.AddWithValue("@BaseName", "Anonymous"); // Replace with actual username if available
 				insertCmd.Parameters.AddWithValue("@CoordsX", selectedX);
 				insertCmd.Parameters.AddWithValue("@CoordsY", selectedY);
 
-				// Execute the insert command sequentially
 				using (var insertReader = await insertCmd.ExecuteReaderAsync())
 				{
 					if (await insertReader.ReadAsync())
@@ -473,16 +471,16 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while starting the game for player {UserId}", user.Id);
+				_ = _log.Db($"An error occurred while starting the game for player {userId}. " + ex.Message, userId, "NEXUS", true);
 				return StatusCode(500, "Internal server error");
 			}
 		}
 
 
 		[HttpPost("/Nexus/GetMap", Name = "GetMap")]
-		public async Task<IActionResult> GetMap([FromBody] User user)
+		public async Task<IActionResult> GetMap()
 		{
-			//Console.WriteLine($"POST /Nexus/GetMap for player {user.Id}");
+			//_ = _log.Db($"POST /Nexus/GetMap for player {user.Id}");
 			List<NexusBase> bases = new List<NexusBase>();
 			MySqlConnection conn = new MySqlConnection(_connectionString);
 
@@ -555,7 +553,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
-				_logger.LogError(ex, "An error occurred while starting the game for player {UserId}", user.Id);
+				_ = _log.Db("An error occurred while Getting the map. " + ex.Message, null, "NEXUS", true);
 				return StatusCode(500, "Internal server error");
 			}
 			finally
@@ -569,16 +567,14 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/GetBattleReports", Name = "GetBattleReports")]
 		public async Task<IActionResult> GetBattleReports([FromBody] BattleReportRequest request)
-		{
-			Console.WriteLine($"POST /Nexus/GetBattleReports for player {request.User.Id} targetUser: {request.TargetUser?.Id}, targetBase: {request.TargetBase?.CoordsX},{request.TargetBase?.CoordsY}, page: {request.PageNumber}, pageSize: {request.PageSize}");
-			var paginatedReports = await GetAllBattleReports(request.User.Id, request.TargetBase, request.TargetUser, request.PageNumber, request.PageSize, null, null);
+		{ 
+			var paginatedReports = await GetAllBattleReports(request.UserId, request.TargetBase, request.TargetUserId, request.PageNumber, request.PageSize, null, null);
 			return Ok(paginatedReports);
 		}
 
 		[HttpPost("/Nexus/GetMinesInfo", Name = "GetMinesInfo")]
 		public async Task<IActionResult> GetMinesInfo([FromBody] NexusRequest request)
-		{
-			//Console.WriteLine($"POST /Nexus/GetMinesInfo for player {request.User.Id}");
+		{ 
 			if (request.Nexus == null)
 			{
 				return Ok(0);
@@ -648,7 +644,7 @@ namespace maxhanna.Server.Controllers
 					await transaction.RollbackAsync();
 				}
 
-				_logger.LogError(ex, $"An error occurred while GetMinesInfo");
+				_ = _log.Db($"An error occurred while GetMiningSpeedForNexus. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
@@ -667,18 +663,16 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Nexus/GetUnitStats", Name = "GetUnitStats")]
-		public async Task<IActionResult> GetUnitStats([FromBody] NexusRequest request)
-		{
-			//Console.WriteLine($"POST /Nexus/GetUnitStats for player {request.User.Id}");
+		public async Task<IActionResult> GetUnitStats()
+		{ 
 			List<UnitStats> unitStats = await GetUnitStatsFromDB(null, null);
 
 			return Ok(unitStats);
 		}
 
 		[HttpPost("/Nexus/GetUnitUpgradeStats", Name = "GetUnitUpgradeStats")]
-		public async Task<IActionResult> GetUnitUpgradeStats([FromBody] User user)
-		{
-			//Console.WriteLine($"POST /Nexus/GetUnitUpgradeStats for player {user.Id}");
+		public async Task<IActionResult> GetUnitUpgradeStats()
+		{ 
 			List<UnitUpgradeStats> unitStats = await GetUnitUpgradeStatsFromDB(null, null);
 
 			return Ok(unitStats);
@@ -686,10 +680,9 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/PurchaseUnit", Name = "PurchaseUnit")]
 		public async Task<IActionResult> PurchaseUnit([FromBody] NexusPurchaseUnitRequest request)
-		{
-			//Console.WriteLine($"POST /Nexus/PurchaseUnit for player ({request.User.Id})");
+		{ 
 			string unitType = "";
-			if (request.User == null || request.User.Id == 0 || request.PurchaseAmount == 0)
+			if (request.UserId == 0 || request.PurchaseAmount == 0)
 			{
 				return BadRequest("Invalid purchase request.");
 			}
@@ -705,7 +698,7 @@ namespace maxhanna.Server.Controllers
 						try
 						{
 							await RecalculateNexusGold(conn, transaction);
-							//Console.WriteLine("Updated Gold");
+							//_ = _log.Db("Updated Gold");
 							List<UnitStats> unitStats = await GetUnitStatsFromDB(request.UnitId, null);
 							if (unitStats == null || unitStats.Count <= 0)
 							{
@@ -726,16 +719,16 @@ namespace maxhanna.Server.Controllers
 							int unitSupply = unit.Supply;
 							unitType = unit.UnitType ?? "";
 
-							//Console.WriteLine($"Unit purchased: {unitType}, unitSupply: {unitSupply}, unitCost: {unitCost}, totalCost: {unitCost * request.PurchaseAmount}");
+							//_ = _log.Db($"Unit purchased: {unitType}, unitSupply: {unitSupply}, unitCost: {unitCost}, totalCost: {unitCost * request.PurchaseAmount}");
 							var (currentGold, totalSupplyUsed) = await GetNexusGoldAndSupply(request.Nexus, conn, transaction);
 							int currentSupplyUsed = await CalculateUsedNexusSupply(request.Nexus, conn, transaction);
-							//Console.WriteLine($"before purchase : {unitType}, currentGold: {currentGold}, currentSupplyUsed: {currentSupplyUsed}");
+							//_ = _log.Db($"before purchase : {unitType}, currentGold: {currentGold}, currentSupplyUsed: {currentSupplyUsed}");
 
 							currentGold -= (unitCost * request.PurchaseAmount);
 							var supplyCost = (unitSupply * request.PurchaseAmount);
 							totalSupplyUsed = (supplyCost + currentSupplyUsed);
 
-							//Console.WriteLine($"After Unit purchased: {unitType}, totalSupplyUsed: {totalSupplyUsed}, currentGold: {currentGold}, supplyCost: {supplyCost}, currentSupplyUsed: {currentSupplyUsed}");
+							//_ = _log.Db($"After Unit purchased: {unitType}, totalSupplyUsed: {totalSupplyUsed}, currentGold: {currentGold}, supplyCost: {supplyCost}, currentSupplyUsed: {currentSupplyUsed}");
 
 							if (currentGold < 0)
 							{
@@ -752,7 +745,7 @@ namespace maxhanna.Server.Controllers
 							{
 								foreach (var purchase in nup)
 								{
-									//Console.WriteLine("unitIdPurchasd: " + purchase.UnitIdPurchased);
+									//_ = _log.Db("unitIdPurchasd: " + purchase.UnitIdPurchased);
 									var stats = unitStats.FirstOrDefault(x => x.UnitId == purchase.UnitIdPurchased);
 									if (stats != null && (stats.UnitType == "marine" || stats.UnitType == "goliath" || stats.UnitType == "siege_tank"))
 									{
@@ -764,7 +757,7 @@ namespace maxhanna.Server.Controllers
 									}
 								}
 							}
-							//Console.WriteLine("before factory and starport checks");
+							//_ = _log.Db("before factory and starport checks");
 
 							if (factoryPurchases > 0 && request.Nexus.FactoryLevel <= factoryPurchases)
 							{
@@ -774,16 +767,16 @@ namespace maxhanna.Server.Controllers
 							{
 								return BadRequest("Starport Level Insufficient");
 							}
-							//Console.WriteLine("before update nexus gold and supply");
+							//_ = _log.Db("before update nexus gold and supply");
 							await UpdateNexusGoldAndSupply(request.Nexus.CoordsX, request.Nexus.CoordsY, currentGold, totalSupplyUsed, conn, transaction);
-							//Console.WriteLine("current gold : after the update: " + currentGold);
+							//_ = _log.Db("current gold : after the update: " + currentGold);
 							await UpdateNexusUnitPurchases(request.Nexus.CoordsX, request.Nexus.CoordsY, request.UnitId, request.PurchaseAmount, conn, transaction);
 
 							await transaction.CommitAsync();
 						}
 						catch (Exception ex)
 						{
-							_logger.LogError($"Error while purchasing units: {ex.Message}");
+							_ = _log.Db($"Error while purchasing units: {ex.Message}", request.Nexus.User?.Id, "NEXUS", true);
 							await transaction.RollbackAsync();
 							return BadRequest(ex.Message);
 						}
@@ -792,7 +785,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error with database connection: {ex.Message}");
+				_ = _log.Db($"Error with database connection: {ex.Message}", request.Nexus.User?.Id, "NEXUS", true);
 				return StatusCode(500, "Database error");
 			}
 
@@ -801,10 +794,8 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/GetBuildingUpgrades", Name = "GetBuildingUpgrades")]
 		public async Task<IActionResult> GetBuildingUpgrades([FromBody] NexusRequest request)
-		{
-			//Console.WriteLine($"POST /Nexus/GetBuildingUpgrades for player ({request.User.Id})");
-
-			if (request.User == null || request.User.Id == 0)
+		{ 
+			if (request.Nexus?.User?.Id == null || request.Nexus.User.Id == 0)
 			{
 				return BadRequest("Invalid user data.");
 			}
@@ -821,9 +812,9 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/MassPurchase", Name = "MassPurchase")]
 		public async Task<IActionResult> MassPurchase([FromBody] NexusMassPurchaseRequest request)
 		{
-			//Console.WriteLine($"POST /Nexus/MassPurchase for player ({request.User.Id})");
+			//_ = _log.Db($"POST /Nexus/MassPurchase for player ({request.User.Id})");
 
-			if (request.User == null || request.User.Id == 0)
+			if (request.UserId == 0)
 			{
 				return BadRequest("Invalid user data.");
 			}
@@ -843,13 +834,13 @@ namespace maxhanna.Server.Controllers
 						try
 						{
 
-							upgradedBases = await MassPurchaseUnits(request.Upgrade, request.User, conn, transaction);
+							upgradedBases = await MassPurchaseUnits(request.Upgrade, request.UserId, conn, transaction);
 
 							await transaction.CommitAsync();
 						}
 						catch (Exception ex)
 						{
-							_logger.LogError($"Error while purchasing units: {ex.Message}");
+							_ = _log.Db($"Error while MassPurchase: {ex.Message}", request.UserId, "NEXUS", true);
 							await transaction.RollbackAsync();
 							return BadRequest(ex.Message);
 						}
@@ -858,7 +849,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error with database connection: {ex.Message}");
+				_ = _log.Db($"Error on MassPurchase. {ex.Message}", request.UserId, "NEXUS", true);
 				return StatusCode(500, "Database error");
 			}
 			return Ok(upgradedBases);
@@ -868,9 +859,9 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/UpgradeAll", Name = "UpgradeAll")]
 		public async Task<IActionResult> UpgradeAll([FromBody] NexusMassPurchaseRequest request)
 		{
-			//Console.WriteLine($"POST /Nexus/UpgradeAll for player ({request.User.Id})");
+			//_ = _log.Db($"POST /Nexus/UpgradeAll for player ({request.User.Id})");
 
-			if (request.User == null || request.User.Id == 0)
+			if (request.UserId == 0)
 			{
 				return BadRequest("Invalid user data.");
 			}
@@ -889,13 +880,13 @@ namespace maxhanna.Server.Controllers
 					{
 						try
 						{
-							upgradedBases = await MassUpgradeBuildings(request.Upgrade, request.User, conn, transaction);
+							upgradedBases = await MassUpgradeBuildings(request.Upgrade, request.UserId, conn, transaction);
 
 							await transaction.CommitAsync();
 						}
 						catch (Exception ex)
 						{
-							_logger.LogError($"Error while purchasing upgrades: {ex.Message}");
+							_ = _log.Db($"Error while purchasing upgrades: {ex.Message}", request.UserId, "NEXUS", true);
 							await transaction.RollbackAsync();
 							return BadRequest(ex.Message);
 						}
@@ -904,7 +895,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error with database connection: {ex.Message}");
+				_ = _log.Db($"Error with database connection: {ex.Message}", request.UserId, "NEXUS", true);
 				return StatusCode(500, "Database error");
 			}
 			return Ok(upgradedBases);
@@ -912,10 +903,8 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/DeleteReport", Name = "DeleteReport")]
 		public async Task<IActionResult> DeleteReportRequest([FromBody] NexusDeleteReportRequest request)
-		{
-			//Console.WriteLine($"POST /Nexus/DeleteReport for player ({request.User.Id}) battle id(s) : {request.BattleIds}");
-
-			if (request.User == null || request.User.Id == 0)
+		{  
+			if (request.UserId == 0)
 			{
 				return BadRequest("Invalid user data.");
 			}
@@ -932,18 +921,18 @@ namespace maxhanna.Server.Controllers
 						{
 							if (request.BattleIds != null)
 							{
-								await DeleteReport(request.User.Id ?? 0, request.BattleIds, conn, transaction);
+								await DeleteReport(request.UserId, request.BattleIds, conn, transaction);
 							}
 							else
 							{
-								await DeleteAllUserReports(request.User?.Id ?? 0, conn, transaction);
+								await DeleteAllUserReports(request.UserId, conn, transaction);
 							}
 
 							await transaction.CommitAsync();
 						}
 						catch (Exception ex)
 						{
-							_logger.LogError($"Error while purchasing units: {ex.Message}");
+							_ = _log.Db($"Error while purchasing units: {ex.Message}.", request.UserId, "NEXUS", true);
 							await transaction.RollbackAsync();
 							return BadRequest(ex.Message);
 						}
@@ -952,7 +941,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error with database connection: {ex.Message}");
+				_ = _log.Db($"Error with database connection: {ex.Message}.", request.UserId, "NEXUS", true);
 				return StatusCode(500, "Database error");
 			}
 			return Ok($"Report {request.BattleIds} deleted.");
@@ -961,15 +950,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/Research", Name = "Research")]
 		public async Task<IActionResult> Research([FromBody] NexusResearchRequest request)
-		{
-			//Console.WriteLine($"POST /Nexus/Research for player ({request.User.Id})");
-
-			if (request.User == null || request.User.Id == 0)
-			{
-				return BadRequest("Invalid user data.");
-			}
-			//Console.WriteLine($"Rearch info -> unitId: {request.Unit.UnitId}");
-
+		{ 
 			try
 			{
 				using (MySqlConnection conn = new MySqlConnection(_connectionString))
@@ -997,19 +978,16 @@ namespace maxhanna.Server.Controllers
 							if (unitUpgradeStats == null || unitUpgradeStats.Count == 0)
 							{
 								return NotFound("Unit upgrades not found.");
-							}
-							Console.WriteLine($"unitUpgradeStats length : {unitUpgradeStats.Count} unitstats length : {unitStats.Count}");
-							// Find the upgrade unit using LINQ
-							UnitStats upgradeUnit = unitStats[0];
-							Console.WriteLine("Upgrade unit : " + upgradeUnit?.UnitType ?? "");
-
+							} 
+							UnitStats? upgradeUnit = unitStats[0];  
 							if (unitStats == null || unitStats.Count == 0)
 							{
 								return NotFound("Unit stats not found.");
 							}
-							if (upgradeUnit == null) return NotFound("Unit not found.");
-
-							// Get the unit level based on the unit type
+							if (upgradeUnit == null)
+							{
+								return NotFound("Unit not found.");
+							}
 							int unitLevel = upgradeUnit?.UnitType switch
 							{
 								"marine" => nexus.MarineLevel,
@@ -1024,13 +1002,12 @@ namespace maxhanna.Server.Controllers
 
 							//Make sure the unit upgrade isnt already queued.
 							List<NexusUnitUpgrades> unitUpgrades = await GetNexusUnitUpgrades(request.NexusBase, conn, transaction);
-							if (unitUpgrades.Any(x => x.UnitIdUpgraded == upgradeUnit.UnitId))
+							if (unitUpgrades.Any(x => x.UnitIdUpgraded == upgradeUnit?.UnitId))
 							{
 								return BadRequest("You must wait until the current upgrade finishes.");
 							}
-
-							//unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1
-							nexus.Gold -= (upgradeUnit.Cost * 10 * (unitLevel + 1));
+							 
+							nexus.Gold -= ((upgradeUnit?.Cost ?? 1) * 10 * (unitLevel + 1));
 
 							if (nexus.Gold < 0)
 							{
@@ -1042,7 +1019,7 @@ namespace maxhanna.Server.Controllers
 						}
 						catch (Exception ex)
 						{
-							_logger.LogError($"Error while purchasing units: {ex.Message}");
+							_ = _log.Db($"Error while purchasing units: {ex.Message}.", request.NexusBase.User?.Id, "NEXUS", true);
 							await transaction.RollbackAsync();
 							return BadRequest(ex.Message);
 						}
@@ -1051,7 +1028,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error with database connection: {ex.Message}");
+				_ = _log.Db($"Error with database connection: {ex.Message}.", request.NexusBase.User?.Id, "NEXUS", true);
 				return BadRequest("Something went wrong: " + ex.Message);
 			}
 			//substract money from unit.cost * 10 * ((unit.unitLevel ? unit.unitLevel : 0) + 1
@@ -1062,51 +1039,51 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/UpgradeMines", Name = "UpgradeMines")]
 		public Task<IActionResult> UpgradeMines([FromBody] NexusRequest req)
 		{
-			return UpgradeBuilding(req.User, "mines", req.Nexus);
+			return UpgradeBuilding(req.UserId, "mines", req.Nexus);
 		}
 
 		[HttpPost("/Nexus/UpgradeFactory", Name = "UpgradeFactory")]
 		public Task<IActionResult> UpgradeFactory([FromBody] NexusRequest req)
 		{
-			return UpgradeBuilding(req.User, "factory", req.Nexus);
+			return UpgradeBuilding(req.UserId, "factory", req.Nexus);
 		}
 
 		[HttpPost("/Nexus/UpgradeStarport", Name = "UpgradeStarport")]
 		public Task<IActionResult> UpgradeStarport([FromBody] NexusRequest req)
 		{
-			return UpgradeBuilding(req.User, "starport", req.Nexus);
+			return UpgradeBuilding(req.UserId, "starport", req.Nexus);
 		}
 
 
 		[HttpPost("/Nexus/UpgradeEngineeringBay", Name = "UpgradeEngineeringBay")]
 		public Task<IActionResult> UpgradeEngineeringBay([FromBody] NexusRequest req)
 		{
-			return UpgradeBuilding(req.User, "engineering_bay", req.Nexus);
+			return UpgradeBuilding(req.UserId, "engineering_bay", req.Nexus);
 		}
 
 
 		[HttpPost("/Nexus/UpgradeWarehouse", Name = "UpgradeWarehouse")]
 		public Task<IActionResult> UpgradeWarehouse([FromBody] NexusRequest req)
 		{
-			return UpgradeBuilding(req.User, "warehouse", req.Nexus);
+			return UpgradeBuilding(req.UserId, "warehouse", req.Nexus);
 		}
 
 		[HttpPost("/Nexus/UpgradeNexus", Name = "UpgradeNexus")]
 		public Task<IActionResult> UpgradeNexus([FromBody] NexusRequest req)
 		{
-			return UpgradeBuilding(req.User, "command_center", req.Nexus);
+			return UpgradeBuilding(req.UserId, "command_center", req.Nexus);
 		}
 
 		[HttpPost("/Nexus/UpgradeSupplyDepot", Name = "UpgradeSupplyDepot")]
 		public Task<IActionResult> UpgradeSupplyDepot([FromBody] NexusRequest req)
 		{
-			return UpgradeBuilding(req.User, "supply_depot", req.Nexus);
+			return UpgradeBuilding(req.UserId, "supply_depot", req.Nexus);
 		}
 
 		[HttpPost("/Nexus/Engage", Name = "Engage")]
 		public async Task<IActionResult> Engage([FromBody] NexusEngagementRequest req)
 		{
-			//Console.WriteLine($"POST /Nexus/Engage for player ({req.User.Id})");
+			//_ = _log.Db($"POST /Nexus/Engage for player ({req.User.Id})");
 			if (req.OriginNexus == null) { return BadRequest("Origin must be defined!"); }
 			if (req.DestinationNexus == null) { return BadRequest("Destination must be defined!"); }
 
@@ -1118,23 +1095,23 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						//Console.WriteLine($@"Checking if base has enough units to send the attack.");
+						//_ = _log.Db($@"Checking if base has enough units to send the attack.");
 						bool canSend = await DoesBaseHaveEnoughUnitsToSendAttack(req.OriginNexus, req.UnitList, true, null, null);
 						if (canSend)
 						{
-							//Console.WriteLine("Sending the attack...");
+							//_ = _log.Db("Sending the attack...");
 							await SendAttack(req.OriginNexus, req.DestinationNexus, req.OriginNexus.User, req.DestinationNexus.User, req.UnitList, conn, transaction);
 						}
 						else
 						{
-							//Console.WriteLine("Not enough units.");
+							//_ = _log.Db("Not enough units.");
 							return BadRequest("Not enough units.");
 						}
 						await transaction.CommitAsync();
 					}
 					catch (Exception ex)
 					{
-						Console.WriteLine("ERROR: " + ex.Message);
+						_ = _log.Db("Engage ERROR: " + ex.Message, req.OriginNexus.User?.Id, "NEXUS", true);
 						await transaction.RollbackAsync();
 					}
 				}
@@ -1145,7 +1122,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/Defend", Name = "Defend")]
 		public async Task<IActionResult> Defend([FromBody] NexusEngagementRequest req)
 		{
-			//Console.WriteLine($"POST /Nexus/Defend for player ({req.User.Id})");
+			//_ = _log.Db($"POST /Nexus/Defend for player ({req.User.Id})");
 			if (req.OriginNexus == null) { return BadRequest("Origin must be defined!"); }
 			if (req.DestinationNexus == null) { return BadRequest("Destination must be defined!"); }
 
@@ -1157,23 +1134,23 @@ namespace maxhanna.Server.Controllers
 				{
 					try
 					{
-						//Console.WriteLine($@"Checking if base has enough units to send the defence.");
+						//_ = _log.Db($@"Checking if base has enough units to send the defence.");
 						bool canSend = await DoesBaseHaveEnoughUnitsToSendAttack(req.OriginNexus, req.UnitList, true, null, null);
 						if (canSend)
 						{
-							//Console.WriteLine($"Sending the defence from {req.OriginNexus.CoordsX}{req.OriginNexus.CoordsY} to {req.DestinationNexus.CoordsX}{req.DestinationNexus.CoordsY}...");
+							//_ = _log.Db($"Sending the defence from {req.OriginNexus.CoordsX}{req.OriginNexus.CoordsY} to {req.DestinationNexus.CoordsX}{req.DestinationNexus.CoordsY}...");
 							await SendDefence(req.OriginNexus, req.DestinationNexus, req.UnitList, conn, transaction);
 						}
 						else
 						{
-							//Console.WriteLine("Not enough units.");
+							//_ = _log.Db("Not enough units.");
 							return BadRequest("Not enough units.");
 						}
 						await transaction.CommitAsync();
 					}
 					catch (Exception ex)
 					{
-						Console.WriteLine("ERROR: " + ex.Message);
+						_ = _log.Db("Defend ERROR: " + ex.Message, req.OriginNexus.User?.Id, "NEXUS", true);
 						await transaction.RollbackAsync();
 					}
 				}
@@ -1190,8 +1167,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Nexus/ReturnDefence", Name = "ReturnDefence")]
 		public async Task<IActionResult> ReturnDefence([FromBody] NexusReturnDefenceRequest req)
 		{
-			//Console.WriteLine($"POST /Nexus/ReturnDefence for player ({req.User.Id}, DefenceId: {req.DefenceId})");
-
 			if (req.DefenceId == 0)
 			{
 				return BadRequest("Invalid Defence Id");
@@ -1233,7 +1208,7 @@ namespace maxhanna.Server.Controllers
 					}
 					catch (Exception ex)
 					{
-						Console.WriteLine("ERROR: " + ex.Message);
+						_ = _log.Db("ReturnDefence ERROR: " + ex.Message, null, "NEXUS", true);
 						await transaction.RollbackAsync();
 						return StatusCode(500, "An error occurred while processing your request.");
 					}
@@ -1243,9 +1218,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Nexus/ReturnAttack", Name = "ReturnAttack")]
 		public async Task<IActionResult> ReturnAttack([FromBody] NexusReturnDefenceRequest req)
-		{
-			//Console.WriteLine($"POST /Nexus/ReturnAttack for player ({req.User.Id}, AttackId: {req.DefenceId})");
-
+		{  
 			if (req.DefenceId == 0)
 			{
 				return BadRequest("Invalid Attack Id");
@@ -1283,7 +1256,7 @@ namespace maxhanna.Server.Controllers
 					}
 					catch (Exception ex)
 					{
-						Console.WriteLine("ERROR: " + ex.Message);
+						_ = _log.Db("ReturnAttack ERROR: " + ex.Message, null, "NEXUS", true);
 						await transaction.RollbackAsync();
 						return StatusCode(500, "An error occurred while processing your request.");
 					}
@@ -1292,7 +1265,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-		private async Task<List<object>> GetBuildingUpgradeList(NexusBase? nexusBase, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task<List<object>> GetBuildingUpgradeList(NexusBase? nexusBase, MySqlConnection? connection, MySqlTransaction? transaction)
 		{
 			var availableUpgrades = new List<object>();
 
@@ -1428,7 +1401,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"An error occurred while retrieving building upgrades for {nexusBase.CoordsX},{nexusBase.CoordsY}");
+				_ = _log.Db($"An error occurred while retrieving building upgrades for {nexusBase.CoordsX},{nexusBase.CoordsY}. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 
 			return availableUpgrades;
@@ -1436,7 +1409,7 @@ namespace maxhanna.Server.Controllers
 
 
 
-		private async Task<List<NexusBase>> MassUpgradeBuildings(string building, User? user, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task<List<NexusBase>> MassUpgradeBuildings(string building, int userId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			var tmpUpgradedBases = new List<NexusBase>();
 			var upgradedBases = new List<NexusBase>();
@@ -1453,8 +1426,7 @@ namespace maxhanna.Server.Controllers
                     AND b.gold > (SELECT cost FROM nexus_base_upgrade_stats WHERE building_type = (SELECT id FROM nexus_building_types WHERE type = '{building}') AND building_level = b.{building}_level)";
 
 				MySqlCommand cmdSql = new MySqlCommand(sql, connection, transaction);
-				cmdSql.Parameters.AddWithValue("@UserId", user?.Id ?? 0);
-
+				cmdSql.Parameters.AddWithValue("@UserId", userId);
 				using (var reader = await cmdSql.ExecuteReaderAsync())
 				{
 					while (await reader.ReadAsync())
@@ -1489,7 +1461,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"An error occurred while mass upgrading for {user?.Id ?? 0}");
+				_ = _log.Db($"An error occurred while mass upgrading for {userId}. {ex.Message}", userId, "NEXUS", true);
 				return upgradedBases;
 			}
 
@@ -1497,7 +1469,7 @@ namespace maxhanna.Server.Controllers
 			{
 				if (await CanUpgradeBuilding(nbase, building, connection, transaction))
 				{
-					await PerformUpgrade(nbase, building, user, connection, transaction);
+					await PerformUpgrade(nbase, building, userId, connection, transaction);
 					upgradedBases.Add(nbase);
 				}
 			}
@@ -1505,7 +1477,7 @@ namespace maxhanna.Server.Controllers
 			return upgradedBases;
 		}
 
-		private async Task PerformUpgrade(NexusBase nbase, string building, User? user, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task PerformUpgrade(NexusBase nbase, string building, int userId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			string selectSql = @"
                 SELECT COUNT(*) 
@@ -1556,7 +1528,7 @@ namespace maxhanna.Server.Controllers
                     AND user_id = @UserId
                 LIMIT 1;";
 			MySqlCommand updateBaseCmd = new MySqlCommand(updateBaseSql, connection, transaction);
-			updateBaseCmd.Parameters.AddWithValue("@UserId", user?.Id ?? 0);
+			updateBaseCmd.Parameters.AddWithValue("@UserId", userId);
 			updateBaseCmd.Parameters.AddWithValue("@CoordsX", nbase.CoordsX);
 			updateBaseCmd.Parameters.AddWithValue("@CoordsY", nbase.CoordsY);
 			updateBaseCmd.Parameters.AddWithValue("@Gold", nbase.Gold);
@@ -1603,7 +1575,7 @@ namespace maxhanna.Server.Controllers
 			};
 		}
 
-		private async Task<List<NexusBase>> MassPurchaseUnits(string unit, User? user, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task<List<NexusBase>> MassPurchaseUnits(string unit, int userId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			var upgradedBases = new List<NexusBase>();
 
@@ -1648,7 +1620,7 @@ namespace maxhanna.Server.Controllers
                         AND b.engineering_bay_level >= (SELECT engineering_bay_level FROM nexus_unit_stats WHERE unit_id = (SELECT id FROM nexus_unit_types WHERE type = @Unit))
                         AND (@Unit != 'glitcher' OR u.glitcher_total = 0);";
 				MySqlCommand cmdSql = new MySqlCommand(sql, connection, transaction);
-				cmdSql.Parameters.AddWithValue("@UserId", user?.Id ?? 0);
+				cmdSql.Parameters.AddWithValue("@UserId", userId);
 				cmdSql.Parameters.AddWithValue("@Unit", unit);
 
 				using (var reader = await cmdSql.ExecuteReaderAsync())
@@ -1737,7 +1709,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"An error occurred while mass purchasing units for {user?.Id ?? 0}");
+				_ = _log.Db($"An error occurred while mass purchasing units for {userId}. {ex.Message}", userId, "NEXUS", true);
 			}
 
 			return upgradedBases;
@@ -1820,7 +1792,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"An error occurred while retrieving building upgrades");
+				_ = _log.Db($"An error occurred while retrieving building upgrades. " + ex.Message, null, "NEXUS", true);
 			}
 
 			return availableUpgrades;
@@ -1828,7 +1800,7 @@ namespace maxhanna.Server.Controllers
 
 
 
-		private async Task<List<NexusUnits>> GetAllBasesUnitsList(User user, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task<List<NexusUnits>> GetAllBasesUnitsList(int userId, MySqlConnection connection, MySqlTransaction transaction)
 		{
 			var availableUnits = new List<NexusUnits>();
 			try
@@ -1846,7 +1818,7 @@ namespace maxhanna.Server.Controllers
                     WHERE 
 	                    nb.user_id = @UserId;";
 				MySqlCommand cmd = new MySqlCommand(sqlBaseUnits, connection, transaction);
-				cmd.Parameters.AddWithValue("@UserId", user.Id);
+				cmd.Parameters.AddWithValue("@UserId", userId);
 				var reader = await cmd.ExecuteReaderAsync();
 				while (await reader.ReadAsync())
 				{
@@ -1879,14 +1851,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"An error occurred while retrieving building upgrades");
+				_ = _log.Db($"An error occurred while retrieving building upgrades. " + ex.Message, userId, "NEXUS", true);
 			}
 
 			return availableUnits;
 		}
 		private async Task SendAttack(NexusBase OriginNexus, NexusBase DestinationNexus, User? from, User? to, UnitStats[] UnitList, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine("SendAttack...");
+			//_ = _log.Db("SendAttack...");
 			if (OriginNexus == null || DestinationNexus == null) return;
 
 			decimal slowestSpeed = UnitList
@@ -1896,7 +1868,7 @@ namespace maxhanna.Server.Controllers
 			 .Max();
 			int distance = 1 + Math.Abs(OriginNexus.CoordsX - DestinationNexus.CoordsX) + Math.Abs(OriginNexus.CoordsY - DestinationNexus.CoordsY);
 			int duration = (int)(distance * slowestSpeed * 60);
-			//Console.WriteLine($"duration:{duration} distance:{distance}, slowestSpeed: {slowestSpeed}");
+			//_ = _log.Db($"duration:{duration} distance:{distance}, slowestSpeed: {slowestSpeed}");
 
 			int marinesSent = UnitList.FirstOrDefault(x => x.UnitType != null && x.UnitType == "marine")?.SentValue ?? 0;
 			int goliathSent = UnitList.FirstOrDefault(x => x.UnitType != null && x.UnitType == "goliath")?.SentValue ?? 0;
@@ -1938,7 +1910,7 @@ namespace maxhanna.Server.Controllers
 
 		private async Task SendDefence(NexusBase OriginNexus, NexusBase DestinationNexus, UnitStats[] UnitList, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine("SendDefence...");
+			//_ = _log.Db("SendDefence...");
 			if (OriginNexus == null || DestinationNexus == null) return;
 
 			decimal slowestSpeed = UnitList
@@ -1986,12 +1958,12 @@ namespace maxhanna.Server.Controllers
 			var insertedId = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
 
 
-			//Console.WriteLine("Attack sent");
+			//_ = _log.Db("Attack sent");
 		}
 
 		private async Task DeleteAttack(NexusBase OriginNexus, NexusBase DestinationNexus, DateTime timestamp, int DistanceTimeInSeconds, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine($"Deleting NexusAttack from {OriginNexus.CoordsX},{OriginNexus.CoordsY} sent on {DestinationNexus.CoordsX},{DestinationNexus.CoordsY}; Timestamp: {timestamp}, DistanceInSeconds: {DistanceTimeInSeconds}");
+			//_ = _log.Db($"Deleting NexusAttack from {OriginNexus.CoordsX},{OriginNexus.CoordsY} sent on {DestinationNexus.CoordsX},{DestinationNexus.CoordsY}; Timestamp: {timestamp}, DistanceInSeconds: {DistanceTimeInSeconds}");
 
 			string sql = @"
                 DELETE FROM
@@ -2016,12 +1988,12 @@ namespace maxhanna.Server.Controllers
 						};
 
 			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-			//Console.WriteLine("NexusAttack deleted");
+			//_ = _log.Db("NexusAttack deleted");
 		}
 
 		private async Task DeleteDefence(NexusBase OriginNexus, NexusBase DestinationNexus, DateTime timestamp, int DistanceTimeInSeconds, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine($"Deleting NexusAttack from {OriginNexus.CoordsX},{OriginNexus.CoordsY} sent on {DestinationNexus.CoordsX},{DestinationNexus.CoordsY}; Timestamp: {timestamp}, DistanceInSeconds: {DistanceTimeInSeconds}");
+			//_ = _log.Db($"Deleting NexusAttack from {OriginNexus.CoordsX},{OriginNexus.CoordsY} sent on {DestinationNexus.CoordsX},{DestinationNexus.CoordsY}; Timestamp: {timestamp}, DistanceInSeconds: {DistanceTimeInSeconds}");
 
 			string sql = @"
                 DELETE FROM
@@ -2046,13 +2018,13 @@ namespace maxhanna.Server.Controllers
 						};
 
 			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-			//Console.WriteLine("NexusAttack deleted");
+			//_ = _log.Db("NexusAttack deleted");
 		}
 
 
 		private async Task DefenceArrived(NexusBase OriginNexus, NexusBase DestinationNexus, DateTime timestamp, int DistanceTimeInSeconds, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine($"Deleting NexusAttack from {OriginNexus.CoordsX},{OriginNexus.CoordsY} sent on {DestinationNexus.CoordsX},{DestinationNexus.CoordsY}; Timestamp: {timestamp}, DistanceInSeconds: {DistanceTimeInSeconds}");
+			//_ = _log.Db($"Deleting NexusAttack from {OriginNexus.CoordsX},{OriginNexus.CoordsY} sent on {DestinationNexus.CoordsX},{DestinationNexus.CoordsY}; Timestamp: {timestamp}, DistanceInSeconds: {DistanceTimeInSeconds}");
 
 			string sql = @"
                 UPDATE
@@ -2083,7 +2055,7 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task<List<NexusAttackSent>?> GetNexusAttacksSent(NexusBase? nexusBase, bool onlyCurrentBase, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine($"Get nexus attacks sent. onlyCurrentBase: {onlyCurrentBase}");
+			//_ = _log.Db($"Get nexus attacks sent. onlyCurrentBase: {onlyCurrentBase}");
 			List<NexusAttackSent>? attacks = null;
 			if (nexusBase == null) return attacks;
 
@@ -2135,7 +2107,7 @@ namespace maxhanna.Server.Controllers
 					{
 						sqlCmd.Parameters.AddWithValue("@UserId", nexusBase.User?.Id ?? 0);
 					}
-					//Console.WriteLine("attack sent sql : " + sqlCmd.CommandText);
+					//_ = _log.Db("attack sent sql : " + sqlCmd.CommandText);
 					using (var reader = await sqlCmd.ExecuteReaderAsync())
 					{
 						while (await reader.ReadAsync())
@@ -2184,7 +2156,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while GetNexusAttacksSent");
+				_ = _log.Db("An error occurred while GetNexusAttacksSent. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
@@ -2199,7 +2171,7 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<List<NexusAttackSent>?> GetNexusDefencesSent(NexusBase? nexusBase, bool onlyCurrentBase, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine($"Get nexus defences sent. onlyCurrentBase: {onlyCurrentBase}");
+			//_ = _log.Db($"Get nexus defences sent. onlyCurrentBase: {onlyCurrentBase}");
 			List<NexusAttackSent>? attacks = null;
 			if (nexusBase == null) return attacks;
 
@@ -2251,7 +2223,7 @@ namespace maxhanna.Server.Controllers
 					{
 						sqlCmd.Parameters.AddWithValue("@UserId", nexusBase.User?.Id ?? 0);
 					}
-					//Console.WriteLine("attack sent sql : " + sqlCmd.CommandText);
+					//_ = _log.Db("attack sent sql : " + sqlCmd.CommandText);
 					using (var reader = await sqlCmd.ExecuteReaderAsync())
 					{
 						while (await reader.ReadAsync())
@@ -2301,7 +2273,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while GetNexusDefencesSent");
+				_ = _log.Db("An error occurred while GetNexusDefencesSent. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
@@ -2318,7 +2290,7 @@ namespace maxhanna.Server.Controllers
 			List<NexusAttackSent>? attacks = null;
 			if (nexusBase == null) return attacks;
 
-			//Console.WriteLine($"GetNexusAttacksIncoming {nexusBase.CoordsX}, {nexusBase.CoordsY}");
+			//_ = _log.Db($"GetNexusAttacksIncoming {nexusBase.CoordsX}, {nexusBase.CoordsY}");
 
 			bool passedInConn = conn != null;
 
@@ -2366,7 +2338,7 @@ namespace maxhanna.Server.Controllers
 						sqlCmd.Parameters.AddWithValue("@UserId", nexusBase.User?.Id ?? 0);
 					}
 
-					//Console.WriteLine("attacks received sql " + sqlCmd.CommandText);
+					//_ = _log.Db("attacks received sql " + sqlCmd.CommandText);
 
 					using (var reader = await sqlCmd.ExecuteReaderAsync())
 					{
@@ -2423,13 +2395,12 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while GetNexusAttacksIncoming");
+				_ = _log.Db("An error occurred while GetNexusAttacksIncoming. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
 				if (!passedInConn && conn != null)
-				{
-					//Console.WriteLine("Closeing connection");
+				{ 
 					await conn.CloseAsync();
 				}
 			}
@@ -2441,10 +2412,7 @@ namespace maxhanna.Server.Controllers
 		private async Task<List<NexusAttackSent>?> GetNexusDefencesIncoming(NexusBase? nexusBase, bool onlyCurrentBase, bool withUnits, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
 		{
 			List<NexusAttackSent>? attacks = null;
-			if (nexusBase == null) return attacks;
-
-			//Console.WriteLine($"GetNexusDefencesIncoming {nexusBase.CoordsX}, {nexusBase.CoordsY}");
-
+			if (nexusBase == null) return attacks; 
 			bool passedInConn = conn != null;
 
 			try
@@ -2495,9 +2463,7 @@ namespace maxhanna.Server.Controllers
 					{
 						sqlCmd.Parameters.AddWithValue("@UserId", nexusBase.User?.Id ?? 0);
 					}
-
-					//Console.WriteLine("attacks received sql " + sqlCmd.CommandText);
-
+					 
 					using (var reader = await sqlCmd.ExecuteReaderAsync())
 					{
 						while (await reader.ReadAsync())
@@ -2555,7 +2521,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while GetNexusDefencesIncoming");
+				_ = _log.Db("An error occurred while GetNexusDefencesIncoming. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
@@ -2570,47 +2536,38 @@ namespace maxhanna.Server.Controllers
 
 
 		private async Task UpdateNexusUnits(NexusBase nexusBase, int marinesTotal, int goliathTotal, int siegeTankTotal, int scoutTotal, int wraithTotal, int battlecruiserTotal, int glitcherTotal, MySqlConnection? conn, MySqlTransaction? transaction)
-		{
-			//Console.WriteLine("UpdateNexusUnits...");
-
+		{ 
 			string sql = @"
-                UPDATE maxhanna.nexus_units 
-                SET 
-                    marine_total = @Marine, 
-                    goliath_total = @Goliath, 
-                    siege_tank_total = @SiegeTank, 
-                    scout_total = @Scout, 
-                    wraith_total = @Wraith, 
-                    battlecruiser_total = @Battlecruiser,
-                    glitcher_total = @Glitcher
-                WHERE 
-                    coords_x = @CoordsX 
-                AND coords_y = @CoordsY;";
+        UPDATE maxhanna.nexus_units 
+        SET 
+            marine_total = @Marine, 
+            goliath_total = @Goliath, 
+            siege_tank_total = @SiegeTank, 
+            scout_total = @Scout, 
+            wraith_total = @Wraith, 
+            battlecruiser_total = @Battlecruiser,
+            glitcher_total = @Glitcher
+        WHERE 
+            coords_x = @CoordsX 
+        AND coords_y = @CoordsY;";
 
 			var parameters = new Dictionary<string, object?>
-						{
-								{ "@CoordsX", nexusBase.CoordsX },
-								{ "@CoordsY", nexusBase.CoordsY },
-								{ "@Marine", Math.Max(0, marinesTotal) },
-								{ "@Goliath", Math.Max(0, goliathTotal) },
-								{ "@SiegeTank", Math.Max(0, siegeTankTotal) },
-								{ "@Scout", Math.Max(0, scoutTotal) },
-								{ "@Wraith", Math.Max(0, wraithTotal) },
-								{ "@Battlecruiser", Math.Max(0, battlecruiserTotal) },
-								{ "@Glitcher", Math.Max(0, glitcherTotal) }
-						};
-			//Console.WriteLine("UpdateNexusUnits:");
-
-			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-			//Console.WriteLine($"Updated Nexus Units!");
-
+			{
+					{ "@CoordsX", nexusBase.CoordsX },
+					{ "@CoordsY", nexusBase.CoordsY },
+					{ "@Marine", Math.Max(0, marinesTotal) },
+					{ "@Goliath", Math.Max(0, goliathTotal) },
+					{ "@SiegeTank", Math.Max(0, siegeTankTotal) },
+					{ "@Scout", Math.Max(0, scoutTotal) },
+					{ "@Wraith", Math.Max(0, wraithTotal) },
+					{ "@Battlecruiser", Math.Max(0, battlecruiserTotal) },
+					{ "@Glitcher", Math.Max(0, glitcherTotal) }
+			}; 
+			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
 		}
 
 		private async Task UpdateSupportingUnitsAfterAttack(NexusAttackSent supportingUnitsSent, Dictionary<String, int?>? losses, MySqlConnection? conn, MySqlTransaction? transaction)
-		{
-			//Console.WriteLine("UpdateSupportingUnitsAfterAttack...");
-			//Console.WriteLine($"updated units : m:{supportingUnitsSent.MarineTotal} g:{supportingUnitsSent.GoliathTotal} st:{supportingUnitsSent.SiegeTankTotal} s:{supportingUnitsSent.ScoutTotal} w:{supportingUnitsSent.WraithTotal} b:{supportingUnitsSent.BattlecruiserTotal} gl:{supportingUnitsSent.GlitcherTotal}");
-
+		{ 
 			if (supportingUnitsSent != null)
 			{
 				Dictionary<string, object?> parameters = new Dictionary<string, object?>();
@@ -2619,13 +2576,13 @@ namespace maxhanna.Server.Controllers
 				&& supportingUnitsSent.WraithTotal <= 0 && supportingUnitsSent.BattlecruiserTotal <= 0 && supportingUnitsSent.GlitcherTotal <= 0)
 				{
 					string sql = @"
-                        DELETE FROM maxhanna.nexus_defences_sent
-                        WHERE id = @DefenceId LIMIT 1;";
+            DELETE FROM maxhanna.nexus_defences_sent
+            WHERE id = @DefenceId LIMIT 1;";
 
 					parameters = new Dictionary<string, object?>
-										{
-												{ "@DefenceId", supportingUnitsSent.Id}
-										};
+					{
+							{ "@DefenceId", supportingUnitsSent.Id}
+					};
 					await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
 				}
 				else
@@ -2656,18 +2613,12 @@ namespace maxhanna.Server.Controllers
 										};
 					await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
 				}
-			}
-			else
-			{
-				Console.WriteLine("Supply passed was null... skipping!");
-			}
+			} 
 			return;
 		}
 
 		private async Task UpdateNexusSupply(NexusBase nexusBase, int? supply, MySqlConnection? conn, MySqlTransaction? transaction)
-		{
-			//Console.WriteLine("UpdateNexusSupply...");
-
+		{ 
 			if (supply != null)
 			{
 				string sql = @"UPDATE maxhanna.nexus_bases SET supply = @Supply WHERE coords_x = @CoordsX AND coords_y = @CoordsY LIMIT 1;";
@@ -2679,13 +2630,8 @@ namespace maxhanna.Server.Controllers
 										{ "@Supply", Math.Max(0, (int)supply) }
 								};
 
-				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-				//Console.WriteLine("Nexus Supply updated.");
-			}
-			else
-			{
-				Console.WriteLine("Supply passed was null... skipping!");
-			}
+				await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
+			} 
 			return;
 		}
 
@@ -2693,23 +2639,21 @@ namespace maxhanna.Server.Controllers
 		private async Task<bool> DoesBaseHaveEnoughUnitsToSendAttack(NexusBase originNexus, UnitStats[]? unitsSent, bool skipAttackingUnits, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
 			NexusUnits? units = await GetNexusUnits(originNexus, true, conn, transaction);
-			//Console.WriteLine($"Got these units at base : m:{units?.MarineTotal} g:{units?.GoliathTotal} st:{units?.SiegeTankTotal} s:{units?.ScoutTotal} w:{units?.WraithTotal} b:{units?.BattlecruiserTotal} gl:{units?.GlitcherTotal}");
+			//_ = _log.Db($"Got these units at base : m:{units?.MarineTotal} g:{units?.GoliathTotal} st:{units?.SiegeTankTotal} s:{units?.ScoutTotal} w:{units?.WraithTotal} b:{units?.BattlecruiserTotal} gl:{units?.GlitcherTotal}");
 			if (units == null || units.MarineTotal < 0 || units.GoliathTotal < 0 || units.SiegeTankTotal < 0 || units.ScoutTotal < 0 || units.WraithTotal < 0 || units.BattlecruiserTotal < 0 || units.GlitcherTotal < 0)
 			{
-				Console.WriteLine($"Units sent less than zero!");
+				//_ = _log.Db($"Units sent less than zero!");
 				return false;
 			}
 			CalculateUnitsAvailableAfterSendingUnits(units, unitsSent, out int marinesTotal, out int goliathTotal, out int siegeTankTotal,
 					out int scoutTotal, out int wraithTotal, out int battlecruiserTotal, out int glitcherTotal);
-			//Console.WriteLine($"Got these units after sending units : m:{marinesTotal} g:{goliathTotal} st:{siegeTankTotal} s:{scoutTotal} w:{wraithTotal} b:{battlecruiserTotal} gl:{glitcherTotal}");
+			//_ = _log.Db($"Got these units after sending units : m:{marinesTotal} g:{goliathTotal} st:{siegeTankTotal} s:{scoutTotal} w:{wraithTotal} b:{battlecruiserTotal} gl:{glitcherTotal}");
 			if (units == null || marinesTotal < 0 || goliathTotal < 0 || siegeTankTotal < 0 || scoutTotal < 0 || wraithTotal < 0 || battlecruiserTotal < 0 || glitcherTotal < 0)
 			{
-				Console.WriteLine($"Units sent less than zero!");
+				//_ = _log.Db($"Units sent less than zero!");
 				return false;
-			}
-
+			} 
 			return (marinesTotal >= 0 && goliathTotal >= 0 && siegeTankTotal >= 0 && scoutTotal >= 0 && wraithTotal >= 0 && battlecruiserTotal >= 0 && glitcherTotal >= 0);
-
 		}
 
 		private static void CalculateUnitsAvailableAfterSendingUnits(NexusUnits? playerUnits, UnitStats[]? unitsSent,
@@ -2724,7 +2668,7 @@ namespace maxhanna.Server.Controllers
 			glitcherTotal = (playerUnits?.GlitcherTotal ?? 0);
 			if (playerUnits == null)
 			{
-				Console.WriteLine("No player units, returning");
+				//_ = _log.Db("No player units, returning");
 				return;
 			};
 
@@ -2732,7 +2676,7 @@ namespace maxhanna.Server.Controllers
 			{
 				//for (var x = 0; x < unitsSent.Length; x++)
 				//{
-				//    Console.WriteLine(unitsSent[x].SentValue + " " + unitsSent[x].UnitType);
+				//    _ = _log.Db(unitsSent[x].SentValue + " " + unitsSent[x].UnitType);
 				//}
 				marinesTotal -= (unitsSent?.First(x => x.UnitType == "marine").SentValue ?? 0);
 				goliathTotal -= (unitsSent?.First(x => x.UnitType == "goliath").SentValue ?? 0);
@@ -2827,7 +2771,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"An error occurred while GetUnitStatsFromDB");
+				_ = _log.Db($"An error occurred while GetUnitStatsFromDB. " + ex.Message, null, "NEXUS", true);
 			}
 			finally
 			{
@@ -2884,7 +2828,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"An error occurred while GetUpgradeUnitStatsFromDB");
+				_ = _log.Db($"An error occurred while GetUpgradeUnitStatsFromDB." + ex.Message, null, "NEXUS", true);
 			}
 			finally
 			{
@@ -2954,7 +2898,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while GetNexusBase");
+				_ = _log.Db("An error occurred while GetNexusBase. " + ex.Message, nexusBase?.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
@@ -3007,7 +2951,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, $"An error occurred while GetNexusBaseUpgrades");
+					_ = _log.Db($"An error occurred while GetNexusBaseUpgrades. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 				}
 			}
 
@@ -3027,7 +2971,7 @@ namespace maxhanna.Server.Controllers
 
 			try
 			{
-				if (!passedInConn)
+				if (!passedInConn && conn != null)
 				{
 					await conn.OpenAsync();
 				}
@@ -3070,7 +3014,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while GetNexusUnits");
+				_ = _log.Db("An error occurred while GetNexusUnits. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
@@ -3096,7 +3040,7 @@ namespace maxhanna.Server.Controllers
 
 			try
 			{
-				if (!passedInConn)
+				if (!passedInConn && conn != null)
 				{
 					await conn.OpenAsync();
 				}
@@ -3165,7 +3109,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while GetNexusUnits");
+				_ = _log.Db("An error occurred while GetNexusUnits. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
@@ -3247,8 +3191,7 @@ namespace maxhanna.Server.Controllers
 				BattlecruiserTotal = battlecruiserTotal,
 				GlitcherTotal = glitcherTotal
 			};
-		}
-
+		} 
 
 		private async Task<List<NexusUnitsPurchased>?> GetNexusUnitPurchases(NexusBase? nexusBase, MySqlConnection? conn = null, MySqlTransaction? transaction = null)
 		{
@@ -3308,7 +3251,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while getting Nexus unit purchases.");
+				_ = _log.Db("An error occurred while getting Nexus unit purchases. " + ex.Message, nexusBase.User?.Id, "NEXUS", true);
 			}
 			finally
 			{
@@ -3321,9 +3264,9 @@ namespace maxhanna.Server.Controllers
 			return res;
 		}
 
-		private async Task<NexusBase?> GetUserFirstBase(User user, MySqlConnection connection, MySqlTransaction transaction)
+		private async Task<NexusBase?> GetUserFirstBase(int userId, MySqlConnection connection, MySqlTransaction transaction)
 		{
-			//Console.WriteLine($"Get User first base for user id {user.Id}");
+			//_ = _log.Db($"Get User first base for user id {user.Id}");
 			NexusBase? tmpBase = null;
 
 			try
@@ -3337,7 +3280,7 @@ namespace maxhanna.Server.Controllers
                 LIMIT 1;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, connection, transaction);
-				cmd.Parameters.AddWithValue("@UserId", user.Id);
+				cmd.Parameters.AddWithValue("@UserId", userId);
 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -3353,7 +3296,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"An error occurred getting first base for player {user.Id}");
+				_ = _log.Db($"An error occurred getting first base for player {userId}. " + ex.Message, userId, "NEXUS", true);
 			}
 			return tmpBase;
 		}
@@ -3367,7 +3310,7 @@ namespace maxhanna.Server.Controllers
 			}
 			if (transaction == null)
 			{
-				_logger.LogError("Transaction is null.");
+				_ = _log.Db("RecalculateNexusGold Transaction is null.", null, "NEXUS", true);
 				throw new InvalidOperationException("Transaction is required for this operation.");
 			}
 
@@ -3385,9 +3328,7 @@ namespace maxhanna.Server.Controllers
                 nb.updated = NOW()
                 WHERE nms.mines_level = nb.mines_level;";
 			return (int)(await ExecuteInsertOrUpdateOrDeleteAsync(updateGoldSql, new Dictionary<string, object?>(), conn, transaction) ?? 0);
-		}
-
-
+		} 
 
 		[HttpPost("UpdateNexusGold")]
 		public async Task<int> UpdateNexusGold()
@@ -3396,7 +3337,7 @@ namespace maxhanna.Server.Controllers
 			using (var conn = new MySqlConnection(_connectionString))
 			{
 				await conn.OpenAsync();
-				MySqlTransaction transaction = null;
+				MySqlTransaction? transaction = null;
 
 				try
 				{
@@ -3409,7 +3350,7 @@ namespace maxhanna.Server.Controllers
 					}
 					else
 					{
-						Console.WriteLine("Transaction object is null, cannot commit.");
+						_ = _log.Db("Transaction object is null, cannot commit.", null, "NEXUS", true);
 					}
 
 				}
@@ -3420,7 +3361,7 @@ namespace maxhanna.Server.Controllers
 						await transaction.RollbackAsync();
 					}
 
-					Console.WriteLine("An error occurred while updating Nexus gold." + ex.Message);
+					_ = _log.Db("An error occurred while updating Nexus gold." + ex.Message, null, "NEXUS", true);
 					throw;
 				}
 				finally
@@ -3510,7 +3451,7 @@ namespace maxhanna.Server.Controllers
 			long? res = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters);
 			if (res != null && res > 0)
 			{
-				Console.WriteLine($"Updated building upgrades for {res / 2} bases.");
+				_ = _log.Db($"Updated building upgrades for {res / 2} bases.", null, "NEXUS", true);
 			}
 		}
 
@@ -3519,7 +3460,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("UpdateNexusAttacks")]
 		public async Task UpdateNexusAttacks([FromBody] NexusBase nexus)
 		{
-			//Console.WriteLine($"Update Nexus Attacks for {nexus.CoordsX},{nexus.CoordsY}");
+			//_ = _log.Db($"Update Nexus Attacks for {nexus.CoordsX},{nexus.CoordsY}");
 			MySqlConnection conn = new MySqlConnection(_connectionString);
 			await conn.OpenAsync();
 
@@ -3544,7 +3485,7 @@ namespace maxhanna.Server.Controllers
 				}
 				attacks = attacks.Concat(attacks2).ToList();
 
-				//Console.WriteLine(" Attacks Count: " + attacks.Count);
+				//_ = _log.Db(" Attacks Count: " + attacks.Count);
 
 
 				if (attacks != null && attacks.Count > 0)
@@ -3562,7 +3503,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Error while updating attacks:" + ex.Message);
+				_ = _log.Db("Error while updating attacks:" + ex.Message, null, "NEXUS", true);
 				await transaction.RollbackAsync();
 			}
 		}
@@ -3570,7 +3511,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("UpdateNexusDefences")]
 		public async Task UpdateNexusDefences([FromBody] NexusBase nexus)
 		{
-			//Console.WriteLine($"Update Nexus Defences for {nexus.CoordsX},{nexus.CoordsY}");
+			//_ = _log.Db($"Update Nexus Defences for {nexus.CoordsX},{nexus.CoordsY}");
 
 			MySqlConnection conn = new MySqlConnection(_connectionString);
 			await conn.OpenAsync();
@@ -3590,7 +3531,7 @@ namespace maxhanna.Server.Controllers
 
 				defences = defences.Concat(uniqueDefences).ToList();
 
-				//Console.WriteLine(" Defences Count: " + defences.Count);
+				//_ = _log.Db(" Defences Count: " + defences.Count);
 
 
 				if (defences != null && defences.Count > 0)
@@ -3609,7 +3550,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Error while updating attacks:" + ex.Message);
+				_ = _log.Db("Error while updating attacks:" + ex.Message, null, "NEXUS", true);
 
 				await transaction.RollbackAsync();
 
@@ -3621,11 +3562,11 @@ namespace maxhanna.Server.Controllers
 				List<NexusAttackSent> attacks, int attackIndex, List<UnitUpgradeStats> unitUpgradeStats)
 		{
 			TimeSpan timeElapsed = (DateTime.Now - attacks?[attackIndex].Timestamp) ?? TimeSpan.Zero;
-			//Console.WriteLine($"Checking timeElapsed: {timeElapsed.TotalSeconds}, duration: {attacks[attackIndex].Duration} : {timeElapsed.TotalSeconds - attacks[attackIndex].Duration}");
+			//_ = _log.Db($"Checking timeElapsed: {timeElapsed.TotalSeconds}, duration: {attacks[attackIndex].Duration} : {timeElapsed.TotalSeconds - attacks[attackIndex].Duration}");
 			if (attacks == null) { attacks = new List<NexusAttackSent>(); }
 			if ((timeElapsed.TotalSeconds - attacks[attackIndex].Duration) >= 0)
 			{
-				//Console.WriteLine($"{attacks[attackIndex].OriginCoordsX}, {attacks[attackIndex].OriginCoordsY} Attack has landed on {attacks[attackIndex].DestinationCoordsX},{attacks[attackIndex].DestinationCoordsY}!");
+				//_ = _log.Db($"{attacks[attackIndex].OriginCoordsX}, {attacks[attackIndex].OriginCoordsY} Attack has landed on {attacks[attackIndex].DestinationCoordsX},{attacks[attackIndex].DestinationCoordsY}!");
 
 				NexusBase origin = await GetNexusBase(attacks[attackIndex].OriginCoordsX, attacks[attackIndex].OriginCoordsY, conn, transaction)
 						?? new NexusBase() { CoordsX = attacks[attackIndex].OriginCoordsX, CoordsY = attacks[attackIndex].OriginCoordsY };
@@ -3634,9 +3575,7 @@ namespace maxhanna.Server.Controllers
 						?? new NexusBase() { CoordsX = attacks[attackIndex].DestinationCoordsX, CoordsY = attacks[attackIndex].DestinationCoordsY };
 
 				await DeleteAttack(origin, destination, attacks[attackIndex].Timestamp, attacks[attackIndex].Duration, conn, transaction);
-
-				Console.WriteLine($"Getting attack results for {origin.CoordsX},{origin.CoordsY} attack on {destination.CoordsX},{destination.CoordsY}");
-
+				 
 				List<UnitStats> attackingUnits = new List<UnitStats>();
 				List<UnitStats> attackingUnitsBeforeAttack = new List<UnitStats>();
 				var units = new (UnitStats us, int? total)[]
@@ -3656,7 +3595,7 @@ namespace maxhanna.Server.Controllers
 						UnitStats tmp = us;
 						tmp.SentValue = Math.Max(0, (total ?? 0));
 						attackingUnits.Add(tmp);
-						//Console.WriteLine($"added {tmp.SentValue} {tmp.UnitType} in attackingUnits");
+						//_ = _log.Db($"added {tmp.SentValue} {tmp.UnitType} in attackingUnits");
 					}
 				}
 				attackingUnits.ForEach(x =>
@@ -3688,7 +3627,7 @@ namespace maxhanna.Server.Controllers
 					}
 					for (int i = 0; i < supportingUnits.Count; i++)
 					{
-						//Console.WriteLine($"adding support units : m:{supportingUnits[i].MarineTotal} g:{supportingUnits[i].GoliathTotal} st:{supportingUnits[i].SiegeTankTotal} s:{supportingUnits[i].ScoutTotal} w:{supportingUnits[i].WraithTotal} b:{supportingUnits[i].BattlecruiserTotal} gl:{supportingUnits[i].GlitcherTotal}");
+						//_ = _log.Db($"adding support units : m:{supportingUnits[i].MarineTotal} g:{supportingUnits[i].GoliathTotal} st:{supportingUnits[i].SiegeTankTotal} s:{supportingUnits[i].ScoutTotal} w:{supportingUnits[i].WraithTotal} b:{supportingUnits[i].BattlecruiserTotal} gl:{supportingUnits[i].GlitcherTotal}");
 						defendingUnits.MarineTotal = Math.Max(0, ((defendingUnits.MarineTotal ?? 0) + (supportingUnits[i].MarineTotal ?? 0)));
 						defendingUnits.GoliathTotal = Math.Max(0, ((defendingUnits.GoliathTotal ?? 0) + (supportingUnits[i].GoliathTotal ?? 0)));
 						defendingUnits.SiegeTankTotal = Math.Max(0, ((defendingUnits.SiegeTankTotal ?? 0) + (supportingUnits[i].SiegeTankTotal ?? 0)));
@@ -3700,7 +3639,7 @@ namespace maxhanna.Server.Controllers
 				}
 				//if (defendingUnits != null)
 				//{
-				//    Console.WriteLine($"defence units : m:{defendingUnits.MarineTotal} g:{defendingUnits.GoliathTotal} st:{defendingUnits.SiegeTankTotal} s:{defendingUnits.ScoutTotal} w:{defendingUnits.WraithTotal} b:{defendingUnits.BattlecruiserTotal} gl:{defendingUnits.GlitcherTotal}");
+				//    _ = _log.Db($"defence units : m:{defendingUnits.MarineTotal} g:{defendingUnits.GoliathTotal} st:{defendingUnits.SiegeTankTotal} s:{defendingUnits.ScoutTotal} w:{defendingUnits.WraithTotal} b:{defendingUnits.BattlecruiserTotal} gl:{defendingUnits.GlitcherTotal}");
 				//}
 
 
@@ -3762,11 +3701,11 @@ namespace maxhanna.Server.Controllers
 
 							if (totalDamage > int.MaxValue || totalDamage < int.MinValue)
 							{
-								//Console.WriteLine($"Overflow detected for unit {x.UnitType}. Calculated damage: {totalDamage}");
+								//_ = _log.Db($"Overflow detected for unit {x.UnitType}. Calculated damage: {totalDamage}");
 								return 0;
 							}
 
-							//Console.WriteLine($"Detected sent attacking unit: {sentValue} {x.UnitType}. Regular damage: {selectedDamage}; Total added damage: {totalDamage}");
+							//_ = _log.Db($"Detected sent attacking unit: {sentValue} {x.UnitType}. Regular damage: {selectedDamage}; Total added damage: {totalDamage}");
 							return (int)totalDamage;
 						});
 					}
@@ -3791,25 +3730,25 @@ namespace maxhanna.Server.Controllers
 								defendingGroundDamage += Math.Max(0, totalUnits * ((unitStats[unitType]?.GroundDamage ?? 0.0001) * (double)damageMultiplier));
 								defendingAirDamage += Math.Max(0, totalUnits * ((unitStats[unitType]?.AirDamage ?? 0.0001) * (double)damageMultiplier));
 
-								//Console.WriteLine($"Calculating added {unitType} defending damage: {defendingGroundDamage} {defendingAirDamage} ... ground: {(unitStats[unitType]?.GroundDamage ?? 0.0001)}, air: {(unitStats[unitType]?.AirDamage ?? 0.0001)}, multiplier: {damageMultiplier}");
+								//_ = _log.Db($"Calculating added {unitType} defending damage: {defendingGroundDamage} {defendingAirDamage} ... ground: {(unitStats[unitType]?.GroundDamage ?? 0.0001)}, air: {(unitStats[unitType]?.AirDamage ?? 0.0001)}, multiplier: {damageMultiplier}");
 							}
 						}
 					}
 
-					//Console.WriteLine("Attacking ground damage: " + attackingGroundDamage);
-					//Console.WriteLine("Attacking air damage: " + attackingAirDamage);
-					//Console.WriteLine("Defending ground damage: " + defendingGroundDamage);
-					//Console.WriteLine("Defending air damage: " + defendingAirDamage);
+					//_ = _log.Db("Attacking ground damage: " + attackingGroundDamage);
+					//_ = _log.Db("Attacking air damage: " + attackingAirDamage);
+					//_ = _log.Db("Defending ground damage: " + defendingGroundDamage);
+					//_ = _log.Db("Defending air damage: " + defendingAirDamage);
 
 					double groundCoeff = Math.Max(0, attackingGroundDamage / defendingGroundDamage);
 					double airCoeff = Math.Max(0, attackingAirDamage / defendingAirDamage);
 					double groundAttackDmgLossCoeff = Math.Max(0, groundCoeff * Math.Sqrt((double)groundCoeff));
 					double airAttackDmgLossCoeff = Math.Max(0, airCoeff * Math.Sqrt((double)airCoeff));
 
-					//Console.WriteLine("groundCoeff: " + groundCoeff);
-					//Console.WriteLine("airCoeff: " + airCoeff);
-					//Console.WriteLine("groundAttackDmgLossCoeff: " + groundAttackDmgLossCoeff);
-					//Console.WriteLine("airAttackDmgLossCoeff: " + airAttackDmgLossCoeff);
+					//_ = _log.Db("groundCoeff: " + groundCoeff);
+					//_ = _log.Db("airCoeff: " + airCoeff);
+					//_ = _log.Db("groundAttackDmgLossCoeff: " + groundAttackDmgLossCoeff);
+					//_ = _log.Db("airAttackDmgLossCoeff: " + airAttackDmgLossCoeff);
 
 					var attackingLosses = new Dictionary<string, int?>();
 					var defendingLosses = new Dictionary<string, int?>();
@@ -3819,16 +3758,16 @@ namespace maxhanna.Server.Controllers
 					// CALCULATE LOSSES
 					if ((attackingGroundDamage != 0 || attackingAirDamage != 0) && (defendingGroundDamage != 0 || defendingAirDamage != 0))
 					{
-						//Console.WriteLine($"groundCoeff: {groundCoeff}, airCoeff: {airCoeff}, groundAttackDmgLossCoeff: {groundAttackDmgLossCoeff}, airAttackDmgLossCoeff: {airAttackDmgLossCoeff} ");
+						//_ = _log.Db($"groundCoeff: {groundCoeff}, airCoeff: {airCoeff}, groundAttackDmgLossCoeff: {groundAttackDmgLossCoeff}, airAttackDmgLossCoeff: {airAttackDmgLossCoeff} ");
 
 
 						foreach (var unitType in unitStats.Keys)
 						{
-							//Console.WriteLine($"Processing unit type: {unitType}");
+							//_ = _log.Db($"Processing unit type: {unitType}");
 
 							var attackingUnit = attackingUnits.FirstOrDefault(x => x.UnitType == unitType);
-							//Console.WriteLine("got attackingUnit: " + attackingUnit);
-							//Console.WriteLine($"Attacking unit: {attackingUnit?.UnitType}");
+							//_ = _log.Db("got attackingUnit: " + attackingUnit);
+							//_ = _log.Db($"Attacking unit: {attackingUnit?.UnitType}");
 
 							string bigType = unitType;
 							bigType = (unitType == "siege_tank" ? "SiegeTank"
@@ -3840,30 +3779,30 @@ namespace maxhanna.Server.Controllers
 									: "Glitcher");
 
 							var defendingUnitProperty = defendingUnits?.GetType().GetProperty($"{bigType}Total");
-							//Console.WriteLine($"Defending unit property: {defendingUnitProperty?.Name}");
+							//_ = _log.Db($"Defending unit property: {defendingUnitProperty?.Name}");
 
 							var defendingUnitValue = Math.Max(0, defendingUnitProperty?.GetValue(defendingUnits, null) as int? ?? 0);
-							//Console.WriteLine($"Defending unit value: {defendingUnitValue}");
+							//_ = _log.Db($"Defending unit value: {defendingUnitValue}");
 
 							var sentValue = Math.Max(0, attackingUnit?.SentValue ?? 0);
-							//Console.WriteLine($"Sent value: {sentValue}");
+							//_ = _log.Db($"Sent value: {sentValue}");
 
 							var attackLossCoeff = (unitType == "scout" || unitType == "wraith" || unitType == "battlecruiser" || unitType == "glitcher")
 									? airAttackDmgLossCoeff
 									: groundAttackDmgLossCoeff;
-							//Console.WriteLine($"Attack loss coeff: {attackLossCoeff}");
+							//_ = _log.Db($"Attack loss coeff: {attackLossCoeff}");
 							int aLoss = Math.Min(sentValue, (int)(sentValue / attackLossCoeff));
 							int dLoss = Math.Min(defendingUnitValue, (int)(defendingUnitValue * attackLossCoeff));
 							attackingLosses[unitType] = Math.Max(0, aLoss);
 							defendingLosses[unitType] = Math.Max(0, dLoss);
-							//Console.WriteLine($"Attacking losses: {attackingLosses[unitType]}"); 
-							//Console.WriteLine($"Defending losses: {defendingLosses[unitType]}");\
+							//_ = _log.Db($"Attacking losses: {attackingLosses[unitType]}"); 
+							//_ = _log.Db($"Defending losses: {defendingLosses[unitType]}");\
 							if (aLoss > 0) { attackerSupplyRecovered = true; }
 							if (dLoss > 0) { defenderSupplyRecovered = true; }
-							//Console.WriteLine($"Attacking unit: {unitType}: {sentValue}");
-							//Console.WriteLine($"Defending unit: {unitType}: {defendingUnitValue}");
+							//_ = _log.Db($"Attacking unit: {unitType}: {sentValue}");
+							//_ = _log.Db($"Defending unit: {unitType}: {defendingUnitValue}");
 						}
-						//Console.WriteLine($"attackerSupplyRecovered: {attackerSupplyRecovered}, defenderSupplyRecovered: {defenderSupplyRecovered}");
+						//_ = _log.Db($"attackerSupplyRecovered: {attackerSupplyRecovered}, defenderSupplyRecovered: {defenderSupplyRecovered}");
 					}
 					if (defenderSupplyRecovered)
 					{
@@ -3880,7 +3819,7 @@ namespace maxhanna.Server.Controllers
 						{
 							if (supportingBaseUnits != null)
 							{
-								//Console.WriteLine($"Processing supporting base from ({supportingBaseUnits.OriginCoordsX}, {supportingBaseUnits.OriginCoordsY}) at ({supportingBaseUnits.DestinationCoordsX}, {supportingBaseUnits.DestinationCoordsY})");
+								//_ = _log.Db($"Processing supporting base from ({supportingBaseUnits.OriginCoordsX}, {supportingBaseUnits.OriginCoordsY}) at ({supportingBaseUnits.DestinationCoordsX}, {supportingBaseUnits.DestinationCoordsY})");
 
 								if (supportingBaseUnits.MarineTotal != null && supportingBaseUnits.MarineTotal > 0)
 								{
@@ -3934,13 +3873,13 @@ namespace maxhanna.Server.Controllers
 								var tmpBase = new NexusBase();
 								tmpBase.CoordsX = supportingBaseUnits.DestinationCoordsX;
 								tmpBase.CoordsY = supportingBaseUnits.DestinationCoordsY;
-								//Console.WriteLine($"Marine losses: {supportingLosses["marine"]} (Total before: {supportingBaseUnits.MarineTotal})");
-								//Console.WriteLine($"Goliath losses: {supportingLosses["goliath"]} (Total before: {supportingBaseUnits.GoliathTotal})");
-								//Console.WriteLine($"Siege Tank losses: {supportingLosses["siege_tank"]} (Total before: {supportingBaseUnits.SiegeTankTotal})");
-								//Console.WriteLine($"Scout losses: {supportingLosses["scout"]} (Total before: {supportingBaseUnits.ScoutTotal})");
-								//Console.WriteLine($"Wraith losses: {supportingLosses["wraith"]} (Total before: {supportingBaseUnits.WraithTotal})");
-								//Console.WriteLine($"Battlecruiser losses: {supportingLosses["battlecruiser"]} (Total before: {supportingBaseUnits.BattlecruiserTotal})");
-								//Console.WriteLine($"Glitcher losses: {supportingLosses["glitcher"]} (Total before: {supportingBaseUnits.GlitcherTotal})");
+								//_ = _log.Db($"Marine losses: {supportingLosses["marine"]} (Total before: {supportingBaseUnits.MarineTotal})");
+								//_ = _log.Db($"Goliath losses: {supportingLosses["goliath"]} (Total before: {supportingBaseUnits.GoliathTotal})");
+								//_ = _log.Db($"Siege Tank losses: {supportingLosses["siege_tank"]} (Total before: {supportingBaseUnits.SiegeTankTotal})");
+								//_ = _log.Db($"Scout losses: {supportingLosses["scout"]} (Total before: {supportingBaseUnits.ScoutTotal})");
+								//_ = _log.Db($"Wraith losses: {supportingLosses["wraith"]} (Total before: {supportingBaseUnits.WraithTotal})");
+								//_ = _log.Db($"Battlecruiser losses: {supportingLosses["battlecruiser"]} (Total before: {supportingBaseUnits.BattlecruiserTotal})");
+								//_ = _log.Db($"Glitcher losses: {supportingLosses["glitcher"]} (Total before: {supportingBaseUnits.GlitcherTotal})");
 
 								await UpdateNexusUnitsAfterAttack(conn, transaction, tmpBase, supportingLosses);
 								int supportingBaseCurrentSupplyUsed = await CalculateUsedNexusSupply(tmpBase, conn, transaction);
@@ -3962,7 +3901,7 @@ namespace maxhanna.Server.Controllers
 							attackingLosses[key] = 0; // Initialize missing keys with a default value
 						}
 					}
-					//Console.WriteLine("Sending survivors back home...");
+					//_ = _log.Db("Sending survivors back home...");
 					//SEND SURVIVORS BACK
 					if (attackingLosses != null && attackingLosses.Count > 0)
 					{
@@ -3989,9 +3928,9 @@ namespace maxhanna.Server.Controllers
 
 					NexusBattleOutcome battleOutcome = await CreateBattleOutcome(attacks, attackIndex, origin, destination, defendingUnits, attackingLosses, defendingLosses, goldPlundered, conn, transaction);
 					await InsertBattleOutcome(battleOutcome, conn, transaction);
-					//Console.WriteLine("Inserted report, now find glitchers");
+					//_ = _log.Db("Inserted report, now find glitchers");
 					var foundGlitchers = attackingUnits.FirstOrDefault(x => x.UnitType == "glitcher" && x.SentValue > 0);
-					//Console.WriteLine("Found glitchers or not ");
+					//_ = _log.Db("Found glitchers or not ");
 
 					if (attackingUnits != null && foundGlitchers != null)
 					{
@@ -4022,27 +3961,27 @@ namespace maxhanna.Server.Controllers
 						int currentSupplyUsed = await CalculateUsedNexusSupply(origin, conn, transaction);
 						await UpdateNexusSupply(origin, currentSupplyUsed, conn, transaction);
 					}
-					//Console.WriteLine("all done, sending survivor attacking units back home");
+					//_ = _log.Db("all done, sending survivor attacking units back home");
 					if (attackingUnits != null && attackingUnits.FirstOrDefault(x => x.SentValue > 0) != null)
 					{
 						if (origin.CoordsX != destination.CoordsX || origin.CoordsY != destination.CoordsY)
 						{
-							//Console.WriteLine("Sent surviving units back home.");
+							//_ = _log.Db("Sent surviving units back home.");
 							await SendAttack(origin, origin, origin.User, origin.User, attackingUnits.ToArray(), conn, transaction);
 						}
 						else
 						{
-							//Console.WriteLine("Returning units were ousted from their home. Units disbanded.");
+							//_ = _log.Db("Returning units were ousted from their home. Units disbanded.");
 						}
 					}
 					else
 					{
-						//Console.WriteLine($"No survivors made it...");
+						//_ = _log.Db($"No survivors made it...");
 					}
 				}
 				else
 				{
-					//Console.WriteLine($"Survivors made it back home..."); 
+					//_ = _log.Db($"Survivors made it back home..."); 
 				}
 			}
 		}
@@ -4051,7 +3990,7 @@ namespace maxhanna.Server.Controllers
 		private async Task PerformDefenceIfTimeElapsed(MySqlConnection conn, MySqlTransaction transaction, List<NexusAttackSent> defences, int defenceIndex)
 		{
 			TimeSpan timeElapsed = (DateTime.Now - defences?[defenceIndex].Timestamp) ?? TimeSpan.Zero;
-			//Console.WriteLine($"Checking timeElapsed: {timeElapsed.TotalSeconds}, duration: {defences[defenceIndex].Duration} : {timeElapsed.TotalSeconds - defences[defenceIndex].Duration}");
+			//_ = _log.Db($"Checking timeElapsed: {timeElapsed.TotalSeconds}, duration: {defences[defenceIndex].Duration} : {timeElapsed.TotalSeconds - defences[defenceIndex].Duration}");
 
 			if (defences == null)
 			{
@@ -4060,7 +3999,7 @@ namespace maxhanna.Server.Controllers
 
 			if ((timeElapsed.TotalSeconds - defences[defenceIndex].Duration) >= 0)
 			{
-				//Console.WriteLine($"{defences[defenceIndex].OriginCoordsX}, {defences[defenceIndex].OriginCoordsY} Defence has landed on {defences[defenceIndex].DestinationCoordsX},{defences[defenceIndex].DestinationCoordsY}!");
+				//_ = _log.Db($"{defences[defenceIndex].OriginCoordsX}, {defences[defenceIndex].OriginCoordsY} Defence has landed on {defences[defenceIndex].DestinationCoordsX},{defences[defenceIndex].DestinationCoordsY}!");
 
 				NexusBase origin = await GetNexusBase(defences[defenceIndex].OriginCoordsX, defences[defenceIndex].OriginCoordsY, conn, transaction)
 						?? new NexusBase() { CoordsX = defences[defenceIndex].OriginCoordsX, CoordsY = defences[defenceIndex].OriginCoordsY };
@@ -4070,16 +4009,16 @@ namespace maxhanna.Server.Controllers
 
 				if (origin.CoordsX == destination.CoordsX && origin.CoordsY == destination.CoordsY)
 				{
-					//Console.WriteLine("Deleting support as it has arrived back home");
+					//_ = _log.Db("Deleting support as it has arrived back home");
 					await DeleteDefence(origin, destination, defences[defenceIndex].Timestamp, defences[defenceIndex].Duration, conn, transaction);
 				}
 				else
 				{
-					//Console.WriteLine("Defence has arrived");
+					//_ = _log.Db("Defence has arrived");
 					await DefenceArrived(origin, destination, defences[defenceIndex].Timestamp, defences[defenceIndex].Duration, conn, transaction);
 				}
 
-				//Console.WriteLine($"Getting defence results for {origin.CoordsX},{origin.CoordsY} support on {destination.CoordsX},{destination.CoordsY}");
+				//_ = _log.Db($"Getting defence results for {origin.CoordsX},{origin.CoordsY} support on {destination.CoordsX},{destination.CoordsY}");
 			}
 		}
 
@@ -4110,7 +4049,7 @@ namespace maxhanna.Server.Controllers
 								{ "@Battlecruiser",  Math.Max(0, losses["battlecruiser"] ?? 0) },
 								{ "@Glitcher", Math.Max(0, losses["glitcher"] ?? 0)}
 						};
-			//Console.WriteLine("UpdateNexusUnitsAfterAttack - attacking losses passed in :");
+			//_ = _log.Db("UpdateNexusUnitsAfterAttack - attacking losses passed in :");
 
 			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
 		}
@@ -4123,10 +4062,10 @@ namespace maxhanna.Server.Controllers
 			{
 				goldForGrabs = new Random().Next(0, 666);
 			}
-			//Console.WriteLine("destination gold : " + goldForGrabs);
+			//_ = _log.Db("destination gold : " + goldForGrabs);
 			decimal goldCarryingCapacity = attackingUnits.Sum(x => x.GoldCarryingCapacity);
 
-			//Console.WriteLine("gold carrying capacity: " + goldCarryingCapacity);
+			//_ = _log.Db("gold carrying capacity: " + goldCarryingCapacity);
 			decimal goldPlundered;
 			if (defendingUnits != null)
 			{
@@ -4143,19 +4082,19 @@ namespace maxhanna.Server.Controllers
 											: "Glitcher");
 					return defendingUnits.GetType().GetProperty($"{bigType}Total")?.GetValue(defendingUnits, null) as int? ?? 0;
 				});
-				//Console.WriteLine($"totalAttackingUnits: {totalAttackingUnits}, totalDefendingUnits: {totalDefendingUnits}");
+				//_ = _log.Db($"totalAttackingUnits: {totalAttackingUnits}, totalDefendingUnits: {totalDefendingUnits}");
 				// Step 2: Determine the ratio
 				decimal ratio = totalAttackingUnits == 0 || totalDefendingUnits == 0
 						? (totalAttackingUnits > totalDefendingUnits ? 1.0m : 0.0m)
 						: Math.Min((decimal)totalAttackingUnits / totalDefendingUnits, 1.0m);
-				//Console.WriteLine("ratio : " + ratio);
+				//_ = _log.Db("ratio : " + ratio);
 				// Step 3: Adjust goldPlundered based on the ratio
 				goldPlundered = ratio * Math.Min(goldForGrabs, goldCarryingCapacity);
 			}
 			else
 			{
 				// If there are no defending units
-				//Console.WriteLine("No defending units");
+				//_ = _log.Db("No defending units");
 				goldPlundered = Math.Min(goldForGrabs, goldCarryingCapacity);
 			}
 
@@ -4220,7 +4159,7 @@ namespace maxhanna.Server.Controllers
 			selectCmd.Parameters.AddWithValue("@userId", userId);
 			selectCmd.Parameters.AddWithValue("@senderId", senderId);
 
-			long notificationCount = (long)await selectCmd.ExecuteScalarAsync();
+			long? notificationCount = (long?)await selectCmd.ExecuteScalarAsync();
 
 			if (notificationCount == 0)
 			{
@@ -4433,8 +4372,9 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-		private async Task ResearchUnit(NexusBase nexusBase, UnitStats unit, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
+		private async Task ResearchUnit(NexusBase nexusBase, UnitStats? unit, MySqlConnection? connection = null, MySqlTransaction? transaction = null)
 		{
+			if (unit == null) return;
 			string sql = @"
                 INSERT INTO nexus_unit_upgrades (coords_x, coords_y, unit_id_upgraded) 
                 VALUES (@CoordsX, @CoordsY, @UnitId);";
@@ -4452,7 +4392,7 @@ namespace maxhanna.Server.Controllers
 		private async Task<NexusBattleOutcome> CreateBattleOutcome(List<NexusAttackSent> attacks, int attackIndex, NexusBase origin, NexusBase destination,
 				NexusUnits? defendingUnits, Dictionary<string, int?>? attackingLosses, Dictionary<string, int?> defendingLosses, decimal goldPlundered, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine("Create battle outcome");
+			//_ = _log.Db("Create battle outcome");
 			NexusUnits? dunoi = await GetNexusAttackingUnits(destination, conn, transaction);
 			return new NexusBattleOutcome()
 			{
@@ -4512,7 +4452,7 @@ namespace maxhanna.Server.Controllers
 		private async Task<NexusBattleOutcomeReports> GetAllBattleReports(
 				int? userId,
 				NexusBase? targetBase,
-				User? targetUser,
+				int? targetUserId,
 				int pageNumber,
 				int pageSize,
 				MySqlConnection? externalConnection = null,
@@ -4547,9 +4487,9 @@ namespace maxhanna.Server.Controllers
 				query += @"
                     AND (b.destination_coords_x = @BaseCoordsX AND b.destination_coords_y = @BaseCoordsY)";
 			}
-			if (targetUser != null)
+			if (targetUserId != null)
 			{
-				if (targetUser.Id == 0)
+				if (targetUserId == 0)
 				{
 					query += @"
                         AND (b.destination_user_id IS NULL)";
@@ -4590,12 +4530,11 @@ namespace maxhanna.Server.Controllers
 			}
 
 			MySqlConnection connection = externalConnection ?? new MySqlConnection(_connectionString);
-			MySqlTransaction transaction = externalTransaction;
+			MySqlTransaction? transaction = externalTransaction;
 			bool needToCloseConnection = externalConnection == null;
-			bool needToCommitTransaction = externalTransaction == null;
-			Console.WriteLine(query);
-			//Console.WriteLine(offset);
-			//Console.WriteLine(pageSize);
+			bool needToCommitTransaction = externalTransaction == null; 
+			//_ = _log.Db(offset);
+			//_ = _log.Db(pageSize);
 			try
 			{
 				if (needToCloseConnection)
@@ -4619,9 +4558,9 @@ namespace maxhanna.Server.Controllers
 						command.Parameters.AddWithValue("@BaseCoordsX", targetBase.CoordsX);
 						command.Parameters.AddWithValue("@BaseCoordsY", targetBase.CoordsY);
 					}
-					if (targetUser != null)
+					if (targetUserId != null)
 					{
-						command.Parameters.AddWithValue("@DestinationUserId", targetUser.Id == 0 ? null : targetUser.Id);
+						command.Parameters.AddWithValue("@DestinationUserId", targetUserId == 0 ? null : targetUserId);
 					}
 					command.Parameters.AddWithValue("@PageSize", pageSize);
 					command.Parameters.AddWithValue("@Offset", offset);
@@ -4667,8 +4606,8 @@ namespace maxhanna.Server.Controllers
 
 				foreach (var battleOutcome in battleReports)
 				{
-					int attackingScouts = battleOutcome.AttackingUnits.GetValueOrDefault("scout") ?? 0;
-					int scoutLosses = battleOutcome.AttackingLosses.GetValueOrDefault("scout") ?? 0;
+					int attackingScouts = battleOutcome.AttackingUnits?.GetValueOrDefault("scout") ?? 0;
+					int scoutLosses = battleOutcome.AttackingLosses?.GetValueOrDefault("scout") ?? 0;
 					int scoutsSurvived = attackingScouts - scoutLosses;
 					double attackingScoutsSurvivedPercentage = attackingScouts > 0 ? (double)scoutsSurvived / attackingScouts : 0;
 
@@ -4739,7 +4678,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Exception!:" + ex.Message);
+				_ = _log.Db("GetAllBattleReports Exception!:" + ex.Message, userId, "NEXUS", true);
 				if (externalTransaction == null && transaction != null)
 				{
 					await transaction.RollbackAsync();
@@ -4770,7 +4709,7 @@ namespace maxhanna.Server.Controllers
 
 		private async Task InsertBattleOutcome(NexusBattleOutcome battleOutcome, MySqlConnection? conn, MySqlTransaction? transaction)
 		{
-			//Console.WriteLine("Creating a report");
+			//_ = _log.Db("Creating a report");
 			string sql = @"
                 INSERT INTO nexus_battles 
                     (origin_user_id, origin_coords_x, origin_coords_y, destination_user_id, destination_coords_x, destination_coords_y, 
@@ -4798,7 +4737,7 @@ namespace maxhanna.Server.Controllers
 						};
 
 			await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-			//Console.WriteLine($"Report created");
+			//_ = _log.Db($"Report created");
 		}
 		[HttpPost("UpdateNexusUnitUpgradesCompletes")]
 		public async Task UpdateNexusUnitUpgradesCompletes([FromBody] NexusBase nexus)
@@ -4824,10 +4763,10 @@ namespace maxhanna.Server.Controllers
 
 						string unitType = stat.UnitType ?? "";
 						TimeSpan timeElapsed = DateTime.Now - upgrades[x].Timestamp;
-						//Console.WriteLine($"Checking {nexus.CoordsX}{nexus.CoordsX} unit upgrades. timeElapsed.TotalSeconds: {timeElapsed.TotalSeconds} Duration : {duration} ({timeElapsed.TotalSeconds - duration})");
+						//_ = _log.Db($"Checking {nexus.CoordsX}{nexus.CoordsX} unit upgrades. timeElapsed.TotalSeconds: {timeElapsed.TotalSeconds} Duration : {duration} ({timeElapsed.TotalSeconds - duration})");
 						if ((timeElapsed.TotalSeconds - duration) >= -3)
 						{
-							//Console.WriteLine("time elapsed! upgrading unit");
+							//_ = _log.Db("time elapsed! upgrading unit");
 							// Update unit level in nexus_bases table
 							string sqlUpdate = $@"
                                 UPDATE nexus_bases 
@@ -4855,7 +4794,7 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
-				_logger.LogError(ex, "An error occurred while updating Nexus unit upgrades.");
+				_ = _log.Db("An error occurred while updating Nexus unit upgrades. " + ex.Message, nexus.User?.Id, "NEXUS", true);
 				throw;
 			}
 			finally
@@ -4868,7 +4807,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("UpdateNexusUnitTrainingCompletes")]
 		public async Task UpdateNexusUnitTrainingCompletes()
 		{
-			//Console.WriteLine("Update Nexus Units Training Completed");
+			//_ = _log.Db("Update Nexus Units Training Completed");
 			string sql = @"
                 INSERT INTO nexus_units (coords_x, coords_y, marine_total, goliath_total, siege_tank_total, scout_total, wraith_total, battlecruiser_total, glitcher_total)
                 SELECT
@@ -4904,18 +4843,14 @@ namespace maxhanna.Server.Controllers
 			{
 
 				var parameters = new Dictionary<string, object?>();
-				long? res = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction);
-				if (res != null && res > 0)
-				{
-					Console.WriteLine($"Updated {res / 2} bases units!");
-				}
+				long? res = await ExecuteInsertOrUpdateOrDeleteAsync(sql, parameters, conn, transaction); 
 				await transaction.CommitAsync();
 			}
 			catch (Exception ex)
 			{
 
 				await transaction.RollbackAsync();
-				Console.WriteLine("An error occurred while updating Nexus units. : " + ex.Message);
+				_ = _log.Db("An error occurred while updating Nexus units. : " + ex.Message, null, "NEXUS", true);
 				throw;
 			}
 			finally
@@ -4961,7 +4896,7 @@ namespace maxhanna.Server.Controllers
 			cmd.Parameters.AddWithValue("@UnitId", unitId);
 			cmd.Parameters.AddWithValue("@UnitLevel", unitLevel);
 
-			object result = await cmd.ExecuteScalarAsync();
+			object? result = await cmd.ExecuteScalarAsync();
 			if (result != null && int.TryParse(result.ToString(), out int duration))
 			{
 				return duration;
@@ -5017,7 +4952,7 @@ namespace maxhanna.Server.Controllers
 			cmdUpdate.Parameters.AddWithValue("@UnitId", unitId);
 			cmdUpdate.Parameters.AddWithValue("@CoordsX", coordsX);
 			cmdUpdate.Parameters.AddWithValue("@CoordsY", coordsY);
-			//Console.WriteLine($"Updated Nexus Unit Purchases {unitId}: {unitsToAdd}");
+			//_ = _log.Db($"Updated Nexus Unit Purchases {unitId}: {unitsToAdd}");
 			await cmdUpdate.ExecuteNonQueryAsync();
 		}
 
@@ -5065,14 +5000,14 @@ namespace maxhanna.Server.Controllers
 				{
 					// Add parameters to the command
 					cmdUpdate.Parameters.AddRange(parameters.ToArray());
-					//Console.WriteLine(sqlUpdate);
-					//Console.WriteLine($"Updated nexus at ({coordsX}, {coordsY}) - Gold: {newGoldAmount}, Supply: {newSupplyAmount}");
+					//_ = _log.Db(sqlUpdate);
+					//_ = _log.Db($"Updated nexus at ({coordsX}, {coordsY}) - Gold: {newGoldAmount}, Supply: {newSupplyAmount}");
 					await cmdUpdate.ExecuteNonQueryAsync();
 				}
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Exception : " + ex.Message);
+				_ = _log.Db("Exception : " + ex.Message, null, "NEXUS", true);
 			}
 		}
 
@@ -5093,7 +5028,7 @@ namespace maxhanna.Server.Controllers
 
 				using (MySqlCommand cmdLvl = new MySqlCommand(sqlCurrentLevels, conn, transaction))
 				{
-					//Console.WriteLine("creating command for levels");
+					//_ = _log.Db("creating command for levels");
 					cmdLvl.Parameters.AddWithValue("@CoordsX", request.CoordsX);
 					cmdLvl.Parameters.AddWithValue("@CoordsY", request.CoordsY);
 					using (var readerCurrentLevels = await cmdLvl.ExecuteReaderAsync())
@@ -5102,7 +5037,7 @@ namespace maxhanna.Server.Controllers
 						{
 							int supplyCapacity = readerCurrentLevels.GetInt32("supply_depot_level") * 2500;
 							decimal currentGold = readerCurrentLevels.GetDecimal("gold");
-							//Console.WriteLine($"Got current supplyCapacity {supplyCapacity} and currentGold: {currentGold}");
+							//_ = _log.Db($"Got current supplyCapacity {supplyCapacity} and currentGold: {currentGold}");
 							res = (currentGold, supplyCapacity);
 						}
 					}
@@ -5110,7 +5045,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error reading current levels: {ex.Message}");
+				_ = _log.Db($"Error reading current levels: {ex.Message}", null, "NEXUS", true);
 				throw;
 			}
 
@@ -5330,7 +5265,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error: {ex.Message}");
+				_ = _log.Db($"Error: {ex.Message}.", nexus.User?.Id, "NEXUS", true);
 			}
 			return res;
 		}
@@ -5358,9 +5293,9 @@ namespace maxhanna.Server.Controllers
 			return buildingType;
 		}
 
-		private async Task<IActionResult> UpgradeBuilding(User user, string component, NexusBase? nexus)
+		private async Task<IActionResult> UpgradeBuilding(int userId, string component, NexusBase? nexus)
 		{
-			//Console.WriteLine($"UpgradeBuilding -> Upgrading: {component} ({user.Id})");
+			//_ = _log.Db($"UpgradeBuilding -> Upgrading: {component} ({user.Id})");
 			if (nexus == null)
 			{
 				return NotFound("Base not found.");
@@ -5399,7 +5334,7 @@ namespace maxhanna.Server.Controllers
                         LIMIT 1;";
 					MySqlCommand getCostCmd = new MySqlCommand(getCostSql, conn, transaction);
 					getCostCmd.Parameters.AddWithValue("@Component", component);
-					getCostCmd.Parameters.AddWithValue("@UserId", user.Id);
+					getCostCmd.Parameters.AddWithValue("@UserId", userId);
 					getCostCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
 					getCostCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
 
@@ -5448,7 +5383,7 @@ namespace maxhanna.Server.Controllers
                         WHERE coords_x = @CoordsX AND coords_y = @CoordsY AND user_id = @UserId
                         LIMIT 1;";
 					MySqlCommand getGoldCmd = new MySqlCommand(getGoldSql, conn, transaction);
-					getGoldCmd.Parameters.AddWithValue("@UserId", user.Id);
+					getGoldCmd.Parameters.AddWithValue("@UserId", userId);
 					getGoldCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
 					getGoldCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
 					var goldResult = await getGoldCmd.ExecuteScalarAsync();
@@ -5458,7 +5393,7 @@ namespace maxhanna.Server.Controllers
 						return NotFound("Base not found.");
 					}
 					int currentGold = Convert.ToInt32(goldResult);
-					//Console.WriteLine("Got current gold : " + currentGold);
+					//_ = _log.Db("Got current gold : " + currentGold);
 					if (currentGold < cost)
 					{
 						await transaction.RollbackAsync();
@@ -5518,7 +5453,7 @@ namespace maxhanna.Server.Controllers
                             AND user_id = @UserId
                         LIMIT 1;";
 					MySqlCommand updateBaseCmd = new MySqlCommand(updateBaseSql, conn, transaction);
-					updateBaseCmd.Parameters.AddWithValue("@UserId", user.Id);
+					updateBaseCmd.Parameters.AddWithValue("@UserId", userId);
 					updateBaseCmd.Parameters.AddWithValue("@CoordsX", nexus.CoordsX);
 					updateBaseCmd.Parameters.AddWithValue("@CoordsY", nexus.CoordsY);
 					updateBaseCmd.Parameters.AddWithValue("@UpgradeCost", cost);
@@ -5530,7 +5465,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, $"An error occurred while processing the POST request to upgrade {component}.");
+					_ = _log.Db($"An error occurred while processing the POST request to upgrade {component}." + ex.Message, userId, "NEXUS", true);
 					return StatusCode(500, "An error occurred while processing the request.");
 				}
 			}
@@ -5586,12 +5521,11 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while executing update");
-				Console.WriteLine("Update ERROR: " + ex.Message);
-				Console.WriteLine(cmdText);
+				_ = _log.Db("An error occurred while executing update" + ex.Message, null, "NEXUS", true); 
+				_ = _log.Db(cmdText, null, "NEXUS", true);
 				foreach (var param in parameters)
 				{
-					Console.WriteLine("Param: " + param.Key + ": " + param.Value);
+					_ = _log.Db("Param: " + param.Key + ": " + param.Value, null, "NEXUS", true);
 				}
 			}
 			finally

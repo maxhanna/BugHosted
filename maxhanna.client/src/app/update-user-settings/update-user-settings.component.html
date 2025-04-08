@@ -35,7 +35,7 @@
             <input type="checkbox" #nsfwCheckmark [checked]="isDisplayingNSFW" (click)="updateNSFW()" />
           </div>
         </div>
-        <div class="sectionDescriptionSection profilePictureSectionContainer"> 
+        <div class="sectionDescriptionSection profilePictureSectionContainer">
           <div>
             Attach your profile picture:
             <div class="avatar" *ngIf="!this.parentRef?.user!.displayPictureFile">
@@ -56,7 +56,7 @@
                 </app-media-viewer>
               </div>
             </div>
-          </div> 
+          </div>
           <div>
             <app-media-selector #displayPictureSelector
                                 [uploadButtonText]="'Upload Display Picture'"
@@ -70,7 +70,7 @@
         </div>
 
       </div>
-      
+
 
       <!--ABOUT-->
       <div (click)="isAboutToggled = !isAboutToggled" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
@@ -122,7 +122,7 @@
         </div>
       </div>
 
-      <!--Weather-->
+      <!-- LOCATION -->
       <div (click)="isWeatherLocationToggled = !isWeatherLocationToggled; getWeatherLocation()" *ngIf="!showOnlySelectableMenuItems" class="sectionHeaderDiv">
         <div class="sectionHeaderLabel popupPanelTitle">
           <div>
@@ -144,70 +144,13 @@ but you can also set your own City for a more precise location."></span>
         </div>
       </div>
 
-
-      <!--Nicehash API-->
-      <div (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></div>
-          <div class="cursorPointerUnderlined">Nicehash API Keys</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled" *ngIf="isNicehashApiKeysToggled">💾Save NH Api</button>
-        </div>
-      </div>
-      <div *ngIf="isNicehashApiKeysToggled">
-        <div>
-          <div></div>
-          <div>OrgId:</div>
-          <div><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></div>
-        </div>
-        <div>
-          <div></div>
-          <div>ApiKey:</div>
-          <div><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></div>
-        </div>
-        <div>
-          <div></div>
-          <div>ApiSecret:</div>
-          <div><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></div>
-        </div>
-      </div>
-
-
-
-      <!--BTC Wallet Addresses-->
-      <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
-        <div class="sectionHeaderLabel popupPanelTitle">
-          <div><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></div>
-          <div class="cursorPointerUnderlined">BTC Wallet Addresses</div>
-        </div>
-        <div style="text-align:right;">
-          <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">💾Save</button>
-          <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses && btcWalletAddresses.length > 0">➕</button>
-        </div>
-      </div>
-      <div *ngIf="isBTCWalletAddressesToggled">
-        <div *ngFor="let address of btcWalletAddresses; let i = index">
-          <div></div>
-          <div>BTC Wallet Address:</div>
-          <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" [value]="address" /><button *ngIf="address" (click)="deleteBTCWalletAddress(address)">🗑️</button></div>
-        </div>
-        <div *ngIf="btcWalletAddresses?.length === 0 || showAddBTCWalletAddressInput">
-          <div></div>
-          <div>BTC Wallet Address:</div>
-          <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" /></div>
-        </div>
-      </div>
-
-
-
-      <!-- Menu Icons -->
+      <!-- MENU ICONS -->
       <div (click)="getMenuIcons()" class="sectionHeaderDiv" *ngIf="!showOnlyWeatherLocation">
         <div *ngIf="!showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionHeaderLabel popupPanelTitle">
           <div>
             <span class="helperSpanTitle" title="Add / Remove icons from your menu."></span>
           </div>
-          <div colspan="2" class="cursorPointerUnderlined">Selectable Menu Items</div>
+          <div colspan="2" class="cursorPointerUnderlined">Navigation Icons</div>
         </div>
       </div>
       <div *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled">
@@ -215,7 +158,7 @@ but you can also set your own City for a more precise location."></span>
           <div class="menuIconTableContainer" colspan=3>
             <div class="menuIconTable">
               <div *ngIf="selectableIcons">
-                <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">  
+                <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">
                   <div class="selectableMenuIconTitles">
                     <span (click)="selectMenuIcon(icon.title)" class="pointer">{{ icon.title == 'Weather' ? '☀️' : icon.icon }}<span class=appTitle>{{ icon.title }}</span></span>
                     <label class="switch" (click)="selectMenuIcon(icon.title); $event.preventDefault();">
@@ -355,7 +298,7 @@ but you can also set your own City for a more precise location."></span>
                         Change the site's theme! Share your theme with others or use a theme someone else has shared!
                       </div>
                     </div>
-                  </div>  
+                  </div>
                 </div>
               </div>
             </div>
@@ -363,7 +306,83 @@ but you can also set your own City for a more precise location."></span>
         </div>
       </div>
 
+      <!--NICEHASH API-->
+      <div (click)="isNicehashApiKeysToggled = !isNicehashApiKeysToggled; getNicehashApiKeys()" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+        <div class="sectionHeaderLabel popupPanelTitle">
+          <div><span class="helperSpanTitle" title="These API Keys enable Nicehash support. A system for mining cryptocurrency."></span></div>
+          <div class="cursorPointerUnderlined">Nicehash API Keys</div>
+        </div>
+        <div style="text-align:right;">
+          <button (click)="updateNHAPIKeys()" title="Update settings" [disabled]="!isNicehashApiKeysToggled" *ngIf="isNicehashApiKeysToggled">💾Save</button>
+        </div>
+      </div>
+      <div *ngIf="isNicehashApiKeysToggled" class="krakenApiKeyWrapperDiv">
+        <div class="apiKeyInputWrapper"> 
+          <div>OrgId:</div>
+          <div><input type="text" placeholder="Org Id" #orgId [value]="nhApiKeys?.orgId ?? ''" /></div>
+        </div>
+        <div class="apiKeyInputWrapper"> 
+          <div>ApiKey:</div>
+          <div><input type="text" placeholder="API Key" #apiKey [value]="nhApiKeys?.apiKey ?? ''" /></div>
+        </div>
+        <div class="apiKeyInputWrapper"> 
+          <div>ApiSecret:</div>
+          <div><input type="text" placeholder="API Secret" #apiSecret [value]="nhApiKeys?.apiSecret ?? ''" /></div>
+        </div>
+      </div>
 
+      <!--KRAKEN API-->
+      <div (click)="isKrakenApiKeysToggled = !isKrakenApiKeysToggled; getKrakenApiKeys()" *ngIf="inputtedParentRef?.user?.id == 1 && !showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+        <div class="sectionHeaderLabel popupPanelTitle">
+          <div><span class="helperSpanTitle" title="These API Keys enable Trade bot support. A system for automatically trading cryptocurrency."></span></div>
+          <div class="cursorPointerUnderlined">Kraken API Keys <span *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key.">🟢</span></div>
+        </div>
+        <div style="text-align:right;">
+          <button (click)="updateKrakenAPIKeys()" title="Update settings" [disabled]="!isKrakenApiKeysToggled" *ngIf="isKrakenApiKeysToggled">💾Save</button>
+        </div>
+      </div>
+      <div *ngIf="isKrakenApiKeysToggled" class="krakenApiKeyWrapperDiv"> 
+        <div class="apiKeyInputWrapper"> 
+          <div>
+            Api Key
+            <span class="warningOverwrite" *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key.">(Overwriting)</span>:
+          </div>
+          <div><input type="text" placeholder="API Key" #krakenApiKey /></div>
+        </div>
+        <div class="apiKeyInputWrapper"> 
+          <div>
+            Private Key
+            <span class="warningOverwrite" *ngIf="hasKrakenKeys" title="Key is saved. For security purposes, we cannot show the saved API key.">(Overwriting)</span>:
+          </div>
+          <div><input type="text" placeholder="Private Key" #krakenPrivateKey /></div>
+        </div>
+      </div>
+
+
+
+      <!--BTC Wallet Addresses-->
+      <div (click)="isBTCWalletAddressesToggled = !isBTCWalletAddressesToggled; getBTCWalletAddresses()" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">
+        <div class="sectionHeaderLabel popupPanelTitle">
+          <div><span class="helperSpanTitle" title="Keep track of your BTC Wallet address here."></span></div>
+          <div class="cursorPointerUnderlined">BTC Wallet Addresses</div>
+        </div>
+        <div style="text-align:right;">
+          <button (click)="updateBTCWalletAddresses(); $event.stopPropagation()" title="Update BTC Wallet Addresses" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled">💾Save</button>
+          <button (click)="addBTCWalletAddress(); $event.stopPropagation()" title="Add BTC Wallet Address" [disabled]="!isBTCWalletAddressesToggled" *ngIf="isBTCWalletAddressesToggled && btcWalletAddresses && btcWalletAddresses.length > 0">➕</button>
+        </div>
+      </div>
+      <div *ngIf="isBTCWalletAddressesToggled">
+        <div *ngFor="let address of btcWalletAddresses; let i = index">
+          <div></div>
+          <div>BTC Wallet Address:</div>
+          <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" [value]="address" /><button *ngIf="address" (click)="deleteBTCWalletAddress(address)">🗑️</button></div>
+        </div>
+        <div *ngIf="btcWalletAddresses?.length === 0 || showAddBTCWalletAddressInput">
+          <div></div>
+          <div>BTC Wallet Address:</div>
+          <div><input type="text" class="btcWalletInput" placeholder="BTC Wallet Address" /></div>
+        </div>
+      </div>
 
       <!--Delete Account-->
       <div (click)="isDeleteAccountToggled = !isDeleteAccountToggled" *ngIf="!showOnlyWeatherLocation && !showOnlySelectableMenuItems && parentRef?.user" class="sectionHeaderDiv">

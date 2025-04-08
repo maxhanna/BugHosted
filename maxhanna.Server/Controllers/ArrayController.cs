@@ -10,27 +10,24 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class ArrayController : ControllerBase
 	{
-		private readonly ILogger<ArrayController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public ArrayController(ILogger<ArrayController> logger, IConfiguration config)
+		public ArrayController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/Array", Name = "GetArrayCharacter")]
-		public async Task<IActionResult> Get([FromBody] User? user)
-		{
-			var heroUser = user ?? new User(0, "Anonymous");
-			_logger.LogInformation($"POST /Array ({heroUser.Id})");
-			return Ok(await GetHeroAsync(user));
+		public async Task<IActionResult> Get([FromBody] int userId)
+		{  
+			return Ok(await GetHeroAsync(userId));
 		}
 
 		[HttpGet("/Array/Players", Name = "GetAllArrayPlayerCharacters")]
 		public async Task<IActionResult> GetPlayers()
-		{
-			_logger.LogInformation("GET /Array/Players");
+		{ 
 			const string sql = @"
             SELECT 
                 a.user_id, character_class, level, experience, position, monsters_killed, players_killed, items_found,
@@ -84,19 +81,17 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while retrieving Array characters.");
+				_ = _log.Db("An error occurred while retrieving Array characters. " + ex.Message, null, "ARRAY");
 				return StatusCode(500, "An error occurred while retrieving Array characters.");
 			}
 		}
 
 		[HttpPost("/Array/Move", Name = "Move")]
 		public async Task<IActionResult> Move([FromBody] ArrayMoveRequest req)
-		{
-			_logger.LogInformation($"POST /Array/Move ({req.User?.Id ?? 0}, {req.Direction})");
-
+		{ 
 			try
 			{
-				var hero = await GetHeroAsync(req.User);
+				var hero = await GetHeroAsync(req.UserId);
 				//_logger.LogInformation($"Current player level {hero.Level}, position : {hero.Position}");
 				if (req.Direction.ToLower() == "left")
 				{
@@ -107,7 +102,7 @@ namespace maxhanna.Server.Controllers
 					hero.Position++;
 				}
 
-				var opponents = await GetOpponentsAtPositionAsync(hero.Position, req.User);
+				var opponents = await GetOpponentsAtPositionAsync(hero.Position, req.UserId);
 				var winningOpponent = await UpdateHeroStats(hero, opponents);
 
 
@@ -115,15 +110,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the move");
+				_ = _log.Db("An error occurred while processing the move. " + ex.Message, req.UserId, "ARRAY");
 				return StatusCode(500, "An internal error occurred");
 			}
 		}
 
 		[HttpPost("/Array/GetGraveyardHero", Name = "GetGraveyardHero")]
-		public async Task<IActionResult> GetGraveyardHero([FromBody] User? user)
-		{
-			_logger.LogInformation($"POST /Array/GetGraveyardHero ({user?.Id})");
+		public async Task<IActionResult> GetGraveyardHero([FromBody] int userId)
+		{ 
 			const string sql = @"
                 SELECT 
                     g.user_id as heroId, 
@@ -150,7 +144,7 @@ namespace maxhanna.Server.Controllers
 				using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", user?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@UserId", userId);
 
 				using var rdr = await cmd.ExecuteReaderAsync();
 				if (await rdr.ReadAsync())
@@ -187,15 +181,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while getting graveyard data.");
+				_ = _log.Db("An error occurred while getting graveyard data. " +ex.Message, userId, "ARRAY");
 				return StatusCode(500, "An error occurred while getting graveyard data.");
 			}
 		}
 
 		[HttpPost("/Array/Resurrect", Name = "ResurrectCharacter")]
-		public async Task<IActionResult> Resurect([FromBody] User? user)
-		{
-			_logger.LogInformation("GET /Array/Resurrect");
+		public async Task<IActionResult> Resurect([FromBody] int userId)
+		{ 
 			const string sql = @"DELETE FROM maxhanna.array_characters_graveyard WHERE user_id = @UserId;";
 
 			try
@@ -203,22 +196,21 @@ namespace maxhanna.Server.Controllers
 				using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", user?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@UserId", userId);
 
 				await cmd.ExecuteReaderAsync();
 
-				return Ok(await GetHeroAsync(user));
+				return Ok(await GetHeroAsync(userId));
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while resurecting Array character.");
+				_ = _log.Db("An error occurred while resurecting Array character.", userId, "ARRAY");
 				return StatusCode(500, "An error occurred while resurecting Array character.");
 			}
 		}
 		[HttpPost("/Array/GetInventory", Name = "GetInventory")]
-		public async Task<IActionResult> GetInventory([FromBody] User? user)
-		{
-			_logger.LogInformation("GET /Array/GetInventory");
+		public async Task<IActionResult> GetInventory([FromBody] int userId)
+		{ 
 			const string sql = @"
                 SELECT 
                     i.user_id, 
@@ -236,10 +228,10 @@ namespace maxhanna.Server.Controllers
 				using var conn = new MySqlConnection(_config.GetConnectionString("maxhanna"));
 				await conn.OpenAsync();
 				using var cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", user?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@UserId", userId);
 
 				using var rdr = await cmd.ExecuteReaderAsync();
-				ArrayCharacterInventory inventory = new ArrayCharacterInventory(user, []);
+				ArrayCharacterInventory inventory = new ArrayCharacterInventory(userId, []);
 				while (await rdr.ReadAsync())
 				{
 					if (!rdr.IsDBNull(rdr.GetOrdinal("user_id")))
@@ -251,7 +243,7 @@ namespace maxhanna.Server.Controllers
 
 
 						ArrayCharacterItem tmpItem = new ArrayCharacterItem(
-								new User(rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt16(rdr.GetOrdinal("user_id")), ""),
+								rdr.IsDBNull(rdr.GetOrdinal("user_id")) ? 0 : rdr.GetInt16(rdr.GetOrdinal("user_id")),
 								tmpFile,
 								rdr.IsDBNull(rdr.GetOrdinal("experience")) ? 0 : rdr.GetInt64(rdr.GetOrdinal("experience")),
 								rdr.IsDBNull(rdr.GetOrdinal("level")) ? 0 : rdr.GetInt64(rdr.GetOrdinal("level")));
@@ -262,13 +254,13 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while getting Array character's items.");
+				_ = _log.Db("An error occurred while getting Array character's items. " + ex.Message, userId, "ARRAY");
 				return StatusCode(500, "An error occurred while getting Array character's items.");
 			}
 		}
-		private async Task<ArrayCharacter> GetHeroAsync(User? user)
+		private async Task<ArrayCharacter> GetHeroAsync(int userId)
 		{
-			var heroUser = user ?? new User(0, "Anonymous");
+			var heroUser = new User(userId, "Anonymous");
 			string sql = @"
             SELECT 
                 ac.user_id, 
@@ -323,9 +315,8 @@ namespace maxhanna.Server.Controllers
 			return new ArrayCharacter(heroUser);
 		}
 
-		private async Task<List<ArrayCharacter>> GetOpponentsAtPositionAsync(long position, User? user)
-		{
-			User heroUser = user ?? new User(0, "Anonymous");
+		private async Task<List<ArrayCharacter>> GetOpponentsAtPositionAsync(long position, int userId)
+		{  
 			//_logger.LogInformation($"GetOpponentsAtPositionAsync {position} , {heroUser.Id}");
 			var opponents = new List<ArrayCharacter>();
 			string sql = @"
@@ -351,7 +342,7 @@ namespace maxhanna.Server.Controllers
 			await conn.OpenAsync();
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@position", position);
-			cmd.Parameters.AddWithValue("@userId", heroUser.Id);
+			cmd.Parameters.AddWithValue("@userId", userId);
 			//_logger.LogInformation(cmd.CommandText);
 			using var rdr = await cmd.ExecuteReaderAsync();
 
@@ -388,8 +379,7 @@ namespace maxhanna.Server.Controllers
 						itemsFound: rdr.IsDBNull(rdr.GetOrdinal("items_found")) ? 0 : rdr.GetInt64(rdr.GetOrdinal("items_found"))
 				));
 			}
-
-			//_logger.LogInformation($"Got {opponents.Count} opponents");
+			 
 			return opponents;
 		}
 
@@ -401,7 +391,7 @@ namespace maxhanna.Server.Controllers
 				{
 					if (hero.Level < opponent.Level)
 					{
-						_logger.LogInformation($"{hero.User.Id}'s hero has died to player {opponent.User.Id}");
+						_ = _log.Db($"{hero.User.Id}'s hero has died to player {opponent.User.Id}", hero.User.Id, "ARRAY");
 						hero.Experience = 0;
 						hero.Position = 0;
 						hero.MonstersKilled = 0;
@@ -416,7 +406,7 @@ namespace maxhanna.Server.Controllers
 					}
 					else
 					{
-						_logger.LogInformation($"{hero.User.Id}'s hero has killed player {opponent.User.Id}");
+						_ = _log.Db($"{hero.User.Id}'s hero has killed player {opponent.User.Id}", hero.User.Id, "ARRAY");
 						hero.Experience += (hero.Position < 0 ? -hero.Position : hero.Position);
 						if (hero.Experience >= hero.Level)
 						{
@@ -509,8 +499,7 @@ namespace maxhanna.Server.Controllers
 			await cmd.ExecuteNonQueryAsync();
 		}
 		private async Task RollItem(ArrayCharacter hero, string Rarity)
-		{
-			_logger.LogInformation($"Rolling a {Rarity} item for {hero.User?.Id ?? 0}");
+		{ 
 			List<int> foundItems = new List<int>();
 			string sql = $@"
             SELECT 

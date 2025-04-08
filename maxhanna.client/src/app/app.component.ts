@@ -220,7 +220,7 @@ export class AppComponent implements OnInit, AfterViewInit {
         { ownership: 0, icon: "👤", title: "User", content: undefined },
       ];
     } else {
-      this.userSelectedNavigationItems = await this.userService.getUserMenu(this.user!);
+      this.userSelectedNavigationItems = await this.userService.getUserMenu(this.user.id);
     }
     this.isNavigationInitialized = true;
   }
@@ -744,8 +744,8 @@ export class AppComponent implements OnInit, AfterViewInit {
   async updateLastSeen(user?: User) {
     const tmpUser = user ?? this.user;
 
-    if (tmpUser && tmpUser.id != 0) { 
-      this.userService.updateLastSeen(tmpUser);
+    if (tmpUser?.id) {
+      this.userService.updateLastSeen(tmpUser.id);
       tmpUser.lastSeen = new Date();
     }
   }
@@ -760,8 +760,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     } 
   }
   async getLocation(user?: User) {
-    if (user && this.user?.id != user.id) {
-      const res = await this.userService.getUserIpFromBackend(user);
+    if (user?.id && this.user?.id != user.id) {
+      const res = await this.userService.getUserIpFromBackend(user.id);
       if (res) {
         return { ip: res.ip, city: res.city, country: res.country };
       }
@@ -777,8 +777,8 @@ export class AppComponent implements OnInit, AfterViewInit {
           if (res) {
             this.location = { ip: res.ip, city: res.city, country: res.country };
             this.setCookie("location", JSON.stringify(this.location), 1);
-            if (this.user) { 
-              this.userService.updateIPAddress(this.user, res.ip, res.city, res.country);
+            if (this.user && this.user.id) {
+              this.userService.updateIPAddress(this.user.id, res.ip, res.city, res.country);
             }
           }
         });

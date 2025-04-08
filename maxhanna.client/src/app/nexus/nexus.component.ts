@@ -202,7 +202,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     this.warehouseUpgradeLevels = Array.from({ length: 6 }, (_, i) => i + 1);
 
     this.loadPictureSrcs();
-    this.nexusService.getPlayerColor().then(res => {
+    this.nexusService.getPlayerColor(this.parentRef?.user?.id ?? 0).then(res => {
       this.playerColors = res;
       if (res[this.parentRef?.user?.id ?? 0]) {
         this.playerColor = res[this.parentRef?.user?.id ?? 0];
@@ -216,8 +216,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async start() {
-    if (!this.parentRef || !this.parentRef.user) { return alert("You must be logged in to play!"); }
-    const startRes = await this.nexusService.start(this.parentRef.user);
+    if (!this.parentRef?.user?.id) { return alert("You must be logged in to play!"); }
+    const startRes = await this.nexusService.start(this.parentRef.user.id);
 
     if (startRes) {
       if (this.nexusBase) {
@@ -230,12 +230,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
   async loadNexusData() {
-    if (!this.parentRef?.user) return;
+    if (!this.parentRef?.user?.id) return;
 
     this.startLoading();
     this.unitsWithoutGlitcher = undefined;
     try {
-      await this.nexusService.getNexus(this.parentRef.user, this.nexusBase).then(async data => {
+      await this.nexusService.getNexus(this.parentRef.user.id, this.nexusBase).then(async data => {
         if (data && data.nexusBase) {
           // Set basic data
           this.nexusBase = data.nexusBase;
@@ -371,9 +371,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     const previousAttackTimers = { ...this.attackTimers };
     const previousDefenceTimers = { ...this.defenceTimers };
 
-    if ((!this.allNexusUnits || this.shouldLoadBaseUnits) && !this.isMapOpen) {
+    if ((!this.allNexusUnits || this.shouldLoadBaseUnits) && !this.isMapOpen && this.parentRef?.user?.id) {
       this.shouldLoadBaseUnits = false;
-      await this.nexusService.getAllBasesUnits(this.parentRef?.user).then(res => {
+      await this.nexusService.getAllBasesUnits(this.parentRef.user.id).then(res => {
         this.allNexusUnits = res;
       });
     }
@@ -703,12 +703,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     return;
   }
 
-  private async getUnitStats(force?: boolean) {
-    if (!this.parentRef || !this.parentRef.user || !this.nexusBase) { 
-      return;
-    };
+  private async getUnitStats(force?: boolean) { 
     if (!this.units) {
-      this.units = await this.nexusService.getUnitStats(this.parentRef.user, this.nexusBase);
+      this.units = await this.nexusService.getUnitStats();
       this.glitcherStats = this.units?.find(x => x.unitType == "glitcher") ?? new UnitStats();
       this.assignPicturesToUnitStats();
     }
@@ -766,11 +763,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     });
   }
 
-  private async updateUnitResearchTimers() {
-    if (!this.parentRef?.user) return;
-
+  private async updateUnitResearchTimers() { 
     if (!this.unitUpgradeStats) {
-      const unitUpgradeStatsRes = await this.nexusService.getUnitUpgradeStats(this.parentRef.user);
+      const unitUpgradeStatsRes = await this.nexusService.getUnitUpgradeStats();
       if (unitUpgradeStatsRes) {
         this.unitUpgradeStats = unitUpgradeStatsRes;
       }
@@ -1107,7 +1102,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async upgradeBuilding(upgrade: string) {
-    if (this.parentRef && this.parentRef.user && this.nexusBase && this.nexusAvailableUpgrades) {
+    if (this.parentRef?.user?.id && this.nexusBase && this.nexusAvailableUpgrades) {
 
       if (this.getBuildingCountersLength() >= this.nexusBase.commandCenterLevel + 1) {
         return alert("Upgrade your Command Center for more worker slots");
@@ -1126,31 +1121,31 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       switch (upgrade) {
         case 'mines':
           this.nexusBaseUpgrades!.minesUpgraded = new Date();
-          this.nexusService.upgradeMines(this.parentRef.user, this.nexusBase).then(res => this.handleUpgradeResponse(res));
+          this.nexusService.upgradeMines(this.parentRef.user.id, this.nexusBase).then(res => this.handleUpgradeResponse(res));
           break;
         case 'starport':
           this.nexusBaseUpgrades!.starportUpgraded = new Date();
-          this.nexusService.upgradeStarport(this.parentRef.user, this.nexusBase).then(res => this.handleUpgradeResponse(res));
+          this.nexusService.upgradeStarport(this.parentRef.user.id, this.nexusBase).then(res => this.handleUpgradeResponse(res));
           break;
         case 'factory':
           this.nexusBaseUpgrades!.factoryUpgraded = new Date();
-          this.nexusService.upgradeFactory(this.parentRef.user, this.nexusBase).then(res => this.handleUpgradeResponse(res));
+          this.nexusService.upgradeFactory(this.parentRef.user.id, this.nexusBase).then(res => this.handleUpgradeResponse(res));
           break;
         case 'engineering_bay':
           this.nexusBaseUpgrades!.engineeringBayUpgraded = new Date();
-          this.nexusService.upgradeEngineeringBay(this.parentRef.user, this.nexusBase).then(res => this.handleUpgradeResponse(res));
+          this.nexusService.upgradeEngineeringBay(this.parentRef.user.id, this.nexusBase).then(res => this.handleUpgradeResponse(res));
           break;
         case 'warehouse':
           this.nexusBaseUpgrades!.warehouseUpgraded = new Date();
-          this.nexusService.upgradeWarehouse(this.parentRef.user, this.nexusBase).then(res => this.handleUpgradeResponse(res));
+          this.nexusService.upgradeWarehouse(this.parentRef.user.id, this.nexusBase).then(res => this.handleUpgradeResponse(res));
           break;
         case 'supply_depot':
           this.nexusBaseUpgrades!.supplyDepotUpgraded = new Date();
-          this.nexusService.upgradeSupplyDepot(this.parentRef.user, this.nexusBase).then(res => this.handleUpgradeResponse(res));
+          this.nexusService.upgradeSupplyDepot(this.parentRef.user.id, this.nexusBase).then(res => this.handleUpgradeResponse(res));
           break;
         case 'command_center':
           this.nexusBaseUpgrades!.commandCenterUpgraded = new Date();
-          this.nexusService.upgradeCommandCenter(this.parentRef.user, this.nexusBase).then(res => this.handleUpgradeResponse(res));
+          this.nexusService.upgradeCommandCenter(this.parentRef.user.id, this.nexusBase).then(res => this.handleUpgradeResponse(res));
           break;
         default:
           alert("Unknown building type");
@@ -1224,7 +1219,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       this.nexusUnitsPurchaseList.push(purchasedUnit);
 
       this.getUnitTimers();
-      this.nexusService.purchaseUnit(this.parentRef.user, this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0).then(res => this.handleUpgradeResponse(res));
+      this.nexusService.purchaseUnit(this.nexusBase, tmpUnit.unitId, tmpUnit.purchasedValue ?? 0).then(res => this.handleUpgradeResponse(res));
     }
 
 
@@ -1802,8 +1797,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
       return alert("You must wait until the current upgrade finishes.");
     }
 
-    if (this.parentRef && this.parentRef.user && this.nexusBase) {
-      this.nexusService.research(this.parentRef.user, this.nexusBase, unit).then(res => {
+    if (this.parentRef?.user?.id && this.nexusBase) {
+      this.nexusService.research(this.nexusBase, unit).then(res => {
         this.addNotification(res)
         if (!res.toLowerCase().includes("not enough gold") && this.nexusBase) {
           const cost = this.getResearchCostPerUnit(unit);
@@ -2011,9 +2006,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     }
 
     if (isDefence) {
-      await this.nexusService.returnDefence(this.parentRef.user, attackId).then(res => this.addNotification(res));
+      await this.nexusService.returnDefence(attackId).then(res => this.addNotification(res));
     } else {
-      await this.nexusService.returnAttack(this.parentRef.user, attackId).then(res => this.addNotification(res));
+      await this.nexusService.returnAttack(attackId).then(res => this.addNotification(res));
     }
     this.loadNexusData();
     this.stopLoading();
@@ -2034,7 +2029,7 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
   async setBaseName() {
     const baseName = this.baseNameInput.nativeElement.value.trim();
     if (this.parentRef?.user && this.nexusBase && baseName) {
-      this.nexusService.setBaseName(this.parentRef.user, this.nexusBase, baseName).then(res => this.addNotification(res));
+      this.nexusService.setBaseName(this.nexusBase, baseName).then(res => this.addNotification(res));
       if (this.currentPersonalBases) {
         const currentBaseAffected = this.currentPersonalBases.find(x => x.coordsX == this.nexusBase?.coordsX && x.coordsY == this.nexusBase.coordsY);
         if (currentBaseAffected) {
@@ -2048,8 +2043,8 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     let playerColor = this.playerColorInput.nativeElement.value;
     if (playerColor) {
       playerColor = playerColor.trim().replace("#", "");
-      if (this.parentRef?.user) {
-        this.nexusService.updatePlayerColor(this.parentRef.user, playerColor).then(res => {
+      if (this.parentRef?.user?.id) {
+        this.nexusService.updatePlayerColor(this.parentRef.user.id, playerColor).then(res => {
           this.parentRef?.showNotification(res);
         });
       }
@@ -2058,9 +2053,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     } 
   }
   fetchMapData() {
-    if (this.parentRef?.user && (!this.mapData || this.numberOfPersonalBases == 0 || this.shouldLoadMap)) {
+    if (!this.mapData || this.numberOfPersonalBases == 0 || this.shouldLoadMap) {
       this.shouldLoadMap = false;
-      this.nexusService.getMap(this.parentRef.user).then(res => {
+      this.nexusService.getMap().then(res => {
         if (res) {
           this.mapData = res;
           this.currentPersonalBases = this.mapData.filter(x => x.user?.id == this.parentRef?.user?.id);

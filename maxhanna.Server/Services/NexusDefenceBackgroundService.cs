@@ -14,20 +14,17 @@ namespace maxhanna.Server.Services
 		private readonly string _connectionString;
 		private readonly IConfiguration _config;
 		private readonly IServiceProvider _serviceProvider;
-		private readonly ILogger<NexusController> _logger;
+		private readonly Log _log;
 		private Timer _checkForNewDefencesTimer;
 		private Timer _processDefenceQueueTimer;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
 
-		public NexusDefenceBackgroundService(IConfiguration config, ILogger<NexusController> logger)
+		public NexusDefenceBackgroundService(IConfiguration config, Log log)
 		{
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-			_config = config;
-			var serviceCollection = new ServiceCollection();
-			ConfigureServices(serviceCollection);
-			_serviceProvider = serviceCollection.BuildServiceProvider();
-			_logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+			_config = config; 
+			_log = log;
 			_processDefenceQueueTimer = new Timer(ProcessDefenceQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100)); // Process queue every 0.1 seconds
 
 		}
@@ -201,24 +198,18 @@ namespace maxhanna.Server.Services
 		}
 		public async Task ProcessDefence(int defenceId)
 		{
-			await _semaphore.WaitAsync();
-
-			_logger.LogInformation($"Processing defence with ID: {defenceId}");
+			await _semaphore.WaitAsync(); 
 			try
 			{
 				NexusBase? nexus = await GetNexusBaseByDefenceId(defenceId);
 				if (nexus != null)
 				{
 					await ProcessUpdateNexusDefences(nexus);
-				}
-				else
-				{
-					_logger.LogInformation($"No NexusBase found for defence ID: {defenceId}");
-				}
+				} 
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error processing defence");
+				_=_log.Db("Error processing defence." +ex.Message, null, "NDBS", true);
 			}
 			finally
 			{
@@ -227,9 +218,8 @@ namespace maxhanna.Server.Services
 		}
 
 		private async Task ProcessUpdateNexusDefences(NexusBase nexus)
-		{
-			// Execute UpdateNexusDefences in a separate context without the initial transaction
-			var nexusController = new NexusController(_logger, _config);
+		{ 
+			var nexusController = new NexusController(_log, _config);
 			await nexusController.UpdateNexusDefences(nexus);
 		}
 

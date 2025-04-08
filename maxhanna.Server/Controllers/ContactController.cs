@@ -11,20 +11,18 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class ContactController : ControllerBase
 	{
-		private readonly ILogger<ContactController> _logger;
+		private Log _log;
 		private readonly IConfiguration _config;
 
-		public ContactController(ILogger<ContactController> logger, IConfiguration config)
+		public ContactController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost(Name = "GetContacts")]
-		public async Task<IActionResult> GetContacts([FromBody] User user)
-		{
-			_logger.LogInformation($"POST /Contact (User : {user.Id}) ");
-
+		public async Task<IActionResult> GetContacts([FromBody] int userId)
+		{  
 			string sql = @"
                 SELECT 
                     c.id, 
@@ -64,7 +62,7 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						// Add user ID as a parameter to the command
-						cmd.Parameters.AddWithValue("@userId", user.Id);
+						cmd.Parameters.AddWithValue("@userId", userId);
 
 						using (var rdr = await cmd.ExecuteReaderAsync())
 						{
@@ -110,7 +108,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching contacts.");
+				_ = _log.Db("An error occurred while fetching contacts. " + ex.Message, userId);
 				return StatusCode(500, "An error occurred while fetching contacts.");
 			}
 		}
@@ -118,8 +116,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Contact/Create", Name = "CreateContact")]
 		public async Task<IActionResult> CreateContact([FromBody] CreateContact req)
-		{
-			_logger.LogInformation($"POST /Contact/Create (User: {req.user.Id})");
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 
 			try
@@ -132,15 +129,13 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@Birthday", req.contact.Birthday ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@Notes", req.contact.Notes ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@Email", req.contact.Email ?? (object)DBNull.Value);
-				cmd.Parameters.AddWithValue("@Owner", req.user.Id);
-				await cmd.ExecuteNonQueryAsync();
-
-				_logger.LogInformation("Returned OK");
+				cmd.Parameters.AddWithValue("@Owner", req.userId);
+				await cmd.ExecuteNonQueryAsync(); 
 				return Ok();
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the POST request. " + ex.Message, req.userId, "CONTACT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -149,10 +144,9 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		[HttpPut("/Contact/{id}", Name = "UpdateContact")]
+		[HttpPut("/Contact", Name = "UpdateContact")]
 		public async Task<IActionResult> UpdateContact(int id, [FromBody] CreateContact req)
-		{
-			_logger.LogInformation($"PUT /Contact/{id} (User: {req.user.Id})");
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 
 			try
@@ -166,7 +160,7 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@Notes", req.contact.Notes ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@Email", req.contact.Email ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@Id", id);
-				cmd.Parameters.AddWithValue("@Owner", req.user.Id);
+				cmd.Parameters.AddWithValue("@Owner", req.userId);
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
 				if (rowsAffected > 0)
@@ -180,7 +174,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the PUT request.");
+				_ = _log.Db("An error occurred while processing the PUT request. " + ex.Message, req.userId, "CONTACT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -192,8 +186,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Contact/AddUser", Name = "AddUserAsContact")]
 		public async Task<IActionResult> AddUserAsContact([FromBody] CreateUserContact req)
-		{
-			_logger.LogInformation($"POST /Contact/AddUser (User: {req.user.Id})");
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			var username = "";
 			try
@@ -203,7 +196,7 @@ namespace maxhanna.Server.Controllers
 				// Fetch user details from the user table
 				string fetchUserSql = "SELECT id, username FROM users WHERE id = @userId";
 				MySqlCommand fetchUserCmd = new MySqlCommand(fetchUserSql, conn);
-				fetchUserCmd.Parameters.AddWithValue("@userId", req.contact.Id);
+				fetchUserCmd.Parameters.AddWithValue("@userId", req.contactId);
 				using (var reader = await fetchUserCmd.ExecuteReaderAsync())
 				{
 					if (!await reader.ReadAsync())
@@ -225,17 +218,15 @@ namespace maxhanna.Server.Controllers
                         VALUES (@Name, @OwnerId, @ContactId)";
 					MySqlCommand insertContactCmd = new MySqlCommand(insertContactSql, conn);
 					insertContactCmd.Parameters.AddWithValue("@Name", user.Username);
-					insertContactCmd.Parameters.AddWithValue("@OwnerId", req.user.Id);
+					insertContactCmd.Parameters.AddWithValue("@OwnerId", req.userId);
 					insertContactCmd.Parameters.AddWithValue("@ContactId", user.Id);
 					await insertContactCmd.ExecuteNonQueryAsync();
-				}
-
-				_logger.LogInformation("Returned OK");
+				} 
 				return Ok($"Added {username} into contacts");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the POST request. " + ex.Message, req.userId, "CONTACT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -246,10 +237,8 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpDelete("{id}")]
-		public async Task<IActionResult> Delete([FromBody] User user, int id)
-		{
-			_logger.LogInformation($"DELETE /Contact/{id} (User: {user.Id})");
-
+		public async Task<IActionResult> Delete([FromBody] int userId, int id)
+		{ 
 			try
 			{
 				using (var connection = new MySqlConnection(_config.GetConnectionString("maxhanna")))
@@ -260,7 +249,7 @@ namespace maxhanna.Server.Controllers
 					using (var command = new MySqlCommand(query, connection))
 					{
 						command.Parameters.AddWithValue("@Id", id);
-						command.Parameters.AddWithValue("@Owner", user.Id);
+						command.Parameters.AddWithValue("@Owner", userId);
 
 						int rowsAffected = await command.ExecuteNonQueryAsync();
 						if (rowsAffected > 0)

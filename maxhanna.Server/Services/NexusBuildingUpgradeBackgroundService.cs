@@ -6,19 +6,19 @@ namespace maxhanna.Server.Services
 	{
 		private readonly IConfiguration _config;
 		private readonly IServiceProvider _serviceProvider;
-		private readonly ILogger<NexusController> _logger;
+		private readonly Log _log;
 		private Timer _checkForNewUpgradesTimer;
 
 
 
-		public NexusBuildingUpgradeBackgroundService(IConfiguration config)
+		public NexusBuildingUpgradeBackgroundService(IConfiguration config, Log log)
 		{
 			_config = config;
 
 			var serviceCollection = new ServiceCollection();
 			ConfigureServices(serviceCollection);
 			_serviceProvider = serviceCollection.BuildServiceProvider();
-			_logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+			_log = log;
 		}
 
 
@@ -51,7 +51,7 @@ namespace maxhanna.Server.Services
 		private async Task LoadAndScheduleExistingUpgrades()
 		{
 
-			var nexusController = new NexusController(_logger, _config);
+			var nexusController = new NexusController(_log, _config);
 			await nexusController.UpdateNexusBuildings();
 		}
 

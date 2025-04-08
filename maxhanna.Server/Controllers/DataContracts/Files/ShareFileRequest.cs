@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 {
 	public class ShareFileRequest
 	{
-		public ShareFileRequest(User user1, User user2)
+		public ShareFileRequest(int user1Id, int user2Id)
 		{
-			User1 = user1;
-			User2 = user2;
+			User1Id = user1Id;
+			User2Id = user2Id;
 		}
-		public User User1 { get; set; }
-		public User User2 { get; set; }
+		public int User1Id { get; set; }
+		public int User2Id { get; set; }
 	}
 }

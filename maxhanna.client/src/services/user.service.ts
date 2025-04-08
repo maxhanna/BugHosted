@@ -41,29 +41,28 @@ export class UserService {
       return null; // Return null in case of error
     }
   }
-  async getUser(user: User) {
+  async login(username: string, password: string): Promise<User | undefined> {
     try {
       const response = await fetch('/user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify({username, password}),
       });
 
       return await response.json();
     } catch (error) {
-      return null;
+      return undefined;
     }
   }
-  async getUserById(userId: number, user?: User) {
+  async getUserById(userId: number) {
     try {
       const response = await fetch(`/user/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(user),
+        }, 
       });
 
       return await response.json();
@@ -71,14 +70,14 @@ export class UserService {
       return null;
     }
   }
-  async getAllUsers(user?: User, search?: string) {
+  async getAllUsers(search?: string) {
     try {
       const response = await fetch('/user/getallusers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, search }),
+        body: JSON.stringify(search),
       });
       if (response.status === 404) {
         return [];
@@ -103,14 +102,14 @@ export class UserService {
       return null; // Return null in case of error
     }
   }
-  async updateUserAbout(user: User, about: UserAbout) {
+  async updateUserAbout(userId: number, about: UserAbout) {
     try {
       const response = await fetch('/user/updateabout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
         },
-        body: JSON.stringify({ user, about }), // Convert the user object to JSON string
+        body: JSON.stringify({ userId, about }), // Convert the user object to JSON string
       });
 
       return await response.text(); // Parse JSON response 
@@ -118,14 +117,14 @@ export class UserService {
       return null; // Return null in case of error
     }
   }
-  async deleteUser(user: User) {
+  async deleteUser(userId: number) {
     try {
       const response = await fetch('/user/deleteuser', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
         },
-        body: JSON.stringify(user), // Convert the user object to JSON string
+        body: JSON.stringify(userId), // Convert the user object to JSON string
       });
 
       return await response.json();
@@ -152,14 +151,14 @@ export class UserService {
       return null; // Return null in case of error
     }
   }
-  async getUserIpFromBackend(user: User) {
+  async getUserIpFromBackend(userId: number) {
     try { 
       const response = await fetch('/user/getipaddress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
         },
-        body: JSON.stringify(user), // Convert the user object to JSON string
+        body: JSON.stringify(userId), // Convert the user object to JSON string
       });
 
       return await response.json();
@@ -173,14 +172,14 @@ export class UserService {
     const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipPattern.test(value);
   }
-  async updateDisplayPicture(user: User, fileId: number) {
+  async updateDisplayPicture(userId: number, fileId: number) {
     try {
       const response = await fetch('/user/updatedisplaypicture', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json', // Set the Content-Type header to indicate JSON data
         },
-        body: JSON.stringify({ user, fileId }), // Convert the user object to JSON string
+        body: JSON.stringify({ userId, fileId }), // Convert the user object to JSON string
       });
 
       return await response.text(); // Parse JSON response 
@@ -190,28 +189,28 @@ export class UserService {
   }
 
 
-  async getUserSettings(user: User): Promise<UserSettings | undefined> {
+  async getUserSettings(userId: number): Promise<UserSettings | undefined> {
     try {
       const response = await fetch(`/user/getusersettings`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user.id),
+        body: JSON.stringify(userId),
       }); 
       return await response.json();
     } catch (error) {
       return undefined;
     }
   }
-  async updateLastSeen(user: User) {
+  async updateLastSeen(userId: number) {
     try {
       const response = await fetch('/user/updatelastseen', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user.id),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -219,14 +218,14 @@ export class UserService {
       return null;
     }
   }
-  async updateNSFW(user: User, isAllowed: boolean) {
+  async updateNSFW(userId: number, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updatensfw', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, IsAllowed: isAllowed }),
+        body: JSON.stringify({ UserId: userId, IsAllowed: isAllowed }),
       });
 
 
@@ -235,14 +234,14 @@ export class UserService {
       return "Error";
     }
   }
-  async updateNotificationsEnabled(user: User, isAllowed: boolean) {
+  async updateNotificationsEnabled(userId: number, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updatenotificationsenabled', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, IsAllowed: isAllowed }),
+        body: JSON.stringify({ UserId: userId, IsAllowed: isAllowed }),
       });
 
 
@@ -251,14 +250,14 @@ export class UserService {
       return "Error";
     }
   }
-  async updateGhostRead(user: User, isAllowed: boolean) {
+  async updateGhostRead(userId: number, isAllowed: boolean) {
     try {
       const response = await fetch('/user/updateghostread', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, IsAllowed: isAllowed }),
+        body: JSON.stringify({ UserId: userId, IsAllowed: isAllowed }),
       });
 
 
@@ -267,15 +266,15 @@ export class UserService {
       return "Error";
     }
   }
-  async getUserMenu(user: User): Promise<Array<MenuItem>> {
-    if (!user || user.id == 0) return [];
+  async getUserMenu(userId?: number): Promise<Array<MenuItem>> {
+    if (!userId) return [];
     try {
       const response = await fetch('/user/menu', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       if (!response.ok) {
@@ -288,14 +287,14 @@ export class UserService {
     }
   }
 
-  async deleteMenuItem(user: User, title: string) {
+  async deleteMenuItem(userId: number, title: string) {
     try {
       const response = await fetch('/user/menu', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Titles: [title] }),
+        body: JSON.stringify({ UserId: userId, Titles: [title] }),
       });
        
 
@@ -306,14 +305,14 @@ export class UserService {
     }
   }
 
-  async addMenuItem(user: User, titles: string[]) {
+  async addMenuItem(userId: number, titles: string[]) {
     try {
       const response = await fetch('/user/menu/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Titles: titles }),
+        body: JSON.stringify({ UserId: userId, Titles: titles }),
       });
 
       return await response.text();
@@ -323,14 +322,14 @@ export class UserService {
     }
   }
 
-  async getTrophies(user: User) {
+  async getTrophies(userId: number) {
     try {
       const response = await fetch('/user/trophies', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -339,63 +338,15 @@ export class UserService {
       return null;
     }
   } 
-  async updateBTCWalletAddresses(user: User, btcWalletAddresses: string[]) {
-    try {
-      const response = await fetch('/user/btcwalletaddresses/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ User: user, Wallets: btcWalletAddresses }),
-      }); 
-    } catch (error) {
-      console.log(error);
-    }
-  }
-  async getBTCWallet(user: User) {
-    try {
-      const response = await fetch('/user/btcwallet/getbtcwalletdata', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(user),
-      });
-      if (response.status === 404) {
-        return [];
-      }
-      return await response.json();
-    } catch (error) {
-      return [];
-    }
-  }
 
-  async deleteBTCWalletAddress(user: User, address: string) {
-    try {
-      const response = await fetch('/user/btcwallet/deletebtcwalletaddress', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user, address }),
-      });
-      if (response.status === 404) {
-        return [];
-      }
-      return await response.json();
-    } catch (error) {
-      return [];
-    }
-  }
-
-  async getIPAddress(user: User) {
+  async getIPAddress(userId: number) {
     try {
       const response = await fetch(`/user/getipaddress`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -404,14 +355,14 @@ export class UserService {
     }
   }
 
-  async updateIPAddress(user: User, location: string, city?: string, country?: string) {
+  async updateIPAddress(userId: number, location: string, city?: string, country?: string) {
     try {
       const response = await fetch(`/user/updateipaddress`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, location, city, country }),
+        body: JSON.stringify({ userId, location, city, country }),
       });
 
       return await response.text();
@@ -420,14 +371,14 @@ export class UserService {
     }
   } 
 
-  async updateTheme(user: User, theme: JSON) {
+  async updateTheme(userId: number, theme: JSON) {
     try {
       const response = await fetch('/user/updateusertheme/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: user.id, Theme: theme }),
+        body: JSON.stringify({ UserId: userId, Theme: theme }),
       });
       return await response.text();
     } catch (error) {
@@ -435,14 +386,14 @@ export class UserService {
     }
   }
 
-  async deleteUserTheme(user: User, themeId: number) {
+  async deleteUserTheme(userId: number, themeId: number) {
     try {
       const response = await fetch('/user/deleteusertheme/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: user.id, ThemeId: themeId }),
+        body: JSON.stringify({ UserId: userId, ThemeId: themeId }),
       });
       return await response.json();
     } catch (error) {
@@ -450,28 +401,28 @@ export class UserService {
     }
   }
 
-  async deleteUserSelectedTheme(user: User) {
+  async deleteUserSelectedTheme(userId: number) {
     try {
       const response = await fetch('/user/deleteuserselectedtheme/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify( user.id ),
+        body: JSON.stringify( userId ),
       });
       return await response.json();
     } catch (error) {
       return 'error';
     }
   } 
-  async getTheme(user: User) {
+  async getTheme(userId: number) {
     try {
       const response = await fetch('/user/getusertheme/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user.id),
+        body: JSON.stringify(userId),
       });
       return await response.json();
     } catch (error) {
@@ -492,14 +443,14 @@ export class UserService {
       return 'error';
     }
   }
-  async getAllUserThemes(user: User) {
+  async getAllUserThemes(userId: number) {
     try {
       const response = await fetch('/user/getalluserthemes/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user.id),
+        body: JSON.stringify(userId),
       });
       return await response.json();
     } catch (error) {

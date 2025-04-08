@@ -1,26 +1,25 @@
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-
+ 
 namespace maxhanna.Server.Controllers
 {
 	[ApiController]
 	[Route("[controller]")]
 	public class TopicController : ControllerBase
 	{
-		private readonly ILogger<TopicController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public TopicController(ILogger<TopicController> logger, IConfiguration config)
+		public TopicController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/Topic/Get", Name = "GetTopics")]
 		public async Task<List<Topic>> GetTopics([FromBody] String? topic)
-		{
-			_logger.LogInformation($"POST /Topic/Get (with search key: {topic})");
+		{ 
 			var topics = new List<Topic>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -51,7 +50,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get Topics.");
+				_ = _log.Db("An error occurred while trying to get Topics." + ex.Message, null, "TOPIC", true);
 			}
 			finally
 			{
@@ -63,7 +62,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Topic/Add", Name = "AddTopic")]
 		public async Task<IActionResult> AddTopic([FromBody] TopicRequest request)
 		{
-			_logger.LogInformation($"POST /Topic/Add (with topic: {request.Topic.TopicText} for user {request.User.Id})");
 			if (string.IsNullOrEmpty(request.Topic.TopicText))
 			{
 				return BadRequest(new Topic(0, ""));
@@ -80,30 +78,29 @@ namespace maxhanna.Server.Controllers
 				if (existingTopicId != null && existingTopicId != DBNull.Value)
 				{
 					int existingId = Convert.ToInt32(existingTopicId);
-					_logger.LogInformation($"Topic '{request.Topic.TopicText}' already exists. ID: {existingId}");
 					return BadRequest(new Topic(existingId, request.Topic.TopicText));
 				}
 
 				sql = @"INSERT INTO maxhanna.topics (topic, created_by_user_id) VALUES (@topic, @user_id); SELECT LAST_INSERT_ID();";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@topic", request.Topic.TopicText);
-				cmd.Parameters.AddWithValue("@user_id", request.User.Id);
+				cmd.Parameters.AddWithValue("@user_id", request.UserId);
 
 				int topicId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
 				if (topicId > 0)
 				{
-					_logger.LogInformation($"Topic added successfully. ID: {topicId}, Topic: {request.Topic.TopicText}");
+					_ = _log.Db($"Topic added successfully. ID: {topicId}, Topic: {request.Topic.TopicText}", request.UserId, "TOPIC", true);
 					return Ok(new Topic(topicId, request.Topic.TopicText));
 				}
 				else
 				{
-					_logger.LogError($"Failed to add topic: {request.Topic.TopicText}");
+					_ = _log.Db($"Failed to add topic: {request.Topic.TopicText}", request.UserId, "TOPIC", true);
 					return StatusCode(500, "Failed to add topic");
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request to add a topic.");
+				_ = _log.Db("An error occurred while processing the POST request to add a topic." + ex.Message, request.UserId, "TOPIC", true);
 				return StatusCode(500, "An error occurred while processing the request");
 			}
 			finally
@@ -114,9 +111,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpGet("/Topic/GetTopStoryTopics/", Name = "GetTopStoryTopics")]
 		public async Task<IActionResult> GetTopStoryTopics()
-		{
-			_logger.LogInformation($@"GET /Social/GetTopStoryTopics");
-
+		{ 
 			try
 			{
 				List<TopicRank> topicRanks = await GetStoryTopicRanks();
@@ -124,16 +119,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching story topic ranks.");
+				_ = _log.Db("An error occurred while fetching story topic ranks." + ex.Message, null, "TOPIC", true);
 				return StatusCode(500, "An error occurred while fetching story topic ranks.");
 			}
 		}
 
 		[HttpGet("/Topic/GetTopFileTopics/", Name = "GetTopFileTopics")]
 		public async Task<IActionResult> GetTopFileTopics()
-		{
-			_logger.LogInformation($@"GET /Social/GetTopFileTopics");
-
+		{  
 			try
 			{
 				List<TopicRank> topicRanks = await GetFileTopicRanks();
@@ -141,7 +134,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching file topic ranks.");
+				_ = _log.Db("An error occurred while fetching file topic ranks." + ex.Message, null, "TOPIC", true);
 				return StatusCode(500, "An error occurred while fetching file topic ranks.");
 			}
 		}
@@ -191,7 +184,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while fetching story topic ranks.");
+					_ = _log.Db("An error occurred while fetching story topic ranks." + ex.Message, null, "TOPIC", true);
 					throw;
 				}
 			}
@@ -243,7 +236,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while fetching file topic ranks.");
+					_ = _log.Db("An error occurred while fetching file topic ranks. " + ex.Message, null, "TOPIC", true);
 					throw;
 				}
 			}

@@ -64,8 +64,8 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     }
   }
 
-  private async refreshHeroData() { 
-    const heroRes = await this.arrayService.getHero(this.parentRef?.user);
+  private async refreshHeroData() {
+    const heroRes = await this.arrayService.getHero(this.parentRef?.user?.id);
     if (heroRes) {
       this.hero = heroRes;
       this.itemsFound = this.hero.itemsFound!;
@@ -115,7 +115,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
 
   private async GetGraveyardHero() {
     try {
-      const graveyardData = await this.arrayService.getGraveyardHero(this.parentRef?.user);
+      const graveyardData = await this.arrayService.getGraveyardHero(this.parentRef?.user?.id);
       if (graveyardData && graveyardData.killer) {
         this.canMove = false;
         this.isDead = true;
@@ -127,7 +127,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async move(direction: string) {
-    const heroRes = await this.arrayService.move(direction, this.parentRef?.user);
+    const heroRes = await this.arrayService.move(direction, this.parentRef?.user?.id);
     if (heroRes) {
       await this.updateHero(heroRes);
     }
@@ -141,7 +141,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
   }
 
   async resurrect() {
-    const res = await this.arrayService.resurrect(this.parentRef?.user);
+    const res = await this.arrayService.resurrect(this.parentRef?.user?.id);
     if (res) {
       this.hero = res;
       this.isDead = false;
@@ -154,7 +154,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
     if (heroRes.user?.id != this.hero.user?.id) {
       this.refreshHeroLadder();
 
-      const myHeroRes = await this.arrayService.getHero(this.parentRef?.user);
+      const myHeroRes = await this.arrayService.getHero(this.parentRef?.user?.id);
       if (myHeroRes) {
         this.hero = myHeroRes;
         if (!this.hero.monstersKilled) {
@@ -282,7 +282,7 @@ export class ArrayComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async showInventory() {
     this.isInventoryOpen = true;
-    const res = await this.arrayService.getInventory(this.parentRef?.user);
+    const res = await this.arrayService.getInventory(this.parentRef?.user?.id);
     if (res) { 
       this.inventory = res as ArrayCharacterInventory; 
     }

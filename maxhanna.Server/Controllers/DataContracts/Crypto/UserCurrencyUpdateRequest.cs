@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Crypto
 {
 	public class UserCurrencyUpdateRequest
 	{
-		public UserCurrencyUpdateRequest(User User, string Currency)
+		public UserCurrencyUpdateRequest(int UserId, string Currency)
 		{
-			this.User = User;
+			this.UserId = UserId;
 			this.Currency = Currency;
 		}
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public string Currency { get; set; }
 	}
 }

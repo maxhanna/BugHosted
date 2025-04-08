@@ -123,7 +123,7 @@ export class CoinValueService {
   }
 
 
-  async updateUserCurrency(user: User, currency: string) {
+  async updateUserCurrency(userId: User, currency: string) {
     try {
       const response = await fetch(`/currencyvalue/updateusercurrency`, {
         method: 'POST',
@@ -131,7 +131,7 @@ export class CoinValueService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Currency: currency }),
+        body: JSON.stringify({ UserId: userId, Currency: currency }),
       });
 
       return await response.json();
@@ -141,7 +141,7 @@ export class CoinValueService {
   }
 
 
-  async getUserCurrency(user: User) {
+  async getUserCurrency(userId: number) {
     try {
       const response = await fetch(`/currencyvalue/getusercurrency`, {
         method: 'POST',
@@ -149,7 +149,7 @@ export class CoinValueService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.text();
@@ -205,6 +205,55 @@ export class CoinValueService {
       return await response.json();
     } catch (error) {
       return null;
+    }
+  }
+
+  async updateBTCWalletAddresses(userId: number, btcWalletAddresses: string[]) {
+    try {
+      const response = await fetch('/coinvalue/btcwalletaddresses/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ UserId: userId, Wallets: btcWalletAddresses }),
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+  async getBTCWallet(userId: number) {
+    try {
+      const response = await fetch('/coinvalue/btcwallet/getbtcwalletdata', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userId),
+      });
+      if (response.status === 404) {
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async deleteBTCWalletAddress(userId: number, address: string) {
+    try {
+      const response = await fetch('/coinvalue/btcwallet/deletebtcwalletaddress', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, address }),
+      });
+      if (response.status === 404) {
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      return [];
     }
   }
 }

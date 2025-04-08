@@ -7,14 +7,14 @@ import { User } from './datacontracts/user/user';
 })
 export class ContactService {
 
-  async getContacts(user: User) {
+  async getContacts(userId: number) {
     try {
       const response = await fetch(`/contact`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -22,14 +22,14 @@ export class ContactService {
       return null;
     }
   }
-  async createContact(user: User, contact: Contact) {
+  async createContact(userId: number, contact: Contact) {
     try {
       const response = await fetch(`/contact/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, contact }),
+        body: JSON.stringify({ userId, contact }),
       });
 
       return await response.json();
@@ -37,14 +37,14 @@ export class ContactService {
       return null;
     }
   }
-  async addUserContact(user: User, contact: User) {
+  async addUserContact(userId: number, contactId: number) {
     try {
       const response = await fetch(`/contact/adduser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, contact }),
+        body: JSON.stringify({ userId, contactId }),
       });
 
       return await response.text();
@@ -52,14 +52,14 @@ export class ContactService {
       return "Error adding user contact: " + error;
     }
   }
-  async updateContact(user: User, contact: Contact) {
+  async updateContact(userId: number, contact: Contact) {
     try {
       const response = await fetch(`/contact/${contact.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, contact }),
+        body: JSON.stringify({ userId, contact }),
       });
 
       return await response.json();
@@ -67,14 +67,14 @@ export class ContactService {
       return null;
     }
   }
-  async deleteContact(user: User, id: number) {
+  async deleteContact(userId: number, id: number) {
     try {
       const response = await fetch(`/contact/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();

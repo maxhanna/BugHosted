@@ -70,7 +70,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (!user) {
         user = new User(0, "Anonymous");
       }
-      const res = await this.chatService.getChatUsersByChatId(user, this.chatId);
+      const res = await this.chatService.getChatUsersByChatId(this.chatId);
       if (res) {
         this.selectedUsers = res;
         await this.openChat(this.selectedUsers);
@@ -78,7 +78,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     let user = this.parentRef?.user ?? this.inputtedParentRef?.user;
     if (user) {
-      this.userService.getUserSettings(user).then((res?: UserSettings) => {
+      this.userService.getUserSettings(user.id ?? 0).then((res?: UserSettings) => {
         if (res) {
           this.notificationsEnabled = res.notificationsEnabled;
           if (this.notificationsEnabled == undefined || this.notificationsEnabled) {
@@ -132,9 +132,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (!this.currentChatUsers.some(x => x.id == user.id)) {
         this.currentChatUsers.push(user);
       }
+      const receiverUserIds: number[] = this.currentChatUsers.map(x => x?.id ?? 0);
+
       const res = await this.chatService.getMessageHistory(
-        user,
-        this.currentChatUsers,
+        user.id,
+        receiverUserIds,
         this.currentChatId,
         pageNumber,
         pageSize);
@@ -223,8 +225,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     users = this.filterUniqueUsers(users);
     const user = this.getChatUsers(users);
     if (!this.currentChatUsers) return;
+    const receiverUserIds: number[] = this.currentChatUsers.map(x => x?.id ?? 0);
 
-    const res = await this.chatService.getMessageHistory(user, this.currentChatUsers, undefined, undefined, this.pageSize);
+    const res = await this.chatService.getMessageHistory(user.id, receiverUserIds, undefined, undefined, this.pageSize);
 
     if (res && res.status && res.status == "404") {
       this.chatHistory = [];
@@ -288,25 +291,25 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (msg.trim() == "" && (!this.attachedFiles || this.attachedFiles.length == 0)) {
       return alert("Message content cannot be empty.");
     }
-    let chatUsers = this.currentChatUsers;
-    if (this.parentRef && this.parentRef.user && !chatUsers.find(x => x.id == this.parentRef?.user?.id)) {
-      chatUsers.push(this.parentRef.user);
+    let chatUsersIds: number[] = [];
+    this.currentChatUsers.forEach(x => chatUsersIds.push(x.id ?? 0));
+    if (this.parentRef && this.parentRef.user && !this.currentChatUsers.find(x => x.id == this.parentRef?.user?.id)) {
+      chatUsersIds.push(this.parentRef.user?.id ?? 0);
     }
     try {
       setTimeout(() => {
         this.newMessage.nativeElement.value = '';
         this.newMessage.nativeElement.innerHTML = '';
         this.newMessage.nativeElement.textContent = '';
-      }, 10);
-      const user = this.parentRef?.user ?? new User(0, "Anonymous");
-      await this.chatService.sendMessage(user, chatUsers, this.currentChatId, msg, this.attachedFiles);
+      }, 10); 
+      await this.chatService.sendMessage(this.parentRef?.user?.id ?? 0, chatUsersIds, this.currentChatId, msg, this.attachedFiles);
       this.removeAllAttachments();
       this.attachedFiles = [];
       await this.getMessageHistory().then(x => { 
         this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
       });
       this.notificationService.createNotifications(
-        { fromUser: user, toUser: chatUsers.filter(x => x.id != user.id), message: msg, chatId: this.currentChatId }
+        { fromUserId: this.parentRef?.user?.id ?? 0, toUserIds: chatUsersIds.filter(x => x != (this.parentRef?.user?.id ?? 0)), message: msg, chatId: this.currentChatId }
       );
     } catch (error) {
       console.error(error);
@@ -382,7 +385,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   async requestNotificationPermission() {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (!parent?.user) {
+    if (!parent?.user || !parent.user.id) {
       return;
     }
     const currentUrl = window.location.href;
@@ -401,12 +404,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       };
       this.app = initializeApp(firebaseConfig); 
       this.messaging = await getMessaging(this.app); 
-      onMessage(this.messaging, (payload: any) => {
-        const parent = this.inputtedParentRef ?? this.parentRef;
-        const body = payload.notification.body;
-        const title = payload.notification.title;
-        parent?.showNotification(`${title}: ${body}`);
-      });
+      //onMessage(this.messaging, (payload: any) => {
+      //  const parent = this.inputtedParentRef ?? this.parentRef;
+      //  const body = payload.notification.body;
+      //  const title = payload.notification.title;
+      //  parent?.showNotification(`${title}: ${body}`);
+      //});
 
       console.log('Current Notification Permission:', Notification.permission);
       if (this.notificationsEnabled == undefined) {
@@ -415,18 +418,18 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           if (permission === "granted") {
             const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
             await this.subscribeToNotificationTopic(token);
-            this.userService.updateNotificationsEnabled(parent.user, true);
+            this.userService.updateNotificationsEnabled(parent.user.id, true);
           } else {
             console.log('User declined notification permission');
-            this.userService.updateNotificationsEnabled(parent.user, false);
+            this.userService.updateNotificationsEnabled(parent.user.id, false);
           }
         } else if (Notification.permission === 'granted') {
           const token = await getToken(this.messaging, { vapidKey: "BOdqEEb-xWiCvKqILbKr92U6ETC3O0SmpbpAtulpvEqNMMRq79_0JidqqPgrzOLDo_ZnW3Xh7PNMwzP9uBQSCyA" });
           await this.subscribeToNotificationTopic(token);
-          this.userService.updateNotificationsEnabled(parent.user, true);
+          this.userService.updateNotificationsEnabled(parent.user.id, true);
         } else {
           console.log('User denied notification permission');
-          this.userService.updateNotificationsEnabled(parent.user, false);
+          this.userService.updateNotificationsEnabled(parent.user.id, false);
         }
       } else {
         console.log("User has already enabled or disabled notifications.");
@@ -480,8 +483,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   async enableGhostRead() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
-    if (!user) return alert("You must be logged in to enable Ghost Read."); 
-    this.userService.updateGhostRead(user, !this.ghostReadEnabled).then(res => {
+    if (!user || !user.id) return alert("You must be logged in to enable Ghost Read."); 
+    this.userService.updateGhostRead(user.id, !this.ghostReadEnabled).then(res => {
       if (res) {
         parent.showNotification(res);
         this.ghostReadEnabled = !this.ghostReadEnabled;
@@ -495,10 +498,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   private async subscribeToNotificationTopic(token: string) {
     const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent && parent?.user?.id) {
-      this.notificationService.subscribeToTopic(parent.user, token, "notification" + parent.user.id).then(res => {
-        console.log(res);
-      });
+    if (parent?.user?.id) {
+      this.notificationService.subscribeToTopic(parent.user.id, token, "notification" + parent.user.id);
     }
   }
 

@@ -1,15 +1,13 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Crypto
 {
 	public class MiningStatusUpdate
 	{
-		public MiningStatusUpdate(User user, string requestedAction)
+		public MiningStatusUpdate(int userId, string requestedAction)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.requestedAction = requestedAction;
 		}
-		public User user { get; set; }
+		public int userId { get; set; }
 		public string requestedAction { get; set; }
 	}
 }

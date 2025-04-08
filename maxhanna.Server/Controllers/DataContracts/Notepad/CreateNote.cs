@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Notepad
 {
 	public class CreateNote
 	{
-		public CreateNote(User user, string note)
+		public CreateNote(int userId, string note)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.note = note;
 		}
-		public User user { get; set; }
+		public int userId { get; set; }
 		public string note { get; set; }
 	}
 }

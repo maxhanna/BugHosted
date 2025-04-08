@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Weather
 {
 	public class SaveDefaultSearchRequest
 	{
-		public SaveDefaultSearchRequest(User User, string Search)
+		public SaveDefaultSearchRequest(int UserId, string Search)
 		{
-			this.User = User;
+			this.UserId = UserId;
 			this.Search = Search;
 		}
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public string Search { get; set; }
 	}
 }

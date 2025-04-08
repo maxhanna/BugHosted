@@ -1,19 +1,18 @@
 import { Injectable } from '@angular/core';  
 import { WeatherResponse } from './datacontracts/weather/weather-response';
-import { User } from './datacontracts/user/user';
 
 @Injectable({
   providedIn: 'root'
 })
 export class WeatherService { 
-  async getWeather(user: User) {
+  async getWeather(userId: number) {
     try {
       const res = await fetch('/weatherforecast', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       if (!res.ok) {
@@ -26,14 +25,14 @@ export class WeatherService {
       return null; 
     }
   }
-  async getWeatherLocation(user: User) {
+  async getWeatherLocation(userId: number) {
     try {
       const response = await fetch(`/weatherforecast/getweatherlocation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -41,14 +40,14 @@ export class WeatherService {
       return null;
     }
   } 
-  async updateWeatherLocation(user: User, location: string, city?: string, country?: string) {
+  async updateWeatherLocation(userId: number, location: string, city?: string, country?: string) {
     try {
       const response = await fetch(`/weatherforecast/updateweatherlocation`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, location, city, country }),
+        body: JSON.stringify({ userId, location, city, country }),
       });
 
       return await response.text();

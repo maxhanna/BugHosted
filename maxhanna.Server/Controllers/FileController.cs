@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Xml.Linq;
 using Xabe.FFmpeg;
+using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -18,7 +19,7 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class FileController : ControllerBase
 	{
-		private readonly ILogger<FileController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
 		private readonly string _baseTarget;
@@ -29,9 +30,9 @@ namespace maxhanna.Server.Controllers
 				"nes", "fds", "sfc", "smc", "snes", "nds"
 		};
 
-		public FileController(ILogger<FileController> logger, IConfiguration config)
+		public FileController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
@@ -62,12 +63,7 @@ namespace maxhanna.Server.Controllers
 				{
 					directory += "/";
 				}
-			}
-			_logger.LogInformation(
-					 @$"POST /File/GetDirectory?directory={directory}&visibility={visibility}
-                 &ownership={ownership}&search={search}&page={page}
-                 &pageSize={pageSize}&fileId={fileId}&showHidden={showHidden}&fileType={(fileType != null ? string.Join(", ", fileType) : "")}");
-
+			} 
 			if (!ValidatePath(directory!)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
 			try
@@ -89,8 +85,7 @@ namespace maxhanna.Server.Controllers
 					int offset = (page - 1) * pageSize;
 					int filePosition = 0;
 					if (fileId.HasValue && page == 1)
-					{
-						_logger.LogInformation($"fetching specific fileId's: {fileId} folder path");
+					{ 
 						var directoryCommand = new MySqlCommand(
 							 "SELECT folder_path FROM maxhanna.file_uploads WHERE id = @fileId",
 							 connection);
@@ -119,9 +114,7 @@ namespace maxhanna.Server.Controllers
 						filePosition = Convert.ToInt32(countCommand.ExecuteScalar());
 						page = (filePosition / pageSize) + 1;
 						offset = Math.Max(0, ((page - 1) * pageSize) - 1);
-					}
-					Console.WriteLine($"setting page:{page}&offset={offset}; file position is : {filePosition}, page size is : {pageSize}, folder path: {directory}");
-
+					} 
 					string orderBy = isRomSearch ? " ORDER BY f.last_access desc " : fileId == null ? " ORDER BY f.id desc " : string.Empty;
 					(string searchCondition, List<MySqlParameter> extraParameters) = await GetWhereCondition(search, user); 
 
@@ -191,7 +184,7 @@ namespace maxhanna.Server.Controllers
 					{
 						command.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
 					}
-					//Console.WriteLine(command.CommandText);
+					//_ = _log.Db(command.CommandText);
 
 					using (var reader = command.ExecuteReader())
 					{
@@ -241,9 +234,7 @@ namespace maxhanna.Server.Controllers
 					}
 
 					var fileIds = fileEntries.Select(f => f.Id).ToList();
-					var commentIds = new List<int>();
-					_logger.LogInformation("Getting comments for fileIds: " + string.Join(",", fileIds));
-
+					var commentIds = new List<int>(); 
 					var fileIdsParameters = new List<string>();
 					for (int i = 0; i < fileIds.Count; i++)
 					{
@@ -296,16 +287,16 @@ namespace maxhanna.Server.Controllers
 					{
 						commentsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
 					}
-					//_logger.LogInformation(commentsCommand.CommandText);
+					//_ = _log.Db(commentsCommand.CommandText);
 					using (var reader = commentsCommand.ExecuteReader())
 					{
-						//_logger.LogInformation("comment command executed");
+						//_ = _log.Db("comment command executed");
 						while (reader.Read())
 						{
-							//_logger.LogInformation("comment command read");
+							//_ = _log.Db("comment command read");
 							var commentId = reader.IsDBNull(reader.GetOrdinal("commentId")) ? 0 : reader.GetInt32("commentId");
 							var fileIdValue = reader.IsDBNull(reader.GetOrdinal("commentFileId")) ? 0 : reader.GetInt32("commentFileId");
-							//_logger.LogInformation("Found commentId " + commentId);
+							//_ = _log.Db("Found commentId " + commentId);
 							var commentCity = reader.IsDBNull(reader.GetOrdinal("commentCity")) ? null : reader.GetString("commentCity");
 							var commentCountry = reader.IsDBNull(reader.GetOrdinal("commentCountry")) ? null : reader.GetString("commentCountry");
 							var commentIp = reader.IsDBNull(reader.GetOrdinal("commentIp")) ? null : reader.GetString("commentIp");
@@ -337,7 +328,7 @@ namespace maxhanna.Server.Controllers
 								Ip = commentIp,
 							};
 							commentIds.Add(commentId);
-							//_logger.LogInformation("Comment constructed with id : " + commentId);
+							//_ = _log.Db("Comment constructed with id : " + commentId);
 							var fileEntryId = reader.IsDBNull(reader.GetOrdinal("commentFileEntryId")) ? (int?)null : reader.GetInt32("commentFileEntryId");
 
 							if (fileEntryId.HasValue)
@@ -366,10 +357,10 @@ namespace maxhanna.Server.Controllers
 
 								comment.CommentFiles!.Add(fileEntryComment);
 							}
-							//_logger.LogInformation($"trying to find file with id value : {fileIdValue}");
+							//_ = _log.Db($"trying to find file with id value : {fileIdValue}");
 							var fileEntry = fileEntries.FirstOrDefault(f => f.Id == fileIdValue);
 
-							//_logger.LogInformation($"found : {fileEntry}");
+							//_ = _log.Db($"found : {fileEntry}");
 
 							if (fileEntry != null)
 							{
@@ -378,7 +369,7 @@ namespace maxhanna.Server.Controllers
 									fileEntry.FileComments = new List<FileComment>();
 								}
 								fileEntry.FileComments!.Add(comment);
-								//_logger.LogInformation($"Attached comment {comment.Id} to file {fileEntry.Id}");
+								//_ = _log.Db($"Attached comment {comment.Id} to file {fileEntry.Id}");
 							}
 						}
 					}
@@ -398,7 +389,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"error:{ex}");
+				_ = _log.Db($"error:{ex}", null, "FILE", true);
 				return StatusCode(500, ex.Message);
 			}
 		}
@@ -440,7 +431,7 @@ namespace maxhanna.Server.Controllers
 			{
 				topicsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
 			}
-			//_logger.LogInformation(topicsCommand.CommandText);
+			//_ = _log.Db(topicsCommand.CommandText);
 			using (var reader = topicsCommand.ExecuteReader())
 			{
 				while (reader.Read())
@@ -465,7 +456,7 @@ namespace maxhanna.Server.Controllers
 
 		private static void GetFileReactions(List<FileEntry> fileEntries, MySqlConnection connection, List<int> fileIds, List<int> commentIds, List<string> fileIdsParameters, List<string> commentIdsParameters)
 		{
-			//_logger.LogInformation("Getting reactions");
+			//_ = _log.Db("Getting reactions");
 			// Fetch reactions separately
 			var reactionsCommand = new MySqlCommand($@"
                         SELECT
@@ -496,7 +487,7 @@ namespace maxhanna.Server.Controllers
 			{
 				reactionsCommand.Parameters.AddWithValue($"@fileId{i}", fileIds[i]);
 			}
-			//_logger.LogInformation(reactionsCommand.CommandText);
+			//_ = _log.Db(reactionsCommand.CommandText);
 			using (var reader = reactionsCommand.ExecuteReader())
 			{
 				while (reader.Read())
@@ -582,7 +573,7 @@ namespace maxhanna.Server.Controllers
 			{
 				totalCountCommand.Parameters.AddWithValue("@search", "%" + search + "%"); // Add search parameter
 			}
-			//_logger.LogInformation("total count sql : " + totalCountCommand.CommandText);
+			//_ = _log.Db("total count sql : " + totalCountCommand.CommandText);
 			int totalCount = Convert.ToInt32(totalCountCommand.ExecuteScalar());
 			return totalCount;
 		}
@@ -681,7 +672,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/File/UpdateFileData", Name = "UpdateFileData")]
 		public async Task<IActionResult> UpdateFileData([FromBody] FileDataRequest request)
 		{
-			_logger.LogInformation($"POST /File/UpdateFileData (Updating data for file: {request.FileData.FileId}  user: {request.User?.Id})");
+			_ = _log.Db($"POST /File/UpdateFileData (Updating data for file: {request.FileData.FileId}  user: {request.UserId})", request.UserId, "FILE", true);
 
 			try
 			{
@@ -698,7 +689,7 @@ namespace maxhanna.Server.Controllers
                         WHERE id = @file_id"
 					, connection);
 					command.Parameters.AddWithValue("@given_file_name", string.IsNullOrWhiteSpace(request.FileData.GivenFileName) ? (object)DBNull.Value : request.FileData.GivenFileName);
-					command.Parameters.AddWithValue("@last_updated_by_user_id", request.User?.Id ?? 0);
+					command.Parameters.AddWithValue("@last_updated_by_user_id", request.UserId);
 					command.Parameters.AddWithValue("@file_id", request.FileData.FileId);
 					command.Parameters.AddWithValue("@description", string.IsNullOrWhiteSpace(request.FileData.Description) ? (object)DBNull.Value : request.FileData.Description);
 
@@ -710,7 +701,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while updating the Filedata.");
+				_ = _log.Db("An error occurred while updating the Filedata.", request.UserId, "FILE", true);
 				return StatusCode(500, "An error occurred while updating the Filedata.");
 			}
 		}
@@ -719,7 +710,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/File/UpdateFileVisibility", Name = "UpdateFileVisibility")]
 		public async Task<IActionResult> UpdateFileVisibility([FromBody] UpdateFileVisibilityRequest request)
 		{
-			_logger.LogInformation($"POST /File/UpdateFileVisibility (Updating visivility for file: {request.FileId}  user: {request.User?.Id})");
+			_ = _log.Db($"POST /File/UpdateFileVisibility (Updating visivility for file: {request.FileId}  user: {request.UserId})", request.UserId, "FILE", true);
 
 			try
 			{
@@ -735,7 +726,7 @@ namespace maxhanna.Server.Controllers
                         WHERE id = @file_id"
 					, connection);
 					command.Parameters.AddWithValue("@is_public", request.IsVisible);
-					command.Parameters.AddWithValue("@last_updated_by_user_id", request.User?.Id ?? 0);
+					command.Parameters.AddWithValue("@last_updated_by_user_id", request.UserId);
 					command.Parameters.AddWithValue("@file_id", request.FileId);
 
 					await command.ExecuteNonQueryAsync();
@@ -745,56 +736,53 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while updating the Filedata.");
+				_ = _log.Db("An error occurred while updating the Filedata.", request.UserId, "FILE", true);
 				return StatusCode(500, "An error occurred while updating the Filedata.");
 			}
 		}
 
 		[HttpPost("/File/GetFile/{filePath}", Name = "GetFile")]
-		public IActionResult GetFile([FromBody] User? user, string filePath)
+		public IActionResult GetFile(string filePath)
 		{
 			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "");
-
-			//_logger.LogInformation($"GET /File/GetFile/{filePath}");
+			 
 			if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
 			try
 			{
 				if (string.IsNullOrEmpty(filePath))
 				{
-					_logger.LogError($"File path is missing.");
+					_ = _log.Db($"File path is missing.", null, "FILE", true);
 					return BadRequest("File path is missing.");
 				}
 
 				if (!System.IO.File.Exists(filePath))
 				{
-					_logger.LogError($"File not found at {filePath}");
+					_ = _log.Db($"File not found at {filePath}", null, "FILE", true);
 					return NotFound();
 				}
 
 				var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 				string contentType = GetContentType(Path.GetExtension(filePath));
-				//_logger.LogInformation("returning file : " + filePath);
+				//_ = _log.Db("returning file : " + filePath);
 				return File(fileStream, contentType, Path.GetFileName(filePath));
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while streaming the file.");
+				_ = _log.Db("An error occurred while streaming the file." + ex.Message, null, "FILE", true);
 				return StatusCode(500, "An error occurred while streaming the file.");
 			}
 		}
 
 
 		[HttpPost("/File/GetFileById/{fileId}", Name = "GetFileById")]
-		public async Task<IActionResult> GetFileById([FromBody] User? user, int fileId)
-		{
-			Console.WriteLine($"GET /File/GetFileById/{fileId}");
-
+		public async Task<IActionResult> GetFileById([FromBody] int? userId, int fileId)
+		{ 
 			try
 			{
 				if (fileId == 0)
 				{
-					_logger.LogError($"File id is missing.");
+					_ = _log.Db($"File id is missing.", userId, "FILE", true);
 					return BadRequest("File id is missing.");
 				}
 
@@ -818,19 +806,19 @@ namespace maxhanna.Server.Controllers
 					{
 						if (!await reader.ReadAsync())
 						{
-							_logger.LogError($"File with id {fileId} not found in database.");
+							_ = _log.Db($"File with id {fileId} not found in database.", userId, "FILE", true);
 							return NotFound();
 						}
 
-						int userId = reader.GetInt32("user_id");
+						int userIdDb = reader.GetInt32("user_id");
 						string fileName = reader.GetString("file_name");
 						string folderPath = reader.GetString("folder_path");
 						bool isPublic = reader.GetBoolean("is_public");
 
 						// Check if the user has permission to access the file
-						if (!isPublic && (user == null || user.Id != userId))
+						if (!isPublic && (userId == null || userIdDb != userId))
 						{
-							_logger.LogError($"User does not have permission to access file with id {fileId}.");
+							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
 							return Forbid();
 						}
 
@@ -839,7 +827,7 @@ namespace maxhanna.Server.Controllers
 
 						if (!System.IO.File.Exists(filePath))
 						{
-							_logger.LogError($"File not found at {filePath}");
+							_ = _log.Db($"File not found at {filePath}", userId, "FILE", true);
 							return NotFound();
 						}
 
@@ -852,7 +840,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while retrieving or streaming the file.");
+				_ = _log.Db("An error occurred while retrieving or streaming the file." + ex.Message, userId, "FILE", true);
 				return StatusCode(500, "An error occurred while retrieving or streaming the file.");
 			}
 		}
@@ -862,12 +850,12 @@ namespace maxhanna.Server.Controllers
 		{
 			if (request.directory == null)
 			{
-				_logger.LogError("POST /File/MakeDirectory ERROR: directoryPath cannot be empty!");
+				_ = _log.Db("POST /File/MakeDirectory ERROR: directoryPath cannot be empty!", request.userId, "FILE", true);
 				return StatusCode(500, "POST /File/MakeDirectory ERROR: directoryPath cannot be empty!");
 			}
 
 			request.directory = Path.Combine(_baseTarget, WebUtility.UrlDecode(request.directory) ?? "");
-			_logger.LogInformation($"POST /File/MakeDirectory/ (directoryPath: {request.directory})");
+			_ = _log.Db($"POST /File/MakeDirectory/ (directoryPath: {request.directory})", request.userId, "FILE", true);
 			if (!ValidatePath(request.directory))
 			{
 				return StatusCode(500, $"Must be within {_baseTarget}");
@@ -877,7 +865,7 @@ namespace maxhanna.Server.Controllers
 			{
 				if (Directory.Exists(request.directory))
 				{
-					_logger.LogError($"Directory already exists at {request.directory}");
+					_ = _log.Db($"Directory already exists at {request.directory}", request.userId, "FILE", true);
 					return Conflict("Directory already exists.");
 				}
 
@@ -907,7 +895,7 @@ namespace maxhanna.Server.Controllers
 							 connection,
 							 transaction);
 
-						insertCommand.Parameters.AddWithValue("@user_id", request.user.Id);
+						insertCommand.Parameters.AddWithValue("@user_id", request.userId);
 						insertCommand.Parameters.AddWithValue("@uploadDate", uploadDate);
 						insertCommand.Parameters.AddWithValue("@fileName", fileName);
 						insertCommand.Parameters.AddWithValue("@folderPath", directoryName);
@@ -928,7 +916,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while creating directory.");
+				_ = _log.Db("An error occurred while creating directory. " + ex.Message, request.userId, "FILE", true);
 				return StatusCode(500, "An error occurred while creating directory.");
 			}
 		}
@@ -939,17 +927,17 @@ namespace maxhanna.Server.Controllers
 			List<FileEntry> uploaded = new List<FileEntry>();
 			try
 			{
-				if (Request.Form["user"].Count <= 0)
+				if (Request.Form["userId"].Count <= 0)
 				{
-					_logger.LogWarning($"Invalid user! Returning null.");
+					_ = _log.Db($"Invalid user! Returning null.", null, "FILE", true);
 					return BadRequest("No user logged in.");
 				}
 
-				var user = JsonConvert.DeserializeObject<User>(Request.Form["user"]!);
+				var userId = JsonConvert.DeserializeObject<int?>(Request.Form["userId"]!);
 				var isPublic = JsonConvert.DeserializeObject<bool>(Request.Form["isPublic"]!);
 				var files = Request.Form.Files;
 				int conflicts = 0;
-				_logger.LogInformation($"POST /File/Upload (user: {user?.Id} folderPath = {folderPath})");
+				_ = _log.Db($"POST /File/Upload (user: {userId} folderPath = {folderPath})", userId, "FILE", true);
 
 				if (files == null || files.Count == 0)
 					return BadRequest("No files uploaded.");
@@ -966,10 +954,10 @@ namespace maxhanna.Server.Controllers
 					}
 					var filePath = Path.Combine(uploadDirectory, file.FileName); // Combine upload directory with file name
 
-					var conflictingFile = await GetConflictingFile(user?.Id ?? 0, file, uploadDirectory, isPublic);
+					var conflictingFile = await GetConflictingFile(userId ?? 0, file, uploadDirectory, isPublic);
 					if (conflictingFile != null)
 					{
-						_logger.LogError("Cannot upload duplicate files.");
+						_ = _log.Db($"Cannot upload duplicate files. {conflictingFile.FileName}", userId, "FILE", true);
 						uploaded.Add(conflictingFile);
 						conflicts++;
 					}
@@ -978,7 +966,7 @@ namespace maxhanna.Server.Controllers
 						if (!Directory.Exists(uploadDirectory))
 						{
 							Directory.CreateDirectory(uploadDirectory);
-							await InsertDirectoryMetadata(user!, filePath, isPublic);
+							await InsertDirectoryMetadata(userId ?? 0, filePath, isPublic);
 						}
 
 						// Check file type and convert if necessary
@@ -1024,23 +1012,19 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
-						var fileId = await InsertFileIntoDB(user!, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
-						var fileEntry = CreateFileEntry(file, user!, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
+						var fileId = await InsertFileIntoDB(userId ?? 0, file, uploadDirectory, isPublic, convertedFilePath, width, height, duration);
+						var fileEntry = CreateFileEntry(file, userId ?? 0, isPublic, fileId, convertedFilePath, uploadDirectory, width, height, duration);
 						uploaded.Add(fileEntry);
 
-						await AppendToSitemapAsync(fileEntry);
-
-
-						_logger.LogInformation($"Uploaded file: {file.FileName}, Size: {file.Length} bytes, Path: {convertedFilePath}, Type: {fileEntry.FileType}");
+						await AppendToSitemapAsync(fileEntry); 
 					}
 				}
-				string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}.";
-				_logger.LogInformation(message);
+				string message = $"Uploaded {uploaded.Count} files. Conflicts: {conflicts}."; 
 				return Ok(uploaded);
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while uploading files.");
+				_ = _log.Db("An error occurred while uploading files. " + ex.Message, null, "FILE", true);
 				return StatusCode(500, "An error occurred while uploading files.");
 			}
 		}
@@ -1174,9 +1158,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/File/Edit-Topics", Name = "EditFileTopics")]
 		public async Task<IActionResult> EditFileTopics([FromBody] EditTopicRequest request)
-		{
-			_logger.LogInformation($"POST /File/Edit-Topics for user: {request.User?.Id} with fileId: {request.File.Id}");
-
+		{ 
 			try
 			{
 				string deleteSql = "DELETE FROM maxhanna.file_topics WHERE file_id = @FileId;";
@@ -1207,7 +1189,7 @@ namespace maxhanna.Server.Controllers
 									{
 										insertCmd.Parameters.AddWithValue("@FileId", request.File.Id);
 										insertCmd.Parameters.AddWithValue("@TopicId", topic.Id);
-										insertCmd.Parameters.AddWithValue("@UserId", request.User?.Id ?? 0);
+										insertCmd.Parameters.AddWithValue("@UserId", request.UserId);
 										await insertCmd.ExecuteNonQueryAsync();
 									}
 								}
@@ -1228,7 +1210,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while editing file topics.");
+				_ = _log.Db("An error occurred while editing file topics." + ex.Message, null, "FILE", true);
 				return StatusCode(500, "An error occurred while editing file topics.");
 			}
 		}
@@ -1313,11 +1295,11 @@ namespace maxhanna.Server.Controllers
 				await mp4Conversion.Start();
 
 				var afterFileSize = new FileInfo(mp4ConvertedFilePath).Length;
-				_logger.LogInformation($"Audio conversion completed: before [fileName={file.FileName}, fileSize={beforeFileSize} bytes] after [fileName={mp4ConvertedFileName}, fileSize={afterFileSize} bytes]");
+				_ = _log.Db($"Audio conversion completed: before [fileName={file.FileName}, fileSize={beforeFileSize} bytes] after [fileName={mp4ConvertedFileName}, fileSize={afterFileSize} bytes]", null, "FILE", true);
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred during audio conversion.");
+				_ = _log.Db("Error occurred during audio conversion. " + ex.Message, null, "FILE", true);
 			}
 			finally
 			{
@@ -1375,13 +1357,13 @@ namespace maxhanna.Server.Controllers
 				await conversion.Start();
 
 				var afterFileSize = new FileInfo(convertedFilePath).Length;
-				_logger.LogInformation($"GIF to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
+				_ = _log.Db($"GIF to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]", null, "FILE", true);
 
 				(width, height) = await GetMediaDimensions(convertedFilePath);
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred during GIF conversion.");
+				_ = _log.Db("Error occurred during GIF conversion. " + ex.Message, null, "FILE", true);
 			}
 			finally
 			{
@@ -1421,12 +1403,12 @@ namespace maxhanna.Server.Controllers
 					var afterFileSize = new FileInfo(convertedFilePath).Length;
 					width = image.Width;
 					height = image.Height;
-					_logger.LogInformation($"Image to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
+					_ = _log.Db($"Image to WebP conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]", null, "FILE", true);
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred during image conversion.");
+				_ = _log.Db("Error occurred during image conversion. " + ex.Message, null, "FILE", true);
 			}
 
 			if (System.IO.File.Exists(convertedFilePath) && width == 0 || height == 0)
@@ -1454,7 +1436,7 @@ namespace maxhanna.Server.Controllers
 
 				var beforeFileSize = new FileInfo(inputFilePath).Length;
 
-				Console.WriteLine("attempting to convert " + inputFilePath);
+				_ = _log.Db("attempting to convert " + inputFilePath, null, "FILE", true);
 				var ffmpegCommand = await FFmpeg.GetMediaInfo(inputFilePath);
 				duration = (int)ffmpegCommand.Duration.TotalSeconds;
 
@@ -1470,7 +1452,7 @@ namespace maxhanna.Server.Controllers
 					width = videoStream.Width;
 					height = videoStream.Height;
 				}
-				_logger.LogInformation($"Video to WebM conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]");
+				_ = _log.Db($"Video to WebM conversion: before [fileName={file.FileName}, fileType={Path.GetExtension(file.FileName)}, fileSize={beforeFileSize} bytes] after [fileName={convertedFileName}, fileType={Path.GetExtension(convertedFileName)}, fileSize={afterFileSize} bytes]", null, "FILE", true);
 				if (beforeFileSize > afterFileSize)
 				{
 					System.IO.File.Delete(inputFilePath);
@@ -1486,14 +1468,14 @@ namespace maxhanna.Server.Controllers
 			{
 				if (ex.Message.Contains(" already exists. Exiting."))
 				{
-					Console.WriteLine("Converted file already exists, Returning converted file");
+					_ = _log.Db("Converted file already exists, Returning converted file", null, "FILE", true);
 				}
 				else if (System.IO.File.Exists(inputFilePath))
 				{
 					convertedFilePath = inputFilePath;
-					Console.WriteLine("Error occurred during video conversion. Returning Unconverted file");
+					_ = _log.Db("Error occurred during video conversion. Returning Unconverted file", null, "FILE", true);
 				}
-				Console.WriteLine("Error occurred during video conversion.");
+				_ = _log.Db("Error occurred during video conversion.", null, "FILE", true);
 			}
 
 			if (System.IO.File.Exists(convertedFilePath) && width == 0 || height == 0)
@@ -1516,12 +1498,12 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Error getting media dimensions, " + ex.Message);
+				_ = _log.Db("Error getting media dimensions, " + ex.Message, null, "FILE", true);
 				return (0, 0);
 			}
 		}
 
-		private async Task InsertDirectoryMetadata(User user, string directoryPath, bool isPublic)
+		private async Task InsertDirectoryMetadata(int userId, string directoryPath, bool isPublic)
 		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
@@ -1534,7 +1516,7 @@ namespace maxhanna.Server.Controllers
                 VALUES 
                     (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder, @file_size);"
 				, connection);
-				command.Parameters.AddWithValue("@user_id", user?.Id ?? 0);
+				command.Parameters.AddWithValue("@user_id", userId);
 				command.Parameters.AddWithValue("@fileName", directoryName);
 				command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
 				command.Parameters.AddWithValue("@folderPath", directoryPathTrimmed);
@@ -1543,11 +1525,11 @@ namespace maxhanna.Server.Controllers
 				command.Parameters.AddWithValue("@file_size", 0);
 
 				await command.ExecuteScalarAsync();
-				_logger.LogInformation($"Uploaded folder: {directoryName}, Path: {directoryPath}");
+				_ = _log.Db($"Uploaded folder: {directoryName}, Path: {directoryPath}", userId, "FILE", true);
 			}
 		}
 
-		private async Task<int> InsertFileIntoDB(User user, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath, int? width, int? height, int? duration)
+		private async Task<int> InsertFileIntoDB(int userId, IFormFile file, string uploadDirectory, bool isPublic, string convertedFilePath, int? width, int? height, int? duration)
 		{
 			using (var connection = new MySqlConnection(_connectionString))
 			{
@@ -1555,8 +1537,7 @@ namespace maxhanna.Server.Controllers
 
 				string fileName = Path.GetFileName(convertedFilePath);
 				long fileSize = new FileInfo(convertedFilePath).Length;
-				DateTime uploadDate = DateTime.UtcNow;
-				int userId = user?.Id ?? 0;
+				DateTime uploadDate = DateTime.UtcNow; 
 
 				var command = new MySqlCommand(
 				@"INSERT IGNORE INTO maxhanna.file_uploads 
@@ -1581,7 +1562,7 @@ namespace maxhanna.Server.Controllers
 
 				if (newFileId == 0) // Means INSERT was ignored, so fetch the existing ID
 				{
-					Console.WriteLine("ignoring this insert of file entry, file entry exists already. " + fileName);
+					_ = _log.Db("Ignoring, file already exists: " + fileName, userId, "FILE", true);
 					var fetchCommand = new MySqlCommand(
 							@"SELECT id FROM maxhanna.file_uploads 
                   WHERE user_id = @user_id AND file_name = @fileName 
@@ -1599,7 +1580,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 
-		private FileEntry CreateFileEntry(IFormFile file, User user, bool isPublic, int fileId, string filePath, string uploadDirectory, int? height, int? width, int? duration)
+		private FileEntry CreateFileEntry(IFormFile file, int userId, bool isPublic, int fileId, string filePath, string uploadDirectory, int? height, int? width, int? duration)
 		{
 			return new FileEntry
 			{
@@ -1607,7 +1588,7 @@ namespace maxhanna.Server.Controllers
 				FileName = Path.GetFileName(filePath),
 				Directory = uploadDirectory,
 				Visibility = isPublic ? "Public" : "Private",
-				User = new User(user.Id ?? 0, user.Username ?? "Anonymous", null, user.DisplayPictureFile, user.About, null, null),
+				User = new User(userId),
 				IsFolder = false,
 				FileComments = new List<FileComment>(),
 				Date = DateTime.UtcNow,
@@ -1633,7 +1614,7 @@ namespace maxhanna.Server.Controllers
 				convertedFileName = $"{fileNameWithoutExtension}.webm";
 			}
 
-			//_logger.LogInformation("Checking for duplicated files : " + (!string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName));
+			//_ = _log.Db("Checking for duplicated files : " + (!string.IsNullOrEmpty(convertedFileName) ? convertedFileName : file.FileName));
 
 			using (var connection = new MySqlConnection(_connectionString))
 			{
@@ -1770,9 +1751,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using (var connection = new MySqlConnection(_connectionString))
 				{
-					await connection.OpenAsync();
-					_logger.LogInformation($"Opened connection to database for hiding file with id {request.FileId} for user {request.UserId}");
-
+					await connection.OpenAsync(); 
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						// Insert into hidden_files table (no permission check)
@@ -1783,19 +1762,18 @@ namespace maxhanna.Server.Controllers
 						hideCommand.Parameters.AddWithValue("@fileId", request.FileId);
 
 						await hideCommand.ExecuteNonQueryAsync();
-						_logger.LogInformation($"File {request.FileId} hidden for user {request.UserId}");
+						_ = _log.Db($"File {request.FileId} hidden for user {request.UserId}", request.UserId, "FILE");
 
 						// Commit transaction
 						await transaction.CommitAsync();
 					}
 				}
-
-				_logger.LogInformation($"File {request.FileId} hidden successfully for user {request.UserId}");
+				 
 				return Ok("File hidden successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while hiding the file.");
+				_ = _log.Db("An error occurred while hiding the file. " + ex.Message, request.UserId, "FILE", true);
 				return StatusCode(500, "An error occurred while hiding the file.");
 			}
 		}
@@ -1807,9 +1785,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using (var connection = new MySqlConnection(_connectionString))
 				{
-					await connection.OpenAsync();
-					_logger.LogInformation($"Opened connection to database for unhiding file with id {request.FileId} for user {request.UserId}");
-
+					await connection.OpenAsync();  
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						// Remove from hidden_files table (no permission check)
@@ -1819,20 +1795,19 @@ namespace maxhanna.Server.Controllers
 						unhideCommand.Parameters.AddWithValue("@userId", request.UserId);
 						unhideCommand.Parameters.AddWithValue("@fileId", request.FileId);
 
-						await unhideCommand.ExecuteNonQueryAsync();
-						_logger.LogInformation($"File {request.FileId} unhidden for user {request.UserId}");
+						await unhideCommand.ExecuteNonQueryAsync(); 
 
 						// Commit transaction
 						await transaction.CommitAsync();
 					}
 				}
 
-				_logger.LogInformation($"File {request.FileId} unhidden successfully for user {request.UserId}");
+				_ = _log.Db($"File {request.FileId} unhidden successfully for user {request.UserId}", request.UserId, "FILE");
 				return Ok("File unhidden successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while unhiding the file.");
+				_ = _log.Db("An error occurred while unhiding the file. " + ex.Message, request.UserId, "FILE", true);
 				return StatusCode(500, "An error occurred while unhiding the file.");
 			}
 		}
@@ -1848,7 +1823,7 @@ namespace maxhanna.Server.Controllers
 				using (var connection = new MySqlConnection(_connectionString))
 				{
 					connection.Open();
-					_logger.LogInformation($"Opened connection to database for deleting file or directory with id {request.file.Id}");
+					_ = _log.Db($"Opened connection to database for deleting file or directory with id {request.file.Id}", request.userId, "FILE", true);
 
 					using (var transaction = connection.BeginTransaction())
 					{
@@ -1861,16 +1836,16 @@ namespace maxhanna.Server.Controllers
 						var ownershipReader = ownershipCommand.ExecuteReader();
 						if (!ownershipReader.Read())
 						{
-							_logger.LogError($"File or directory with id {request.file.Id} not found.");
+							_ = _log.Db($"File or directory with id {request.file.Id} not found.", request.userId, "FILE", true);
 							return NotFound("File or directory not found.");
 						}
 
 						var userId = ownershipReader.GetInt32("user_id");
 						var sharedWith = ownershipReader.IsDBNull(ownershipReader.GetOrdinal("shared_with")) ? string.Empty : ownershipReader.GetString("shared_with");
 
-						if (!sharedWith.Split(',').Contains(request.user.Id.ToString()) && userId != request.user.Id)
+						if (!sharedWith.Split(',').Contains(request.userId.ToString()) && userId != request.userId)
 						{
-							_logger.LogError($"User {request.user.Id} does not have ownership of {request.file.FileName}");
+							_ = _log.Db($"User {request.userId} does not have ownership of {request.file.FileName}", request.userId, "FILE", true);
 							return StatusCode(409, "You do not have permission to delete this file or directory.");
 						}
 
@@ -1883,20 +1858,19 @@ namespace maxhanna.Server.Controllers
 
 						if (!ValidatePath(filePath)) { return BadRequest($"Cannot delete: {filePath}"); }
 
-						_logger.LogInformation($"User {request.user.Id} has ownership. Proceeding with deletion. File Path: {filePath}");
+						_ = _log.Db($"User {request.userId} has ownership. Proceeding with deletion. File Path: {filePath}", request.userId, "FILE", true);
 
 						// Proceed with deletion if ownership is confirmed
 						if (isFolder)
 						{
 							if (Directory.Exists(filePath))
-							{
-								_logger.LogInformation($"Deleting directory at {filePath}");
+							{ 
 								Directory.Delete(filePath, true);
-								_logger.LogInformation($"Directory deleted at {filePath}");
+								_ = _log.Db($"Directory deleted at {filePath}", null, "FILE", true);
 							}
 							else
 							{
-								_logger.LogError($"Directory not found at {filePath}");
+								_ = _log.Db($"Directory not found at {filePath}", null, "FILE", true);
 							}
 
 							if (filePath.TrimEnd('/') + "/" != _baseTarget.TrimEnd('/') + "/")
@@ -1905,21 +1879,20 @@ namespace maxhanna.Server.Controllers
 										"DELETE FROM maxhanna.file_uploads WHERE folder_path LIKE CONCAT(@FolderPath, '%')",
 										connection, transaction);
 								innerDeleteCommand.Parameters.AddWithValue("@FolderPath", filePath.TrimEnd('/') + "/");
-								//_logger.LogInformation(innerDeleteCommand.CommandText);
+								//_ = _log.Db(innerDeleteCommand.CommandText);
 								innerDeleteCommand.ExecuteNonQuery();
 							}
 						}
 						else
 						{
 							if (System.IO.File.Exists(filePath))
-							{
-								_logger.LogInformation($"Deleting file at {filePath}");
+							{ 
 								System.IO.File.Delete(filePath);
-								_logger.LogInformation($"File deleted at {filePath}");
+								_ = _log.Db($"File deleted at {filePath}", request.userId, "FILE", true);
 							}
 							else
 							{
-								_logger.LogError($"File not found at {filePath}");
+								_ = _log.Db($"File not found at {filePath}", request.userId, "FILE", true);
 							}
 						}
 
@@ -1929,7 +1902,7 @@ namespace maxhanna.Server.Controllers
 						deleteCommand.Parameters.AddWithValue("@fileId", request.file.Id);
 						deleteCommand.ExecuteNonQuery();
 
-						_logger.LogInformation($"Record deleted from database for file or directory with id {request.file.Id}");
+						_ = _log.Db($"Record deleted from database for file or directory with id {request.file.Id}", request.userId, "FILE", true);
 
 						// Commit transaction
 						transaction.Commit();
@@ -1939,22 +1912,20 @@ namespace maxhanna.Server.Controllers
 				{
 					await RemoveFromSitemapAsync(request.file.Id);
 				}
-				_logger.LogInformation($"File or directory deleted successfully at {filePath}");
+				_ = _log.Db($"File or directory deleted successfully at {filePath}", request.userId, "FILE", true);
 				return Ok("File or directory deleted successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while deleting file or directory.");
+				_ = _log.Db("An error occurred while deleting file or directory." + ex.Message, request.userId, "FILE", true);
 				return StatusCode(500, "An error occurred while deleting file or directory.");
 			}
 		}
 
 
 		[HttpPost("/File/Move/", Name = "MoveFile")]
-		public async Task<IActionResult> MoveFile([FromBody] User user, [FromQuery] string inputFile, [FromQuery] string? destinationFolder)
-		{
-			_logger.LogInformation($"POST /File/Move (inputFile = {inputFile}, destinationFolder = {destinationFolder})");
-
+		public async Task<IActionResult> MoveFile([FromQuery] string inputFile, [FromQuery] string? destinationFolder, [FromBody] int userId)
+		{ 
 			try
 			{
 				// Remove any leading slashes
@@ -1967,8 +1938,14 @@ namespace maxhanna.Server.Controllers
 
 				if (!ValidatePath(inputFile) || !ValidatePath(destinationFolder))
 				{
-					_logger.LogError($"Invalid path: inputFile = {inputFile}, destinationFolder = {destinationFolder}");
+					_ = _log.Db($"Invalid path: inputFile = {inputFile}, destinationFolder = {destinationFolder}", null, "FILE", true);
 					return NotFound("Invalid path.");
+				}
+
+				if(!CanMoveFile(inputFile, destinationFolder, userId))
+				{
+					_ = _log.Db($"Cannot move file: {inputFile} to {destinationFolder}. Insufficient Privileges.", userId, "FILE", true);
+					return NotFound("Cannot move file.");
 				}
 
 				if (System.IO.File.Exists(inputFile))
@@ -1979,7 +1956,7 @@ namespace maxhanna.Server.Controllers
 
 					await UpdateFilePathInDatabase(inputFile, newFilePath);
 
-					_logger.LogInformation($"File moved from {inputFile} to {newFilePath}");
+					_ = _log.Db($"File moved from {inputFile} to {newFilePath}", null, "FILE", true);
 					return Ok("File moved successfully.");
 				}
 				else if (Directory.Exists(inputFile))
@@ -1988,18 +1965,18 @@ namespace maxhanna.Server.Controllers
 
 					await UpdateDirectoryPathInDatabase(inputFile, destinationFolder);
 
-					_logger.LogInformation($"Directory moved from {inputFile} to {destinationFolder}");
+					_ = _log.Db($"Directory moved from {inputFile} to {destinationFolder}", null, "FILE", true);
 					return Ok("Directory moved successfully.");
 				}
 				else
 				{
-					_logger.LogError($"Input file or directory not found at {inputFile}");
+					_ = _log.Db($"Input file or directory not found at {inputFile}", null, "FILE", true);
 					return NotFound("Input file or directory not found.");
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while moving the file or directory.");
+				_ = _log.Db("An error occurred while moving the file or directory." + ex.Message, null, "FILE", true);
 				return StatusCode(500, "An error occurred while moving the file or directory.");
 			}
 		}
@@ -2007,7 +1984,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/File/Share/{fileId}", Name = "ShareFile")]
 		public async Task<IActionResult> ShareFileRequest([FromBody] ShareFileRequest request, int fileId)
 		{
-			_logger.LogInformation($"GET /File/Share/{fileId} (for user: {request.User1.Id} to user: {request.User2.Id})");
+			_ = _log.Db($"GET /File/Share/{fileId} (for user: {request.User1Id} to user: {request.User2Id})", null, "FILE", true);
 
 			string updateSql = @"
                 UPDATE maxhanna.file_uploads 
@@ -2046,7 +2023,7 @@ namespace maxhanna.Server.Controllers
 
 					if (filePath == null)
 					{
-						_logger.LogInformation("Returned 500: File path not found");
+						_ = _log.Db("Returned 500: File path not found", null, "FILE", true);
 						return StatusCode(500, "File path not found");
 					}
 
@@ -2055,18 +2032,13 @@ namespace maxhanna.Server.Controllers
 
 					// Find all parent directories
 					while (!string.IsNullOrEmpty(filePath))
-					{
-						_logger.LogInformation($"LOG::: folderPath: {filePath}");
-
+					{ 
 						string parentPath = (Path.GetDirectoryName(filePath.TrimEnd('/').Replace("\\", "/")) ?? "").Replace("\\", "/");
 						if (!parentPath.EndsWith("/"))
 						{
 							parentPath += "/";
 						}
-						string folderName = Path.GetFileName(filePath.TrimEnd('/'));
-
-						_logger.LogInformation($"LOG::: parentPath: {parentPath}");
-						_logger.LogInformation($"LOG::: folderName: {folderName}");
+						string folderName = Path.GetFileName(filePath.TrimEnd('/')); 
 
 						if (string.IsNullOrEmpty(parentPath))
 						{
@@ -2098,19 +2070,17 @@ namespace maxhanna.Server.Controllers
 					{
 						using (var updateCmd = new MySqlCommand(updateSql, conn))
 						{
-							updateCmd.Parameters.AddWithValue("@user2id", request.User2.Id);
+							updateCmd.Parameters.AddWithValue("@user2id", request.User2Id);
 							updateCmd.Parameters.AddWithValue("@fileId", id);
 							await updateCmd.ExecuteNonQueryAsync();
 						}
-					}
-
-					_logger.LogInformation("Returned OK");
+					} 
 					return Ok();
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while sharing the file.");
+				_ = _log.Db("An error occurred while sharing the file. " + ex.Message, request.User1Id, "FILE", true);
 				return StatusCode(500, "An error occurred while sharing the file.");
 			}
 		}
@@ -2136,9 +2106,8 @@ namespace maxhanna.Server.Controllers
 				}
 				string fileName = Path.GetFileName(oldFilePath);
 
-				_logger.LogInformation($"Update FilePath in database: oldFolderPath: {oldFolderPath}; newFolderPath: {newFolderPath}; fileName: {fileName}");
-
-
+				_ = _log.Db($"Update FilePath in database: oldFolderPath: {oldFolderPath}; newFolderPath: {newFolderPath}; fileName: {fileName}", null, "FILE", true);
+				 
 				var command = new MySqlCommand(
 						"UPDATE maxhanna.file_uploads SET folder_path = @newFolderPath WHERE folder_path = @oldFolderPath AND file_name = @fileName", connection);
 				command.Parameters.AddWithValue("@newFolderPath", newFolderPath);
@@ -2150,9 +2119,7 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private async Task UpdateDirectoryPathInDatabase(string oldDirectoryPath, string newDirectoryPath)
-		{
-			_logger.LogInformation($"UpdateDirectoryPathInDatabase: oldDirectoryPath: {oldDirectoryPath}; newDirectoryPath: {newDirectoryPath}");
-
+		{ 
 			using (var connection = new MySqlConnection(_connectionString))
 			{
 				await connection.OpenAsync();
@@ -2181,7 +2148,7 @@ namespace maxhanna.Server.Controllers
 				await command.ExecuteNonQueryAsync();
 
 				string fileName = Path.GetFileName(oldDirectoryPath)!;
-				_logger.LogInformation($"UpdateDirectoryPathInDatabase: standardizedOldPath: {standardizedOldPath}; standardizedNewPath: {standardizedNewPath}; fileName: {fileName}");
+				_ = _log.Db($"UpdateDirectoryPathInDatabase: standardizedOldPath: {standardizedOldPath}; standardizedNewPath: {standardizedNewPath}; fileName: {fileName}", null, "FILE", true);
 
 				command = new MySqlCommand(
 					 "UPDATE maxhanna.file_uploads SET folder_path = @newFolderPath " +
@@ -2197,8 +2164,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/File/Batch/", Name = "ExecuteBatch")]
 		public IActionResult ExecuteBatch([FromBody] User user, [FromQuery] string? inputFile)
-		{
-			_logger.LogInformation($"POST /File/Batch (inputFile = {inputFile})");
+		{ 
 			string result = "";
 			try
 			{
@@ -2212,7 +2178,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while executing BAT file.");
+				_ = _log.Db("An error occurred while executing BAT file. " + ex.Message, null, "FILE", true);
 				return StatusCode(500, "An error occurred while executing BAT file.");
 			}
 			return Ok(result);
@@ -2234,9 +2200,7 @@ namespace maxhanna.Server.Controllers
 		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
 		private async Task AppendToSitemapAsync(FileEntry fileEntry)
-		{
-			_logger.LogInformation($"AppendToSitemapAsync (inputFile = {fileEntry.FileName}, isPublic = {fileEntry.Visibility}, fileType = {fileEntry.FileType}, fileId = {fileEntry.Id}, directory = {fileEntry.Directory})");
-
+		{ 
 			string fileUrl = IsVideoFileFromExtensionString(fileEntry.FileType)
 					? $"https://bughosted.com/Media/{fileEntry.Id}"
 					: $"https://bughosted.com/File/{fileEntry.Id}";
@@ -2304,7 +2268,7 @@ namespace maxhanna.Server.Controllers
 		{
 			if (string.IsNullOrEmpty(fileName) || fileId == null)
 			{
-				_logger.LogWarning("FileId and FileName must be provided.");
+				_ = _log.Db("FileId and FileName must be provided.", null, "FILE", true);
 				return;
 			}
 			string fileUrl = $"https://bughosted.com/File/{fileId}";
@@ -2321,7 +2285,7 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					_logger.LogWarning("Sitemap not found, unable to update.");
+					_ = _log.Db("Sitemap not found, unable to update.", null, "FILE", true);
 					return;
 				}
 
@@ -2330,7 +2294,7 @@ namespace maxhanna.Server.Controllers
 
 				if (urlElement == null)
 				{
-					_logger.LogWarning($"No sitemap entry found for file {fileId}.");
+					_ = _log.Db($"No sitemap entry found for file {fileId}.", null, "FILE", true);
 					return;
 				}
 
@@ -2351,7 +2315,7 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					_logger.LogWarning("No <video:video> element found in sitemap for file.");
+					_ = _log.Db("No <video:video> element found in sitemap for file.", null, "FILE", true);
 				}
 
 				// Save the updated sitemap
@@ -2359,7 +2323,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while updating the sitemap entry.");
+				_ = _log.Db("An error occurred while updating the sitemap entry. " +ex.Message, null, "FILE", true);
 			}
 			finally
 			{
@@ -2370,7 +2334,7 @@ namespace maxhanna.Server.Controllers
 		private async Task RemoveFromSitemapAsync(int targetId)
 		{
 			string targetUrl = $"https://bughosted.com/File/{targetId}";
-			_logger.LogInformation($"Removing {targetUrl} from sitemap.");
+			_ = _log.Db($"Removing {targetUrl} from sitemap.", null, "FILE", true);
 
 			await _sitemapLock.WaitAsync();
 			try
@@ -2388,11 +2352,11 @@ namespace maxhanna.Server.Controllers
 					{
 						targetElement.Remove();
 						sitemap.Save(_sitemapPath);
-						_logger.LogInformation($"Removed {targetUrl} from sitemap!");
+						_ = _log.Db($"Removed {targetUrl} from sitemap!", null, "FILE", true);
 					}
 					else
 					{
-						_logger.LogInformation($"Could not remove sitemap entry, {targetUrl} not found in sitemap!");
+						_ = _log.Db($"Could not remove sitemap entry, {targetUrl} not found in sitemap!", null, "FILE", true);
 					}
 				}
 			}
@@ -2421,12 +2385,30 @@ namespace maxhanna.Server.Controllers
 			string newDirectoryPath = Path.Combine(destinationDirectory, directoryName);
 			Directory.Move(sourceDirectory, newDirectoryPath);
 		}
+		private bool CanMoveFile(string from, string to, int userId)
+		{
+			const string sql = @"
+				SELECT 1 
+				FROM maxhanna.file_uploads 
+				WHERE folder_path = @folderPath AND user_id = @userId 
+				LIMIT 1";
+
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			conn.Open();
+
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@folderPath", from);
+			cmd.Parameters.AddWithValue("@userId", userId);
+
+			using var reader = cmd.ExecuteReader();
+			return reader.Read();  
+		}
 
 		private bool ValidatePath(string directory)
 		{
 			if (!directory.Contains(_baseTarget))
 			{
-				_logger.LogError($"{directory} Must be within {_baseTarget}");
+				_ = _log.Db($"{directory} Must be within {_baseTarget}", null, "FILE", true);
 				return false;
 			}
 			else if (directory.Equals(_baseTarget + "Users") || directory.Equals(_baseTarget + "Roms")
@@ -2435,7 +2417,7 @@ namespace maxhanna.Server.Controllers
 					|| directory.Equals(_baseTarget + "Files") || directory.Equals(_baseTarget + "Pictures")
 					|| directory.Equals(_baseTarget + "Videos"))
 			{
-				_logger.LogError($"Cannot delete {directory}!");
+				_ = _log.Db($"Cannot delete {directory}!", null, "FILE", true);
 				return false;
 			}
 			else

@@ -52,31 +52,31 @@ export class NotepadComponent extends ChildComponent {
     this.noteInputValue = this.noteInput.nativeElement.value.trim();
   }
   async getUsers() {
-    this.users = await this.userService.getAllUsers(this.parentRef?.user!);
+    this.users = await this.userService.getAllUsers();
   }
   shareNoteButtonClick() {
     this.isPanelExpanded = !this.isPanelExpanded;
     this.getUsers(); 
   }
-  async shareNote(withUser?: User) { 
-    if (!withUser) {
+  async shareNote(withUser?: User) {
+    if (!withUser?.id || !this.parentRef?.user?.id) {
       this.isPanelExpanded = false;
       return;
     }
     if (confirm(`Share note with ${withUser.username}?`)) {
-      this.notepadService.shareNote(this.parentRef?.user!, withUser, parseInt(this.noteId.nativeElement.value));
+      this.notepadService.shareNote(this.parentRef?.user?.id, withUser.id, parseInt(this.noteId.nativeElement.value));
       this.isPanelExpanded = false;
       this.parentRef?.showNotification(`Shared note with ${withUser.username}.`);
       if (this.parentRef?.user) {
         this.notificationService.createNotifications(
-          { fromUser: this.parentRef.user, toUser: [withUser], message: `${this.parentRef.user.username} Shared a note with you.` });      
+          { fromUserId: this.parentRef.user?.id ?? 0, toUserIds: [withUser.id ?? 0], message: `${this.parentRef.user.username} Shared a note with you.` });      
       }     
     }
   }
   async getNote(id: number) {
-    if (!id) { return; }
+    if (!id || !this.parentRef?.user?.id) { return; }
     try {
-      const res = await this.notepadService.getNote(this.parentRef?.user!, id);
+      const res = await this.notepadService.getNote(this.parentRef?.user.id, id);
       if (this.noteInput) {
         this.noteInput.nativeElement.value = res.note!;
       }
@@ -96,12 +96,13 @@ export class NotepadComponent extends ChildComponent {
     }
   }
   async getNotepad() {
+    if (!this.parentRef?.user?.id) { return alert("You must be logged in to save notes."); }
     try {
       let search = this.inputtedSearch;
       if (!search && this.searchInput && this.searchInput.nativeElement) {
         search = this.searchInput.nativeElement.value;
       }
-      this.notes = await this.notepadService.getNotes(this.parentRef?.user!, search);
+      this.notes = await this.notepadService.getNotes(this.parentRef.user.id, search);
     } catch (error) {
       console.error("Error fetching notepad entries:", error);
     }
@@ -120,10 +121,12 @@ export class NotepadComponent extends ChildComponent {
     }
 
     try {
-      if (this.noteId.nativeElement.value != "") {
-        await this.notepadService.updateNote(this.parentRef?.user!, text, parseInt(this.noteId.nativeElement.value));
+      if (this.noteId.nativeElement.value != "" && this.parentRef?.user?.id) {
+        await this.notepadService.updateNote(this.parentRef.user.id, text, parseInt(this.noteId.nativeElement.value));
       } else {
-        await this.notepadService.addNote(this.parentRef?.user!, text);
+        if (this.parentRef?.user?.id) {
+          await this.notepadService.addNote(this.parentRef.user.id, text); 
+        }
       }
     } catch (e) {
       console.error(e);
@@ -132,10 +135,10 @@ export class NotepadComponent extends ChildComponent {
     this.getNotepad();
   }
   async deleteNote() {
-    if (!confirm("Confirm note deletion.")) { return; }
+    if (!this.parentRef?.user?.id || !confirm("Confirm note deletion.")) { return; }
     try {
       const id = this.noteId.nativeElement.value;
-      await this.notepadService.deleteNote(this.parentRef?.user!, parseInt(id));
+      await this.notepadService.deleteNote(this.parentRef.user?.id, parseInt(id));
       this.notes = this.notes.filter(e => e.id+"" != id);
       this.clearInputs();
     } catch (error) {
@@ -150,7 +153,7 @@ export class NotepadComponent extends ChildComponent {
     const ids = this.selectedNote?.ownership?.split(',').filter(x => parseInt(x) != this.parentRef?.user?.id);
     this.splitNoteOwnershipUsers = [];
     ids?.forEach(async id => {
-      await this.userService.getUserById(parseInt(id), this.parentRef?.user).then((res: User) => { this.splitNoteOwnershipUsers.push(res); });
+      await this.userService.getUserById(parseInt(id)).then((res: User) => { this.splitNoteOwnershipUsers.push(res); });
     }); 
   } 
 }

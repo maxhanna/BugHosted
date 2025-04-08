@@ -1,15 +1,13 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
 	public class NexusMassPurchaseRequest
 	{
-		public NexusMassPurchaseRequest(User user, String upgrade)
+		public NexusMassPurchaseRequest(int userId, String upgrade)
 		{
-			this.User = user;
+			this.UserId = userId;
 			this.Upgrade = upgrade;
 		}
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public String Upgrade { get; set; }
 	}
 }

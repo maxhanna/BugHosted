@@ -2,12 +2,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 {
 	public class UpdateAboutRequest
 	{
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public UserAbout About { get; set; }
 
-		public UpdateAboutRequest(User user, UserAbout about)
+		public UpdateAboutRequest(int userId, UserAbout about)
 		{
-			User = user;
+			UserId = userId;
 			About = about;
 		}
 	}

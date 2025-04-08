@@ -14,21 +14,19 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class MiningController : ControllerBase
 	{
-		private readonly ILogger<MiningController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 		MiningApi _api = new MiningApi();
 
-		public MiningController(ILogger<MiningController> logger, IConfiguration config)
+		public MiningController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/Mining/GetNicehashApiCredentials", Name = "GetNicehashApiCredentials")]
-		public async Task<Dictionary<string, string>> GetNicehashCredentials([FromBody] User user)
-		{
-			_logger.LogInformation($"Getting Nicehash credentials for user ID: {user.Id}");
-
+		public async Task<Dictionary<string, string>> GetNicehashCredentials([FromBody] int userId)
+		{ 
 			var credentials = new Dictionary<string, string>();
 
 			try
@@ -41,7 +39,7 @@ namespace maxhanna.Server.Controllers
 							"SELECT ownership, orgId, apiKey, apiSecret FROM maxhanna.nicehash_api_keys WHERE ownership = @Owner;";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", user.Id);
+						cmd.Parameters.AddWithValue("@Owner", userId);
 						using (var rdr = await cmd.ExecuteReaderAsync())
 						{
 							while (await rdr.ReadAsync())
@@ -53,13 +51,11 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
-				}
-
-				_logger.LogInformation("Nicehash credentials retrieved successfully.");
+				} 
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while retrieving Nicehash credentials.");
+				_ = _log.Db("Error occurred while retrieving Nicehash credentials. " + ex.Message, userId, "MINING", true);
 				throw;
 			}
 
@@ -68,9 +64,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPut("/Mining/UpdateNicehashApiCredentials", Name = "UpdateNicehashApiCredentials")]
 		public async Task<IActionResult> UpdateOrCreateNicehashCredentials([FromBody] CreateNicehashApiCredentials credentials)
-		{
-			_logger.LogInformation($"Updating or creating Nicehash credentials for user ID: {credentials.user.Id}");
-
+		{ 
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -82,18 +76,17 @@ namespace maxhanna.Server.Controllers
 							"ON DUPLICATE KEY UPDATE orgId = @OrgId, apiKey = @ApiKey, apiSecret = @ApiSecret;";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", credentials.user.Id);
+						cmd.Parameters.AddWithValue("@Owner", credentials.userId);
 						cmd.Parameters.AddWithValue("@OrgId", credentials.keys.OrgId);
 						cmd.Parameters.AddWithValue("@ApiKey", credentials.keys.ApiKey);
 						cmd.Parameters.AddWithValue("@ApiSecret", credentials.keys.ApiSecret);
 						if (await cmd.ExecuteNonQueryAsync() >= 0)
-						{
-							_logger.LogInformation("Returned OK");
+						{ 
 							return Ok();
 						}
 						else
 						{
-							_logger.LogInformation("Returned 500");
+							_ = _log.Db("UpdateNicehashApiCredentials Returned 500.", credentials.userId, "MINING", true);
 							return StatusCode(500, "Failed to update or create data");
 						}
 					}
@@ -101,25 +94,23 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while updating or creating Nicehash credentials.");
+				_ = _log.Db("Error occurred while updating or creating Nicehash credentials. " + ex.Message, credentials.userId, "MINING", true);
 				throw;
 			}
 		}
 
 		[HttpPost("/Mining/", Name = "GetMiningRigInfo")]
-		public async Task<List<MiningRig>> GetRigsAsync([FromBody] User user)
-		{
-			_logger.LogInformation("GET /Mining/");
+		public async Task<List<MiningRig>> GetRigsAsync([FromBody] int userId)
+		{ 
 			List<MiningRig> rigs = new List<MiningRig>();
 
 			try
 			{
-				Dictionary<string, string> kz = await GetNicehashCredentials(user);
+				Dictionary<string, string> kz = await GetNicehashCredentials(userId);
 				if (kz.Count == 0) return rigs;
 				var res = _api.get(kz, "/main/api/v2/mining/rigs2", true);
 				JsonDocument jsonDoc = JsonDocument.Parse(res);
-				JsonElement miningRigs;
-				_logger.LogInformation("Connected to Nicehash :");
+				JsonElement miningRigs; 
 				if (jsonDoc.RootElement.TryGetProperty("miningRigs", out miningRigs) && miningRigs.ValueKind == JsonValueKind.Array)
 				{
 					foreach (JsonElement rigElement in miningRigs.EnumerateArray())
@@ -158,7 +149,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred");
+				_ = _log.Db("Mining Error occurred. " + ex.Message, userId, "MINING", true);
 
 				// Return an error response
 				return rigs;
@@ -166,20 +157,17 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Mining/Devices", Name = "GetMiningDeviceInfo")]
-		public async Task<List<MiningRigDevice>> GetDevices([FromBody] User user)
-		{
-			_logger.LogInformation("GET /Mining/devices");
-			List<MiningRigDevice> devices = new List<MiningRigDevice>();
-
+		public async Task<List<MiningRigDevice>> GetDevices([FromBody] int userId)
+		{ 
+			List<MiningRigDevice> devices = new List<MiningRigDevice>(); 
 			try
 			{
-				var creds = await GetNicehashCredentials(user);
+				var creds = await GetNicehashCredentials(userId);
 				if (creds.Count == 0) return devices;
 
 				var res = _api.get(creds, "/main/api/v2/mining/rigs2", true);
 				JsonDocument jsonDoc = JsonDocument.Parse(res);
-				JsonElement miningRigs;
-				_logger.LogInformation("Connected to Nicehash :");
+				JsonElement miningRigs; 
 				if (jsonDoc.RootElement.TryGetProperty("miningRigs", out miningRigs) && miningRigs.ValueKind == JsonValueKind.Array)
 				{
 					foreach (JsonElement rigElement in miningRigs.EnumerateArray())
@@ -191,8 +179,7 @@ namespace maxhanna.Server.Controllers
 							string rigName = v4Element.GetProperty("mmv").GetProperty("workerName").GetString()!;
 							ExtractDeviceData(devices, rigId, v4Element, rigName);
 						}
-					}
-					_logger.LogInformation($"Found mining rig device data for user {user.Id}");
+					} 
 				}
 
 				return devices.OrderBy(d => d, new MiningRigDeviceComparer()).ToList();
@@ -200,7 +187,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred");
+				_ = _log.Db("Mining Error occurred. " + ex.Message, userId, "MINING", true);
 
 				// Return an error response
 				return devices;
@@ -270,8 +257,7 @@ namespace maxhanna.Server.Controllers
 							case "Miner":
 								tmpDevice.miner = odvItem.GetProperty("value").GetString();
 								break;
-							default:
-								// Handle other keys if necessary
+							default: 
 								break;
 						}
 					}
@@ -282,20 +268,54 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Mining/Wallet", Name = "GetMiningWalletInfo")]
-		public async Task<IActionResult> GetWallet([FromBody] User user)
+		public async Task<IActionResult> GetWallet([FromBody] int userId)
 		{
-			_logger.LogInformation("GET /Mining/Wallet/");
-
 			try
 			{
-				var creds = await GetNicehashCredentials(user);
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				// Check if a recent BTC balance is already cached (within last 10 minutes)
+				string getRecentBalanceSql = @"
+					SELECT balance 
+					FROM user_btc_wallet_balance b
+					JOIN user_btc_wallet_info w ON b.wallet_id = w.id
+					WHERE w.user_id = @UserId
+					AND b.fetched_at > (UTC_TIMESTAMP() - INTERVAL 2 HOUR) 
+					AND w.btc_address = 'Nicehash' 
+					ORDER BY b.fetched_at DESC
+					LIMIT 1;";
+
+				using var checkCmd = new MySqlCommand(getRecentBalanceSql, conn);
+				checkCmd.Parameters.AddWithValue("@UserId", userId);
+
+				var result = await checkCmd.ExecuteScalarAsync();
+
+				if (result != null)
+				{
+					Currency currency = new Currency();
+					CryptoWallet tmpWallet = new CryptoWallet(); 
+					decimal balance = Convert.ToDecimal(result);
+					currency.address = "Nicehash";
+					currency.totalBalance = Convert.ToString(balance);
+					currency.btcRate = await _api.GetLatestBTCRate(_config, _log);
+					tmpWallet.total = new Total(); 
+					tmpWallet.total.totalBalance = Convert.ToString(balance);
+					tmpWallet.total.currency = "Bitcoin";
+					tmpWallet.currencies = new List<Currency>() { currency };
+					Console.WriteLine("Got balance from db instead of nh api");
+					return Ok(tmpWallet);
+				}
+
+				// Fallback to calling the Nicehash API
+				var creds = await GetNicehashCredentials(userId);
 				if (creds.Count == 0) return Ok("No Nicehash API present!");
 
 				var res = _api.get(creds, "/main/api/v2/accounting/accounts2?fiat=CAD", true);
 
 				if (string.IsNullOrEmpty(res))
 				{
-					_logger.LogError("Mining API response is null or empty");
+					_ = _log.Db("Mining API response is null or empty", userId, "MINING", true);
 					return NotFound("Mining API response is null or empty");
 				}
 
@@ -303,35 +323,35 @@ namespace maxhanna.Server.Controllers
 
 				if (wallet == null)
 				{
-					_logger.LogError("Deserialized MiningWallet object is null");
+					_ = _log.Db("Deserialized MiningWallet object is null", userId, "MINING", true);
 					return NotFound("Deserialized MiningWallet object is null");
 				}
 
-				_logger.LogInformation("Found mining rig data for user " + user.Id);
-				return Ok(wallet);
+				_ = _api.CreateWalletEntryFromFetchedDictionary(Convert.ToDecimal(wallet.total?.totalBalance), userId, _config, _log);
+
+				return Ok(new { balance = wallet.total?.totalBalance, source = "live" });
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while fetching mining wallet info");
+				_ = _log.Db("Error occurred while fetching mining wallet info. " + ex.Message, userId, "MINING", true);
 				return StatusCode(500, "An unexpected error occurred while fetching mining wallet info");
 			}
 		}
 
-		[HttpPost("/Mining/DailyEarnings", Name = "GetDailyMiningEarnings")]
-		public async Task<IActionResult> GetDailyMiningEarnings([FromBody] User user)
-		{
-			_logger.LogInformation("GET /Mining/DailyEarnings/");
 
+		[HttpPost("/Mining/DailyEarnings", Name = "GetDailyMiningEarnings")]
+		public async Task<IActionResult> GetDailyMiningEarnings([FromBody] int userId)
+		{ 
 			try
 			{
-				var creds = await GetNicehashCredentials(user);
+				var creds = await GetNicehashCredentials(userId);
 				if (creds.Count == 0) return Ok("No Nicehash API present!");
 
 				var res = _api.get(creds, "/main/api/v2/mining/rigs/stats/data", true);
 
 				if (string.IsNullOrEmpty(res))
 				{
-					_logger.LogError("Mining API response is null or empty");
+					_ = _log.Db("Mining API response is null or empty", userId, "MINING", true);
 					return NotFound("Mining API response is null or empty");
 				}
 
@@ -339,24 +359,21 @@ namespace maxhanna.Server.Controllers
 
 				if (wallet == null)
 				{
-					_logger.LogError("Deserialized DailyMiningEarnings object is null");
+					_ = _log.Db("Deserialized DailyMiningEarnings object is null", userId, "MINING", true);
 					return NotFound("Deserialized DailyMiningEarnings object is null");
-				}
-
-				_logger.LogInformation("Found daily mining earnings data for user " + user.Id);
+				} 
 				return Ok(wallet);
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while fetching daily mining earnings info");
+				_ = _log.Db("Error occurred while fetching daily mining earnings info. " + ex.Message, userId, "MINING", true);
 				return StatusCode(500, "An unexpected error occurred while fetching daily mining earnings info");
 			}
 		}
 
 		[HttpPost("/Mining/{rigId}/{deviceId?}", Name = "PostStatusUpdate")]
 		public async Task<IActionResult> PostStatusUpdate(string rigId, string? deviceId, [FromBody] MiningStatusUpdate statusUpdate)
-		{
-			_logger.LogInformation($"POST /Mining/{rigId}/{deviceId}");
+		{ 
 			try
 			{
 				JObject payload = new JObject();
@@ -367,7 +384,7 @@ namespace maxhanna.Server.Controllers
 				}
 				payload.Add(new JProperty("action", statusUpdate.requestedAction));
 
-				var creds = await GetNicehashCredentials(statusUpdate.user);
+				var creds = await GetNicehashCredentials(statusUpdate.userId);
 				if (creds.Count == 0) return Ok("No Nicehash API present!");
 
 				var res = _api.post(creds, "/main/api/v2/mining/rigs/status2", JsonConvert.SerializeObject(payload), true);
@@ -377,7 +394,8 @@ namespace maxhanna.Server.Controllers
 			{
 				return BadRequest(e);
 			}
-		}
+		} 
+
 		private class MiningRigDeviceComparer : IComparer<MiningRigDevice?>
 		{
 			public int Compare(MiningRigDevice? x, MiningRigDevice? y)

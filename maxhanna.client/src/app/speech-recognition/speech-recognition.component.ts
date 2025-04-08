@@ -25,7 +25,7 @@ export class SpeechRecognitionComponent {
       this.recognition.interimResults = false;
       this.recognition.maxAlternatives = 1;
     } else {
-      console.error('SpeechRecognition not supported in this browser.');
+      alert('Speech recognition is not supported in this browser. Currently, this feature is available only on Chrome or Safari.');  
     }
   }
   onResult(transcript: string) { 

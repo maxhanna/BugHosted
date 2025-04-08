@@ -1,5 +1,4 @@
-import { Injectable } from '@angular/core'; 
-import { User } from './datacontracts/user/user';
+import { Injectable } from '@angular/core';  
 import { WordlerGuess } from './datacontracts/wordler/wordler-guess';
 import { WordlerScore } from './datacontracts/wordler/wordler-score';
 
@@ -27,15 +26,15 @@ export class WordlerService {
     }
   }
 
-  async getConsecutiveDayStreak(user: User) {
-    if (!user || user.id == 0) return;
+  async getConsecutiveDayStreak(userId: number) {
+    if (!userId) return;
     try {
       const response = await fetch(`/wordler/getconsecutivedaysstreak`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       if (!response.ok) {
@@ -50,15 +49,15 @@ export class WordlerService {
   }
 
 
-  async getTodaysDayStreak(user: User) {
-    if (!user || user.id == 0) return;
+  async getTodaysDayStreak(userId: number) {
+    if (!userId) return;
     try {
       const response = await fetch(`/wordler/getcurrentstreak`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       if (!response.ok) {
@@ -111,14 +110,14 @@ export class WordlerService {
     }
   }
 
-  async getGuesses(user: User, difficulty: number) {
+  async getGuesses(userId: number, difficulty: number) {
     try {
       const response = await fetch(`/wordler/getguesses/${difficulty}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       if (!response.ok) {
@@ -151,14 +150,14 @@ export class WordlerService {
     }
   }
 
-  async getAllScores(user?: User) {
+  async getAllScores(userId?: number) {
     try {
       const response = await fetch(`/wordler/getallscores`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user ? user : null),
+        body: JSON.stringify(userId ? userId : null),
       });
 
       if (!response.ok) {

@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Todos
 {
 	public class CreateTodo
 	{
-		public CreateTodo(User user, Todo todo)
+		public CreateTodo(int userId, Todo todo)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.todo = todo;
 		}
-		public User user { get; set; }
+		public int userId { get; set; }
 		public Todo todo { get; set; }
 	}
 }

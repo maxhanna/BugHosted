@@ -48,8 +48,8 @@ body {
   margin: 0;
   padding: 0;
   background-image: var(--main-background-image-url);
-  background-size: cover;
-  background-position: center;
+  background-size: contain;
+  background-position: center center;
   background-repeat: no-repeat;
 }
 
@@ -133,7 +133,7 @@ fieldset {
   content: '☰'; 
 }
 .menuBackButton::before {
-  content: '🡰';
+  content: '⤺';
   right: 50px;
   text-shadow: 1px 1px var(--main-link-color);
 }

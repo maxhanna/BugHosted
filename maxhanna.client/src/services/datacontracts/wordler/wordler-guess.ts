@@ -1,6 +1,5 @@
 import { User } from "../user/user";
 
- 
 export interface WordlerGuess {
   user: User;
   attemptNumber: number;

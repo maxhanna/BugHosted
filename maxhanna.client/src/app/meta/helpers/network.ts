@@ -532,9 +532,9 @@ export function subscribeToMainGameEvents(object: any) {
     if (!actionBlocker) {
       //console.log("picking up item: ",data);
       if (data.category) {
-        object.metaService.updateInventory(object.metaHero, data.name, data.imageName, data.category);
+        object.metaService.updateInventory(object.metaHero.id, data.name, data.imageName, data.category);
       } else if (data.item) { 
-        object.metaService.updateBotParts(object.metaHero, [data.item]); 
+        object.metaService.updateBotParts(object.metaHero.id, [data.item]); 
         object.mainScene.inventory.parts.concat(data.item);
 
         const metaEvent = new MetaEvent(0, object.metaHero.id, new Date(), "ITEM_DESTROYED", object.metaHero.map,

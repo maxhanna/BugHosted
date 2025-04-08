@@ -13,13 +13,13 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class AiController : ControllerBase
 	{
-		private readonly ILogger<AiController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly HttpClient _httpClient;
 
-		public AiController(ILogger<AiController> logger, IConfiguration config)
+		public AiController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 			_httpClient = new HttpClient();
 		}
@@ -34,10 +34,7 @@ namespace maxhanna.Server.Controllers
 			if (request.User == null)
 			{
 				return BadRequest("User cannot be null.");
-			}
-
-			_logger.LogInformation($"POST /Ai/SendMessageToAi (user: {request.User.Id})");
-
+			} 
 			try
 			{
 				bool hasExceeded = await HasExceededUsageLimit("text", request.User?.Id ?? 0);
@@ -79,8 +76,8 @@ namespace maxhanna.Server.Controllers
 					var ollamaResponse = await _httpClient.SendAsync(httpRequestMessage, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
 					if (!ollamaResponse.IsSuccessStatusCode)
-					{
-						return StatusCode((int)ollamaResponse.StatusCode, new { Reply = "Error communicating with Ollama API." });
+					{ 
+						return StatusCode((int)ollamaResponse.StatusCode, new { Reply = "Error communicating with Ollama API. " });
 					}
 
 					// Stream the response
@@ -109,7 +106,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error in SendMessageToAi: {ex.Message}");
+				_ = _log.Db($"Error in SendMessageToAi: {ex.Message}", null);
 				return StatusCode(500, new { Reply = "Internal server error." });
 			}
 		}
@@ -126,9 +123,7 @@ namespace maxhanna.Server.Controllers
 			if (request.User == null || request.User.Id == 0)
 			{
 				return BadRequest(new { Reply = "User cannot be null." });
-			}
-
-			_logger.LogInformation($"POST /Ai/GenerateImageWithAi ({request.Message})");
+			} 
 
 			try
 			{
@@ -163,12 +158,11 @@ namespace maxhanna.Server.Controllers
 						jsonContent
 				);
 
-				var responseBody = await response.Content.ReadAsStringAsync();
-				_logger.LogInformation($"Imagen API response: {responseBody}");
+				var responseBody = await response.Content.ReadAsStringAsync(); 
 
 				if (!response.IsSuccessStatusCode)
 				{
-					_logger.LogError($"Imagen API error: {response}");
+					_ = _log.Db($"Imagen API error: {response}", null);
 					return StatusCode((int)response.StatusCode, new { Reply = $"Error communicating with Imagen API: {responseBody}" });
 				}
 
@@ -176,7 +170,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error in GenerateImageWithAi: {ex.Message}");
+				_ = _log.Db($"Error in GenerateImageWithAi: {ex.Message}", null);
 				return StatusCode(500, new { Reply = "Internal server error." });
 			}
 		} 
@@ -216,10 +210,7 @@ namespace maxhanna.Server.Controllers
 				using var cmdTextUser = new MySqlCommand(sql, conn);
 				cmdTextUser.Parameters.AddWithValue("@userId", userId);
 				long userCount = (long)(await cmdTextUser.ExecuteScalarAsync() ?? 0L);
-
-				_logger.LogDebug($"Global text requests in last hour: {globalCount} (Limit: {MaxTextRequestsPerHourGlobal})");
-				_logger.LogDebug($"User {userId} text requests in last hour: {userCount} (Limit: {MaxTextRequestsPerHourUser})");
-
+				 
 				// Return true if either limit is exceeded
 				return globalCount >= MaxTextRequestsPerHourGlobal || userCount >= MaxTextRequestsPerHourUser;
 			}
@@ -235,7 +226,7 @@ namespace maxhanna.Server.Controllers
 
 				using var cmdImage = new MySqlCommand(sql, conn);
 				currentCount = (long)(await cmdImage.ExecuteScalarAsync() ?? 0L); 
-				_logger.LogDebug($"Current image requests this month: {currentCount} (Limit: {limit})");
+				_ = _log.Db($"Current image requests this month: {currentCount} (Limit: {limit})", null);
 
 				return currentCount >= limit;
 			} 
@@ -245,7 +236,7 @@ namespace maxhanna.Server.Controllers
 			// Basic validation for callType
 			if (callType != "text" && callType != "image")
 			{
-				_logger.LogWarning($"Invalid callType '{callType}' provided to UpdateUserRequestCount.");
+				_ = _log.Db($"Invalid callType '{callType}' provided to UpdateUserRequestCount.", null);
 				// Decide if you want to throw an exception or just log and potentially skip insert
 				return; // Or throw new ArgumentException("Invalid callType");
 			}

@@ -96,8 +96,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
   async ngOnInit() {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
-    if (user) {
-      this.userService.getUserSettings(user).then(res => {
+    if (user?.id) {
+      this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
         }
@@ -135,7 +135,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     if (confirm(`Delete : ${file.fileName} ?`)) {
       this.startLoading();
       try {
-        const response = await this.fileService.deleteFile(this.user!, file);
+        const response = await this.fileService.deleteFile(this.user?.id ?? 0, file);
         if (response) {
           this.userNotificationEvent.emit(response);
           if (response.includes("successfully")) {
@@ -338,7 +338,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       return;
     }
 
-    const res = await this.fileService.updateFileData(this.user, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
+    const res = await this.fileService.updateFileData(this.user.id ?? 0, { FileId: fileId, GivenFileName: text, Description: '', LastUpdatedBy: this.user || this.inputtedParentRef?.user || new User(0, "Anonymous") });
     if (res) {
       this.userNotificationEvent.emit(res);
       this.isEditing = this.isEditing.filter(x => x != fileId);
@@ -399,7 +399,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
 
       try {
         this.startLoading();
-        const response = await this.fileService.getFile(target, undefined, this.user);
+        const response = await this.fileService.getFile(target, undefined);
         const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
         const a = document.createElement('a');
@@ -475,7 +475,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
       const destinationFolder = specDir ?? (currDir + this.destinationFilename);
       this.startLoading();
       try {
-        const res = await this.fileService.moveFile(this.user!, inputFile, destinationFolder);
+        const user = this.inputtedParentRef?.user ?? this.parentRef?.user; 
+        const userId = user?.id ?? 0;
+        const res = await this.fileService.moveFile(inputFile, destinationFolder, userId);
         this.userNotificationEvent.emit(res!);
         if (!res!.includes("error")) {
           this.directory!.data = this.directory!.data!.filter(x => x.fileName != this.draggedFilename);
@@ -542,9 +544,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
     return this.fileService.formatFileSize(bytes, decimalPoint);
   }
   shareFile(user?: User) {
-    if (!user) return;
+    if (!user?.id) return;
     if (this.selectedSharedFile && this.user) {
-      this.fileService.shareFile(this.user, user, this.selectedSharedFile!.id);
+      this.fileService.shareFile(this.user?.id ?? 0, user.id, this.selectedSharedFile!.id);
     }
     this.selectedSharedFile = undefined;
     this.shareUserListDiv.nativeElement.classList.toggle("open");
@@ -708,7 +710,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   updateFileVisibility(file: FileEntry) {
     file.visibility = file.visibility == "Private" ? "Public" : "Private";
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
-    this.fileService.updateFileVisibility(user, file.visibility == "Private" ? false : true, file.id);
+    this.fileService.updateFileVisibility(user?.id ?? 0, file.visibility == "Private" ? false : true, file.id);
   }
   hide(file: FileEntry) {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -735,12 +737,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit {
   async updateNSFW(event: Event) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
-    if (!user) return alert("You must be logged in to view NSFW content.");
+    if (!user?.id) return alert("You must be logged in to view NSFW content.");
     const isChecked = (event.target as HTMLInputElement).checked;
     this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user, isChecked).then(res => {
+    this.userService.updateNSFW(user.id, isChecked).then(res => {
       if (res) {
-        parent.showNotification(res);
+        parent?.showNotification(res);
         this.getDirectory();   
       }
     });

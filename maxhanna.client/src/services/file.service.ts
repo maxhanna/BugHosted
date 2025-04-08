@@ -80,14 +80,14 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async updateFileData(user: User, fileData: { FileId: number, GivenFileName: string, Description: string, LastUpdatedBy: User }) {
+	async updateFileData(userId: number, fileData: { FileId: number, GivenFileName: string, Description: string, LastUpdatedBy: User }) {
 		try {
 			const response = await fetch(`/file/updatefiledata`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ user, fileData }),
+				body: JSON.stringify({ userId, fileData }),
 			});
 
 			return await response.text();
@@ -95,14 +95,14 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async updateFileVisibility(user: User, isVisible: boolean, fileId: number) {
+	async updateFileVisibility(userId: number, isVisible: boolean, fileId: number) {
 		try {
 			const response = await fetch(`/file/updatefilevisibility`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ User: user, IsVisible: isVisible, FileId: fileId }),
+				body: JSON.stringify({ UserId: userId, IsVisible: isVisible, FileId: fileId }),
 			});
 
 			return await response.text();
@@ -110,14 +110,14 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async createDirectory(user: User, directory: string, isPublic: boolean) {
+	async createDirectory(userId: number, directory: string, isPublic: boolean) {
 		try {
 			const response = await fetch(`/file/makedirectory`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ user, directory, isPublic }),
+				body: JSON.stringify({ userId, directory, isPublic }),
 			});
 
 			return await response.text();
@@ -125,14 +125,13 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async getFile(file: string, options?: { signal: AbortSignal }, user?: User) {
+	async getFile(file: string, options?: { signal: AbortSignal }) {
 		try {
 			const response = await fetch(`/file/getfile/${encodeURIComponent(file)}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(user),
+				}, 
 				signal: options?.signal  // Pass the AbortSignal here
 			});
 
@@ -156,16 +155,16 @@ romFileExtensions = [
 		}
 	}
 
-	async getFileById(fileId: number, options?: { signal: AbortSignal }, user?: User) {
+	async getFileById(fileId: number, options?: { signal: AbortSignal }, userId?: number) {
 		try {
 			const response = await fetch(`/file/getfilebyid/${encodeURIComponent(fileId)}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					'Cache-Control': 'max-age=31536000'
-				},
-				body: JSON.stringify(user),
-				signal: options?.signal
+				}, 
+        signal: options?.signal,
+        body: JSON.stringify(userId)
 			});
 
 			if (options?.signal?.aborted) {
@@ -271,8 +270,8 @@ romFileExtensions = [
 			throw error;
 		}
 	}
-	uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, user?: User, compress?: boolean): Observable<HttpEvent<any>> {
-		formData.append('user', JSON.stringify(user));
+	uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, compress?: boolean): Observable<HttpEvent<any>> {
+    formData.append('userId', userId ? userId + "" : "0");
 		formData.append('isPublic', isPublic + "");
 
 		let dir = '';
@@ -288,7 +287,7 @@ romFileExtensions = [
 
 		return this.http.request(req);
 	}
-	async uploadFile(user: User, form: FormData, directory?: string, isPublic: boolean = true) {
+	async uploadFile(form: FormData, directory?: string) {
 
 		try {
 			const dir = directory ? `?folderPath=${encodeURIComponent(directory)}` : '';
@@ -302,14 +301,14 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async deleteFile(user: User, file: FileEntry) {
+	async deleteFile(userId: number, file: FileEntry) {
 		try {
 			const response = await fetch(`/file/delete`, {
 				method: 'DELETE',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ user, file }),
+				body: JSON.stringify({ userId, file }),
 			});
 
 			return await response.text();
@@ -317,14 +316,14 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async moveFile(user: User, fileFrom: string, fileTo: string) {
+	async moveFile(fileFrom: string, fileTo: string, userId: number) {
 		try {
 			const response = await fetch(`/file/move?inputFile=${encodeURIComponent(fileFrom)}&destinationFolder=${encodeURIComponent(fileTo)}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(user),
+        },
+        body: JSON.stringify(userId),
 			});
 
 			return await response.text();
@@ -332,14 +331,14 @@ romFileExtensions = [
 			return null;
 		}
 	}
-	async shareFile(user: User, user2: User, fileId: number) {
+	async shareFile(userId: number, user2Id: number, fileId: number) {
 		try {
 			const response = await fetch(`/file/share/${fileId}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ user1: user, user2: user2 }),
+				body: JSON.stringify({ user1Id: userId, user2Id: user2Id }),
 			});
 
 			return await response.json();

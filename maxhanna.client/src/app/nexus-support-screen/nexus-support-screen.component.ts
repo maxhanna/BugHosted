@@ -49,7 +49,7 @@ export class NexusSupportScreenComponent implements OnInit {
   async sendBack(nexusAttack: NexusAttackSent) {
     if (!this.user) return;
     if (!nexusAttack.arrived) { return alert("Please wait until the support has arrived before sending it back."); }
-    this.nexusService.returnDefence(this.user, nexusAttack.id);
+    this.nexusService.returnDefence(nexusAttack.id);
      
     nexusAttack.arrived = false;
     nexusAttack.destinationCoordsX = nexusAttack.originCoordsX;

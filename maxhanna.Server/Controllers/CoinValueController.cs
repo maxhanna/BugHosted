@@ -9,19 +9,18 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class CoinValueController : ControllerBase
 	{
-		private readonly ILogger<CoinValueController> _logger;
+		private Log _log;
 		private readonly IConfiguration _config;
 
-		public CoinValueController(ILogger<CoinValueController> logger, IConfiguration config)
+		public CoinValueController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/CoinValue/", Name = "GetAllCoinValues")]
 		public async Task<List<CoinValue>> GetAllCoinValues()
-		{
-			_logger.LogInformation("GET /CoinValue/");
+		{ 
 			var coinValues = new List<CoinValue>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -49,7 +48,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get all coin values.");
+				_ = _log.Db("An error occurred while trying to get all coin values. " + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -61,8 +60,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/GetAllForGraph", Name = "GetAllCoinValuesForGraph")]
 		public async Task<List<CoinValue>> GetAllCoinValuesForGraph()
-		{
-			_logger.LogInformation("GET /CoinValue/GetAllForGraph");
+		{ 
 			var coinValues = new List<CoinValue>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -105,7 +103,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get all coin values.");
+				_ = _log.Db("An error occurred while trying to get all coin values. " + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -117,8 +115,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/GetWalletBalanceData", Name = "GetWalletBalanceData")]
 		public async Task<List<CoinValue>> GetWalletBalanceData([FromBody] string walletAddress)
-		{
-			_logger.LogInformation("GET /CoinValue/GetWalletBalanceData");
+		{ 
 			var coinValues = new List<CoinValue>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -130,9 +127,7 @@ namespace maxhanna.Server.Controllers
 					SELECT 
 							wi.id AS wallet_id,
 							wi.btc_address,
-							wb.final_balance,
-							wb.total_received,
-							wb.total_sent,
+							wb.balance, 
 							wb.fetched_at
 					FROM user_btc_wallet_info wi
 					LEFT JOIN user_btc_wallet_balance wb 
@@ -150,7 +145,7 @@ namespace maxhanna.Server.Controllers
 							Id = reader.GetInt32(reader.GetOrdinal("wallet_id")),
 							Symbol = "BTC",
 							Name = "Bitcoin",
-							ValueCAD = reader.IsDBNull(reader.GetOrdinal("final_balance")) ? 0 : reader.GetDecimal(reader.GetOrdinal("final_balance")),
+							ValueCAD = reader.IsDBNull(reader.GetOrdinal("balance")) ? 0 : reader.GetDecimal(reader.GetOrdinal("balance")),
 							Timestamp = reader.GetDateTime(reader.GetOrdinal("fetched_at"))
 						};
 						coinValues.Add(coinValue);
@@ -159,7 +154,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get all coin values.");
+				_ = _log.Db("An error occurred while trying to GetWalletBalanceData. " + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -172,8 +167,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/", Name = "GetAllCurrencyValues")]
 		public async Task<List<ExchangeRate>> GetAllCurrencyValues()
-		{
-			_logger.LogInformation("GET /CurrencyValue");
+		{ 
 			var exchangeRates = new List<ExchangeRate>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -201,7 +195,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get all exchange rate values.");
+				_ = _log.Db("An error occurred while trying to get all exchange rate values.", null, "COIN", true);
 			}
 			finally
 			{
@@ -214,8 +208,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CurrencyValue/GetAllForGraph", Name = "GetAllCurrencyValuesForGraph")]
 		public async Task<List<ExchangeRate>> GetAllCurrencyValuesForGraph()
-		{
-			_logger.LogInformation("GET /CurrencyValue/GetAllForGraph");
+		{ 
 			var exchangeRates = new List<ExchangeRate>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -224,22 +217,21 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				string sql = @"
-(
-  SELECT id, base_currency, target_currency, rate, timestamp
-  FROM maxhanna.exchange_rates
-  ORDER BY timestamp DESC
-  LIMIT 1000
-)
-UNION ALL
-(
-  SELECT id, base_currency, target_currency, rate, timestamp
-  FROM maxhanna.exchange_rates
-  WHERE timestamp < (SELECT MAX(timestamp) FROM maxhanna.exchange_rates)
-  ORDER BY RAND()
-  LIMIT 5000
-)
-ORDER BY timestamp ASC; 
-";
+					(
+						SELECT id, base_currency, target_currency, rate, timestamp
+						FROM maxhanna.exchange_rates
+						ORDER BY timestamp DESC
+						LIMIT 1000
+					)
+					UNION ALL
+					(
+						SELECT id, base_currency, target_currency, rate, timestamp
+						FROM maxhanna.exchange_rates
+						WHERE timestamp < (SELECT MAX(timestamp) FROM maxhanna.exchange_rates)
+						ORDER BY RAND()
+						LIMIT 5000
+					)
+					ORDER BY timestamp ASC;";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -259,7 +251,7 @@ ORDER BY timestamp ASC;
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get all exchange rate values.");
+				_ = _log.Db("An error occurred while trying to get all exchange rate values. " + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -271,8 +263,7 @@ ORDER BY timestamp ASC;
 
 		[HttpPost("/CoinValue/GetLatest/", Name = "GetLatestCoinValues")]
 		public async Task<List<CoinValue>> GetLatestCoinValues()
-		{
-			_logger.LogInformation("POST /CoinValue/GetLatest");
+		{ 
 			var coinValues = new List<CoinValue>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -309,7 +300,7 @@ ORDER BY timestamp ASC;
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get the latest coin values.");
+				_ = _log.Db("An error occurred while trying to get the latest coin values.", null, "COIN", true);
 			}
 			finally
 			{
@@ -322,8 +313,7 @@ ORDER BY timestamp ASC;
 
 		[HttpPost("/CurrencyValue/GetLatest/", Name = "GetLatestCurrencyValues")]
 		public async Task<List<ExchangeRate>> GetLatestCurrencyValues()
-		{
-			_logger.LogInformation("POST /CurrencyValue/GetLatest");
+		{ 
 			var exchangeRates = new List<ExchangeRate>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -360,7 +350,7 @@ ORDER BY timestamp ASC;
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get the latest coin values.");
+				_ = _log.Db("An error occurred while trying to get the latest coin values.", null, "COIN", true);
 			}
 			finally
 			{
@@ -373,8 +363,7 @@ ORDER BY timestamp ASC;
 
 		[HttpPost("/CurrencyValue/GetUniqueNames/", Name = "GetUniqueCurrencyValueNames")]
 		public async Task<List<string>> GetUniqueCurrencyValueNames()
-		{
-			_logger.LogInformation("POST /CurrencyValue/GetUniqueNames");
+		{ 
 			var currencies = new List<string>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -395,7 +384,7 @@ ORDER BY timestamp ASC;
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get the currency values.");
+				_ = _log.Db("An error occurred while trying to get the currency values." + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -407,8 +396,7 @@ ORDER BY timestamp ASC;
 
 		[HttpPost("/CurrencyValue/UpdateUserCurrency/", Name = "UpdateUserCurrency")]
 		public async Task<IActionResult> UpdateUserCurrency([FromBody] UserCurrencyUpdateRequest req)
-		{
-			_logger.LogInformation("POST /CurrencyValue/UpdateUserCurrency");
+		{ 
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
@@ -424,7 +412,7 @@ ORDER BY timestamp ASC;
 
 					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@userId", req.User.Id);
+						cmd.Parameters.AddWithValue("@userId", req.UserId);
 						cmd.Parameters.AddWithValue("@currency", req.Currency);
 
 						await cmd.ExecuteNonQueryAsync();
@@ -432,7 +420,7 @@ ORDER BY timestamp ASC;
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError($"Error updating user currency: {ex.Message}");
+					_ = _log.Db($"Error updating user currency: {ex.Message}", req.UserId, "COIN", true);
 					BadRequest(ex);
 				}
 			}
@@ -442,10 +430,8 @@ ORDER BY timestamp ASC;
 
 
 		[HttpPost("/CurrencyValue/GetUserCurrency/", Name = "GetUserCurrency")]
-		public async Task<IActionResult> GetUserCurrency([FromBody] User user)
-		{
-			_logger.LogInformation("POST /CurrencyValue/GetUserCurrency");
-
+		public async Task<IActionResult> GetUserCurrency([FromBody] int userId)
+		{  
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
@@ -459,7 +445,7 @@ ORDER BY timestamp ASC;
 
 					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@userId", user.Id);
+						cmd.Parameters.AddWithValue("@userId", userId);
 
 						object? result = await cmd.ExecuteScalarAsync();
 
@@ -475,7 +461,7 @@ ORDER BY timestamp ASC;
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError($"Error retrieving user currency: {ex.Message}");
+					_ = _log.Db($"Error retrieving user currency: {ex.Message}", userId, "COIN", true);
 					return StatusCode(500, "An error occurred while fetching the user currency.");
 				}
 			}
@@ -485,9 +471,8 @@ ORDER BY timestamp ASC;
 
 		[HttpPost("/CoinValue/GetLatestByName/{name}", Name = "GetLatestCoinValuesByName")]
 		public async Task<CoinValue> GetLatestCoinValuesByName(string name)
-		{
-			_logger.LogInformation($"POST /CoinValue/GetLatestByName/{name}");
-			var coinValues = new CoinValue();
+		{ 
+			var coinValue = new CoinValue();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
@@ -510,7 +495,7 @@ ORDER BY timestamp ASC;
 					{
 						while (await reader.ReadAsync())
 						{
-							var coinValue = new CoinValue
+							var tmpCoinValue = new CoinValue
 							{
 								Id = reader.GetInt32(reader.GetOrdinal("id")),
 								Symbol = reader.IsDBNull(reader.GetOrdinal("symbol")) ? null : reader.GetString(reader.GetOrdinal("symbol")),
@@ -518,28 +503,26 @@ ORDER BY timestamp ASC;
 								ValueCAD = reader.IsDBNull(reader.GetOrdinal("value_cad")) ? 0 : reader.GetDecimal(reader.GetOrdinal("value_cad")),
 								Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp"))
 							};
-							return coinValue;
+							return tmpCoinValue;
 						}
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get the latest coin values by name.");
+				_ = _log.Db("An error occurred while trying to get the latest coin values by name." + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
 				await conn.CloseAsync();
 			}
 
-			return coinValues;
+			return coinValue;
 		}
 
 		[HttpPost("/CoinValue/IsBTCRising", Name = "IsBTCRising")]
 		public async Task<bool> IsBTCRising()
-		{
-			_logger.LogInformation("POST /CoinValue/IsBTCRising");
-
+		{  
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -567,8 +550,7 @@ ORDER BY timestamp ASC;
 					if (await reader.ReadAsync())
 					{
 						var latestPrice = reader.IsDBNull(0) ? (decimal?)null : reader.GetDecimal(0);
-						var previousPrice = reader.IsDBNull(1) ? (decimal?)null : reader.GetDecimal(1);
-						//Console.WriteLine($"latestPrice : {latestPrice} versus previousPrice: {previousPrice}");
+						var previousPrice = reader.IsDBNull(1) ? (decimal?)null : reader.GetDecimal(1); 
 
 						if (latestPrice.HasValue && previousPrice.HasValue)
 						{
@@ -579,7 +561,7 @@ ORDER BY timestamp ASC;
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while checking if BTC is rising.");
+				_ = _log.Db("An error occurred while checking if BTC is rising." + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -593,8 +575,7 @@ ORDER BY timestamp ASC;
 
 		[HttpPost("/CurrencyValue/GetLatestByName/{name}", Name = "GetLatestCurrencyValuesByName")]
 		public async Task<ExchangeRate> GetLatestCurrencyValuesByName(string name)
-		{
-			_logger.LogInformation($"POST /CurrencyValue/GetLatestCurrencyValuesByName/{name}");
+		{ 
 			var exchangeRates = new ExchangeRate();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -633,7 +614,7 @@ ORDER BY timestamp ASC;
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while trying to get the latest coin values by name.");
+				_ = _log.Db("An error occurred while trying to get the latest coin values by name. " + ex.Message, null, "COIN", true);
 			}
 			finally
 			{
@@ -642,6 +623,231 @@ ORDER BY timestamp ASC;
 
 			return exchangeRates;
 		}
+
+
+
+		[HttpPost("/CoinValue/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
+		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request)
+		{ 
+			if (request.UserId == 0)
+			{
+				return BadRequest("User missing from AddBTCWalletAddress request");
+			}
+
+			if (request.Wallets == null || request.Wallets.Length == 0)
+			{
+				return BadRequest("Wallets missing from AddBTCWalletAddress request");
+			}
+
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				int rowsAffected = 0;
+
+				using (var transaction = await conn.BeginTransactionAsync())
+				{
+					using (var cmd = conn.CreateCommand())
+					{
+						cmd.Transaction = transaction;
+
+						// Define the base SQL command with parameters for insertion
+						cmd.CommandText = @"
+                    INSERT INTO user_btc_wallet_info 
+                    (user_id, btc_address, last_fetched) 
+                    VALUES (@UserId, @BtcAddress, UTC_TIMESTAMP())
+                    ON DUPLICATE KEY UPDATE 
+                        btc_address = VALUES(btc_address),
+                        last_fetched = VALUES(last_fetched);";
+
+						// Add parameters
+						cmd.Parameters.AddWithValue("@UserId", request.UserId);
+						cmd.Parameters.Add("@BtcAddress", MySqlDbType.VarChar);
+
+						// Execute the insert for each wallet address
+						foreach (string wallet in request.Wallets)
+						{
+							cmd.Parameters["@BtcAddress"].Value = wallet;
+							rowsAffected += await cmd.ExecuteNonQueryAsync();
+						}
+
+						// Commit the transaction
+						await transaction.CommitAsync();
+					}
+				}
+
+				return Ok(new { Message = $"{rowsAffected} wallet(s) added or updated successfully." });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error adding or updating BTC wallet addresses. " + ex.Message, request.UserId, "USER", true);
+				return StatusCode(500, "An error occurred while adding wallet addresses");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+		}
+
+		[HttpPost("/CoinValue/BTCWallet/GetBTCWalletData", Name = "GetBTCWalletData")]
+		public async Task<IActionResult> GetBTCWalletData([FromBody] int userId)
+		{
+			try
+			{
+				// Call the private method to get wallet info from the database
+				CryptoWallet? miningWallet = await GetMiningWalletFromDb(userId);
+
+				if (miningWallet != null && miningWallet.currencies != null && miningWallet.currencies.Count > 0)
+				{
+					return Ok(miningWallet); // Return the MiningWallet object as the response
+				}
+				else
+				{
+					return NotFound("No BTC wallet addresses found for the user."); // Return NotFound if no addresses found
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while processing GetBTCWalletAddresses. " + ex.Message, userId, "USER", true);
+				return StatusCode(500, "An error occurred while processing the request.");
+			}
+		}
+
+		[HttpPost("/CoinValue/BTCWallet/DeleteBTCWalletAddress", Name = "DeleteBTCWalletAddress")]
+		public async Task<IActionResult> DeleteBTCWalletAddress([FromBody] DeleteCryptoWalletAddress request)
+		{ 
+			if (request.UserId == 0)
+			{
+				return BadRequest("You must be logged in");
+			}
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				int rowsAffected = 0;
+
+				using (var transaction = await conn.BeginTransactionAsync())
+				{
+					using (var cmd = conn.CreateCommand())
+					{
+						cmd.Transaction = transaction;
+
+						// Define the base SQL command with parameters for insertion
+						cmd.CommandText = @"DELETE FROM maxhanna.user_btc_wallet_info WHERE user_id = @UserId AND btc_address = @Address LIMIT 1;";
+
+						// Add parameters
+						cmd.Parameters.AddWithValue("@UserId", request.UserId);
+						cmd.Parameters.AddWithValue("@Address", request.Address);
+
+						rowsAffected += await cmd.ExecuteNonQueryAsync();
+
+
+						// Commit the transaction
+						await transaction.CommitAsync();
+					}
+				}
+
+				return Ok(new { Message = $"{rowsAffected} wallet addresses(s) deleted successfully." });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error adding or updating BTC wallet addresses. " + ex.Message, request.UserId, "USER", true);
+				return StatusCode(500, "An error occurred while adding wallet addresses");
+			}
+			finally
+			{
+				await conn.CloseAsync();
+			}
+		}
+
+		private async Task<CryptoWallet?> GetMiningWalletFromDb(int? userId)
+		{
+			if (userId == null) { return null; }
+			var miningWallet = new CryptoWallet
+			{
+				total = new Total
+				{
+					currency = "BTC",
+					totalBalance = "0",
+					available = "0",
+					debt = "0",
+					pending = "0"
+				},
+				currencies = new List<Currency>()
+			};
+
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql = @"
+                SELECT 
+										wi.btc_address, 
+										wb.balance,  
+										wb.fetched_at
+								FROM user_btc_wallet_info wi
+								LEFT JOIN user_btc_wallet_balance wb ON wi.id = wb.wallet_id
+								WHERE wi.user_id = @UserId 
+								AND wb.fetched_at = (
+										SELECT MAX(fetched_at) 
+										FROM user_btc_wallet_balance 
+										WHERE wallet_id = wi.id
+								);";
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+
+						using (var reader = await cmd.ExecuteReaderAsync())
+						{
+							decimal totalBalance = 0;
+							decimal totalAvailable = 0;
+
+							while (await reader.ReadAsync())
+							{
+								// Retrieve the final balance as Int64 and convert to decimal
+								decimal finalBalance = reader.GetDecimal("balance"); 
+								string address = reader.GetString("btc_address"); 
+								var currency = new Currency
+								{
+									active = true,
+									address = address,
+									currency = "BTC",
+									totalBalance = finalBalance.ToString("F8"),
+									available = finalBalance.ToString("F8"),
+									debt = "0",
+									pending = "0",
+									btcRate = 1,
+									fiatRate = null,
+									status = "active"
+								};
+
+								miningWallet.currencies.Add(currency);
+
+								// Accumulate totals
+								totalBalance += finalBalance;
+								totalAvailable += finalBalance;
+							}
+
+							// Update totals in MiningWallet
+							miningWallet.total.totalBalance = totalBalance.ToString("F8");
+							miningWallet.total.available = totalAvailable.ToString("F8");
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while fetching wallet data from the database. " + ex.Message, userId, "USER", true);
+				throw;
+			}
+
+			return miningWallet;
+		}
+
+
 	}
 
 	public class CoinValue

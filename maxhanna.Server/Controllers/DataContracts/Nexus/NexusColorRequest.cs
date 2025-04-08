@@ -1,15 +1,13 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
 	public class NexusColorRequest
 	{
-		public NexusColorRequest(User user, string? color)
+		public NexusColorRequest(int userId, string? color)
 		{
-			this.User = user;
+			this.UserId = userId;
 			this.Color = color;
 		}
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public string? Color { get; set; }
 	}
 }

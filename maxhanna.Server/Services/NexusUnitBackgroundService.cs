@@ -5,7 +5,7 @@ namespace maxhanna.Server.Services
 	{
 		private readonly IConfiguration _config;
 		private readonly IServiceProvider _serviceProvider;
-		private readonly ILogger<NexusController> _logger;
+		private readonly Log _log;
 
 		private Timer _checkForNewUnitsTimer;
 		private Timer _processUnitQueueTimer;
@@ -13,13 +13,10 @@ namespace maxhanna.Server.Services
 		private int timerDuration = 1;
 
 
-		public NexusUnitBackgroundService(IConfiguration config)
+		public NexusUnitBackgroundService(IConfiguration config, Log log)
 		{
 			_config = config;
-			var serviceCollection = new ServiceCollection();
-			ConfigureServices(serviceCollection);
-			_serviceProvider = serviceCollection.BuildServiceProvider();
-			_logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+			_log = log;
 		}
 		private void ConfigureServices(IServiceCollection services)
 		{
@@ -59,7 +56,7 @@ namespace maxhanna.Server.Services
 		private async Task LoadAndScheduleExistingPurchases(CancellationToken stoppingToken)
 		{
 
-			var nexusController = new NexusController(_logger, _config);
+			var nexusController = new NexusController(_log, _config);
 			await nexusController.UpdateNexusUnitTrainingCompletes();
 		}
 

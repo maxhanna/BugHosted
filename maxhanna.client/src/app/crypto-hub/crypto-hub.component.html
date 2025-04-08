@@ -180,8 +180,7 @@
     <div *ngIf="isTradebotBalanceShowing && tradebotBalances?.length" class="mainTableContainer">
       <table class="mainTable">
         <thead>
-          <tr>
-            <th></th> 
+          <tr> 
             <th class="xxSmallFont">From Currency</th>
             <th class="xxSmallFont">To Currency</th>
             <th class="xxSmallFont">Value</th>
@@ -190,8 +189,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let trade of tradebotBalances">
-            <td class="xxSmallFont">{{ trade.id }}</td> 
+          <tr *ngFor="let trade of tradebotBalances"> 
             <td class="xxSmallFont">{{ trade.from_currency }}</td>
             <td class="xxSmallFont">{{ trade.to_currency }}</td>
             <td class="xxSmallFont">{{ trade.value }}</td>

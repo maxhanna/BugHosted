@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Crypto
 {
 	public class CreateNicehashApiCredentials
 	{
-		public CreateNicehashApiCredentials(User user, NicehashApiKeys keys)
+		public CreateNicehashApiCredentials(int userId, NicehashApiKeys keys)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.keys = keys;
 		}
-		public User user { get; set; }
+		public int userId { get; set; }
 		public NicehashApiKeys keys { get; set; }
 	}
 }

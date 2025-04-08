@@ -8,7 +8,7 @@ import { Topic } from './datacontracts/topics/topic';
   providedIn: 'root'
 })
 export class SocialService {
-  async getStories(user?: User, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false) {
+  async getStories(userId?: number, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false) {
     let params = new URLSearchParams();
     if (search)
       params.append("search", search);
@@ -27,7 +27,7 @@ export class SocialService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, ProfileUserId: profileUserId, StoryId: storyId }),
+        body: JSON.stringify({ UserId: userId, ProfileUserId: profileUserId, StoryId: storyId }),
       });
 
       if (!res.ok) {
@@ -40,14 +40,14 @@ export class SocialService {
     }
   }
 
-  async postStory(user: User, story: Story, profileStoryId?: number) {
+  async postStory(userId: number, story: Story, profileStoryId?: number) {
     try {
       const res = await fetch('/social/post-story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, story, profileStoryId }),
+        body: JSON.stringify({ userId, story, profileStoryId }),
       });
 
       if (!res.ok) {
@@ -60,14 +60,14 @@ export class SocialService {
     }
   }
 
-  async deleteStory(user: User, story: Story) {
+  async deleteStory(userId: number, story: Story) {
     try {
       const res = await fetch('/social/delete-story', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, story }),
+        body: JSON.stringify({ userId, story }),
       });
 
       if (!res.ok) {
@@ -98,14 +98,14 @@ export class SocialService {
       return 'Error editing story';
     }
   }
-  async editTopics(user: User, story: Story, topics: Topic[]) {
+  async editTopics(story: Story, topics: Topic[]) {
     try {
       const res = await fetch('/social/edit-topics', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Topics: topics, Story: story, User: user }),
+        body: JSON.stringify({ Topics: topics, Story: story }),
       });
 
       if (!res.ok) {

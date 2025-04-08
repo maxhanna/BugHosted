@@ -7,14 +7,14 @@ import { HttpErrorResponse } from '@angular/common/http';
   providedIn: 'root'
 })
 export class FavouriteService {
-  async getFavourites(user: User, search?: string) {
+  async getFavourites(search?: string, page = 1, pageSize = 10) {
     try {
       const response = await fetch(`/favourite/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json', 
         },
-        body: JSON.stringify({ User: user, Search: search }),  
+        body: JSON.stringify({ Search: search, Page: page, PageSize: pageSize }),  
       });
 
       return await response.json(); // Parse JSON response 
@@ -23,14 +23,14 @@ export class FavouriteService {
     }
   }
 
-  async addFavourite(user: User, favoriteId: number) {
+  async addFavourite(userId: number, favoriteId: number) {
     try {
       const response = await fetch(`/favourite/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, FavouriteId: favoriteId }),
+        body: JSON.stringify({ UserId: userId, FavouriteId: favoriteId }),
       });
 
       return await response.text();
@@ -39,14 +39,14 @@ export class FavouriteService {
     }
   } 
 
-  async removeFavourite(user: User, favoriteId: number) {
+  async removeFavourite(userId: number, favoriteId: number) {
     try {
       const response = await fetch(`/favourite/remove`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, FavouriteId: favoriteId }),
+        body: JSON.stringify({ UserId: userId, FavouriteId: favoriteId }),
       });
 
       return await response.text();
@@ -55,14 +55,14 @@ export class FavouriteService {
     }
   } 
 
-  async deleteFavourite(user: User, favoriteId: number) {
+  async deleteFavourite(userId: number, favoriteId: number) {
     try {
       const response = await fetch(`/favourite/delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, FavouriteId: favoriteId }),
+        body: JSON.stringify({ UserId: userId, FavouriteId: favoriteId }),
       });
 
       return await response.text();
@@ -92,14 +92,14 @@ export class FavouriteService {
     }
   }
 
-  async getUserFavourites(user: User) {
+  async getUserFavourites(userId: number) {
     try {
       const response = await fetch(`/favourite/user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: user.id }), 
+        body: JSON.stringify({ UserId: userId }), 
       });
 
       return await response.json();

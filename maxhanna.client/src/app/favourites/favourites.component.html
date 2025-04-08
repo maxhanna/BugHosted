@@ -7,6 +7,16 @@
   <div class=topLinks>
     <input #linkInput placeholder="URL" (input)="linkUrlInput()" />
     <button (click)="addLink()" *ngIf="showNameImageInput" [disabled]="isLoading">💾Create</button>
+    <div *ngIf="showingLatestLinks">
+      <input [placeholder]="page" (change)="pageChanged($event)" style="width: 20px;" />
+      <select (change)="pageSizeChanged($event)">
+        <option value="" disabled selected>Page size</option>
+        <option>10</option>
+        <option>20</option>
+        <option>50</option>
+        <option>100</option>
+      </select>
+    </div>
     <div *ngIf="favouriteSearch.length > 0">
       <div class="miniTitle">{{ showingLatestLinks ? 'Latest' : 'Existing' }} Links:</div>
       <div class="favouriteListWrapper">
@@ -28,7 +38,7 @@
           </button>
         </div>
       </div>
-    </div> 
+    </div>
     <div *ngIf="!showNameImageInput && !showingLatestLinks && !isSearchingUrls">
       <div class="miniTitle">Your Favs:</div>
       <div class="favouriteListWrapper">

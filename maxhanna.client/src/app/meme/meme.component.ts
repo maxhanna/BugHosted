@@ -37,8 +37,8 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
 
   ngOnInit() {
     const user = this.parentRef?.user;
-    if (user) {
-      this.userService.getUserSettings(user).then(res => {
+    if (user?.id) {
+      this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
         }
@@ -85,10 +85,10 @@ export class MemeComponent extends ChildComponent implements OnInit, OnDestroy  
   }
   async updateNSFW(event: Event) { 
     const user = this.parentRef?.user;
-    if (!user) return alert("You must be logged in to view NSFW content.");
+    if (!user?.id) return alert("You must be logged in to view NSFW content.");
     const isChecked = (event.target as HTMLInputElement).checked;
     this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user, isChecked).then(res => {
+    this.userService.updateNSFW(user.id, isChecked).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
         this.fileSearchComponent.getDirectory();

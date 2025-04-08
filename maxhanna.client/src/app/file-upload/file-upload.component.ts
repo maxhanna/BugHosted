@@ -115,7 +115,7 @@ export class FileUploadComponent implements OnDestroy {
         const formData = new FormData();
         formData.append('files', file);
         const compress = this.compressCheckbox?.nativeElement?.checked ?? true;
-        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user, compress);
+        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user?.id, compress);
         if (uploadReq) {
           uploadReq.subscribe({
             next: async (event) => {

@@ -76,7 +76,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     if (this.searchInput.nativeElement.value.trim() != '') {
       search = this.searchInput.nativeElement.value.trim();
     } 
-    const fsRes = await this.userService.getAllUsers(this.user, search);
+    const fsRes = await this.userService.getAllUsers(search);
     if (fsRes) {
       this.usersSearched = fsRes;
     } else { 
@@ -86,7 +86,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   async getUsers() {
     const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
     if (!this.friendsRadio || this.friendsRadio.nativeElement?.checked) {
-      const fsRes = await this.friendService.getFriends(user);
+      const fsRes = await this.friendService.getFriends(user.id ?? 0);
       if (fsRes) {
         this.users = fsRes;
         if (this.users.length == 0) { 
@@ -96,7 +96,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       }
     }
     else {
-      const fsRes = await this.userService.getAllUsers(user);
+      const fsRes = await this.userService.getAllUsers();
       if (fsRes) {
         this.users = fsRes;
       } else {
@@ -105,7 +105,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       }
     } 
 
-    await this.chatService.getGroupChats(user).then(res => {
+    await this.chatService.getGroupChats(user.id).then(res => {
       if (res) {
         this.messageRows = res;
       } else {
@@ -114,7 +114,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     });
 
     if (!this.displayRadioFilters && this.messageRows.length == 0) {
-      const fsRes = await this.userService.getAllUsers(user);
+      const fsRes = await this.userService.getAllUsers();
       if (fsRes) {
         this.users = fsRes;
       } else {
@@ -165,7 +165,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
 
   async getChatNotifications() {
     if (this.user) {
-      const chatNotifsRes = await this.chatService.getChatNotificationsByUser(this.user);
+      const chatNotifsRes = await this.chatService.getChatNotificationsByUser(this.user.id);
       if (chatNotifsRes) {
         this.chatNotifications = chatNotifsRes;
       }

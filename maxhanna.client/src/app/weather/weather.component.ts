@@ -29,7 +29,7 @@ export class WeatherComponent extends ChildComponent implements OnInit {
   }
   async getLocation() {
     try {
-      const res = await this.weatherService.getWeatherLocation(this.parentRef?.user!);
+      const res = await this.weatherService.getWeatherLocation(this.parentRef?.user?.id ?? 0);
       if (res && res.city) {
         this.city = res.city;
       }
@@ -41,7 +41,7 @@ export class WeatherComponent extends ChildComponent implements OnInit {
   async getForecasts() {
     this.startLoading();
 
-    const res = await this.weatherService.getWeather(this.parentRef?.user!);
+    const res = await this.weatherService.getWeather(this.parentRef?.user?.id ?? 0);
     if (res) {
       this.weather = res;
       this.collapsedDays = res.forecast.forecastday.map((day: { date: any; }) => day.date);

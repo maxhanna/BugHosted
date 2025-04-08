@@ -23,8 +23,8 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async ngOnInit() {
     let preventLoadNews = false;
-    if (this.parentRef?.user) {
-      this.newsService.getDefaultSearch(this.parentRef.user).then(res => {
+    if (this.parentRef?.user?.id) {
+      this.newsService.getDefaultSearch(this.parentRef.user.id).then(res => {
         if (res) {
           setTimeout(() => {
             this.defaultSearch = res;
@@ -55,7 +55,7 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
       if (data) {
         this.newsArticles = data;
       } else {
-        this.newsArticles = await this.newsService.getAllNews(this.parentRef?.user!) as ArticlesResult;
+        this.newsArticles = await this.newsService.getAllNews() as ArticlesResult;
 
         if (this.newsArticles == null) {
           this.parentRef?.showNotification("Error fetching news data"); 
@@ -84,7 +84,7 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
     try {
       const keywords = this.searchKeywords.nativeElement.value;
       if (!keywords) { return alert("You must enter some keywords"); }
-      const response = await this.newsService.searchNews(this.parentRef?.user!, keywords);
+      const response = await this.newsService.searchNews(keywords);
       if (response == null) {
         this.parentRef?.showNotification("Error fetching news data"); 
         return;
@@ -108,8 +108,8 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
   } 
   saveDefaultSearch() {
     const text = this.defaultSearchInput.nativeElement.value;
-    if (this.parentRef?.user) { 
-      this.newsService.saveDefaultSearch(this.parentRef.user, text).then(res => {
+    if (this.parentRef?.user?.id) {
+      this.newsService.saveDefaultSearch(this.parentRef.user.id, text).then(res => {
         if (res) { 
           this.parentRef?.showNotification(res);
         }
@@ -118,9 +118,9 @@ export class NewsComponent extends ChildComponent implements OnInit, OnDestroy {
     console.log(text);
   }
   saveArticle(article: Article) {
-    if (this.parentRef?.user) {
+    if (this.parentRef?.user?.id) {
       let text = article.title + "\n" + article.content + "\n" + article.url;
-      this.notepadService.addNote(this.parentRef.user, text).then(res => { 
+      this.notepadService.addNote(this.parentRef.user.id, text).then(res => { 
         this.parentRef?.createComponent("Notepad", { "inputtedSearch": text });  
       }); 
     }

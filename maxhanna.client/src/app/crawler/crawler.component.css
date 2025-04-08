@@ -18,7 +18,7 @@
 }
 
 .crawler-container img {
-  max-width: 50px;
+  width: 50px;
   max-height: 50px;
 }
 
@@ -82,18 +82,9 @@
   text-align: left;
 }
 
-.imageUrlPictureDiv {
-  margin: 2px;
-  position: relative;
-  top: -15px;
-  left: calc(100% - 60px);
-  width: 0px;
-  height: 0px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-content: center;
-  flex-direction: column;
+.imageUrlPictureDiv { 
+  width: 50px;
+  height: 50px; 
 }
 
 .keywordsClass, .authorClass {
@@ -125,4 +116,13 @@
 }
 .metadataTitleLinkFavouriteWrapper button {
   cursor: pointer;
+}
+.groupLinkWrapperDiv {
+  min-height: 50px; 
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+}
+.groupLinkDataWrapperDiv {
+  width: CALC(100% - 50px);
 }

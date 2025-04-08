@@ -1,10 +1,12 @@
-﻿using MySqlConnector;
+﻿using maxhanna.Server.Controllers.DataContracts.Users;
+using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
+using static maxhanna.Server.Controllers.AiController;
 
 public class KrakenService
 {
@@ -15,21 +17,16 @@ public class KrakenService
 	private const decimal _BTCPriceDiscrepencyStopPercentage = 0.10m;
 	private const decimal _InitialMinimumBTCAmountToStart = 0.001999m;
 	private readonly HttpClient _httpClient;
-	private static IConfiguration? _config;
-	private readonly string _apiKey;
-	private readonly string _privateKey;
-	private readonly string _baseAddr = "https://api.kraken.com/";
-	private readonly byte[] _privateKeyBytes; // Store as bytes
+	private static IConfiguration? _config; 
+	private readonly string _baseAddr = "https://api.kraken.com/"; 
 	private long _lastNonce;
+	private readonly Log _log;
 
-	public KrakenService(IConfiguration config)
+	public KrakenService(IConfiguration config, Log log)
 	{
 		_config = config;
-		_httpClient = new HttpClient();
-		_apiKey = _config.GetValue<string>("Kraken:ApiKey")?.Trim() ?? "";
-		_privateKey = _config.GetValue<string>("Kraken:PrivateKey")?.Trim() ?? "";
-		_privateKeyBytes = ValidateAndDecodePrivateKey(_privateKey); // Store decoded bytes
-
+		_log = log;
+		_httpClient = new HttpClient();  
 	}
 
 	public async Task<bool> MakeATrade(int userId = 1)
@@ -38,13 +35,19 @@ public class KrakenService
 		int? minutesSinceLastTrade = await GetMinutesSinceLastTrade(userId);
 		if (minutesSinceLastTrade != null && minutesSinceLastTrade < 15)
 		{
-			Console.WriteLine($"User is in cooldown for another {(15 - minutesSinceLastTrade)} minutes. Trade Cancelled.");
+			_ = _log.Db("User is in cooldown for another " + (15 - minutesSinceLastTrade) + " minutes. Trade Cancelled.", userId, "TRADE"); 
+			return false;
+		}
+		UserKrakenApiKey? keys = await GetApiKey(userId);
+		if (keys == null || string.IsNullOrEmpty(keys.ApiKey) || string.IsNullOrEmpty(keys.PrivateKey))
+		{ 
+			_ = _log.Db("No API keys found for this user", userId, "TRADE"); 
 			return false;
 		}
 		decimal? lastBTCValueCad = await IsSystemUpToDate();
 		if (lastBTCValueCad == null)
 		{
-			Console.WriteLine("System is not up to date. Cancelling trade");
+			_ = _log.Db("System is not up to date. Cancelling trade.", userId, "TRADE");
 			return false;
 		}
 
@@ -59,31 +62,26 @@ public class KrakenService
 		// 3. If no last trade, we must equalize — get balances now
 		if (forceEqualizationCauseNoLastTrade || lastTrade == null)
 		{
-			await TradeHalfBTCForUSDC(userId);
+			await TradeHalfBTCForUSDC(userId, keys);
 			return false;
 		}
 
 		// 4. Calculate spread
 		decimal.TryParse(lastTrade.btc_price_cad, out decimal lastPrice);
 		decimal currentPrice = lastBTCValueCad.Value;
-		decimal spread = (currentPrice - lastPrice) / lastPrice; 
+		decimal spread = (currentPrice - lastPrice) / lastPrice;
 
 		if (Math.Abs(spread) >= _TradeThreshold)
 		{
 			// 5. Now we know a trade is needed — fetch balances
-			var balances = await GetBalance();
+			var balances = await GetBalance(userId, keys);
 			if (balances == null)
 			{
-				Console.WriteLine("Failed to get wallet balances");
+				_ = _log.Db("Failed to get wallet balances", userId, "TRADE");
 				return false;
-			}
-			Console.WriteLine("Balances: ");
-			foreach (var pair in balances)
-			{
-				Console.WriteLine($"{pair.Key}: {pair.Value}");
-			}
+			}  
 
-			var btcPriceToCad = await GetBtcPriceToCad();
+			var btcPriceToCad = await GetBtcPriceToCad(userId, keys);
 			if (!ValidatePriceDiscrepency(currentPrice, btcPriceToCad))
 			{
 				return false;
@@ -96,41 +94,40 @@ public class KrakenService
 			{
 				decimal btcToTrade = btcBalance * _ValueTradePercentage;
 				decimal? usdToCadRate = await GetUsdToCadRate();
-				Console.WriteLine("USD to CAD rate: " + usdToCadRate.Value + "; btcPriceToCad: " + btcPriceToCad);
+				_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value + "; btcPriceToCad: " + btcPriceToCad, userId, "TRADE", true);
 				if (usdToCadRate.HasValue && btcPriceToCad.HasValue && (btcToTrade > 0))
 				{
 					// Convert the BTC price to USD
 					decimal btcPriceInUsd = btcPriceToCad.Value / usdToCadRate.Value;
 
 					// Now you can get the value of btcToTrade in USDC (1 USDC = 1 USD) 
-					decimal btcValueInUsdc = btcToTrade * btcPriceInUsd; 
-					Console.WriteLine($"BTC to trade in USDC: {btcValueInUsdc}");
-					if (Is90PercentOfTotalWorth(btcValueInUsdc, usdcBalance)) 
+					decimal btcValueInUsdc = btcToTrade * btcPriceInUsd;
+					_ = _log.Db($"BTC to trade in USDC: {btcValueInUsdc}", userId, "TRADE", true); 
+					if (Is90PercentOfTotalWorth(btcValueInUsdc, usdcBalance))
 					{
-						Console.WriteLine($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcValueInUsdc}/{usdcBalance}");
+						_ = _log.Db($"Trade to USDC is prevented. 90% of wallet is already in USDC. {btcValueInUsdc}/{usdcBalance}", userId, "TRADE", true); 
 						return false;
 					}
-				 
-					Console.WriteLine($"Spread is +{spread:P}, selling {btcToTrade} BTC for USDC");
-					await ExecuteXBTtoUSDCTrade(userId, btcToTrade.ToString("0.00000000"), "sell"); 
+					_ = _log.Db($"Spread is +{spread:P}, selling {btcToTrade} BTC for USDC", userId, "TRADE", true); 
+					await ExecuteXBTtoUSDCTrade(userId, keys, btcToTrade.ToString("0.00000000"), "sell");
 				}
 				else
 				{
-					Console.WriteLine("Error fetching USDC exchange rates.");
+					_ = _log.Db("Error fetching USDC exchange rates.", userId, "TRADE", true); 
 					return false;
-				} 
+				}
 			}
 			else if (spread <= -_TradeThreshold)
 			{
 				decimal usdcValueToTrade = usdcBalance * _ValueTradePercentage;
 				if (Is90PercentOfTotalWorth(usdcBalance, usdcValueToTrade))
 				{
-					Console.WriteLine($"Trade to XBT is prevented. 90% of wallet is already in XBT. {usdcBalance}/{usdcValueToTrade}");
+					_ = _log.Db($"Trade to XBT is prevented. 90% of wallet is already in XBT. {usdcBalance}/{usdcValueToTrade}", userId, "TRADE", true); 
 					return false;
 				}
 				if (btcPriceToCad == null)
 				{
-					Console.WriteLine("BTC price in CAD is unavailable.");
+					_ = _log.Db("BTC price in CAD is unavailable.", userId, "TRADE", true); 
 					return false;
 				}
 
@@ -140,39 +137,39 @@ public class KrakenService
 					decimal? usdToCadRate = await GetUsdToCadRate();
 					if (usdToCadRate == null)
 					{
-						Console.WriteLine("USD to CAD rate is unavailable.");
+						_ = _log.Db("USD to CAD rate is unavailable.", userId, "TRADE", true); 
 						return false;
 					}
-					Console.WriteLine("USD to CAD rate: " + usdToCadRate.Value);
+					_ = _log.Db("USD to CAD rate: " + usdToCadRate.Value, userId, "TRADE", true); 
 					decimal usdAmount = usdcToUse;
 					decimal cadAmount = usdAmount * usdToCadRate.Value;
 					decimal btcAmount = cadAmount / btcPriceToCad.Value;
 
-					Console.WriteLine($"Spread is {spread:P}, buying BTC with {btcAmount.ToString("0.00000000")} BTC worth of USDC(${usdcToUse})");
-					await ExecuteXBTtoUSDCTrade(userId, btcAmount.ToString("0.00000000"), "buy");
+					_ = _log.Db($"Spread is {spread:P}, buying BTC with {btcAmount.ToString("0.00000000")} BTC worth of USDC(${usdcToUse})", userId, "TRADE", true); 
+					await ExecuteXBTtoUSDCTrade(userId, keys, btcAmount.ToString("0.00000000"), "buy");
 				}
 			}
 		}
 		else
 		{
 			decimal thresholdDifference = (Math.Abs(_TradeThreshold) - Math.Abs(spread)) * 100;
-			Console.WriteLine($"Spread is {spread:P} ({currentPrice}-{lastPrice}), within threshold. No trade executed. It was {thresholdDifference:P} away from breaking the threshold.");
+			_ = _log.Db($"Spread is {spread:P} ({currentPrice}-{lastPrice}), within threshold. No trade executed. It was {thresholdDifference:P} away from breaking the threshold.", userId, "TRADE", true); 
 		}
 		return true;
 	}
 
 	private bool ValidatePriceDiscrepency(decimal currentPrice, decimal? btcPriceToCad)
-	{
-		Console.WriteLine("btcPriceCad:" + btcPriceToCad);
+	{ 
+		_ = _log.Db("btcPriceCad:" + btcPriceToCad, null, "TRADE", true);
 		if (btcPriceToCad == null || !btcPriceToCad.HasValue)
 		{
-			Console.WriteLine("BTC price in CAD is unavailable.");
+			_ = _log.Db("BTC price in CAD is unavailable.", null, "TRADE", true); 
 			return false;
 		}
 		decimal priceDiscrepancy = Math.Abs(currentPrice - btcPriceToCad.Value) / btcPriceToCad.Value;
 		if (priceDiscrepancy >= _BTCPriceDiscrepencyStopPercentage)
 		{
-			Console.WriteLine($"⚠️ Price discrepancy too high ({priceDiscrepancy:P2}) between currentPrice: {currentPrice} and liveBtcPriceCad: {btcPriceToCad.Value}. Aborting trade.");
+			_ = _log.Db($"⚠️ Price discrepancy too high ({priceDiscrepancy:P2}) between currentPrice: {currentPrice} and liveBtcPriceCad: {btcPriceToCad.Value}. Aborting trade.", null, "TRADE", true);
 			return false;
 		}
 		return true;
@@ -188,17 +185,17 @@ public class KrakenService
 		return false;
 	}
 
-	private async Task<Dictionary<string, decimal>?> GetBalance()
+	private async Task<Dictionary<string, decimal>?> GetBalance(int userId, UserKrakenApiKey keys)
 	{
 		try
 		{
 			// Fetch the balance response as a dictionary
-			var balanceResponse = await MakeRequestAsync("/Balance", "private", new Dictionary<string, string>());
+			var balanceResponse = await MakeRequestAsync(userId, keys, "/Balance", "private", new Dictionary<string, string>());
 
 			// Check if the response contains the "result" key
 			if (balanceResponse == null || !balanceResponse.ContainsKey("result"))
-			{
-				Console.WriteLine("Failed to get wallet balances: 'result' not found.");
+			{ 
+				_ = _log.Db("Failed to get wallet balances: 'result' not found.", userId, "TRADE", true);
 				return null;
 			}
 
@@ -208,40 +205,42 @@ public class KrakenService
 			// Convert the result into a Dictionary<string, decimal> to store the balances
 			var balanceDictionary = result.ToObject<Dictionary<string, decimal>>();
 
+			 
+			_ = CreateWalletEntryFromFetchedDictionary(balanceDictionary, userId);
+
+
 			return balanceDictionary;
 		}
 		catch (Exception ex)
 		{
 			// Handle any errors that occur during the request
-			Console.WriteLine($"Error fetching balance: {ex.Message}");
+			_ = _log.Db($"Error fetching balance: {ex.Message}", null, "TRADE", true); 
 			return null;
 		}
 	}
-	private async Task<decimal?> GetBtcPriceToCad()
+	private async Task<decimal?> GetBtcPriceToCad(int userId, UserKrakenApiKey keys)
 	{
 		try
 		{
 			var pair = "XXBTZCAD";
-			var response = await MakeRequestAsync("/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair });
-			//Console.WriteLine("Response: " + response.ToString()); 
-			// Check if the response contains the expected "result" key
+			var response = await MakeRequestAsync(userId, keys, "/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair }); 
 			if (response == null || !response.ContainsKey("result"))
-			{
-				Console.WriteLine("Failed to get BTC price in CAD: 'result' not found.");
+			{ 
+				_ = _log.Db("Failed to get BTC price in CAD: 'result' not found.", userId, "TRADE", true);
 				return null;
 			}
 			var result = (JObject)response["result"];
 			if (!result.ContainsKey(pair))
-			{
-				Console.WriteLine("Failed to find XXBTZCAD pair in the response.");
+			{ 
+				_ = _log.Db("Failed to find XXBTZCAD pair in the response.", userId, "TRADE", true);
 				return null;
 			}
 
 			// Extract the ask price from the 'a' key (ask prices are in the array)
 			var askArray = result[pair]["a"]?.ToObject<JArray>();
 			if (askArray == null || askArray.Count < 1)
-			{
-				Console.WriteLine("Failed to extract ask price from response.");
+			{ 
+				_ = _log.Db("Failed to extract ask price from response.", userId, "TRADE", true);
 				return null;
 			}
 			// The ask price is the first value in the array
@@ -249,38 +248,36 @@ public class KrakenService
 			return askPrice;
 		}
 		catch (Exception ex)
-		{
-			Console.WriteLine($"Error fetching BTC price to CAD: {ex.Message}");
+		{ 
+			_ = _log.Db($"Error fetching BTC price to CAD: {ex.Message}", userId, "TRADE", true);
 			return null;
 		}
 	}
 
 
-	private async Task<decimal?> GetBtcPriceToUSDC()
+	private async Task<decimal?> GetBtcPriceToUSDC(int userId, UserKrakenApiKey keys)
 	{
 		try
 		{
 			var pair = "XXBTZUSD";
-			var response = await MakeRequestAsync("/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair });
-			//Console.WriteLine("Response: " + response.ToString()); 
-			// Check if the response contains the expected "result" key
+			var response = await MakeRequestAsync(userId, keys, "/Ticker", "public", new Dictionary<string, string> { ["pair"] = pair }); 
 			if (response == null || !response.ContainsKey("result"))
-			{
-				Console.WriteLine("Failed to get BTC price in USD: 'result' not found.");
+			{ 
+				_ = _log.Db("Failed to get BTC price in USD: 'result' not found.", userId, "TRADE", true);
 				return null;
 			}
 			var result = (JObject)response["result"];
 			if (!result.ContainsKey(pair))
-			{
-				Console.WriteLine("Failed to find XXBTZUSD pair in the response.");
+			{ 
+				_ = _log.Db("Failed to find XXBTZUSD pair in the response.", userId, "TRADE", true);
 				return null;
 			}
 
 			// Extract the ask price from the 'a' key (ask prices are in the array)
 			var askArray = result[pair]["a"]?.ToObject<JArray>();
 			if (askArray == null || askArray.Count < 1)
-			{
-				Console.WriteLine("Failed to extract ask price from response.");
+			{ 
+				_ = _log.Db("Failed to extract ask price from response.", userId, "TRADE", true);
 				return null;
 			}
 			// The ask price is the first value in the array
@@ -288,60 +285,61 @@ public class KrakenService
 			return askPrice;
 		}
 		catch (Exception ex)
-		{
-			Console.WriteLine($"Error fetching BTC price to USD: {ex.Message}");
+		{ 
+			_ = _log.Db($"Error fetching BTC price to USD: {ex.Message}", userId, "TRADE", true);
 			return null;
 		}
 	}
 
-	private async Task TradeHalfBTCForUSDC(int userId)
+	private async Task TradeHalfBTCForUSDC(int userId, UserKrakenApiKey keys)
 	{
 		decimal minBtc = _InitialMinimumBTCAmountToStart;
-		var balances = await GetBalance();
+		var balances = await GetBalance(userId, keys);
 		if (balances == null)
-		{
-			Console.WriteLine("Failed to get wallet balances");
+		{ 
+			_ = _log.Db("Failed to get wallet balances", userId, "TRADE", true);
 			return;
 		}
 		decimal btcBalance = balances.ContainsKey("XXBT") ? balances["XXBT"] : 0;
 		decimal usdcBalance = balances.ContainsKey("USDC") ? balances["USDC"] : 0;
-
-		Console.WriteLine($"Insufficient funds (BTC: {btcBalance}, USDC: {usdcBalance})");
+		 
+		_ = _log.Db($"Insufficient funds (BTC: {btcBalance}, USDC: {usdcBalance})", userId, "TRADE", true);
 		if (btcBalance > minBtc)
 		{
 			//Trade 50% of BTC balance TO USDC
 			decimal halfTradePercentage = 0.5m;
 			decimal btcToTrade = btcBalance * halfTradePercentage;
 			if (btcToTrade > 0)
-			{
-				Console.WriteLine($"Starting user off with some USDC reserves");
-				await ExecuteXBTtoUSDCTrade(userId, btcToTrade.ToString("0.00000000"), "sell");
+			{  
+				_ = _log.Db("Starting user off with some USDC reserves", userId, "TRADE", true);
+				await ExecuteXBTtoUSDCTrade(userId, keys, btcToTrade.ToString("0.00000000"), "sell");
 			}
 		}
 		else
-		{
-			Console.WriteLine("Not enough BTC to trade.");
+		{ 
+			_ = _log.Db("Not enough BTC to trade.", userId, "TRADE", true);
 		}
 	}
 
-	private async Task ExecuteXBTtoUSDCTrade(int userId, string amount, string buyOrSell)
+	private async Task ExecuteXBTtoUSDCTrade(int userId, UserKrakenApiKey keys, string amount, string buyOrSell)
 	{
 		string from = "XBT";
 		string to = "USDC";
 		amount = amount.Trim();
-		if (!await SaveTradeFootprint(userId, from, to, amount))
-		{
-			Console.WriteLine("Failed to save trade footprint. System likely not up-to-date. Cancelling trade.");
-			return;
+		decimal? lastBTCValueCad = await IsSystemUpToDate();
+		if (lastBTCValueCad == null)
+		{ 
+			_ = _log.Db("System is not up to date. Cancelling trade", userId, "TRADE", true);
+			return; //TODO instead of returning, update the system.
 		}
-		if (await GetLast3Of5WereSame(userId, from, to))
-		{
-			Console.WriteLine($"User has traded {from} {to} too many times in the last 5 trades. Cancelling trade.");
+		if (await GetLast2Of3WereSame(userId, from, to, buyOrSell))
+		{ 
+			_ = _log.Db($"User has traded {from} {to} too many times in the last 3 trades. Cancelling trade.", userId, "TRADE", true);
 			return;
 		}
 		if (Convert.ToDecimal(amount) < _MinimumBTCTradeAmount)
-		{
-			Console.WriteLine($"Trade amount is too small. Cancelling trade.");
+		{ 
+			_ = _log.Db("Trade amount is too small. Cancelling trade.", userId, "TRADE", true);
 			return;
 		}
 
@@ -354,34 +352,41 @@ public class KrakenService
 			["ordertype"] = "market",       // "market" or "limit"
 			["volume"] = amount
 		};
+		 
+		_ = _log.Db($"Executing trade: {buyOrSell} {from}->{to}/{amount}", userId, "TRADE", true);
+		var response = await MakeRequestAsync(userId, keys, "/AddOrder", "private", parameters);
+		await GetOrderResults(userId, keys, amount, from, to, response);
+		await SaveTradeFootprint(userId, from, to, amount, lastBTCValueCad.Value, buyOrSell);
+	}
 
-		Console.WriteLine($"Executing trade: {buyOrSell} {from}->{to}/{amount}");
-		var response = await MakeRequestAsync("/AddOrder", "private", parameters);
-
+	private async Task GetOrderResults(int userId, UserKrakenApiKey keys, string amount, string from, string to, Dictionary<string, object> response)
+	{
 		string? orderId = null;
 		if (response.ContainsKey("result"))
 		{
 			var result = (JObject)response["result"];
 			orderId = result["orderId"]?.ToString();
-		} 
-		// If we have an orderId, check its status.
-		var statusResponse = await CheckOrderStatus(orderId);
-		Console.WriteLine($"Order status: {statusResponse}");
-		if (statusResponse != null)
+		}
+		if (orderId == null) { }
+		else
 		{
-			if (statusResponse["status"]?.ToString() == "closed")
+			var statusResponse = await CheckOrderStatus(userId, keys, orderId); 
+			_ = _log.Db($"Order status: {statusResponse}", userId, "TRADE", true); 
+			if (statusResponse != null)
 			{
-				Console.WriteLine($"Trade successful: {from}->{to}/{amount}");
+				if (statusResponse["status"]?.ToString() == "closed")
+				{ 
+					_ = _log.Db($"Trade successful: {from}->{to}/{amount}", userId, "TRADE", true);
+				}
+				else
+				{
+					_ = _log.Db("Trade response: " + statusResponse["status"], userId, "TRADE", true); 
+				}
 			}
-			else
-			{
-				Console.WriteLine("Trade response: " + statusResponse["status"]);
-			}
-		} 
+		}
 	}
 
-
-	private async Task<dynamic> CheckOrderStatus(string orderId)
+	private async Task<dynamic> CheckOrderStatus(int userId, UserKrakenApiKey keys, string orderId)
 	{
 		var parameters = new Dictionary<string, string>
 		{
@@ -389,7 +394,7 @@ public class KrakenService
 		};
 
 		// Make the request to check the order status
-		var response = await MakeRequestAsync("/QueryOrders", "private", parameters);
+		var response = await MakeRequestAsync(userId, keys, "/QueryOrders", "private", parameters);
 
 		// Check if the response contains "result"
 		if (response != null && response.ContainsKey("result"))
@@ -408,7 +413,7 @@ public class KrakenService
 		// Return null if no valid result was found
 		return null;
 	}
-	private async Task<string> QueryOpenOrdersForPair(string pair)
+	private async Task<string> QueryOpenOrdersForPair(int userId, UserKrakenApiKey keys, string pair)
 	{
 		// Build parameters to query open orders.
 		// This is an example; adjust the endpoint and parameters per Kraken's API documentation.
@@ -418,7 +423,7 @@ public class KrakenService
 		};
 
 		// Assume MakeRequestAsync returns a Dictionary<string, object>
-		var response = await MakeRequestAsync("/OpenOrders", "private", parameters);
+		var response = await MakeRequestAsync(userId, keys, "/OpenOrders", "private", parameters);
 		// Convert the response to a JSON string for logging (or format as desired)
 		return response != null ? JsonConvert.SerializeObject(response) : "No response";
 	}
@@ -427,7 +432,7 @@ public class KrakenService
 	private async Task DeleteTradeFootprint(int userId, string from, string to, string amount)
 	{
 		// Implement logic to delete trade footprint from your database
-		Console.WriteLine($"Deleted trade footprint for {from} -> {to} {amount}");
+		_ = _log.Db($"Deleted trade footprint for {from} -> {to} {amount}", userId, "TRADE", true);
 		var deleteSql = @"
 			DELETE FROM maxhanna.trade_history 
 			WHERE user_id = @UserId 
@@ -449,7 +454,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine("Error deleting trade footprint: " + ex.Message);
+			_ = _log.Db("Error deleting trade footprint: " + ex.Message, userId, "TRADE", true); 
 		}
 	}
 	private async Task<decimal?> GetUsdToCadRate()
@@ -477,63 +482,70 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			// Handle any exceptions
-			Console.WriteLine("Error fetching latest exchange rate: " + ex.Message);
+			_ = _log.Db("Error fetching latest exchange rate: " + ex.Message, null, "TRADE", true); 
 			return null;
 		}
 	}
 
-	private async Task<bool> SaveTradeFootprint(int userId, string from, string to, string valueCad)
+	private async Task<bool> SaveTradeFootprint(int userId, string from, string to, string valueCad, decimal lastBTCValueCad, string buyOrSell)
 	{
-		decimal? lastBTCValueCad = await IsSystemUpToDate();
-		if (lastBTCValueCad == null)
+		string tmpFrom = "";
+		string tmpTo = "";
+		if (buyOrSell == "buy")
 		{
-			Console.WriteLine("System is not up to date. Cancelling trade");
-			return false;
+			tmpFrom = to;
+			tmpTo = from;
 		}
-		await CreateTradeHistory((decimal)lastBTCValueCad, valueCad, userId, from, to);
+		else
+		{
+			tmpFrom = from;
+			tmpTo = to;
+		}
+
+		await CreateTradeHistory(lastBTCValueCad, valueCad, userId, tmpFrom, tmpTo);
 		return true;
 	}
 
-	private async Task<bool> GetLast3Of5WereSame(int userId, string from, string to)
+	private async Task<bool> GetLast2Of3WereSame(int userId, string from, string to, string buyOrSell)
 	{
-		var checkSql = @"
-        SELECT from_currency
+		// SELL : FROM:BTC -> TO:USDC 
+		// BUY  : FROM:USDC->TO:BTC
+		string tmpFrom = from;
+		if (buyOrSell == "buy")
+		{
+			tmpFrom = to; 
+		}
+		var checkSql = $@"
+        SELECT from_currency 
         FROM maxhanna.trade_history
         WHERE user_id = @UserId 
         ORDER BY timestamp DESC
-        LIMIT 5;";
+        LIMIT 3;";
 		try
 		{
 			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
 			await conn.OpenAsync();
 
 			using var checkCmd = new MySqlCommand(checkSql, conn);
-			checkCmd.Parameters.AddWithValue("@UserId", userId);
-			checkCmd.Parameters.AddWithValue("@From", from);
-			checkCmd.Parameters.AddWithValue("@To", to);
+			checkCmd.Parameters.AddWithValue("@UserId", userId);  
 
 			using var reader = await checkCmd.ExecuteReaderAsync();
 
-			// Store the last 5 'from_currency' values
-			var fromCurrencies = new List<string>();
-
-			int matches = 0;
+			int matchesFrom = 0; 
 			while (await reader.ReadAsync())
 			{
-				fromCurrencies.Add(reader.GetString(0));
-				if (reader.GetString(0) == from)
-				{
-					matches++;
+				if (reader.GetString(0) == tmpFrom)
+				{ 
+						matchesFrom++; 
 				}
 			}
-			return matches > 3;
+			return (matchesFrom > 1); 
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine("Error checking trades: " + ex.Message);
-			return false;
-		}
+			_ = _log.Db("Error checking trades: " + ex.Message, null, "TRADE", true); 
+			return true;
+		}  
 	}
 
 
@@ -541,7 +553,7 @@ public class KrakenService
 	{
 		if (lastBTCValueCad == null)
 		{
-			Console.WriteLine("No trade history and no last BTC value. Cannot proceed.");
+			_ = _log.Db("No trade history and no last BTC value. Cannot proceed.", null, "TRADE", true); 
 			return null;
 		}
 		TradeRecord? lastTrade = await GetLastTrade(userId);
@@ -567,10 +579,116 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine("Error creating trade history: " + ex.Message);
+			_ = _log.Db("Error creating trade history: " + ex.Message, userId, "TRADE", true); 
 		}
 	}
+	private async Task CreateWalletEntryFromFetchedDictionary(Dictionary<string, decimal>? balanceDictionary, int userId)
+	{
+		if (balanceDictionary == null)
+		{
+			_ = _log.Db("Balance dictionary is null. Cannot create wallet entry.", userId, "TRADE", true); 
+			return;
+		}
 
+		decimal btcBalance = balanceDictionary.TryGetValue("XXBT", out var btc) ? btc : 0;
+		decimal usdcBalance = balanceDictionary.TryGetValue("USDC", out var usdc) ? usdc : 0;
+
+		const string ensureBtcWalletSql = @"
+		INSERT INTO user_btc_wallet_info (user_id, btc_address, last_fetched)
+		VALUES (@UserId, 'Kraken', UTC_TIMESTAMP())
+		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+		SELECT LAST_INSERT_ID();";
+
+		const string ensureUsdcWalletSql = @"
+		INSERT INTO user_usdc_wallet_info (user_id, usdc_address, last_fetched)
+		VALUES (@UserId, 'Kraken', UTC_TIMESTAMP())
+		ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+		SELECT LAST_INSERT_ID();";
+
+		const string checkRecentBtcSql = @"
+		SELECT COUNT(*) FROM user_btc_wallet_balance 
+		WHERE wallet_id = @WalletId AND fetched_at > (UTC_TIMESTAMP() - INTERVAL 10 MINUTE);";
+
+		const string checkRecentUsdcSql = @"
+		SELECT COUNT(*) FROM user_usdc_wallet_balance 
+		WHERE wallet_id = @WalletId AND fetched_at > (UTC_TIMESTAMP() - INTERVAL 10 MINUTE);";
+
+		const string insertBtcSql = "INSERT INTO user_btc_wallet_balance (wallet_id, balance, fetched_at) VALUES (@WalletId, @Balance, UTC_TIMESTAMP());";
+		const string insertUsdcSql = "INSERT INTO user_usdc_wallet_balance (wallet_id, balance, fetched_at) VALUES (@WalletId, @Balance, UTC_TIMESTAMP());";
+
+		const string updateBtcFetchedSql = "UPDATE user_btc_wallet_info SET last_fetched = UTC_TIMESTAMP() WHERE id = @WalletId;";
+		const string updateUsdcFetchedSql = "UPDATE user_usdc_wallet_info SET last_fetched = UTC_TIMESTAMP() WHERE id = @WalletId;";
+
+		try
+		{
+			using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			// BTC Wallet
+			if (btcBalance > 0)
+			{
+				int btcWalletId;
+				using (var cmd = new MySqlCommand(ensureBtcWalletSql, conn))
+				{
+					cmd.Parameters.AddWithValue("@UserId", userId);
+					using var reader = await cmd.ExecuteReaderAsync();
+					await reader.ReadAsync();
+					btcWalletId = reader.GetInt32(0);
+				}
+
+				using (var checkCmd = new MySqlCommand(checkRecentBtcSql, conn))
+				{
+					checkCmd.Parameters.AddWithValue("@WalletId", btcWalletId);
+					var recentCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+					if (recentCount == 0)
+					{
+						using var insertCmd = new MySqlCommand(insertBtcSql, conn);
+						insertCmd.Parameters.AddWithValue("@WalletId", btcWalletId);
+						insertCmd.Parameters.AddWithValue("@Balance", btcBalance);
+						await insertCmd.ExecuteNonQueryAsync();
+
+						using var updateCmd = new MySqlCommand(updateBtcFetchedSql, conn);
+						updateCmd.Parameters.AddWithValue("@WalletId", btcWalletId);
+						await updateCmd.ExecuteNonQueryAsync();
+					}
+				}
+			}
+
+			// USDC Wallet
+			if (usdcBalance > 0)
+			{
+				int usdcWalletId;
+				using (var cmd = new MySqlCommand(ensureUsdcWalletSql, conn))
+				{
+					cmd.Parameters.AddWithValue("@UserId", userId);
+					using var reader = await cmd.ExecuteReaderAsync();
+					await reader.ReadAsync();
+					usdcWalletId = reader.GetInt32(0);
+				}
+
+				using (var checkCmd = new MySqlCommand(checkRecentUsdcSql, conn))
+				{
+					checkCmd.Parameters.AddWithValue("@WalletId", usdcWalletId);
+					var recentCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+					if (recentCount == 0)
+					{
+						using var insertCmd = new MySqlCommand(insertUsdcSql, conn);
+						insertCmd.Parameters.AddWithValue("@WalletId", usdcWalletId);
+						insertCmd.Parameters.AddWithValue("@Balance", usdcBalance);
+						await insertCmd.ExecuteNonQueryAsync();
+
+						using var updateCmd = new MySqlCommand(updateUsdcFetchedSql, conn);
+						updateCmd.Parameters.AddWithValue("@WalletId", usdcWalletId);
+						await updateCmd.ExecuteNonQueryAsync();
+					}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Error creating wallet balance entry: " + ex.Message, userId, "TRADE", true); 
+		}
+	}
 	private async Task<int?> GetMinutesSinceLastTrade(int userId)
 	{
 		var checkSql = @"
@@ -593,8 +711,8 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine("Error checking trade history: " + ex.Message);
-			return null; // Return null in case of an error or no record
+			_ = _log.Db("Error checking trade history: " + ex.Message, userId, "TRADE", true); 
+			return null;
 		}
 	}
 
@@ -619,8 +737,7 @@ public class KrakenService
 				{
 					var result = await checkCmd.ExecuteScalarAsync();
 					if (result != null && decimal.TryParse(result.ToString(), out var valueCad))
-					{
-						//Console.WriteLine($"System is up-to-date");
+					{ 
 						return valueCad;
 					}
 				}
@@ -628,7 +745,7 @@ public class KrakenService
 		}
 		catch (MySqlException ex)
 		{
-			Console.WriteLine("Error checking IsSystemUpToDate : " + ex.Message);
+			_ = _log.Db("Error checking IsSystemUpToDate : " + ex.Message, null, "TRADE", true); 
 		}
 		return null;
 	}
@@ -664,7 +781,7 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine("Error fetching trade history: " + ex.Message);
+			_ = _log.Db("Error fetching last trade: " + ex.Message, null, "TRADE", true); 
 		}
 		return null;
 	}
@@ -701,20 +818,149 @@ public class KrakenService
 		}
 		catch (Exception ex)
 		{
-			Console.WriteLine("Error fetching trade history: " + ex.Message);
+			_ = _log.Db("Error fetching wallet balances: " + ex.Message, null, "TRADE", true); 
 		}
 
 		return tradeRecords;
 	}
 
+	public async Task UpdateApiKey(UpdateApiKeyRequest request)
+	{
+		try
+		{
+			// If ApiKey or PrivateKey is empty, delete the record for the user
+			if (string.IsNullOrWhiteSpace(request.ApiKey) || string.IsNullOrWhiteSpace(request.PrivateKey))
+			{
+				using (var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await connection.OpenAsync();
 
-	public async Task<Dictionary<string, object>> MakeRequestAsync(string endpoint, string publicOrPrivate, Dictionary<string, string> postData = null)
+					// Delete the record for the user
+					var deleteCmd = new MySqlCommand("DELETE FROM user_kraken_api_keys WHERE user_id = @userId", connection);
+					deleteCmd.Parameters.AddWithValue("@userId", request.UserId);
+
+					await deleteCmd.ExecuteNonQueryAsync();
+				}
+				return; // Exit early as the record has been deleted
+			}
+
+			// Otherwise, process the API key update 
+
+			using (var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				await connection.OpenAsync();
+
+				// Check if a record already exists for this user
+				var checkCmd = new MySqlCommand("SELECT COUNT(*) FROM user_kraken_api_keys WHERE user_id = @userId", connection);
+				checkCmd.Parameters.AddWithValue("@userId", request.UserId);
+
+				var exists = Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) > 0;
+
+				if (exists)
+				{
+					// Update existing
+					var updateCmd = new MySqlCommand(@"
+                    UPDATE user_kraken_api_keys
+                    SET api_key = @apiKey,
+                        private_key = @privateKey, 
+                    WHERE user_id = @userId", connection);
+
+					updateCmd.Parameters.AddWithValue("@apiKey", request.ApiKey);
+					updateCmd.Parameters.AddWithValue("@privateKey", request.PrivateKey); 
+					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
+
+					await updateCmd.ExecuteNonQueryAsync();
+				}
+				else
+				{
+					// Insert new
+					var insertCmd = new MySqlCommand(@"
+                    INSERT INTO user_kraken_api_keys (user_id, api_key, private_key)
+                    VALUES (@userId, @apiKey, @privateKey)", connection);
+
+					insertCmd.Parameters.AddWithValue("@userId", request.UserId);
+					insertCmd.Parameters.AddWithValue("@apiKey", request.ApiKey);
+					insertCmd.Parameters.AddWithValue("@privateKey", request.PrivateKey); 
+
+					await insertCmd.ExecuteNonQueryAsync();
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Error updating API keys: " + ex.Message, request.UserId, "TRADE", true); 
+		}
+	}
+
+	public async Task<UserKrakenApiKey?> GetApiKey(int userId)
+	{
+		try
+		{
+			using (var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				await connection.OpenAsync();
+
+				// Check if a record exists for this user
+				var checkCmd = new MySqlCommand("SELECT id, user_id, api_key, private_key FROM user_kraken_api_keys WHERE user_id = @userId", connection);
+				checkCmd.Parameters.AddWithValue("@userId", userId);
+
+				using var reader = await checkCmd.ExecuteReaderAsync();
+
+				if (await reader.ReadAsync())
+				{
+					// Create a UserKrakenApiKey object from the result
+					var apiKey = new UserKrakenApiKey
+					{
+						Id = reader.GetInt32(0),
+						UserId = reader.GetInt32(1),
+						ApiKey = reader.IsDBNull(2) ? null : reader.GetString(2),
+						PrivateKey = reader.IsDBNull(3) ? null : reader.GetString(3)
+					};
+
+					return apiKey;
+				}
+
+				return null; // Return null if no record was found
+			}
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Error getting API keys: " + ex.Message, userId, "TRADE", true);
+			return null; // Return null in case of an error
+		}
+	}
+
+
+	public async Task<bool> CheckIfUserHasApiKey(int userId)
+	{
+		try
+		{
+			using (var connection = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
+			{
+				await connection.OpenAsync();
+
+				// Check if a record exists for this user
+				var checkCmd = new MySqlCommand("SELECT COUNT(*) FROM user_kraken_api_keys WHERE user_id = @userId", connection);
+				checkCmd.Parameters.AddWithValue("@userId", userId);
+
+				var result = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+				return result > 0; // Returns true if record exists, false otherwise
+			}
+		}
+		catch (Exception ex)
+		{
+			_ = _log.Db("Error getting API keys: " + ex.Message, userId, "TRADE", true);
+			return false; // Return false in case of error
+		}
+	}
+
+
+	public async Task<Dictionary<string, object>> MakeRequestAsync(int userId, UserKrakenApiKey keys, string endpoint, string publicOrPrivate, Dictionary<string, string> postData = null)
 	{
 		try
 		{
 			// 1. Prepare request components
-			var urlPath = $"/0/{publicOrPrivate}/{endpoint.TrimStart('/')}";
-			//Console.WriteLine("Making api request..." + urlPath);
+			var urlPath = $"/0/{publicOrPrivate}/{endpoint.TrimStart('/')}"; 
 			var nonce = GenerateNonce();
 
 			// 2. Prepare and validate post data
@@ -726,29 +972,25 @@ public class KrakenService
 			string postBody = await formContent.ReadAsStringAsync();
 
 			if (string.IsNullOrWhiteSpace(postBody))
-				throw new InvalidOperationException("Post body cannot be empty");
-
+				throw new InvalidOperationException("Post body cannot be empty"); 
 			// 4. Generate signature
-			var signature = CreateSignature(urlPath, postBody, nonce.ToString());
+			var signature = CreateSignature(urlPath, postBody, nonce.ToString(), keys.PrivateKey);
 
-			// 5. Create and send request
-			//Console.WriteLine("API Request: " + _baseAddr + urlPath);
+			// 5. Create and send request 
 			var request = new HttpRequestMessage(HttpMethod.Post, _baseAddr + urlPath)
 			{
 				Content = formContent
-			};
-
-			request.Headers.Add("API-Key", _apiKey);
+			}; 
+			request.Headers.Add("API-Key", keys.ApiKey);
 			request.Headers.Add("API-Sign", signature);
 
 			// 6. Execute and validate response
 			var response = await _httpClient.SendAsync(request);
-			var responseContent = await response.Content.ReadAsStringAsync();
-			//Console.WriteLine("API Response Content: " + responseContent);
+			var responseContent = await response.Content.ReadAsStringAsync(); 
 
 			if (!response.IsSuccessStatusCode)
 			{
-				Console.WriteLine("Failed to make API request: " + responseContent);
+				_ = _log.Db("Failed to make API request: " + responseContent, userId, "TRADE", true); 
 			}
 
 			var responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
@@ -757,22 +999,19 @@ public class KrakenService
 			if (responseObject.ContainsKey("error") && ((JArray)responseObject["error"]).Count > 0)
 			{
 				var errorMessages = string.Join(", ", ((JArray)responseObject["error"]).ToObject<List<string>>());
-				Console.WriteLine($"Kraken API error: {errorMessages}");
+				_ = _log.Db($"Kraken API error: {errorMessages}", userId, "TRADE", true); 
 				return responseObject;
-			}
-
-			// If no errors, return the response content
+			} 
 			return responseObject;
 		}
 		catch (Exception ex)
-		{
-			// Enhanced error logging
-			Console.WriteLine($"⚠️ Kraken API request failed: {ex}");
+		{ 
+			_ = _log.Db($"⚠️ Kraken API request failed: {ex}", userId, "TRADE", true); 
 			throw;
 		}
 	}
 
-	private string CreateSignature(string urlPath, string postData, string nonce)
+	private string CreateSignature(string urlPath, string postData, string nonce, string privateKey)
 	{
 		// 1. SHA256(nonce + POST data)
 		byte[] sha256Hash;
@@ -789,7 +1028,9 @@ public class KrakenService
 
 		// 3. HMAC-SHA512 using private key (convert key to bytes first)
 		byte[] signatureHash;
-		using (var hmac = new HMACSHA512(_privateKeyBytes)) // Use the byte[] version
+
+		byte[] privateKeyBytes = ValidateAndDecodePrivateKey(privateKey); 
+		using (var hmac = new HMACSHA512(privateKeyBytes)) // Use the byte[] version
 		{
 			signatureHash = hmac.ComputeHash(buffer);
 		}
@@ -822,16 +1063,23 @@ public class KrakenService
 			throw new ArgumentException("Invalid base64 private key format", nameof(base64PrivateKey), ex);
 		}
 	}
-
-	public class TradeRecord
+	private string GenerateSalt()
 	{
-		public int id { get; set; }
-		public int user_id { get; set; }
-		public string from_currency { get; set; }
-		public string to_currency { get; set; }
-		public float value { get; set; }
-		public DateTime timestamp { get; set; }
-		public string btc_price_cad { get; set; }
+		byte[] saltBytes = new byte[16];
+		using (var rng = RandomNumberGenerator.Create())
+		{
+			rng.GetBytes(saltBytes);
+		}
+		return Convert.ToBase64String(saltBytes);
+	}
+	private string Hash(string key, string salt)
+	{
+		using (SHA256 sha256 = SHA256.Create())
+		{
+			byte[] inputBytes = Encoding.UTF8.GetBytes(key + salt);
+			byte[] hashedBytes = sha256.ComputeHash(inputBytes);
+			return Convert.ToBase64String(hashedBytes);
+		}
 	}
 }
 public class KrakenApiException : Exception
@@ -850,4 +1098,14 @@ public class BalanceResponse
 {
 	[JsonPropertyName("result")]
 	public Dictionary<string, string>? Result { get; set; }
+}
+public class TradeRecord
+{
+	public int id { get; set; }
+	public int user_id { get; set; }
+	public string from_currency { get; set; }
+	public string to_currency { get; set; }
+	public float value { get; set; }
+	public DateTime timestamp { get; set; }
+	public string btc_price_cad { get; set; }
 }

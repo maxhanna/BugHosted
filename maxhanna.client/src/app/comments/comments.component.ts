@@ -104,7 +104,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.parentRef?.updateLastSeen();
     const res = await this.commentService.addComment(
       comment.commentText ?? "",
-      this.inputtedParentRef?.user,
+      this.inputtedParentRef?.user?.id,
       comment.fileId,
       comment.storyId,
       comment.commentId,
@@ -136,15 +136,15 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
   private sendNotifications(comment: FileComment) { 
     const replyingToUser = this.component?.user; 
-    const isStory = this.type == "Social" || this.component?.storyId;  
-    const fromUser = this.inputtedParentRef?.user ?? new User(0, "Anonymous");
+    const isStory = this.type == "Social" || this.component?.storyId;
+    const fromUserId = this.inputtedParentRef?.user?.id ?? 0;
     const message = (!comment || !comment.commentText) ? (isStory || this.userProfileId) ? "Social Post Comment" : "File Comment"
       : comment.commentText.length > 50 ? comment.commentText.slice(0, 50) + "…"
       : comment.commentText;
     if (replyingToUser) {
       const notificationData = {
-        fromUser: fromUser,
-        toUser: [replyingToUser],
+        fromUserId: fromUserId,
+        toUserIds: [replyingToUser.id],
         message: message,
         storyId: comment.storyId ?? this.component.storyId,
         fileId: comment.fileId,
@@ -166,10 +166,10 @@ export class CommentsComponent extends ChildComponent implements OnInit {
   }
 
   async deleteCommentAsync(comment: FileComment) {
-    if (!this.inputtedParentRef?.user) { return alert("You must be logged in to delete a comment!"); }
+    if (!this.inputtedParentRef?.user?.id) { return alert("You must be logged in to delete a comment!"); }
 
     this.parentRef?.updateLastSeen();
-    const res = await this.commentService.deleteComment(this.inputtedParentRef?.user, comment.id);
+    const res = await this.commentService.deleteComment(this.inputtedParentRef.user.id, comment.id);
     if (res && res.includes("success")) {
       this.commentRemovedEvent.emit(comment as FileComment);
     }
@@ -205,7 +205,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     this.editingComments = this.editingComments.filter(x => x != comment.id);
     if (document.getElementById('commentText' + comment.id) && this.inputtedParentRef && this.inputtedParentRef.user) {
       this.parentRef?.updateLastSeen();
-      this.commentService.editComment(this.inputtedParentRef.user, comment.id, message).then(res => {
+      this.commentService.editComment(this.inputtedParentRef?.user?.id ?? 0, comment.id, message).then(res => {
         if (res) {
           this.inputtedParentRef?.showNotification(res);
         }
@@ -290,7 +290,7 @@ export class CommentsComponent extends ChildComponent implements OnInit {
     if (text) { 
       const user = this.parentRef?.user ?? this.inputtedParentRef?.user ?? new User(0, "Anonymous");
       this.parentRef?.updateLastSeen();
-      const res = await this.commentService.addComment(text, user, undefined, undefined, comment.id, undefined);
+      const res = await this.commentService.addComment(text, user.id, undefined, undefined, comment.id, undefined);
       if (res) { 
         if (this.commentList.find(x => x.date == currentDate)) {
           this.commentList.find(x => x.date == currentDate)!.id = parseInt(res.split(" ")[0]); 

@@ -1,4 +1,5 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
+using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
 using Newtonsoft.Json;
 using RestSharp;
@@ -9,28 +10,29 @@ namespace maxhanna.Server.Services
 {
 	public class SystemBackgroundService : BackgroundService
 	{
-		private readonly ILogger<SystemBackgroundService> _logger;
 		private readonly string _apiKey;
 		private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
 		private readonly string _connectionString;
 		private readonly HttpClient _httpClient;
 		private readonly WebCrawler _webCrawler;
 		private readonly KrakenService _krakenService;
-		private readonly IConfiguration _config;
+		private readonly MiningApi _miningApiService = new MiningApi();
+		private readonly Log _log;
+		private readonly IConfiguration _config; // needed for apiKey
 		private DateTime _lastDailyTaskRun = DateTime.MinValue;
 		private DateTime _lastMinuteTaskRun = DateTime.MinValue;
 		private DateTime _lastFiveMinuteTaskRun = DateTime.MinValue;
-		private DateTime _lastHourlyTaskRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
-		private DateTime _lastMidDayTaskRun = DateTime.MinValue; // Track the last execution time for FetchAndStoreCoinValues
+		private DateTime _lastHourlyTaskRun = DateTime.MinValue;
+		private DateTime _lastMidDayTaskRun = DateTime.MinValue;
 
-		public SystemBackgroundService(ILogger<SystemBackgroundService> logger, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService)
+		public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, KrakenService krakenService)
 		{
-			_logger = logger;
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
 			_apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
 			_httpClient = new HttpClient();
-			_webCrawler = webCrawler; 
+			_webCrawler = webCrawler;
+			_log = log;
 			_krakenService = krakenService; 
 		}
 
@@ -42,21 +44,22 @@ namespace maxhanna.Server.Services
 
 				// Run tasks that need to execute every 1 minute
 				if ((DateTime.Now - _lastMinuteTaskRun).TotalMinutes >= 1)
-				{ 
+				{
 					await FetchWebsiteMetadata();
 					await MakeCryptoTrade();
-				} 
+				}
 				// Run tasks that need to execute every 5 minutes
 				if ((DateTime.Now - _lastFiveMinuteTaskRun).TotalMinutes >= 5)
 				{
 					await UpdateLastBTCWalletInfo();
-					await FetchAndStoreCoinValues();
+					await FetchAndStoreCoinValues(); 
+					_miningApiService.UpdateWalletInDB(_config, _log);
 				}
 				// Check if 1 hour has passed since the last coin fetch
 				if ((DateTime.Now - _lastHourlyTaskRun).TotalHours >= 1)
 				{
 					await AssignTrophies();
-				//	await PostRandomMemeToTwitter();
+					//	await PostRandomMemeToTwitter();
 					_lastHourlyTaskRun = DateTime.Now;
 				}
 
@@ -82,97 +85,97 @@ namespace maxhanna.Server.Services
 				await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
 			}
 		}
-		private async Task PostRandomMemeToTwitter()
-		{
-			using var conn = new MySqlConnection(_connectionString);
-			await conn.OpenAsync();
+		//private async Task PostRandomMemeToTwitter()
+		//{
+		//	using var conn = new MySqlConnection(_connectionString);
+		//	await conn.OpenAsync();
 
-			string query = @"
-        SELECT file_name, folder_path, description 
-        FROM file_uploads 
-        WHERE is_folder = 0
-        AND LOWER(folder_path) LIKE '%meme%' 
-        AND file_size > 0 AND file_size < 300000 
-        ORDER BY RAND() LIMIT 1";
+		//	string query = @"
+		//      SELECT file_name, folder_path, description 
+		//      FROM file_uploads 
+		//      WHERE is_folder = 0
+		//      AND LOWER(folder_path) LIKE '%meme%' 
+		//      AND file_size > 0 AND file_size < 300000 
+		//      ORDER BY RAND() LIMIT 1";
 
-			using var cmd = new MySqlCommand(query, conn);
-			using var reader = await cmd.ExecuteReaderAsync();
+		//	using var cmd = new MySqlCommand(query, conn);
+		//	using var reader = await cmd.ExecuteReaderAsync();
 
-			if (!reader.HasRows)
-			{
-				Console.WriteLine("No memes found.");
-				return;
-			}
+		//	if (!reader.HasRows)
+		//	{
+		//		Console.WriteLine("No memes found.");
+		//		return;
+		//	}
 
-			await reader.ReadAsync();
-			string fileName = reader.GetString("file_name");
-			string folderPath = reader.GetString("folder_path");
-			string description = reader.IsDBNull("description") ? "Check this meme!" : reader.GetString("description");
+		//	await reader.ReadAsync();
+		//	string fileName = reader.GetString("file_name");
+		//	string folderPath = reader.GetString("folder_path");
+		//	string description = reader.IsDBNull("description") ? "Check this meme!" : reader.GetString("description");
 
-			var twitterService = new TwitterService(
-					_config.GetValue<string>("X:ClientId"),
-					_config.GetValue<string>("X:ClientSecret"),
-					_config.GetValue<string>("X:AccessTokenSecret")
-			);
+		//	var twitterService = new TwitterService(
+		//			_config.GetValue<string>("X:ClientId"),
+		//			_config.GetValue<string>("X:ClientSecret"),
+		//			_config.GetValue<string>("X:AccessTokenSecret")
+		//	);
 
-			// Step 1: Get the authorization URL for user login to get the authorization code
-			string authorizationUrl = await twitterService.GetAuthorizationUrlAsync();
-			Console.WriteLine("Visit this URL and authorize the app: " + authorizationUrl);
+		//	// Step 1: Get the authorization URL for user login to get the authorization code
+		//	string authorizationUrl = await twitterService.GetAuthorizationUrlAsync();
+		//	Console.WriteLine("Visit this URL and authorize the app: " + authorizationUrl);
 
-			// After the user visits the URL and gives authorization, they will be redirected to your redirect_uri with a code parameter.
-			// You need to capture this code.
-			string authorizationCode = "CAPTURED_AUTHORIZATION_CODE_FROM_REDIRECT";
+		//	// After the user visits the URL and gives authorization, they will be redirected to your redirect_uri with a code parameter.
+		//	// You need to capture this code.
+		//	string authorizationCode = "CAPTURED_AUTHORIZATION_CODE_FROM_REDIRECT";
 
-			// Step 2: Exchange the authorization code for an access token
-			string accessToken = await twitterService.GetAccessTokenAsync(authorizationCode, "bughosted.com");
+		//	// Step 2: Exchange the authorization code for an access token
+		//	string accessToken = await twitterService.GetAccessTokenAsync(authorizationCode, "bughosted.com");
 
-			if (string.IsNullOrEmpty(accessToken))
-			{
-				_logger.LogError("Failed to retrieve access token.");
-				return;
-			}
+		//	if (string.IsNullOrEmpty(accessToken))
+		//	{
+		//		_logger.LogError("Failed to retrieve access token.");
+		//		return;
+		//	}
 
-			// Step 3: Post a tweet with an image URL (if media upload is not required)
-			string imageUrl = $"https://bughosted.com/assets/Uploads/Meme/{folderPath}/{fileName}";
+		//	// Step 3: Post a tweet with an image URL (if media upload is not required)
+		//	string imageUrl = $"https://bughosted.com/assets/Uploads/Meme/{folderPath}/{fileName}";
 
-			bool tweetPosted = await twitterService.PostTweetWithImage(accessToken, description, imageUrl);
-			if (tweetPosted)
-			{
-				Console.WriteLine("Tweet posted successfully!");
-			}
-			else
-			{
-				_logger.LogError("Failed to post tweet.");
-			}
+		//	bool tweetPosted = await twitterService.PostTweetWithImage(accessToken, description, imageUrl);
+		//	if (tweetPosted)
+		//	{
+		//		Console.WriteLine("Tweet posted successfully!");
+		//	}
+		//	else
+		//	{
+		//		_logger.LogError("Failed to post tweet.");
+		//	}
 
-			// Step 4: If media upload is required (optional - this part is for uploading media directly to Twitter)
-			string mediaPath = Path.Combine("path_to_your_local_image_folder", fileName); // Ensure the image path is correct
+		//	// Step 4: If media upload is required (optional - this part is for uploading media directly to Twitter)
+		//	string mediaPath = Path.Combine("path_to_your_local_image_folder", fileName); // Ensure the image path is correct
 
-			string mediaId = await twitterService.UploadMedia(accessToken, mediaPath);
-			if (!string.IsNullOrEmpty(mediaId))
-			{
-				bool mediaTweetPosted = await twitterService.PostTweetWithMedia(accessToken, description, mediaId);
-				if (mediaTweetPosted)
-				{
-					Console.WriteLine("Tweet with media posted successfully!");
-				}
-				else
-				{
-					_logger.LogError("Failed to post tweet with media.");
-				}
-			}
-		}
+		//	string mediaId = await twitterService.UploadMedia(accessToken, mediaPath);
+		//	if (!string.IsNullOrEmpty(mediaId))
+		//	{
+		//		bool mediaTweetPosted = await twitterService.PostTweetWithMedia(accessToken, description, mediaId);
+		//		if (mediaTweetPosted)
+		//		{
+		//			Console.WriteLine("Tweet with media posted successfully!");
+		//		}
+		//		else
+		//		{
+		//			_logger.LogError("Failed to post tweet with media.");
+		//		}
+		//	}
+		//}
 
 
 		private async Task FetchWebsiteMetadata()
 		{
 			try
 			{
-				await _webCrawler.FetchWebsiteMetadata();
+				await _webCrawler.StartBackgroundScrape();
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Exception while crawling : " + ex.Message);
+				_ = _log.Db("Exception while crawling : " + ex.Message, null);
 			}
 		}
 
@@ -180,11 +183,11 @@ namespace maxhanna.Server.Services
 		{
 			try
 			{
-				await _krakenService.MakeATrade(); 
+				await _krakenService.MakeATrade();
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine("Exception while trading : " + ex.Message);
+				_ = _log.Db("Exception while trading : " + ex.Message, null);
 			}
 		}
 
@@ -220,7 +223,7 @@ namespace maxhanna.Server.Services
 
 				if (wallet == null)
 				{
-					Console.WriteLine("No BTC wallets found to update or all wallets are up to date.");
+					_ = _log.Db("No BTC wallets found to update or all wallets are up to date.", null);
 					return;
 				}
 
@@ -228,21 +231,20 @@ namespace maxhanna.Server.Services
 				var walletData = await FetchBTCWalletData(wallet.BtcAddress);
 				if (walletData == null)
 				{
-					_logger.LogWarning($"Failed to update wallet info for address: {wallet.BtcAddress}");
+					_ = _log.Db($"Failed to update wallet info for address: {wallet.BtcAddress}", null);
 					return;
 				}
 
 				// Insert the new wallet balance data into user_btc_wallet_balance
 				string insertSql = @"
-            INSERT INTO user_btc_wallet_balance (wallet_id, final_balance, total_received, total_sent, fetched_at)
-            VALUES (@WalletId, @FinalBalance, @TotalReceived, @TotalSent, UTC_TIMESTAMP());";
+            INSERT INTO user_btc_wallet_balance (wallet_id, balance, fetched_at)
+            VALUES (@WalletId, @FinalBalance, UTC_TIMESTAMP());";
 
 				using (var insertCmd = new MySqlCommand(insertSql, conn))
 				{
+					decimal btc = walletData.FinalBalance / 100_000_000m;
 					insertCmd.Parameters.AddWithValue("@WalletId", wallet.Id);
-					insertCmd.Parameters.AddWithValue("@FinalBalance", walletData.FinalBalance);
-					insertCmd.Parameters.AddWithValue("@TotalReceived", walletData.TotalReceived);
-					insertCmd.Parameters.AddWithValue("@TotalSent", walletData.TotalSent);
+					insertCmd.Parameters.AddWithValue("@FinalBalance", btc);
 
 					await insertCmd.ExecuteNonQueryAsync();
 				}
@@ -259,11 +261,11 @@ namespace maxhanna.Server.Services
 					await updateCmd.ExecuteNonQueryAsync();
 				}
 
-				Console.WriteLine($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
+				//Console.WriteLine($"Successfully inserted wallet balance data and updated last_fetched for address: {wallet.BtcAddress}");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while updating BTC wallet info.");
+				_ = _log.Db("Error occurred while updating BTC wallet info. " + ex.Message, null);
 			}
 		}
 
@@ -282,12 +284,12 @@ namespace maxhanna.Server.Services
 				}
 				else
 				{
-					_logger.LogWarning($"Failed to fetch BTC wallet data for address {btcAddress}: {response.StatusCode}");
+					_ = _log.Db($"Failed to fetch BTC wallet data for address {btcAddress}: {response.StatusCode}", null);
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"Error fetching BTC wallet data for address {btcAddress}.");
+				_ = _log.Db($"Error fetching BTC wallet data for address {btcAddress}. " + ex.Message, null);
 			}
 
 			return null;
@@ -311,7 +313,7 @@ namespace maxhanna.Server.Services
 					await using (var deleteCmd = new MySqlCommand(deleteSqlReportsAndBattles, conn, transaction))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						Console.WriteLine($"Deleted {affectedRows} old battle reports and references.");
+						_ = _log.Db($"Deleted {affectedRows} old battle reports and references.", null);
 					}
 
 					string deleteSqlBaseUpgrades = @"
@@ -327,20 +329,20 @@ namespace maxhanna.Server.Services
 					await using (var deleteCmd = new MySqlCommand(deleteSqlBaseUpgrades, conn, transaction))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						Console.WriteLine($"Deleted {affectedRows} null nexus base upgrade rows.");
+						_ = _log.Db($"Deleted {affectedRows} null nexus base upgrade rows.", null);
 					}
 
 					await transaction.CommitAsync();
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "Error occurred while deleting old battle reports or base upgrades. Rolling back transaction.");
+					_ = _log.Db("Error occurred while deleting old battle reports or base upgrades. Rolling back transaction. " + ex.Message, null);
 					await transaction.RollbackAsync();
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
+				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
 			}
 		}
 
@@ -363,22 +365,22 @@ namespace maxhanna.Server.Services
 					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						Console.WriteLine($"Deleted {affectedRows} notification settings.");
+						_ = _log.Db($"Deleted {affectedRows} notification settings.", null);
 					}
 
 					await transaction.CommitAsync();
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "Error occurred while deleting notification settings. Rolling back transaction.");
+					_ = _log.Db("Error occurred while deleting notification settings. Rolling back transaction." + ex.Message, null);
 					await transaction.RollbackAsync();
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
+				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
 			}
-		}  
+		}
 		private async Task DeleteHostAiRequests()
 		{
 			try
@@ -396,20 +398,20 @@ namespace maxhanna.Server.Services
 					await using (var deleteCmd = new MySqlCommand(deleteSql, conn, transaction))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						Console.WriteLine($"Deleted {affectedRows} notification settings.");
+						_ = _log.Db($"Deleted {affectedRows} notification settings.", null);
 					}
 
 					await transaction.CommitAsync();
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "Error occurred while deleting old HostAI calls. Rolling back transaction.");
+					_ = _log.Db("Error occurred while deleting old HostAI calls. Rolling back transaction." + ex.Message, null);
 					await transaction.RollbackAsync();
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while establishing the database connection or transaction.");
+				_ = _log.Db("Error occurred while establishing the database connection or transaction." + ex.Message, null);
 			}
 		}
 		private async Task<ExchangeRateData?> FetchExchangeRates()
@@ -433,12 +435,12 @@ namespace maxhanna.Server.Services
 				}
 				else
 				{
-					_logger.LogWarning($"Failed to fetch exchange rates for CAD: {response.StatusCode}");
+					_ = _log.Db($"Failed to fetch exchange rates for CAD: {response.StatusCode}", null);
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, $"Error fetching exchange rates for CAD.");
+				_ = _log.Db($"Error fetching exchange rates for CAD. " + ex.Message, null);
 			}
 
 			return null;
@@ -462,7 +464,7 @@ namespace maxhanna.Server.Services
 						var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 						if (count > 0)
 						{
-							Console.WriteLine("Exchange rates not added as entries exist in the last 6 hours.");
+							_ = _log.Db("Exchange rates not added as entries exist in the last 6 hours.", null);
 							return;
 						}
 					}
@@ -494,12 +496,12 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					Console.WriteLine("Exchange rates stored successfully.");
+					_ = _log.Db("Exchange rates stored successfully.", null);
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while storing exchange rates.");
+				_ = _log.Db("Error occurred while storing exchange rates. " + ex.Message, null);
 			}
 		}
 
@@ -521,13 +523,13 @@ namespace maxhanna.Server.Services
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						Console.WriteLine($"Deleted {affectedRows} guest accounts older than 10 days.");
+						_ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.", null);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while deleting old guest accounts.");
+				_ = _log.Db("Error occurred while deleting old guest accounts. " + ex.Message, null);
 			}
 		}
 
@@ -584,13 +586,13 @@ namespace maxhanna.Server.Services
 					using (var deleteCmd = new MySqlCommand(deleteSql, conn))
 					{
 						int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-						Console.WriteLine($"Deleted {affectedRows} search results older than 1 day.");
+						_ = _log.Db($"Deleted {affectedRows} search results older than 1 day.", null);
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while deleting old search results.");
+				_ = _log.Db("Error occurred while deleting old search results. " + ex.Message, null);
 			}
 		}
 
@@ -617,7 +619,7 @@ namespace maxhanna.Server.Services
 								{ "Topic Creator 10", "SELECT created_by_user_id AS user_id FROM topics GROUP BY created_by_user_id HAVING COUNT(*) >= 10" },
 								{ "Social Poster 10", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 10" },
 								{ "Social Poster 50", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 50" },
-								{ "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" }, 
+								{ "Social Poster 100", "SELECT user_id FROM stories GROUP BY user_id HAVING COUNT(*) >= 100" },
 								{ "2024 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2024" },
 								{ "2025 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2025" },
 								{ "2026 User", "SELECT id AS user_id FROM users WHERE YEAR(last_seen) = 2026" },
@@ -652,19 +654,19 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					Console.WriteLine($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}");
+					_ = _log.Db($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}", null);
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while assigning trophies.");
+				_ = _log.Db("Error occurred while assigning trophies. " + ex.Message, null);
 			}
 		}
 
 
 		private async Task FetchAndStoreCoinValues()
-		{ 
-			await StoreCoinValues(); 
+		{
+			await StoreCoinValues();
 		}
 		private async Task StoreCoinValues()
 		{
@@ -694,12 +696,12 @@ namespace maxhanna.Server.Services
 						}
 					}
 
-					Console.WriteLine("Coin values stored successfully.");
+					_ = _log.Db("Coin values stored successfully.", null);
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while storing coin values.");
+				_ = _log.Db("Error occurred while storing coin values. " + ex.Message, null);
 			}
 		}
 
@@ -730,12 +732,12 @@ namespace maxhanna.Server.Services
 				}
 				else
 				{
-					_logger.LogError("Failed to fetch coin values: {statusCode}", response.StatusCode);
+					_ = _log.Db($"Failed to fetch coin values: {response.StatusCode}", null);
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while fetching coin values.");
+				_ = _log.Db("Error occurred while fetching coin values. " + ex.Message, null);
 			}
 
 			return coinData;
@@ -751,7 +753,7 @@ namespace maxhanna.Server.Services
 			}
 		}
 
-		private static async Task<bool> IsSystemUpToDate(MySqlConnection conn)
+		private async Task<bool> IsSystemUpToDate(MySqlConnection conn)
 		{
 			var checkSql = "SELECT COUNT(*) FROM coin_value WHERE timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE)";
 			using (var checkCmd = new MySqlCommand(checkSql, conn))
@@ -759,7 +761,6 @@ namespace maxhanna.Server.Services
 				var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 				if (count > 0)
 				{
-					Console.WriteLine("Coin values not added as entries were added in the last 15 minutes.");
 					return true;
 				}
 			}

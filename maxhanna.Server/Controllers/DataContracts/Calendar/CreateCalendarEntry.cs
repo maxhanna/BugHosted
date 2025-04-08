@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Calendar
 {
 	public class CreateCalendarEntry
 	{
-		public CreateCalendarEntry(User user, CalendarEntry calendarEntry)
+		public CreateCalendarEntry(int userId, CalendarEntry calendarEntry)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.calendarEntry = calendarEntry;
 		}
-		public User user { get; set; }
+		public int userId { get; set; }
 		public CalendarEntry calendarEntry { get; set; }
 	}
 }

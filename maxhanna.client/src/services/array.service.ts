@@ -9,14 +9,14 @@ import { ArrayCharacterInventory } from './datacontracts/array/array-character-i
   providedIn: 'root'
 })
 export class ArrayService {
-  async getHero(user?: User) {
+  async getHero(userId?: number) {
     try {
       const response = await fetch(`/array`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user)
+        body: JSON.stringify(userId ?? 0)
       });
 
       if (!response.ok) {
@@ -50,14 +50,14 @@ export class ArrayService {
     }
   }
 
-  async move(direction: string, user?: User) {
+  async move(direction: string, userId?: number) {
     try {
       const response = await fetch(`/array/move`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, direction })
+        body: JSON.stringify({ UserId: (userId ?? 0) , Direction: direction })
       });
 
       if (!response.ok) {
@@ -72,14 +72,14 @@ export class ArrayService {
   }
 
 
-  async getInventory(user?: User) {
+  async getInventory(userId?: number) {
     try {
       const response = await fetch(`/array/getinventory`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user)
+        body: JSON.stringify(userId ?? 0)
       });
 
       if (!response.ok) {
@@ -93,14 +93,14 @@ export class ArrayService {
     }
   }
 
-  async getGraveyardHero(user?: User) {
+  async getGraveyardHero(userId?: number) {
     try {
       const response = await fetch(`/array/getgraveyardhero`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user)
+        body: JSON.stringify(userId ?? 0)
       });
 
       if (!response.ok) {
@@ -113,14 +113,14 @@ export class ArrayService {
       return undefined;
     }
   }
-  async resurrect(user?: User) {
+  async resurrect(userId?: number) {
     try {
       const response = await fetch(`/array/resurrect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user)
+        body: JSON.stringify(userId ?? 0)
       });
 
       if (!response.ok) {

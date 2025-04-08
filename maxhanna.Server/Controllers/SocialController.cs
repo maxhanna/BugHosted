@@ -19,16 +19,18 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class SocialController : ControllerBase
 	{
-		private readonly ILogger<SocialController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _baseTarget;
+		private readonly WebCrawler _crawler;
 
 
-		public SocialController(ILogger<SocialController> logger, IConfiguration config)
+		public SocialController(Log log, IConfiguration config, WebCrawler webCrawler)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
+			_crawler = webCrawler;
 		}
 
 		[HttpPost(Name = "GetStories")]
@@ -39,11 +41,7 @@ namespace maxhanna.Server.Controllers
 			[FromQuery] int page = 1,
 			[FromQuery] int pageSize = 10,
 			[FromQuery] bool showHiddenStories = false)
-		{
-			_logger.LogInformation($@"POST /Social for user: {request.User?.Id} 
-                with search: {search} with topics: {topics} for profile: {request.ProfileUserId} for storyId: {request.StoryId}. 
-                Pagination: Page {page}, PageSize {pageSize}, ShowHiddenStories: {showHiddenStories}.");
-
+		{ 
 			try
 			{
 				var stories = await GetStoriesAsync(request, search, topics, page, pageSize, showHiddenStories);
@@ -51,7 +49,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching stories.");
+				_ = _log.Db("An error occurred while fetching stories." + ex.Message, request.UserId, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while fetching stories.");
 			}
 		}
@@ -63,7 +61,7 @@ namespace maxhanna.Server.Controllers
 
 			// Fetch the NSFW setting for the user
 			int? nsfwEnabled = null;
-			if (request.User?.Id != null)
+			if (request.UserId != 0)
 			{
 				string nsfwSql = @"SELECT nsfw_enabled FROM user_settings WHERE user_id = @userId";
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -71,7 +69,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 					using (var cmd = new MySqlCommand(nsfwSql, conn))
 					{
-						cmd.Parameters.AddWithValue("@userId", request.User.Id);
+						cmd.Parameters.AddWithValue("@userId", request.UserId);
 						nsfwEnabled = (int?)await cmd.ExecuteScalarAsync();
 					}
 				}
@@ -129,11 +127,11 @@ namespace maxhanna.Server.Controllers
 			{
 				whereClause.Append("AND s.profile_user_id IS NULL ");
 			}
-			if (!showHiddenStories && request.User?.Id != null)
+			if (!showHiddenStories)
 			{
 				whereClause.Append(@" AND hs.story_id IS NULL ");
 			}
-			parameters.Add("@userId", request?.User?.Id ?? 0);
+			parameters.Add("@userId", request.UserId);
 
 
 			int offset = (page - 1) * pageSize;
@@ -280,7 +278,7 @@ namespace maxhanna.Server.Controllers
 				{
 					// No need to use cmd.Parameters.AddWithValue for @storyIds because it's dynamically inserted
 
-					//_logger.LogInformation(cmd.CommandText);
+					//_ = _log.Db(cmd.CommandText);
 
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
@@ -344,7 +342,7 @@ namespace maxhanna.Server.Controllers
 				{
 					// No need to use cmd.Parameters.AddWithValue for @storyIds because it's dynamically inserted
 
-					//_logger.LogInformation(cmd.CommandText);
+					//_ = _log.Db(cmd.CommandText);
 
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
@@ -450,9 +448,7 @@ namespace maxhanna.Server.Controllers
 					}
 
 					using (var rdr = await cmd.ExecuteReaderAsync())
-					{
-						_logger.LogInformation("File SQL query executed, processing results.");
-
+					{ 
 						while (await rdr.ReadAsync())
 						{
 							int storyId = rdr.IsDBNull("story_id") ? 0 : rdr.GetInt32("story_id");
@@ -586,9 +582,7 @@ namespace maxhanna.Server.Controllers
 					}
 
 					using (var rdr = await cmd.ExecuteReaderAsync())
-					{
-						_logger.LogInformation("Comment SQL query executed, processing results.");
-
+					{ 
 						while (await rdr.ReadAsync())
 						{
 							if (rdr.IsDBNull("comment_id") || rdr.IsDBNull("story_id")) { continue; }
@@ -697,9 +691,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Social/Post-Story/", Name = "PostStory")]
 		public async Task<IActionResult> PostStory([FromBody] StoryRequest request)
-		{
-			_logger.LogInformation($"POST /Social/Post-Story/ for user: {request.user?.Id} with #of attached files : {request.story.StoryFiles?.Count}");
-
+		{ 
 			try
 			{
 				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP());";
@@ -711,7 +703,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@userId", request.user?.Id ?? 0);
+						cmd.Parameters.AddWithValue("@userId", request.userId);
 						cmd.Parameters.AddWithValue("@storyText", request.story.StoryText);
 						cmd.Parameters.AddWithValue("@profileUserId", request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0 ? request.story.ProfileUserId.Value : (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@city", request.story.City ?? (object)DBNull.Value);
@@ -754,11 +746,11 @@ namespace maxhanna.Server.Controllers
 							}
 
 							// Extract URL from story text
-							var urls = ExtractUrls(request.story.StoryText);
+							string[]? urls = _crawler.ExtractUrls(request.story.StoryText);
 							if (urls != null)
 							{
 								// Fetch metadata
-								var metadataRequest = new MetadataRequest { User = request.user, Url = urls };
+								var metadataRequest = new MetadataRequest { Url = urls };
 								var metadataResponse = SetMetadata(metadataRequest, storyId);
 							}
 
@@ -775,7 +767,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while posting story.");
+				_ = _log.Db("An error occurred while posting story." +ex.Message, request.userId, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while posting story.");
 			}
 		}
@@ -784,9 +776,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Social/Delete-Story", Name = "DeleteStory")]
 		public async Task<IActionResult> DeleteStory([FromBody] StoryRequest request)
-		{
-			_logger.LogInformation($"POST /Social/Delete-Story for user: {request.user?.Id} with storyId: {request.story.Id}");
-
+		{ 
 			try
 			{
 				string sql = @"DELETE FROM stories WHERE (user_id = @userId OR profile_user_id = @userId) AND id = @storyId;";
@@ -797,7 +787,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@userId", request.user?.Id ?? 0);
+						cmd.Parameters.AddWithValue("@userId", request.userId);
 						cmd.Parameters.AddWithValue("@storyId", request.story.Id);
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
@@ -816,7 +806,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while deleting story.");
+				_ = _log.Db("An error occurred while deleting story." + ex.Message, request.userId, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while deleting story.");
 			}
 		}
@@ -824,9 +814,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Social/Edit-Story", Name = "EditStory")]
 		public async Task<IActionResult> EditStory([FromBody] StoryRequest request)
-		{
-			_logger.LogInformation($"POST /Social/Edit-Story for user: {request.user?.Id} with storyId: {request.story.Id}");
-
+		{ 
 			try
 			{
 				string sql = @"UPDATE stories SET story_text = @Text WHERE user_id = @UserId AND id = @StoryId;";
@@ -837,7 +825,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@UserId", request.user?.Id ?? 0);
+						cmd.Parameters.AddWithValue("@UserId", request.userId);
 						cmd.Parameters.AddWithValue("@StoryId", request.story.Id);
 						cmd.Parameters.AddWithValue("@Text", request.story.StoryText);
 
@@ -846,11 +834,11 @@ namespace maxhanna.Server.Controllers
 						if (rowsAffected == 1)
 						{
 							await AppendToSitemapAsync(request.story.Id);
-							var url = ExtractUrls(request.story.StoryText);
+							string[]? url = _crawler.ExtractUrls(request.story.StoryText);
 							if (url != null)
 							{
 								// Fetch metadata
-								var metadataRequest = new MetadataRequest { User = request.user, Url = url };
+								var metadataRequest = new MetadataRequest { Url = url };
 								var metadataResponse = SetMetadata(metadataRequest, request.story.Id);
 							}
 
@@ -865,16 +853,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while deleting story.");
+				_ = _log.Db("An error occurred while deleting story." + ex.Message, request.userId, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while deleting story.");
 			}
 		}
 
 		[HttpPost("/Social/Edit-Topics", Name = "EditTopics")]
 		public async Task<IActionResult> EditTopics([FromBody] DataContracts.Social.EditTopicRequest request)
-		{
-			_logger.LogInformation($"POST /Social/Edit-Topics for user: {request.User?.Id} with storyId: {request.Story.Id}");
-
+		{ 
 			try
 			{
 				string deleteSql = "DELETE FROM maxhanna.story_topics WHERE story_id = @StoryId;";
@@ -924,7 +910,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while editing story topics.");
+				_ = _log.Db("An error occurred while editing story topics." +ex.Message, null, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while editing story topics.");
 			}
 		}
@@ -937,9 +923,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
-					await connection.OpenAsync();
-					_logger.LogInformation($"Opened connection to database for hiding story with id {request.StoryId} for user {request.UserId}");
-
+					await connection.OpenAsync(); 
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						// Insert into hidden_files table (no permission check)
@@ -949,20 +933,16 @@ namespace maxhanna.Server.Controllers
 						hideCommand.Parameters.AddWithValue("@userId", request.UserId);
 						hideCommand.Parameters.AddWithValue("@storyId", request.StoryId);
 
-						await hideCommand.ExecuteNonQueryAsync();
-						_logger.LogInformation($"Post {request.StoryId} hidden for user {request.UserId}");
-
+						await hideCommand.ExecuteNonQueryAsync(); 
 						// Commit transaction
 						await transaction.CommitAsync();
 					}
-				}
-
-				_logger.LogInformation($"Post {request.StoryId} hidden successfully for user {request.UserId}");
+				} 
 				return Ok("Post hidden successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while hiding the post.");
+				_ = _log.Db("An error occurred while hiding the post. " + ex.Message, request.UserId, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while hiding the post.");
 			}
 		}
@@ -975,9 +955,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
-					await connection.OpenAsync();
-					_logger.LogInformation($"Opened connection to database for unhiding story with id {request.StoryId} for user {request.UserId}");
-
+					await connection.OpenAsync(); 
 					using (var transaction = await connection.BeginTransactionAsync())
 					{
 						// Insert into hidden_files table (no permission check)
@@ -987,20 +965,17 @@ namespace maxhanna.Server.Controllers
 						hideCommand.Parameters.AddWithValue("@userId", request.UserId);
 						hideCommand.Parameters.AddWithValue("@storyId", request.StoryId);
 
-						await hideCommand.ExecuteNonQueryAsync();
-						_logger.LogInformation($"Post {request.StoryId} unhidden for user {request.UserId}");
+						await hideCommand.ExecuteNonQueryAsync(); 
 
 						// Commit transaction
 						await transaction.CommitAsync();
 					}
-				}
-
-				_logger.LogInformation($"Post {request.StoryId} unhidden successfully for user {request.UserId}");
+				} 
 				return Ok("Post unhidden successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while unhidden the post.");
+				_ = _log.Db("An error occurred while unhidden the post." + ex.Message, request.UserId, "SOCIAL", true);
 				return StatusCode(500, "An error occurred while unhidden the post.");
 			}
 		}
@@ -1009,17 +984,15 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> SetMetadata([FromBody] MetadataRequest request, int? storyId)
 		{
 			try
-			{
-				_logger.LogInformation($"Setting metadata for user : {request.User?.Id} for url: {request.Url} for storyId: {storyId}");
+			{ 
 				if (request.Url != null)
 				{
 					if (storyId != null && storyId != 0)
-					{
-						_logger.LogInformation($"Inserting metadata for story {storyId}");
+					{ 
 						await DeleteMetadata(storyId);
 						for (int i = 0; i < request.Url.Length; i++)
 						{
-							var metadata = await FetchMetadataAsync(request.Url[i]);
+							Metadata? metadata = await _crawler.ScrapeUrlData(request.Url[i]);
 							await InsertMetadata((int)storyId, metadata);
 						}
 						return Ok($"Inserted metadata for storyId {storyId}");
@@ -1032,8 +1005,9 @@ namespace maxhanna.Server.Controllers
 			}
 			return Ok();
 		}
-		private async Task<string> InsertMetadata(int storyId, Metadata metadata)
+		private async Task<string> InsertMetadata(int storyId, Metadata? metadata)
 		{
+			if (metadata == null) return "No metadata to insert";
 			string sql = @"INSERT INTO story_metadata (story_id, title, description, image_url, metadata_url) VALUES (@storyId, @title, @description, @imageUrl, @metadataUrl);";
 			try
 			{
@@ -1051,8 +1025,7 @@ namespace maxhanna.Server.Controllers
 
 						await cmd.ExecuteNonQueryAsync();
 					}
-				}
-				_logger.LogInformation($"Inserted metadata {metadata} for storyId {storyId}");
+				} 
 			}
 			catch
 			{
@@ -1075,34 +1048,14 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@StoryId", storyId);
 						await cmd.ExecuteNonQueryAsync();
 					}
-				}
-				_logger.LogInformation($"Deleted metadata for storyId {storyId}");
+				} 
 			}
 			catch
 			{
 				return "Could not delete metadata";
 			}
 			return "Deleted metadata";
-		}
-		private static string[] ExtractUrls(string? text)
-		{
-			if (string.IsNullOrEmpty(text))
-			{
-				return Array.Empty<string>(); // Return an empty array if the text is null or empty
-			}
-
-			// Regular expression to match URLs both inside href="" and standalone links
-			string urlPattern = @"(?:href=[""'](https?:\/\/[^\s""']+)[""']|(?<!href=[""'])(https?:\/\/[^\s<]+))";
-
-			// Match URLs in the text
-			var matches = System.Text.RegularExpressions.Regex.Matches(text, urlPattern);
-
-			// Convert the MatchCollection to a string array, filtering out empty matches
-			return matches.Cast<Match>()
-										.Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
-										.Where(url => !string.IsNullOrEmpty(url))
-										.ToArray();
-		}
+		} 
 
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
 		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
@@ -1122,7 +1075,7 @@ namespace maxhanna.Server.Controllers
 					sitemap = XDocument.Load(_sitemapPath);
 					var existingUrl = sitemap.Descendants(ns + "loc")
 																	 .FirstOrDefault(x => x.Value == storyUrl);
-					if (existingUrl != null)
+					if (existingUrl != null && existingUrl.Parent != null)
 					{
 						// Update lastmod if the entry exists
 						existingUrl.Parent.Element(ns + "lastmod")?.SetValue(lastMod);
@@ -1156,9 +1109,7 @@ namespace maxhanna.Server.Controllers
 		}
 		private async Task RemoveFromSitemapAsync(int targetId)
 		{
-			string targetUrl = $"https://bughosted.com/Social/{targetId}";
-			_logger.LogInformation($"Removing {targetUrl} from sitemap...");
-
+			string targetUrl = $"https://bughosted.com/Social/{targetId}"; 
 			await _sitemapLock.WaitAsync();
 			try
 			{
@@ -1178,58 +1129,14 @@ namespace maxhanna.Server.Controllers
 						// Remove the element if found
 						targetElement.Remove();
 						sitemap.Save(_sitemapPath);
-						_logger.LogInformation($"Removed {targetUrl} from sitemap!");
-					}
-					else
-					{
-						_logger.LogWarning($"URL {targetUrl} not found in sitemap.");
-					}
+						_ = _log.Db($"Removed {targetUrl} from sitemap!", null, "SOCIAL", true);
+					} 
 				}
 			}
 			finally
 			{
 				_sitemapLock.Release();
 			}
-		}
-		private async Task<Metadata> FetchMetadataAsync(string url)
-		{
-			var metadata = new Metadata();
-			try
-			{
-				var httpClient = new HttpClient();
-				var response = await httpClient.GetAsync(url);
-				var html = await response.Content.ReadAsStringAsync();
-
-				var htmlDocument = new HtmlDocument();
-				htmlDocument.LoadHtml(html);
-				_logger.LogInformation($"Got HTML for {url}.");
-
-				// Extract metadata from HTML document
-				var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
-				if (titleNode != null)
-				{
-					metadata.Title = titleNode.InnerText.Trim();
-				}
-
-				var metaDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']");
-				if (metaDescriptionNode != null)
-				{
-					metadata.Description = metaDescriptionNode.GetAttributeValue("content", "").Trim();
-				}
-
-				var metaImageNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:image']");
-				if (metaImageNode != null)
-				{
-					metadata.ImageUrl = metaImageNode.GetAttributeValue("content", "").Trim();
-				}
-
-				metadata.Url = url;
-			} catch(Exception ex)
-			{
-				Console.WriteLine("SocialCtrl: Failed to fetch metadata : " + ex.Message);
-			} 
-			return metadata;
-		}
-
+		} 
 	}
 }

@@ -5,6 +5,7 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
+using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -12,19 +13,18 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class ChatController : ControllerBase
 	{
-		private readonly ILogger<ChatController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public ChatController(ILogger<ChatController> logger, IConfiguration config)
+		public ChatController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/Chat/Notifications", Name = "GetChatNotifications")]
-		public async Task<IActionResult> GetChatNotifications([FromBody] User user)
+		public async Task<IActionResult> GetChatNotifications([FromBody] int userId)
 		{
-			_logger.LogInformation($"POST /Chat/Notifications for user: {user.Id}");
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -41,7 +41,7 @@ namespace maxhanna.Server.Controllers
                         (m.seen = 0)";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@userId", user.Id);
+				cmd.Parameters.AddWithValue("@userId", userId);
 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -53,7 +53,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request for message history.");
+				_ = _log.Db("An error occurred while processing the POST request for message history. " + ex.Message, userId, "CHAT");
 			}
 			finally
 			{
@@ -63,9 +63,8 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Chat/NotificationsByUser", Name = "GetChatNotificationsByUser")]
-		public async Task<IActionResult> GetChatNotificationsByUser([FromBody] User user)
+		public async Task<IActionResult> GetChatNotificationsByUser([FromBody] int userId)
 		{
-			_logger.LogInformation($"POST /Chat/NotificationsByUser for user: {user.Id}");
 			List<Notification> notifications = new List<Notification>();
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -86,7 +85,7 @@ namespace maxhanna.Server.Controllers
 					GROUP BY chat_id;";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@userId", user.Id);
+				cmd.Parameters.AddWithValue("@userId", userId);
 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -112,7 +111,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request for message notifications.");
+				_ = _log.Db("An error occurred while processing the POST request for message notifications. " + ex.Message, userId, "CHAT");
 			}
 			finally
 			{
@@ -122,9 +121,8 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Chat/GetGroupChats", Name = "GetGroupChats")]
-		public async Task<List<ChatMessage>> GetGroupChats([FromBody] User user)
+		public async Task<List<ChatMessage>> GetGroupChats([FromBody] int userId)
 		{
-			_logger.LogInformation($"POST /Chat/GetGroupChats for user: {user.Id}");
 			List<ChatMessage> messages = new List<ChatMessage>();
 
 			// Query to get chat IDs and receiver IDs from messages
@@ -151,7 +149,7 @@ namespace maxhanna.Server.Controllers
 
 				// Fetch chat IDs and receiver lists
 				MySqlCommand cmd = new MySqlCommand(query, conn);
-				cmd.Parameters.AddWithValue("@ReceiverId", user.Id);
+				cmd.Parameters.AddWithValue("@ReceiverId", userId);
 
 				using (MySqlDataReader reader = await cmd.ExecuteReaderAsync())
 				{
@@ -231,13 +229,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Chat/GetChatUsersByChatId", Name = "GetChatUsersByChatId")]
 		public async Task<IActionResult> GetChatUsersByChatId([FromBody] GetChatUsersByChatIdRequest request)
-		{
-			_logger.LogInformation($"POST /Chat/GetChatUsersByChatId for user: {request.User?.Id}.");
-
-			if (request.User == null)
-			{
-				return BadRequest("You must send a user in the request");
-			}
+		{ 
 			List<User> users = new List<User>();
 
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
@@ -288,7 +280,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while processing the request for GetChatUsersByChatId.");
+					_ = _log.Db("An error occurred while processing the request for GetChatUsersByChatId.", null, "CHAT");
 					return StatusCode(500, "An error occurred while processing the request.");
 				}
 
@@ -303,11 +295,10 @@ namespace maxhanna.Server.Controllers
 			int totalRecords = 0;
 			int totalPages = 0;
 
-			string receiverList = request.Receivers != null && request.Receivers.Any()
-					? string.Join(",", request.Receivers.Select(r => r.Id))
+			string receiverList = request.ReceiverIds != null && request.ReceiverIds.Any()
+					? string.Join(",", request.ReceiverIds)
 					: string.Empty;
 
-		//	_logger.LogInformation($"POST /Chat/GetMessageHistory for users: {request.User?.Id}. chatId: {request.ChatId}, receivers: {receiverList}. pageNumber: {pageNumber} pageSize: {pageSize}");
 			List<ChatMessage> messages = new List<ChatMessage>();
 			int? chatId = null;
 			if (request.ChatId == null)
@@ -334,23 +325,32 @@ namespace maxhanna.Server.Controllers
 						while (await reader.ReadAsync())
 						{
 							string dbReceiver = reader["receiver"].ToString() ?? "";
-							List<string> dbReceiverList = dbReceiver.Split(',').OrderBy(id => id).ToList(); // Sort the db receiver list
-
-							// Compare sorted lists as strings
-							if (request.Receivers != null && request.Receivers.Length > 0 && new HashSet<string>(dbReceiverList).SetEquals(request.Receivers.Select(r => r.Id.ToString())))
+							List<int> dbReceiverList = dbReceiver
+								.Split(',')
+								.Select(s => int.TryParse(s, out var val) ? val : -1) // convert to int, fallback -1 if parse fails
+								.Where(i => i != -1) // remove failed parses
+								.OrderBy(i => i)
+								.ToList();
+							 
+							if (request.ReceiverIds != null && request.ReceiverIds.Length > 0)
 							{
-								chatId = Convert.ToInt32(reader["chat_id"]);
-								break;
+								var requestSet = new HashSet<int>(request.ReceiverIds);
+								var dbSet = new HashSet<int>(dbReceiverList);
+
+								if (dbSet.SetEquals(requestSet))
+								{
+									chatId = Convert.ToInt32(reader["chat_id"]);
+									break;
+								}
 							}
 						}
 					}
 
 					if (chatId == null)
 					{
-						Console.WriteLine("No matching chatId found for receivers: " + receiverList);
+						_ = _log.Db("No matching chatId found for receivers: " + receiverList, request.UserId, "CHAT", true);
 						return Ok(messages);
 					}
-					Console.WriteLine("Found chatId: " + chatId);
 				}
 			}
 			else
@@ -360,7 +360,6 @@ namespace maxhanna.Server.Controllers
 
 			if (chatId == null)
 			{
-				Console.WriteLine("returning no messages because chatId is null");
 				return Ok(messages);
 			}
 			else if (chatId != null)
@@ -384,8 +383,6 @@ namespace maxhanna.Server.Controllers
 						// Calculate total number of pages
 						if (totalRecords > 0)
 						{
-							//Console.WriteLine("Found a pre-existing chat history");
-
 							totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
 
 							int offset = (pageNumber - 1) * pageSize;
@@ -539,7 +536,7 @@ namespace maxhanna.Server.Controllers
 					}
 					catch (Exception ex)
 					{
-						_logger.LogError(ex, "An error occurred while processing the POST request for message history.");
+						_ = _log.Db("An error occurred while processing the POST request for message history. " + ex.Message, request.UserId, "CHAT");
 						return StatusCode(500, "An error occurred while processing the request.");
 					}
 					finally
@@ -569,13 +566,13 @@ namespace maxhanna.Server.Controllers
 
 						MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
 						updateCmd.Parameters.AddWithValue("@ChatId", (int)chatId);
-						updateCmd.Parameters.AddWithValue("@SenderId", request.User?.Id ?? 0);
+						updateCmd.Parameters.AddWithValue("@SenderId", request.UserId);
 
 						await updateCmd.ExecuteNonQueryAsync();
 					}
 					catch (Exception ex)
 					{
-						_logger.LogError(ex, "An error occurred while updating message seen status.");
+						_ = _log.Db("An error occurred while updating message seen status." + ex.Message, request.UserId, "CHAT");
 					}
 					finally
 					{
@@ -605,7 +602,8 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					Console.Error.WriteLine(ex.ToString());
+
+					_ = _log.Db("Chat: Error getting chat history: " + ex.Message, request.UserId, "CHAT", true);
 					return StatusCode(500, "An error occurred while processing your chat request.");
 				}
 			}
@@ -618,13 +616,8 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Chat/SendMessage", Name = "SendMessage")]
 		public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request)
-		{
-			if (request.Sender == null)
-			{
-				request.Sender = new User(0, "Anonymous");
-			}
-
-			_logger.LogInformation($"POST /Chat/SendMessage from user: {request.Sender?.Id} to chatId: {request.ChatId} with {request.Files?.Count ?? 0} # of files");
+		{ 
+			//_ = _log.Db($"POST /Chat/SendMessage from user: {request.Sender?.Id} to chatId: {request.ChatId} with {request.Files?.Count ?? 0} # of files", request.Sender?.Id, "CHAT");
 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
@@ -633,23 +626,20 @@ namespace maxhanna.Server.Controllers
 				bool isContained = false;
 
 				// Convert receiver list to a comma-separated string
-				string receiverList = request.Receiver != null && request.Receiver.Any()
-						? string.Join(",", request.Receiver.Select(r => r.Id))
+				string receiverList = request.ReceiverIds != null && request.ReceiverIds.Any()
+						? string.Join(",", request.ReceiverIds)
 						: string.Empty;
 				long targetChatId = 0;
 				// Check if the sender's ID is already in the receiver list
-				if (!string.IsNullOrEmpty(receiverList) && receiverList.Split(',').Contains(request.Sender.Id.ToString()))
+				if (!string.IsNullOrEmpty(receiverList) && receiverList.Split(',').Contains(request.SenderId.ToString()))
 				{
 					isContained = true;
 				}
 
 				if (!isContained)
 				{
-					receiverList = request.Sender.Id + (string.IsNullOrEmpty(receiverList) ? "" : "," + receiverList);
+					receiverList = request.SenderId + (string.IsNullOrEmpty(receiverList) ? "" : "," + receiverList);
 				}
-
-				Console.WriteLine("Receiver list:");
-				Console.WriteLine(receiverList);
 
 				if (request.ChatId == null || request.ChatId == 0)
 				{
@@ -681,7 +671,7 @@ namespace maxhanna.Server.Controllers
 				using (var idcmd = new MySqlCommand(receiverSql, conn))
 				{
 					idcmd.Parameters.AddWithValue("@ChatId", targetChatId);
-					string tmpList = Convert.ToString(await idcmd.ExecuteScalarAsync());
+					string? tmpList = Convert.ToString(await idcmd.ExecuteScalarAsync());
 					if (!string.IsNullOrEmpty(tmpList))
 					{
 						receiverList = tmpList;
@@ -691,7 +681,7 @@ namespace maxhanna.Server.Controllers
 				string sql = "INSERT INTO maxhanna.messages (sender, receiver, chat_id, content, timestamp) VALUES (@Sender, @Receiver, @ChatId, @Content, UTC_TIMESTAMP())";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@Sender", request.Sender?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@Sender", request.SenderId);
 				cmd.Parameters.AddWithValue("@Receiver", receiverList);
 				cmd.Parameters.AddWithValue("@ChatId", targetChatId);
 				cmd.Parameters.AddWithValue("@Content", request.Content);
@@ -719,7 +709,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request for sending a message.");
+				_ = _log.Db("An error occurred while processing the POST request for sending a message. " + ex.Message, request.SenderId, "CHAT");
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -730,8 +720,8 @@ namespace maxhanna.Server.Controllers
 
 		public class SendMessageRequest
 		{
-			public User? Sender { get; set; }
-			public User[]? Receiver { get; set; }
+			public int SenderId { get; set; }
+			public int[]? ReceiverIds { get; set; }
 			public int? ChatId { get; set; }
 			public string? Content { get; set; }
 			public List<FileEntry>? Files { get; set; }

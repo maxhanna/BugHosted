@@ -125,8 +125,8 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
   gameLoop = new GameLoop(this.update, this.render);
 
   async pollForChanges() {
-    if (!this.hero?.id && this.parentRef?.user) {
-      const rz = await this.metaService.getHero(this.parentRef.user);
+    if (!this.hero?.id && this.parentRef?.user?.id) {
+      const rz = await this.metaService.getHero(this.parentRef.user.id);
       if (rz) {
         await this.reinitializeHero(rz);
       } else {
@@ -413,7 +413,7 @@ export class MetaComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.mainScene?.inventory?.items) {
       this.mainScene.inventory.items.forEach((item: any) => this.mainScene.inventory.removeFromInventory(item.id));
     }
-    await this.metaService.fetchInventoryData(this.metaHero).then(inventoryData => {
+    await this.metaService.fetchInventoryData(this.metaHero.id).then(inventoryData => {
       if (inventoryData) {
         const inventoryItems = inventoryData.inventory as InventoryItem[];
         const metabotParts = inventoryData.parts as MetaBotPart[];

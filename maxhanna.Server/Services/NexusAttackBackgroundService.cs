@@ -11,22 +11,18 @@ namespace maxhanna.Server.Services
 		private readonly ConcurrentDictionary<int, Timer> _timers = new ConcurrentDictionary<int, Timer>();
 		private readonly ConcurrentQueue<int> _attackQueue = new ConcurrentQueue<int>();
 		private readonly IConfiguration _config;
-		private readonly string _connectionString;
-		private readonly IServiceProvider _serviceProvider;
-		private readonly ILogger<NexusController> _logger;
+		private readonly string _connectionString; 
+		private readonly Log _log;
 		private Timer _checkForNewAttacksTimer;
 		private Timer _processAttackQueueTimer;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
 
-		public NexusAttackBackgroundService(IConfiguration config)
+		public NexusAttackBackgroundService(IConfiguration config, Log log)
 		{
 			_config = config;
-			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-			var serviceCollection = new ServiceCollection();
-			ConfigureServices(serviceCollection);
-			_serviceProvider = serviceCollection.BuildServiceProvider();
-			_logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
+			_log = log;
 			_processAttackQueueTimer = new Timer(ProcessAttackQueue, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
 		}
 
@@ -182,18 +178,7 @@ namespace maxhanna.Server.Services
 
 			return tmpBase;
 		}
-
-		private void ConfigureServices(IServiceCollection services)
-		{
-			// Configure logging
-			services.AddLogging(configure => configure.AddConsole())
-							.Configure<LoggerFilterOptions>(options => options.MinLevel = LogLevel.Information);
-
-			// Configure configuration
-			services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
-					.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-					.Build());
-		}
+		 
 
 		public async Task ProcessAttack(int attackId)
 		{
@@ -204,7 +189,7 @@ namespace maxhanna.Server.Services
 				NexusBase? nexus = await GetNexusBaseByAttackId(attackId);
 				if (nexus != null)
 				{
-					var nexusController = new NexusController(_logger, _config);
+					var nexusController = new NexusController(_log, _config);
 					await nexusController.UpdateNexusAttacks(nexus);
 				}
 				else

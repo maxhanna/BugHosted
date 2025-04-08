@@ -21,14 +21,14 @@ export class TopicService {
     } catch (error) {
     }
   }
-  async addTopic(user: User, topic: Topic) {
+  async addTopic(userId: number, topic: Topic) {
     try {
       const response = await fetch(`/topic/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, topic }),
+        body: JSON.stringify({ userId, topic }),
       });
 
       return await response.json();

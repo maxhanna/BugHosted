@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 {
 	public class DeleteFileOrDirectory
 	{
-		public DeleteFileOrDirectory(User user, FileEntry file)
+		public DeleteFileOrDirectory(int userId, FileEntry file)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.file = file;
 		}
-		public User user { get; set; }
+		public int userId { get; set; }
 		public FileEntry file { get; set; }
 	}
 }

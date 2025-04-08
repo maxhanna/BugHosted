@@ -78,52 +78,53 @@ export class NexusBasesComponent extends ChildComponent implements OnInit {
     return ''
   }
   async selectCommand() {
+    if (!this.user?.id) return;
     if (!confirm(`Command all bases to ${this.commandSelector.nativeElement.value}?`)) return;
 
     let commandPromise: Promise<NexusBase[]>;
 
     switch (this.commandSelector.nativeElement.value) {
       case 'Upgrade Command Center':
-        commandPromise = this.nexusService.upgradeAll("command_center", this.user);
+        commandPromise = this.nexusService.upgradeAll("command_center", this.user.id);
         break;
       case 'Upgrade Mines':
-        commandPromise = this.nexusService.upgradeAll("mines", this.user);
+        commandPromise = this.nexusService.upgradeAll("mines", this.user.id);
         break;
       case 'Upgrade Supply Depot':
-        commandPromise = this.nexusService.upgradeAll("supply_depot", this.user);
+        commandPromise = this.nexusService.upgradeAll("supply_depot", this.user.id);
         break;
       case 'Upgrade Warehouse':
-        commandPromise = this.nexusService.upgradeAll("warehouse", this.user);
+        commandPromise = this.nexusService.upgradeAll("warehouse", this.user.id);
         break;
       case 'Upgrade Engineering Bay':
-        commandPromise = this.nexusService.upgradeAll("engineering_bay", this.user);
+        commandPromise = this.nexusService.upgradeAll("engineering_bay", this.user.id);
         break;
       case 'Upgrade Factory':
-        commandPromise = this.nexusService.upgradeAll("factory", this.user);
+        commandPromise = this.nexusService.upgradeAll("factory", this.user.id);
         break;
       case 'Upgrade Starport':
-        commandPromise = this.nexusService.upgradeAll("starport", this.user);
+        commandPromise = this.nexusService.upgradeAll("starport", this.user.id);
         break;
       case 'Build Marines':
-        commandPromise = this.nexusService.massPurchase("marine", this.user);
+        commandPromise = this.nexusService.massPurchase("marine", this.user.id);
         break;
       case 'Build Goliath':
-        commandPromise = this.nexusService.massPurchase("goliath", this.user);
+        commandPromise = this.nexusService.massPurchase("goliath", this.user.id);
         break;
       case 'Build Siege Tanks':
-        commandPromise = this.nexusService.massPurchase("siege_tank", this.user);
+        commandPromise = this.nexusService.massPurchase("siege_tank", this.user.id);
         break;
       case 'Build Scouts':
-        commandPromise = this.nexusService.massPurchase("scout", this.user);
+        commandPromise = this.nexusService.massPurchase("scout", this.user.id);
         break;
       case 'Build Wraith':
-        commandPromise = this.nexusService.massPurchase("wraith", this.user);
+        commandPromise = this.nexusService.massPurchase("wraith", this.user.id);
         break;
       case 'Build Battlecruisers':
-        commandPromise = this.nexusService.massPurchase("battlecruiser", this.user);
+        commandPromise = this.nexusService.massPurchase("battlecruiser", this.user.id);
         break;
       case 'Build Glitcher':
-        commandPromise = this.nexusService.massPurchase("glitcher", this.user);
+        commandPromise = this.nexusService.massPurchase("glitcher", this.user.id);
         break;
       default:
         console.log('Unknown command');

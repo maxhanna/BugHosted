@@ -1,15 +1,13 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Social
 {
 	public class StoryRequest
 	{
-		public StoryRequest(Story story, User? user)
+		public StoryRequest(Story story, int? userId)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.story = story;
 		}
-		public User? user { get; set; }
+		public int? userId { get; set; }
 		public Story story { get; set; }
 	}
 }

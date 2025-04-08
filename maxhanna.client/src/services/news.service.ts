@@ -6,14 +6,13 @@ import { User } from './datacontracts/user/user';
   providedIn: 'root'
 })
 export class NewsService { 
-  async getAllNews(user: User) {
+  async getAllNews() {
     try {
       const res = await fetch('/news', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(user),
+        }, 
       });
 
       if (!res.ok) {
@@ -26,7 +25,7 @@ export class NewsService {
     }
   }
 
-  async searchNews(user: User, keyword: string) {
+  async searchNews(keyword: string) {
     const params = new URLSearchParams({ keywords: keyword });
 
     try {
@@ -34,8 +33,7 @@ export class NewsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(user),
+        }, 
       });
 
       if (!res.ok) {
@@ -50,14 +48,14 @@ export class NewsService {
   }
 
 
-  async saveDefaultSearch(user: User, search: string) {
+  async saveDefaultSearch(userId: number, search: string) {
     try {
       const res = await fetch(`/news/savedefaultsearch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Search: search }),
+        body: JSON.stringify({ UserId: userId, Search: search }),
       });
 
       if (!res.ok) {
@@ -70,14 +68,14 @@ export class NewsService {
     }
   }
 
-  async getDefaultSearch(user: User) {
+  async getDefaultSearch(userId: number) {
     try {
       const res = await fetch(`/news/getdefaultsearch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify( user ),
+        body: JSON.stringify( userId ),
       });
 
       if (!res.ok) {

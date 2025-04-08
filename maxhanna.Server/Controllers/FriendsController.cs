@@ -11,23 +11,20 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class FriendController : ControllerBase
 	{
-		private readonly ILogger<FriendController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public FriendController(ILogger<FriendController> logger, IConfiguration config)
+		public FriendController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/Friend", Name = "GetFriends")]
-		public async Task<IActionResult> GetFriends([FromBody] User user)
+		public async Task<IActionResult> GetFriends([FromBody] int userId)
 		{
 			try
-			{
-				_logger.LogInformation($"POST /Friends (user: {user.Id})");
-
-				// Define the SQL query to retrieve friends of the given user
+			{  
 				string query = @"
                     SELECT 
                         u.id, 
@@ -64,18 +61,16 @@ namespace maxhanna.Server.Controllers
                         u.id = dp.user_id
                     WHERE 
                         f.friend_id = @userId;";
-
-				// Execute the SQL query using a database connection
+				 
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					connection.Open();
 
 					var command = new MySqlCommand(query, connection);
-					command.Parameters.AddWithValue("@userId", user.Id);
+					command.Parameters.AddWithValue("@userId", userId);
 
 					using (var reader = await command.ExecuteReaderAsync())
-					{
-						// Process the results and build a list of friends
+					{ 
 						var friends = new List<User>();
 						while (reader.Read())
 						{
@@ -94,19 +89,16 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching friends.");
+				_ = _log.Db("An error occurred while fetching friends. " + ex.Message, userId, "FRIEND", true);
 				return StatusCode(500, "An error occurred while fetching friends.");
 			}
 		}
 
 		[HttpPost("/Friend/Requests", Name = "GetFriendRequests")]
-		public async Task<IActionResult> GetFriendRequests([FromBody] User user)
+		public async Task<IActionResult> GetFriendRequests([FromBody] int userId)
 		{
 			try
-			{
-				_logger.LogInformation($"POST /Friend/Requests (user: {user.Id})");
-
-				// Define the SQL query to retrieve friendship requests for the given user
+			{ 
 				string query = @"
             SELECT 
                 fr.id, 
@@ -133,7 +125,7 @@ namespace maxhanna.Server.Controllers
 					connection.Open();
 
 					var command = new MySqlCommand(query, connection);
-					command.Parameters.AddWithValue("@userId", user.Id);
+					command.Parameters.AddWithValue("@userId", userId);
 
 					using (var reader = await command.ExecuteReaderAsync())
 					{
@@ -173,7 +165,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching friend requests.");
+				_ = _log.Db("An error occurred while fetching friend requests. " + ex.Message, userId, "FRIEND", true);
 				return StatusCode(500, "An error occurred while fetching friend requests.");
 			}
 		}
@@ -181,16 +173,13 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Friend/Request", Name = "SendFriendRequest")]
 		public async Task<IActionResult> SendFriendRequest([FromBody] FriendshipRequest request)
 		{
-			if (request.Sender == null || request.Receiver == null)
+			if (request.SenderId == 0 || request.ReceiverId == 0)
 			{
-				return BadRequest("Invalid follow request.");
+				return BadRequest("Invalid follow request. You cannot follow Anonymous.");
 			}
 			try
-			{
-				_logger.LogInformation($"POST /Friend/Request (sender: {request.Sender.Id}, receiver: {request.Receiver.Id})");
-
-				// Validate the request
-				if (request.Sender.Id == request.Receiver.Id)
+			{  
+				if (request.SenderId == request.ReceiverId)
 				{
 					return BadRequest("You cannot send a follow request to yourself.");
 				}
@@ -206,15 +195,15 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 
 					var checkCommand = new MySqlCommand(checkQuery, connection);
-					checkCommand.Parameters.AddWithValue("@senderId", request.Sender.Id);
-					checkCommand.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
+					checkCommand.Parameters.AddWithValue("@senderId", request.SenderId);
+					checkCommand.Parameters.AddWithValue("@receiverId", request.ReceiverId);
 					object? result = await checkCommand.ExecuteScalarAsync();
 
 					if (result != null)
 					{
 						// Update the existing friend request
 						int requestId = Convert.ToInt32(result);
-						await AddFriend(request.Sender, request.Receiver, connection);
+						await AddFriend(request.SenderId, request.ReceiverId, connection);
 						return Ok("You are both following each other. Adding a friend instead of follower.");
 					}
 					else
@@ -222,8 +211,8 @@ namespace maxhanna.Server.Controllers
 						// Insert a new friend request
 						string insertQuery = "INSERT INTO friend_requests (sender_id, receiver_id, status, created_at, updated_at) VALUES (@senderId, @receiverId, @status, NOW(), NOW())";
 						var insertCommand = new MySqlCommand(insertQuery, connection);
-						insertCommand.Parameters.AddWithValue("@senderId", request.Sender.Id);
-						insertCommand.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
+						insertCommand.Parameters.AddWithValue("@senderId", request.SenderId);
+						insertCommand.Parameters.AddWithValue("@receiverId", request.ReceiverId);
 						insertCommand.Parameters.AddWithValue("@status", "Pending");
 						await insertCommand.ExecuteNonQueryAsync();
 					}
@@ -236,8 +225,8 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(notificationSql, connection))
 					{
-						cmd.Parameters.AddWithValue("@senderId", request.Sender.Id);
-						cmd.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
+						cmd.Parameters.AddWithValue("@senderId", request.SenderId);
+						cmd.Parameters.AddWithValue("@receiverId", request.ReceiverId);
 
 						await cmd.ExecuteNonQueryAsync();
 					}
@@ -247,73 +236,83 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while sending follow request.");
+				_ = _log.Db("An error occurred while sending follow request. " + ex.Message, request.SenderId, "FRIEND", true);
 				return StatusCode(500, "An error occurred while sending follow request.");
 			}
 		}
 
 
 		[HttpPost("/Friend/Request/Accept", Name = "AcceptFriendRequest")]
-		public async Task<IActionResult> AcceptFriendRequest([FromBody] FriendshipRequest request)
+		public async Task<IActionResult> AcceptFriendRequest([FromBody] Dictionary<string, string> body)
 		{
-			if (request.Sender == null || request.Receiver == null)
+			if (!body.TryGetValue("ReceiverId", out var receiverIdStr) ||
+					!int.TryParse(receiverIdStr, out var receiverId) ||
+					receiverId <= 0)
 			{
-				return BadRequest("Invalid friendship request.");
+				return BadRequest("Invalid or missing Receiver ID.");
+			}
+
+			if (!body.TryGetValue("SenderId", out var senderIdStr) ||
+					!int.TryParse(senderIdStr, out var senderId) ||
+				senderId <= 0)
+			{
+				return BadRequest("Invalid or missing Sender ID.");
+			}
+
+			if (senderId == 0 || receiverId == 0)
+			{
+				return BadRequest("Invalid friendship request. Cannot be friends with Anonymous");
 			}
 
 			try
-			{
-				_logger.LogInformation($"POST /Friend/Request/Accept (sender: {request.Sender.Id}, receiver: {request.Receiver.Id})");
-
+			{ 
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await connection.OpenAsync();
-					await AddFriend(request.Sender, request.Receiver, connection);
+					await AddFriend(senderId, receiverId, connection);
 				}
 				return Ok("Friend request accepted successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while accepting the friend request.");
+				_ = _log.Db("An error occurred while accepting the friend request. " + ex.Message, senderId, "FRIEND", true);
 				return StatusCode(500, "An error occurred while accepting the friend request.");
 			}
 		}
 
 		[HttpPost("/Friend/Request/Delete", Name = "DeleteFriendRequest")]
-		public async Task<IActionResult> DeleteFriendRequest([FromBody] FriendshipRequest request)
+		public async Task<IActionResult> DeleteFriendRequest([FromBody] int requestId)
 		{
-			if (request == null || request.Sender == null || request.Receiver == null)
+			if (requestId == 0)
 			{
 				return BadRequest("Invalid friendship request.");
 			}
 
 			try
-			{
-				_logger.LogInformation($"POST /Friend/Request/DeleteFriendRequest (sender: {request.Sender.Id}, receiver: {request.Receiver.Id})");
-
+			{ 
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await connection.OpenAsync();
-					await DeleteFriendRequestFromDB(request, connection);
+					await DeleteFriendRequestFromDB(requestId, connection);
 				}
 				return Ok("Follow request deleted successfully.");
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while deleting the follow request.");
+				_ = _log.Db("An error occurred while deleting the follow request. " + ex.Message, null, "FRIEND", true);
 				return StatusCode(500, "An error occurred while deleting the follow request.");
 			}
 		}
 
-		private async Task AddFriend(User sender, User receiver, MySqlConnection connection)
+		private async Task AddFriend(int senderId, int receiverId, MySqlConnection connection)
 		{
 
 			// Check if the friendship request exists and is pending
 			string checkRequestQuery = "SELECT id FROM friend_requests WHERE (sender_id = @senderId AND receiver_id = @receiverId OR receiver_id = @senderId AND sender_id = @receiverId) AND (status = 'Pending' OR status = 'Deleted')";
 			using (var checkRequestCommand = new MySqlCommand(checkRequestQuery, connection))
 			{
-				checkRequestCommand.Parameters.AddWithValue("@senderId", sender.Id);
-				checkRequestCommand.Parameters.AddWithValue("@receiverId", receiver.Id);
+				checkRequestCommand.Parameters.AddWithValue("@senderId", senderId);
+				checkRequestCommand.Parameters.AddWithValue("@receiverId", receiverId);
 				object? result = await checkRequestCommand.ExecuteScalarAsync();
 
 				int requestId = Convert.ToInt32(result);
@@ -333,8 +332,8 @@ namespace maxhanna.Server.Controllers
                                OR (user_id = @friendId AND friend_id = @userId)";
 				using (var checkFriendCommand = new MySqlCommand(checkFriendQuery, connection))
 				{
-					checkFriendCommand.Parameters.AddWithValue("@userId", sender.Id);
-					checkFriendCommand.Parameters.AddWithValue("@friendId", receiver.Id);
+					checkFriendCommand.Parameters.AddWithValue("@userId", senderId);
+					checkFriendCommand.Parameters.AddWithValue("@friendId", receiverId);
 					friendCount = Convert.ToInt32(await checkFriendCommand.ExecuteScalarAsync());
 
 				}
@@ -345,8 +344,8 @@ namespace maxhanna.Server.Controllers
 					string insertFriendQuery = "INSERT INTO friends (user_id, friend_id) VALUES (@userId, @friendId), (@friendId, @userId)";
 					using (var insertFriendCommand = new MySqlCommand(insertFriendQuery, connection))
 					{
-						insertFriendCommand.Parameters.AddWithValue("@userId", sender.Id);
-						insertFriendCommand.Parameters.AddWithValue("@friendId", receiver.Id);
+						insertFriendCommand.Parameters.AddWithValue("@userId", senderId);
+						insertFriendCommand.Parameters.AddWithValue("@friendId", receiverId);
 						await insertFriendCommand.ExecuteNonQueryAsync();
 					}
 
@@ -358,46 +357,58 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(notificationSql, connection))
 					{
-						cmd.Parameters.AddWithValue("@userId", sender.Id);
-						cmd.Parameters.AddWithValue("@friendId", receiver.Id);
+						cmd.Parameters.AddWithValue("@userId", senderId);
+						cmd.Parameters.AddWithValue("@friendId", receiverId);
 						await cmd.ExecuteNonQueryAsync();
 					}
 				}
 			}
 		}
-		private async Task DeleteFriendRequestFromDB(FriendshipRequest request, MySqlConnection connection)
+		private async Task DeleteFriendRequestFromDB(int requestId, MySqlConnection connection)
 		{
-			if (request.Sender == null || request.Receiver == null) return;
+			if (requestId == 0) return;
 
-			string query = @"
-          DELETE FROM 
-            maxhanna.friend_requests 
-          WHERE 
-            (sender_id = @senderId AND receiver_id = @receiverId)
-            OR 
-            (receiver_id = @senderId AND sender_id = @receiverId)
-          LIMIT 2;";
-			using (var checkRequestCommand = new MySqlCommand(query, connection))
-			{
-				checkRequestCommand.Parameters.AddWithValue("@senderId", request.Sender.Id);
-				checkRequestCommand.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
-				await checkRequestCommand.ExecuteScalarAsync();
-			}
+			string fetchQuery = @"
+				SELECT sender_id, receiver_id 
+				FROM maxhanna.friend_requests 
+				WHERE id = @requestId
+				LIMIT 1;";
+
+			using var fetchCmd = new MySqlCommand(fetchQuery, connection);
+			fetchCmd.Parameters.AddWithValue("@requestId", requestId);
+
+			using var reader = await fetchCmd.ExecuteReaderAsync();
+
+			if (!await reader.ReadAsync()) return;
+
+			int senderId = reader.GetInt32("sender_id");
+			int receiverId = reader.GetInt32("receiver_id");
+
+			await reader.DisposeAsync();
+
+			string deleteQuery = @"
+				DELETE FROM maxhanna.friend_requests 
+				WHERE (sender_id = @senderId AND receiver_id = @receiverId)
+					 OR (sender_id = @receiverId AND receiver_id = @senderId)
+				LIMIT 2;";
+
+			using var deleteCmd = new MySqlCommand(deleteQuery, connection);
+			deleteCmd.Parameters.AddWithValue("@senderId", senderId);
+			deleteCmd.Parameters.AddWithValue("@receiverId", receiverId);
+
+			await deleteCmd.ExecuteNonQueryAsync();
 		}
+
 
 		[HttpPost("/Friend/Remove", Name = "RemoveFriend")]
 		public async Task<IActionResult> RemoveFriend([FromBody] RemoveFriendRequest request)
 		{
-			if (request.User == null || request.Friend == null)
+			if (request.UserId == 0 || request.FriendId == 0)
 			{
 				return BadRequest("You must designate a sender and receiver");
-			}
-			_logger.LogInformation($"POST /Friend/Remove (sender: {request.User.Id}, receiver: {request.Friend.Id})");
-
+			} 
 			try
-			{
-				_logger.LogInformation($"POST /Friend/Remove (sender: {request.User.Id}, receiver: {request.Friend.Id})");
-
+			{ 
 				// Delete the friendship from the database
 				string deleteQuery = @"
 					DELETE FROM maxhanna.friends 
@@ -413,8 +424,8 @@ namespace maxhanna.Server.Controllers
 				{
 					connection.Open();
 					var deleteCommand = new MySqlCommand(deleteQuery, connection);
-					deleteCommand.Parameters.AddWithValue("@userId", request.User.Id);
-					deleteCommand.Parameters.AddWithValue("@friendId", request.Friend.Id);
+					deleteCommand.Parameters.AddWithValue("@userId", request.UserId);
+					deleteCommand.Parameters.AddWithValue("@friendId", request.FriendId);
 					await deleteCommand.ExecuteNonQueryAsync();
 				}
 
@@ -422,72 +433,97 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while removing friend.");
+				_ = _log.Db("An error occurred while removing friend. " + ex.Message, request.UserId, "FRIEND", true);
 				return StatusCode(500, "An error occurred while removing friend.");
 			}
 		}
 
 		[HttpPost("/Friend/Request/Reject", Name = "RejectFriendRequest")]
-		public async Task<IActionResult> RejectFriendRequest([FromBody] FriendshipRequest request)
+		public async Task<IActionResult> RejectFriendRequest([FromBody] Dictionary<string, string> body)
 		{
-			if (request.Sender == null || request.Receiver == null)
+			if (!body.TryGetValue("RequestId", out var requestIdStr) ||
+				!int.TryParse(requestIdStr, out var requestId) ||
+				requestId <= 0)
 			{
-				return BadRequest("You must designate a sender and receiver");
+				return BadRequest("Invalid or missing request ID.");
 			}
+
+			if (!body.TryGetValue("UserId", out var userIdStr) ||
+				!int.TryParse(userIdStr, out var userId) ||
+				userId <= 0)
+			{
+				return BadRequest("Invalid or missing user ID.");
+			}
+
 			try
 			{
-				_logger.LogInformation($"POST /Friend/Request/Reject (sender: {request.Sender.Id}, receiver: {request.Receiver.Id})");
+				using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await connection.OpenAsync();
 
-				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				// Get request details
+				string fetchQuery = @"
+					SELECT sender_id, receiver_id, status 
+					FROM friend_requests 
+					WHERE id = @requestId";
+				using var fetchCommand = new MySqlCommand(fetchQuery, connection);
+				fetchCommand.Parameters.AddWithValue("@requestId", requestId);
+
+				int senderId = 0;
+				int receiverId = 0;
+				string? status = null;
+
+				using (var reader = await fetchCommand.ExecuteReaderAsync())
 				{
-					await connection.OpenAsync();
-
-					// Check if the user is rejecting their own pending friend request
-					string checkOwnRequestQuery = @"
-                        SELECT COUNT(*) 
-                        FROM friend_requests 
-                        WHERE sender_id = @senderId AND receiver_id = @receiverId AND status = 'pending'";
-					var checkCommand = new MySqlCommand(checkOwnRequestQuery, connection);
-					checkCommand.Parameters.AddWithValue("@senderId", request.Sender.Id);
-					checkCommand.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
-					int count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
-
-					if (count > 0)
+					if (await reader.ReadAsync())
 					{
-						// If the sender is rejecting their own pending friend request, delete it
-						string deleteQuery = @"
-                            DELETE FROM friend_requests 
-                            WHERE sender_id = @senderId AND receiver_id = @receiverId AND status = 'pending'";
-						var deleteCommand = new MySqlCommand(deleteQuery, connection);
-						deleteCommand.Parameters.AddWithValue("@senderId", request.Sender.Id);
-						deleteCommand.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
-						await deleteCommand.ExecuteNonQueryAsync();
-						return Ok("Your pending friend request has been deleted successfully.");
+						senderId = Convert.ToInt32(reader["sender_id"]);
+						receiverId = Convert.ToInt32(reader["receiver_id"]);
+						status = reader["status"].ToString();
 					}
 					else
 					{
-						// Update the status of the friendship request to "rejected" if it is currently "pending"
-						string updateQuery = @"
-                            UPDATE friend_requests 
-                            SET status = 'rejected', updated_at = NOW() 
-                            WHERE sender_id = @receiverId AND receiver_id = @senderId AND status = 'pending'";
-						var updateCommand = new MySqlCommand(updateQuery, connection);
-						updateCommand.Parameters.AddWithValue("@senderId", request.Sender.Id);
-						updateCommand.Parameters.AddWithValue("@receiverId", request.Receiver.Id);
-						int rowsAffected = await updateCommand.ExecuteNonQueryAsync();
-						if (rowsAffected == 0)
-						{
-							return BadRequest("No pending friend request found to reject.");
-						}
-						return Ok("Friendship request rejected successfully.");
+						return NotFound("Friend request not found.");
 					}
+				}
+
+				if (string.IsNullOrEmpty(status) || status != "pending")
+				{
+					return BadRequest("Cannot reject or delete a request that is not pending.");
+				}
+
+				if (userId == senderId)
+				{
+					// Sender deletes their own pending request
+					string deleteQuery = "DELETE FROM friend_requests WHERE id = @requestId";
+					using var deleteCommand = new MySqlCommand(deleteQuery, connection);
+					deleteCommand.Parameters.AddWithValue("@requestId", requestId);
+					await deleteCommand.ExecuteNonQueryAsync();
+
+					return Ok("Your pending friend request has been deleted successfully.");
+				}
+				else if (userId == receiverId)
+				{
+					// Receiver rejects the pending request
+					string rejectQuery = @"
+						UPDATE friend_requests 
+						SET status = 'rejected', updated_at = NOW() 
+						WHERE id = @requestId";
+					using var rejectCommand = new MySqlCommand(rejectQuery, connection);
+					rejectCommand.Parameters.AddWithValue("@requestId", requestId);
+					await rejectCommand.ExecuteNonQueryAsync();
+
+					return Ok("Friendship request rejected successfully.");
+				}
+				else
+				{
+					return Unauthorized("You are not authorized to modify this friend request.");
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while rejecting friend request.");
-				return StatusCode(500, "An error occurred while rejecting friend request.");
+				_ = _log.Db("Error processing friend request rejection. " + ex.Message, userId, "FRIEND", true);
+				return StatusCode(500, "An error occurred while rejecting the friend request.");
 			}
-		}
+		} 
 	}
 }

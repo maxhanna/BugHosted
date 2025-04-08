@@ -137,7 +137,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
   private async loadLocation(user: User) {
     let gotLoc = false;
-    const wRes = await this.weatherService.getWeatherLocation(user);
+    const wRes = await this.weatherService.getWeatherLocation(user.id ?? 0);
     if (wRes) { 
       this.weatherLocation = { city: wRes.city, country: wRes.country };
       gotLoc = true;
@@ -166,8 +166,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async getTrophies() {
     const user = this.user ?? this.inputtedParentRef?.user ?? this.parentRef?.user;
-    if (user) {
-      this.userService.getTrophies(user).then(res => {
+    if (user?.id) {
+      this.userService.getTrophies(user.id).then(res => {
         if (res) {
           this.trophies = res as Trophy[];
         } else {
@@ -182,8 +182,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.playListCount = event.length;
   }
   async loadSongData() {
+    const user = this.user ?? this.parentRef?.user;
+    if (!user?.id) return;
     try {
-      const res = await this.todoService.getTodo(this.user ?? this.parentRef?.user!, "Music");
+      const res = await this.todoService.getTodo(user.id, "Music");
 
       if (res) {
         this.songPlaylist = res;
@@ -192,8 +194,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async loadContactsData() {
     try {
-      if (this.parentRef && this.parentRef.user) {
-        const res = await this.contactService.getContacts(this.parentRef.user);
+      if (this.parentRef && this.parentRef.user?.id) {
+        const res = await this.contactService.getContacts(this.parentRef.user.id);
 
         if (res) {
           this.contacts = res;
@@ -202,9 +204,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     } catch (e) { }
   }
   async loadWordlerData() {
-    if (this.user || this.parentRef?.user) {
+    const user = this.user ?? this.parentRef?.user;
+    if (user?.id) {
       try {
-        const wsRes = await this.wordlerService.getConsecutiveDayStreak((this.user ?? this.parentRef?.user)!);
+        const wsRes = await this.wordlerService.getConsecutiveDayStreak(user.id);
         if (wsRes) {
           this.wordlerStreak = parseInt(wsRes);
         }
@@ -216,9 +219,9 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     this.hasFriendRequests = false;
     const user = this.user ?? this.parentRef?.user ?? this.inputtedParentRef?.user;
 
-    if (user) {
-      this.friends = await this.friendService.getFriends(user);
-      const res = await this.friendService.getFriendRequests(user);
+    if (user?.id) {
+      this.friends = await this.friendService.getFriends(user.id);
+      const res = await this.friendService.getFriendRequests(user.id);
       this.friendRequests = res;
       this.friendRequests = this.friendRequests.filter(x => x.status != 1);
       this.friendRequestsSent = this.friendRequests.filter(x => (x.status == 0 || x.status == 3) && x.sender.id == user.id);
@@ -249,8 +252,11 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   async addContact(user: User) {
-    const res = await this.contactService.addUserContact(this.parentRef!.user!, user);
-    this.parentRef?.showNotification(res);
+    const userId = this.parentRef?.user?.id;
+    if (userId) { 
+      const res = await this.contactService.addUserContact(userId, user.id ?? 0);
+      this.parentRef?.showNotification(res);
+    }
   }
 
   canAddFriend(user: User) {
@@ -325,17 +331,17 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
 
 
   async acceptFriendshipRequest(request: FriendRequest) {
-    const res = await this.friendService.acceptFriendRequest(request);
+    const res = await this.friendService.acceptFriendRequest(request.sender.id ?? 0, request.receiver.id ?? 0);
     this.parentRef?.showNotification(res);
     await this.ngOnInit();
   }
   async denyFriendshipRequest(request: FriendRequest) {
-    const res = await this.friendService.rejectFriendRequest(request);
+    const res = await this.friendService.rejectFriendRequest(request.sender.id ?? 0, request.receiver.id ?? 0);
     this.parentRef?.showNotification(res);
     await this.ngOnInit();
   }
   async deleteFriendshipRequest(request: FriendRequest) {
-    const res = await this.friendService.deleteFriendRequest(request);
+    const res = await this.friendService.deleteFriendRequest(request.id);
     this.parentRef?.showNotification(res);
     await this.ngOnInit();
   }
@@ -387,19 +393,21 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
 
-  async addFriend(user: User) {
-    if (this.parentRef && this.parentRef.user) {
-      const res = await this.friendService.sendFriendRequest(this.parentRef.user, user);
+  async addFriend(userToAdd: User) {
+    const user = this.parentRef?.user;
+    if (user?.id && userToAdd.id) {
+      const res = await this.friendService.sendFriendRequest(user.id, userToAdd.id);
       this.parentRef?.showNotification(res);
       await this.ngOnInit();
     } else {
       this.parentRef?.showNotification("You must be logged in to send a friendship request");
     }
   }
-  async removeFriend(user?: User) {
-    if (!user) return;
+  async removeFriend(userToRemove?: User) {
+    const user = this.parentRef?.user;
+    if (!userToRemove?.id || !user?.id) return;
     if (this.parentRef && this.parentRef.user) {
-      const res = await this.friendService.removeFriend(this.parentRef.user, user);
+      const res = await this.friendService.removeFriend(user.id, userToRemove.id);
       this.parentRef?.showNotification(res);
       await this.loadFriendData();
     } else {
@@ -432,7 +440,7 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
         const resCreateUser = await this.userService.createUser(tmpUser);
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
           tmpUser.id = parseInt(resCreateUser!);
-          await this.userService.addMenuItem(tmpUser, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
+          await this.userService.addMenuItem(tmpUser.id, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Notifications"]);
           await this.login(guest ? tmpUserName : undefined, true);
           if (!this.loginOnly) {
             this.parentRef?.createComponent('UpdateUserSettings');
@@ -466,19 +474,18 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
     let tmpUserName = this.loginUsername.nativeElement.value;
     if (guest) {
       tmpUserName = guest;
-    }
-    const tmpLoginUser = new User(undefined, tmpUserName, this.loginPassword.nativeElement.value);
+    } 
     try {
-      const tmpUser = await this.userService.getUser(tmpLoginUser);
+      const tmpUser = await this.userService.login(tmpUserName, this.loginPassword.nativeElement.value) as User;
 
       if (tmpUser && tmpUser.username && this.parentRef) {
-        tmpUser.password = undefined;
+        tmpUser.pass = undefined;
         this.parentRef.user = tmpUser;
         this.parentRef.resetUserCookie();
         this.parentRef?.showNotification(`Access granted. Welcome ${(fromUserCreation ? 'to BugHosted' : 'back')} ${this.parentRef!.user?.username}`);
         this.parentRef?.getLocation();
 
-        this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser);
+        this.parentRef!.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
 
         if (this.loginOnly) {
           this.closeUserComponentEvent.emit(tmpUser);
@@ -570,8 +577,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   async getIsBeingFollowedByUser() {
     const parent = this.parentRef ?? this.inputtedParentRef;
     const parentUser = parent?.user;
-    if (parentUser && this.user) {
-      const res = await this.friendService.getFriendRequests(parentUser) as FriendRequest[];
+    if (parentUser?.id && this.user) {
+      const res = this.friendRequests;
       if (res) {
         const tgtFollowRequest = res.filter(x => x.sender.id == this.user?.id)[0];
         if (tgtFollowRequest) {
@@ -599,8 +606,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   private getNumberOfNexusBases() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = this.user ?? parent?.user;
-    if (user) {
-      this.nexusService.getNumberOfBases(user).then(res => {
+    if (user?.id) {
+      this.nexusService.getNumberOfBases(user.id).then(res => {
         if (res) {
           this.numberOfNexusBases = res ?? 0;
         }
@@ -622,8 +629,8 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   private getNSFWValue() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
-    if (user) {
-      this.userService.getUserSettings(user).then(res => {
+    if (user && user.id) {
+      this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
         }
@@ -632,10 +639,10 @@ export class UserComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async updateNSFW(event: Event) {
     const user = this.parentRef?.user;
-    if (!user) return alert("You must be logged in to view NSFW content.");
+    if (!user || !user.id) return alert("You must be logged in to view NSFW content.");
     const isChecked = (event.target as HTMLInputElement).checked;
     this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user, isChecked).then(res => {
+    this.userService.updateNSFW(user.id, isChecked).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
       }

@@ -1,15 +1,13 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Notification
 {
 	public class DeleteNotificationRequest
 	{
-		public DeleteNotificationRequest(User user, int? notificationId)
+		public DeleteNotificationRequest(int userId, int? notificationId)
 		{
-			this.User = user;
+			this.UserId = userId;
 			this.NotificationId = notificationId;
 		}
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public int? NotificationId { get; set; }
 	}
 }

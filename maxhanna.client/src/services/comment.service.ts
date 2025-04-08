@@ -8,7 +8,7 @@ import { User } from './datacontracts/user/user';
 })
 export class CommentService { 
   async addComment(comment: string,
-    user?: User,
+    userId?: number,
     fileId?: number,
     storyId?: number,
     commentId?: number,
@@ -27,7 +27,7 @@ export class CommentService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          User: user,
+          User: userId,
           FileId: fileId,
           StoryId: storyId,
           CommentId: commentId,
@@ -45,14 +45,14 @@ export class CommentService {
       return null;
     }
   }
-  async deleteComment(user: User, commentId: number) {
+  async deleteComment(userId: number, commentId: number) {
     try {
       const response = await fetch(`/comment/deletecomment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, commentId }),
+        body: JSON.stringify({ userId, commentId }),
       });
 
       return await response.text();
@@ -62,14 +62,14 @@ export class CommentService {
   }
 
 
-  async editComment(user: User, commentId: number, text: string) {
+  async editComment(userId: number, commentId: number, text: string) {
     try {
       const response = await fetch(`/comment/editcomment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user, commentId, text }),
+        body: JSON.stringify({ userId, commentId, text }),
       });
 
       return await response.text();

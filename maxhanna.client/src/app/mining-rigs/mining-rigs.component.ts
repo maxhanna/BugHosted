@@ -47,9 +47,10 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
     }
   }
   async getMiningInfo() {
-    if (this.inputtedParentRef?.user) { 
+    const user = this.inputtedParentRef?.user
+    if (user?.id) { 
       this.startLoading();
-      this.miningRigs = await this.miningService.getMiningRigInfo(this.inputtedParentRef.user);
+      this.miningRigs = await this.miningService.getMiningRigInfo(user.id);
       if (this.miningRigs) {
         this.miningRigs.forEach(x => {
           this.localProfitability += Number(x.localProfitability!);
@@ -64,11 +65,12 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
     }
   }
   async requestRigStateChange(rig: MiningRig) {
+    const user = this.inputtedParentRef?.user;
     const requestedAction = (this.miningService.isOffline(rig.minerStatus!) || this.miningService.isStopped(rig.minerStatus!)) ? "START" : "STOP";
-    if (window.confirm(`Are sure you want to ${requestedAction} ${rig.rigName}?`) && this.inputtedParentRef?.user) {
+    if (window.confirm(`Are sure you want to ${requestedAction} ${rig.rigName}?`) && user?.id) {
       this.startLoading(); 
       try {
-        const response = await this.miningService.requestRigStateChange(this.inputtedParentRef.user, rig);
+        const response = await this.miningService.requestRigStateChange(user.id, rig);
 
         let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
         requestedActionCapitalized = requestedActionCapitalized.toLowerCase().includes("stop") ? requestedActionCapitalized + "p" : requestedActionCapitalized;
@@ -84,11 +86,12 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
     }
   }
   async requestDeviceStateChange(device: MiningRigDevice) {
+    const user = this.inputtedParentRef?.user; 
     const requestedAction = this.miningService.isDeviceOffline(device.state!) || this.miningService.isDeviceDisabled(device.state!) ? "START" : "STOP";
-    if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`) && this.inputtedParentRef?.user) {
+    if (window.confirm(`Are sure you want to ${requestedAction} ${device.deviceName} on ${device.rigName}?`) && user?.id) {
       try {
         this.startLoading();
-        const response = await this.miningService.requestRigDeviceStateChange(this.inputtedParentRef.user, device);
+        const response = await this.miningService.requestRigDeviceStateChange(user.id, device);
         this.stopLoading();
 
         let requestedActionCapitalized = requestedAction.charAt(0).toUpperCase() + requestedAction.slice(1).toLowerCase();
@@ -106,8 +109,9 @@ export class MiningRigsComponent extends ChildComponent implements OnChanges {
   }
   async getDailyEarnings() {
     this.startLoading();
-    if (this.inputtedParentRef?.user) {
-      this.dailyEarnings = await this.miningService.getDailyEarnings(this.inputtedParentRef.user);
+    const user = this.inputtedParentRef?.user;
+    if (user?.id) {
+      this.dailyEarnings = await this.miningService.getDailyEarnings(user.id);
     }
     this.stopLoading();
   }

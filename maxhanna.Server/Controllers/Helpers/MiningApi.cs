@@ -1,12 +1,205 @@
-﻿using RestSharp;
+﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
+using maxhanna.Server.Controllers.DataContracts.Users;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
+using Newtonsoft.Json;
+using RestSharp;
 using System.Text;
 
 namespace maxhanna.Server.Controllers.Helpers
 {
 	class MiningApi
 	{
-		private string urlRoot = "https://api2.nicehash.com";
+		private string urlRoot = "https://api2.nicehash.com"; 
+		public async void UpdateWalletInDB(IConfiguration config, Log _log)
+		{
+			int userId = await GetNextUserWalletToUpdate(config, _log);
+			if (userId <= 0) return;
 
+			var creds = await GetNicehashCredentials(userId, config, _log);
+			if (creds.Count == 0) return;
+
+			var res = get(creds, "/main/api/v2/accounting/accounts2?fiat=CAD", true);
+
+			if (string.IsNullOrEmpty(res))
+			{ 
+				return;
+			}
+
+			CryptoWallet wallet = JsonConvert.DeserializeObject<CryptoWallet>(res)!;
+
+			if (wallet == null)
+			{ 
+				return;
+			}
+
+			_ = CreateWalletEntryFromFetchedDictionary(Convert.ToDecimal(wallet.total?.totalBalance), userId, config, _log);
+		}
+		public async Task CreateWalletEntryFromFetchedDictionary(decimal btcBalance, int userId, IConfiguration config, Log _log)
+		{
+			if (btcBalance == 0)
+			{
+				return;
+			}
+
+			const string ensureBtcWalletSql = @"
+				INSERT INTO user_btc_wallet_info (user_id, btc_address, last_fetched)
+				VALUES (@UserId, 'Nicehash', UTC_TIMESTAMP())
+				ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id);
+				SELECT LAST_INSERT_ID();";
+
+			const string checkRecentBtcSql = @"
+				SELECT COUNT(*) FROM user_btc_wallet_balance 
+				WHERE wallet_id = @WalletId AND fetched_at > (UTC_TIMESTAMP() - INTERVAL 10 MINUTE);";
+
+			const string insertBtcSql = "INSERT INTO user_btc_wallet_balance (wallet_id, balance, fetched_at) VALUES (@WalletId, @Balance, UTC_TIMESTAMP());";
+
+			const string updateBtcFetchedSql = "UPDATE user_btc_wallet_info SET last_fetched = UTC_TIMESTAMP() WHERE id = @WalletId;";
+
+			try
+			{
+				using var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				// BTC Wallet
+				if (btcBalance > 0)
+				{
+					int btcWalletId;
+					using (var cmd = new MySqlCommand(ensureBtcWalletSql, conn))
+					{
+						cmd.Parameters.AddWithValue("@UserId", userId);
+						using var reader = await cmd.ExecuteReaderAsync();
+						await reader.ReadAsync();
+						btcWalletId = reader.GetInt32(0);
+					}
+
+					using (var checkCmd = new MySqlCommand(checkRecentBtcSql, conn))
+					{
+						checkCmd.Parameters.AddWithValue("@WalletId", btcWalletId);
+						var recentCount = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+						if (recentCount == 0)
+						{
+							using var insertCmd = new MySqlCommand(insertBtcSql, conn);
+							insertCmd.Parameters.AddWithValue("@WalletId", btcWalletId);
+							insertCmd.Parameters.AddWithValue("@Balance", btcBalance);
+							await insertCmd.ExecuteNonQueryAsync();
+
+							using var updateCmd = new MySqlCommand(updateBtcFetchedSql, conn);
+							updateCmd.Parameters.AddWithValue("@WalletId", btcWalletId);
+							await updateCmd.ExecuteNonQueryAsync();
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error creating wallet balance entry: " + ex.Message, null, "MININGAPI", true);
+			}
+		}
+		public async Task<double?> GetLatestBTCRate(IConfiguration config, Log _log)
+		{
+			double? rate = null;
+
+			try
+			{
+				using var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna"));
+				await conn.OpenAsync();
+
+				string sql = @"
+					SELECT value_cad 
+					FROM coin_value 
+					WHERE name = 'Bitcoin' 
+					ORDER BY timestamp DESC 
+					LIMIT 1;";
+
+				using var cmd = new MySqlCommand(sql, conn);
+				var result = await cmd.ExecuteScalarAsync();
+
+				if (result != null && result != DBNull.Value)
+				{
+					rate = Convert.ToDouble(result);
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while trying to get the latest Bitcoin rate: " + ex.Message, null, "MININGAPI", true);
+			}
+
+			return rate;
+		}
+		private async Task<int> GetNextUserWalletToUpdate(IConfiguration config, Log _log)
+		{
+			int userId = -1; // Default value if no wallet is found
+
+			try
+			{
+				using (var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					const string getLastUpdatedWalletSql = @"
+						SELECT user_id
+						FROM user_btc_wallet_info
+						WHERE last_fetched <= (UTC_TIMESTAMP() - INTERVAL 60 MINUTE) 
+						ORDER BY last_fetched ASC
+						LIMIT 1;"; 
+
+					using (var cmd = new MySqlCommand(getLastUpdatedWalletSql, conn))
+					{
+						var result = await cmd.ExecuteScalarAsync();
+
+						if (result != null)
+						{
+							userId = Convert.ToInt32(result); // Convert the result to an integer
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred while fetching the wallet with the earliest last_fetched timestamp: " + ex.Message, null, "MININGAPI", true); 
+			}
+
+			return userId;
+		}
+
+
+		public async Task<Dictionary<string, string>> GetNicehashCredentials([FromBody] int userId, IConfiguration config, Log _log)
+		{
+			var credentials = new Dictionary<string, string>();
+
+			try
+			{
+				using (var conn = new MySqlConnection(config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+
+					string sql =
+							"SELECT ownership, orgId, apiKey, apiSecret FROM maxhanna.nicehash_api_keys WHERE ownership = @Owner;";
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@Owner", userId);
+						using (var rdr = await cmd.ExecuteReaderAsync())
+						{
+							while (await rdr.ReadAsync())
+							{
+								credentials.Add("ownership", rdr.GetInt32(0).ToString());
+								credentials.Add("orgId", rdr.GetString(1));
+								credentials.Add("apiKey", rdr.GetString(2));
+								credentials.Add("apiSecret", rdr.GetString(3));
+							}
+						}
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error occurred while retrieving Nicehash credentials. " + ex.Message, null, "MININGAPI", true);
+				throw;
+			}
+
+			return credentials;
+		}
 		private static string HashBySegments(string key, string apiKey, string time, string nonce, string orgId, string method, string encodedPath, string query, string? bodyStr)
 		{
 			List<string?> segments = new List<string?>

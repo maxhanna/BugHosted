@@ -25,24 +25,30 @@
     <div class="metadataSearchWrapper">
       <div *ngFor="let group of groupedResults" class="metadataSearchDiv">
         <div class="groupDomainTitle">{{ group.domain }}</div>
-        <div *ngFor="let metadata of group.links"> 
-          <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointerUnderlined">
-            <a *ngIf="metadata.url" (click)="parentRef?.visitExternalLink(metadata.url)" [innerHTML]="getSanitizedDescription(metadata.title)"></a>
-          </div>
-          <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-            <a (click)="parentRef?.visitExternalLink(metadata.url)">{{ metadata.url }}</a><button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites">❤️</button>
-          </div>
+        <div *ngFor="let metadata of group.links; let i = index" class="groupLinkWrapperDiv">
+          <div class="groupLinkDataWrapperDiv">
+            <div *ngIf="metadata.title" class="descriptionDiv titleClass cursorPointerUnderlined">
+              <a *ngIf="metadata.url" (click)="parentRef?.visitExternalLink(metadata.url)" [innerHTML]="getSanitizedDescription(metadata.title)"></a>
+            </div>
+            <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
+              <a (click)="parentRef?.visitExternalLink(metadata.url)">{{ metadata.url }}</a><button (click)="parentRef?.addFavourite(metadata.url, metadata.imageUrl, metadata.title)" title="Add to Favourites">❤️</button>
+            </div>
+            <div *ngIf="metadata.description" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
+            <div *ngIf="metadata.author" class="descriptionDiv authorClass" [innerHTML]="getSanitizedDescription(metadata.author)"></div>
+            <div *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
+              {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
+            </div>
+            <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass" [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
+          </div> 
           <div class="imageUrlPictureDiv">
-            <a *ngIf="metadata.imageUrl" (click)="parentRef?.visitExternalLink(metadata.url)">
-              <img *ngIf="metadata.imageUrl" [src]="metadata.imageUrl" [attr.loading]="'lazy'" [title]="metadata.imageUrl" />
+            <a *ngIf="metadata.imageUrl && (i === 0 || metadata.imageUrl !== group.links[0].imageUrl)"
+               (click)="parentRef?.visitExternalLink(metadata.url)">
+              <img [src]="metadata.imageUrl"
+                   [attr.loading]="'lazy'"
+                   [title]="metadata.imageUrl" 
+                   (error)="metadata.imageUrl = ''" />
             </a>
-          </div>
-          <div *ngIf="metadata.description" class="descriptionDiv descriptClass" [innerHTML]="getSanitizedDescription(metadata.description)"></div>
-          <div *ngIf="metadata.author" class="descriptionDiv authorClass" [innerHTML]="getSanitizedDescription(metadata.author)"></div>
-          <div *ngIf="metadata.httpStatus" class="descriptionDiv authorClass">
-            {{ metadata.httpStatus }}  {{ getHttpStatusMeaning(metadata.httpStatus) }}
-          </div>
-          <div *ngIf="metadata.keywords" class="descriptionDiv keywordsClass" [innerHTML]="getSanitizedDescription(metadata.keywords)"></div>
+          </div> 
         </div>
       </div>
 
@@ -105,6 +111,12 @@
       <div class="optionsStatsHeader">Projected Monthly MB usage:</div>
       <div class="optionsStatsDescription">
         {{storageStats.projectedMonthlyUsageMB.toFixed(2)}}
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Total Database Size MB:</div>
+      <div class="optionsStatsDescription">
+        {{storageStats.totalDatabaseSizeMB}}
       </div>
     </div>
   </div>

@@ -225,3 +225,17 @@ input:checked + .slider:before {
   flex-direction: column;
   align-items: center;
 }
+
+.warningOverwrite {
+  font-size: smaller;
+  color: var(--third-font-color);
+}
+
+.krakenApiKeyWrapperDiv {
+  padding: 10px;
+  text-align: left;
+}
+.apiKeyInputWrapper {
+  display: flex;
+  flex-wrap: nowrap;
+}

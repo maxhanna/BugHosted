@@ -7,8 +7,8 @@ import { User } from './datacontracts/user/user';
   providedIn: 'root'
 })
 export class TodoService {
-  async getTodo(user: User, type: string, search?: string) {
-    if (!user || user.id == 0) return;
+  async getTodo(userId: number, type: string, search?: string) {
+    if (!userId) return;
     try {
       let params = new URLSearchParams({ type: type });
       if (search) {
@@ -20,7 +20,7 @@ export class TodoService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -28,14 +28,14 @@ export class TodoService {
       return null;
     }
   }
-  async createTodo(user: User, todo: Todo) {
+  async createTodo(userId: number, todo: Todo) {
     try {
       const response = await fetch('/todo/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user: user, todo: todo }),
+        body: JSON.stringify({ userId: userId, todo: todo }),
       });
 
       return await response.text();
@@ -43,14 +43,14 @@ export class TodoService {
       return null;
     }
   }
-  async deleteTodo(user: User, id: number) {
+  async deleteTodo(userId: number, id: number) {
     try {
       const response = await fetch(`/todo/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -59,14 +59,14 @@ export class TodoService {
     }
   }
 
-  async addColumn(user: User, column: string) {
+  async addColumn(userId: number, column: string) {
     try {
       const response = await fetch(`/todo/columns/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Column: column }),
+        body: JSON.stringify({ UserId: userId, Column: column }),
       });
 
       return await response.text();
@@ -74,14 +74,14 @@ export class TodoService {
       return null;
     }
   }
-  async removeColumn(user: User, column: string) {
+  async removeColumn(userId: number, column: string) {
     try {
       const response = await fetch(`/todo/columns/remove`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Column: column }),
+        body: JSON.stringify({ UserId: userId, Column: column }),
       });
 
       return await response.text();
@@ -89,14 +89,14 @@ export class TodoService {
       return null;
     }
   }
-  async getColumnsForUser(user: User) {
+  async getColumnsForUser(userId: number) {
     try {
       const response = await fetch(`/todo/columns/getcolumnsforuser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify( user ),
+        body: JSON.stringify(userId ),
       });
 
       return await response.json();

@@ -7,14 +7,14 @@ import { User } from './datacontracts/user/user';
 export class RomService {
   constructor() { }
    
-  async getRomFile(rom: string, user?: User) {
+  async getRomFile(rom: string, userId?: number) {
     try {
       const response = await fetch(`/rom/getromfile/${encodeURIComponent(rom)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.blob();
@@ -22,8 +22,8 @@ export class RomService {
       return null;
     }
   }
-  async uploadRomFile(user: User, form: FormData) {
-    form.append('user', JSON.stringify(user));
+  async uploadRomFile(userId: number, form: FormData) {
+    form.append('userId', JSON.stringify(userId));
 
     try {
       const response = await fetch(`/rom/uploadrom/`, {

@@ -5,9 +5,9 @@ namespace maxhanna.Server.Controllers.DataContracts.Comments
 {
 	public class CommentRequest
 	{
-		public CommentRequest(User? user, int? fileId, int? storyId, int? commentId, int? userProfileId, List<FileEntry>? selectedFiles, string comment, string? city, string? country, string? ip)
+		public CommentRequest(int userId, int? fileId, int? storyId, int? commentId, int? userProfileId, List<FileEntry>? selectedFiles, string comment, string? city, string? country, string? ip)
 		{
-			User = user;
+			UserId = userId;
 			StoryId = storyId;
 			FileId = fileId;
 			CommentId = commentId;
@@ -18,7 +18,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Comments
 			City = city;
 			Ip = ip;
 		}
-		public User? User { get; set; }
+		public int UserId { get; set; }
 		public int? FileId { get; set; }
 		public int? StoryId { get; set; }
 		public int? CommentId { get; set; }

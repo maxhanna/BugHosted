@@ -5,6 +5,7 @@ using MySqlConnector;
 using NewsAPI;
 using NewsAPI.Constants;
 using NewsAPI.Models;
+using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -12,23 +13,22 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class NewsController : ControllerBase
 	{
-		private readonly ILogger<NewsController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public NewsController(ILogger<NewsController> logger, IConfiguration config)
+		public NewsController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost(Name = "GetAllNews")]
-		public ArticlesResult GetAllNews([FromBody] User user, [FromQuery] string? keywords)
+		public ArticlesResult GetAllNews([FromQuery] string? keywords)
 		{
 			string cleanKeywords = string.Join(" OR ", (keywords ?? "").Split(',')
 														 .Select(k => k.Trim())
 														 .Where(k => !string.IsNullOrEmpty(k)));
-
-			_logger.LogInformation($"POST /News (for user: {user.Id}, keywords?: {cleanKeywords})");
+			 
 			try
 			{
 				var newsApiClient = new NewsApiClient("f782cf1b4d3349dd86ef8d9ac53d0440");
@@ -56,8 +56,7 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 			catch (Exception ex)
-			{
-				Console.WriteLine(ex.Message);
+			{ 
 				return new ArticlesResult();
 			}
 
@@ -65,10 +64,8 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/News/GetDefaultSearch", Name = "GetDefaultSearch")]
-		public async Task<IActionResult> GetDefaultSearch([FromBody] User User)
-		{
-			_logger.LogInformation($"POST /GetDefaultSearch (for user: {User.Id})");
-
+		public async Task<IActionResult> GetDefaultSearch([FromBody] int UserId)
+		{  
 			string defaultSearch = "";
 
 			try
@@ -80,7 +77,7 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 					using (var cmd = new MySqlCommand(sql, connection))
 					{
-						cmd.Parameters.AddWithValue("@user_id", User.Id);
+						cmd.Parameters.AddWithValue("@user_id", UserId);
 						using (var reader = await cmd.ExecuteReaderAsync())
 						{
 							if (await reader.ReadAsync())
@@ -100,16 +97,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error retrieving default search: {ex.Message}");
+				_ = _log.Db($"Error retrieving default search: {ex.Message}", UserId, "NEWS", true);
 				return StatusCode(500, "An error occurred while retrieving the default search.");
 			}
 		}
 
 		[HttpPost("/News/SaveDefaultSearch", Name = "SaveDefaultSearch")]
 		public async Task<IActionResult> SaveDefaultSearch([FromBody] SaveDefaultSearchRequest request)
-		{
-			_logger.LogInformation($"POST /News (for user: {request.User.Id})");
-
+		{ 
 			try
 			{
 				string sql = @"
@@ -122,7 +117,7 @@ namespace maxhanna.Server.Controllers
 					await connection.OpenAsync();
 					using (var cmd = new MySqlCommand(sql, connection))
 					{
-						cmd.Parameters.AddWithValue("@user_id", request.User.Id);
+						cmd.Parameters.AddWithValue("@user_id", request.UserId);
 						cmd.Parameters.AddWithValue("@default_search", request.Search);
 						await cmd.ExecuteNonQueryAsync(); // Async execution
 					}
@@ -132,7 +127,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError($"Error saving default search: {ex.Message}");
+				_ = _log.Db($"Error saving default search: {ex.Message}", request.UserId, "NEWS", true);
 				return StatusCode(500, "An error occurred while saving the default search.");
 			}
 		}

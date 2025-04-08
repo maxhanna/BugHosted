@@ -1,15 +1,13 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
 	public class NexusDeleteReportRequest
 	{
-		public NexusDeleteReportRequest(User user, int[]? battleIds)
+		public NexusDeleteReportRequest(int userId, int[]? battleIds)
 		{
-			this.User = user;
+			this.UserId = userId;
 			this.BattleIds = battleIds;
 		}
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public int[]? BattleIds { get; set; }
 	}
 }

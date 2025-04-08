@@ -10,7 +10,7 @@
   </div>
 
   <fieldset class="addTodoInputFieldset"> 
-    <input type="text" id="todoInput" placeholder="Add to the {{selectedType.value}} list" #todoInput required (keydown.enter)="addTodo()" />
+    <input type="text" id="todoInput" [placeholder]="todoPlaceholder" #todoInput required (keydown.enter)="addTodo()" />
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
     <input type="submit" value="💾Save" (click)="addTodo()" />
   </fieldset>

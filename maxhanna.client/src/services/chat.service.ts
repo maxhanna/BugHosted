@@ -8,28 +8,28 @@ import { Message } from './datacontracts/chat/message';
   providedIn: 'root'
 })
 export class ChatService {
-  async getMessageHistory(user: User, receivers: User[], chatId?: number, pageNumber: number = 0, pageSize?: number) { 
+  async getMessageHistory(userId: number = 0, receiverIds: number[], chatId?: number, pageNumber: number = 0, pageSize?: number) { 
     try {
       const response = await fetch(`/chat/getmessagehistory`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Receivers: receivers, ChatId: chatId, PageNumber: pageNumber, PageSize: pageSize }),
+        body: JSON.stringify({ UserId: userId, ReceiverIds: receiverIds, ChatId: chatId, PageNumber: pageNumber, PageSize: pageSize }),
       });
 
       return await response.json();
     } catch (error) {
     }
   }
-  async getChatNotifications(user: User) {
+  async getChatNotifications(userId?: number) {
     try {
       const response = await fetch(`/chat/notifications`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId ?? 0),
       });
 
       return await response.json();
@@ -37,14 +37,14 @@ export class ChatService {
       return null;
     }
   }
-  async getGroupChats(user: User): Promise<Message[] | undefined> {
+  async getGroupChats(userId?: number): Promise<Message[] | undefined> {
     try {
       const response = await fetch(`/chat/getgroupchats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId ?? 0),
       });
 
       return await response.json();
@@ -52,14 +52,14 @@ export class ChatService {
       return undefined;
     }
   }
-  async getChatNotificationsByUser(user: User) {
+  async getChatNotificationsByUser(userId?: number) {
     try {
       const response = await fetch(`/chat/notificationsbyuser`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId ?? 0),
       });
 
       return await response.json();
@@ -67,14 +67,14 @@ export class ChatService {
       return null;
     }
   }
-  async getChatUsersByChatId(user: User, chatId: number) {
+  async getChatUsersByChatId(chatId: number) {
     try {
       const response = await fetch(`/chat/getchatusersbychatid`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ChatId: chatId, User: user }),
+        body: JSON.stringify({ ChatId: chatId }),
       });
 
       return await response.json();
@@ -82,14 +82,14 @@ export class ChatService {
       return null;
     }
   }
-  async sendMessage(sender: User, receiver: User[], chatId?: number, content?: string, files?: FileEntry[]) {
+  async sendMessage(senderId: number, receiverIds: number[], chatId?: number, content?: string, files?: FileEntry[]) {
     try {
       const response = await fetch(`/chat/sendmessage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ Sender: sender, Receiver: receiver, ChatId: chatId, Content: content, Files: files }),
+        body: JSON.stringify({ SenderId: senderId, ReceiverIds: receiverIds, ChatId: chatId, Content: content, Files: files }),
       });
 
       return await response.json();

@@ -56,10 +56,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       clearInterval(this.pollingInterval); // Clear the interval when component is destroyed
     }
   }
-  private async getNotifications() {
-    if ((this.inputtedParentRef && this.inputtedParentRef.user) || (this.parentRef && this.parentRef.user)) {
-      const user = this.inputtedParentRef && this.inputtedParentRef.user ? this.inputtedParentRef.user : this.parentRef!.user!;
-      this.notifications = await this.notificationService.getNotifications(user);
+  private async getNotifications() {  
+    if (this.parentRef?.user?.id) { 
+      this.notifications = await this.notificationService.getNotifications(this.parentRef.user.id);
       this.unreadNotifications = this.notifications?.filter(x => x.isRead == false).length;
     }
   }
@@ -90,7 +89,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
   goToFileId(notification: UserNotification) {
     this.location.replaceState("/File/" + notification.fileId);
-    if (!notification.isRead) { this.read(notification); }
+    if (!notification.isRead) { this.read(notification, true); }
     this.createComponent("Files", { "fileId": notification.fileId });
   }
   goToStoryId(notification: UserNotification) {
@@ -101,16 +100,16 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.location.replaceState("/Social/" + notification.storyId);
       this.createComponent("Social", { "storyId": notification.storyId });
     }
-    if (!notification.isRead) { this.read(notification); }
+    if (!notification.isRead) { this.read(notification, true); }
   }
   goToChat(notification?: UserNotification) {
     if (!notification?.chatId) return alert("Error: Must select a user to chat!");
-    if (!notification.isRead) { this.read(notification); }
+    if (!notification.isRead) { this.read(notification, true); }
     this.createComponent("Chat", { chatId: notification.chatId });
   }
   viewProfileByNotification(notification?: UserNotification) {
     if (!notification) return;
-    this.read(notification);
+    this.read(notification, true);
     const userProfileId = notification.userProfileId;
     if (userProfileId && userProfileId != 0) {
       const storyId = notification.storyId;
@@ -121,7 +120,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
   async goToCommentId(notification?: UserNotification) {
     if (!notification || !notification.commentId) return;
-    if (!notification.isRead) { this.read(notification); }  
+    if (!notification.isRead) { this.read(notification, true); }  
     if (notification.storyId) {
       return this.goToStoryId(notification);
     }
@@ -135,7 +134,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   async delete(notification?: UserNotification) {
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent && parent.user) {
-      await this.notificationService.deleteNotification(parent.user, notification?.id);
+      await this.notificationService.deleteNotification(parent.user.id ?? 0, notification?.id);
       if (notification && this.notifications) {
         this.notifications = this.notifications.filter(x => x.id != notification.id);
         if (!notification.isRead) {
@@ -154,16 +153,16 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         if (notification.isRead && !forceRead) {
           notification.isRead = false;
           this.unreadNotifications++;
-          await this.notificationService.unreadNotifications(parent.user, [notification.id]);
+          await this.notificationService.unreadNotifications(parent.user.id ?? 0, [notification.id]);
         } else {
           notification.isRead = true;
           this.unreadNotifications--;
-          await this.notificationService.readNotifications(parent.user, [notification.id]);
+          await this.notificationService.readNotifications(parent.user.id ?? 0, [notification.id]);
         }
       } else {
         this.notifications?.forEach(x => x.isRead = true);
         this.unreadNotifications = 0;
-        await this.notificationService.readNotifications(parent.user, undefined);
+        await this.notificationService.readNotifications(parent.user.id ?? 0, undefined);
       }
       parent.getNotifications();
     }
@@ -245,10 +244,9 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
 
 
-  private async subscribeToNotificationTopic(token: string) {
-    const parent = this.inputtedParentRef ?? this.parentRef;
-    if (parent && parent?.user?.id) {
-      this.notificationService.subscribeToTopic(parent.user, token, "notification" + parent.user.id).then(res => {
+  private async subscribeToNotificationTopic(token: string) { 
+    if (this.parentRef?.user?.id) {
+      this.notificationService.subscribeToTopic(this.parentRef.user.id, token, "notification" + this.parentRef.user.id).then(res => {
         console.log(res);
       });
     }

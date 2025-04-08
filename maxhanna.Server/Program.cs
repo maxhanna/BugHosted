@@ -34,6 +34,8 @@ builder.Services.AddHostedService<NexusBuildingUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusUnitBackgroundService>(); 
 builder.Services.AddHostedService<NexusDefenceBackgroundService>();
 builder.Services.AddHttpClient<KrakenService>();
+builder.Services.AddHttpClient<WebCrawler>();
+builder.Services.AddSingleton<Log>();
 builder.Services.AddSingleton<WebCrawler>(); 
 builder.Services.AddSingleton<KrakenService>(); 
 

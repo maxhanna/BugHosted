@@ -4,7 +4,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Crypto
 {
 	public class DeleteCryptoWalletAddress
 	{
-		public User? User { get; set; }
+		public int UserId { get; set; }
 		public string? Address { get; set; }
 	}
 }

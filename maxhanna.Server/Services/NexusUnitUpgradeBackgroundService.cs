@@ -13,22 +13,18 @@ namespace maxhanna.Server.Services
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
 
-		private readonly IServiceProvider _serviceProvider;
-		private readonly ILogger<NexusController> _logger;
+		private readonly Log _log;
 		private Timer _processUpgradeQueueTimer;
 		private Timer _checkForNewUnitUpgradesTimer;
 		private const int TimedCheckEveryXSeconds = 60;
 		private const int QueueProcessingInterval = 5;
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10); // limit to 10 concurrent connections
 
-		public NexusUnitUpgradeBackgroundService(IConfiguration config)
+		public NexusUnitUpgradeBackgroundService(IConfiguration config, Log log)
 		{
 			_config = config;
-			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-			var serviceCollection = new ServiceCollection();
-			ConfigureServices(serviceCollection);
-			_serviceProvider = serviceCollection.BuildServiceProvider();
-			_logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
+			_log = log;
 			_checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(QueueProcessingInterval));
 		}
 
@@ -197,7 +193,7 @@ namespace maxhanna.Server.Services
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError("GetNexusBaseByUnitUpgradeId Query ERROR: " + ex.Message);
+				_ = _log.Db("GetNexusBaseByUnitUpgradeId Query ERROR: " + ex.Message, null, "NUUS", true);
 			}
 
 			return tmpBase;
@@ -206,24 +202,23 @@ namespace maxhanna.Server.Services
 
 		public async void ProcessUnitUpgrade(int unitUpgradeId)
 		{
-			await _semaphore.WaitAsync();
-			_logger.LogInformation($"Processing unit upgrade with ID: {unitUpgradeId}");
+			await _semaphore.WaitAsync(); 
 			try
 			{
 				NexusBase? nexus = await GetNexusBaseByUnitUpgradeId(unitUpgradeId);
 				if (nexus != null)
 				{
-					var nexusController = new NexusController(_logger, _config);
+					var nexusController = new NexusController(_log, _config);
 					await nexusController.UpdateNexusUnitUpgradesCompletes(nexus);
 				}
 				else
 				{
-					_logger.LogInformation($"No NexusBase found for unitUpgradeId: {unitUpgradeId}");
+					_ = _log.Db($"No NexusBase found for unitUpgradeId: {unitUpgradeId}", null, "NUUS", true);
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex.Message);
+				_ = _log.Db(ex.Message, null, "NUUS", true);
 			}
 			finally
 			{

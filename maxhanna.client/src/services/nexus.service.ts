@@ -44,7 +44,7 @@ export class NexusService {
     }
   }
 
-  async getNexus(user: User, nexus?: NexusBase):
+  async getNexus(userId: number, nexus?: NexusBase):
     Promise<{
       nexusBase: NexusBase; nexusBaseUpgrades: NexusBaseUpgrades;
       nexusUnitsPurchasedList: NexusUnitsPurchased[];
@@ -52,107 +52,107 @@ export class NexusService {
       nexusAttacksIncoming: NexusAttackSent[], nexusDefencesIncoming: NexusAttackSent[],
       nexusUnitUpgrades: NexusUnitUpgrades[], nexusUnits: NexusUnits
     } | undefined> {
-    return await this.fetchData('/nexus', { User: user, Nexus: nexus });
+    return await this.fetchData('/nexus', { UserId: userId, Nexus: nexus });
   }
 
-  async getMap(user: User): Promise<NexusBase[]> {
-    return await this.fetchData('/nexus/getmap', user);
+  async getMap(): Promise<NexusBase[]> {
+    return await this.fetchData('/nexus/getmap');
   }
 
   async refreshGoldInBackend(): Promise<void> {
     return await this.fetchData('/nexus/refreshgold');
   }
 
-  async upgradeCommandCenter(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/upgradenexus', { User: user, Nexus: nexus });
+  async upgradeCommandCenter(userId: number, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradenexus', { UserId: userId, Nexus: nexus });
   }
 
-  async upgradeMines(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/upgrademines', { User: user, Nexus: nexus });
+  async upgradeMines(userId: number, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgrademines', { UserId: userId, Nexus: nexus });
   }
 
-  async upgradeSupplyDepot(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/upgradesupplydepot', { User: user, Nexus: nexus });
+  async upgradeSupplyDepot(userId: number, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradesupplydepot', { UserId: userId, Nexus: nexus });
   }
 
-  async upgradeFactory(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/upgradefactory', { User: user, Nexus: nexus });
+  async upgradeFactory(userId: number, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradefactory', { UserId: userId, Nexus: nexus });
   }
 
-  async upgradeStarport(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/upgradestarport', { User: user, Nexus: nexus });
+  async upgradeStarport(userId: number, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradestarport', { UserId: userId, Nexus: nexus });
   }
-  async upgradeEngineeringBay(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/upgradeengineeringbay', { User: user, Nexus: nexus });
+  async upgradeEngineeringBay(userId: number, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradeengineeringbay', { UserId: userId, Nexus: nexus });
   }
-  async upgradeWarehouse(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/upgradewarehouse', { User: user, Nexus: nexus });
+  async upgradeWarehouse(userId: number, nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/upgradewarehouse', { UserId: userId, Nexus: nexus });
   }
-  async start(user: User): Promise<any> {
-    return await this.fetchData('/nexus/start', user);
+  async start(userId: number): Promise<any> {
+    return await this.fetchData('/nexus/start', userId);
   }
-  async getMinesInfo(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/getminesinfo', { User: user, Nexus: nexus });
+  async getMinesInfo(nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/getminesinfo', { Nexus: nexus });
   }
-  async getBuildingUpgrades(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/getbuildingupgrades', { User: user, Nexus: nexus });
+  async getBuildingUpgrades(nexus: NexusBase): Promise<any> {
+    return await this.fetchData('/nexus/getbuildingupgrades', { Nexus: nexus });
   }
-  async getUnitStats(user: User, nexus: NexusBase): Promise<any> {
-    return await this.fetchData('/nexus/getunitstats', { User: user, Nexus: nexus });
+  async getUnitStats(): Promise<any> {
+    return await this.fetchData('/nexus/getunitstats');
   }
-  async getUnitUpgradeStats(user: User): Promise<any> {
-    return await this.fetchData('/nexus/getunitupgradestats', user);
+  async getUnitUpgradeStats(): Promise<any> {
+    return await this.fetchData('/nexus/getunitupgradestats');
   }
-  async purchaseUnit(user: User, nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
-    return await this.fetchData('/nexus/purchaseUnit', { User: user, Nexus: nexus, unitId, purchaseAmount });
+  async purchaseUnit(nexus: NexusBase, unitId: number, purchaseAmount: number): Promise<any> {
+    return await this.fetchData('/nexus/purchaseUnit', { Nexus: nexus, unitId, purchaseAmount });
   }
-  async engage(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[]): Promise<any> {
-    return await this.fetchData('/nexus/engage', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats });
+  async engage(originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[]): Promise<any> {
+    return await this.fetchData('/nexus/engage', { OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats });
   }
-  async defend(user: User, originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[]): Promise<any> {
-    return await this.fetchData('/nexus/defend', { User: user, OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats });
+  async defend(originNexus: NexusBase, destinationNexus: NexusBase, unitStats: UnitStats[]): Promise<any> {
+    return await this.fetchData('/nexus/defend', { OriginNexus: originNexus, DestinationNexus: destinationNexus, UnitList: unitStats });
   }
-  async returnDefence(user: User, defenceId: number): Promise<any> {
-    return await this.fetchData('/nexus/returndefence', { User: user, DefenceId: defenceId });
+  async returnDefence(defenceId: number): Promise<any> {
+    return await this.fetchData('/nexus/returndefence', { DefenceId: defenceId });
   }
-  async returnAttack(user: User, defenceId: number): Promise<any> {
-    return await this.fetchData('/nexus/returnattack', { User: user, DefenceId: defenceId });
+  async returnAttack(defenceId: number): Promise<any> {
+    return await this.fetchData('/nexus/returnattack', { DefenceId: defenceId });
   }
-  async getBattleReports(user: User, pageNumber: number, pageSize: number, targetBase?: NexusBase, targetUser?: User): Promise<NexusBattleOutcomeReports> {
-    return await this.fetchData('/nexus/getbattlereports', { User: user, PageNumber: pageNumber, PageSize: pageSize, TargetBase: targetBase, TargetUser: targetUser });
+  async getBattleReports(userId: number, pageNumber: number, pageSize: number, targetBase?: NexusBase, targetUserId?: number): Promise<NexusBattleOutcomeReports> {
+    return await this.fetchData('/nexus/getbattlereports', { UserId: userId, PageNumber: pageNumber, PageSize: pageSize, TargetBase: targetBase, TargetUserId: targetUserId });
   }
-  async deleteReport(user: User, battleIds?: number[]): Promise<any> {
-    return await this.fetchData('/nexus/deletereport', { User: user, BattleIds: battleIds });
+  async deleteReport(userId: number, battleIds?: number[]): Promise<any> {
+    return await this.fetchData('/nexus/deletereport', { UserId: userId, BattleIds: battleIds });
   }
-  async research(user: User, nexusBase: NexusBase, unit: UnitStats): Promise<any> {
-    return await this.fetchData('/nexus/research', { User: user, NexusBase: nexusBase, Unit: unit });
+  async research(nexusBase: NexusBase, unit: UnitStats): Promise<any> {
+    return await this.fetchData('/nexus/research', { NexusBase: nexusBase, Unit: unit });
   }
   async getAllBuildingUpgradesList(): Promise<UpgradeDetail[]> {
     return await this.fetchData('/nexus/getallbuildingupgradeslist', {});
   }
-  async getAllBasesUnits(user?: User): Promise<NexusUnits[]> {
-    return await this.fetchData('/nexus/getallbasesunits', user);
+  async getAllBasesUnits(userId: number): Promise<NexusUnits[]> {
+    return await this.fetchData('/nexus/getallbasesunits', userId);
   }
   async getMiningSpeeds(): Promise<MiningSpeed[]> {
     return await this.fetchData('/nexus/getallminingspeeds', {});
   }
-  async upgradeAll(building: string, user?: User): Promise<NexusBase[]> {
-    return await this.fetchData('/nexus/upgradeall', { User: user, Upgrade: building });
+  async upgradeAll(building: string, userId: number): Promise<NexusBase[]> {
+    return await this.fetchData('/nexus/upgradeall', { UserId: userId, Upgrade: building });
   }
-  async massPurchase(unit: string, user?: User): Promise<NexusBase[]> {
-    return await this.fetchData('/nexus/masspurchase', { User: user, Upgrade: unit });
+  async massPurchase(unit: string, userId: number): Promise<NexusBase[]> {
+    return await this.fetchData('/nexus/masspurchase', { UserId: userId, Upgrade: unit });
   }
-  async setBaseName(user: User, nexus: NexusBase, baseName: string): Promise<any> {
-    return await this.fetchData('/nexus/setbasename', { User: user, Nexus: nexus, BaseName: baseName });
+  async setBaseName(nexus: NexusBase, baseName: string): Promise<any> {
+    return await this.fetchData('/nexus/setbasename', { Nexus: nexus, BaseName: baseName });
   }
-  async updatePlayerColor(user: User, color: string): Promise<any> {
-    return await this.fetchData('/nexus/updateplayercolor', { User: user, Color: color });
+  async updatePlayerColor(userId: number, color: string): Promise<any> {
+    return await this.fetchData('/nexus/updateplayercolor', { UserId: userId, Color: color });
   }
-  async getPlayerColor(user?: User): Promise<any> {
-    return await this.fetchData('/nexus/getplayercolor', user?.id);
+  async getPlayerColor(userId: number): Promise<any> {
+    return await this.fetchData('/nexus/getplayercolor', userId);
   }
-  async getNumberOfBases(user: User): Promise<any> {
-    return await this.fetchData('/nexus/getnumberofbases', user);
+  async getNumberOfBases(userId: number): Promise<any> {
+    return await this.fetchData('/nexus/getnumberofbases', userId);
   }
 
 

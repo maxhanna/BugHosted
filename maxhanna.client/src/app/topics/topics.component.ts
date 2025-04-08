@@ -32,13 +32,14 @@ export class TopicsComponent extends ChildComponent {
   }
    
   async addTopic() {
-    if (!this.user || !parent) { return alert("Must be logged in to add a topic!"); }
+    const user = this.user ?? this.parent?.user
+    if (!user?.id) { return alert("Must be logged in to add a topic!"); }
 
     const addedTopic = this.newTopic.nativeElement.value.trim();
 
     if (addedTopic !== '') {
-      this.newTopic.nativeElement.value = ''; 
-      const tmpTopic = await this.topicService.addTopic(this.user ?? this.parent?.user, new Topic(0, addedTopic));
+      this.newTopic.nativeElement.value = '';
+      const tmpTopic = await this.topicService.addTopic(user.id, new Topic(0, addedTopic));
       if (!this.attachedTopics) {
         this.attachedTopics = []; // Create array if it doesn't exist
       }

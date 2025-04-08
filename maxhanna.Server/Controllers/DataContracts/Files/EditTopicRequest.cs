@@ -5,13 +5,13 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 {
 	public class EditTopicRequest
 	{
-		public EditTopicRequest(Topic[] topics, FileEntry file, User? user)
+		public EditTopicRequest(Topic[] topics, FileEntry file, int? userId)
 		{
-			this.User = user;
+			this.UserId = userId;
 			this.File = file;
 			this.Topics = topics;
 		}
-		public User? User { get; set; }
+		public int? UserId { get; set; }
 		public FileEntry File { get; set; }
 		public Topic[] Topics { get; set; }
 	}

@@ -4,7 +4,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Social
 {
 	public class GetStoryRequest
 	{
-		public User? User { get; set; }
+		public int UserId { get; set; }
 		public int? ProfileUserId { get; set; }
 		public int? StoryId { get; set; }
 	}

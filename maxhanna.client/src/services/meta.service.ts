@@ -40,14 +40,11 @@ export class MetaService {
     }
   }
 
-  async getHero(user: User): Promise<MetaHero | undefined> {
-    return this.fetchData('/meta', user);
-  }
-  async updateHero(user: User, hero: MetaHero): Promise< MetaHero | undefined> {
-    return this.fetchData('/meta/updatehero', { User: user, Hero: hero });
-  }
-  async createHero(user: User, name: string): Promise<MetaHero | undefined> {
-    return this.fetchData('/meta/create', { User: user, Name: name });
+  async getHero(userId: number): Promise<MetaHero | undefined> {
+    return this.fetchData('/meta', userId);
+  } 
+  async createHero(userId: number, name: string): Promise<MetaHero | undefined> {
+    return this.fetchData('/meta/create', { UserId: userId, Name: name });
   }
   async createBot(bot: MetaBot): Promise<MetaBot | undefined> {
     return this.fetchData('/meta/createbot', bot);
@@ -64,23 +61,19 @@ export class MetaService {
   async fetchGameData(hero: MetaHero): Promise<{ map: number, position: Vector2, heroes: MetaHero[], chat: MetaChat[], events: MetaEvent[] } | undefined> {
     return this.fetchData('/meta/fetchgamedata', hero);
   }
-  async fetchInventoryData(hero: MetaHero): Promise<{inventory: InventoryItem[], parts: MetaBotPart[]}> {
-    return this.fetchData('/meta/fetchinventorydata', hero);
-  }
-  async chat(hero: MetaHero, content: string) {
-    return this.fetchData('/meta/chat', {Hero: hero, Content: content});
-  }
+  async fetchInventoryData(heroId: number): Promise<{inventory: InventoryItem[], parts: MetaBotPart[]}> {
+    return this.fetchData('/meta/fetchinventorydata', heroId);
+  } 
   async deleteEvent(eventId: number) {
     return this.fetchData('/meta/deleteevent', { EventId: eventId });
   }
   async updateEvents(event: MetaEvent) {
     return this.fetchData('/meta/updateevents', event);
   }
-  async updateInventory(hero: MetaHero, name: string, image: string, category: string) {
-    return this.fetchData('/meta/updateinventory', { Hero: hero, Name: name, Image: image, Category: category });
+  async updateInventory(heroId: number, name: string, image: string, category: string) {
+    return this.fetchData('/meta/updateinventory', { HeroId: heroId, Name: name, Image: image, Category: category });
   }
-  async updateBotParts(hero: MetaHero, parts: MetaBotPart[]) {
-    console.log("in update bot parts. ", hero, parts);
-    return this.fetchData('/meta/updatebotparts', { Hero: hero, parts: parts });
+  async updateBotParts(heroId: number, parts: MetaBotPart[]) { 
+    return this.fetchData('/meta/updatebotparts', { HeroId: heroId, parts: parts });
   }
 }

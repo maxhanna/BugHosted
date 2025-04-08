@@ -1,5 +1,4 @@
 using maxhanna.Server.Controllers.DataContracts.Todos;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -9,20 +8,17 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class TodoController : ControllerBase
 	{
-		private readonly ILogger<TodoController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public TodoController(ILogger<TodoController> logger, IConfiguration config)
+		public TodoController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
-		public async Task<IActionResult> Get([FromBody] User user, [FromQuery] string type, [FromQuery] string? search)
-		{
-			_logger.LogInformation($"POST /Todo/ (type: {type}, search: {search})");
-
-			// Step 1: Get the columns the user has selected
+		public async Task<IActionResult> Get([FromBody] int userId, [FromQuery] string type, [FromQuery] string? search)
+		{  
 			string sqlColumns = @"
 				SELECT column_name 
 				FROM todo_columns 
@@ -39,7 +35,7 @@ namespace maxhanna.Server.Controllers
 					// Fetch selected columns
 					using (var cmdColumns = new MySqlCommand(sqlColumns, conn))
 					{
-						cmdColumns.Parameters.AddWithValue("@Owner", user.Id);
+						cmdColumns.Parameters.AddWithValue("@Owner", userId);
 
 						using (var rdrColumns = await cmdColumns.ExecuteReaderAsync())
 						{
@@ -70,7 +66,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", user.Id);
+						cmd.Parameters.AddWithValue("@Owner", userId);
 						cmd.Parameters.AddWithValue("@Type", type);
 						if (!string.IsNullOrEmpty(search))
 						{
@@ -100,7 +96,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching todos.");
+				_ = _log.Db("An error occurred while fetching todos." + ex.Message, userId, "TODO", true);
 				return StatusCode(500, "An error occurred while fetching todos.");
 			}
 		}
@@ -109,8 +105,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Todo/Create", Name = "CreateTodo")]
 		public async Task<IActionResult> Post([FromBody] CreateTodo model)
-		{
-			_logger.LogInformation("POST /Todo/Create");
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -125,7 +120,7 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@Todo", model.todo.todo);
 				cmd.Parameters.AddWithValue("@Type", model.todo.type);
 				cmd.Parameters.AddWithValue("@Url", model.todo.url);
-				cmd.Parameters.AddWithValue("@Owner", model.user.Id);
+				cmd.Parameters.AddWithValue("@Owner", model.userId);
 				var result = await cmd.ExecuteScalarAsync();
 				if (result != null)
 				{
@@ -133,21 +128,20 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					_logger.LogInformation("Returned 500");
+					_ = _log.Db("Post Returned 500", model.userId, "TODO", true);
 					return StatusCode(500, "Failed to insert data");
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the POST request." + ex.Message, model.userId, "TODO", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 		}
 
 		[HttpDelete("/Todo/{id}", Name = "DeleteTodo")]
-		public async Task<IActionResult> Delete([FromBody] User user, int id)
-		{
-			_logger.LogInformation($"DELETE /Todo/{id}");
+		public async Task<IActionResult> Delete([FromBody] int userId, int id)
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -155,7 +149,7 @@ namespace maxhanna.Server.Controllers
 				string sql = "DELETE FROM maxhanna.todo WHERE ID = @Id AND ownership = @Owner";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Id", id);
-				cmd.Parameters.AddWithValue("@Owner", user.Id);
+				cmd.Parameters.AddWithValue("@Owner", userId);
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
 				if (rowsAffected > 0)
@@ -169,7 +163,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the DELETE request.");
+				_ = _log.Db("An error occurred while processing the DELETE request." + ex.Message, userId, "TODO", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -184,10 +178,7 @@ namespace maxhanna.Server.Controllers
 			if (string.IsNullOrEmpty(req.Column))
 			{
 				return BadRequest("Invalid column name.");
-			}
-
-			_logger.LogInformation($"AddColumn for user {req.User.Id}");
-
+			} 
 			string sql = @"
 				INSERT INTO todo_columns (user_id, column_name, is_added)
         VALUES (@Owner, @Column, TRUE)
@@ -200,7 +191,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", req.User.Id);
+						cmd.Parameters.AddWithValue("@Owner", req.UserId);
 						cmd.Parameters.AddWithValue("@Column", req.Column);
 						await cmd.ExecuteNonQueryAsync();
 					}
@@ -209,7 +200,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error adding column.");
+				_ = _log.Db("Error adding column." + ex.Message, req.UserId, "TODO", true);
 				return StatusCode(500, "Error adding column.");
 			}
 		}
@@ -220,10 +211,7 @@ namespace maxhanna.Server.Controllers
 			if (string.IsNullOrEmpty(req.Column))
 			{
 				return BadRequest("Invalid column name.");
-			}
-
-			_logger.LogInformation($"RemoveColumn for user {req.User.Id}");
-			 
+			} 
 			string sql = @"
 				INSERT INTO todo_columns (user_id, column_name, is_added)
         VALUES (@Owner, @Column, FALSE)
@@ -235,7 +223,7 @@ namespace maxhanna.Server.Controllers
 					await conn.OpenAsync();
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", req.User.Id);
+						cmd.Parameters.AddWithValue("@Owner", req.UserId);
 						cmd.Parameters.AddWithValue("@Column", req.Column);
 						await cmd.ExecuteNonQueryAsync();
 					}
@@ -244,18 +232,15 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error removing column.");
+				_ = _log.Db("Error removing column." + ex.Message, req.UserId, "TODO", true);
 				return StatusCode(500, "Error removing column.");
 			}
 		}
 
 
 		[HttpPost("/Todo/Columns/GetColumnsForUser")]
-		public async Task<IActionResult> GetColumnsForUser(User user)
-		{
-			_logger.LogInformation($"Fetching columns for user {user.Id}");
-
-			// Define the SQL query to get all columns for the user
+		public async Task<IActionResult> GetColumnsForUser(int userId)
+		{  
 			string sqlColumns = @"
         SELECT column_name, 
                IFNULL(is_added, TRUE) as is_added 
@@ -287,7 +272,7 @@ namespace maxhanna.Server.Controllers
 					// Fetch all columns for the user
 					using (var cmdColumns = new MySqlCommand(sqlColumns, conn))
 					{
-						cmdColumns.Parameters.AddWithValue("@Owner", user.Id);
+						cmdColumns.Parameters.AddWithValue("@Owner", userId);
 
 						using (var rdrColumns = await cmdColumns.ExecuteReaderAsync())
 						{
@@ -309,7 +294,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching columns.");
+				_ = _log.Db("An error occurred while fetching columns." + ex.Message, userId, "TODO", true);
 				return StatusCode(500, "An error occurred while fetching columns.");
 			}
 		} 

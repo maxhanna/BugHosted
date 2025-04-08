@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Array
 {
 	public class ArrayCharacterInventory
 	{
-		public ArrayCharacterInventory(User? user, List<ArrayCharacterItem> items)
+		public ArrayCharacterInventory(int userId, List<ArrayCharacterItem> items)
 		{
-			User = user;
+			userId = userId;
 			Items = items;
 		}
-		public User? User { get; set; }
+		public int UserId { get; set; }
 		public List<ArrayCharacterItem> Items { get; set; }
 	}
 }

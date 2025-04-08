@@ -34,29 +34,29 @@ export class NotificationService {
       console.error(error);
     }
   }
-  async getNotifications(user: User): Promise<UserNotification[]> {
-    return await this.fetchData('/notification', user);
+  async getNotifications(userId: number): Promise<UserNotification[]> {
+    return await this.fetchData('/notification', userId);
   }
-  async deleteNotification(user: User, notificationId?: number): Promise<string> {
-    return await this.fetchData('/notification/delete', { User: user, NotificationId: notificationId });
+  async deleteNotification(userId: number, notificationId?: number): Promise<string> {
+    return await this.fetchData('/notification/delete', { UserId: userId, NotificationId: notificationId });
   }
-  async readNotifications(user: User, notificationIds?: number[]): Promise<string> {
-    return await this.fetchData('/notification/read', { User: user, NotificationIds: notificationIds });
+  async readNotifications(userId: number, notificationIds?: number[]): Promise<string> {
+    return await this.fetchData('/notification/read', { UserId: userId, NotificationIds: notificationIds });
   }
-  async unreadNotifications(user: User, notificationIds?: number[]): Promise<string> {
-    return await this.fetchData('/notification/unread', { User: user, NotificationIds: notificationIds });
+  async unreadNotifications(userId: number, notificationIds?: number[]): Promise<string> {
+    return await this.fetchData('/notification/unread', { UserId: userId, NotificationIds: notificationIds });
   }
-  async subscribeToTopic(user: User, token: string, topic: string): Promise<string> {
-    return await this.fetchData('/notification/subscribe', { User: user, Token: token, Topic: topic });
+  async subscribeToTopic(userId: number, token: string, topic: string): Promise<string> {
+    return await this.fetchData('/notification/subscribe', { UserId: userId, Token: token, Topic: topic });
   } 
   async createNotifications(params: {
-    fromUser: User, toUser: User[], message: string,
+    fromUserId: number, toUserIds: number[], message: string,
     storyId?: number, fileId?: number, chatId?: number,
     commentId?: number, userProfileId?: number,
   }) {
     return await this.fetchData('/notification/createnotifications',
       {
-        FromUser: params.fromUser, ToUser: params.toUser, Message: params.message,
+        FromUserId: params.fromUserId, ToUserIds: params.toUserIds, Message: params.message,
         StoryId: params.storyId, FileId: params.fileId, ChatId: params.chatId,
         CommentId: params.commentId, UserProfileId: params.userProfileId
       });

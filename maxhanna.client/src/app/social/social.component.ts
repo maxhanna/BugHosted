@@ -155,8 +155,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     } 
     const user = this.parent?.user ?? this.parentRef?.user;
-    if (user) {
-      this.userService.getUserSettings(user).then(res => {
+    if (user && user.id) {
+      this.userService.getUserSettings(user.id).then(res => {
         if (res) {
           this.isDisplayingNSFW = res.nsfwEnabled ?? false; 
         }
@@ -180,10 +180,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   async delete(story: Story) {
-    if (!this.parentRef?.user) { return alert("Error: Cannot delete storise that dont belong to you."); }
+    if (!this.parentRef?.user?.id) { return alert("Error: Cannot delete storise that dont belong to you."); }
     if (!confirm("Are you sure you want to delete this story?")) return;
 
-    const res = await this.socialService.deleteStory(this.parentRef?.user, story);
+    const res = await this.socialService.deleteStory(this.parentRef?.user?.id, story);
     if (res) {
       this.parentRef?.showNotification(res);
       if (res.toLowerCase().includes('successful')) {
@@ -242,7 +242,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
     this.parentRef?.updateLastSeen();
     const res = await this.socialService.getStories(
-      this.parentRef?.user,
+      this.parentRef?.user?.id,
       search,
       topics,
       userId,
@@ -364,14 +364,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   private async postSingleStory(user: User, storyText: string): Promise<any> {
     const story = this.createStory(user, storyText, this.attachedFiles);
     this.parentRef?.updateLastSeen();
-    return this.socialService.postStory(user, story);
+    return this.socialService.postStory(user.id ?? 0, story);
   }
 
   private async postEachFileAsSeparateStory(user: User, storyText: string): Promise<any[]> {
     this.parentRef?.updateLastSeen();
     const promises = this.attachedFiles.map(file => {
       const story = this.createStory(user, storyText, [file]);
-      return this.socialService.postStory(user, story);
+      return this.socialService.postStory(user.id ?? 0, story);
     });
     return Promise.all(promises);
   }
@@ -389,7 +389,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const user = this.parentRef?.user ?? this.parent?.user;
     if (user) {
       this.parentRef?.updateLastSeen();
-      this.socialService.editTopics(user, story, topics); 
+      this.socialService.editTopics(story, topics); 
       this.closeStoryOptionsPanel();
       this.editingTopics = this.editingTopics.filter(x => x != story.id); 
       story.storyTopics = topics;
@@ -734,7 +734,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   async addToMusicPlaylist(story?: Story, metadata?: MetaData, event?: Event) {
-    if (!story || !story.metadata) return;
+    if (!story || !story.metadata || !this.parentRef?.user?.id) return;
     const url = this.extractUrl(story.storyText);
     const title = metadata?.title ?? "";
     const yturl = this.extractYouTubeVideoURL(url);
@@ -746,7 +746,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     tmpTodo.url = yturl.trim();
     tmpTodo.todo = title.replace("- YouTube", "").trim();
 
-    const resTodo = await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
+    const resTodo = await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
     if (resTodo) {
       this.parentRef?.showNotification(`Added ${title} to music playlist.`);
     }
@@ -903,10 +903,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;
     const user = parent?.user;
-    if (!user) return alert("You must be logged in to view NSFW content.");
+    if (!user || !user.id) return alert("You must be logged in to view NSFW content.");
     const isChecked = (event.target as HTMLInputElement).checked;
     this.isDisplayingNSFW = isChecked;
-    this.userService.updateNSFW(user, isChecked).then(res => {
+    this.userService.updateNSFW(user.id, isChecked).then(res => {
       if (res) {
         parent.showNotification(res);
         this.searchStories();

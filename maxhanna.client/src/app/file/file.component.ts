@@ -75,9 +75,9 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
     this.fileSearchComponent.handleUploadedFiles(newFiles.flatMap(fileArray => fileArray));  
   }
   async shareFile(userToShareWith?: User) {
-    if (!userToShareWith) return;
+    if (!userToShareWith?.id || !this.parentRef?.user?.id) return;
     try {
-      await this.fileService.shareFile(this.parentRef?.user!, userToShareWith, this.fileBeingShared);
+      await this.fileService.shareFile(this.parentRef?.user?.id, userToShareWith.id, this.fileBeingShared);
       this.fileBeingShared = 0;
       this.isSharePanelExpanded = false;
       this.parentRef?.showNotification("File sharing has succeeded."); 
@@ -131,6 +131,8 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!choice || choice == "") {
       return alert("Folder name cannot be empty!");
     }
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return alert("You must be logged in to create a folder.");
 
     const isPublic = this.createVisibility.toLowerCase() == "public" ? true : false;
 
@@ -141,7 +143,7 @@ export class FileComponent extends ChildComponent implements OnInit, OnDestroy {
     if (confirm(`Create directory : ${target} ?`)) { 
       this.startLoading();
       try {
-        const res = await this.fileService.createDirectory(this.parentRef?.user!, target, isPublic);
+        const res = await this.fileService.createDirectory(userId, target, isPublic);
         this.parentRef?.showNotification("Created folder " + target);  
 
         if (!res?.toLowerCase().includes("already exists")) {

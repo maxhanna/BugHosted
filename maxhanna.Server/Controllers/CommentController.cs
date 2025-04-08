@@ -12,32 +12,30 @@ namespace maxhanna.Server.Controllers
 	[ApiController]
 	[Route("[controller]")]
 	public class CommentController : ControllerBase
-	{
-		private readonly ILogger<CommentController> _logger;
+	{ 
 		private readonly IConfiguration _config;
-
-		public CommentController(ILogger<CommentController> logger, IConfiguration config)
+		private readonly Log _log;
+		public CommentController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost(Name = "PostComment")]
 		public async Task<IActionResult> PostComment([FromBody] CommentRequest request)
-		{
-			_logger.LogInformation($"POST /Comment (for user {request.User?.Id})");
+		{ 
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
 			if ((request.FileId != null && request.StoryId != null))
 			{
 				string message = "Both file_id and story_id cannot be provided at the same time.";
-				_logger.LogInformation(message);
+				_ = _log.Db(message, request.UserId, "COMMENT", true);
 				return BadRequest(message);
 			}
 			else if (request.FileId == 0 && request.StoryId == 0)
 			{
-				string message = "Both FileId and StoryId cannot be zero.";
-				_logger.LogInformation(message);
+				string message = "Both FileId and StoryId cannot be zero."; 
+				_ = _log.Db(message, request.UserId, "COMMENT", true);
 				return BadRequest(message);
 			}
 
@@ -79,7 +77,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
+						cmd.Parameters.AddWithValue("@user_id", request.UserId);
 						cmd.Parameters.AddWithValue("@comment", request.Comment);
 						cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
 						cmd.Parameters.AddWithValue("@city", request.City);
@@ -92,8 +90,7 @@ namespace maxhanna.Server.Controllers
 						{
 							if (await reader.ReadAsync())
 							{
-								insertedId = reader.GetInt32(0);
-								_logger.LogInformation("inserted comment : " + insertedId);
+								insertedId = reader.GetInt32(0); 
 							}
 						}
 						if (insertedId != 0 && request.SelectedFiles != null && request.SelectedFiles.Count > 0)
@@ -120,15 +117,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the PostComment request.", request.UserId, "COMMENT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 		}
 
 		[HttpPost("/Comment/GetCommentData", Name = "GetCommentData")]
 		public async Task<IActionResult> GetCommentData([FromBody] int commentId)
-		{
-			_logger.LogInformation("/Comment/GetCommentData");
+		{ 
 			List<FileComment> tmpComments = new List<FileComment>();
 			StringBuilder sqlBuilder = new StringBuilder();
 
@@ -279,9 +275,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Comment/DeleteComment", Name = "DeleteComment")]
 		public async Task<IActionResult> DeleteComment([FromBody] DeleteCommentRequest request)
-		{
-			_logger.LogInformation($"POST /Comment (for user {request.User?.Id})");
-
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -291,14 +285,14 @@ namespace maxhanna.Server.Controllers
 				using (MySqlCommand cmd = new MySqlCommand(sql, conn))
 				{
 					cmd.Parameters.AddWithValue("@comment_id", request.CommentId);
-					cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
+					cmd.Parameters.AddWithValue("@user_id", request.UserId);
 
 					await cmd.ExecuteNonQueryAsync();
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the GET request.");
+				_ = _log.Db("An error occurred while processing the DeleteComment request. " + ex.Message, request.UserId, "COMMENT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -310,9 +304,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Comment/EditComment", Name = "EditComment")]
 		public async Task<IActionResult> EditComment([FromBody] EditCommentRequest request)
-		{
-			_logger.LogInformation($"POST /Comment/EditComment (for user {request.User?.Id}, commentId: {request.CommentId})");
-
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -322,7 +314,7 @@ namespace maxhanna.Server.Controllers
 				using (MySqlCommand cmd = new MySqlCommand(sql, conn))
 				{
 					cmd.Parameters.AddWithValue("@comment_id", request.CommentId);
-					cmd.Parameters.AddWithValue("@user_id", request.User?.Id ?? 0);
+					cmd.Parameters.AddWithValue("@user_id", request.UserId);
 					cmd.Parameters.AddWithValue("@Text", request.Text);
 
 					await cmd.ExecuteNonQueryAsync();
@@ -330,7 +322,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the GET request.");
+				_ = _log.Db("An error occurred while processing the EditComment request. " + ex.Message, request.UserId, "COMMENT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally

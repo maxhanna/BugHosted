@@ -2,6 +2,7 @@ using maxhanna.Server.Controllers.DataContracts.Notepad;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -9,20 +10,18 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class NotepadController : ControllerBase
 	{
-		private readonly ILogger<NotepadController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public NotepadController(ILogger<NotepadController> logger, IConfiguration config)
+		public NotepadController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost(Name = "GetNotes")]
 		public async Task<IActionResult> GetNotes([FromBody] GetNotepadRequest req)
-		{
-			_logger.LogInformation($"GET /Notepad (for user: {req.User?.Id ?? 0})");
-
+		{ 
 			string sql = @"SELECT 
                              id, LEFT(note, 25) AS note, date, ownership  
                         FROM 
@@ -50,7 +49,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", req.User?.Id ?? 0);
+						cmd.Parameters.AddWithValue("@Owner", req.UserId);
 						if (!string.IsNullOrEmpty(req.Search))
 						{
 							cmd.Parameters.AddWithValue("@Search", req.Search);
@@ -75,7 +74,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching Notepad.");
+				_ = _log.Db("An error occurred while fetching Notepad." + ex.Message, req.UserId, "NOTE", true);
 				return StatusCode(500, "An error occurred while fetching Notepad.");
 			}
 		}
@@ -83,13 +82,11 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Notepad/Share/{noteId}", Name = "ShareNote")]
 		public async Task<IActionResult> Get([FromBody] ShareNotepadRequest request, int noteId)
 		{
-			if (request.User1 == null || request.User2 == null)
+			if (request.User1Id == null || request.User2Id == null)
 			{
 				return BadRequest("Both users must be present in the request");
-			}
-			_logger.LogInformation($"POST /Notepad/Share/{noteId} (for user: {request.User1.Id} to user: {request.User2.Id})");
-
-			string sql = "UPDATE maxhanna.notepad SET Ownership = CONCAT(Ownership, ',', @user2id) WHERE id = @noteId";
+			} 
+			string sql = "UPDATE maxhanna.notepad SET Ownership = CONCAT(Ownership, ',', @User2Idid) WHERE id = @noteId";
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -98,17 +95,16 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@user2id", request.User2.Id);
+						cmd.Parameters.AddWithValue("@User2Idid", request.User2Id);
 						cmd.Parameters.AddWithValue("@noteId", noteId);
 
 						if (await cmd.ExecuteNonQueryAsync() > 0)
-						{
-							_logger.LogInformation("Returned OK");
+						{ 
 							return Ok();
 						}
 						else
 						{
-							_logger.LogInformation("Returned 500");
+							_ = _log.Db("Returned 500", request.User1Id, "NOTE", true);
 							return StatusCode(500, "Failed to insert data");
 						}
 					}
@@ -116,15 +112,13 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching Notepad.");
+				_ = _log.Db("An error occurred while fetching Notepad." + ex.Message, request.User1Id, "NOTE", true);
 				return StatusCode(500, "An error occurred while fetching Notepad.");
 			}
 		}
 		[HttpPost("/Notepad/{id}", Name = "GetNoteById")]
-		public async Task<IActionResult> Get([FromBody] User user, int id)
-		{
-			_logger.LogInformation($"GET /Notepad/" + id);
-
+		public async Task<IActionResult> Get([FromBody] int userId, int id)
+		{  
 			string sql = "SELECT " +
 											"id, note, date, ownership " +
 									"FROM " +
@@ -150,7 +144,7 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@ID", id);
-						cmd.Parameters.AddWithValue("@Owner", user.Id);
+						cmd.Parameters.AddWithValue("@Owner", userId);
 
 						using (var rdr = await cmd.ExecuteReaderAsync())
 						{
@@ -169,7 +163,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching Notepad.");
+				_ = _log.Db("An error occurred while fetching Notepad." + ex.Message, userId, "NOTE", true);
 				return StatusCode(500, "An error occurred while fetching Notepad.");
 			}
 			return StatusCode(404, "Note/Server problem?.");
@@ -178,7 +172,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Notepad/Create", Name = "CreateNote")]
 		public async Task<IActionResult> Post([FromBody] CreateNote note)
 		{
-			_logger.LogInformation("POST /Notepad");
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -187,28 +180,26 @@ namespace maxhanna.Server.Controllers
 				string sql = "INSERT INTO maxhanna.notepad (note, ownership) VALUES (@Note, @Owner)";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Note", note.note);
-				cmd.Parameters.AddWithValue("@Owner", note.user.Id);
+				cmd.Parameters.AddWithValue("@Owner", note.userId);
 				if (await cmd.ExecuteNonQueryAsync() > 0)
 				{
-					_logger.LogInformation("Returned OK");
 					return Ok();
 				}
 				else
 				{
-					_logger.LogInformation("Returned 500");
+					_ = _log.Db("Returned 500", note.userId, "NOTE", true);
 					return StatusCode(500, "Failed to insert data");
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the POST request." + ex.Message, note.userId, "NOTE", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 		}
 		[HttpPost("/Notepad/Update/{id}", Name = "UpdateNote")]
 		public async Task<IActionResult> Post(string id, [FromBody] CreateNote note)
-		{
-			_logger.LogInformation("POST /Notepad");
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -234,29 +225,27 @@ namespace maxhanna.Server.Controllers
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Note", note.note);
 				cmd.Parameters.AddWithValue("@ID", id);
-				cmd.Parameters.AddWithValue("@Owner", note.user.Id);
+				cmd.Parameters.AddWithValue("@Owner", note.userId);
 				if (await cmd.ExecuteNonQueryAsync() > 0)
-				{
-					_logger.LogInformation("Returned OK");
+				{ 
 					return Ok();
 				}
 				else
 				{
-					_logger.LogInformation("Returned 500");
+					_ = _log.Db("Post Returned 500", note.userId, "NOTE", true);
 					return StatusCode(500, "Failed to insert data");
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the POST request." +ex.Message, note.userId, "NOTE", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 		}
 
 		[HttpDelete("/Notepad/{id}", Name = "DeleteNote")]
-		public async Task<IActionResult> Delete([FromBody] User user, int id)
-		{
-			_logger.LogInformation($"DELETE /Notepad/{id}");
+		public async Task<IActionResult> Delete([FromBody] int userId, int id)
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -278,7 +267,7 @@ namespace maxhanna.Server.Controllers
 						")";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Id", id);
-				cmd.Parameters.AddWithValue("@Owner", user.Id.ToString());
+				cmd.Parameters.AddWithValue("@Owner", userId.ToString());
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
 				if (rowsAffected > 0)
@@ -292,7 +281,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the DELETE request.");
+				_ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, userId, "NOTE", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -303,12 +292,12 @@ namespace maxhanna.Server.Controllers
 	}
 	public class ShareNotepadRequest
 	{
-		public User? User1 { get; set; }
-		public User? User2 { get; set; }
+		public int? User1Id { get; set; }
+		public int? User2Id { get; set; }
 	}
 	public class GetNotepadRequest
 	{
-		public User? User { get; set; }
+		public int? UserId { get; set; }
 		public string? Search { get; set; }
 	}
 }

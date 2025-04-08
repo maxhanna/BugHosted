@@ -209,7 +209,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       const user = this.parentRef?.user ?? this.inputtedParentRef?.user;
       this.fileService.getFileById(fileId, {
         signal: this.abortFileRequestController.signal
-      }, user).then(response => {
+      }, user?.id).then(response => {
         if (!response || response == null) return;
 
         const contentDisposition = response.headers["content-disposition"];
@@ -322,7 +322,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.startLoading();
       this.emittedNotification.emit(`Downloading ${file.fileName}`);
 
-      const response = await this.fileService.getFile(target, undefined, this.user);
+      const response = await this.fileService.getFile(target, undefined);
       const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
       const a = document.createElement('a');

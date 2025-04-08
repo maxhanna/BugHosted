@@ -1,19 +1,17 @@
 import { Injectable } from '@angular/core'; 
-import { User } from './datacontracts/user/user';
-import { FriendRequest } from './datacontracts/friends/friendship-request';
 
 @Injectable({
   providedIn: 'root'
 })
 export class FriendService {
-  async getFriendRequests(user: User) {
+  async getFriendRequests(userId: number) {
     try {
       const response = await fetch(`/friend/requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -23,15 +21,15 @@ export class FriendService {
     }
   }
 
-  async getFriends(user: User) {
-    if (!user || user.id == 0) return;
+  async getFriends(userId: number) {
+    if (!userId) return;
     try {
       const response = await fetch(`/friend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(userId),
       });
 
       return await response.json();
@@ -41,14 +39,14 @@ export class FriendService {
     }
   }
 
-  async sendFriendRequest(sender: User, receiver: User) {
+  async sendFriendRequest(senderId: number, receiverId: number) {
     try {
       const response = await fetch(`/friend/request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ sender, receiver }),
+        body: JSON.stringify({ senderId, receiverId }),
       });
 
       return await response.text();
@@ -58,14 +56,14 @@ export class FriendService {
     }
   }
 
-  async acceptFriendRequest(request: FriendRequest) {
+  async acceptFriendRequest(senderId: number, receiverId: number) {
     try {
       const response = await fetch(`/friend/request/accept`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify({ SenderId: senderId, ReceiverId: receiverId }),
       });
 
       return await response.text();
@@ -75,14 +73,14 @@ export class FriendService {
     }
   }
 
-  async rejectFriendRequest(request: FriendRequest) {
+  async rejectFriendRequest(requestId: number, userId: number) {
     try {
       const response = await fetch(`/friend/request/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify({ RequestId: requestId, UserId: userId }),
       });
 
       return await response.text();
@@ -92,14 +90,14 @@ export class FriendService {
     }
   }
 
-  async deleteFriendRequest(request: FriendRequest) {
+  async deleteFriendRequest(requestId: number) {
     try {
       const response = await fetch(`/friend/request/delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(request),
+        body: JSON.stringify(requestId),
       });
 
       return await response.text();
@@ -109,14 +107,14 @@ export class FriendService {
     }
   }
 
-  async removeFriend(user: User, friend: User) {
+  async removeFriend(userId: number, friendId: number) {
     try {
       const response = await fetch(`/friend/remove`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ User: user, Friend: friend }),
+        body: JSON.stringify({ UserId: userId, FriendId: friendId }),
       });
 
       return await response.text();

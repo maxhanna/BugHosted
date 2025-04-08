@@ -57,14 +57,14 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     this.loadScoreData();
   }
   async loadScoreData() {
-    if (this.parentRef?.user) {
+    if (this.parentRef?.user?.id) {
       try {
-        const res = await this.wordlerService.getAllScores(this.parentRef.user);
+        const res = await this.wordlerService.getAllScores(this.parentRef.user.id);
         if (res) {
           this.wordlerScores = res;
           this.setTopScores();
         }
-        const wsRes = await this.wordlerService.getConsecutiveDayStreak(this.parentRef.user);
+        const wsRes = await this.wordlerService.getConsecutiveDayStreak(this.parentRef.user.id);
         if (wsRes) {
           this.wordlerStreak = parseInt(wsRes);
         }
@@ -171,9 +171,9 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   }
 
   private async reloadGuesses() {
-    if (this.parentRef && this.parentRef.user) {
+    if (this.parentRef?.user?.id) {
       try {
-        const res = await this.wordlerService.getGuesses(this.parentRef?.user!, this.selectedDifficulty) as WordlerGuess[];
+        const res = await this.wordlerService.getGuesses(this.parentRef.user.id, this.selectedDifficulty) as WordlerGuess[];
         setTimeout(() => {
           if (res) {
             this.guesses = res;

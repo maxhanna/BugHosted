@@ -4,13 +4,13 @@ namespace maxhanna.Server.Controllers.DataContracts.Comments
 {
 	public class EditCommentRequest
 	{
-		public EditCommentRequest(User? user, int commentId, string text)
+		public EditCommentRequest(int userId, int commentId, string text)
 		{
-			User = user;
+			UserId = userId;
 			CommentId = commentId;
 			Text = text;
 		}
-		public User? User { get; set; }
+		public int UserId { get; set; }
 		public int CommentId { get; set; }
 		public string Text { get; set; }
 	}

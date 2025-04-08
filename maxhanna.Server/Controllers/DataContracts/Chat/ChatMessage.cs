@@ -6,8 +6,8 @@ namespace maxhanna.Server.Controllers.DataContracts.Chat
 	public class MessageHistoryRequest
 	{
 		public int? ChatId { get; set; }
-		public User? User { get; set; }
-		public User[]? Receivers { get; set; }
+		public int UserId { get; set; }
+		public int[]? ReceiverIds { get; set; }
 		public int? PageSize { get; set; }
 		public int? PageNumber { get; set; }
 	}

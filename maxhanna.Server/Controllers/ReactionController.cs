@@ -8,23 +8,20 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class ReactionController : ControllerBase
 	{
-		private readonly ILogger<ReactionController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public ReactionController(ILogger<ReactionController> logger, IConfiguration config)
+		public ReactionController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/Reaction/AddReaction", Name = "AddReaction")]
 		public async Task<IActionResult> AddReaction([FromBody] Reaction reactionRequest)
-		{
-			_logger.LogInformation("POST /Reaction/AddReaction");
-
+		{ 
 			if (reactionRequest == null || (reactionRequest.CommentId == null && reactionRequest.MessageId == null && reactionRequest.FileId == null && reactionRequest.StoryId == null))
-			{
-				_logger.LogWarning("Invalid reaction request.");
+			{ 
 				return BadRequest("Invalid reaction request.");
 			}
 
@@ -37,9 +34,7 @@ namespace maxhanna.Server.Controllers
 					var commandStr = "";
 					int? reactionId = CheckIfReactionExists(connection, reactionRequest.User?.Id ?? 0, reactionRequest.CommentId, reactionRequest.StoryId, reactionRequest.MessageId, reactionRequest.FileId);
 					if (reactionId != null)
-					{
-						_logger.LogInformation("Found reaction, going to update it");
-
+					{ 
 						commandStr = @" UPDATE reactions 
                             SET type = @type 
                             WHERE id = @reactionId LIMIT 1;"; 
@@ -67,22 +62,14 @@ namespace maxhanna.Server.Controllers
 
 					await command.ExecuteNonQueryAsync();
 					int? lastInsertId = (int?)(command.LastInsertedId);
-					if (command.LastInsertedId == 0)
-					{
-						_logger.LogInformation($"Reaction updated for user {reactionRequest.User?.Id ?? 0}.");
-					}
-					else
-					{
-						_logger.LogInformation($"Reaction added for user {reactionRequest.User?.Id ?? 0}.");
-					}
-
+ 
 					return Ok(reactionId ?? lastInsertId ?? 0);
 				}
 
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while adding the reaction.");
+				_ = _log.Db("An error occurred while adding the reaction." + ex.Message, reactionRequest.User?.Id, "REACT", true);
 				return StatusCode(500, "An error occurred while adding the reaction.");
 			}
 		}

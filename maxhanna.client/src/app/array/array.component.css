@@ -133,8 +133,7 @@
     height:50px;
     width:50px;
 }
-.inventoryDiv, inventoryItemsDiv {
-  max-width: 300px;
+.inventoryDiv, inventoryItemsDiv { 
   height:255px;
   overflow: auto;
   display: flex;

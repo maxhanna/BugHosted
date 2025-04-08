@@ -78,11 +78,11 @@ export class NexusAttackScreenComponent extends ChildComponent {
         } 
 
         if (this.isSendingDefence) {
-          this.nexusService.defend(this.user, this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));
+          this.nexusService.defend(this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));
         } else {
-          this.nexusService.engage(this.user, this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));
+          this.nexusService.engage(this.originBase, this.selectedNexus, this.unitStats).then(res => this.emittedNotifications.emit(res));
           if (this.user.id != this.selectedNexus.user?.id && this.selectedNexus.user) {
-            this.notificationService.createNotifications({ fromUser: this.user, toUser: [this.selectedNexus.user], message: `BugWars attack incoming on {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}` });
+            this.notificationService.createNotifications({ fromUserId: this.user.id ?? 0, toUserIds: [this.selectedNexus?.user?.id ?? 0], message: `BugWars attack incoming on {${this.selectedNexus.coordsX},${this.selectedNexus.coordsY}}` });
           }
         }
         const nexusAttack = this.createNexusAttack();

@@ -12,20 +12,20 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class NotificationController : ControllerBase
 	{
-		private readonly ILogger<NotificationController> _logger;
+		private Log _log;
 		private readonly IConfiguration _config;
 
-		public NotificationController(ILogger<NotificationController> logger, IConfiguration config)
+		public NotificationController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost(Name = "GetNotifications")]
-		public async Task<IActionResult> GetNotifications(User user)
+		public async Task<IActionResult> GetNotifications([FromBody] int userId)
 		{
-			_logger.LogInformation($"POST /Notification for user {user.Id}");
 			List<UserNotification> notifications = new List<UserNotification>();
+			//_ = _log.Db("Retrieving notifications for userId : " + userId, userId, "NOTIFICATION", true);
 			try
 			{
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -45,7 +45,7 @@ namespace maxhanna.Server.Controllers
 					using (var command = new MySqlCommand(sql, connection))
 					{
 
-						command.Parameters.AddWithValue("@UserId", user.Id);
+						command.Parameters.AddWithValue("@UserId", userId);
 
 						try
 						{
@@ -59,7 +59,7 @@ namespace maxhanna.Server.Controllers
 						}
 						catch (Exception ex)
 						{
-							_logger.LogError(ex, "Error retrieving notifications.");
+							_ = _log.Db("Error retrieving notifications. " + ex.Message, userId, "NOTIFICATION", true);
 							return StatusCode(500, "An error occurred while retrieving the notifications.");
 						}
 					}
@@ -67,7 +67,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching the notifications.");
+				_ = _log.Db("An error occurred while fetching the notifications. " + ex.Message, userId, "NOTIFICATION", true);
 				return StatusCode(500, "An error occurred while fetching the notifications.");
 			}
 			return Ok(notifications);
@@ -113,7 +113,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Notification/Delete", Name = "DeleteNotifications")]
 		public async Task<IActionResult> DeleteNotifications([FromBody] DeleteNotificationRequest req)
 		{
-			_logger.LogInformation($"POST /Notification/Delete ");
 			try
 			{
 				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -127,7 +126,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var command = new MySqlCommand(sql, connection))
 					{
-						command.Parameters.AddWithValue("@UserId", req.User.Id);
+						command.Parameters.AddWithValue("@UserId", req.UserId);
 						if (req.NotificationId != null)
 						{
 							command.Parameters.AddWithValue("@NotificationId", req.NotificationId);
@@ -139,7 +138,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while deleting the notifications.");
+				_ = _log.Db("An error occurred while deleting the notifications. " + ex.Message, req.UserId, "NOTIFICATION", true);
 				return StatusCode(500, "An error occurred while deleting the notifications.");
 			}
 			return Ok(req.NotificationId != null ? "Notification deleted." : "All notifications deleted.");
@@ -149,7 +148,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Notification/Read", Name = "ReadNotifications")]
 		public async Task<IActionResult> ReadNotifications([FromBody] ReadNotificationRequest req)
 		{
-			_logger.LogInformation($"POST /Notification/Read");
 			List<UserNotification> notifications = new List<UserNotification>();
 			try
 			{
@@ -159,7 +157,7 @@ namespace maxhanna.Server.Controllers
 					string sql = "UPDATE maxhanna.notifications SET is_read = 1 WHERE user_id = @UserId";
 
 					List<MySqlParameter> parameters = new List<MySqlParameter> {
-							new MySqlParameter("@UserId", req.User.Id)
+							new MySqlParameter("@UserId", req.UserId)
 					};
 
 					if (req.NotificationIds != null && req.NotificationIds.Length > 0)
@@ -189,7 +187,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while deleting the notifications.");
+				_ = _log.Db("An error occurred while deleting the notifications. " + ex.Message, req.UserId, "NOTIFICATION", true);
 				return StatusCode(500, "An error occurred while deleting the notifications.");
 			}
 
@@ -200,7 +198,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Notification/UnRead", Name = "UnReadNotifications")]
 		public async Task<IActionResult> UnReadNotifications([FromBody] ReadNotificationRequest req)
 		{
-			_logger.LogInformation($"POST /Notification/UnRead");
 			List<UserNotification> notifications = new List<UserNotification>();
 			try
 			{
@@ -210,7 +207,7 @@ namespace maxhanna.Server.Controllers
 					string sql = "UPDATE maxhanna.notifications SET is_read = 0 WHERE user_id = @UserId";
 
 					List<MySqlParameter> parameters = new List<MySqlParameter> {
-							new MySqlParameter("@UserId", req.User.Id)
+							new MySqlParameter("@UserId", req.UserId)
 					};
 
 					if (req.NotificationIds != null && req.NotificationIds.Length > 0)
@@ -240,7 +237,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while deleting the notifications.");
+				_ = _log.Db("An error occurred while deleting the notifications. " + ex.Message, req.UserId, "NOTIFICATION", true);
 				return StatusCode(500, "An error occurred while deleting the notifications.");
 			}
 
@@ -252,8 +249,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Notification/Subscribe", Name = "SubscribeToNotifications")]
 		public async Task<IActionResult> SubscribeToNotifications([FromBody] SubscribeToNotificationRequest req)
 		{
-			_logger.LogInformation($"POST /Notification/Subscribe called with user: {req.User.Id}, topic: {req.Topic}");
-
 			if (string.IsNullOrEmpty(req.Token) || string.IsNullOrEmpty(req.Topic))
 			{
 				return BadRequest("Token and Topic are required.");
@@ -267,7 +262,7 @@ namespace maxhanna.Server.Controllers
 						req.Topic
 				);
 
-				_logger.LogInformation($"Successfully subscribed to topic {req.Topic}: {response.SuccessCount} success(es), {response.FailureCount} failure(s). Token Used : {req.Token} ");
+				_ = _log.Db($"Successfully subscribed to topic {req.Topic}: {response.SuccessCount} success(es), {response.FailureCount} failure(s). Token Used : {req.Token}", req.UserId, "NOTIFICATION");
 
 				return Ok(new
 				{
@@ -279,15 +274,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while subscribing to notifications.");
+				_ = _log.Db("An error occurred while subscribing to notifications. " + ex.Message, req.UserId, "NOTIFICATION", true);
 				return StatusCode(500, "An error occurred while subscribing to notifications.");
 			}
-		} 
+		}
 
 		[HttpPost("/Notification/CreateNotifications", Name = "CreateNotifications")]
 		public async Task<IActionResult> CreateNotifications([FromBody] NotificationRequest request)
 		{
-			_logger.LogInformation($"POST /Notification/CreateNotifications");
 			IActionResult? canSendRes = CanSendNotification(request);
 			if (canSendRes != null) { return canSendRes; }
 
@@ -326,11 +320,11 @@ namespace maxhanna.Server.Controllers
 					{
 						sendFirebaseNotification = true;
 					}
-				} 
-			}  
+				}
+			}
 			if (sendFirebaseNotification)
 			{
-				SendFirebaseNotifications(request);
+				_ = SendFirebaseNotifications(request);
 			}
 
 			return Ok("Notification(s) Created");
@@ -354,8 +348,7 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<bool> TryResolveStoryNotification(MySqlConnection conn, NotificationRequest request)
 		{
-			if (request.StoryId == null) return false;
-			Console.WriteLine($"Sending notif on target column : story_id" + request.StoryId);
+			if (request.StoryId == null) return false; 
 			string notificationSql = $@"
 						INSERT INTO maxhanna.notifications (user_id, from_user_id, story_id, text, date, user_profile_id)
 						SELECT user_id, @user_id, @storyId, @comment, UTC_TIMESTAMP(), @userProfileId
@@ -369,7 +362,7 @@ namespace maxhanna.Server.Controllers
 
 			using (var cmd = new MySqlCommand(notificationSql, conn))
 			{
-				cmd.Parameters.AddWithValue("@user_id", request.FromUser?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@user_id", request.FromUserId);
 				cmd.Parameters.AddWithValue("@comment", request.Message);
 				cmd.Parameters.AddWithValue("@storyId", request.StoryId);
 				cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
@@ -377,9 +370,9 @@ namespace maxhanna.Server.Controllers
 				await cmd.ExecuteNonQueryAsync();
 			}
 			return true;
-		}  
+		}
 		private async Task UpdateLastSeen(MySqlConnection conn, NotificationRequest request)
-		{ 
+		{
 			string notificationSql = $@"
 						UPDATE maxhanna.users 
 						SET last_seen = UTC_TIMESTAMP() 
@@ -387,14 +380,13 @@ namespace maxhanna.Server.Controllers
 
 			using (var cmd = new MySqlCommand(notificationSql, conn))
 			{
-				cmd.Parameters.AddWithValue("@UserId", request.FromUser?.Id ?? 0); 
+				cmd.Parameters.AddWithValue("@UserId", request.FromUserId);
 				await cmd.ExecuteNonQueryAsync();
-			} 
+			}
 		}
 		private async Task<bool> TryResolveFileNotification(MySqlConnection conn, NotificationRequest request)
 		{
-			if (request.FileId == null) return false;
-			Console.WriteLine($"Sending notif on target column : file_id" + request.FileId);
+			if (request.FileId == null) return false; 
 			string notificationSql = $@"
 					INSERT INTO maxhanna.notifications (user_id, from_user_id, file_id, text, date, user_profile_id)
 					VALUES ((SELECT user_id FROM maxhanna.file_uploads WHERE id = @file_id), @user_id, @file_id, @comment, UTC_TIMESTAMP(), @userProfileId);
@@ -406,7 +398,7 @@ namespace maxhanna.Server.Controllers
 
 			using (var cmd = new MySqlCommand(notificationSql, conn))
 			{
-				cmd.Parameters.AddWithValue("@user_id", request.FromUser?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@user_id", request.FromUserId);
 				cmd.Parameters.AddWithValue("@comment", request.Message);
 				cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@file_id", request.FileId);
@@ -417,10 +409,9 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<bool> TryResolveCommentNotification(MySqlConnection conn, NotificationRequest request)
 		{
-			if (request.CommentId == null) return false;
-			Console.WriteLine($"Sending notif on target column : comment_id : " + request.CommentId);
+			if (request.CommentId == null) return false; 
 			bool hasStory = request.StoryId != null;
-			bool hasFile = request.FileId != null;  
+			bool hasFile = request.FileId != null;
 
 			string notificationSql = $@"
 					INSERT INTO maxhanna.notifications (user_id, from_user_id, comment_id, text, date, user_profile_id{(hasFile ? ", file_id" : "")}{(hasStory ? ", story_id" : "")})
@@ -433,16 +424,16 @@ namespace maxhanna.Server.Controllers
 
 			using (var cmd = new MySqlCommand(notificationSql, conn))
 			{
-				cmd.Parameters.AddWithValue("@user_id", request.FromUser?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@user_id", request.FromUserId);
 				cmd.Parameters.AddWithValue("@comment", request.Message);
 				cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@comment_id", request.CommentId);
 				if (hasFile)
 				{
-					cmd.Parameters.AddWithValue("@file_id", request.FileId); 
+					cmd.Parameters.AddWithValue("@file_id", request.FileId);
 				}
 				if (hasStory)
-				{ 
+				{
 					cmd.Parameters.AddWithValue("@story_id", request.StoryId);
 				}
 				await cmd.ExecuteNonQueryAsync();
@@ -452,15 +443,14 @@ namespace maxhanna.Server.Controllers
 
 		private async Task<bool> TryResolveProfileNotification(MySqlConnection conn, NotificationRequest request)
 		{
-			if (request.UserProfileId == null) return false;
-			Console.WriteLine($"Sending notif on UserProfileId : {request.UserProfileId}");
+			if (request.UserProfileId == null) return false; 
 			string notificationSql = $@"
 						INSERT INTO maxhanna.notifications (user_id, from_user_id, user_profile_id, story_id, text, date)
 						VALUES (@to_user, @from_user, @user_profile_id, @story_id, @comment, UTC_TIMESTAMP());";
 			using (var cmd = new MySqlCommand(notificationSql, conn))
 			{
-				cmd.Parameters.AddWithValue("@to_user", request.ToUser.FirstOrDefault()?.Id ?? 0);
-				cmd.Parameters.AddWithValue("@from_user", request.FromUser?.Id ?? 0);
+				cmd.Parameters.AddWithValue("@to_user", request.ToUserIds.FirstOrDefault());
+				cmd.Parameters.AddWithValue("@from_user", request.FromUserId);
 				cmd.Parameters.AddWithValue("@user_profile_id", request.UserProfileId ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@story_id", request.StoryId ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@comment", request.Message);
@@ -471,11 +461,10 @@ namespace maxhanna.Server.Controllers
 		private async Task<bool> TryResolveChatNotification(MySqlConnection conn, NotificationRequest request)
 		{
 			if (request.ChatId == null) return false;
-			bool sendFirebaseNotification = true;
-			Console.WriteLine($"Sending notif on ChatId : {request.ChatId}");
-			foreach (var receiverUser in request.ToUser)
+			bool sendFirebaseNotification = true; 
+			foreach (var receiverUserId in request.ToUserIds)
 			{
-				if (receiverUser.Id == (request.FromUser?.Id ?? 0))
+				if (receiverUserId == request.FromUserId)
 				{
 					continue;
 				}
@@ -508,21 +497,18 @@ namespace maxhanna.Server.Controllers
 
 				using (var checkCommand = new MySqlCommand(checkSql, conn))
 				{
-					checkCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-					checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+					checkCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
+					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
 					checkCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
-					checkCommand.Parameters.AddWithValue("@Content", request.Message);
-					Console.WriteLine("Checking to see if notif exists");
-					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
-
-					Console.WriteLine("NOTIF Count : " + count);
+					checkCommand.Parameters.AddWithValue("@Content", request.Message); 
+					var count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()); 
 					if (count > 0)
 					{
 						sendFirebaseNotification = false;
 						using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
 						{
-							updateCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-							updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+							updateCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
+							updateCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
 							updateCommand.Parameters.AddWithValue("@Content", request.Message);
 							updateCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
 
@@ -533,12 +519,10 @@ namespace maxhanna.Server.Controllers
 					{
 						using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
 						{
-							insertCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-							insertCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+							insertCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
+							insertCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
 							insertCommand.Parameters.AddWithValue("@Content", request.Message);
-							insertCommand.Parameters.AddWithValue("@ChatId", request.ChatId);
-
-							Console.WriteLine($"inserted NOTIF {request.FromUser?.Id ?? 0} {receiverUser.Id} {request.Message} {request.ChatId}");
+							insertCommand.Parameters.AddWithValue("@ChatId", request.ChatId); 
 							await insertCommand.ExecuteNonQueryAsync();
 						}
 					}
@@ -546,19 +530,17 @@ namespace maxhanna.Server.Controllers
 			}
 			return sendFirebaseNotification;
 		}
-		
+
 		private async Task<bool> TryResolveGenericMessageNotification(MySqlConnection conn, NotificationRequest request)
 		{
 			if (request.Message == null) return false;
 			bool sendFirebaseNotification = true;
-			foreach (var receiverUser in request.ToUser)
+			foreach (var receiverUserId in request.ToUserIds)
 			{
-				if (receiverUser.Id == (request.FromUser?.Id ?? 0))
+				if (receiverUserId == request.FromUserId)
 				{
 					continue;
-				}
-
-				Console.WriteLine($"Checking for existing generic notifications");
+				} 
 
 				string checkSql = @"
 							SELECT COUNT(*) 
@@ -594,22 +576,19 @@ namespace maxhanna.Server.Controllers
 
 				using (var checkCommand = new MySqlCommand(checkSql, conn))
 				{
-					checkCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-					checkCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+					checkCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
+					checkCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
 					checkCommand.Parameters.AddWithValue("@Content", request.Message);
 					checkCommand.Parameters.AddWithValue("@UserProfileId", request.UserProfileId ?? (object)DBNull.Value);
 
-					int count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync());
-
-					Console.WriteLine("NOTIF Count (generic): " + count);
-
+					int count = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()); 
 					if (count > 0)
 					{
 						// Update existing notification
 						using (var updateCommand = new MySqlCommand(updateNotificationSql, conn))
 						{
-							updateCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-							updateCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
+							updateCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
+							updateCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
 							updateCommand.Parameters.AddWithValue("@Content", request.Message);
 							sendFirebaseNotification = false;
 							await updateCommand.ExecuteNonQueryAsync();
@@ -620,11 +599,9 @@ namespace maxhanna.Server.Controllers
 						// Insert new notification
 						using (var insertCommand = new MySqlCommand(insertNotificationSql, conn))
 						{
-							insertCommand.Parameters.AddWithValue("@Sender", request.FromUser?.Id ?? 0);
-							insertCommand.Parameters.AddWithValue("@Receiver", receiverUser.Id);
-							insertCommand.Parameters.AddWithValue("@Content", request.Message);
-
-							Console.WriteLine($"Inserted NOTIF {request.FromUser?.Id ?? 0} {receiverUser.Id} {request.Message}");
+							insertCommand.Parameters.AddWithValue("@Sender", request.FromUserId);
+							insertCommand.Parameters.AddWithValue("@Receiver", receiverUserId);
+							insertCommand.Parameters.AddWithValue("@Content", request.Message); 
 							await insertCommand.ExecuteNonQueryAsync();
 						}
 					}
@@ -636,11 +613,11 @@ namespace maxhanna.Server.Controllers
 		private async Task SendFirebaseNotifications(NotificationRequest request)
 		{
 			var tmpMessage = request.Message ?? "Notification from Bughosted.com";
-			var usersWithoutAnon = request.ToUser.Where(x => x.Id != 0).ToList();
+			var usersWithoutAnon = request.ToUserIds.Where(x => x != 0).ToList();
 
-			foreach (User tmpUser in usersWithoutAnon)
+			foreach (int tmpUserId in usersWithoutAnon)
 			{
-				if (tmpUser.Id == request.FromUser?.Id) continue;
+				if (tmpUserId == request.FromUserId || tmpUserId == 29 || tmpUserId == 0) continue; //dont send to yourself or to test users
 
 				try
 				{
@@ -648,23 +625,22 @@ namespace maxhanna.Server.Controllers
 					{
 						Notification = new FirebaseAdmin.Messaging.Notification()
 						{
-							Title = $"{tmpUser.Username}, Notification from {(request.FromUser?.Username ?? "Anonymous")}",
+							Title = $"Bughosted.com",
 							Body = tmpMessage,
 							ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
 						},
 						Data = new Dictionary<string, string>
-						{ 
-                { "url", "https://bughosted.com" }
+						{
+								{ "url", "https://bughosted.com" }
 						},
-						Topic = "notification" + tmpUser.Id
+						Topic = "notification" + tmpUserId
 					};
 
 					string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
-					Console.WriteLine($"Successfully sent message to {tmpUser.Id}: {response}");
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while sending Firebase notifications.");
+					_ = _log.Db("An error occurred while sending Firebase notifications. " + ex.Message, null, "NOTIFICATION", true);
 				}
 			}
 		}
@@ -675,25 +651,21 @@ namespace maxhanna.Server.Controllers
 			if ((request.FileId != null && request.StoryId != null))
 			{
 				string message = "Both file_id and story_id cannot be provided at the same time.";
-				_logger.LogInformation(message);
 				return BadRequest(message);
 			}
 			else if (request.FileId == 0 && request.StoryId == 0)
 			{
 				string message = "Both FileId and StoryId cannot be zero.";
-				_logger.LogInformation(message);
 				return BadRequest(message);
 			}
-			else if (request.ToUser.Length == 1 && request.ToUser[0].Id == 0)
+			else if (request.ToUserIds.Length == 1 && request.ToUserIds[0] == 0)
 			{
 				string message = "Can not send a notification to anonymous.";
-				_logger.LogInformation(message);
 				return BadRequest(message);
 			}
-			else if (request.ToUser.Length == 1 && request.ToUser[0].Id == request.FromUser.Id)
+			else if (request.ToUserIds.Length == 1 && request.ToUserIds[0] == request.FromUserId)
 			{
 				string message = "Can not send a notification to yourself.";
-				_logger.LogInformation(message);
 				return BadRequest(message);
 			}
 

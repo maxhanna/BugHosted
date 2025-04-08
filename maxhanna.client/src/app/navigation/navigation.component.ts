@@ -98,7 +98,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user) {
       return;
     }
-    const res = await this.notificationService.getNotifications(this._parent.user) as UserNotification[];
+    const res = await this.notificationService.getNotifications(this._parent.user.id ?? 0) as UserNotification[];
     if (res) {
       this._parent.navigationItems.filter(x => x.title == "Notifications")[0].content = res.filter(x => x.isRead == false).length + '';
 
@@ -117,9 +117,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getThemeInfo() {
-    if (!this._parent.user) return;
+    if (!this._parent?.user?.id) return;
     try {
-      const theme = await this.userService.getTheme(this._parent.user);
+      const theme = await this.userService.getTheme(this._parent.user.id);
 
       // Handle the theme data as required, for example, store it in a component variable
       if (theme && !theme.message) { 
@@ -140,7 +140,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     const endDate = new Date(startDate);
     endDate.setUTCDate(startDate.getUTCDate() + 1); // Midnight tomorrow in UTC
 
-    const res = await this.calendarService.getCalendarEntries(this.user!, startDate, endDate) as Array<CalendarEntry>;
+    const res = await this.calendarService.getCalendarEntries(this.user.id, startDate, endDate) as Array<CalendarEntry>;
     if (res && res.length > 0) {
       res.forEach(entry => {
         const entryDate = new Date(entry.date!);
@@ -157,10 +157,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this._parent.navigationItems.find(x => x.title == "Calendar")!.content = (notificationCount != 0 ? notificationCount + '' : '');
   }
   async getCurrentWeatherInfo() {
-    if (!this._parent.user || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
+    if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title == "Weather")) { return; }
 
     try {
-      const res = await this.weatherService.getWeather(this._parent.user!);
+      const res = await this.weatherService.getWeather(this._parent.user.id);
       if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
         this._parent.navigationItems.filter(x => x.title == "Weather")[0].content = res?.current.temp_c.toString() + "°C";
         this._parent.navigationItems.filter(x => x.title == "Weather")[0].icon = res.current.condition.icon;
@@ -173,11 +173,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   }
   async getCryptoHubInfo() {
-    if (!this.user) { return; }
+    if (!this.user?.id) { return; }
     if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("crypto-hub"))) { return; }
     let tmpLocalProfitability = 0;
 
-    const res1 = await this.miningService.getMiningRigInfo(this.user!) as Array<MiningRig>;
+    const res1 = await this.miningService.getMiningRigInfo(this.user.id) as Array<MiningRig>;
     res1?.forEach(x => {
       tmpLocalProfitability += x.localProfitability!;
     });
@@ -198,8 +198,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getWordlerStreakInfo() {
-    if (!this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
-    const res = await this.wordlerService.getTodaysDayStreak(this._parent.user!);
+    if (!this._parent.user?.id || !this._parent.userSelectedNavigationItems.find(x => x.title.toLowerCase().includes("wordler"))) { return; }
+    const res = await this.wordlerService.getTodaysDayStreak(this._parent.user.id);
     if (res && res != "0") {
       this._parent.navigationItems.find(x => x.title == "Wordler")!.content = res;
     }

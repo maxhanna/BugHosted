@@ -4,12 +4,12 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 {
 	public class DisplayPictureRequest
 	{
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public int FileId { get; set; }
 
-		public DisplayPictureRequest(User user, int fileId)
+		public DisplayPictureRequest(int userId, int fileId)
 		{
-			User = user;
+			UserId = userId;
 			FileId = fileId;
 		}
 	}

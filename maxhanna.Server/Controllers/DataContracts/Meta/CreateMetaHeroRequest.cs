@@ -4,7 +4,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Meta
 {
 	public class CreateMetaHeroRequest
 	{
-		public User? User { get; set; }
+		public int UserId { get; set; }
 		public string? Name { get; set; }
 	}
 }

@@ -9,23 +9,22 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class CalendarController : ControllerBase
 	{
-		private readonly ILogger<CalendarController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public CalendarController(ILogger<CalendarController> logger, IConfiguration config)
+		public CalendarController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 
 		[HttpPost(Name = "GetCalendar")]
-		public async Task<IActionResult> Get([FromBody] User user, [FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
-		{
-			_logger.LogInformation($"GET /Calendar (startDate : {startDate}, endDate : {endDate}, user: {user.Id})");
+		public async Task<IActionResult> Get([FromBody] int userId, [FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
+		{ 
 			if (startDate > endDate)
 			{
-				_logger.LogError("An error occurred while fetching calendar entries. StartDate > EndDate");
+				_ = _log.Db("An error occurred while fetching calendar entries. StartDate > EndDate", userId, "CALENDAR");
 				return StatusCode(500, "An error occurred while fetching calendar entries. StartDate > EndDate");
 			}
 			var entries = new List<CalendarEntry>();
@@ -67,7 +66,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", user.Id);
+						cmd.Parameters.AddWithValue("@Owner", userId);
 						cmd.Parameters.AddWithValue("@StartDate", startDate);
 						cmd.Parameters.AddWithValue("@EndDateWithTime", endDate.AddDays(1).AddSeconds(-1)); // Adds 23:59:59
 
@@ -86,16 +85,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching calendar entries.");
-				return StatusCode(500, "An error occurred while fetching calendar entries."); // Return 500 Internal Server Error with error message
+				_ = _log.Db("An error occurred while fetching calendar entries. " + ex.Message, userId, "CALENDAR");
+				return StatusCode(500, "An error occurred while fetching calendar entries.");
 			}
 		}
 
 		[HttpPost("/Calendar/Create", Name = "CreateCalendarEntry")]
 		public async Task<IActionResult> Post([FromBody] CreateCalendarEntry req)
-		{
-			_logger.LogInformation("POST /Calendar");
-			_logger.LogInformation($"Type : {req.calendarEntry.Type} Note: {req.calendarEntry.Note} Date: {req.calendarEntry.Date}, User: {req.user.Id}");
+		{  
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -107,22 +104,14 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@Type", req.calendarEntry.Type);
 				cmd.Parameters.AddWithValue("@Note", req.calendarEntry.Note);
 				cmd.Parameters.AddWithValue("@Date", req.calendarEntry.Date);
-				cmd.Parameters.AddWithValue("@Owner", req.user.Id);
-				_logger.LogInformation("note : " + req.calendarEntry.Note);
-				if (await cmd.ExecuteNonQueryAsync() > 0)
-				{
-					_logger.LogInformation("Returned OK");
-					return Ok();
-				}
-				else
-				{
-					_logger.LogInformation("Returned 500");
-					return StatusCode(500, "Failed to insert data");
-				}
+				cmd.Parameters.AddWithValue("@Owner", req.userId); 
+				await cmd.ExecuteNonQueryAsync();
+				return Ok();
+				 
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the POST request." + ex.Message, null);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -132,9 +121,8 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpDelete("{id}", Name = "DeleteCalendarEntry")]
-		public async Task<IActionResult> Delete([FromBody] User user, int id)
-		{
-			_logger.LogInformation($"Inside DELETE() of CalendarController for User: {user.Id} , CalendarEntryID: {id}");
+		public async Task<IActionResult> Delete([FromBody] int userId, int id)
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -143,7 +131,7 @@ namespace maxhanna.Server.Controllers
 				string sql = "DELETE FROM maxhanna.calendar WHERE ID = @Id AND Ownership = @Owner";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Id", id);
-				cmd.Parameters.AddWithValue("@Owner", user.Id);
+				cmd.Parameters.AddWithValue("@Owner", userId);
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
 				if (rowsAffected > 0)
@@ -157,8 +145,8 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the DELETE request.");
-				return StatusCode(500, "An error occurred while processing the request."); // 500 Internal Server Error if an exception occurred
+				_ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, userId, "CALENDAR");
+				return StatusCode(500, "An error occurred while processing the request."); 
 			}
 			finally
 			{

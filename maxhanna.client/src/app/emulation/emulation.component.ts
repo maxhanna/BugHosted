@@ -118,12 +118,13 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     });
   }
   async saveState(isAutosave?: boolean) {
+    if (!this.parentRef?.user?.id) return;
     if (!this.selectedRomName) return alert("Must have a rom selected to save!");
     const res = await this.nostalgist?.saveState();
 
     const formData = new FormData();
     formData.append('files', res?.state!, this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav");
-    await this.romService.uploadRomFile(this.parentRef?.user!, formData).then(res => {
+    await this.romService.uploadRomFile(this.parentRef.user.id, formData).then(res => {
       if (!isAutosave) {
         this.parentRef?.showNotification("Game data saved on the server.");
       }
@@ -134,7 +135,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   }
   async stopEmulator() {
     if (this.selectedRomName && this.selectedRomName != '' && this.parentRef && this.parentRef.user) {
-      if (confirm("Save game 💾?")) { this.saveState(); }
+      if (confirm("Save game 💾?")) { await this.saveState(false); }
     }
     await this.clearAutosave();
     await this.nostalgist?.getEmulator().exit();
@@ -149,7 +150,7 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
   async loadState() {
     if (!this.selectedRomName) return alert("You must select a rom to do that");
     const romSaveFile = this.fileService.getFileWithoutExtension(this.selectedRomName) + ".sav";
-    const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
+    const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user?.id);
 
     await this.nostalgist?.loadState(saveStateResponse!);
   }
@@ -158,9 +159,9 @@ export class EmulationComponent extends ChildComponent implements OnInit, OnDest
     this.isSearchVisible = false;
     const romSaveFile = this.fileService.getFileWithoutExtension(file.fileName ?? "") + ".sav";
     this.selectedRomName = file.fileName ?? "";
-    const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user);
+    const saveStateResponse = await this.romService.getRomFile(romSaveFile, this.parentRef?.user?.id);
 
-    const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user);
+    const response = await this.romService.getRomFile(file.fileName ?? "", this.parentRef?.user?.id);
     const fileType = this.currentFileType = file?.fileType ?? this.fileService.getFileExtension(file?.fileName!);
      
     const style = {

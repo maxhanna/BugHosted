@@ -102,20 +102,20 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
   }
 
   async deleteReport(report: NexusBattleOutcome) {
-    if (!this.user || !this.battleReports) return; 
-    this.nexusService.deleteReport(this.user, [report.battleId]); 
+    if (!this.user?.id || !this.battleReports) return;
+    this.nexusService.deleteReport(this.user.id, [report.battleId]); 
     this.loadBattleReports(this.targetBase); 
   }
 
   async deleteAllReports() {
-    if (!this.user || !this.battleReports) return;
-    this.nexusService.deleteReport(this.user);
+    if (!this.user?.id || !this.battleReports) return;
+    this.nexusService.deleteReport(this.user.id);
     this.battleReports.battleOutcomes = [];
     this.battleReports.totalReports = 0;
   }
 
   async loadBattleReports(targetBase?: NexusBase) {
-    if (!this.user) return;
+    if (!this.user?.id) return;
     const pageSize = this.pageSize?.nativeElement.value ? parseInt(this.pageSize.nativeElement.value) : 5;
     const currentPage = this.currentPage?.nativeElement.value ?? 1;
 
@@ -123,7 +123,7 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
       this.targetBase = targetBase;
     }
     this.startLoading();
-    this.battleReports = await this.nexusService.getBattleReports(this.user, +currentPage, +pageSize, this.targetBase, this.targetUser);
+    this.battleReports = await this.nexusService.getBattleReports(this.user.id, +currentPage, +pageSize, this.targetBase, this.targetUser?.id);
     this.stopLoading();
 
     if (this.battleReports) {
@@ -150,11 +150,11 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     return this.mapData?.find(base => base.coordsX == x && base.coordsY == y)?.baseName;
   }
   async nextPage() {
-    if (!this.user) return;
+    if (!this.user?.id) return;
     const pageSize = parseInt(this.pageSize.nativeElement.value);
     this.currentPage.nativeElement.value = parseInt(this.currentPage.nativeElement.value) + 1 + "";
     let currentPage = parseInt(this.currentPage.nativeElement.value);
-    this.battleReports = await this.nexusService.getBattleReports(this.user, currentPage, pageSize, this.targetBase);
+    this.battleReports = await this.nexusService.getBattleReports(this.user.id, currentPage, pageSize, this.targetBase);
     if (this.battleReports) {
       this.totalPages = Array.from({ length: Math.round(this.battleReports.totalReports / pageSize) }, (_, i) => i + 1);
     }
@@ -175,11 +175,11 @@ export class NexusReportsComponent extends ChildComponent implements OnInit, OnC
     if (this.selectedReportIds.size === 0) {
       return alert('No reports selected');
     }
-    if (!this.user) {
+    if (!this.user?.id) {
       return alert('Must be logged in!');
     } 
 
-    await this.nexusService.deleteReport(this.user, Array.from(this.selectedReportIds));
+    await this.nexusService.deleteReport(this.user.id, Array.from(this.selectedReportIds));
     await this.loadBattleReports(this.targetBase);
 
     this.selectAllCheckbox.nativeElement.checked = false;

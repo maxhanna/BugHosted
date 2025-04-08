@@ -6,7 +6,7 @@ namespace maxhanna.Server.Services
 	{
 		private readonly IConfiguration _config;
 		private readonly IServiceProvider _serviceProvider;
-		private readonly ILogger<NexusController> _logger;
+		private readonly Log _log;
 
 		private Timer _checkForNewBaseUpdates;
 		private int timerDuration = 20;
@@ -14,13 +14,10 @@ namespace maxhanna.Server.Services
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(10);
 
 
-		public NexusGoldUpdateBackgroundService(IConfiguration config)
+		public NexusGoldUpdateBackgroundService(IConfiguration config, Log log)
 		{
-			_config = config;
-			var serviceCollection = new ServiceCollection();
-			ConfigureServices(serviceCollection);
-			_serviceProvider = serviceCollection.BuildServiceProvider();
-			_logger = _serviceProvider.GetRequiredService<ILogger<NexusController>>();
+			_config = config; 
+			_log = log;
 		}
 
 
@@ -60,7 +57,7 @@ namespace maxhanna.Server.Services
 
 			try
 			{
-				var nexusController = new NexusController(_logger, _config);
+				var nexusController = new NexusController(_log, _config);
 				int basesUpdated = await nexusController.UpdateNexusGold();
 				//Console.WriteLine($"Updated gold for {basesUpdated} bases.");
 			}

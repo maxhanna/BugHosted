@@ -10,14 +10,14 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class RomController : ControllerBase
 	{
-		private readonly ILogger<RomController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 		private readonly string _baseTarget;
 
 
-		public RomController(ILogger<RomController> logger, IConfiguration config)
+		public RomController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") + "Roms" ?? "";
 		}
@@ -26,7 +26,7 @@ namespace maxhanna.Server.Controllers
 		{
 			if (!directory.Contains(_baseTarget))
 			{
-				_logger.LogError($"Must be within {_baseTarget}");
+				_ = _log.Db($"'{directory}'Must be within '{_baseTarget}'", null, "ROM", true);
 				return false;
 			}
 			else
@@ -38,27 +38,26 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Rom/Uploadrom", Name = "Uploadrom")]
 		public async Task<IActionResult> UploadRom()
-		{
-			_logger.LogInformation($"POST /File/Uploadrom");
+		{ 
 			try
 			{
-				if (Request.Form["user"].Count <= 0)
+				if (Request.Form["userId"].Count <= 0)
 				{
-					_logger.LogWarning($"Invalid user! Returning null.");
+					_ = _log.Db($"Invalid user! Returning null.", null, "ROM", true);
 					return BadRequest("No user logged in.");
 				}
 
-				var user = JsonConvert.DeserializeObject<User>(Request.Form["user"]!);
+				int userId = JsonConvert.DeserializeObject<int>(Request.Form["userId"]!);
 				var files = Request.Form.Files; // Get all uploaded files
-				if (user == null || user.Id == 0)
+				if (userId == 0)
 				{
-					_logger.LogWarning($"Invalid user! Returning null.");
+					_ = _log.Db($"Invalid user! Returning null.", null, "ROM", true);
 					return BadRequest("No user logged in.");
 
 				}
 				if (files == null || files.Count == 0)
 				{
-					_logger.LogError($"No File Uploaded!");
+					_ = _log.Db($"No File Uploaded!", userId, "ROM", true);
 					return BadRequest("No files uploaded.");
 				}
 
@@ -66,7 +65,7 @@ namespace maxhanna.Server.Controllers
 				{
 					if (file.Length == 0)
 					{
-						_logger.LogInformation($"File length is empty!");
+						_ = _log.Db($"File length is empty!", userId, "ROM", true);
 						continue; // Skip empty files
 					}
 
@@ -74,13 +73,12 @@ namespace maxhanna.Server.Controllers
 					if (file.FileName.Contains(".sav"))
 					{
 						string filenameWithoutExtension = Path.GetFileNameWithoutExtension(file.FileName);
-						newFilename = filenameWithoutExtension + "_" + user!.Id + Path.GetExtension(file.FileName).Replace("\\", "/");
+						newFilename = filenameWithoutExtension + "_" + userId + Path.GetExtension(file.FileName).Replace("\\", "/");
 					}
 
 					var uploadDirectory = _baseTarget; // Combine base path with folder path
 					var filePath = string.IsNullOrEmpty(newFilename) ? file.FileName : newFilename;
-					filePath = Path.Combine(uploadDirectory, filePath).Replace("\\", "/"); // Combine upload directory with file name
-					_logger.LogInformation($"filePath : {filePath}");
+					filePath = Path.Combine(uploadDirectory, filePath).Replace("\\", "/");
 
 					if (!Directory.Exists(uploadDirectory))
 					{
@@ -106,7 +104,7 @@ namespace maxhanna.Server.Controllers
 						{
 
 							var command = new MySqlCommand("INSERT INTO maxhanna.file_uploads (user_id, file_name, upload_date, folder_path, is_public, is_folder) VALUES (@user_id, @fileName, @uploadDate, @folderPath, @isPublic, @isFolder)", connection);
-							command.Parameters.AddWithValue("@user_id", user!.Id);
+							command.Parameters.AddWithValue("@user_id", userId);
 							command.Parameters.AddWithValue("@fileName", file.FileName);
 							command.Parameters.AddWithValue("@uploadDate", DateTime.UtcNow);
 							command.Parameters.AddWithValue("@folderPath", "roms");
@@ -114,12 +112,12 @@ namespace maxhanna.Server.Controllers
 							command.Parameters.AddWithValue("@isFolder", 0);
 
 							await command.ExecuteNonQueryAsync();
-							_logger.LogInformation($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}");
+							_ = _log.Db($"Uploaded rom file: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true);
 
 						}
 						else
 						{
-							_logger.LogInformation($"Rom file already exists: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}");
+							_ = _log.Db($"Rom file already exists: {file.FileName}, Size: {file.Length} bytes, Path: {filePath}", userId, "ROM", true);
 
 						}
 					}
@@ -130,16 +128,15 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while uploading files.");
+				_ = _log.Db("An error occurred while uploading files." + ex.Message, null, "ROM", true);
 				return StatusCode(500, "An error occurred while uploading files.");
 			}
 		}
 
 		[HttpPost("/Rom/GetRomFile/{filePath}", Name = "GetRomFile")]
-		public IActionResult GetRomFile([FromBody] User? user, string filePath)
+		public IActionResult GetRomFile([FromBody] int? userId, string filePath)
 		{
-			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/");
-			_logger.LogInformation($"POST /File/GetRomFile/{filePath}");
+			filePath = Path.Combine(_baseTarget, WebUtility.UrlDecode(filePath) ?? "").Replace("\\", "/"); 
 			string fileName = Path.GetFileName(filePath);
 			if (!ValidatePath(filePath)) { return StatusCode(500, $"Must be within {_baseTarget}"); }
 
@@ -147,13 +144,13 @@ namespace maxhanna.Server.Controllers
 			{
 				if (string.IsNullOrEmpty(filePath))
 				{
-					_logger.LogError($"File path is missing.");
+					_ = _log.Db($"File path is missing.", null, "ROM", true);
 					return BadRequest("File path is missing.");
 				}
-				if (user != null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
+				if (userId != null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
 				{
 					string filenameWithoutExtension = Path.GetFileNameWithoutExtension(filePath);
-					string newFilename = filenameWithoutExtension + "_" + user.Id + Path.GetExtension(filePath).Replace("\\", "/");
+					string newFilename = filenameWithoutExtension + "_" + userId + Path.GetExtension(filePath).Replace("\\", "/");
 					string userSpecificPath = Path.Combine(_baseTarget, newFilename).Replace("\\", "/");
 
 					if (System.IO.File.Exists(userSpecificPath))
@@ -162,15 +159,13 @@ namespace maxhanna.Server.Controllers
 					}
 					else
 					{
-						_logger.LogError($"File not found at {filePath} or {userSpecificPath}");
+						_ = _log.Db($"File not found at {filePath} or {userSpecificPath}", userId, "ROM", true);
 						return NotFound();
 					}
-					_logger.LogInformation($"File path changed . New FilePath: " + filePath);
+					_ = _log.Db($"File path changed . New FilePath: " + filePath, userId, "ROM", true);
 				}
-				else if (user == null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
-					return BadRequest("Must be logged in to access save files!");
-
-				_logger.LogInformation($"Filestreaming FilePath: " + filePath);
+				else if (userId == null && (filePath.Contains(".sav") || filePath.Contains(".srm")))
+					return BadRequest("Must be logged in to access save files!"); 
 
 				var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 				string contentType = "application/octet-stream";
@@ -180,7 +175,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while streaming the file.");
+				_ = _log.Db("An error occurred while streaming the file." + ex.Message, userId, "ROM", true);
 				return StatusCode(500, "An error occurred while streaming the file.");
 			}
 		}

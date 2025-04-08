@@ -1,15 +1,13 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
-
 namespace maxhanna.Server.Controllers.DataContracts.Nexus
 {
 	public class NexusRequest
 	{
-		public NexusRequest(User user, NexusBase? nexus)
+		public NexusRequest(int userId, NexusBase? nexus)
 		{
-			this.User = user;
+			this.UserId = userId;
 			this.Nexus = nexus;
 		}
-		public User User { get; set; }
+		public int UserId { get; set; }
 		public NexusBase? Nexus { get; set; }
 	}
 }

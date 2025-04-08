@@ -14,22 +14,19 @@ namespace maxhanna.Server.Controllers
 		private static string apiKey = "ed8780abdcd9416eaa6220743242504";
 		private static string urlRoot = "https://api.weatherapi.com/v1/forecast.json";
 
-		private readonly ILogger<WeatherForecastController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public WeatherForecastController(ILogger<WeatherForecastController> logger, IConfiguration config)
+		public WeatherForecastController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("", Name = "GetWeatherForecast")]
-		public async Task<WeatherForecast> GetWeatherForecast([FromBody] User user)
-		{
-			_logger.LogInformation("POST /WeatherForecast");
-
-			// Get the weather location for the user
-			var weatherLocationRes = await GetWeatherLocation(user);
+		public async Task<WeatherForecast> GetWeatherForecast([FromBody] int userId)
+		{ 
+			var weatherLocationRes = await GetWeatherLocation(userId);
 			var weatherLocation = weatherLocationRes.Location;
 			if (string.IsNullOrEmpty(weatherLocation))
 			{
@@ -39,8 +36,7 @@ namespace maxhanna.Server.Controllers
 			// Check if there's a valid entry in the database
 			var cachedWeather = await GetCachedWeather(weatherLocation);
 			if (cachedWeather != null)
-			{
-				_logger.LogInformation("Returning cached weather!");
+			{ 
 				return cachedWeather;
 			}
 
@@ -93,7 +89,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while retrieving cached weather data.");
+				_ = _log.Db("Error occurred while retrieving cached weather data. " + ex.Message, null, "WEATHER", true);
 			}
 
 			return null;
@@ -120,15 +116,17 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while caching weather data.");
+				_ = _log.Db("Error occurred while caching weather data. " + ex.Message, null, "WEATHER", true);
 			}
 		}
 
 		[HttpPost("/WeatherForecast/GetWeatherLocation", Name = "GetWeatherLocation")]
-		public async Task<WeatherLocation> GetWeatherLocation([FromBody] User user)
-		{
-			_logger.LogInformation($"Getting weather location for user ID: {user.Id}");
-
+		public async Task<WeatherLocation> GetWeatherLocation([FromBody] int userId)
+		{ 
+			if (userId == 0)
+			{
+				return new WeatherLocation();
+			}
 			var loc = new WeatherLocation();
 
 			try
@@ -140,7 +138,7 @@ namespace maxhanna.Server.Controllers
 					string sql = "SELECT ownership, location, city, country FROM maxhanna.weather_location WHERE ownership = @Owner;";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", user.Id);
+						cmd.Parameters.AddWithValue("@Owner", userId);
 						using (var rdr = await cmd.ExecuteReaderAsync())
 						{
 							while (await rdr.ReadAsync())
@@ -154,11 +152,11 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				_logger.LogInformation("Weather location retrieved successfully.");
+				_ = _log.Db("Weather location retrieved successfully.", userId, "WEATHER", true);
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while retrieving weather location.");
+				_ = _log.Db("Error occurred while retrieving weather location. " + ex.Message, userId, "WEATHER", true);
 				throw;
 			}
 
@@ -167,9 +165,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPut("/WeatherForecast/UpdateWeatherLocation", Name = "UpdateWeatherLocation")]
 		public async Task<IActionResult> UpdateOrCreateWeatherLocation([FromBody] CreateWeatherLocation location)
-		{
-			_logger.LogInformation($"Updating or creating weather location for user ID: {location.user.Id}");
-
+		{ 
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -180,18 +176,17 @@ namespace maxhanna.Server.Controllers
 											 "ON DUPLICATE KEY UPDATE location = @Location, city = @City, country = @Country;";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", location.user.Id);
+						cmd.Parameters.AddWithValue("@Owner", location.userId);
 						cmd.Parameters.AddWithValue("@Location", location.location);
 						cmd.Parameters.AddWithValue("@City", location.city);
 						cmd.Parameters.AddWithValue("@Country", location.country);
 						if (await cmd.ExecuteNonQueryAsync() >= 0)
 						{
-							_logger.LogInformation("Returned OK");
 							return Ok("Weather location updated.");
 						}
 						else
 						{
-							_logger.LogInformation("Returned 500");
+							_ = _log.Db("Returned 500", null, "WEATHER", true);
 							return StatusCode(500, "Failed to update or create data");
 						}
 					}
@@ -199,7 +194,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while updating or creating Weather location.");
+				_ = _log.Db("Error occurred while updating or creating Weather location." + ex.Message, location.userId, "WEATHER", true);
 				throw;
 			}
 		}

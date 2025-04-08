@@ -9,20 +9,18 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class FavouriteController : ControllerBase
 	{
-		private readonly ILogger<TodoController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public FavouriteController(ILogger<TodoController> logger, IConfiguration config)
+		public FavouriteController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/Favourite", Name = "GetFavourites")]
 		public async Task<IActionResult> Get([FromBody] GetFavouritesRequest request)
-		{
-			_logger.LogInformation($"POST /Favourite (search: {request.Search})");
-
+		{  
 			string sql = $@"
 				SELECT  
             f.id,
@@ -41,7 +39,8 @@ namespace maxhanna.Server.Controllers
             {(string.IsNullOrEmpty(request.Search) ? "" : " AND (url LIKE CONCAT('%', @Search, '%') OR name LIKE CONCAT('%', @Search, '%')) ")}
 				GROUP BY f.id, f.url, f.image_url, f.created_by, f.creation_date, f.modified_by, f.modification_date, f.last_added_date, f.name  
         ORDER BY {(string.IsNullOrEmpty(request.Search) ? "url, creation_date" : "creation_date")} DESC
-				LIMIT 20;";
+				LIMIT @PageSize OFFSET @Offset;";
+			int offset = (request.Page - 1) * request.PageSize;
 
 			try
 			{
@@ -55,7 +54,8 @@ namespace maxhanna.Server.Controllers
 						{
 							cmd.Parameters.AddWithValue("@Search", request.Search);
 						}
-
+						cmd.Parameters.AddWithValue("@PageSize", request.PageSize);
+						cmd.Parameters.AddWithValue("@Offset", offset);
 						using (var rdr = await cmd.ExecuteReaderAsync())
 						{
 							var favourites = new List<Favourite>();
@@ -87,22 +87,26 @@ namespace maxhanna.Server.Controllers
 								));
 							}
 
-							return Ok(favourites);
+							return Ok(new
+							{
+								Items = favourites,
+								Page = request.Page,
+								PageSize = request.PageSize, 
+							});
 						}
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching favourites.");
+				_ = _log.Db("An error occurred while fetching favourites. " + ex.Message, null, "FAV", true);
 				return StatusCode(500, "An error occurred while fetching favourites.");
 			}
 		}
 
 		[HttpPut("/Favourite", Name = "UpsertFavourite")]
 		public async Task<IActionResult> UpsertFavourite([FromBody] FavouriteUpdateRequest request)
-		{
-			_logger.LogInformation($"PUT /Favourite (url: {request.Url})");
+		{ 
 			if (request.Id == 0) request.Id = null;
 
 			string checkSql = request.Id != null ? "SELECT id FROM favourites WHERE id = @Id LIMIT 1;" : "SELECT id FROM favourites WHERE url = @Url LIMIT 1;";
@@ -191,7 +195,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while upserting favourite.");
+				_ = _log.Db("An error occurred while upserting favourite. " + ex.Message, request.CreatedBy, "FAV", true);
 				return StatusCode(500, new { Message = "An error occurred while upserting favourite." });
 			}
 		}
@@ -200,9 +204,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Favourite/Add", Name = "AddFavourite")]
 		public async Task<IActionResult> AddFavourite([FromBody] AddFavouriteRequest request)
-		{
-			_logger.LogInformation($"Post /Favourite/Add (id: {request.FavouriteId})");
-
+		{ 
 			string sql = @"
 			UPDATE maxhanna.favourites SET last_added_date = UTC_TIMESTAMP() WHERE id = @fav_id LIMIT 1;
 			INSERT INTO maxhanna.favourites_selected (favourite_id, user_id) VALUES (@fav_id, @user_id);";
@@ -215,7 +217,7 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@fav_id", request.FavouriteId);
-						cmd.Parameters.AddWithValue("@user_id", request.User.Id);
+						cmd.Parameters.AddWithValue("@user_id", request.UserId);
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 						if (rowsAffected > 0)
@@ -231,7 +233,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while adding favourite.");
+				_ = _log.Db("An error occurred while adding favourite. " + ex.Message, request.UserId, "FAV", true);
 				return StatusCode(500, "An error occurred while adding favourite.");
 			}
 		}
@@ -239,9 +241,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Favourite/Remove", Name = "RemoveFavourite")]
 		public async Task<IActionResult> RemoveFavourite([FromBody] AddFavouriteRequest request)
-		{
-			_logger.LogInformation($"Post /Favourite/Remove (id: {request.FavouriteId})");
-
+		{ 
 			string sql = @"DELETE FROM favourites_selected WHERE favourite_id = @fav_id AND user_id = @user_id LIMIT 1;";
 			try
 			{
@@ -252,7 +252,7 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@fav_id", request.FavouriteId);
-						cmd.Parameters.AddWithValue("@user_id", request.User.Id);
+						cmd.Parameters.AddWithValue("@user_id", request.UserId);
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 						if (rowsAffected > 0)
@@ -268,16 +268,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while removing favourite.");
+				_ = _log.Db("An error occurred while removing favourite. " + ex.Message, request.UserId, "FAV", true);
 				return StatusCode(500, "An error occurred while removing favourite.");
 			}
 		}
 
 		[HttpPost("/Favourite/Delete", Name = "DeleteFavourite")]
 		public async Task<IActionResult> DeleteFavourite([FromBody] AddFavouriteRequest request)
-		{
-			_logger.LogInformation($"Post /Favourite/Delete (id: {request.FavouriteId})");
-
+		{ 
 			string sql = @"DELETE FROM favourites WHERE id = @fav_id AND created_by = @user_id LIMIT 1;";
 			try
 			{
@@ -288,7 +286,7 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
 						cmd.Parameters.AddWithValue("@fav_id", request.FavouriteId);
-						cmd.Parameters.AddWithValue("@user_id", request.User.Id);
+						cmd.Parameters.AddWithValue("@user_id", request.UserId);
 
 						int rowsAffected = await cmd.ExecuteNonQueryAsync();
 						if (rowsAffected > 0)
@@ -304,16 +302,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while removing favourite.");
+				_ = _log.Db("An error occurred while removing favourite. " + ex.Message, request.UserId, "FAV", true);
 				return StatusCode(500, "An error occurred while removing favourite.");
 			}
 		}
 
 		[HttpPost("/Favourite/User", Name = "GetUserFavourites")]
 		public async Task<IActionResult> GetUserFavourites([FromBody] GetUserFavouritesRequest request)
-		{
-			_logger.LogInformation($"POST /Favourite/User (user_id: {request.UserId})");
-
+		{ 
 			string sql = @"
 				SELECT  
 						f.id,
@@ -380,7 +376,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching user favourites.");
+				_ = _log.Db("An error occurred while fetching user favourites. " + ex.Message, request.UserId, "FAV", true);
 				return StatusCode(500, "An error occurred while fetching user favourites.");
 			}
 		}

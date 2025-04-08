@@ -4,13 +4,13 @@ namespace maxhanna.Server.Controllers.DataContracts.Files
 {
 	public class CreateDirectory
 	{
-		public CreateDirectory(User user, string directory, bool isPublic)
+		public CreateDirectory(int userId, string directory, bool isPublic)
 		{
-			this.user = user;
+			this.userId = userId;
 			this.directory = directory;
 			this.isPublic = isPublic;
 		}
-		public User user { get; set; }
+		public int userId { get; set; }
 		public string directory { get; set; }
 		public bool isPublic { get; set; }
 	}

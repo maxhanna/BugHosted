@@ -57,8 +57,8 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   ngOnInit() {
-    if (this.parentRef?.user) {
-      this.userService.getTheme(this.parentRef.user).then(res => {
+    if (this.parentRef?.user?.id) {
+      this.userService.getTheme(this.parentRef.user.id).then(res => {
         if (res) {
           this.userSelectedTheme = res;
           this.originalThemeId = this.userSelectedTheme?.id ?? 0;
@@ -76,7 +76,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
         }
       });
 
-      this.userService.getAllUserThemes(this.parentRef?.user).then(res => {
+      this.userService.getAllUserThemes(this.parentRef.user.id).then(res => {
         if (res && !res.message ) {
           this.myThemes = res;
         } else {
@@ -148,7 +148,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
   // Save theme to the server
   async saveTheme() {
     const user = this.parentRef?.user;
-    if (!user) return alert("You must be logged in to save your theme.");
+    if (!user || !user?.id) return alert("You must be logged in to save your theme.");
 
     const name = this.themeNameInput.nativeElement.value;
     if (name.toLowerCase() == "default") {
@@ -184,7 +184,7 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       try {
-        this.userService.updateTheme(user, theme).then(res => {
+        this.userService.updateTheme(user.id ?? 0, theme).then(res => {
           if (res) {
             if (!this.myThemes) {
               this.myThemes = [];
@@ -203,13 +203,16 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       try {
+        const user = this.parentRef?.user;
         if (!this.userSelectedTheme?.id) return alert("No theme selected.");
-        if (!this.parentRef?.user) return alert("You must be logged in to delete a theme.");
-        this.userService.deleteUserTheme(this.parentRef.user, this.userSelectedTheme.id).then((res: any) => {
-          if (res) { 
-            this.parentRef?.showNotification(res.message);
-          }
-        });
+        if (!user || !user.id) return alert("You must be logged in to delete a theme.");
+        if (confirm("Are you sure you want to delete this theme?")) {
+          this.userService.deleteUserTheme(user.id, this.userSelectedTheme.id).then((res: any) => {
+            if (res) {
+              this.parentRef?.showNotification(res.message);
+            }
+          });
+        } 
       } catch (error) {
         console.error('Error saving theme:', error);
       }
@@ -276,8 +279,9 @@ export class ThemesComponent extends ChildComponent implements OnInit, OnDestroy
 
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
-      if (this.parentRef?.user && updateServer) {
-        this.userService.deleteUserSelectedTheme(this.parentRef?.user).then(res => {
+      const user = this.parentRef?.user;
+      if (user && user.id && updateServer) {
+        this.userService.deleteUserSelectedTheme(user.id).then(res => {
           if (res) {
             this.parentRef?.showNotification(res.message);
           }

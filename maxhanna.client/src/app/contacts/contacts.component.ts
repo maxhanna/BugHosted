@@ -31,9 +31,9 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   }
 
   async fetchContacts() {
-    if (this.parentRef && this.parentRef.user) {
+    if (this.parentRef && this.parentRef.user?.id) {
       try {
-        let res = await this.contactService.getContacts(this.parentRef.user);
+        let res = await this.contactService.getContacts(this.parentRef.user.id);
         this.contacts = res!;
       } catch (error: any) {
         console.error('Error fetching contacts:', error);
@@ -42,6 +42,8 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   }
 
   async addNewContact() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || userId == 0) { return alert("You must be logged in to add a contact."); }
     const name = this.newContactName.nativeElement.value;
     if (!name) { return alert("Contact must have a name."); }
 
@@ -54,7 +56,7 @@ export class ContactsComponent extends ChildComponent implements OnInit {
     tmpContact.email = this.newContactEmail.nativeElement.value;
 
     try {
-      await this.contactService.createContact(this.parentRef?.user!, tmpContact);
+      await this.contactService.createContact(userId, tmpContact);
       this.contacts.push(tmpContact);
       this.showNewContactForm = false;
     } catch (error) {
@@ -63,6 +65,8 @@ export class ContactsComponent extends ChildComponent implements OnInit {
   }
 
   async saveContact() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || userId == 0) { return alert("You must be logged in to add a contact."); }
     const name = this.name.nativeElement.value;
     if (!name) { return alert("Name cannot be empty!"); }
 
@@ -77,13 +81,15 @@ export class ContactsComponent extends ChildComponent implements OnInit {
       } else {
         this.selectedContact.birthday = null;
       }
-      await this.contactService.updateContact(this.parentRef?.user!, this.selectedContact);
+      await this.contactService.updateContact(userId, this.selectedContact);
 
       this.selectedContact = undefined;
     }
   }
   async deleteContact(id: number) {
-    await this.contactService.deleteContact(this.parentRef?.user!, id);
+    const userId = this.parentRef?.user?.id;
+    if (!userId || userId == 0) { return alert("You must be logged in to delete a contact."); }
+    await this.contactService.deleteContact(userId, id);
     this.contacts = this.contacts.filter(x => x.id != id);
   }
   formatDate(date: Date | undefined | null): string | undefined {

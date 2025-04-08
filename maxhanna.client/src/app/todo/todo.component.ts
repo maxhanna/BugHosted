@@ -1,22 +1,23 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { ChildComponent } from '../child.component'; 
+import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { ChildComponent } from '../child.component';
 import { lastValueFrom } from 'rxjs';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 
 @Component({
-    selector: 'app-todo',
-    templateUrl: './todo.component.html',
-    styleUrl: './todo.component.css',
-    standalone: false
+  selector: 'app-todo',
+  templateUrl: './todo.component.html',
+  styleUrl: './todo.component.css',
+  standalone: false
 })
-export class TodoComponent extends ChildComponent implements OnInit {
+export class TodoComponent extends ChildComponent implements OnInit, AfterViewInit {
   todos: Array<Todo> = [];
   todoTypes: string[] = ['Todo', 'Work', 'Shopping', 'Study', 'Movie', 'Bucket', 'Recipe', "Wife"];
   todoCount = 0;
   isEditListPanelOpen = false;
   userColumns: string[] = [];
+  todoPlaceholder = "";
 
   @ViewChild('todoInput') todoInput!: ElementRef<HTMLInputElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -29,10 +30,10 @@ export class TodoComponent extends ChildComponent implements OnInit {
   }
   async ngOnInit() {
     await this.getTodoInfo();
-    if (this.parentRef?.user) {
-      await this.todoService.getColumnsForUser(this.parentRef.user).then(res => {
+    if (this.parentRef?.user?.id) {
+      await this.todoService.getColumnsForUser(this.parentRef.user.id).then(res => {
         if (res) {
-          this.userColumns = res; 
+          this.userColumns = res;
 
           // Filter userColumns to get only columns where is_added is true
           const userColumnNames = this.userColumns
@@ -40,12 +41,15 @@ export class TodoComponent extends ChildComponent implements OnInit {
             .map((col: any) => col.column_name); // Extract column names
 
           // Update todoTypes based on user columns
-          this.todoTypes = this.todoTypes.filter(type => userColumnNames.includes(type)); 
+          this.todoTypes = this.todoTypes.filter(type => userColumnNames.includes(type));
         }
       });
     }
 
     this.clearInputs();
+  }
+  ngAfterViewInit() { 
+    this.setTodoDropdownPlaceholder();
   }
   clearInputs() {
     if (!(this.urlInput && this.todoInput)) { return; }
@@ -54,21 +58,26 @@ export class TodoComponent extends ChildComponent implements OnInit {
   }
   async typeOnChange() {
     this.ngOnInit();
-  }
+    this.setTodoDropdownPlaceholder();
+  } 
+
   async getTodoInfo() {
+    if (!this.parentRef?.user?.id) return;
     try {
       const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
       const search = (!terms || terms.trim() == "") ? undefined : terms;
 
       const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
-      const res = await this.todoService.getTodo(this.parentRef?.user!, type, search);
+      const res = await this.todoService.getTodo(this.parentRef.user.id, type, search);
       this.todos = res;
-      this.todoCount = this.todos?.length; 
+      this.todoCount = this.todos?.length;
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
   }
   async addTodo() {
+    if (!this.parentRef?.user?.id) return;
+
     if (!this.todoInput.nativeElement.value) {
       return alert("Cannot add empty values.");
     }
@@ -76,13 +85,15 @@ export class TodoComponent extends ChildComponent implements OnInit {
     tmpTodo.date = new Date();
     tmpTodo.type = this.selectedType.nativeElement.value;
     tmpTodo.url = this.urlInput.nativeElement.value;
-    tmpTodo.todo = this.todoInput.nativeElement.value; 
+    tmpTodo.todo = this.todoInput.nativeElement.value;
 
-    await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
+    await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
     this.ngOnInit();
   }
   async deleteTodo(id: number) {
-    await this.todoService.deleteTodo(this.parentRef?.user!, id);
+    if (!this.parentRef?.user?.id) return;
+
+    await this.todoService.deleteTodo(this.parentRef.user.id, id);
     if (document.getElementById("todoNo" + id)) {
       document.getElementById("todoNo" + id)!.style.textDecoration = "line-through";
       document.getElementById("todoDeleteNo" + id)?.setAttribute("disabled", "true");
@@ -102,8 +113,8 @@ export class TodoComponent extends ChildComponent implements OnInit {
     this.parentRef?.closeOverlay();
   }
   hideColumn(type: string) {
-    if (!this.parentRef?.user) return alert("You must be logged in to edit your todo list.");
-    this.todoService.removeColumn(this.parentRef.user, type).then(res => {
+    if (!this.parentRef?.user?.id) return alert("You must be logged in to edit your todo list.");
+    this.todoService.removeColumn(this.parentRef.user.id, type).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
         this.todoTypes = this.todoTypes.filter(x => x != type);
@@ -117,23 +128,29 @@ export class TodoComponent extends ChildComponent implements OnInit {
     });
   }
   addColumn() {
-    if (!this.parentRef?.user) return alert("You must be logged in to edit your todo list.");
-    const type = this.addNewColumnInput.nativeElement.value; 
+    if (!this.parentRef?.user?.id) return alert("You must be logged in to edit your todo list.");
+    const type = this.addNewColumnInput.nativeElement.value;
     if (type) {
-      this.todoService.addColumn(this.parentRef.user, type).then(res => {
+      this.todoService.addColumn(this.parentRef.user.id, type).then(res => {
         if (res) {
           this.parentRef?.showNotification(res);
           this.todoTypes.push(type);
         }
       });
-    } 
+    }
   }
   showColumn(type: string) {
-    if (!this.parentRef?.user) return alert("You must be logged in to edit your todo list.");
-    this.todoService.addColumn(this.parentRef.user, type).then(res => {
+    if (!this.parentRef?.user?.id) return alert("You must be logged in to edit your todo list.");
+    this.todoService.addColumn(this.parentRef.user.id, type).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
       }
+    });
+  } 
+  private setTodoDropdownPlaceholder() {
+    setTimeout(() => {
+      const typeValue = this.selectedType?.nativeElement?.value || '';
+      this.todoPlaceholder = `Add to the ${typeValue} list`;
     });
   }
 }

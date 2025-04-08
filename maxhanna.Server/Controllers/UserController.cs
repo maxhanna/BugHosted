@@ -1,4 +1,3 @@
-using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Weather;
@@ -8,7 +7,6 @@ using Newtonsoft.Json;
 using System.Data;
 using System.Security.Cryptography;
 using System.Text;
-using System.Transactions;
 using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
@@ -17,15 +15,15 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class UserController : ControllerBase
 	{
-		private readonly ILogger<UserController> _logger;
+		private Log _log;
 		private readonly IConfiguration _config;
 		private readonly IHttpClientFactory _httpClientFactory;
 		private readonly string _baseTarget;
 
-		public UserController(IHttpClientFactory httpClientFactory, ILogger<UserController> logger, IConfiguration config)
+		public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config)
 		{
 			_httpClientFactory = httpClientFactory;
-			_logger = logger;
+			_log = log;
 			_config = config;
 			_baseTarget = _config.GetValue<string>("ConnectionStrings:baseUploadPath") ?? "";
 		}
@@ -33,7 +31,6 @@ namespace maxhanna.Server.Controllers
 		[HttpGet(Name = "GetUserCount")]
 		public async Task<IActionResult> GetUserCount()
 		{
-			_logger.LogInformation($"GET /User");
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -58,7 +55,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the GET request.");
+				_ = _log.Db("An error occurred while processing the GetUserCount request. " + ex.Message, null, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -67,13 +64,12 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		[HttpPost(Name = "GetUser")]
-		public async Task<IActionResult> GetUser([FromBody] User user)
+		[HttpPost(Name = "LogIn")]
+		public async Task<IActionResult> LogIn([FromBody] Dictionary<string, string> body)
 		{
-			_logger.LogInformation($"POST /GetUser with username: {user.Username}");
-
-			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
-
+			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			body.TryGetValue("username", out var username);
+			body.TryGetValue("password", out var password); 
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
 				try
@@ -87,7 +83,7 @@ namespace maxhanna.Server.Controllers
 
 					using (MySqlCommand selectCmd = new MySqlCommand(selectSql, conn))
 					{
-						selectCmd.Parameters.AddWithValue("@Username", (user.Username ?? "").Trim());
+						selectCmd.Parameters.AddWithValue("@Username", (username ?? "").Trim());
 
 						using (var reader = await selectCmd.ExecuteReaderAsync())
 						{
@@ -101,7 +97,7 @@ namespace maxhanna.Server.Controllers
 							string storedSalt = reader.IsDBNull(2) ? GenerateSalt() : reader.GetString("salt"); // Handle missing salt
 
 							// Step 2: Hash the input password with the stored salt
-							string inputHashedPassword = HashPassword(user.Pass ?? "", storedSalt);
+							string inputHashedPassword = HashPassword(password ?? "", storedSalt);
 
 							// Step 3: Compare the hashed input password with the stored hash
 							if (!storedHash.Equals(inputHashedPassword, StringComparison.Ordinal))
@@ -149,7 +145,6 @@ namespace maxhanna.Server.Controllers
 								{
 									if (dataReader.Read())
 									{
-										Console.WriteLine("Found user : " + user.Username);
 										FileEntry displayPic = new FileEntry()
 										{
 											Id = dataReader.IsDBNull(dataReader.GetOrdinal("latest_file_id")) ? 0 : dataReader.GetInt32("latest_file_id"),
@@ -187,21 +182,19 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while processing the GET request.");
+					_ = _log.Db("An error occurred while processing the Login request. " + ex.Message, null, "USER", true);
 					return StatusCode(500, "An error occurred while processing the request.");
 				}
 			}
 		}
 
 		[HttpPost("/User/{id}", Name = "GetUserById")]
-		public async Task<IActionResult> GetUserById([FromBody] User? user, int id)
+		public async Task<IActionResult> GetUserById(int id)
 		{
-			_logger.LogInformation($"POST /User/{id} with user: {user?.Id}");
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				conn.Open();
-
+				conn.Open(); 
 				string sql = @"
                     SELECT 
                         u.*, 
@@ -272,8 +265,8 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the request.");
-				return StatusCode(500, "An error occurred while processing the request.");
+				_ = _log.Db("An error occurred while processing the GetUserById request. " + ex.Message, id, "USER", true);
+				return StatusCode(500, "An error occurred while processing the GetUserById request.");
 			}
 			finally
 			{
@@ -284,7 +277,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/GetAllUsers", Name = "GetAllUsers")]
 		public async Task<IActionResult> GetAllUsers([FromBody] UserSearchRequest request)
 		{
-			_logger.LogInformation($"GET /User/GetAllUsers (for user: {request.User?.Id})");
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -334,7 +326,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the GET request for all users.");
+				_ = _log.Db("An error occurred while processing the GetAllUsers request. " + ex.Message, null, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -346,7 +338,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/CreateUser", Name = "CreateUser")]
 		public async Task<IActionResult> CreateUser([FromBody] User user)
 		{
-			_logger.LogInformation("POST /User");
+			_ = _log.Db("POST /User", user.Id, "USER", true);
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -386,7 +378,7 @@ namespace maxhanna.Server.Controllers
 							await AppendToSitemapAsync(userId);
 						}
 
-						_logger.LogInformation($"User created successfully with ID: {userId}");
+						_ = _log.Db($"User created successfully with ID: {userId}", userId, "USER", true);
 						return Ok(userId);
 					}
 					else
@@ -401,7 +393,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the CreateUser POST request. " + ex.Message, user.Id, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -436,8 +428,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPatch(Name = "UpdateUser")]
 		public async Task<IActionResult> UpdateUser([FromBody] User user)
 		{
-			_logger.LogInformation($"PATCH /User with ID: {user.Id}");
-
 			if (string.IsNullOrEmpty(user.Username))
 			{
 				return BadRequest("Username cannot be empty!");
@@ -535,8 +525,8 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while processing the PATCH request.");
-					return StatusCode(500, "An error occurred while processing the request.");
+					_ = _log.Db("An error occurred while processing the UpdateUser PATCH request. " + ex.Message, user.Id, "USER", true);
+					return StatusCode(500, "An error occurred while processing the UpdateUser request.");
 				}
 			}
 		}
@@ -545,7 +535,7 @@ namespace maxhanna.Server.Controllers
 		[HttpDelete("/User/DeleteUser", Name = "DeleteUser")]
 		public async Task<IActionResult> DeleteUser([FromBody] User user)
 		{
-			_logger.LogInformation($"DELETE /User with ID: {user.Id}");
+			_ = _log.Db($"DELETE /User with ID: {user.Id}", user.Id, "USER", true);
 			if (user.Id == 0 || user.Id == 1)
 			{
 				return BadRequest("Who do you think you are?");
@@ -590,7 +580,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the DELETE request.");
+				_ = _log.Db("An error occurred while processing the DELETE request. " + ex.Message, user.Id, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -603,15 +593,13 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/UpdateLastSeen", Name = "UpdateLastSeen")]
 		public async void UpdateLastSeen([FromBody] int userId)
 		{
-			_logger.LogInformation($"POST /User/UpdateLastSeen with userId: {userId}");
-
 			string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
 			using (MySqlConnection conn = new MySqlConnection(connectionString))
 			{
 				try
 				{
-					await conn.OpenAsync(); 
+					await conn.OpenAsync();
 					string sql = @"
                     UPDATE maxhanna.users 
                     SET last_seen = UTC_TIMESTAMP() 
@@ -621,11 +609,11 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.Parameters.AddWithValue("@UserId", userId);
 						await cmd.ExecuteReaderAsync();
-					} 
+					}
 				}
 				catch (Exception ex)
 				{
-					Console.WriteLine("An error occurred while processing the UpdateLastSeen request."); 
+					_ = _log.Db("An error occurred while processing the UpdateLastSeen request. " + ex.Message, userId, "USER", true);
 				}
 			}
 		}
@@ -633,7 +621,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/GetIpAndLocation", Name = "GetIpAndLocation")]
 		public async Task<IActionResult> GetIpAndLocation([FromBody] string ip)
 		{
-			_logger.LogInformation($"GET /User/GetIpAndLocation (for ip: {ip})");
 			using (var client = _httpClientFactory.CreateClient())
 			{
 				try
@@ -648,9 +635,6 @@ namespace maxhanna.Server.Controllers
 					var jsonResponse = await response.Content.ReadAsStringAsync();
 					IpApiResponse data = JsonConvert.DeserializeObject<IpApiResponse>(jsonResponse);
 
-					// Log full response data
-					_logger.LogInformation($"IP API Response: {jsonResponse}");
-
 					// Return IP and city
 					var result = new
 					{
@@ -663,7 +647,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError($"Error: {ex.Message}");
+					_ = _log.Db($"Error: {ex.Message}. " + ex.Message, null, "USER", true);
 					return StatusCode(500, "Failed to get IP information");
 				}
 			}
@@ -671,10 +655,8 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/User/GetIpAddress", Name = "GetIpAddress")]
-		public async Task<WeatherLocation> GetIpAddress([FromBody] User user)
-		{
-			_logger.LogInformation($"Getting IP Information for user ID: {user.Id}");
-
+		public async Task<WeatherLocation> GetIpAddress([FromBody] int userId)
+		{ 
 			var loc = new WeatherLocation();
 
 			try
@@ -686,7 +668,7 @@ namespace maxhanna.Server.Controllers
 					string sql = "SELECT user_id, location, city, country FROM maxhanna.user_ip_address WHERE user_id = @Owner;";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", user.Id);
+						cmd.Parameters.AddWithValue("@Owner", userId);
 						using (var rdr = await cmd.ExecuteReaderAsync())
 						{
 							while (await rdr.ReadAsync())
@@ -698,11 +680,11 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
-				} 
+				}
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while retrieving IP information.");
+				_ = _log.Db("Error occurred while retrieving IP information. " + ex.Message, userId, "USER", true);
 				throw;
 			}
 
@@ -712,8 +694,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPut("/User/UpdateIpAddress", Name = "UpdateIpAddress")]
 		public async Task<IActionResult> UpdateIpAddress([FromBody] CreateWeatherLocation location)
 		{
-			_logger.LogInformation($"Updating or creating ip information for user ID: {location.user.Id}");
-
+			_ = _log.Db($"Updating or creating ip information for user ID: {location.userId}", location.userId, "USER", true);
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
@@ -724,17 +705,17 @@ namespace maxhanna.Server.Controllers
 											 "ON DUPLICATE KEY UPDATE location = @Location, city = @City, country = @Country;";
 					using (var cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@Owner", location.user.Id);
+						cmd.Parameters.AddWithValue("@Owner", location.userId);
 						cmd.Parameters.AddWithValue("@Location", location.location);
 						cmd.Parameters.AddWithValue("@City", location.city);
 						cmd.Parameters.AddWithValue("@Country", location.country);
 						if (await cmd.ExecuteNonQueryAsync() >= 0)
-						{ 
+						{
 							return Ok("User ip updated.");
 						}
 						else
 						{
-							_logger.LogInformation("Returned 500");
+							_ = _log.Db("Returned 500 for UpdateIpAddress.", location.userId, "USER", true);
 							return StatusCode(500, "Failed to update or create data");
 						}
 					}
@@ -742,7 +723,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error occurred while updating or creating IP information.");
+				_ = _log.Db("Error occurred while updating or creating IP information. " + ex.Message, location.userId, "USER", true);
 				throw;
 			}
 		}
@@ -780,7 +761,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/UpdateDisplayPicture", Name = "UpdateDisplayPicture")]
 		public async Task<IActionResult> UpdateDisplayPicture([FromBody] DisplayPictureRequest request)
 		{
-			_logger.LogInformation($"POST /User/UpdateDisplayPicture (for user: {request.User.Id})");
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -792,7 +772,7 @@ namespace maxhanna.Server.Controllers
                     ON DUPLICATE KEY UPDATE file_id = VALUES(file_id);
                 ";
 				MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
-				checkUserCmd.Parameters.AddWithValue("@userId", request.User.Id);
+				checkUserCmd.Parameters.AddWithValue("@userId", request.UserId);
 				checkUserCmd.Parameters.AddWithValue("@fileId", request.FileId);
 				using (var reader = await checkUserCmd.ExecuteReaderAsync())
 				{
@@ -801,7 +781,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the display picture POST request.");
+				_ = _log.Db("An error occurred while processing the display picture POST request. " + ex.Message, request.UserId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the display picture request.");
 			}
 			finally
@@ -813,7 +793,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/UpdateAbout", Name = "UpdateAbout")]
 		public async Task<IActionResult> UpdateAbout([FromBody] UpdateAboutRequest request)
 		{
-			_logger.LogInformation($"POST /User/UpdateAbout (for user: {request.User.Id})");
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -831,7 +810,7 @@ namespace maxhanna.Server.Controllers
                         currency = VALUES(currency);
                 ";
 				MySqlCommand checkUserCmd = new MySqlCommand(checkUserSql, conn);
-				checkUserCmd.Parameters.AddWithValue("@userId", request.User.Id);
+				checkUserCmd.Parameters.AddWithValue("@userId", request.UserId);
 				checkUserCmd.Parameters.AddWithValue("@description", request.About.Description);
 				checkUserCmd.Parameters.AddWithValue("@birthday", request.About.Birthday);
 				checkUserCmd.Parameters.AddWithValue("@phone", request.About.Phone);
@@ -845,7 +824,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the user about POST request.");
+				_ = _log.Db("An error occurred while processing the user about POST request. " + ex.Message, request.UserId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the user about request.");
 			}
 			finally
@@ -857,8 +836,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/UpdateNsfw", Name = "UpdateNsfw")]
 		public async Task<IActionResult> UpdateNsfw([FromBody] UpdateNsfwRequest request)
 		{
-			_logger.LogInformation($"POST /User/UpdateNsfw (for user: {request.User.Id})");
-
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				try
@@ -872,7 +849,7 @@ namespace maxhanna.Server.Controllers
                     nsfw_enabled = VALUES(nsfw_enabled);";
 
 					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-					updateCmd.Parameters.AddWithValue("@userId", request.User.Id);
+					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
 					updateCmd.Parameters.AddWithValue("@nsfwEnabled", request.IsAllowed ? 1 : 0);
 
 					await updateCmd.ExecuteNonQueryAsync();
@@ -881,7 +858,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while processing the update NSFW POST request.");
+					_ = _log.Db("An error occurred while processing the update NSFW POST request. " + ex.Message, request.UserId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the update NSFW request.");
 				}
 				finally
@@ -889,13 +866,11 @@ namespace maxhanna.Server.Controllers
 					conn.Close();
 				}
 			}
-		} 
+		}
 
 		[HttpPost("/User/UpdateNotificationsEnabled", Name = "UpdateNotificationsEnabled")]
 		public async Task<IActionResult> UpdateNotificationsEnabled([FromBody] UpdateNsfwRequest request)
 		{
-			_logger.LogInformation($"POST /User/UpdateNotificationsEnabled (for user: {request.User.Id})");
-
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				try
@@ -910,7 +885,7 @@ namespace maxhanna.Server.Controllers
 										notifications_changed_date = UTC_TIMESTAMP();";
 
 					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-					updateCmd.Parameters.AddWithValue("@userId", request.User.Id);
+					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
 					updateCmd.Parameters.AddWithValue("@notifications_enabled", request.IsAllowed ? 1 : 0);
 
 					await updateCmd.ExecuteNonQueryAsync();
@@ -919,7 +894,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while processing the update notifications_enabled POST request.");
+					_ = _log.Db("An error occurred while processing the update notifications_enabled POST request. " + ex.Message, request.UserId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the update notifications_enabled request.");
 				}
 				finally
@@ -932,8 +907,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/UpdateGhostRead", Name = "UpdateGhostRead")]
 		public async Task<IActionResult> UpdateGhostRead([FromBody] UpdateNsfwRequest request)
 		{
-			_logger.LogInformation($"POST /User/UpdateGhostRead (for user: {request.User.Id})");
-
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				try
@@ -947,7 +920,7 @@ namespace maxhanna.Server.Controllers
                     ghost_read = VALUES(ghost_read);";
 
 					MySqlCommand updateCmd = new MySqlCommand(updateSql, conn);
-					updateCmd.Parameters.AddWithValue("@userId", request.User.Id);
+					updateCmd.Parameters.AddWithValue("@userId", request.UserId);
 					updateCmd.Parameters.AddWithValue("@ghostRead", request.IsAllowed ? 1 : 0);
 
 					await updateCmd.ExecuteNonQueryAsync();
@@ -956,7 +929,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while processing the update ghost_read POST request.");
+					_ = _log.Db("An error occurred while processing the update ghost_read POST request. " + ex.Message, request.UserId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the update ghost_read request.");
 				}
 				finally
@@ -969,8 +942,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/GetUserSettings", Name = "GetUserSettings")]
 		public async Task<IActionResult> GetUserSettings([FromBody] int userId)
 		{
-			_logger.LogInformation($"GET /User/GetSettings (for user: {userId})");
-
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				try
@@ -1010,7 +981,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "An error occurred while fetching user settings.");
+					_ = _log.Db("An error occurred while fetching user settings. " + ex.Message, userId, "USER", true);
 					return StatusCode(500, "An error occurred while fetching user settings.");
 				}
 				finally
@@ -1023,10 +994,8 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/User/Menu", Name = "GetUserMenu")]
-		public async Task<IActionResult> GetUserMenu([FromBody] User user)
+		public async Task<IActionResult> GetUserMenu([FromBody] int userId)
 		{
-			_logger.LogInformation($"GET /UserMenu for user with ID: {user.Id}");
-
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
@@ -1035,7 +1004,7 @@ namespace maxhanna.Server.Controllers
 				string sql = "SELECT * FROM maxhanna.menu WHERE ownership = @UserId";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
-				cmd.Parameters.AddWithValue("@UserId", user.Id);
+				cmd.Parameters.AddWithValue("@UserId", userId);
 
 				using (var reader = await cmd.ExecuteReaderAsync())
 				{
@@ -1062,7 +1031,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the GET request for user menu.");
+				_ = _log.Db("An error occurred while processing the GET request for user menu." + ex.Message, userId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -1073,8 +1042,7 @@ namespace maxhanna.Server.Controllers
 		[HttpDelete("/User/Menu", Name = "DeleteMenuItem")]
 		public async Task<IActionResult> DeleteMenuItem([FromBody] MenuItemRequest request)
 		{
-			_logger.LogInformation($"DELETE /User/Menu for user with UserId: {request.User.Id}, Titles: {(string.Join(", ", request.Titles))}");
-			if (request.User == null)
+			if (request.UserId == 0)
 			{
 				return BadRequest("User missing from DeleteMenuItem request");
 			}
@@ -1090,7 +1058,7 @@ namespace maxhanna.Server.Controllers
 						string sql = "DELETE FROM maxhanna.menu WHERE ownership = @UserId AND LOWER(title) = LOWER(@Title) LIMIT 1;";
 
 						MySqlCommand cmd = new MySqlCommand(sql, conn);
-						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
+						cmd.Parameters.AddWithValue("@UserId", request.UserId);
 						cmd.Parameters.AddWithValue("@Title", item);
 
 						rowsAffected += await cmd.ExecuteNonQueryAsync();
@@ -1109,7 +1077,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the DELETE request for menu item.");
+				_ = _log.Db("An error occurred while processing the DELETE request for menu item. " + ex.Message, request.UserId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -1120,8 +1088,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/Menu/Add", Name = "AddMenuItem")]
 		public async Task<IActionResult> AddMenuItem([FromBody] MenuItemRequest request)
 		{
-			_logger.LogInformation($"POST /User/Menu/Add for user with ID: {request.User?.Id} and title: {request.Titles}");
-			if (request.User == null)
+			if (request.UserId == 0)
 			{
 				return BadRequest("User missing from AddMenuItem request");
 			}
@@ -1137,7 +1104,7 @@ namespace maxhanna.Server.Controllers
 						string sql = "INSERT INTO maxhanna.menu (ownership, title) VALUES (@UserId, @Title)";
 
 						MySqlCommand cmd = new MySqlCommand(sql, conn);
-						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
+						cmd.Parameters.AddWithValue("@UserId", request.UserId);
 						cmd.Parameters.AddWithValue("@Title", item);
 						rowsAffected += await cmd.ExecuteNonQueryAsync();
 					}
@@ -1154,7 +1121,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request to add menu item.");
+				_ = _log.Db("An error occurred while processing the POST request to add menu item. " + ex.Message, request.UserId, "USER", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
 			finally
@@ -1162,12 +1129,11 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 		}
- 
+
 		[HttpPost("/User/Trophies", Name = "GetTrophies")]
-		public async Task<IActionResult> GetTrophies([FromBody] User user)
+		public async Task<IActionResult> GetTrophies([FromBody] int userId)
 		{
-			_logger.LogInformation($"POST /User/Trophies for user with ID: {user.Id}");
-			if (user == null)
+			if (userId == 0)
 			{
 				return BadRequest("User missing from request");
 			}
@@ -1193,7 +1159,7 @@ namespace maxhanna.Server.Controllers
 
 					using (MySqlCommand cmd = new MySqlCommand(sql, conn))
 					{
-						cmd.Parameters.AddWithValue("@UserId", user.Id);
+						cmd.Parameters.AddWithValue("@UserId", userId);
 
 						using (MySqlDataReader reader = await cmd.ExecuteReaderAsync())
 						{
@@ -1213,7 +1179,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError($"Error fetching trophies: {ex.Message}");
+					_ = _log.Db($"Error fetching trophies: " + ex.Message, userId, "USER", true);
 					return StatusCode(500, "An error occurred while retrieving trophies.");
 				}
 			}
@@ -1224,8 +1190,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/UpdateUserTheme", Name = "UpdateUserTheme")]
 		public async Task<IActionResult> UpdateUserTheme([FromBody] UserThemeRequest request)
 		{
-			_logger.LogInformation($"POST /User/Theme for user {request.UserId}");
-
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				await conn.OpenAsync();
@@ -1283,7 +1247,7 @@ namespace maxhanna.Server.Controllers
 										dbMainHighlightColorQuarterOpacity.Equals(request.Theme.MainHighlightColorQuarterOpacity?.Trim(), StringComparison.OrdinalIgnoreCase) &&
 										dbLinkColor.Equals(request.Theme.LinkColor?.Trim(), StringComparison.OrdinalIgnoreCase) &&
 										dbFontSize == request.Theme.FontSize &&
-										dbFontFamily.Equals(request.Theme.FontFamily?.Trim(), StringComparison.OrdinalIgnoreCase); 
+										dbFontFamily.Equals(request.Theme.FontFamily?.Trim(), StringComparison.OrdinalIgnoreCase);
 							}
 						}
 
@@ -1386,7 +1350,7 @@ namespace maxhanna.Server.Controllers
 					}
 					catch (Exception ex)
 					{
-						_logger.LogError(ex, "Error updating user theme.");
+						_ = _log.Db("Error updating user theme. " + ex.Message, request.UserId, "USER", true);
 						await transaction.RollbackAsync();
 						return StatusCode(500, "An error occurred while updating the theme.");
 					}
@@ -1398,8 +1362,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/GetUserTheme", Name = "GetUserTheme")]
 		public async Task<IActionResult> GetUserTheme([FromBody] int UserId)
 		{
-			_logger.LogInformation($"POST /user/GetUserTheme/{UserId}");
-
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				try
@@ -1450,7 +1412,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "Error processing GetUserTheme.");
+					_ = _log.Db("Error processing GetUserTheme. " + ex.Message, UserId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the request.");
 				}
 			}
@@ -1460,8 +1422,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/GetAllThemes", Name = "GetAllThemes")]
 		public async Task<IActionResult> GetAllThemes([FromBody] string search)
 		{
-			_logger.LogInformation($"POST /user/GetAllThemes with search: {search}");
-
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				try
@@ -1526,7 +1486,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "Error processing GetAllThemes.");
+					_ = _log.Db("Error processing GetAllThemes. " + ex.Message, null, "USER", true);
 					return StatusCode(500, "An error occurred while processing the request.");
 				}
 			}
@@ -1537,8 +1497,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/GetAllUserThemes", Name = "GetAllUserThemes")]
 		public async Task<IActionResult> GetAllUserThemes([FromBody] int userId)
 		{
-			_logger.LogInformation($"POST /user/GetAllUserThemes with userId: {userId}");
-
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
 				try
@@ -1598,7 +1556,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "Error processing GetAllUserThemes.");
+					_ = _log.Db("Error processing GetAllUserThemes. " + ex.Message, userId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the request.");
 				}
 			}
@@ -1607,7 +1565,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/DeleteUserSelectedTheme", Name = "DeleteUserSelectedTheme")]
 		public async Task<IActionResult> DeleteUserSelectedTheme([FromBody] int UserId)
 		{
-			_logger.LogInformation($"POST /user/DeleteUserSelectedTheme/{UserId}");
+			_ = _log.Db($"POST /user/DeleteUserSelectedTheme/{UserId}", UserId, "USER");
 
 			using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 			{
@@ -1629,7 +1587,7 @@ namespace maxhanna.Server.Controllers
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "Error processing DeleteUserTheme.");
+					_ = _log.Db("Error processing DeleteUserTheme. " + ex.Message, UserId, "USER", true);
 					return StatusCode(500, "An error occurred while processing the request.");
 				}
 			}
@@ -1638,10 +1596,7 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/User/DeleteUserTheme", Name = "DeleteUserTheme")]
 		public async Task<IActionResult> DeleteUserTheme([FromBody] DeleteUserThemeRequest request)
 		{
-			_logger.LogInformation($"POST /user/DeleteUserTheme/{request.UserId}");
-
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-
 			try
 			{
 				conn.Open();
@@ -1668,7 +1623,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while processing the POST request.");
+				_ = _log.Db("An error occurred while processing the POST request. " + ex.Message, request.UserId, "USER", true);
 				return StatusCode(500, new { message = "An error occurred while processing the request." });
 			}
 			finally
@@ -1676,238 +1631,6 @@ namespace maxhanna.Server.Controllers
 				conn.Close();
 			}
 		}
-
-		[HttpPost("/User/BTCWalletAddresses/Update", Name = "UpdateBTCWalletAddresses")]
-		public async Task<IActionResult> UpdateBTCWalletAddresses([FromBody] AddBTCWalletRequest request)
-		{
-			_logger.LogInformation($"POST /User/BTCWalletAddresses/Update for user with ID: {request.User?.Id} and wallets: {string.Join(", ", request.Wallets ?? Array.Empty<string>())}");
-
-			if (request.User == null)
-			{
-				return BadRequest("User missing from AddBTCWalletAddress request");
-			}
-
-			if (request.Wallets == null || request.Wallets.Length == 0)
-			{
-				return BadRequest("Wallets missing from AddBTCWalletAddress request");
-			}
-
-			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			try
-			{
-				await conn.OpenAsync();
-				int rowsAffected = 0;
-
-				using (var transaction = await conn.BeginTransactionAsync())
-				{
-					using (var cmd = conn.CreateCommand())
-					{
-						cmd.Transaction = transaction;
-
-						// Define the base SQL command with parameters for insertion
-						cmd.CommandText = @"
-                    INSERT INTO user_btc_wallet_info 
-                    (user_id, btc_address, last_fetched) 
-                    VALUES (@UserId, @BtcAddress, UTC_TIMESTAMP())
-                    ON DUPLICATE KEY UPDATE 
-                        btc_address = VALUES(btc_address),
-                        last_fetched = VALUES(last_fetched);";
-
-						// Add parameters
-						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
-						cmd.Parameters.Add("@BtcAddress", MySqlDbType.VarChar);
-
-						// Execute the insert for each wallet address
-						foreach (string wallet in request.Wallets)
-						{
-							cmd.Parameters["@BtcAddress"].Value = wallet;
-							rowsAffected += await cmd.ExecuteNonQueryAsync();
-						}
-
-						// Commit the transaction
-						await transaction.CommitAsync();
-					}
-				}
-
-				return Ok(new { Message = $"{rowsAffected} wallet(s) added or updated successfully." });
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error adding or updating BTC wallet addresses");
-				return StatusCode(500, "An error occurred while adding wallet addresses");
-			}
-			finally
-			{
-				await conn.CloseAsync();
-			}
-		}
-
-		[HttpPost("/User/BTCWallet/GetBTCWalletData", Name = "GetBTCWalletData")]
-		public async Task<IActionResult> GetBTCWalletData([FromBody] User user)
-		{
-			_logger.LogInformation($"GET /User/BTCWallet/GetBTCWalletData for user with ID: {user.Id}");
-
-			try
-			{
-				// Call the private method to get wallet info from the database
-				CryptoWallet? miningWallet = await GetMiningWalletFromDb(user.Id);
-
-				if (miningWallet != null && miningWallet.currencies != null && miningWallet.currencies.Count > 0)
-				{
-					return Ok(miningWallet); // Return the MiningWallet object as the response
-				}
-				else
-				{
-					return NotFound("No BTC wallet addresses found for the user."); // Return NotFound if no addresses found
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "An error occurred while processing GetBTCWalletAddresses.");
-				return StatusCode(500, "An error occurred while processing the request.");
-			}
-		}
-
-		[HttpPost("/User/BTCWallet/DeleteBTCWalletAddress", Name = "DeleteBTCWalletAddress")]
-		public async Task<IActionResult> DeleteBTCWalletAddress([FromBody] DeleteCryptoWalletAddress request)
-		{
-			_logger.LogInformation($"GET /User/BTCWallet/DeleteBTCWalletAddress for user with ID: {request.User?.Id}, address: {request.Address}");
-
-			if (request.User == null || request.User.Id == 0)
-			{
-				return BadRequest("You must be logged in");
-			}
-			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			try
-			{
-				await conn.OpenAsync();
-				int rowsAffected = 0;
-
-				using (var transaction = await conn.BeginTransactionAsync())
-				{
-					using (var cmd = conn.CreateCommand())
-					{
-						cmd.Transaction = transaction;
-
-						// Define the base SQL command with parameters for insertion
-						cmd.CommandText = @"DELETE FROM maxhanna.user_btc_wallet_info WHERE user_id = @UserId AND btc_address = @Address LIMIT 1;";
-
-						// Add parameters
-						cmd.Parameters.AddWithValue("@UserId", request.User.Id);
-						cmd.Parameters.AddWithValue("@Address", request.Address);
-
-						rowsAffected += await cmd.ExecuteNonQueryAsync();
-
-
-						// Commit the transaction
-						await transaction.CommitAsync();
-					}
-				}
-
-				return Ok(new { Message = $"{rowsAffected} wallet addresses(s) deleted successfully." });
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "Error adding or updating BTC wallet addresses");
-				return StatusCode(500, "An error occurred while adding wallet addresses");
-			}
-			finally
-			{
-				await conn.CloseAsync();
-			}
-		}
-
-		private async Task<CryptoWallet?> GetMiningWalletFromDb(int? userId)
-		{
-			if (userId == null) { return null; }
-			var miningWallet = new CryptoWallet
-			{
-				total = new Total
-				{
-					currency = "BTC",
-					totalBalance = "0",
-					available = "0",
-					debt = "0",
-					pending = "0"
-				},
-				currencies = new List<Currency>()
-			};
-
-			try
-			{
-				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-				{
-					await conn.OpenAsync();
-
-					string sql = @"
-                SELECT 
-										wi.btc_address, 
-										wb.final_balance, 
-										wb.total_received, 
-										wb.total_sent, 
-										wb.fetched_at
-								FROM user_btc_wallet_info wi
-								LEFT JOIN user_btc_wallet_balance wb ON wi.id = wb.wallet_id
-								WHERE wi.user_id = @UserId 
-								AND wb.fetched_at = (
-										SELECT MAX(fetched_at) 
-										FROM user_btc_wallet_balance 
-										WHERE wallet_id = wi.id
-								);";
-
-					using (var cmd = new MySqlCommand(sql, conn))
-					{
-						cmd.Parameters.AddWithValue("@UserId", userId);
-
-						using (var reader = await cmd.ExecuteReaderAsync())
-						{
-							decimal totalBalance = 0;
-							decimal totalAvailable = 0;
-
-							while (await reader.ReadAsync())
-							{
-								// Retrieve the final balance as Int64 and convert to decimal
-								long finalBalanceSatoshis = reader.GetInt64("final_balance");
-								decimal finalBalance = finalBalanceSatoshis / 100_000_000M;
-
-								var currency = new Currency
-								{
-									active = true,
-									address = reader.GetString("btc_address"),
-									currency = "BTC",
-									totalBalance = finalBalance.ToString("F8"),
-									available = finalBalance.ToString("F8"),
-									debt = "0",
-									pending = "0",
-									btcRate = 1,
-									fiatRate = null,
-									status = "active"
-								};
-
-								miningWallet.currencies.Add(currency);
-
-								// Accumulate totals
-								totalBalance += finalBalance;
-								totalAvailable += finalBalance;
-							}
-
-							// Update totals in MiningWallet
-							miningWallet.total.totalBalance = totalBalance.ToString("F8");
-							miningWallet.total.available = totalAvailable.ToString("F8");
-						}
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_logger.LogError(ex, "An error occurred while fetching wallet data from the database.");
-				throw;
-			}
-
-			return miningWallet;
-		}
-
-
 		private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
 		private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 		private async Task AppendToSitemapAsync(int targetId)
@@ -1961,7 +1684,6 @@ namespace maxhanna.Server.Controllers
 		private async Task RemoveFromSitemapAsync(int targetId)
 		{
 			string targetUrl = $"https://bughosted.com/User/{targetId}";
-			_logger.LogInformation($"Removing {targetUrl} from sitemap...");
 
 			await _sitemapLock.WaitAsync();
 			try
@@ -1982,11 +1704,11 @@ namespace maxhanna.Server.Controllers
 						// Remove the element if found
 						targetElement.Remove();
 						sitemap.Save(_sitemapPath);
-						_logger.LogInformation($"Removed {targetUrl} from sitemap!");
+						_ = _log.Db($"Removed {targetUrl} from sitemap!", null, "USER", true);
 					}
 					else
 					{
-						_logger.LogWarning($"URL {targetUrl} not found in sitemap.");
+						_ = _log.Db($"URL {targetUrl} not found in sitemap.", null, "USER", true);
 					}
 				}
 			}

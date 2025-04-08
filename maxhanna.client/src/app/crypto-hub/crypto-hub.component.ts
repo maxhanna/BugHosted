@@ -86,6 +86,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.startLoading();
     try {
       this.parentRef?.addResizeListener();
+      await this.coinValueService.getLatestCoinValuesByName("Bitcoin").then(res => { if (res && res.valueCAD) this.btcFiatConversion = res.valueCAD; });
       await this.getBTCWallets();
 
       await this.coinValueService.getLatestCoinValues().then(res => {
@@ -132,8 +133,9 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     }, 10);
   }
   private async getUserCurrency() {
-    if (this.parentRef?.user) {
-      await this.coinValueService.getUserCurrency(this.parentRef?.user).then(async (res) => {
+    const user = this.parentRef?.user;
+    if (user?.id) {
+      await this.coinValueService.getUserCurrency(user.id).then(async (res) => {
         if (res) {
           if (res.includes("not found")) {
             this.selectedCurrency = "CAD";
@@ -151,12 +153,11 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     clearInterval(this.scrollInterval);
     this.parentRef?.removeResizeListener();
   }
-  private async getBTCWallets() {
-    this.wallet = await this.getNicehashWallets();
+  private async getBTCWallets() { 
     this.wallet = this.wallet || { currencies: [] };
-
-    if (this.parentRef?.user) {
-      await this.userService.getBTCWallet(this.parentRef.user).then(res => {
+    const user = this.parentRef?.user;
+    if (user?.id) {
+      await this.coinValueService.getBTCWallet(user.id).then(res => {
         if (res && res.currencies) {
           res.currencies.forEach((btcData: Currency) => {
             const tmpCurrency = {
@@ -186,18 +187,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       };
       this.wallet.currencies.forEach(x => !x.address ? x.address = "Nicehash Wallet" : x.address);
     }
-  }
-
-  private async getNicehashWallets() {
-    if (!this.parentRef?.user) return;
-    const res = await this.miningService.getMiningWallet(this.parentRef?.user) as MiningWalletResponse;
-    if (res) {
-      this.btcFiatConversion = res.currencies!.find(x => x.currency?.toUpperCase() == "BTC")?.fiatRate;
-      console.log(this.btcFiatConversion);
-    }
-    return res;
-  }
-
+  } 
   calculateTotalValue(currency: Currency): number {
     if (currency && (currency.fiatRate || this.btcFiatConversion) && currency.totalBalance) {
       return (currency.fiatRate ? currency.fiatRate : this.btcFiatConversion ?? 1) * (Number)(currency.totalBalance);
@@ -267,15 +257,14 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   saveNewCryptoWallet() {
     const user = this.parentRef?.user;
-    if (!user) return alert("You must be signed in to add a wallet.");
+    if (!user?.id) return alert("You must be signed in to add a wallet.");
     const walletInfo = this.newWalletInput.nativeElement.value;
 
     // General Bitcoin address validation regex
-    const btcAddressRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,42}$/;
-
-    if (walletInfo && this.parentRef?.user) {
+    const btcAddressRegex = /^(1|3|bc1)[a-zA-Z0-9]{25,42}$/; 
+    if (walletInfo) {
       if (btcAddressRegex.test(walletInfo)) {
-        this.userService.updateBTCWalletAddresses(this.parentRef.user, [walletInfo]);
+        this.coinValueService.updateBTCWalletAddresses(user.id, [walletInfo]);
       } else {
         alert('Invalid Bitcoin address. Please check for invalid characters.');
       }

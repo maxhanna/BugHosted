@@ -9,20 +9,18 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class WordlerController : ControllerBase
 	{
-		private readonly ILogger<WordlerController> _logger;
+		private readonly Log _log;
 		private readonly IConfiguration _config;
 
-		public WordlerController(ILogger<WordlerController> logger, IConfiguration config)
+		public WordlerController(Log log, IConfiguration config)
 		{
-			_logger = logger;
+			_log = log;
 			_config = config;
 		}
 
 		[HttpPost("/Wordler/GetRandomWord/{difficulty}", Name = "GetRandomWord")]
 		public async Task<IActionResult> GetRandomWord(int difficulty)
 		{
-			_logger.LogInformation($"POST /Wordler/GetRandomWord/{difficulty}");
-
 			if (difficulty < 4 || difficulty > 7)
 			{
 				return BadRequest("Invalid difficulty level. Please choose between 4, 5, 6, or 7.");
@@ -68,7 +66,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching the word of the day.");
+				_ = _log.Db("An error occurred while fetching the word of the day." + ex.Message, null, "WORDLER", true);
 				return StatusCode(500, "An error occurred while fetching the word of the day.");
 			}
 			return NotFound("No words found for the specified difficulty.");
@@ -77,8 +75,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Wordler/AddScore")]
 		public async Task<IActionResult> AddScore([FromBody] WordlerScore score)
 		{
-			_logger.LogInformation($"POST /Wordler/AddScore for user {score.User?.Id ?? 0}");
-
 			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
 			using (var conn = new MySqlConnection(connectionString))
@@ -122,7 +118,7 @@ namespace maxhanna.Server.Controllers
 					}
 					catch (Exception ex)
 					{
-						_logger.LogError(ex, "Error adding score.");
+						_ = _log.Db("Error adding score." + ex.Message, score.User?.Id, "WORDLER", true);
 						return StatusCode(500, "An error occurred while adding the score.");
 					}
 				}
@@ -133,7 +129,6 @@ namespace maxhanna.Server.Controllers
 		[HttpGet("/Wordler/CheckGuess/{difficulty}/{word}")]
 		public async Task<IActionResult> CheckGuess(int difficulty, string word)
 		{
-			_logger.LogInformation($"GET /Wordler/CheckGuess/{difficulty}/{word}");
 			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
 			using (var conn = new MySqlConnection(connectionString))
@@ -208,10 +203,8 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 		[HttpPost("/Wordler/GetAllScores")]
-		public async Task<IActionResult> GetAllScores([FromBody] User? user)
+		public async Task<IActionResult> GetAllScores([FromBody] int? userId)
 		{
-			_logger.LogInformation($"GET /Wordler/GetAllScores (for user: {user?.Id})");
-
 			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 			var scores = new List<WordlerScore>();
 
@@ -227,17 +220,15 @@ namespace maxhanna.Server.Controllers
                     FROM wordler_scores ws
                     JOIN users u ON ws.user_id = u.id 
                     WHERE 1=1 " +
-						(user == null ? "AND DATE(ws.submitted) = DATE(@currentDate) " : String.Empty) +
-						(user != null ? "AND ws.user_id = @UserId " : String.Empty) +
+						(userId == null ? "AND DATE(ws.submitted) = DATE(@currentDate) " : String.Empty) +
+						(userId != null ? "AND ws.user_id = @UserId " : String.Empty) +
 						"ORDER BY DATE(ws.submitted) desc, ws.difficulty desc, ws.score asc, ws.time asc ";
 				using (var cmd = new MySqlCommand(sql, conn))
 				{
 					cmd.Parameters.AddWithValue("@currentDate", currentDate);
-					if (user != null && user?.Id != 0)
+					if (userId != null && userId != 0)
 					{
-						//_logger.LogInformation($"adding parameter {user?.Id})");
-
-						cmd.Parameters.AddWithValue("@UserId", user?.Id);
+						cmd.Parameters.AddWithValue("@UserId", userId);
 					}
 
 					try
@@ -266,7 +257,7 @@ namespace maxhanna.Server.Controllers
 					}
 					catch (Exception ex)
 					{
-						_logger.LogError(ex, "Error retrieving scores.");
+						_ = _log.Db("Error retrieving scores." + ex.Message, userId, "WORDLER", true);
 						return StatusCode(500, "An error occurred while retrieving the scores.");
 					}
 				}
@@ -282,8 +273,6 @@ namespace maxhanna.Server.Controllers
 			{
 				return Forbid("Anonymous users cannot save their guesses for later. Please log in if you want to keep your guess history.");
 			}
-			_logger.LogInformation($"POST /Wordler/SubmitGuess");
-
 			var connectionString = _config.GetConnectionString("DefaultConnection");
 			try
 			{
@@ -295,7 +284,7 @@ namespace maxhanna.Server.Controllers
 
 
 				await using var command = new MySqlCommand(query, connection);
-				command.Parameters.AddWithValue("@user_id", guess.User?.Id ?? 0);
+				command.Parameters.AddWithValue("@user_id", guess.User.Id);
 				command.Parameters.AddWithValue("@attempt_number", guess.AttemptNumber);
 				command.Parameters.AddWithValue("@guess", guess.Guess);
 				command.Parameters.AddWithValue("@difficulty", guess.Difficulty);
@@ -307,20 +296,18 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error inserting guess");
+				_ = _log.Db("Error inserting guess. " + ex.Message, guess.User.Id, "WORDLER", true);
 				return StatusCode(500, "Internal server error");
 			}
 		}
 
 		[HttpPost("/Wordler/GetGuesses/{difficulty}")]
-		public async Task<IActionResult> GetGuesses([FromBody] User user, int difficulty)
+		public async Task<IActionResult> GetGuesses([FromBody] int userId, int difficulty)
 		{
-			if (user == null || user.Id == 0)
+			if (userId == 0)
 			{
 				return Forbid("Anonymous users cannot save their guesses for later. Please log in if you want to keep your guess history.");
 			}
-			_logger.LogInformation($"POST /Wordler/GetGuesses/{difficulty} (for user : {user.Id}, Current UTC Time : {DateTime.UtcNow})");
-
 			var guesses = new List<WordlerGuess>();
 
 			try
@@ -338,7 +325,7 @@ namespace maxhanna.Server.Controllers
                         AND wg.difficulty = @difficulty";
 
 				await using var command = new MySqlCommand(query, connection);
-				command.Parameters.AddWithValue("@user_id", user.Id);
+				command.Parameters.AddWithValue("@user_id", userId);
 				command.Parameters.AddWithValue("@difficulty", difficulty);
 				command.Parameters.AddWithValue("@currentDate", DateTime.UtcNow);
 
@@ -365,7 +352,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error retrieving guesses");
+				_ = _log.Db("Error retrieving guesses" + ex.Message, userId, "WORLDER", true);
 				return StatusCode(500, "Internal server error");
 			}
 		}
@@ -374,7 +361,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Wordler/GetDictionaryWord/{word}")]
 		public async Task<IActionResult> GetDictionaryWord(string word)
 		{
-			_logger.LogInformation($"POST /Wordler/GetDictionaryWord/{word}");
 			string definition = "";
 			try
 			{
@@ -399,17 +385,15 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "Error retrieving definition for word: " + word);
+				_ = _log.Db($"Error retrieving definition for word: {word}." + ex.Message, null, "WORLDER", true);
 				return StatusCode(500, "Error retrieving definition for word: " + word);
 			}
 		}
 
 		[HttpPost("/Wordler/GetConsecutiveDaysStreak/")]
-		public async Task<IActionResult> GetConsecutiveDays([FromBody] User user)
-		{
-			_logger.LogInformation($"GET /Wordler/GetConsecutiveDaysStreak/{user.Id}");
-
-			if (user.Id <= 0)
+		public async Task<IActionResult> GetConsecutiveDays([FromBody] int userId)
+		{ 
+			if (userId <= 0)
 			{
 				return BadRequest("Invalid user ID.");
 			}
@@ -430,7 +414,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var command = new MySqlCommand(query, connection))
 					{
-						command.Parameters.AddWithValue("@userId", user.Id);
+						command.Parameters.AddWithValue("@userId", userId);
 
 						var scoreDates = new List<DateTime>();
 						using (var reader = await command.ExecuteReaderAsync())
@@ -448,7 +432,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching the consecutive days.");
+				_ = _log.Db("An error occurred while fetching the consecutive days." + ex.Message, userId, "WORDLER", true);
 				return StatusCode(500, "An error occurred while fetching the consecutive days.");
 			}
 		}
@@ -456,11 +440,9 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpPost("/Wordler/GetCurrentStreak/")]
-		public async Task<IActionResult> GetCurrentStreak([FromBody] User user)
+		public async Task<IActionResult> GetCurrentStreak([FromBody] int userId)
 		{
-			_logger.LogInformation($"GET /Wordler/GetCurrentStreak/{user.Id}");
-
-			if (user.Id <= 0)
+			if (userId <= 0)
 			{
 				return BadRequest("Invalid user ID.");
 			}
@@ -481,7 +463,7 @@ namespace maxhanna.Server.Controllers
 
 					using (var command = new MySqlCommand(query, connection))
 					{
-						command.Parameters.AddWithValue("@userId", user.Id);
+						command.Parameters.AddWithValue("@userId", userId);
 
 						var scoreDates = new List<DateTime>();
 						using (var reader = await command.ExecuteReaderAsync())
@@ -499,7 +481,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch (Exception ex)
 			{
-				_logger.LogError(ex, "An error occurred while fetching the consecutive days.");
+				_ = _log.Db("An error occurred while fetching the consecutive days." + ex.Message, userId, "WORDLER", true);
 				return StatusCode(500, "An error occurred while fetching the consecutive days.");
 			}
 		}

@@ -1,6 +1,7 @@
 ﻿using HtmlAgilityPack;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using MySqlConnector;
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -22,17 +23,18 @@ public class WebCrawler
 	};
 
 
-	private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(10); 
+	private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(10);
 	private DateTime _lastRequestTime = DateTime.MinValue;
-	private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1); 
+	private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1);
 	private List<string> urlsToScrapeQueue = new List<string>();
 	private HashSet<string> _visitedUrls = new HashSet<string>();
 	private Queue<string> delayedUrlsQueue = new Queue<string>();
 	private static bool isProcessing = false;
+	private const int _maxRecursionLimit = 10;
 
 	public WebCrawler(IConfiguration config)
 	{
-		_config = config; 
+		_config = config;
 		_httpClient = new HttpClient(new HttpClientHandler
 		{
 			ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
@@ -43,7 +45,7 @@ public class WebCrawler
 		_httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
 		_httpClient.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
 	}
-	public async Task FetchWebsiteMetadata()
+	public async Task StartBackgroundScrape()
 	{
 		try
 		{
@@ -51,7 +53,7 @@ public class WebCrawler
 
 			foreach (string domain in nextDomains)
 			{
-				StartScrapingAsync(domain);
+				_ = StartScrapingAsync(domain);
 			}
 
 			// Once the list is built, scrape URLs from the list 1 by 1
@@ -59,19 +61,19 @@ public class WebCrawler
 		}
 		catch (HttpRequestException ex)
 		{
-		//	Console.WriteLine($"Crawler Network issue while scraping : {ex.Message}");
+			//	Console.WriteLine($"Crawler Network issue while scraping : {ex.Message}");
 		}
 		catch (Exception ex)
 		{
-		//	Console.WriteLine("Crawler exception : " + ex.Message);
+			//	Console.WriteLine("Crawler exception : " + ex.Message);
 		}
-		
+
 	}
 
 	private async Task<List<string>> GenerateNextUrl()
 	{
 		try
-		{ 
+		{
 			string? lastDomain = await LoadLastGeneratedDomain(1, true);
 			string nextDomain = string.IsNullOrEmpty(lastDomain) ? "a.com" : GetNextDomain(lastDomain);
 			nextDomain = nextDomain.ToLower().Replace("http://", "").Replace("https://", "");
@@ -80,7 +82,8 @@ public class WebCrawler
 			string httpsVersion = "https://" + nextDomain;
 
 			return new List<string> { httpsVersion, httpVersion };
-		} catch (Exception ex)
+		}
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler exception : " + ex.Message);
 			return new List<string>();
@@ -213,7 +216,7 @@ public class WebCrawler
 		{
 			//Console.WriteLine("Crawler exception : " + ex.Message);
 			return namePart;
-		} 
+		}
 	}
 
 	private string IncrementAlphabetically(string baseName)
@@ -242,16 +245,18 @@ public class WebCrawler
 			// If all characters wrapped, add a new letter
 			newName.Append(Chars[0]);
 			return newName.ToString();
-		} catch (Exception ex)
+		}
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler Exception: " + ex.Message);
 			return baseName;
 		}
-		
+
 	}
 	private async Task<string?> LoadLastGeneratedDomain(int index = 1, bool randomize = false)
 	{
-		try {
+		try
+		{
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 			using (var connection = new MySqlConnection(connectionString))
 			{
@@ -302,9 +307,9 @@ public class WebCrawler
 		{
 			//Console.WriteLine("Crawler exception: " + ex.Message);
 			return string.Empty;
-		} 
+		}
 	}
-	private async Task<string?> GetFreshCrawledDomains(string url)
+	public async Task<string?> GetFreshCrawledDomains(string url)
 	{
 		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 		using (var connection = new MySqlConnection(connectionString))
@@ -331,9 +336,8 @@ public class WebCrawler
 			}
 		}
 	}
-
-	private async Task SaveSearchResult(string domain, Metadata metadata)
-	{ 
+	public async Task SaveSearchResult(string domain, Metadata metadata)
+	{
 		try
 		{
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
@@ -364,12 +368,13 @@ public class WebCrawler
 					await insertCommand.ExecuteNonQueryAsync();
 				}
 			}
-		} catch (Exception ex)
+		}
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler exception : " + ex.Message);
-		} 
+		}
 	}
-	private async Task MarkUrlAsFailed(string url, int? responseCode = null)
+	public async Task MarkUrlAsFailed(string url, int? responseCode = null)
 	{
 		try
 		{
@@ -395,11 +400,12 @@ public class WebCrawler
 					await command.ExecuteNonQueryAsync();
 				}
 			}
-		} catch (Exception ex)
+		}
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler exception: " + ex.Message);
 		}
-		
+
 	}
 	private string NormalizeUrl(string url)
 	{
@@ -425,17 +431,17 @@ public class WebCrawler
 				// If the URL is malformed, return an empty string or the original URL
 				return string.Empty;
 			}
-		} catch (Exception ex)
+		}
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler exception : " + ex.Message);
 			return string.Empty;
 		}
-		
 	}
-	private async Task<Metadata?> ScrapeUrlData(string url)
+	public async Task<Metadata?> ScrapeUrlData(string url)
 	{
 		var metadata = new Metadata();
- 
+
 		try
 		{
 			url = NormalizeUrl(url);
@@ -443,165 +449,163 @@ public class WebCrawler
 			{
 				Console.WriteLine("Invalid URL, skip scrape : " + url);
 				return null;
-			}
-
+			} 
 			_httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 			_httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
 			_httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
 			_httpClient.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
-			var response = await _httpClient.GetAsync(url);
-
-			// Handle non-successful responses
+			var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+			response.EnsureSuccessStatusCode();  
 			if (!response.IsSuccessStatusCode)
 			{
 				_ = MarkUrlAsFailed(url, (int)response.StatusCode);
 				return null;
 			}
 
-
-			var html = await response.Content.ReadAsStringAsync();
-			if (html.Length > 5_000_000)
+			const int maxHtmlLength = 400_000;
+			string html = await ReadHtmlWithLimit(response);
+			html = html.Length > maxHtmlLength ? html.Substring(0, maxHtmlLength) : html;
+			int maxTagCount = 10_000;
+			int tagCount = html.Count(c => c == '<');
+			if (tagCount > maxTagCount)
 			{
-				Console.WriteLine("Crawler Exception: HTML document is too large to parse.");
-				return null;
+				Console.WriteLine("Too many tags, truncating.");
+				html = html.Substring(0, html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase) + 7);
 			}
+
 			var htmlDocument = new HtmlDocument
 			{
 				OptionMaxNestedChildNodes = 100
 			};
-			if (html.Count(c => c == '<') > 10_000) // Check excessive `<` tags
-			{
-				Console.WriteLine("Crawler Exception: Potentially malformed or deeply nested HTML.");
-				return null;
-			}
 			htmlDocument.OptionCheckSyntax = true;
 			htmlDocument.LoadHtml(html);
+			ExtractMetadataFromHtmlDocument(url, metadata, htmlDocument);
 
-
-			// Extract title from <title> tag
-			var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
-			if (titleNode != null)
-			{
-				metadata.Title = titleNode.InnerText.Trim();
-			}
-
-			// Extract description from <meta name="description">
-			var metaDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']");
-			if (metaDescriptionNode != null)
-			{
-				metadata.Description = metaDescriptionNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract Open Graph (OG) description
-			var ogDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:description']");
-			if (ogDescriptionNode != null && metadata.Description == null)
-			{
-				metadata.Description = ogDescriptionNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract Open Graph (OG) title
-			var ogTitleNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:title']");
-			if (ogTitleNode != null)
-			{
-				metadata.Title = ogTitleNode.GetAttributeValue("content", "").Trim();
-			}
-
-			// Extract keywords
-			var metaKeywordsNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='keywords']");
-			if (metaKeywordsNode != null)
-			{
-				metadata.Keywords = metaKeywordsNode.GetAttributeValue("content", "").Trim();
-			}
-			Uri baseUri = new Uri(url);
-			string? faviconUrl = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='icon' or @rel='shortcut icon']")?
-				.GetAttributeValue("href", "").Trim();
-
-			string? ogImageUrl = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:image']")
-					?.GetAttributeValue("content", "").Trim();
-
-			string? imageUrl = !string.IsNullOrEmpty(faviconUrl) ? faviconUrl : ogImageUrl;
-			if (!string.IsNullOrEmpty(imageUrl) && !imageUrl.StartsWith("http"))
-			{
-				imageUrl = new Uri(baseUri, imageUrl).ToString();
-			}
-			metadata.ImageUrl = imageUrl;  
-
-			// Extract OG URL
-			var ogUrlNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:url']");
-			if (ogUrlNode != null)
-			{
-				metadata.Url = ogUrlNode.GetAttributeValue("content", "").Trim();
-			}
-			else
-			{
-				metadata.Url = url; // Fallback to the input URL if OG URL is not available
-			}
-
-			// Extract Author
-			var metaAuthorNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='author']");
-			if (metaAuthorNode != null)
-			{
-				metadata.Author = metaAuthorNode.GetAttributeValue("content", "").Trim();
-			}
-			// Extract all links and recursively scrape them
 			var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
-
+			int maxLinkNodeCount = _maxRecursionLimit;
 			if (linkNodes != null)
 			{
 				foreach (var linkNode in linkNodes)
 				{
+					if (maxLinkNodeCount <= 0) { break; }
+					maxLinkNodeCount--;
 					var href = linkNode.GetAttributeValue("href", "").Trim();
-					if (string.IsNullOrEmpty(href) || href.StartsWith("#") || href.StartsWith("mailto:"))
+					if (!IsValidDomain(href))
 					{
-						continue; // Skip empty, anchor, and mailto links
+						continue;
 					}
 					var absoluteUrl = new Uri(new Uri(url), href).ToString();
-					_ = StartScrapingAsync(absoluteUrl);
+					if (!(await StartScrapingAsync(absoluteUrl)))
+					{
+						break;
+					}
 				}
 			}
 		}
 		catch (HttpRequestException ex)
 		{
-			//Console.WriteLine($"HttpRequestException while scraping {url}: {ex.Message}");
-
-			// Check for DNS resolution issues and network failures
-			if (ex.InnerException is System.Net.Sockets.SocketException socketEx)
-			{
-			//	Console.WriteLine($"Network issue (DNS resolution or connection failure) while scraping {url}: {socketEx.Message}");
-			}
-			else
-			{
-			//	Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-			}
-
-			_ = MarkUrlAsFailed(url);
+			_ = MarkUrlAsFailed(url, 500);
 			return null;
 		}
 		catch (StackOverflowException ex)
 		{
 			Console.WriteLine("Stack Overflow Error on URL: " + url);
+			_ = MarkUrlAsFailed(url, 500);
 			return null;
 		}
 		catch (Exception ex)
 		{
-			//Console.WriteLine("Unexpected exception in crawler during scrape: " + ex.Message);
 			_ = MarkUrlAsFailed(url);
 			return null;
 		}
-		 
+
 		return metadata;
 	}
 
-	private bool IsValidDomain(string domain)
+	private static void ExtractMetadataFromHtmlDocument(string url, Metadata metadata, HtmlDocument htmlDocument)
+	{ 
+		// Extract title from <title> tag
+		var titleNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
+		if (titleNode != null)
+		{
+			metadata.Title = titleNode.InnerText.Trim();
+		}
+
+		// Extract description from <meta name="description">
+		var metaDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']");
+		if (metaDescriptionNode != null)
+		{
+			metadata.Description = metaDescriptionNode.GetAttributeValue("content", "").Trim();
+		}
+
+		// Extract Open Graph (OG) description
+		var ogDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:description']");
+		if (ogDescriptionNode != null && metadata.Description == null)
+		{
+			metadata.Description = ogDescriptionNode.GetAttributeValue("content", "").Trim();
+		}
+
+		// Extract Open Graph (OG) title
+		var ogTitleNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:title']");
+		if (ogTitleNode != null)
+		{
+			metadata.Title = ogTitleNode.GetAttributeValue("content", "").Trim();
+		}
+
+		// Extract keywords
+		var metaKeywordsNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='keywords']");
+		if (metaKeywordsNode != null)
+		{
+			metadata.Keywords = metaKeywordsNode.GetAttributeValue("content", "").Trim();
+		}
+		Uri baseUri = new Uri(url);
+		string? faviconUrl = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='icon' or @rel='shortcut icon']")?
+			.GetAttributeValue("href", "").Trim();
+
+		string? ogImageUrl = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:image']")
+				?.GetAttributeValue("content", "").Trim();
+
+		string? imageUrl = !string.IsNullOrEmpty(faviconUrl) ? faviconUrl : ogImageUrl;
+		if (!string.IsNullOrEmpty(imageUrl) && !imageUrl.StartsWith("http"))
+		{
+			imageUrl = new Uri(baseUri, imageUrl).ToString();
+		}
+		metadata.ImageUrl = imageUrl;
+
+		// Extract OG URL
+		var ogUrlNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:url']");
+		if (ogUrlNode != null)
+		{
+			metadata.Url = ogUrlNode.GetAttributeValue("content", "").Trim();
+		}
+		else
+		{
+			metadata.Url = url; // Fallback to the input URL if OG URL is not available
+		}
+
+		// Extract Author
+		var metaAuthorNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='author']");
+		if (metaAuthorNode != null)
+		{
+			metadata.Author = metaAuthorNode.GetAttributeValue("content", "").Trim();
+		}
+	}
+
+	public bool IsValidDomain(string domain)
 	{
+		string url = domain.ToLower();
 		try
 		{
-			if (domain.ToLower().Contains("javascript:"))
+			if (string.IsNullOrEmpty(url))
+			{
+				return false;
+			}
+			if (url.Contains("javascript:"))
 			{
 				//Console.WriteLine("invalid domain, javascript in the link: " + domain);
 				return false;
 			}
-			if (domain.ToLower().Contains("tel:"))
+			if (url.Contains("tel:") || url.Contains("#") || url.Contains("mailto:"))
 			{
 				//Console.WriteLine("invalid domain, javascript in the link: " + domain);
 				return false;
@@ -614,18 +618,18 @@ public class WebCrawler
 			}
 
 			// Ensure no double dots ".." exist in the domain
-			if (domain.Contains("..") || !domain.Contains("."))
+			if (url.Contains("..") || !url.Contains("."))
 			{
 				//Console.WriteLine("invalid domain, multiple ..: " + domain);
 				return false;
 			}
-			if (!domain.Contains("http"))
-			{ 
+			if (!url.Contains("http"))
+			{
 				return false;
 			}
 
 			Uri uri;
-			if (Uri.TryCreate(domain, UriKind.Absolute, out uri))
+			if (Uri.TryCreate(url, UriKind.Absolute, out uri))
 			{
 				string tdomain = uri.Host; // Extract the domain (e.g., "sedr.com")
 
@@ -641,44 +645,40 @@ public class WebCrawler
 				//Console.WriteLine("Invalid URL format.");
 				return false;
 			}
-		} catch (Exception ex)
+		}
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler exception : " + ex.Message);
 			return false;
-		} 
+		}
 		return true;
 	}
-	private async Task<string?> FindSitemapUrl(string domain)
+	public async Task<string?> FindSitemapUrl(string domain)
 	{
 		try
 		{
-			// Standard sitemap locations
-			string[] possibleSitemapUrls = {
-				$"{domain}/sitemap.xml",
-				$"{domain}/sitemap_index.xml"
-		};
-
-			// Check each possible URL for a sitemap
+			string[] possibleSitemapUrls = { $"{domain}/sitemap.xml", $"{domain}/sitemap_index.xml" };
 			foreach (var url in possibleSitemapUrls)
 			{
 				if (await UrlExists(url))
 				{
-					return url;  // Return the first found sitemap URL
+					return url;
 				}
 			}
-		} catch (Exception ex)
+		}
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler exception : " + ex.Message);
 		}
-		
-		return null;  // Return null if no sitemap is found
+
+		return null;
 	}
 
 	private async Task<bool> UrlExists(string url)
 	{
 		try
 		{
-			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); 
+			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 			var response = await _httpClient.GetAsync(url, cts.Token);
 			return response.IsSuccessStatusCode;
 		}
@@ -689,50 +689,66 @@ public class WebCrawler
 		}
 		catch
 		{
-			return false;   
+			return false;
 		}
 	}
-	  
-	private async Task CrawlSitemap(string domain)
+
+	public async Task CrawlSitemap(string domain)
 	{
+		int sitemapLimit = _maxRecursionLimit;
 		try
 		{
 			string? sitemapUrl = await FindSitemapUrl(domain);
+			if (string.IsNullOrEmpty(sitemapUrl)) { return; }
+
 			string sitemapIndexXml = await GetSitemapXml(sitemapUrl);
 			// Extract individual sitemap URLs from the sitemap index
-			var sitemapUrls = ExtractSitemapUrlsFromSitemap(sitemapIndexXml);
+			var sitemapUrls = ExtractUrlsFromSitemap(sitemapIndexXml, sitemapLimit);
 			if (sitemapUrls != null)
 			{
 				foreach (var url in sitemapUrls)
 				{
-					StartScrapingAsync(url);
-				}
-			}
-		} catch(Exception ex)
-		{
-			//Console.WriteLine("Crawler exception: " + ex.ToString());
-		}
-		
-	}
-	public async Task StartScrapingAsync(string initialUrl)
-	{
-		try
-		{
-			if (_visitedUrls.Add(initialUrl) && !urlsToScrapeQueue.Contains(initialUrl) && urlsToScrapeQueue.Count < 10000 && IsValidDomain(initialUrl))
-			{
-				if (delayedUrlsQueue.Count < 50000)
-				{
-					delayedUrlsQueue.Enqueue(initialUrl);
-					if (delayedUrlsQueue.Count == 1)
-					{
-						await ProcessDelayedUrlsQueueAsync();
+					if (sitemapLimit <= 0) { break; }
+					sitemapLimit--;
+					if(!(await StartScrapingAsync(url))) {
+						break;
 					}
 				}
 			}
-		} catch(Exception ex)
+		}
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler exception: " + ex.ToString());
-		} 
+		}
+
+	}
+	public async Task<bool> StartScrapingAsync(string url)
+	{
+		url = NormalizeUrl(url.ToLower());
+		if (EndExceedence(url))
+		{
+			return false;
+		}
+
+		try
+		{
+			if (_visitedUrls.Add(url) && !urlsToScrapeQueue.Contains(url) && urlsToScrapeQueue.Count < 10000 && IsValidDomain(url))
+			{
+				if (delayedUrlsQueue.Count < 50000)
+				{
+					delayedUrlsQueue.Enqueue(url);
+					if (delayedUrlsQueue.Count == 1)
+					{
+						await ProcessDelayedUrlsQueueAsync();
+					} 
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			//Console.WriteLine("Crawler exception: " + ex.ToString());
+		}
+		return true;
 	}
 
 	private async Task ProcessDelayedUrlsQueueAsync()
@@ -765,45 +781,34 @@ public class WebCrawler
 			isProcessing = false;
 			ClearVisitedUrls();  // Clear visited URLs after all delayed URLs are processed
 		}
-		catch(Exception ex)
+		catch (Exception ex)
 		{
 			//Console.WriteLine("Crawler exception : " + ex.Message);
-		} 
+		}
 	}
-	private async Task<string> GetSitemapXml(string sitemapUrl)
-	{ 
+	public async Task<string> GetSitemapXml(string sitemapUrl, int maxBufferSize = 500000)
+	{
 		try
 		{
 			// Send a GET request to the sitemap URL
-			HttpResponseMessage response = await _httpClient.GetAsync(sitemapUrl);
+			HttpResponseMessage response = await _httpClient.GetAsync(sitemapUrl, HttpCompletionOption.ResponseHeadersRead);
 
 			// Ensure successful response
 			response.EnsureSuccessStatusCode();
 
 			// Read the response content as a string
-			string xmlContent = await response.Content.ReadAsStringAsync();
+			string xmlContent = await ReadHtmlWithLimit(response, maxBufferSize);
 			return xmlContent;
 		}
 		catch (HttpRequestException ex)
-		{ 
-			//Console.WriteLine($"HTTP request failed for {sitemapUrl}: {ex.Message}"); 
-			if (ex.InnerException is System.Net.Sockets.SocketException socketEx)
-			{
-				//Console.WriteLine($"DNS resolution failed for {sitemapUrl}: {socketEx.Message}");
-			}
-			else
-			{ 
-			//	Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
-			}
-
+		{
 			return string.Empty;
 		}
 		catch (Exception ex)
-		{ 
+		{
 			//Console.WriteLine("Unexpected exception in crawler : " + ex.Message);
 			return string.Empty;
 		}
-		 
 	}
 
 
@@ -813,11 +818,11 @@ public class WebCrawler
 		{
 			if (scrapeSemaphore.CurrentCount > 0)
 			{
-			await scrapeSemaphore.WaitAsync();
-			
+				await scrapeSemaphore.WaitAsync();
+
 				while (urlsToScrapeQueue.Count > 0)
 				{
-					string url = GetRandomUrlFromList(urlsToScrapeQueue); 
+					string? url = GetRandomUrlFromList(urlsToScrapeQueue);
 					if (!string.IsNullOrEmpty(url))
 					{
 						if (DateTime.Now - _lastRequestTime < _requestInterval)
@@ -827,39 +832,39 @@ public class WebCrawler
 
 						_lastRequestTime = DateTime.Now;
 
-						Console.WriteLine($"(Crawler:{delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()})Scraping: " + $"{url.Substring(0, Math.Min(url.Length, 25)) + (url.Length > 35 ? "..." + url[^10..] : "")}");
+						Console.WriteLine($"(Crawler:{delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()})Scraping: " + $"{ShortenUrl(url)}");
 						Metadata? metaData = await ScrapeUrlData(url);
 						if (metaData != null)
 						{
 							await SaveSearchResult(url, metaData);
-							CrawlSitemap(url);
+							_ = CrawlSitemap(url);
 						}
-					} 
+					}
 				}
 			}
 		}
 		catch (HttpRequestException ex)
 		{
-		//	Console.WriteLine($"HTTP request failed : {ex.Message}");
+			//	Console.WriteLine($"HTTP request failed : {ex.Message}");
 			if (ex.InnerException is System.Net.Sockets.SocketException socketEx)
 			{
-			//	Console.WriteLine($"DNS resolution failed : {socketEx.Message}");
+				//	Console.WriteLine($"DNS resolution failed : {socketEx.Message}");
 			}
 			else
 			{
-		//		Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+				//		Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
 			}
 		}
 		catch (Exception ex)
 		{
-		//	Console.WriteLine("Exception thrown in crawler : " + ex.Message);
+			//	Console.WriteLine("Exception thrown in crawler : " + ex.Message);
 		}
 		finally
 		{
 			scrapeSemaphore.Release();  // Ensure the semaphore is always released, even if an exception occurs
 		}
 	}
-	private List<string> ExtractSitemapUrlsFromSitemap(string sitemapIndexXml)
+	public List<string> ExtractUrlsFromSitemap(string sitemapIndexXml, int maxUrlCount)
 	{
 		var sitemapUrls = new List<string>();
 
@@ -870,37 +875,54 @@ public class WebCrawler
 				return sitemapUrls;
 			}
 
-			var xmlDoc = new XmlDocument();
-			xmlDoc.LoadXml(sitemapIndexXml);
-
-			// Create a namespace manager
-			XmlNamespaceManager nsManager = new XmlNamespaceManager(xmlDoc.NameTable);
-			nsManager.AddNamespace("s", "http://www.sitemaps.org/schemas/sitemap/0.9"); // Namespace from the sitemap
-
-			// Search for <loc> nodes using XPath with the namespace
-			XmlNodeList locNodes = xmlDoc.SelectNodes("//s:sitemap/s:loc", nsManager);
-
-			foreach (XmlNode locNode in locNodes)
+			// Check if the content is XML (i.e., if it has <sitemapindex> tag)
+			if (sitemapIndexXml.Contains("<sitemapindex"))
 			{
-				var locUrl = locNode.InnerText.Trim();
-				if (!string.IsNullOrWhiteSpace(locUrl))
+				// Handle XML-based sitemap index
+				var xmlDoc = new XmlDocument();
+				xmlDoc.LoadXml(sitemapIndexXml);
+
+				// Search for all <loc> tags inside <sitemap> tags
+				XmlNodeList locNodes = xmlDoc.GetElementsByTagName("loc");
+
+				foreach (XmlNode locNode in locNodes)
 				{
-					sitemapUrls.Add(locUrl);
+					if (maxUrlCount <= 0) { return sitemapUrls; }
+					var locUrl = locNode.InnerText.Trim();
+					if (!string.IsNullOrWhiteSpace(locUrl))
+					{
+						sitemapUrls.Add(locUrl);
+						maxUrlCount--;
+					}
+				}
+			}
+			else
+			{
+				var rawUrls = sitemapIndexXml.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+				foreach (var url in rawUrls)
+				{
+					if (maxUrlCount <= 0) { return sitemapUrls; }
+					var trimmedUrl = url.Trim();
+					if (Uri.IsWellFormedUriString(trimmedUrl, UriKind.Absolute))
+					{
+						sitemapUrls.Add(trimmedUrl);
+						maxUrlCount--;
+					}
 				}
 			}
 		}
 		catch (Exception ex)
 		{
-			// Console.WriteLine($"Error extracting URLs from sitemap index: {ex.Message}");
+			//Console.WriteLine($"Error extracting URLs from sitemap index: {ex.Message}");
 		}
 
 		return sitemapUrls;
 	}
 
-	public string GetRandomUrlFromList(List<string> urls)
+	public string? GetRandomUrlFromList(List<string> urls)
 	{
 		try
-		{ 
+		{
 			if (urls.Count > 0)
 			{
 				Random rng = new Random();
@@ -909,36 +931,62 @@ public class WebCrawler
 				urls.RemoveAt(randomIndex);
 				return randomUrl;
 			}
-		} catch (Exception ex)
+		}
+		catch (Exception ex)
 		{
-		//	Console.WriteLine("Crawler Exception: " + ex.Message);
+			//	Console.WriteLine("Crawler Exception: " + ex.Message);
 		}
 
 		return null;
 	}
-	private string GetUrlHash(string url)
+	public string GetUrlHash(string url)
 	{
 		try
-		{ 
+		{
 			using (var sha256 = SHA256.Create())
 			{
 				byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(url));
 				return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
 			}
-		} catch(Exception ex)
+		}
+		catch (Exception ex)
 		{
-		//	Console.WriteLine("Crawler exception : " + ex.Message);
+			//	Console.WriteLine("Crawler exception : " + ex.Message);
 		}
 		return "";
 	}
-	string ShortenUrl(string url, int maxLength = 50)
+	public async Task<int> GetIndexCount()
 	{
-		if (url.Length <= maxLength) return url;
+		var results = new List<Metadata>();
+		string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
-		int firstPartLength = maxLength / 2 - 3;  // Adjust to leave room for "..."
-		int lastPartLength = maxLength - firstPartLength - 3;
+		try
+		{
+			using (var connection = new MySqlConnection(connectionString))
+			{
+				await connection.OpenAsync();
 
-		return url.Substring(0, firstPartLength) + "..." + url[^lastPartLength..];
+				string checkUrlQuery = @"SELECT count(*) as count FROM search_results;";
+
+				using (var command = new MySqlCommand(checkUrlQuery, connection))
+				{
+
+					using (var reader = await command.ExecuteReaderAsync())
+					{
+						if (await reader.ReadAsync())
+						{
+							return reader.GetInt32("count");
+						}
+					}
+				}
+
+				return 0;
+			}
+		}
+		catch (Exception ex)
+		{
+			return 0;
+		}
 	}
 	public void ClearVisitedUrls()
 	{
@@ -949,9 +997,236 @@ public class WebCrawler
 			{
 				_visitedUrls = new HashSet<string>(_visitedUrls.Take(5000).ToList());
 			}
-		} catch (Exception ex)
-		{
-		//	Console.WriteLine("Crawler exception : " + ex.Message);
 		}
-	}  
+		catch (Exception ex)
+		{
+			//	Console.WriteLine("Crawler exception : " + ex.Message);
+		}
+	}
+	public async Task<object?> GetStorageStats()
+	{
+		string sql = @"
+	SELECT 
+		stats.*,
+		db_sizes.total_size_mb
+	FROM
+	(
+		SELECT 
+			(
+				AVG(LENGTH(url)) +
+				AVG(LENGTH(IFNULL(title, ''))) +
+				AVG(LENGTH(IFNULL(description, ''))) +
+				AVG(LENGTH(IFNULL(author, ''))) +
+				AVG(LENGTH(IFNULL(keywords, ''))) +
+				AVG(LENGTH(IFNULL(image_url, ''))) +
+				4 + 8 + 8 + 64 + 1 + 4 + 20
+			) AS avg_row_size_bytes,
+
+			(
+				AVG(LENGTH(url)) +
+				AVG(LENGTH(IFNULL(title, ''))) +
+				AVG(LENGTH(IFNULL(description, ''))) +
+				AVG(LENGTH(IFNULL(author, ''))) +
+				AVG(LENGTH(IFNULL(keywords, ''))) +
+				AVG(LENGTH(IFNULL(image_url, ''))) +
+				4 + 8 + 8 + 64 + 1 + 4 + 20
+			) / (1024 * 1024) AS avg_row_size_mb,
+
+			COUNT(*) AS total_rows,
+			MIN(found_date) AS earliest_date,
+			MAX(found_date) AS latest_date,
+
+			TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) AS days_of_data,
+
+			CASE 
+				WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN COUNT(*)
+				ELSE COUNT(*) / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))
+			END AS avg_rows_per_day,
+
+			CASE 
+				WHEN TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date)) = 0 THEN 
+					COUNT(*) * (
+						AVG(LENGTH(url)) +
+						AVG(LENGTH(IFNULL(title, ''))) +
+						AVG(LENGTH(IFNULL(description, ''))) +
+						AVG(LENGTH(IFNULL(author, ''))) +
+						AVG(LENGTH(IFNULL(keywords, ''))) +
+						AVG(LENGTH(IFNULL(image_url, ''))) +
+						4 + 8 + 8 + 64 + 1 + 4 + 20
+					) / (1024 * 1024)
+				ELSE 
+					(COUNT(*) / TIMESTAMPDIFF(DAY, MIN(found_date), MAX(found_date))) * 30 * 
+					(
+						AVG(LENGTH(url)) +
+						AVG(LENGTH(IFNULL(title, ''))) +
+						AVG(LENGTH(IFNULL(description, ''))) +
+						AVG(LENGTH(IFNULL(author, ''))) +
+						AVG(LENGTH(IFNULL(keywords, ''))) +
+						AVG(LENGTH(IFNULL(image_url, ''))) +
+						4 + 8 + 8 + 64 + 1 + 4 + 20
+					) / (1024 * 1024)
+			END AS projected_monthly_usage_mb
+		FROM search_results
+	) AS stats
+	CROSS JOIN
+	(
+		SELECT 
+			ROUND(SUM(data_length + index_length) / (1024 * 1024), 2) AS total_size_mb
+		FROM information_schema.TABLES
+		WHERE table_schema = 'maxhanna'
+	) AS db_sizes";
+
+		try
+		{
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
+
+			using var cmd = new MySqlCommand(sql, conn);
+			using var rdr = await cmd.ExecuteReaderAsync();
+
+			if (await rdr.ReadAsync())
+			{
+				var stats = new
+				{
+					AvgRowSizeBytes = rdr.IsDBNull("avg_row_size_bytes") ? 0 : rdr.GetDecimal("avg_row_size_bytes"),
+					AvgRowSizeMB = rdr.IsDBNull("avg_row_size_mb") ? 0 : rdr.GetDecimal("avg_row_size_mb"),
+					TotalRows = rdr.IsDBNull("total_rows") ? 0 : rdr.GetInt32("total_rows"),
+					EarliestDate = rdr.IsDBNull("earliest_date") ? DateTime.MinValue : rdr.GetDateTime("earliest_date"),
+					LatestDate = rdr.IsDBNull("latest_date") ? DateTime.MinValue : rdr.GetDateTime("latest_date"),
+					DaysOfData = rdr.IsDBNull("days_of_data") ? 0 : rdr.GetInt32("days_of_data"),
+					AvgRowsPerDay = rdr.IsDBNull("avg_rows_per_day") ? 0 : rdr.GetDecimal("avg_rows_per_day"),
+					ProjectedMonthlyUsageMB = rdr.IsDBNull("projected_monthly_usage_mb") ? 0 : rdr.GetDecimal("projected_monthly_usage_mb"),
+					TotalDatabaseSizeMB = rdr.IsDBNull("total_size_mb") ? 0 : rdr.GetDecimal("total_size_mb")
+				};
+
+				return stats;
+			}
+		}
+		catch (Exception ex)
+		{
+			// Log error if needed
+		}
+
+		return null;
+	}
+
+
+	private bool EndExceedence(string url)
+	{ 
+		string domain = GetDomain(url);
+		int _exceedanceCount = 150;
+		int count = 0;
+		int delayedUrlsCount = delayedUrlsQueue.Where(x => GetDomain(x) == domain).Count();
+		foreach (string delayedUrl in delayedUrlsQueue)
+		{
+			if (count >= _exceedanceCount) { break; }
+			if (GetDomain(delayedUrl) == domain) count++;
+		}
+		foreach (string urlToScrape in urlsToScrapeQueue)
+		{ 
+			if (count >= _exceedanceCount) { break; }
+			if (GetDomain(urlToScrape) == domain) count++; 
+		} 
+		if (count >= _exceedanceCount)
+		{
+			RemoveDomainFromLists(domain);
+			return true;
+		}
+		return false;
+	}
+	private void RemoveDomainFromLists(string domain)
+	{
+		var tempQueue = new Queue<string>(delayedUrlsQueue.Where(url => GetDomain(url) != domain));
+		delayedUrlsQueue = tempQueue;
+
+		var tempQueue2 = new List<string>(urlsToScrapeQueue.Where(url => GetDomain(url) != domain));
+		urlsToScrapeQueue = tempQueue2;
+		Console.WriteLine($"Crawler: Domain {domain} exceeded 50 occurrences, removed from all lists.");
+	}
+	public int CalculateRelevanceScore(Metadata result, string searchTerm)
+	{
+		int score = 20;
+		string search = searchTerm.ToLower();
+		if (Uri.TryCreate(result.Url, UriKind.Absolute, out Uri? url))
+		{
+			string domain = url.Host.ToLower();
+
+			// Check if it's an exact match for the domain (no path or query params)
+			bool isTopLevelDomain = url.AbsolutePath == "/" || string.IsNullOrEmpty(url.AbsolutePath.Trim('/'));
+
+			if (domain.Contains(search))
+			{
+				score += isTopLevelDomain ? 250 : 150; // Top-level gets 250, others 150
+			}
+			var pathSegments = url.AbsolutePath.Split('/').Where(segment => !string.IsNullOrEmpty(segment)).ToList();
+
+			// Subtract points based on the number of segments (fewer segments, higher score)
+			int segmentPenalty = pathSegments.Count > 1 ? (pathSegments.Count - 1) * 5 : 0; // 5 points per extra segment
+			score -= segmentPenalty;
+		}
+		if (result.Url?.ToLower().Contains(search) == true) score += 75;
+		if (result.Title?.ToLower().Contains(search) == true) score += 50;
+		if (result.Description?.ToLower().Contains(search) == true) score += 30;
+		if (result.Author?.ToLower().Contains(search) == true) score += 20;
+		if (result.Keywords?.ToLower().Contains(search) == true) score += 20;
+		if (result.ImageUrl?.ToLower().Contains(search) == true) score += 5;
+
+		return score;
+	}
+	private async Task<string> ReadHtmlWithLimit(HttpResponseMessage response, int maxBytes = 400_000)
+	{
+		using var stream = await response.Content.ReadAsStreamAsync();
+		using var reader = new StreamReader(stream);
+
+		var builder = new StringBuilder();
+		char[] buffer = new char[4096];
+		int totalRead = 0;
+
+		while (!reader.EndOfStream && totalRead < maxBytes)
+		{
+			int toRead = Math.Min(buffer.Length, maxBytes - totalRead);
+			int read = await reader.ReadAsync(buffer, 0, toRead);
+			if (read == 0) break;
+
+			builder.Append(buffer, 0, read);
+			totalRead += read;
+		}
+
+		return builder.ToString();
+	}
+	public string[] ExtractUrls(string? text)
+	{
+		if (string.IsNullOrEmpty(text))
+		{
+			return Array.Empty<string>(); // Return an empty array if the text is null or empty
+		}
+
+		// Regular expression to match URLs both inside href="" and standalone links
+		string urlPattern = @"(?:href=[""'](https?:\/\/[^\s""']+)[""']|(?<!href=[""'])(https?:\/\/[^\s<]+))";
+
+		// Match URLs in the text
+		var matches = System.Text.RegularExpressions.Regex.Matches(text, urlPattern);
+
+		// Convert the MatchCollection to a string array, filtering out empty matches
+		return matches.Cast<Match>()
+									.Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
+									.Where(url => !string.IsNullOrEmpty(url))
+									.ToArray();
+	}
+	public string ShortenUrl(string url, int maxLength = 50)
+	{
+		if (url.Length <= maxLength) return url;
+
+		int firstPartLength = maxLength / 2 - 3;  // Adjust to leave room for "..."
+		int lastPartLength = maxLength - firstPartLength - 3;
+
+		return url.Substring(0, firstPartLength) + "..." + url[^lastPartLength..];
+	}
+	private string GetDomain(string url)
+	{
+		Uri uri = new Uri(url);
+		string domain = uri.Scheme + "://" + uri.Host; // This gives you "http://google.com"
+		return domain;
+	}
+
 }

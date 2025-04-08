@@ -53,6 +53,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
   }
   async addSong() {
     if (this.user) { alert("Cant add song on another persons list"); }
+    if (!this.parentRef?.user?.id) { return alert("You must be logged in to add to the music list."); }
     const url = this.extractYouTubeVideoId(this.urlInput.nativeElement.value);
     const title = this.titleInput.nativeElement.value;
     if (!url || !title || url.trim() == "" || title.trim() == "") {
@@ -63,7 +64,7 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     tmpTodo.url = url.trim();
     tmpTodo.todo = title.trim(); 
 
-    const resTodo = await this.todoService.createTodo(this.parentRef?.user!, tmpTodo);
+    const resTodo = await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
     if (resTodo) {
       tmpTodo.id = parseInt(resTodo); 
       this.songs.unshift(tmpTodo);
@@ -75,7 +76,9 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
     if (this.songPlaylist && this.songPlaylist.length > 0) {
       this.songs = this.songPlaylist;
     } else {
-      this.songs = await this.todoService.getTodo(this.user ?? this.parentRef?.user!, "Music");
+      const user = this.user ?? this.parentRef?.user;
+      if (!user?.id) return;
+      this.songs = await this.todoService.getTodo(user.id, "Music");
     }
     this.gotPlaylistEvent.emit(this.songs);
   }
@@ -85,12 +88,14 @@ export class MusicComponent extends ChildComponent implements OnInit, AfterViewI
       await this.getSongList();
       return this.reorderTable(undefined, this.orderSelect.nativeElement.value);
     }
-    this.songs = await this.todoService.getTodo(this.parentRef?.user!, "Music", search);
+    if (this.parentRef?.user?.id) { 
+      this.songs = await this.todoService.getTodo(this.parentRef.user.id, "Music", search);
+    }
     this.reorderTable(undefined, this.orderSelect.nativeElement.value);
   }
   async deleteSong(id: number) {
-    if (!confirm("Deleting song. Are you sure?")) { return; }
-    await this.todoService.deleteTodo(this.parentRef?.user!, id);
+    if (!confirm("Deleting song. Are you sure?") || !this.parentRef?.user?.id) { return; }
+    await this.todoService.deleteTodo(this.parentRef.user.id, id);
     if (document.getElementById("songId" + id)) {
       document.getElementById("songId" + id)!.style.textDecoration = "line-through";
     }

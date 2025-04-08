@@ -29,14 +29,18 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   editingCreatedBy?: User;
   editingUpdatedBy?: User;
   getProfileCount = 0;
+
+  page = 1;
+  pageSize = 10;
+
   constructor(private favoriteService: FavouriteService, private crawlerService: CrawlerService, private userService: UserService) {
     super();
   }
 
   ngOnInit() {
     this.startLoading();
-    if (this.parentRef?.user) {
-      this.favoriteService.getUserFavourites(this.parentRef.user).then(res => {
+    if (this.parentRef?.user?.id) {
+      this.favoriteService.getUserFavourites(this.parentRef.user.id).then(res => {
         if (res) {
           this.userFavourites = res;
         }
@@ -50,9 +54,9 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   permanentlyDelete(fav?: Favourite) {
     if (!fav) return;
     const user = this.parentRef?.user;
-    if (!user) { return alert("You must be logged in to delete favourites."); }
+    if (!user?.id) { return alert("You must be logged in to delete favourites."); }
     this.startLoading();
-    this.favoriteService.deleteFavourite(user, fav.id).then(res => {
+    this.favoriteService.deleteFavourite(user.id, fav.id).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
       }
@@ -65,11 +69,11 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   }
 
   async deleteFav(fav: Favourite) {
-    if (!this.parentRef?.user) {
+    if (!this.parentRef?.user?.id) {
       return alert("You must be logged in to update the favourites");
     }
     this.startLoading();
-    await this.favoriteService.removeFavourite(this.parentRef.user, fav.id).then(res => {
+    await this.favoriteService.removeFavourite(this.parentRef.user.id, fav.id).then(res => {
       if (res) {
         this.parentRef?.showNotification(res);
       }
@@ -79,10 +83,10 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   }
 
   async addLink(fav?: Favourite) {
-    if (!this.parentRef?.user) { return alert("You must be logged in to update the favourites"); }
+    if (!this.parentRef?.user?.id) { return alert("You must be logged in to update the favourites"); }
     this.startLoading();
     if (fav) {
-      await this.favoriteService.addFavourite(this.parentRef.user, fav.id).then(res => {
+      await this.favoriteService.addFavourite(this.parentRef.user.id, fav.id).then(res => {
         if (res) {
           this.parentRef?.showNotification(res);
         } 
@@ -93,7 +97,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
       let imageUrl = "";
       let name = "";
       let tmpLinkUrl = linkUrl;
-      if (!tmpLinkUrl.includes("http://")) {
+      if (!tmpLinkUrl.includes("http")) {
         tmpLinkUrl = "https://" + tmpLinkUrl;
       }
       if (linkUrl.includes('.')) { 
@@ -142,15 +146,13 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
     });
   }
   linkUrlInput() {
-    const user = this.parentRef?.user ?? new User(0, "Anonymous");
     this.showNameImageInput = (this.linkInput.nativeElement.value ? true : false);
-    const search = this.linkInput.nativeElement.value;
-
+    const search = this.linkInput.nativeElement.value; 
     if (search) {
       this.isSearchingUrls = true;
-      this.favoriteService.getFavourites(user, search).then(res => {
+      this.favoriteService.getFavourites(search, this.page, this.pageSize).then(res => {
         if (res) {
-          this.favouriteSearch = res;
+          this.favouriteSearch = res.items;
         } else {
           this.favouriteSearch = [];
         }
@@ -197,11 +199,34 @@ export class FavouritesComponent extends ChildComponent implements OnInit {
   showLatestLinks() {
     this.showingLatestLinks = !this.showingLatestLinks;
     if (this.showingLatestLinks) {
-      this.favoriteService.getFavourites(this.parentRef?.user ?? new User(0), '').then(res => {
-        this.favouriteSearch = res;
+      this.favoriteService.getFavourites('', 1, 50).then(res => {
+        this.favouriteSearch = res.items;
       });
     } else {
       this.favouriteSearch = [];
     }
+  }
+  pageChanged(event: any) {
+    this.page = event.srcElement.value;
+    console.log(event);
+    this.favoriteService.getFavourites(this.linkInput.nativeElement.value, this.page, this.pageSize).then(res => {
+      if (res) {
+        this.favouriteSearch = res.items;
+      } else {
+        this.favouriteSearch = [];
+      }
+    });
+  }
+
+  pageSizeChanged(event: any) {
+    this.pageSize = event.srcElement.value;
+    console.log(this.pageSize);
+    this.favoriteService.getFavourites(this.linkInput.nativeElement.value, this.page, this.pageSize).then(res => {
+      if (res) {
+        this.favouriteSearch = res.items;
+      } else {
+        this.favouriteSearch = [];
+      }
+    });
   }
 }

@@ -200,7 +200,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     try {
       const from = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 0, 0));
       const to = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth() + 1, 0, 0, 0, 0, 0));
-      this.calendarEntries = await this.calendarService.getCalendarEntries(this.parentRef?.user!, from, to);
+      this.calendarEntries = await this.calendarService.getCalendarEntries(this.parentRef?.user?.id, from, to);
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
     }
@@ -211,7 +211,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
         console.error("No calendar id! : " + JSON.stringify(cal));
       }
       this.selectedCalendarEntries = this.selectedCalendarEntries!.filter((x) => x != cal);
-      await this.calendarService.deleteCalendarEntry(this.parentRef?.user!, cal);
+      await this.calendarService.deleteCalendarEntry(this.parentRef?.user?.id, cal);
       this.setCalendarDates(this.now);
     } catch (error) {
       console.error("Error deleting calendar entry:", error);
@@ -223,7 +223,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       const tmpCalendarEntry = this.prepareNewCalendarEntry();
 
       this.startLoading();
-      await this.calendarService.createCalendarEntries(this.parentRef?.user!, tmpCalendarEntry);
+      await this.calendarService.createCalendarEntries(this.parentRef?.user?.id, tmpCalendarEntry);
 
       this.updateCalendarDaysWithNewEntry(tmpCalendarEntry);
 
