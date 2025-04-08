@@ -4,10 +4,12 @@ using Microsoft.AspNetCore.Mvc;
 public class TradeController : ControllerBase
 { 
 	private readonly KrakenService _krakenService; 
+	private readonly Log _log;
 
-	public TradeController(KrakenService krakenService)
+	public TradeController(KrakenService krakenService, Log log)
 	{ 
 		_krakenService = krakenService;
+		_log = log;
 	}
 
 	[HttpPost("/Trade/GetWalletBalance", Name = "GetWalletBalance")]
@@ -15,6 +17,7 @@ public class TradeController : ControllerBase
 	{
 		try
 		{
+			if (!await _log.ValidateUserLoggedIn(1)) return StatusCode(500, "Access Denied.");
 			var time = await _krakenService.GetWalletBalances(1);
 			return Ok(time);
 		}
@@ -29,6 +32,7 @@ public class TradeController : ControllerBase
 	{
 		try
 		{
+			if (!await _log.ValidateUserLoggedIn(request.UserId)) return StatusCode(500, "Access Denied."); 
 			await _krakenService.UpdateApiKey(request);
 			return Ok();
 		}

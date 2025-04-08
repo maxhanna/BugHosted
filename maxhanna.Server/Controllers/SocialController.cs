@@ -691,7 +691,12 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Social/Post-Story/", Name = "PostStory")]
 		public async Task<IActionResult> PostStory([FromBody] StoryRequest request)
-		{ 
+		{
+			if (request.userId != null)
+			{ 
+				if (!await _log.ValidateUserLoggedIn(request.userId.Value)) return StatusCode(500, "Access Denied.");
+			}
+
 			try
 			{
 				string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date) VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP());";
@@ -776,7 +781,12 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Social/Delete-Story", Name = "DeleteStory")]
 		public async Task<IActionResult> DeleteStory([FromBody] StoryRequest request)
-		{ 
+		{
+			if (request.userId != null)
+			{
+				if (!await _log.ValidateUserLoggedIn(request.userId.Value)) return StatusCode(500, "Access Denied.");
+			}
+
 			try
 			{
 				string sql = @"DELETE FROM stories WHERE (user_id = @userId OR profile_user_id = @userId) AND id = @storyId;";
@@ -814,7 +824,12 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Social/Edit-Story", Name = "EditStory")]
 		public async Task<IActionResult> EditStory([FromBody] StoryRequest request)
-		{ 
+		{
+			if (request.userId != null)
+			{
+				if (!await _log.ValidateUserLoggedIn(request.userId.Value)) return StatusCode(500, "Access Denied.");
+			}
+
 			try
 			{
 				string sql = @"UPDATE stories SET story_text = @Text WHERE user_id = @UserId AND id = @StoryId;";

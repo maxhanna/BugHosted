@@ -1,5 +1,7 @@
-﻿using MySqlConnector; 
-
+﻿using FirebaseAdmin.Messaging;
+using MySqlConnector;
+using System.Security.Cryptography;
+using System.Text;
 public class Log
 {
 	private readonly IConfiguration _config;
@@ -33,6 +35,34 @@ public class Log
 			Console.WriteLine($"[{DateTime.UtcNow}] {type}: {message}");
 		}
 	}
+	public async Task<bool> ValidateUserLoggedIn(int userId)
+	{
+		try
+		{
+			const string sql = @"
+				SELECT 1 
+				FROM maxhanna.users 
+				WHERE id = @UserId 
+					AND LAST_SEEN > UTC_TIMESTAMP() - INTERVAL 1 MINUTE;";
 
+			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await conn.OpenAsync();
 
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+
+			using var reader = await cmd.ExecuteReaderAsync();
+			bool access = await reader.ReadAsync();
+			if (!access)
+			{ 
+				_ = Db("ValidateUserLoggedIn ACCESS DENIED", userId, "SYSTEM", true);
+			} 
+			return access; 
+		}
+		catch (Exception ex)
+		{
+			_ = Db("ValidateUserLoggedIn Exception: " + ex.Message, null, "SYSTEM", true);
+			return false;
+		}
+	} 
 }

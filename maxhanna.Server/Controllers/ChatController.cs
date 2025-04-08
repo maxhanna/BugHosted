@@ -24,7 +24,7 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Chat/Notifications", Name = "GetChatNotifications")]
 		public async Task<IActionResult> GetChatNotifications([FromBody] int userId)
-		{
+		{ 
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{

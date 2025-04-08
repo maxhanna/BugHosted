@@ -17,7 +17,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   indexUpdateTimer: any;
   isMenuOpen = false;
   lastSearch = "";
-  groupedResults?: { domain: string; links: MetaData[] }[] = [];
+  groupedResults?: { domain: string; links: MetaData[], showSubdomains: false }[] = [];
   storageStats?: any;
   pageSize: number = 10;  // Default page size
   currentPage: number = 1;
@@ -113,27 +113,26 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   private sortResults(groupedResults: { [domain: string]: MetaData[]; }) {
     this.groupedResults = Object.entries(groupedResults).map(([domain, links]) => {
-      const sortedLinks = links.sort((a: any, b:any) => {
+      const sortedLinks = links.sort((a: any, b: any) => {
         const urlA = new URL(a.url);
         const urlB = new URL(b.url);
 
-        // Check if one URL is the top-level URL (i.e., it has no path or only '/' as a path)
         const isTopLevelA = urlA.pathname === '/' || urlA.pathname === '';
         const isTopLevelB = urlB.pathname === '/' || urlB.pathname === '';
 
         if (isTopLevelA && !isTopLevelB) {
-          return -1;  // Move top-level URLs to the front
+          return -1;
         } else if (!isTopLevelA && isTopLevelB) {
-          return 1;   // Move subpages after top-level URLs
+          return 1;
         }
 
-        // If both are top-level or both are subpages, sort them alphabetically by URL
         return a.url.localeCompare(b.url);
       });
 
       return {
         domain,
-        links: sortedLinks
+        links: sortedLinks,
+        showSubdomains: false // Initialize showSubdomains as false
       };
     });
   }
@@ -178,7 +177,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   getSanitizedDescription(s?: string): SafeHtml {
     if (!s) return "";
     return this.sanitizer.bypassSecurityTrustHtml(s);
-  } 
+  }
+  toggleSubdomains(group: any) {
+    group.showSubdomains = !group.showSubdomains;
+  }
   getHttpStatusMeaning(status: number): string {
     switch (status) {
       case 200:

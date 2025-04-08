@@ -42,9 +42,7 @@
   margin-bottom: 10px;
   opacity: 75%;
   background: linear-gradient(to bottom, transparent, var(--main-highlight-color));
-}
-
-
+}  
 .smallExpander {
   width: 110px;
   text-align: center;

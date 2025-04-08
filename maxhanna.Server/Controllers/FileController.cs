@@ -817,7 +817,11 @@ namespace maxhanna.Server.Controllers
 
 						// Check if the user has permission to access the file
 						if (!isPublic && (userId == null || userIdDb != userId))
-						{
+						{ 
+							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
+							return Forbid();
+						}
+						if (!isPublic && (userId == null || (!await _log.ValidateUserLoggedIn(userId.Value)))) { 
 							_ = _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
 							return Forbid();
 						}
@@ -848,6 +852,8 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/File/MakeDirectory", Name = "MakeDirectory")]
 		public async Task<IActionResult> MakeDirectory([FromBody] CreateDirectory request)
 		{
+			if (!await _log.ValidateUserLoggedIn(request.userId)) return StatusCode(500, "Access Denied.");
+
 			if (request.directory == null)
 			{
 				_ = _log.Db("POST /File/MakeDirectory ERROR: directoryPath cannot be empty!", request.userId, "FILE", true);

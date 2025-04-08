@@ -81,11 +81,7 @@
   word-break: break-word;
   text-align: left;
 }
-
-.imageUrlPictureDiv { 
-  width: 50px;
-  height: 50px; 
-}
+ 
 
 .keywordsClass, .authorClass {
   font-size: xx-small;
@@ -117,12 +113,18 @@
 .metadataTitleLinkFavouriteWrapper button {
   cursor: pointer;
 }
-.groupLinkWrapperDiv {
-  min-height: 50px; 
+.groupLinkWrapperDiv { 
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
 }
 .groupLinkDataWrapperDiv {
   width: CALC(100% - 50px);
+}
+ 
+.expandButton{
+  width: 100%; 
+  cursor: pointer;
+  text-decoration: underline;
+  text-align: center;
 }

@@ -758,7 +758,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     } catch {
       return false;
     } 
-  }
+  } 
   async getLocation(user?: User) {
     if (user?.id && this.user?.id != user.id) {
       const res = await this.userService.getUserIpFromBackend(user.id);

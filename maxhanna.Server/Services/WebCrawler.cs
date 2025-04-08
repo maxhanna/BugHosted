@@ -38,8 +38,9 @@ public class WebCrawler
 		_httpClient = new HttpClient(new HttpClientHandler
 		{
 			ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-			AllowAutoRedirect = true
+			AllowAutoRedirect = true, 
 		});
+		_httpClient.Timeout = TimeSpan.FromSeconds(5);
 		_httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 		_httpClient.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
 		_httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
@@ -468,8 +469,7 @@ public class WebCrawler
 			int maxTagCount = 10_000;
 			int tagCount = html.Count(c => c == '<');
 			if (tagCount > maxTagCount)
-			{
-				Console.WriteLine("Too many tags, truncating.");
+			{  
 				html = html.Substring(0, html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase) + 7);
 			}
 
@@ -495,10 +495,7 @@ public class WebCrawler
 						continue;
 					}
 					var absoluteUrl = new Uri(new Uri(url), href).ToString();
-					if (!(await StartScrapingAsync(absoluteUrl)))
-					{
-						break;
-					}
+					_ = StartScrapingAsync(absoluteUrl);
 				}
 			}
 		}

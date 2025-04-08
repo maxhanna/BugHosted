@@ -2,6 +2,7 @@ using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {
@@ -691,7 +692,9 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/CoinValue/BTCWallet/GetBTCWalletData", Name = "GetBTCWalletData")]
 		public async Task<IActionResult> GetBTCWalletData([FromBody] int userId)
-		{
+		{ 
+			if (!await _log.ValidateUserLoggedIn(userId)) return StatusCode(500, "Access Denied.");
+			  
 			try
 			{
 				// Call the private method to get wallet info from the database
@@ -720,6 +723,8 @@ namespace maxhanna.Server.Controllers
 			{
 				return BadRequest("You must be logged in");
 			}
+			if (!await _log.ValidateUserLoggedIn(request.UserId)) return StatusCode(500, "Access Denied.");
+
 			using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
